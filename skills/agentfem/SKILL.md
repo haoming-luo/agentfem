@@ -5,6 +5,11 @@ with AgentFEM.
 
 ## Required Reading Order
 
+When this file is installed as a Codex skill, the reference paths below are
+relative to the skill directory `skills/agentfem/`. In the generated
+documentation site, use the left navigation pages `Workflow`, `Concepts`, and
+`Module Map` instead.
+
 1. Read `references/workflow.md`.
 2. Read `references/concepts.md`.
 3. Read `references/module_map.md`.
