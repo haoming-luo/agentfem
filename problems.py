@@ -8,9 +8,9 @@ import numpy as np
 from dolfinx import fem
 
 from . import assembly
-from . import dofs
 from . import spaces
 from . import time
+from .kernel import dofs
 from .solvers import LinearSolverOptions, solve_linear_problem
 
 

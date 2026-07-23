@@ -5,8 +5,8 @@
 - `mesh/formats.py`: optional external CAE mesh conversion
 - `spaces.py`: function spaces and named functions
 - `fields.py`: application-level unknown bundles
-- `dofs.py`: low-level dof lookup and field copying
-- `constraints.py`: constraint containers and semantic Dirichlet constructors
+- `kernel/dofs.py`: low-level dof lookup and field copying
+- `constraints/`: constraint containers and semantic Dirichlet constructors
 - `loads.py`: loads, natural boundary data, semantic constructors, and time functions
 - `constitutive/`: local response relations
 - `materials/`: material-property records and loaders
@@ -14,9 +14,8 @@
 - `forms.py`: UFL weak-form blocks
 - `assembly.py`: matrix/vector/lumped assembly
 - `operators/`: engineering-level K/M/C/F operators and system containers
-- `time.py`: time integration kernels
+- `time/`: time integration kernels, progress, and time-step cadence
 - `problems.py`: problem summaries, system problems, and state containers
-- `runtime.py`: progress and time-step cadence
 - `solvers.py`: PETSc solver wrappers
 - `diagnostics.py`: norms and scalar diagnostics
 - `io.py`: output writers and scalar logs

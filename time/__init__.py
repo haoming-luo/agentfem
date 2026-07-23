@@ -4,7 +4,18 @@ from __future__ import annotations
 
 import numpy as np
 
-from . import dofs
+from ..kernel import dofs
+from .runtime import ProgressPrinter, TimeStep, TimeStepper, format_duration
+
+__all__ = [
+    "ProgressPrinter",
+    "TimeStep",
+    "TimeStepper",
+    "acceleration_from_residual",
+    "central_difference_correct_velocity",
+    "central_difference_predict_displacement",
+    "format_duration",
+]
 
 
 def central_difference_predict_displacement(u_next, u, velocity, acceleration, dt: float) -> None:

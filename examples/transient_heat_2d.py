@@ -18,7 +18,7 @@ from agentfem import fields
 from agentfem import io as fem_io
 from agentfem import mesh as fem_mesh
 from agentfem import operators
-from agentfem import runtime
+from agentfem import time as fem_time
 from agentfem.problems import LinearSystemProblem
 from agentfem.solvers import LinearSolverOptions
 
@@ -68,7 +68,7 @@ def main() -> None:
     dt = 10
     total_steps = 1500
     dx = ufl.dx(domain=domain)
-    stepper = runtime.TimeStepper(
+    stepper = fem_time.TimeStepper(
         total_steps=total_steps,
         dt=dt,
         save_every=10,

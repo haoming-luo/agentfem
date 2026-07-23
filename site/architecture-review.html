@@ -31,7 +31,7 @@
 <p>This note records the current architecture direction from the perspective of traditional finite-element workflows and agent-oriented use.</p>
 <h2 id="current-strengths">Current Strengths</h2>
 <ul>
-<li>The first-level modules mostly match standard FEM steps: mesh import/read,<br>spaces, dofs, constraints, loads, forms, assembly, time integration, solvers,<br>diagnostics, and output.</li>
+<li>The first-level modules mostly match standard FEM steps: mesh import/read,<br>spaces, fields, constraints, loads, forms, assembly, operators, time<br>integration, solvers, diagnostics, and output.</li>
 <li>Constitutive response relations are below <code>constitutive/</code>, while material<br>records and property containers are below <code>materials/</code>.</li>
 <li>Weak boundary physics is below <code>boundary_models/</code>, which separates Robin,<br>impedance, absorbing, and convection-like terms from essential constraints<br>and Neumann loads.</li>
 <li>Application-specific geometry and source definitions are outside AgentFEM,<br>keeping the core package reusable.</li>
@@ -44,7 +44,7 @@
 <li>Keep mesh import and mesh regions generic:<br><code>mesh/</code> should own reusable Gmsh and XDMF import/read/write operations,<br>named mesh regions, tag checks, summaries, and simple structured mesh<br>constructors. Application packages still own problem-specific geometry<br>construction and meshing parameters. External file conversion belongs in<br><code>mesh/formats.py</code>.</li>
 </ol>
 <ol>
-<li>Keep boundary concepts separate:<br>Public strong boundary conditions should enter through <code>constraints.py</code>.<br><code>boundary.py</code> is a low-level implementation helper for Dirichlet constants<br>and dof application. Weak boundary physics belongs in <code>boundary_models/</code>.</li>
+<li>Keep boundary concepts separate:<br>Public strong boundary conditions should enter through <code>constraints/</code>.<br><code>constraints/boundary.py</code> is a low-level implementation helper for<br>Dirichlet constants and dof application. Weak boundary physics belongs in<br><code>boundary_models/</code>.</li>
 </ol>
 <ol>
 <li>Promote problem definition:<br><code>problems.py</code> now contains a lightweight <code>FEMProblem</code> description plus<br>reusable state containers. Future work should keep this descriptive rather<br>than turning it into hidden framework logic.</li>
@@ -53,7 +53,7 @@
 <li>Make form construction more discoverable:<br><code>forms.py</code> should expose small weak-form blocks with clear names, such as<br>mass, stiffness, damping, body load, traction, and flux contributions.</li>
 </ol>
 <ol>
-<li>Keep time integration generic:<br><code>time.py</code> should contain method-level kernels, while application solvers<br>decide which fields, loads, and boundary models enter each step.</li>
+<li>Keep time integration generic:<br><code>time/</code> should contain method-level kernels and step-cadence helpers, while<br>application solvers decide which fields, loads, and boundary models enter<br>each step.</li>
 </ol>
 <ol>
 <li>Add examples only after APIs stabilize:<br>Examples should demonstrate the workflow order without becoming hidden<br>framework logic.</li>

@@ -30,7 +30,7 @@ from agentfem import forms
 from agentfem import io as fem_io
 from agentfem import mesh as fem_mesh
 from agentfem import problems
-from agentfem import runtime
+from agentfem import time as fem_time
 from agentfem import spaces
 from agentfem.boundary_models import absorbing
 from agentfem.constitutive import elasticity
@@ -178,7 +178,7 @@ def main() -> None:
     source_amplitude = 4.9e-13
 
     out = Path(__file__).resolve().parents[1] / "examples_output" / "wave_packet_plate_2d.xdmf"
-    stepper = runtime.TimeStepper(
+    stepper = fem_time.TimeStepper(
         total_steps=steps,
         dt=dt,
         save_every=10,

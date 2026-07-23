@@ -6,8 +6,8 @@ traditional finite-element workflows and agent-oriented use.
 ## Current Strengths
 
 - The first-level modules mostly match standard FEM steps: mesh import/read,
-  spaces, dofs, constraints, loads, forms, assembly, time integration, solvers,
-  diagnostics, and output.
+  spaces, fields, constraints, loads, forms, assembly, operators, time
+  integration, solvers, diagnostics, and output.
 - Constitutive response relations are below `constitutive/`, while material
   records and property containers are below `materials/`.
 - Weak boundary physics is below `boundary_models/`, which separates Robin,
@@ -33,9 +33,10 @@ traditional finite-element workflows and agent-oriented use.
    `mesh/formats.py`.
 
 2. Keep boundary concepts separate:
-   Public strong boundary conditions should enter through `constraints.py`.
-   `boundary.py` is a low-level implementation helper for Dirichlet constants
-   and dof application. Weak boundary physics belongs in `boundary_models/`.
+   Public strong boundary conditions should enter through `constraints/`.
+   `constraints/boundary.py` is a low-level implementation helper for
+   Dirichlet constants and dof application. Weak boundary physics belongs in
+   `boundary_models/`.
 
 3. Promote problem definition:
    `problems.py` now contains a lightweight `FEMProblem` description plus
@@ -47,8 +48,9 @@ traditional finite-element workflows and agent-oriented use.
    mass, stiffness, damping, body load, traction, and flux contributions.
 
 5. Keep time integration generic:
-   `time.py` should contain method-level kernels, while application solvers
-   decide which fields, loads, and boundary models enter each step.
+   `time/` should contain method-level kernels and step-cadence helpers, while
+   application solvers decide which fields, loads, and boundary models enter
+   each step.
 
 6. Add examples only after APIs stabilize:
    Examples should demonstrate the workflow order without becoming hidden

@@ -7,7 +7,7 @@ from petsc4py import PETSc
 
 import dolfinx.fem.petsc as fem_petsc
 
-from . import dofs
+from ..kernel import dofs
 
 
 def scalar_constant(domain, value=0.0):

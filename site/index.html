@@ -52,7 +52,7 @@
 <li>Construct weak loads such as body forces, Neumann fluxes, and tractions with<br><code>loads</code>.</li>
 <li>Build weak forms with application physics plus reusable <code>forms</code> blocks.</li>
 <li>Compile and assemble with <code>assembly</code>.</li>
-<li>Step in time with <code>runtime.TimeStepper</code> plus kernels from <code>time</code>, or solve<br>algebraic systems with <code>solvers</code>.</li>
+<li>Step in time with <code>time.TimeStepper</code> plus kernels from <code>time</code>, or solve<br>algebraic systems with <code>solvers</code>.</li>
 <li>Measure distributed diagnostics with <code>diagnostics</code>.</li>
 <li>Manage output locations with <code>io</code>.</li>
 </ol>
@@ -62,7 +62,7 @@
 <li><code>mesh.formats</code>: optional external CAE mesh conversion through <code>meshio</code></li>
 <li><code>spaces</code>: scalar/vector spaces, Lagrange space constructors, trial/test<br>functions, named fields</li>
 <li><code>fields</code>: application-level unknown bundles such as displacement and<br>temperature</li>
-<li><code>dofs</code>: low-level dof location, owned/ghost arrays, field copies</li>
+<li><code>kernel.dofs</code>: internal dof location, owned/ghost arrays, field copies</li>
 <li><code>constraints</code>: Dirichlet constraint containers and periodic constraint specs</li>
 <li><code>constitutive</code>: stress-strain, flux-gradient, and other local response<br>relations</li>
 <li><code>materials</code>: reusable material-property records, property containers, and<br>loaders</li>
@@ -71,9 +71,8 @@
 <li><code>forms</code>: common UFL virtual-work building blocks</li>
 <li><code>assembly</code>: form compilation, vector/matrix assembly, lumped operators/mass</li>
 <li><code>operators</code>: engineering-level K/M/C/F operators and system containers</li>
-<li><code>time</code>: explicit central-difference/Newmark kernels</li>
+<li><code>time</code>: time-step cadence, progress metadata, elapsed-time formatting, and<br>explicit central-difference/Newmark kernels</li>
 <li><code>problems</code>: standard problem descriptions and state containers</li>
-<li><code>runtime</code>: time-step metadata, progress printing, and elapsed-time formatting</li>
 <li><code>solvers</code>: PETSc KSP setup and standard linear problem solve</li>
 <li><code>diagnostics</code>: distributed norms, energy-like quantities, and named scalar<br>diagnostic sets</li>
 <li><code>io</code>: MPI-safe directories, CSV logs, XDMF time-series output, and named<br>result writers</li>

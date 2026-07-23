@@ -24,8 +24,8 @@ this sequence visible unless there is a strong reason to encapsulate it.
 - Mesh import, named regions, tags, summaries, checks, and measures: `mesh/`
 - External CAE mesh conversion: `mesh/formats.py`
 - Spaces and fields: `spaces.py`
-- Low-level dofs and vector access: `dofs.py`
-- Constraints: `constraints.py`
+- Low-level dofs and vector access: `kernel/dofs.py`
+- Constraints: `constraints/`
 - Loads and natural boundary data: `loads.py`
 - Constitutive laws: `constitutive/`
 - Material library: `materials/`
@@ -33,9 +33,8 @@ this sequence visible unless there is a strong reason to encapsulate it.
 - Weak-form blocks: `forms.py`
 - Assembly: `assembly.py`
 - Operator families: `operators/`
-- Time kernels: `time.py`
+- Time integration and runtime cadence: `time/`
 - Problem summaries and state containers: `problems.py`
-- Runtime cadence: `runtime.py`
 - Solvers: `solvers.py`
 - Diagnostics: `diagnostics.py`
 - Output: `io.py`
@@ -51,5 +50,5 @@ show the finite-element meaning of each step.
 First-level Python modules are reserved for the main FEM workflow. Subpackages
 hold reusable asset families, such as constitutive laws, material records,
 boundary models, element policies, operator families, and benchmarks.
-Low-level implementation helpers such as `boundary.py`, `dofs.py`, and
-`kernel/` should not be featured in beginner workflows.
+Low-level implementation helpers such as `constraints/boundary.py` and
+`kernel/dofs.py` should not be featured in beginner workflows.

@@ -27,12 +27,14 @@ packages = [
   "agentfem",
   "agentfem.benchmarks",
   "agentfem.boundary_models",
+  "agentfem.constraints",
   "agentfem.constitutive",
   "agentfem.elements",
   "agentfem.kernel",
   "agentfem.materials",
   "agentfem.mesh",
   "agentfem.operators",
+  "agentfem.time",
 ]
 
 [tool.setuptools.package-data]

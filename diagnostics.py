@@ -9,7 +9,7 @@ import numpy as np
 from dolfinx import fem
 from mpi4py import MPI
 
-from . import dofs
+from .kernel import dofs
 
 
 def kinetic_energy(mass_lumped: np.ndarray, velocity: fem.Function) -> float:

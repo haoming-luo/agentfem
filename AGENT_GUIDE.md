@@ -19,14 +19,15 @@ finite-element simulation with AgentFEM.
   `mesh.summarize_mesh`, `mesh.require_cell_tags`, and
   `mesh.require_facet_tags`.
 - Application unknowns: use `fields.py` before dropping to `spaces.py`.
-- Function spaces or low-level dof work: inspect `spaces.py` and `dofs.py`.
-- Essential boundary conditions: read `CONCEPTS.md`, then use `constraints.py`.
+- Function spaces: inspect `spaces.py`; only inspect `kernel/dofs.py` for
+  implementation-level dof work.
+- Essential boundary conditions: read `CONCEPTS.md`, then use `constraints/`.
 - Natural loads: read `CONCEPTS.md`, then use `loads.body_load`,
   `loads.neumann`, or `loads.boundary_load`.
 - Constitutive laws: read `docs/extension_rules.md`, then use `constitutive/`.
 - Absorbing or Robin-like terms: use `boundary_models/`.
 - Assembly or lumped operators: inspect `assembly.py`.
-- Time stepping: inspect `time.py`, `runtime.py`, and `problems.py`.
+- Time stepping: inspect `time/` and `problems.py`.
 - Solves: inspect `solvers.py`.
 - Problem summaries: use `problems.FEMProblem` when a workflow needs a
   structured audit record.

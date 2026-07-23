@@ -50,8 +50,8 @@
 <li>Mesh import, named regions, tags, summaries, checks, and measures: <code>mesh/</code></li>
 <li>External CAE mesh conversion: <code>mesh/formats.py</code></li>
 <li>Spaces and fields: <code>spaces.py</code></li>
-<li>Low-level dofs and vector access: <code>dofs.py</code></li>
-<li>Constraints: <code>constraints.py</code></li>
+<li>Low-level dofs and vector access: <code>kernel/dofs.py</code></li>
+<li>Constraints: <code>constraints/</code></li>
 <li>Loads and natural boundary data: <code>loads.py</code></li>
 <li>Constitutive laws: <code>constitutive/</code></li>
 <li>Material library: <code>materials/</code></li>
@@ -59,9 +59,8 @@
 <li>Weak-form blocks: <code>forms.py</code></li>
 <li>Assembly: <code>assembly.py</code></li>
 <li>Operator families: <code>operators/</code></li>
-<li>Time kernels: <code>time.py</code></li>
+<li>Time integration and runtime cadence: <code>time/</code></li>
 <li>Problem summaries and state containers: <code>problems.py</code></li>
-<li>Runtime cadence: <code>runtime.py</code></li>
 <li>Solvers: <code>solvers.py</code></li>
 <li>Diagnostics: <code>diagnostics.py</code></li>
 <li>Output: <code>io.py</code></li>
@@ -70,7 +69,7 @@
 </ul>
 <h2 id="design-principle">Design Principle</h2>
 <p>The workflow should be easy for a human researcher to read and easy for an agent to audit. A simulation file may call reusable helpers, but it should still show the finite-element meaning of each step.</p>
-<p>First-level Python modules are reserved for the main FEM workflow. Subpackages hold reusable asset families, such as constitutive laws, material records, boundary models, element policies, operator families, and benchmarks. Low-level implementation helpers such as <code>boundary.py</code>, <code>dofs.py</code>, and <code>kernel/</code> should not be featured in beginner workflows.</p>
+<p>First-level Python modules are reserved for the main FEM workflow. Subpackages hold reusable asset families, such as constitutive laws, material records, boundary models, element policies, operator families, and benchmarks. Low-level implementation helpers such as <code>constraints/boundary.py</code> and <code>kernel/dofs.py</code> should not be featured in beginner workflows.</p>
       </article>
     </main>
   </div>

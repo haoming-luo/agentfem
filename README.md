@@ -34,7 +34,7 @@ ParaView output.
    `loads`.
 8. Build weak forms with application physics plus reusable `forms` blocks.
 9. Compile and assemble with `assembly`.
-10. Step in time with `runtime.TimeStepper` plus kernels from `time`, or solve
+10. Step in time with `time.TimeStepper` plus kernels from `time`, or solve
    algebraic systems with `solvers`.
 11. Measure distributed diagnostics with `diagnostics`.
 12. Manage output locations with `io`.
@@ -49,7 +49,7 @@ ParaView output.
   functions, named fields
 - `fields`: application-level unknown bundles such as displacement and
   temperature
-- `dofs`: low-level dof location, owned/ghost arrays, field copies
+- `kernel.dofs`: internal dof location, owned/ghost arrays, field copies
 - `constraints`: Dirichlet constraint containers and periodic constraint specs
 - `constitutive`: stress-strain, flux-gradient, and other local response
   relations
@@ -61,9 +61,9 @@ ParaView output.
 - `forms`: common UFL virtual-work building blocks
 - `assembly`: form compilation, vector/matrix assembly, lumped operators/mass
 - `operators`: engineering-level K/M/C/F operators and system containers
-- `time`: explicit central-difference/Newmark kernels
+- `time`: time-step cadence, progress metadata, elapsed-time formatting, and
+  explicit central-difference/Newmark kernels
 - `problems`: standard problem descriptions and state containers
-- `runtime`: time-step metadata, progress printing, and elapsed-time formatting
 - `solvers`: PETSc KSP setup and standard linear problem solve
 - `diagnostics`: distributed norms, energy-like quantities, and named scalar
   diagnostic sets

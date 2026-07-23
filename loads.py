@@ -8,7 +8,7 @@ from typing import Callable
 import ufl
 from petsc4py import PETSc
 
-from . import boundary
+from .constraints import boundary
 from . import forms
 from .kernel import constants
 
