@@ -15,7 +15,7 @@ traditional finite-element workflows and agent-oriented use.
   and Neumann loads.
 - Application-specific geometry and source definitions are outside AgentFEM,
   keeping the core package reusable.
-- External CAE mesh conversion is separated into `mesh_formats.py`, keeping
+- External CAE mesh conversion is separated into `mesh/formats.py`, keeping
   solver workflow code independent from Abaqus, NASTRAN, COMSOL, or VTK details.
 - The package has both human-facing workflow docs and skill-ready progressive
   references for agents.
@@ -29,8 +29,8 @@ traditional finite-element workflows and agent-oriented use.
    `mesh/` should own reusable Gmsh and XDMF import/read/write operations,
    named mesh regions, tag checks, summaries, and simple structured mesh
    constructors. Application packages still own problem-specific geometry
-   construction and meshing parameters. External file conversion should stay in
-   `mesh_formats.py`.
+   construction and meshing parameters. External file conversion belongs in
+   `mesh/formats.py`.
 
 2. Keep boundary concepts separate:
    Public strong boundary conditions should enter through `constraints.py`.

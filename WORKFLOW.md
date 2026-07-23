@@ -22,7 +22,7 @@ this sequence visible unless there is a strong reason to encapsulate it.
 ## Module Map
 
 - Mesh import, named regions, tags, summaries, checks, and measures: `mesh/`
-- External CAE mesh conversion: `mesh_formats.py`
+- External CAE mesh conversion: `mesh/formats.py`
 - Spaces and fields: `spaces.py`
 - Low-level dofs and vector access: `dofs.py`
 - Constraints: `constraints.py`

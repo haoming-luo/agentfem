@@ -44,7 +44,7 @@ ParaView output.
 - `mesh`: mesh import/read/write, named boundary regions, boundary facet
   location, facet tags, boundary measures, structured mesh constructors, mesh
   summaries, and tag checks
-- `mesh_formats`: optional external CAE mesh conversion through `meshio`
+- `mesh.formats`: optional external CAE mesh conversion through `meshio`
 - `spaces`: scalar/vector spaces, Lagrange space constructors, trial/test
   functions, named fields
 - `fields`: application-level unknown bundles such as displacement and
@@ -98,7 +98,7 @@ ParaView output.
 - Use `mesh.read_xdmf_mesh(...)` and `mesh.write_xdmf_mesh(...)` for DOLFINx
   XDMF mesh exchange.
 - Use `mesh.convert_external_mesh_to_xdmf(...)` or
-  `mesh_formats.convert_to_xdmf(...)` for Abaqus `.inp`, NASTRAN `.bdf/.nas`,
+  `mesh.formats.convert_to_xdmf(...)` for Abaqus `.inp`, NASTRAN `.bdf/.nas`,
   VTK, and other meshio-supported external CAE mesh formats.
 - Use `assembly.assemble_lumped_mass(V, density, measure)` as the mass-specific
   wrapper.

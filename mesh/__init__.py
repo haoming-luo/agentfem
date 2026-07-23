@@ -12,6 +12,8 @@ from dolfinx import mesh
 from dolfinx.io import gmsh as gmshio
 from mpi4py import MPI
 
+from . import formats
+
 
 @dataclass(frozen=True)
 class FEMMesh:
@@ -221,11 +223,11 @@ def convert_external_mesh_to_xdmf(*args, **kwargs):
     """Convert Abaqus/NASTRAN/COMSOL-like external meshes to XDMF.
 
     This is a convenience entry point that delegates to
-    ``agentfem.mesh_formats.convert_to_xdmf``. It requires the optional
+    ``agentfem.mesh.formats.convert_to_xdmf``. It requires the optional
     dependency ``meshio`` only when called.
     """
 
-    from .mesh_formats import convert_to_xdmf
+    from .formats import convert_to_xdmf
 
     return convert_to_xdmf(*args, **kwargs)
 

@@ -35,13 +35,13 @@
 <li>Constitutive response relations are below <code>constitutive/</code>, while material<br>records and property containers are below <code>materials/</code>.</li>
 <li>Weak boundary physics is below <code>boundary_models/</code>, which separates Robin,<br>impedance, absorbing, and convection-like terms from essential constraints<br>and Neumann loads.</li>
 <li>Application-specific geometry and source definitions are outside AgentFEM,<br>keeping the core package reusable.</li>
-<li>External CAE mesh conversion is separated into <code>mesh_formats.py</code>, keeping<br>solver workflow code independent from Abaqus, NASTRAN, COMSOL, or VTK details.</li>
+<li>External CAE mesh conversion is separated into <code>mesh/formats.py</code>, keeping<br>solver workflow code independent from Abaqus, NASTRAN, COMSOL, or VTK details.</li>
 <li>The package has both human-facing workflow docs and skill-ready progressive<br>references for agents.</li>
 <li>Mesh summaries, tag checks, material-property summaries, load summaries,<br>constraint summaries, boundary-model summaries, and <code>FEMProblem.summary()</code> now<br>provide a first layer of agent-readable model inspection.</li>
 </ul>
 <h2 id="main-refinements-needed">Main Refinements Needed</h2>
 <ol>
-<li>Keep mesh import and mesh regions generic:<br><code>mesh/</code> should own reusable Gmsh and XDMF import/read/write operations,<br>named mesh regions, tag checks, summaries, and simple structured mesh<br>constructors. Application packages still own problem-specific geometry<br>construction and meshing parameters. External file conversion should stay in<br><code>mesh_formats.py</code>.</li>
+<li>Keep mesh import and mesh regions generic:<br><code>mesh/</code> should own reusable Gmsh and XDMF import/read/write operations,<br>named mesh regions, tag checks, summaries, and simple structured mesh<br>constructors. Application packages still own problem-specific geometry<br>construction and meshing parameters. External file conversion belongs in<br><code>mesh/formats.py</code>.</li>
 </ol>
 <ol>
 <li>Keep boundary concepts separate:<br>Public strong boundary conditions should enter through <code>constraints.py</code>.<br><code>boundary.py</code> is a low-level implementation helper for Dirichlet constants<br>and dof application. Weak boundary physics belongs in <code>boundary_models/</code>.</li>

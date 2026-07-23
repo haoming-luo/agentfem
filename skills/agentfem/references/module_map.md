@@ -2,7 +2,7 @@
 
 - `mesh/`: mesh import/read/write, named regions, summaries, tag checks,
   tags, and measures
-- `mesh_formats.py`: optional external CAE mesh conversion
+- `mesh/formats.py`: optional external CAE mesh conversion
 - `spaces.py`: function spaces and named functions
 - `fields.py`: application-level unknown bundles
 - `dofs.py`: low-level dof lookup and field copying

@@ -59,7 +59,7 @@
 <h2 id="modules">Modules</h2>
 <ul>
 <li><code>mesh</code>: mesh import/read/write, named boundary regions, boundary facet<br>location, facet tags, boundary measures, structured mesh constructors, mesh<br>summaries, and tag checks</li>
-<li><code>mesh_formats</code>: optional external CAE mesh conversion through <code>meshio</code></li>
+<li><code>mesh.formats</code>: optional external CAE mesh conversion through <code>meshio</code></li>
 <li><code>spaces</code>: scalar/vector spaces, Lagrange space constructors, trial/test<br>functions, named fields</li>
 <li><code>fields</code>: application-level unknown bundles such as displacement and<br>temperature</li>
 <li><code>dofs</code>: low-level dof location, owned/ghost arrays, field copies</li>
@@ -92,7 +92,7 @@
 <li>Use <code>mesh.boundary(...)</code> to name geometric locations before applying loads<br>or constraints.</li>
 <li>Use <code>constraints.fixed(target, location=..., value=...)</code> for application-level<br>fixed-value boundary conditions. Vector fields default to all components; use<br><code>components=0</code> or <code>components=(0, 1)</code> for selected components.</li>
 <li>Use <code>mesh.read_xdmf_mesh(...)</code> and <code>mesh.write_xdmf_mesh(...)</code> for DOLFINx<br>XDMF mesh exchange.</li>
-<li>Use <code>mesh.convert_external_mesh_to_xdmf(...)</code> or<br><code>mesh_formats.convert_to_xdmf(...)</code> for Abaqus <code>.inp</code>, NASTRAN <code>.bdf/.nas</code>,<br>VTK, and other meshio-supported external CAE mesh formats.</li>
+<li>Use <code>mesh.convert_external_mesh_to_xdmf(...)</code> or<br><code>mesh.formats.convert_to_xdmf(...)</code> for Abaqus <code>.inp</code>, NASTRAN <code>.bdf/.nas</code>,<br>VTK, and other meshio-supported external CAE mesh formats.</li>
 <li>Use <code>assembly.assemble_lumped_mass(V, density, measure)</code> as the mass-specific<br>wrapper.</li>
 <li>Use <code>problems.TransientState</code> for first-order transient unknowns.</li>
 <li>Use <code>problems.SecondOrderDynamicsState</code> for displacement/velocity/acceleration<br>dynamics. <code>ExplicitDynamicsState</code> remains as a compatibility alias.</li>

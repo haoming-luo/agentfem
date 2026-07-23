@@ -14,7 +14,6 @@ from . import io
 from . import loads
 from . import materials
 from . import mesh
-from . import mesh_formats
 from . import operators
 from . import problems
 from . import runtime
@@ -37,7 +36,6 @@ __all__ = [
     "loads",
     "materials",
     "mesh",
-    "mesh_formats",
     "operators",
     "problems",
     "runtime",

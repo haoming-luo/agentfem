@@ -44,8 +44,8 @@ When an agent modifies AgentFEM, it should report:
 
 For external mesh-format support:
 
-- Import check: `from agentfem import mesh_formats`.
-- Optional dependency check: call `mesh_formats.require_meshio()` only when
+- Import check: `from agentfem import mesh`.
+- Optional dependency check: call `mesh.formats.require_meshio()` only when
   conversion is requested.
 - Conversion smoke test: convert a tiny `.inp`, `.msh`, `.vtk`, or `.bdf` file
   to XDMF and then read it with `mesh.read_xdmf_mesh(...)`.

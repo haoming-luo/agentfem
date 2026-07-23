@@ -65,8 +65,8 @@
 <h2 id="mesh-conversion-checks">Mesh Conversion Checks</h2>
 <p>For external mesh-format support:</p>
 <ul>
-<li>Import check: <code>from agentfem import mesh_formats</code>.</li>
-<li>Optional dependency check: call <code>mesh_formats.require_meshio()</code> only when<br>conversion is requested.</li>
+<li>Import check: <code>from agentfem import mesh</code>.</li>
+<li>Optional dependency check: call <code>mesh.formats.require_meshio()</code> only when<br>conversion is requested.</li>
 <li>Conversion smoke test: convert a tiny <code>.inp</code>, <code>.msh</code>, <code>.vtk</code>, or <code>.bdf</code> file<br>to XDMF and then read it with <code>mesh.read_xdmf_mesh(...)</code>.</li>
 <li>Tag check: verify that expected cell or facet labels survived conversion.</li>
 </ul>

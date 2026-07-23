@@ -5,7 +5,7 @@ This map links FEM concepts to the current Python modules.
 | Concept | Module |
 | --- | --- |
 | Mesh import, named regions, tags, summaries, checks, and measures | `mesh/` |
-| External mesh formats | `mesh_formats.py` |
+| External mesh formats | `mesh/formats.py` |
 | Function spaces and Lagrange defaults | `spaces.py` |
 | Application-level unknown fields | `fields.py` |
 | Low-level dof lookup and field copying | `dofs.py` |
