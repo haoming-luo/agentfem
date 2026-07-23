@@ -1,0 +1,27 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+*.so
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Local FEM outputs
+*.h5
+*.xdmf
+*.bp
+*.pvd
+*.vtu
+*.pvtu
+results/
+results_*/
+
+# Keep the generated local documentation site unless intentionally removed.
+!site/

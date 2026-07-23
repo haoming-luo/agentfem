@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>API Style - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <div class="brand">AgentFEM</div>
+      <div class="tagline">Agent-oriented finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="active" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="agentfem-api-style">AgentFEM API Style</h1>
+<p>AgentFEM APIs should be readable by finite-element researchers and predictable for AI agents.</p>
+<h2 id="naming">Naming</h2>
+<ul>
+<li>Use nouns for assets: <code>LoadSet</code>, <code>ConstraintSet</code>, <code>TransientState</code>.</li>
+<li>Use verbs for actions: <code>assemble_vector</code>, <code>copy_function</code>, <code>solve_matrix_system</code>.</li>
+<li>Use explicit qualifiers when ambiguity matters: <code>DirichletConstraint</code>,<br><code>NeumannLoad</code>, <code>ViscousAbsorbingBoundary</code>.</li>
+</ul>
+<h2 id="inputs">Inputs</h2>
+<ul>
+<li>Prefer explicit function-space arguments named <code>V</code>.</li>
+<li>Use <code>measure</code> for UFL integration measures.</li>
+<li>Use <code>test_function</code> and <code>trial_function</code> rather than single-letter names in<br>public APIs.</li>
+<li>Use <code>comm</code>, <code>model_rank</code>, and <code>gdim</code> explicitly for mesh import/read helpers.</li>
+<li>Keep optional file-format dependencies lazy. Import packages such as <code>meshio</code><br>inside conversion functions so core AgentFEM imports stay lightweight.</li>
+</ul>
+<h2 id="outputs">Outputs</h2>
+<ul>
+<li>Return DOLFINx/PETSc objects when the function is a low-level operation.</li>
+<li>Return dataclasses for reusable FEM assets.</li>
+<li>Avoid hidden global state.</li>
+</ul>
+<h2 id="error-messages">Error Messages</h2>
+<p>Raise errors that explain the modeling issue, not only the Python issue. For example, say that a normal vector is required for normal/tangential absorbing boundaries.</p>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

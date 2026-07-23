@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent Guide - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <div class="brand">AgentFEM</div>
+      <div class="tagline">Agent-oriented finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="active" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="agentfem-agent-guide">AgentFEM Agent Guide</h1>
+<p>Use this guide when an AI agent is asked to build, review, extend, or debug a finite-element simulation with AgentFEM.</p>
+<h2 id="first-steps">First Steps</h2>
+<ol>
+<li>Read <code>WORKFLOW.md</code> to identify the standard finite-element sequence.</li>
+<li>Read <code>CONCEPTS.md</code> to align terminology before changing code.</li>
+<li>Inspect the target application only after mapping it to AgentFEM concepts.</li>
+<li>Prefer existing <code>agentfem</code> APIs before adding new helpers.</li>
+<li>Add reusable code only when it belongs to a standard FEM concept.</li>
+</ol>
+<h2 id="progressive-reading">Progressive Reading</h2>
+<ul>
+<li>Mesh or boundary tagging: read <code>docs/module_map.md</code>, then inspect <code>mesh.py</code>.</li>
+<li>Function spaces or fields: inspect <code>spaces.py</code> and <code>dofs.py</code>.</li>
+<li>Essential boundary conditions: read <code>CONCEPTS.md</code> and use <code>constraints.py</code>.</li>
+<li>Natural loads: read <code>CONCEPTS.md</code> and use <code>loads.py</code>.</li>
+<li>Constitutive laws: read <code>docs/extension_rules.md</code>, then use <code>constitutive/</code>.</li>
+<li>Absorbing or Robin-like terms: use <code>boundary_models/</code>.</li>
+<li>Assembly or lumped operators: inspect <code>assembly.py</code>.</li>
+<li>Time stepping: inspect <code>time.py</code>, <code>runtime.py</code>, and <code>problems.py</code>.</li>
+<li>Solves: inspect <code>solvers.py</code>.</li>
+<li>Results: inspect <code>diagnostics.py</code> and <code>io.py</code>.</li>
+</ul>
+<h2 id="agent-rules">Agent Rules</h2>
+<ul>
+<li>Do not mix constraints, loads, and boundary models.</li>
+<li>Do not hide the finite-element workflow inside overly broad abstractions.</li>
+<li>Keep application-specific geometry, source definitions, and parameter choices<br>outside the core platform.</li>
+<li>Validate imports, syntax, and a small runnable case after structural changes.</li>
+<li>When changing a public concept, update <code>CONCEPTS.md</code>, <code>WORKFLOW.md</code>, and the<br>relevant skill references.</li>
+</ul>
+<h2 id="current-platform-focus">Current Platform Focus</h2>
+<p>AgentFEM currently focuses on DOLFINx/PETSc workflows, linear elasticity, explicit dynamics, weak loads, absorbing boundary models, diagnostics, and XDMF output. The architecture should remain open to thermal, multiphysics, viscoelastic, anisotropic, and coupled simulations.</p>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

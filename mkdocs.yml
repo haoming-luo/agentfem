@@ -1,0 +1,39 @@
+site_name: AgentFEM
+site_description: Agent-oriented finite-element workflow platform built on DOLFINx/PETSc.
+repo_name: AgentFEM
+docs_dir: .
+site_dir: site
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.indexes
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+
+nav:
+  - Home: README.md
+  - Agent Guide: AGENT_GUIDE.md
+  - Workflow: WORKFLOW.md
+  - Concepts: CONCEPTS.md
+  - Design Notes:
+      - Module Map: docs/module_map.md
+      - API Style: docs/api_style.md
+      - Extension Rules: docs/extension_rules.md
+      - Validation: docs/validation.md
+      - Architecture Review: docs/architecture_review.md
+      - Documentation Site: docs/documentation_site.md
+  - Skill:
+      - AgentFEM Skill: skills/agentfem/SKILL.md
+      - Skill Workflow: skills/agentfem/references/workflow.md
+      - Skill Concepts: skills/agentfem/references/concepts.md
+      - Skill Module Map: skills/agentfem/references/module_map.md
+      - Skill Validation: skills/agentfem/references/validation.md
+      - Skill Extension Rules: skills/agentfem/references/extension_rules.md

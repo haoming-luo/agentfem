@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Documentation Site - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <div class="brand">AgentFEM</div>
+      <div class="tagline">Agent-oriented finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="active" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="agentfem-documentation-site">AgentFEM Documentation Site</h1>
+<p>AgentFEM documentation is written as linked Markdown files. The current recommended static-site layer is MkDocs because it is simple, friendly to research software, and easy for agents to inspect.</p>
+<h2 id="local-preview">Local Preview</h2>
+<p>From the repository root:</p>
+<pre><code>cd agentfem
+mkdocs serve</code></pre>
+<p>Then open the local address printed by MkDocs.</p>
+<h2 id="static-build">Static Build</h2>
+<pre><code>cd agentfem
+mkdocs build</code></pre>
+<p>The generated site is written to <code>agentfem/site/</code>.</p>
+<h2 id="dependencies">Dependencies</h2>
+<p>For a polished local site:</p>
+<pre><code>pip install mkdocs mkdocs-material pymdown-extensions</code></pre>
+<p>For a dependency-free static site:</p>
+<pre><code>python build_docs.py</code></pre>
+<p>This writes a simple HTML site to <code>agentfem/site/</code>.</p>
+<h2 id="documentation-rule">Documentation Rule</h2>
+<p>Human-facing docs and agent-facing docs should share the same concepts. When a workflow concept changes, update:</p>
+<ul>
+<li><code>README.md</code></li>
+<li><code>WORKFLOW.md</code></li>
+<li><code>CONCEPTS.md</code></li>
+<li><code>docs/module_map.md</code></li>
+<li><code>skills/agentfem/</code></li>
+</ul>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AgentFEM Skill - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <div class="brand">AgentFEM</div>
+      <div class="tagline">Agent-oriented finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="active" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="agentfem-skill">AgentFEM Skill</h1>
+<p>Use this skill when building, reviewing, or extending finite-element simulations with AgentFEM.</p>
+<h2 id="required-reading-order">Required Reading Order</h2>
+<ol>
+<li>Read <code>references/workflow.md</code>.</li>
+<li>Read <code>references/concepts.md</code>.</li>
+<li>Read <code>references/module_map.md</code>.</li>
+<li>Read focused references only as needed.</li>
+</ol>
+<h2 id="rules">Rules</h2>
+<ul>
+<li>Keep the finite-element workflow visible.</li>
+<li>Use AgentFEM modules before writing ad hoc DOLFINx/PETSc boilerplate.</li>
+<li>Put material laws under <code>constitutive/</code>.</li>
+<li>Put weak boundary physics under <code>boundary_models/</code>.</li>
+<li>Put Dirichlet, periodic, and MPC relations under <code>constraints</code>.</li>
+<li>Put Neumann, traction, flux, and body sources under <code>loads</code>.</li>
+<li>Validate small cases before reporting success.</li>
+</ul>
+<h2 id="when-extending-agentfem">When Extending AgentFEM</h2>
+<p>Before adding a public helper, read <code>references/extension_rules.md</code>. If the new helper is application-specific, keep it in the application package.</p>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

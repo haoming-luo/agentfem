@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Module Map - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <div class="brand">AgentFEM</div>
+      <div class="tagline">Agent-oriented finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="active" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="agentfem-module-map">AgentFEM Module Map</h1>
+<p>This map links FEM concepts to the current Python modules.</p>
+<table>
+<thead><tr><th>Concept</th><th>Module</th></tr></thead>
+<tbody>
+<tr><td>Mesh import, tags, and measures</td><td><code>mesh.py</code></td></tr>
+<tr><td>External mesh formats</td><td><code>mesh_formats.py</code></td></tr>
+<tr><td>Function spaces</td><td><code>spaces.py</code></td></tr>
+<tr><td>Dof lookup and field copying</td><td><code>dofs.py</code></td></tr>
+<tr><td>Strong BC construction</td><td><code>boundary.py</code></td></tr>
+<tr><td>Constraint containers</td><td><code>constraints.py</code></td></tr>
+<tr><td>Loads and time signals</td><td><code>loads.py</code></td></tr>
+<tr><td>Constitutive laws</td><td><code>constitutive/</code></td></tr>
+<tr><td>Boundary models</td><td><code>boundary_models/</code></td></tr>
+<tr><td>UFL weak-form blocks</td><td><code>forms.py</code></td></tr>
+<tr><td>Assembly</td><td><code>assembly.py</code></td></tr>
+<tr><td>Time kernels</td><td><code>time.py</code></td></tr>
+<tr><td>Problem/state containers</td><td><code>problems.py</code></td></tr>
+<tr><td>Runtime cadence</td><td><code>runtime.py</code></td></tr>
+<tr><td>Linear solvers</td><td><code>solvers.py</code></td></tr>
+<tr><td>Diagnostics</td><td><code>diagnostics.py</code></td></tr>
+<tr><td>Output</td><td><code>io.py</code></td></tr>
+</tbody>
+</table>
+<p>Application geometry, case inputs, and problem-specific sources should stay in application packages or examples until they become reusable platform concepts.</p>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

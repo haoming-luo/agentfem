@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Extension Rules - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <div class="brand">AgentFEM</div>
+      <div class="tagline">Agent-oriented finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="active" href="extension-rules.html">Extension Rules</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="agentfem-extension-rules">AgentFEM Extension Rules</h1>
+<p>Use these rules before adding new public functions or modules.</p>
+<h2 id="add-to-core-modules-when">Add to Core Modules When</h2>
+<ul>
+<li>The function represents a standard FEM workflow operation.</li>
+<li>The function can reasonably serve more than one problem class.</li>
+<li>The name is conventional for finite-element researchers.</li>
+<li>The input and output types are stable and easy for agents to inspect.</li>
+</ul>
+<h2 id="add-to-constitutive-when">Add to <code>constitutive/</code> When</h2>
+<ul>
+<li>The code defines a material law or local response relation.</li>
+<li>The code maps strain, gradient, state, or internal variables to stress, flux,<br>tangent, or related quantities.</li>
+</ul>
+<h2 id="add-to-boundarymodels-when">Add to <code>boundary_models/</code> When</h2>
+<ul>
+<li>The code defines a reusable weak boundary physics model.</li>
+<li>The boundary term is more than a simple Neumann load.</li>
+</ul>
+<h2 id="keep-in-the-application-when">Keep in the Application When</h2>
+<ul>
+<li>The code encodes a specific geometry.</li>
+<li>The code encodes a specific source waveform.</li>
+<li>The code encodes one paper, one benchmark, or one translation from another<br>software package.</li>
+<li>The code is not yet stable enough to generalize.</li>
+</ul>
+<h2 id="documentation-rule">Documentation Rule</h2>
+<p>When adding a new concept-level function, update the relevant docs and skill references in the same change.</p>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

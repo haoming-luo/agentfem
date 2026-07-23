@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Architecture Review - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <div class="brand">AgentFEM</div>
+      <div class="tagline">Agent-oriented finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="validation.html">Validation</a>
+<a class="active" href="architecture-review.html">Architecture Review</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="agentfem-architecture-review">AgentFEM Architecture Review</h1>
+<p>This note records the current architecture direction from the perspective of traditional finite-element workflows and agent-oriented use.</p>
+<h2 id="current-strengths">Current Strengths</h2>
+<ul>
+<li>The first-level modules mostly match standard FEM steps: mesh import/read,<br>spaces, dofs, constraints, loads, forms, assembly, time integration, solvers,<br>diagnostics, and output.</li>
+<li>Constitutive laws are below <code>constitutive/</code>, which matches finite-element<br>language better than placing material laws directly at the first level.</li>
+<li>Weak boundary physics is below <code>boundary_models/</code>, which separates Robin,<br>impedance, absorbing, and convection-like terms from essential constraints<br>and Neumann loads.</li>
+<li>Application-specific geometry and source definitions are outside AgentFEM,<br>keeping the core package reusable.</li>
+<li>External CAE mesh conversion is separated into <code>mesh_formats.py</code>, keeping<br>solver workflow code independent from Abaqus, NASTRAN, COMSOL, or VTK details.</li>
+<li>The package has both human-facing workflow docs and skill-ready progressive<br>references for agents.</li>
+</ul>
+<h2 id="main-refinements-needed">Main Refinements Needed</h2>
+<ol>
+<li>Keep mesh import generic:<br><code>mesh.py</code> should own reusable Gmsh and XDMF import/read/write operations,<br>while application packages own geometry construction and meshing parameters.<br>External file conversion should stay in <code>mesh_formats.py</code>.</li>
+</ol>
+<ol>
+<li>Separate boundary concepts more clearly:<br><code>boundary.py</code> currently means Dirichlet helper operations, while<br><code>boundary_models/</code> means weak boundary physics. This is acceptable, but the<br>naming should stay explicit in docs and APIs.</li>
+</ol>
+<ol>
+<li>Promote problem definition:<br><code>problems.py</code> should gradually become the standard place for reusable<br>problem/state containers, not a bag of case-specific records.</li>
+</ol>
+<ol>
+<li>Make form construction more discoverable:<br><code>forms.py</code> should expose small weak-form blocks with clear names, such as<br>mass, stiffness, damping, body load, traction, and flux contributions.</li>
+</ol>
+<ol>
+<li>Keep time integration generic:<br><code>time.py</code> should contain method-level kernels, while application solvers<br>decide which fields, loads, and boundary models enter each step.</li>
+</ol>
+<ol>
+<li>Add examples only after APIs stabilize:<br>Examples should demonstrate the workflow order without becoming hidden<br>framework logic.</li>
+</ol>
+<h2 id="agent-oriented-refinements">Agent-Oriented Refinements</h2>
+<ul>
+<li>Every public helper should say what FEM concept it belongs to.</li>
+<li>Public function names should be explicit enough that an agent can choose them<br>without reading implementation details first.</li>
+<li>Docs should prefer routing tables and decision rules over long prose.</li>
+<li>Error messages should explain modeling mistakes, such as mixing Dirichlet<br>constraints with Neumann loads.</li>
+<li>Validation docs should name the smallest useful check for each layer:<br>import check, form-shape check, assembly check, serial run, MPI run, and<br>ParaView output check.</li>
+</ul>
+<h2 id="suggested-priority">Suggested Priority</h2>
+<ol>
+<li>Tighten docs links and module routing.</li>
+<li>Add small examples for each standard workflow step.</li>
+<li>Improve <code>forms.py</code> into a clearer library of reusable weak-form blocks.</li>
+<li>Add typed containers for standard analyses: static, first-order transient,<br>and second-order dynamics.</li>
+<li>Add constitutive submodules only when at least one application needs them:<br>anisotropic elasticity, viscoelasticity, thermal conduction, and coupled<br>models.</li>
+</ol>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

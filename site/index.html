@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Home - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <div class="brand">AgentFEM</div>
+      <div class="tagline">Agent-oriented finite-element workflows</div>
+      <nav><a class="active" href="index.html">Home</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="agentfem">AgentFEM</h1>
+<p>AgentFEM is an agent-oriented finite-element workflow platform built on DOLFINx/PETSc. The Python package is named <code>agentfem</code>, matching the platform name used by the documentation and application code.</p>
+<p>The current implementation is strongest in reusable FEM workflow steps, linear-elastic constitutive laws, explicit dynamics, weak loads, constraints, absorbing boundary models, diagnostics, and ParaView output.</p>
+<h2 id="agent-entry-points">Agent Entry Points</h2>
+<ul>
+<li><code>AGENT_GUIDE.md</code>: first file for AI agents working with AgentFEM.</li>
+<li><code>WORKFLOW.md</code>: standard FEM workflow and module order.</li>
+<li><code>CONCEPTS.md</code>: shared vocabulary for humans and agents.</li>
+<li><code>docs/</code>: detailed platform rules and extension guidance.</li>
+<li><code>skills/agentfem/</code>: skill-ready progressive-disclosure package.</li>
+<li><code>mkdocs.yml</code>: optional static documentation-site configuration.</li>
+</ul>
+<h2 id="standard-workflow">Standard Workflow</h2>
+<ol>
+<li>Build or read a mesh with application geometry plus <code>mesh</code> import helpers.</li>
+<li>Create spaces and fields with <code>spaces</code>.</li>
+<li>Locate dofs and construct strong constraints with <code>dofs</code>, <code>boundary</code>, and<br><code>constraints</code>.</li>
+<li>Construct weak loads such as body forces, Neumann fluxes, and tractions with<br><code>loads</code>.</li>
+<li>Build weak forms with application physics plus reusable <code>forms</code> blocks.</li>
+<li>Compile and assemble with <code>assembly</code>.</li>
+<li>Step in time with <code>runtime.TimeStepper</code> plus kernels from <code>time</code>, or solve<br>algebraic systems with <code>solvers</code>.</li>
+<li>Measure distributed diagnostics with <code>diagnostics</code>.</li>
+<li>Manage output locations with <code>io</code>.</li>
+</ol>
+<h2 id="modules">Modules</h2>
+<ul>
+<li><code>mesh</code>: mesh import/read/write, boundary facet location, facet tags,<br>boundary measures</li>
+<li><code>mesh_formats</code>: optional external CAE mesh conversion through <code>meshio</code></li>
+<li><code>spaces</code>: scalar/vector spaces, trial/test functions, named fields</li>
+<li><code>dofs</code>: dof location, owned/ghost arrays, field copies</li>
+<li><code>constraints</code>: Dirichlet constraint containers and periodic constraint specs</li>
+<li><code>constitutive</code>: material laws and constitutive-model helpers</li>
+<li><code>boundary_models</code>: reusable weak boundary models, such as absorbing boundaries</li>
+<li><code>boundary</code>: Dirichlet constants and BC application</li>
+<li><code>loads</code>: time functions, time-dependent Dirichlet data, body loads,<br>Neumann/boundary loads, and load sets</li>
+<li><code>forms</code>: common UFL virtual-work building blocks</li>
+<li><code>assembly</code>: form compilation, vector/matrix assembly, lumped operators/mass</li>
+<li><code>time</code>: explicit central-difference/Newmark kernels</li>
+<li><code>problems</code>: standard problem/state containers</li>
+<li><code>runtime</code>: time-step metadata, progress printing, and elapsed-time formatting</li>
+<li><code>solvers</code>: PETSc KSP setup and standard linear problem solve</li>
+<li><code>diagnostics</code>: distributed norms, energy-like quantities, and named scalar<br>diagnostic sets</li>
+<li><code>io</code>: MPI-safe directories, CSV logs, and XDMF time-series output</li>
+</ul>
+<h2 id="core-api-direction">Core API Direction</h2>
+<ul>
+<li>Use <code>assembly.assemble_lumped_operator(V, coefficient, measure)</code> for generic<br>diagonal operators on a function space <code>V</code>.</li>
+<li>Use <code>mesh.import_gmsh_model(...)</code> or <code>mesh.read_gmsh_mesh(...)</code> to convert<br>Gmsh meshes into DOLFINx meshes with physical tags.</li>
+<li>Use <code>mesh.read_xdmf_mesh(...)</code> and <code>mesh.write_xdmf_mesh(...)</code> for DOLFINx<br>XDMF mesh exchange.</li>
+<li>Use <code>mesh.convert_external_mesh_to_xdmf(...)</code> or<br><code>mesh_formats.convert_to_xdmf(...)</code> for Abaqus <code>.inp</code>, NASTRAN <code>.bdf/.nas</code>,<br>VTK, and other meshio-supported external CAE mesh formats.</li>
+<li>Use <code>assembly.assemble_lumped_mass(V, density, measure)</code> as the mass-specific<br>wrapper.</li>
+<li>Use <code>problems.TransientState</code> for first-order transient unknowns.</li>
+<li>Use <code>problems.SecondOrderDynamicsState</code> for displacement/velocity/acceleration<br>dynamics. <code>ExplicitDynamicsState</code> remains as a compatibility alias.</li>
+<li>Use <code>constitutive.elasticity.estimate_elastic_wave_speeds(material)</code> when a<br>wave solver needs scalar wave-speed estimates from an elastic material.</li>
+<li>Use <code>constraints</code> for strong constraints. Use <code>loads.NeumannLoad</code> or<br><code>loads.BoundaryLoad</code> for natural boundary data that enters the weak form.</li>
+</ul>
+<h2 id="boundary-data-rule">Boundary Data Rule</h2>
+<ul>
+<li>Dirichlet data is essential/strong data. It modifies dofs directly or enters<br>matrix/vector assembly through <code>bcs</code>.</li>
+<li>Neumann data is natural/weak data. Force, flux, and traction terms belong in<br>the right-hand-side weak form through <code>loads</code>.</li>
+<li>Robin or absorbing data is weak boundary physics. It should be represented as<br>a boundary bilinear/linear form, not as a Dirichlet constraint.</li>
+</ul>
+<h2 id="absorbing-boundaries">Absorbing Boundaries</h2>
+<p>Absorbing and impedance boundaries are reusable weak boundary models. They are typically represented as boundary damping or impedance terms proportional to velocity, flux, or another boundary response variable:</p>
+<pre><code>abc = boundary_models.absorbing.lysmer_kuhlemeyer_boundary(
+    ds(tag),
+    density=rho,
+    pressure_wave_speed=cp,
+    shear_wave_speed=cs,
+    normal=ufl.FacetNormal(domain),
+)
+form = abc.form(velocity, test_function)</code></pre>
+<p>This keeps boundary location and tags in the application layer while reusable absorbing-boundary formulas live in <code>agentfem.boundary_models</code>.</p>
+<h2 id="naming-rules">Naming Rules</h2>
+<ul>
+<li>Use verbs for actions: <code>assemble_vector</code>, <code>apply_dirichlet_bcs</code>,<br><code>copy_function</code>.</li>
+<li>Use nouns for finite-element assets: <code>TimeFunction</code>,<br><code>TimeDependentDirichlet</code>.</li>
+<li>Keep physics-specific formulas outside <code>agentfem</code>; pass them in as callables,<br>UFL expressions, or material/source objects from the application layer.</li>
+</ul>
+<h2 id="what-belongs-here">What Belongs Here</h2>
+<ul>
+<li>Generic FE operations: function spaces, dof maps, weak-form blocks, matrix/vector<br>assembly, time-integration kernels, KSP solves, diagnostics, and output.</li>
+<li>Reusable physics primitives: standard strain/stress operators and material-law<br>containers live under <code>constitutive</code>, not as first-level workflow modules.</li>
+<li>Application assets stay outside: geometry, case-specific sources, benchmark<br>constants, and paper-specific parameters belong in applications or examples.</li>
+</ul>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

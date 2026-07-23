@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Validation - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <div class="brand">AgentFEM</div>
+      <div class="tagline">Agent-oriented finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="active" href="validation.html">Validation</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="agentfem-validation-guide">AgentFEM Validation Guide</h1>
+<p>Every nontrivial change should be checked at three levels.</p>
+<h2 id="structural-checks">Structural Checks</h2>
+<ul>
+<li>Imports use the current package layout.</li>
+<li>Public concepts appear in the correct module family.</li>
+<li>Application-specific code does not leak into the platform core.</li>
+</ul>
+<h2 id="numerical-checks">Numerical Checks</h2>
+<ul>
+<li>Run a small case with very few degrees of freedom or time steps.</li>
+<li>Check that output files are produced.</li>
+<li>Check that diagnostic values are finite.</li>
+<li>For MPI-aware code, run at least one small parallel smoke test when possible.</li>
+</ul>
+<h2 id="modeling-checks">Modeling Checks</h2>
+<ul>
+<li>Units are explicit and consistent.</li>
+<li>Constraints, loads, and boundary models are not mixed.</li>
+<li>Time-step choices are connected to the relevant stability estimate.</li>
+<li>Mesh density is connected to wavelength, gradients, or geometry resolution.</li>
+</ul>
+<h2 id="agent-behavior">Agent Behavior</h2>
+<p>When an agent modifies AgentFEM, it should report:</p>
+<ul>
+<li>What concept was changed.</li>
+<li>Which files were edited.</li>
+<li>Which validation commands were run.</li>
+<li>What remains unverified.</li>
+</ul>
+<h2 id="mesh-conversion-checks">Mesh Conversion Checks</h2>
+<p>For external mesh-format support:</p>
+<ul>
+<li>Import check: <code>from agentfem import mesh_formats</code>.</li>
+<li>Optional dependency check: call <code>mesh_formats.require_meshio()</code> only when<br>conversion is requested.</li>
+<li>Conversion smoke test: convert a tiny <code>.inp</code>, <code>.msh</code>, <code>.vtk</code>, or <code>.bdf</code> file<br>to XDMF and then read it with <code>mesh.read_xdmf_mesh(...)</code>.</li>
+<li>Tag check: verify that expected cell or facet labels survived conversion.</li>
+</ul>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

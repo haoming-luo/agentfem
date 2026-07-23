@@ -1,0 +1,28 @@
+# AgentFEM FEniCSx/DOLFINx stack.
+#
+# Recommended install route on macOS/Linux:
+#   mamba create -n agentfem-env -c conda-forge python=3.11 fenics-dolfinx=0.11 gmsh mpi4py petsc4py meshio matplotlib jupyterlab ipykernel
+#
+# Pure pip installation of dolfinx/petsc4py can be fragile because it depends on
+# MPI, PETSc, and HDF5 builds. Prefer conda-forge for the FEM stack.
+
+fenics-dolfinx==0.11.0
+fenics-ufl==2026.1.0
+gmsh==4.15.2
+mpi4py==4.1.2
+petsc4py==3.25.2
+numpy==2.4.6
+matplotlib
+
+# Optional but recommended for external CAE mesh conversion
+# (Abaqus .inp, NASTRAN .bdf/.nas, VTK, and other meshio-supported formats).
+meshio
+
+# Documentation and notebook helpers.
+mkdocs
+mkdocs-material
+pymdown-extensions
+jupyterlab
+ipykernel
+nbformat
+nbclient
