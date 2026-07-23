@@ -14,6 +14,8 @@ Every nontrivial change should be checked at three levels.
 - Check that output files are produced.
 - Check that diagnostic values are finite.
 - For MPI-aware code, run at least one small parallel smoke test when possible.
+- For workflow examples, run the example and check that XDMF/HDF5 output is
+  produced.
 
 ## Modeling Checks
 

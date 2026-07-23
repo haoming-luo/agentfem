@@ -23,6 +23,7 @@ finite-element simulation with AgentFEM.
 - Time stepping: inspect `time.py`, `runtime.py`, and `problems.py`.
 - Solves: inspect `solvers.py`.
 - Results: inspect `diagnostics.py` and `io.py`.
+- Example workflows: inspect `examples/` after reading `WORKFLOW.md`.
 
 ## Agent Rules
 

@@ -22,6 +22,7 @@ PAGES = [
     Page("Agent Guide", ROOT / "AGENT_GUIDE.md", SITE_DIR / "agent-guide.html"),
     Page("Workflow", ROOT / "WORKFLOW.md", SITE_DIR / "workflow.html"),
     Page("Concepts", ROOT / "CONCEPTS.md", SITE_DIR / "concepts.html"),
+    Page("Examples", ROOT / "examples" / "README.md", SITE_DIR / "examples.html"),
     Page("Module Map", ROOT / "docs" / "module_map.md", SITE_DIR / "module-map.html"),
     Page("API Style", ROOT / "docs" / "api_style.md", SITE_DIR / "api-style.html"),
     Page(

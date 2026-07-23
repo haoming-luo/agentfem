@@ -15,6 +15,7 @@
 <a class="" href="agent-guide.html">Agent Guide</a>
 <a class="" href="workflow.html">Workflow</a>
 <a class="" href="concepts.html">Concepts</a>
+<a class="" href="examples.html">Examples</a>
 <a class="" href="module-map.html">Module Map</a>
 <a class="" href="api-style.html">API Style</a>
 <a class="" href="extension-rules.html">Extension Rules</a>
@@ -34,6 +35,7 @@
 <li><code>WORKFLOW.md</code>: standard FEM workflow and module order.</li>
 <li><code>CONCEPTS.md</code>: shared vocabulary for humans and agents.</li>
 <li><code>docs/</code>: detailed platform rules and extension guidance.</li>
+<li><code>examples/</code>: runnable workflow examples for researchers and agents.</li>
 <li><code>skills/agentfem/</code>: skill-ready progressive-disclosure package.</li>
 <li><code>mkdocs.yml</code>: optional static documentation-site configuration.</li>
 </ul>
@@ -110,6 +112,11 @@ form = abc.form(velocity, test_function)</code></pre>
 <li>Reusable physics primitives: standard strain/stress operators and material-law<br>containers live under <code>constitutive</code>, not as first-level workflow modules.</li>
 <li>Application assets stay outside: geometry, case-specific sources, benchmark<br>constants, and paper-specific parameters belong in applications or examples.</li>
 </ul>
+<h2 id="examples">Examples</h2>
+<p>Run examples from the parent directory of the source checkout:</p>
+<pre><code>python agentfem/examples/static_elasticity_2d.py
+python agentfem/examples/wave_packet_plate_2d.py</code></pre>
+<p>The examples write XDMF output to <code>agentfem/examples_output/</code> for ParaView.</p>
       </article>
     </main>
   </div>

@@ -22,6 +22,7 @@ build/
 *.pvtu
 results/
 results_*/
+examples_output/
 
 # Keep the generated local documentation site unless intentionally removed.
 !site/

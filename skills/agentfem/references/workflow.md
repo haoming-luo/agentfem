@@ -17,3 +17,6 @@ AgentFEM workflow:
 
 Do not collapse these steps so aggressively that a reviewer cannot see the
 finite-element model.
+
+Use `examples/` as executable workflow references after identifying the target
+problem type.

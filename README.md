@@ -14,6 +14,7 @@ absorbing boundary models, diagnostics, and ParaView output.
 - `WORKFLOW.md`: standard FEM workflow and module order.
 - `CONCEPTS.md`: shared vocabulary for humans and agents.
 - `docs/`: detailed platform rules and extension guidance.
+- `examples/`: runnable workflow examples for researchers and agents.
 - `skills/agentfem/`: skill-ready progressive-disclosure package.
 - `mkdocs.yml`: optional static documentation-site configuration.
 
@@ -122,3 +123,14 @@ absorbing-boundary formulas live in `agentfem.boundary_models`.
   containers live under `constitutive`, not as first-level workflow modules.
 - Application assets stay outside: geometry, case-specific sources, benchmark
   constants, and paper-specific parameters belong in applications or examples.
+
+## Examples
+
+Run examples from the parent directory of the source checkout:
+
+```bash
+python agentfem/examples/static_elasticity_2d.py
+python agentfem/examples/wave_packet_plate_2d.py
+```
+
+The examples write XDMF output to `agentfem/examples_output/` for ParaView.

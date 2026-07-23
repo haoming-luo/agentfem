@@ -5,25 +5,73 @@ from __future__ import annotations
 import ufl
 
 
-def internal_virtual_work(stress, strain_test):
-    """Internal virtual work density, ``sigma : epsilon(test)``."""
+def stiffness_form(stress, strain_test, measure=ufl.dx):
+    """Internal stiffness/virtual-work form, ``sigma : epsilon(test)``."""
 
-    return ufl.inner(stress, strain_test) * ufl.dx
-
-
-def inertial_virtual_work(density, acceleration, test_function):
-    """Inertial virtual work density, ``rho*a . test``."""
-
-    return ufl.inner(density * acceleration, test_function) * ufl.dx
+    return ufl.inner(stress, strain_test) * measure
 
 
-def body_force_virtual_work(force, test_function, measure=ufl.dx):
-    """Body-force virtual work density, ``force . test``."""
+def mass_form(density, trial_function, test_function, measure=ufl.dx):
+    """Consistent mass form, ``rho * trial . test``."""
+
+    return ufl.inner(density * trial_function, test_function) * measure
+
+
+def damping_form(coefficient, trial_function, test_function, measure=ufl.dx):
+    """Viscous damping form, ``c * trial . test``."""
+
+    return ufl.inner(coefficient * trial_function, test_function) * measure
+
+
+def inertial_form(density, acceleration, test_function, measure=ufl.dx):
+    """Inertial virtual-work form, ``rho * acceleration . test``."""
+
+    return ufl.inner(density * acceleration, test_function) * measure
+
+
+def body_load_form(force, test_function, measure=ufl.dx):
+    """Body-force/source virtual-work form, ``force . test``."""
 
     return ufl.inner(force, test_function) * measure
 
 
-def boundary_flux_virtual_work(flux, test_function, ds_measure):
-    """Boundary flux/traction virtual work, ``flux . test`` on a measure."""
+def boundary_load_form(load, test_function, measure):
+    """Boundary flux/traction virtual-work form, ``load . test``."""
 
-    return ufl.inner(flux, test_function) * ds_measure
+    return ufl.inner(load, test_function) * measure
+
+
+def scalar_flux_form(flux, test_function, measure):
+    """Scalar flux weak form, ``flux * test`` on a boundary or domain measure."""
+
+    return flux * test_function * measure
+
+
+def robin_form(coefficient, trial_function, test_function, measure):
+    """Robin/impedance bilinear form, ``coefficient * trial * test``."""
+
+    return coefficient * ufl.inner(trial_function, test_function) * measure
+
+
+def internal_virtual_work(stress, strain_test):
+    """Compatibility wrapper for ``stiffness_form``."""
+
+    return stiffness_form(stress, strain_test)
+
+
+def inertial_virtual_work(density, acceleration, test_function):
+    """Compatibility wrapper for ``inertial_form``."""
+
+    return inertial_form(density, acceleration, test_function)
+
+
+def body_force_virtual_work(force, test_function, measure=ufl.dx):
+    """Compatibility wrapper for ``body_load_form``."""
+
+    return body_load_form(force, test_function, measure)
+
+
+def boundary_flux_virtual_work(flux, test_function, ds_measure):
+    """Compatibility wrapper for ``boundary_load_form``."""
+
+    return boundary_load_form(flux, test_function, ds_measure)

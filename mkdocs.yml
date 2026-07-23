@@ -23,6 +23,8 @@ nav:
   - Agent Guide: AGENT_GUIDE.md
   - Workflow: WORKFLOW.md
   - Concepts: CONCEPTS.md
+  - Examples:
+      - Overview: examples/README.md
   - Design Notes:
       - Module Map: docs/module_map.md
       - API Style: docs/api_style.md

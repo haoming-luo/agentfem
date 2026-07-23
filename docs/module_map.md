@@ -21,6 +21,7 @@ This map links FEM concepts to the current Python modules.
 | Linear solvers | `solvers.py` |
 | Diagnostics | `diagnostics.py` |
 | Output | `io.py` |
+| Runnable workflows | `examples/` |
 
 Application geometry, case inputs, and problem-specific sources should stay in
 application packages or examples until they become reusable platform concepts.
