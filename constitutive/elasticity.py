@@ -1,11 +1,14 @@
-"""Linear-elastic material and strain/stress helpers."""
+"""Linear-elastic constitutive relations."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import numpy as np
 import ufl
+
+from agentfem.materials.properties import (
+    ElasticAnisotropic2DProperties,
+    ElasticIsotropicProperties,
+)
 
 
 def strain(displacement):
@@ -54,14 +57,10 @@ def estimate_elastic_wave_speeds(material) -> tuple[float, float]:
     direction-dependent Christoffel analysis.
     """
 
-    if isinstance(material, IsotropicElasticMaterial):
+    if isinstance(material, ElasticIsotropicProperties):
         return material.pressure_wave_speed, material.shear_wave_speed
-    if isinstance(material, AnisotropicElasticMaterial2D):
-        pressure = float(
-            np.sqrt(np.max(np.linalg.eigvalsh(material.stiffness_voigt)) / material.density)
-        )
-        shear = float(np.sqrt(material.stiffness_voigt[2, 2] / material.density))
-        return pressure, shear
+    if isinstance(material, ElasticAnisotropic2DProperties):
+        return material.pressure_wave_speed, material.shear_wave_speed
     if hasattr(material, "pressure_wave_speed"):
         pressure = float(material.pressure_wave_speed)
         shear = float(getattr(material, "shear_wave_speed", pressure / np.sqrt(3.0)))
@@ -69,68 +68,36 @@ def estimate_elastic_wave_speeds(material) -> tuple[float, float]:
     raise TypeError("material does not provide enough elastic data to estimate wave speeds.")
 
 
-@dataclass(frozen=True)
-class IsotropicElasticMaterial:
-    """Small-strain isotropic linear-elastic material."""
+def isotropic_stress(displacement, properties: ElasticIsotropicProperties):
+    """Small-strain isotropic stress, ``sigma(u)``."""
 
-    name: str
-    young: float
-    density: float
-    poisson: float
-
-    @property
-    def mu(self) -> float:
-        return self.young / (2.0 * (1.0 + self.poisson))
-
-    @property
-    def lambda_(self) -> float:
-        return self.young * self.poisson / (
-            (1.0 + self.poisson) * (1.0 - 2.0 * self.poisson)
-        )
-
-    @property
-    def pressure_wave_speed(self) -> float:
-        return isotropic_pressure_wave_speed(self.young, self.poisson, self.density)
-
-    @property
-    def shear_wave_speed(self) -> float:
-        return isotropic_shear_wave_speed(self.young, self.poisson, self.density)
-
-    def sigma(self, displacement):
-        eps = strain(displacement)
-        return self.lambda_ * ufl.tr(eps) * ufl.Identity(len(displacement)) + 2.0 * self.mu * eps
+    eps = strain(displacement)
+    return (
+        properties.lambda_ * ufl.tr(eps) * ufl.Identity(len(displacement))
+        + 2.0 * properties.mu * eps
+    )
 
 
-@dataclass(frozen=True)
-class AnisotropicElasticMaterial2D:
-    """2D linear-elastic material using engineering-strain Voigt notation.
+def anisotropic_stress_2d(displacement, properties: ElasticAnisotropic2DProperties):
+    """2D anisotropic stress from engineering-strain Voigt stiffness."""
 
-    ``stiffness_voigt`` maps [eps_xx, eps_yy, gamma_xy] to
-    [sig_xx, sig_yy, sig_xy], where gamma_xy = 2 * eps_xy.
-    """
+    strain_voigt = engineering_strain_voigt_2d(displacement)
+    stress_voigt = ufl.dot(ufl.as_matrix(properties.stiffness_voigt.tolist()), strain_voigt)
+    return stress_voigt_to_tensor_2d(stress_voigt)
 
-    name: str
-    stiffness_voigt: np.ndarray
-    density: float
 
-    def __post_init__(self) -> None:
-        C = np.asarray(self.stiffness_voigt, dtype=float)
-        if C.shape != (3, 3):
-            raise ValueError("2D anisotropic stiffness_voigt must be a 3x3 matrix.")
-        object.__setattr__(self, "stiffness_voigt", C)
+def stress(displacement, properties):
+    """Dispatch to the matching elastic stress relation."""
 
-    @property
-    def pressure_wave_speed(self) -> float:
-        return estimate_elastic_wave_speeds(self)[0]
-
-    @property
-    def shear_wave_speed(self) -> float:
-        return estimate_elastic_wave_speeds(self)[1]
-
-    def sigma(self, displacement):
-        strain_voigt = engineering_strain_voigt_2d(displacement)
-        stress_voigt = ufl.dot(ufl.as_matrix(self.stiffness_voigt.tolist()), strain_voigt)
-        return stress_voigt_to_tensor_2d(stress_voigt)
+    if isinstance(properties, ElasticIsotropicProperties):
+        return isotropic_stress(displacement, properties)
+    if isinstance(properties, ElasticAnisotropic2DProperties):
+        return anisotropic_stress_2d(displacement, properties)
+    if hasattr(properties, "stiffness_voigt"):
+        return anisotropic_stress_2d(displacement, properties)
+    if hasattr(properties, "young") and hasattr(properties, "poisson"):
+        return isotropic_stress(displacement, properties)
+    raise TypeError(f"unsupported elastic properties object: {type(properties)!r}")
 
 
 def isotropic_elastic(
@@ -139,10 +106,10 @@ def isotropic_elastic(
     density: float,
     poisson: float,
     name: str = "isotropic elastic",
-) -> IsotropicElasticMaterial:
-    """Create an isotropic linear-elastic material."""
+) -> ElasticIsotropicProperties:
+    """Create isotropic linear-elastic properties."""
 
-    return IsotropicElasticMaterial(name=name, young=young, density=density, poisson=poisson)
+    return ElasticIsotropicProperties(name=name, young=young, density=density, poisson=poisson)
 
 
 def anisotropic_elastic_2d(
@@ -150,10 +117,10 @@ def anisotropic_elastic_2d(
     stiffness_voigt,
     density: float,
     name: str = "anisotropic elastic 2D",
-) -> AnisotropicElasticMaterial2D:
-    """Create a 2D anisotropic linear-elastic material."""
+) -> ElasticAnisotropic2DProperties:
+    """Create 2D anisotropic linear-elastic properties."""
 
-    return AnisotropicElasticMaterial2D(
+    return ElasticAnisotropic2DProperties(
         name=name,
         stiffness_voigt=np.asarray(stiffness_voigt, dtype=float),
         density=density,
@@ -168,8 +135,8 @@ def orthotropic_plane_stress_2d(
     gxy: float,
     density: float,
     name: str = "orthotropic plane-stress elastic 2D",
-) -> AnisotropicElasticMaterial2D:
-    """Create a 2D orthotropic plane-stress material."""
+) -> ElasticAnisotropic2DProperties:
+    """Create 2D orthotropic plane-stress elastic properties."""
 
     nuyx = nuxy * ey / ex
     denom = 1.0 - nuxy * nuyx
@@ -181,4 +148,13 @@ def orthotropic_plane_stress_2d(
         ],
         dtype=float,
     )
-    return anisotropic_elastic_2d(stiffness_voigt=C, density=density, name=name)
+    return ElasticAnisotropic2DProperties(
+        name=name,
+        stiffness_voigt=C,
+        density=density,
+        model="orthotropic_plane_stress_2d",
+    )
+
+
+IsotropicElasticMaterial = ElasticIsotropicProperties
+AnisotropicElasticMaterial2D = ElasticAnisotropic2DProperties

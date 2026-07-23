@@ -7,22 +7,31 @@ finite-element simulation with AgentFEM.
 
 1. Read `WORKFLOW.md` to identify the standard finite-element sequence.
 2. Read `CONCEPTS.md` to align terminology before changing code.
-3. Inspect the target application only after mapping it to AgentFEM concepts.
-4. Prefer existing `agentfem` APIs before adding new helpers.
-5. Add reusable code only when it belongs to a standard FEM concept.
+3. Inspect or create a mesh summary before reasoning about boundary tags,
+   material regions, or output dimensions.
+4. Inspect the target application only after mapping it to AgentFEM concepts.
+5. Prefer existing `agentfem` APIs before adding new helpers.
+6. Add reusable code only when it belongs to a standard FEM concept.
 
 ## Progressive Reading
 
-- Mesh or boundary tagging: read `docs/module_map.md`, then inspect `mesh.py`.
-- Function spaces or fields: inspect `spaces.py` and `dofs.py`.
-- Essential boundary conditions: read `CONCEPTS.md` and use `constraints.py`.
-- Natural loads: read `CONCEPTS.md` and use `loads.py`.
+- Mesh or boundary tagging: read `docs/module_map.md`, then use
+  `mesh.summarize_mesh`, `mesh.require_cell_tags`, and
+  `mesh.require_facet_tags`.
+- Application unknowns: use `fields.py` before dropping to `spaces.py`.
+- Function spaces or low-level dof work: inspect `spaces.py` and `dofs.py`.
+- Essential boundary conditions: read `CONCEPTS.md`, then use `constraints.py`.
+- Natural loads: read `CONCEPTS.md`, then use `loads.body_load`,
+  `loads.neumann`, or `loads.boundary_load`.
 - Constitutive laws: read `docs/extension_rules.md`, then use `constitutive/`.
 - Absorbing or Robin-like terms: use `boundary_models/`.
 - Assembly or lumped operators: inspect `assembly.py`.
 - Time stepping: inspect `time.py`, `runtime.py`, and `problems.py`.
 - Solves: inspect `solvers.py`.
-- Results: inspect `diagnostics.py` and `io.py`.
+- Problem summaries: use `problems.FEMProblem` when a workflow needs a
+  structured audit record.
+- Results: inspect `diagnostics.py`, then use `io.CSVLogger`,
+  `io.XDMFTimeSeries`, or `io.ResultWriter`.
 - Example workflows: inspect `examples/` after reading `WORKFLOW.md`.
 
 ## Agent Rules

@@ -19,6 +19,7 @@
 <a class="" href="module-map.html">Module Map</a>
 <a class="" href="api-style.html">API Style</a>
 <a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
 <a class="" href="validation.html">Validation</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
@@ -38,8 +39,10 @@
 <h2 id="rules">Rules</h2>
 <ul>
 <li>Keep the finite-element workflow visible.</li>
+<li>Inspect mesh summaries and required tags before building weak forms.</li>
+<li>Use <code>FEMProblem.summary()</code> or equivalent structured summaries when auditing a<br>workflow.</li>
 <li>Use AgentFEM modules before writing ad hoc DOLFINx/PETSc boilerplate.</li>
-<li>Put material laws under <code>constitutive/</code>.</li>
+<li>Put local response relations under <code>constitutive/</code>.</li>
 <li>Put weak boundary physics under <code>boundary_models/</code>.</li>
 <li>Put Dirichlet, periodic, and MPC relations under <code>constraints</code>.</li>
 <li>Put Neumann, traction, flux, and body sources under <code>loads</code>.</li>

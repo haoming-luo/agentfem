@@ -10,6 +10,7 @@ from petsc4py import PETSc
 
 from . import boundary
 from . import forms
+from .kernel import constants
 
 
 @dataclass(frozen=True)
@@ -67,6 +68,11 @@ class BodyLoad:
     def form(self, test_function):
         return forms.body_force_virtual_work(self.value, test_function, self.measure)
 
+    def summary(self) -> dict[str, object]:
+        """Return a compact description for logs and agent inspection."""
+
+        return {"name": self.name, "kind": "body_load"}
+
 
 @dataclass(frozen=True)
 class BoundaryLoad:
@@ -75,9 +81,19 @@ class BoundaryLoad:
     value: object
     measure: object
     name: str = "boundary_load"
+    location: object | None = None
 
     def form(self, test_function):
         return forms.boundary_flux_virtual_work(self.value, test_function, self.measure)
+
+    def summary(self) -> dict[str, object]:
+        """Return a compact description for logs and agent inspection."""
+
+        return {
+            "name": self.name,
+            "kind": "boundary_load",
+            "location": getattr(self.location, "name", None),
+        }
 
 
 @dataclass(frozen=True)
@@ -90,6 +106,11 @@ class NeumannLoad:
 
     def form(self, test_function):
         return forms.boundary_flux_virtual_work(self.value, test_function, self.measure)
+
+    def summary(self) -> dict[str, object]:
+        """Return a compact description for logs and agent inspection."""
+
+        return {"name": self.name, "kind": "neumann_load"}
 
 
 @dataclass(frozen=True)
@@ -115,6 +136,69 @@ class LoadSet:
             raise ValueError("LoadSet.form requires at least one load.")
         return total
 
+    def summary(self) -> tuple[dict[str, object], ...]:
+        """Return compact descriptions of all load terms."""
+
+        result = []
+        for load in self.loads:
+            if hasattr(load, "summary"):
+                result.append(load.summary())
+            else:
+                result.append({"name": getattr(load, "name", repr(load)), "kind": type(load).__name__})
+        return tuple(result)
+
+
+def body_load(value, measure=ufl.dx, *, name: str = "body_load", domain=None, target=None) -> BodyLoad:
+    """Create a domain source/body-force load."""
+
+    return BodyLoad(
+        value=_as_constant(value, domain=domain, target=target),
+        measure=measure,
+        name=name,
+    )
+
+
+def body_force(value, *, domain=None, target=None, measure=ufl.dx, name: str = "body_force") -> BodyLoad:
+    """Create a mechanical body-force load."""
+
+    return body_load(value, measure=measure, name=name, domain=domain, target=target)
+
+
+def heat_source(value, *, domain=None, target=None, measure=ufl.dx, name: str = "heat_source") -> BodyLoad:
+    """Create a volumetric heat-source load."""
+
+    return body_load(value, measure=measure, name=name, domain=domain, target=target)
+
+
+def boundary_load(value, measure=None, *, location=None, name: str = "boundary_load") -> BoundaryLoad:
+    """Create a generic natural boundary load."""
+
+    selected_measure = measure if measure is not None else _location_measure(location)
+    return BoundaryLoad(
+        value=_as_constant(value, location=location),
+        measure=selected_measure,
+        name=name,
+        location=location,
+    )
+
+
+def neumann(value, measure, *, name: str = "neumann_load") -> NeumannLoad:
+    """Create a Neumann force/flux/traction term for the weak RHS."""
+
+    return NeumannLoad(value=value, measure=measure, name=name)
+
+
+def traction(value, *, location, name: str = "traction") -> BoundaryLoad:
+    """Create a mechanical traction applied on a boundary region."""
+
+    return boundary_load(value, location=location, name=name)
+
+
+def heat_flux(value, *, location, name: str = "heat_flux") -> BoundaryLoad:
+    """Create a prescribed heat flux applied on a boundary region."""
+
+    return boundary_load(value, location=location, name=name)
+
 
 def body_force_form(force, test_function):
     """Create a body-force virtual-work form."""
@@ -126,3 +210,24 @@ def boundary_traction_form(traction, test_function, ds_measure):
     """Create a boundary-traction virtual-work form."""
 
     return forms.boundary_flux_virtual_work(traction, test_function, ds_measure)
+
+
+def _location_measure(location):
+    if location is None:
+        raise ValueError("A boundary load requires measure or location.")
+    if not hasattr(location, "measure"):
+        raise ValueError("location must provide a boundary integration measure.")
+    return location.measure
+
+
+def _as_constant(value, *, location=None, domain=None, target=None):
+    if _is_ufl_like(value):
+        return value
+    owner = domain or location or target
+    if owner is None:
+        return value
+    return constants.constant(owner, value)
+
+
+def _is_ufl_like(value) -> bool:
+    return hasattr(value, "ufl_shape") or hasattr(value, "ufl_domain")

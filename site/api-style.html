@@ -19,6 +19,7 @@
 <a class="" href="module-map.html">Module Map</a>
 <a class="active" href="api-style.html">API Style</a>
 <a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
 <a class="" href="validation.html">Validation</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
@@ -46,7 +47,19 @@
 <ul>
 <li>Return DOLFINx/PETSc objects when the function is a low-level operation.</li>
 <li>Return dataclasses for reusable FEM assets.</li>
+<li>Give reusable dataclasses a <code>summary()</code> method when the object represents a<br>finite-element concept that humans or agents may audit.</li>
+<li>Give material-like dataclasses an <code>as_dict()</code> method when constants and<br>derived quantities are useful for logs or validation.</li>
 <li>Avoid hidden global state.</li>
+</ul>
+<h2 id="semantic-constructors">Semantic Constructors</h2>
+<ul>
+<li>Provide readable constructors for common concepts, such as<br><code>constraints.dirichlet(...)</code>, <code>loads.neumann(...)</code>, and<br><code>loads.body_load(...)</code>.</li>
+<li>Provide application-level constructors when they reduce boilerplate, such as<br><code>constraints.fixed(...)</code> for fixed-value Dirichlet conditions.</li>
+<li>Hide backend scalar-type details inside concept constructors such as<br><code>loads.traction(...)</code>, <code>constraints.fixed(...)</code>, and material-property<br>loaders.</li>
+<li>For vector fields, application-level constraint constructors should make the<br>common case short: <code>constraints.fixed(displacement, location=left)</code> fixes all<br>displacement components, while <code>components=0</code> or <code>components=(0, 1)</code> selects<br>individual dofs.</li>
+<li>Provide operator-level constructors for engineering FEM notation, such as<br><code>operators.stiffness_operator(...)</code>, <code>operators.mass_operator(...)</code>, and<br><code>operators.boundary_load_vector(...)</code>.</li>
+<li>Keep lower-level dataclasses available for advanced users who need direct<br>control.</li>
+<li>Use concept names in errors and summaries: constraint, load, boundary model,<br>constitutive law, operator, state, and diagnostic.</li>
 </ul>
 <h2 id="error-messages">Error Messages</h2>
 <p>Raise errors that explain the modeling issue, not only the Python issue. For example, say that a normal vector is required for normal/tangential absorbing boundaries.</p>

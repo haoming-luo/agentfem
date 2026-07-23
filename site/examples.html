@@ -19,6 +19,7 @@
 <a class="" href="module-map.html">Module Map</a>
 <a class="" href="api-style.html">API Style</a>
 <a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
 <a class="" href="validation.html">Validation</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
@@ -30,16 +31,19 @@
 <p>These examples are written as workflow references for both researchers and agents. Each one should expose the finite-element sequence clearly:</p>
 <ol>
 <li>Mesh</li>
-<li>Function spaces and fields</li>
-<li>Constitutive law</li>
-<li>Constraints, loads, and boundary models</li>
-<li>Forms</li>
+<li>Regions for boundary and domain locations</li>
+<li>Application unknowns with <code>fields</code></li>
+<li>Material properties and constitutive relations</li>
+<li>Constraints, loads, and boundary models applied to regions</li>
+<li>Operators such as <code>K</code>, <code>M</code>, <code>C</code>, and <code>F</code></li>
 <li>Assembly and solve or time stepping</li>
 <li>Diagnostics and output</li>
 </ol>
+<p>Beginner application examples should prefer operator-level language such as <code>K x = F</code> and <code>LinearSystemProblem</code> before introducing weak-form details. Use <code>constraints.fixed(...)</code> for application-level fixed-value boundary conditions. For vector fields it fixes all components by default; pass <code>components=0</code> or <code>components=(0, 1)</code> to constrain selected components.</p>
 <h2 id="examples">Examples</h2>
 <ul>
 <li><code>static_elasticity_2d.py</code>: small linear-elastic cantilever-style solve.</li>
+<li><code>transient_heat_2d.py</code>: implicit-Euler transient heat-conduction solve.</li>
 <li><code>wave_packet_plate_2d.py</code>: simplified plate wave-packet propagation with<br>source displacement, top/bottom periodic projection, and right absorbing<br>boundary model.</li>
 </ul>
       </article>

@@ -7,6 +7,10 @@ Every nontrivial change should be checked at three levels.
 - Imports use the current package layout.
 - Public concepts appear in the correct module family.
 - Application-specific code does not leak into the platform core.
+- Mesh summaries and required tag checks are used when a workflow depends on
+  material or boundary labels.
+- Public dataclasses that represent reusable FEM assets provide inspectable
+  summaries when practical.
 
 ## Numerical Checks
 
@@ -16,11 +20,14 @@ Every nontrivial change should be checked at three levels.
 - For MPI-aware code, run at least one small parallel smoke test when possible.
 - For workflow examples, run the example and check that XDMF/HDF5 output is
   produced.
+- For transient examples, verify that time-series fields are written at more
+  than one time value.
 
 ## Modeling Checks
 
 - Units are explicit and consistent.
 - Constraints, loads, and boundary models are not mixed.
+- Required material and boundary tags are checked before weak forms are built.
 - Time-step choices are connected to the relevant stability estimate.
 - Mesh density is connected to wavelength, gradients, or geometry resolution.
 

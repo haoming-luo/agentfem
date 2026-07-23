@@ -1,0 +1,24 @@
+{
+  "id": "orthotropic_template",
+  "display_name": "Orthotropic material template",
+  "family": "template",
+  "unit_system": "SI",
+  "source": "template_not_a_reference_material",
+  "models": {
+    "orthotropic_plane_stress_2d": {
+      "ex": 10000000000.0,
+      "ey": 5000000000.0,
+      "nuxy": 0.25,
+      "gxy": 3000000000.0,
+      "density": 1500.0
+    },
+    "anisotropic_linear_elastic_2d": {
+      "stiffness_voigt": [
+        [10000000000.0, 2500000000.0, 0.0],
+        [2500000000.0, 8000000000.0, 0.0],
+        [0.0, 0.0, 3000000000.0]
+      ],
+      "density": 1500.0
+    }
+  }
+}

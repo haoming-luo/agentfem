@@ -13,8 +13,11 @@ with AgentFEM.
 ## Rules
 
 - Keep the finite-element workflow visible.
+- Inspect mesh summaries and required tags before building weak forms.
+- Use `FEMProblem.summary()` or equivalent structured summaries when auditing a
+  workflow.
 - Use AgentFEM modules before writing ad hoc DOLFINx/PETSc boilerplate.
-- Put material laws under `constitutive/`.
+- Put local response relations under `constitutive/`.
 - Put weak boundary physics under `boundary_models/`.
 - Put Dirichlet, periodic, and MPC relations under `constraints`.
 - Put Neumann, traction, flux, and body sources under `loads`.

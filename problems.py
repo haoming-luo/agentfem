@@ -5,12 +5,48 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import numpy as np
+from dolfinx import fem
 
 from . import assembly
 from . import dofs
 from . import spaces
 from . import time
 from .solvers import LinearSolverOptions, solve_linear_problem
+
+
+@dataclass
+class FEMProblem:
+    """Lightweight finite-element problem description.
+
+    This object is intentionally descriptive: it helps humans and agents inspect
+    a model without hiding weak forms, assembly, or solver choices.
+    """
+
+    name: str
+    domain: object
+    spaces: dict[str, object] = field(default_factory=dict)
+    fields: dict[str, object] = field(default_factory=dict)
+    materials: list[object] = field(default_factory=list)
+    constraints: list[object] = field(default_factory=list)
+    loads: list[object] = field(default_factory=list)
+    boundary_models: list[object] = field(default_factory=list)
+    forms: dict[str, object] = field(default_factory=dict)
+
+    def summary(self) -> dict[str, object]:
+        """Return a compact problem summary for logs or agent inspection."""
+
+        return {
+            "name": self.name,
+            "topological_dim": self.domain.topology.dim,
+            "geometric_dim": self.domain.geometry.dim,
+            "spaces": tuple(self.spaces.keys()),
+            "fields": tuple(self.fields.keys()),
+            "materials": tuple(_describe_asset(material) for material in self.materials),
+            "constraints": tuple(_describe_asset(item) for item in self.constraints),
+            "loads": tuple(_describe_asset(item) for item in self.loads),
+            "boundary_models": tuple(_describe_asset(item) for item in self.boundary_models),
+            "forms": tuple(self.forms.keys()),
+        }
 
 
 @dataclass
@@ -33,6 +69,46 @@ class LinearVariationalProblem:
             bcs=self.bcs,
             options=self.solver_options,
         )
+
+
+@dataclass
+class LinearSystemProblem:
+    """Engineering-level linear system problem, usually ``K x = F``."""
+
+    system: object
+    solution: object | None = None
+    unknown: object | None = None
+    bcs: list = field(default_factory=list)
+    solver_options: LinearSolverOptions | None = None
+
+    def solve(self):
+        """Compile the system operators and solve into ``solution``."""
+
+        solution = self._solution()
+        return solve_linear_problem(
+            fem.form(self.system.lhs_form()),
+            fem.form(self.system.rhs_form()),
+            solution,
+            bcs=self.bcs,
+            options=self.solver_options,
+        )
+
+    def summary(self) -> dict[str, object]:
+        """Return an inspectable K/F problem summary."""
+
+        return {
+            "kind": "linear_system_problem",
+            "system": self.system.summary() if hasattr(self.system, "summary") else repr(self.system),
+            "solution": getattr(self._solution(), "name", repr(self._solution())),
+            "num_bcs": len(self.bcs),
+        }
+
+    def _solution(self):
+        if self.solution is not None:
+            return self.solution
+        if self.unknown is not None and hasattr(self.unknown, "value"):
+            return self.unknown.value
+        raise ValueError("LinearSystemProblem requires solution or unknown.")
 
 
 @dataclass
@@ -141,3 +217,11 @@ class LumpedMassOperator:
 
 
 ExplicitDynamicsState = SecondOrderDynamicsState
+
+
+def _describe_asset(asset) -> object:
+    if hasattr(asset, "as_dict"):
+        return asset.as_dict()
+    if hasattr(asset, "summary"):
+        return asset.summary()
+    return getattr(asset, "name", repr(asset))

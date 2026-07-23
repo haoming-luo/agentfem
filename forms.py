@@ -23,6 +23,12 @@ def damping_form(coefficient, trial_function, test_function, measure=ufl.dx):
     return ufl.inner(coefficient * trial_function, test_function) * measure
 
 
+def diffusion_form(conductivity, trial_function, test_function, measure=ufl.dx):
+    """Diffusion/conduction form, ``k * grad(trial) . grad(test)``."""
+
+    return conductivity * ufl.inner(ufl.grad(trial_function), ufl.grad(test_function)) * measure
+
+
 def inertial_form(density, acceleration, test_function, measure=ufl.dx):
     """Inertial virtual-work form, ``rho * acceleration . test``."""
 

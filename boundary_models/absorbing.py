@@ -69,6 +69,15 @@ class ViscousAbsorbingBoundary:
             tangential_impedance=self.tangential_impedance,
         )
 
+    def summary(self) -> dict[str, object]:
+        """Return a compact description for logs and agent inspection."""
+
+        return {
+            "name": self.name,
+            "kind": "viscous_absorbing_boundary",
+            "mode": "scalar" if self.tangential_impedance is None else "normal_tangential",
+        }
+
 
 def lysmer_kuhlemeyer_boundary(
     measure,

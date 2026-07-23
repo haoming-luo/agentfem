@@ -1,0 +1,14 @@
+{
+  "id": "silicon_nitride_generic",
+  "display_name": "Silicon nitride, generic",
+  "family": "ceramic",
+  "unit_system": "SI",
+  "source": "typical_engineering_value",
+  "models": {
+    "isotropic_linear_elastic": {
+      "young": 250000000000.0,
+      "poisson": 0.23,
+      "density": 3100.0
+    }
+  }
+}

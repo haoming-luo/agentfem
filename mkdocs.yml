@@ -29,6 +29,7 @@ nav:
       - Module Map: docs/module_map.md
       - API Style: docs/api_style.md
       - Extension Rules: docs/extension_rules.md
+      - Tutorial Design: docs/tutorial_design.md
       - Validation: docs/validation.md
       - Architecture Review: docs/architecture_review.md
       - Documentation Site: docs/documentation_site.md

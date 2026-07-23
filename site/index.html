@@ -19,6 +19,7 @@
 <a class="" href="module-map.html">Module Map</a>
 <a class="" href="api-style.html">API Style</a>
 <a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
 <a class="" href="validation.html">Validation</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
@@ -28,7 +29,7 @@
       <article>
 <h1 id="agentfem">AgentFEM</h1>
 <p>AgentFEM is an agent-oriented finite-element workflow platform built on DOLFINx/PETSc. The Python package is named <code>agentfem</code>, matching the platform name used by the documentation and application code.</p>
-<p>The current implementation is strongest in reusable FEM workflow steps, linear-elastic constitutive laws, explicit dynamics, weak loads, constraints, absorbing boundary models, diagnostics, and ParaView output.</p>
+<p>The current implementation is strongest in reusable FEM workflow steps, linear-elastic material properties and constitutive relations, explicit dynamics, weak loads, constraints, absorbing boundary models, diagnostics, and ParaView output.</p>
 <h2 id="agent-entry-points">Agent Entry Points</h2>
 <ul>
 <li><code>AGENT_GUIDE.md</code>: first file for AI agents working with AgentFEM.</li>
@@ -36,14 +37,18 @@
 <li><code>CONCEPTS.md</code>: shared vocabulary for humans and agents.</li>
 <li><code>docs/</code>: detailed platform rules and extension guidance.</li>
 <li><code>examples/</code>: runnable workflow examples for researchers and agents.</li>
+<li><code>materials/</code>: data-backed material library.</li>
 <li><code>skills/agentfem/</code>: skill-ready progressive-disclosure package.</li>
 <li><code>mkdocs.yml</code>: optional static documentation-site configuration.</li>
 </ul>
 <h2 id="standard-workflow">Standard Workflow</h2>
 <ol>
 <li>Build or read a mesh with application geometry plus <code>mesh</code> import helpers.</li>
-<li>Create spaces and fields with <code>spaces</code>.</li>
-<li>Locate dofs and construct strong constraints with <code>dofs</code>, <code>boundary</code>, and<br><code>constraints</code>.</li>
+<li>Inspect mesh size and required tags with <code>mesh.summarize_mesh(...)</code>,<br><code>mesh.require_cell_tags(...)</code>, and <code>mesh.require_facet_tags(...)</code>.</li>
+<li>Define named geometric regions with <code>mesh.boundary(...)</code> or mesh tags.</li>
+<li>Create application unknowns with <code>fields</code>, or low-level spaces with <code>spaces</code>.</li>
+<li>Define a lightweight <code>problems.FEMProblem</code> when a workflow needs a structured<br>model summary for logs, reviews, or agents.</li>
+<li>Construct strong constraints with <code>constraints</code>.</li>
 <li>Construct weak loads such as body forces, Neumann fluxes, and tractions with<br><code>loads</code>.</li>
 <li>Build weak forms with application physics plus reusable <code>forms</code> blocks.</li>
 <li>Compile and assemble with <code>assembly</code>.</li>
@@ -53,35 +58,54 @@
 </ol>
 <h2 id="modules">Modules</h2>
 <ul>
-<li><code>mesh</code>: mesh import/read/write, boundary facet location, facet tags,<br>boundary measures</li>
+<li><code>mesh</code>: mesh import/read/write, named boundary regions, boundary facet<br>location, facet tags, boundary measures, structured mesh constructors, mesh<br>summaries, and tag checks</li>
 <li><code>mesh_formats</code>: optional external CAE mesh conversion through <code>meshio</code></li>
-<li><code>spaces</code>: scalar/vector spaces, trial/test functions, named fields</li>
-<li><code>dofs</code>: dof location, owned/ghost arrays, field copies</li>
+<li><code>spaces</code>: scalar/vector spaces, Lagrange space constructors, trial/test<br>functions, named fields</li>
+<li><code>fields</code>: application-level unknown bundles such as displacement and<br>temperature</li>
+<li><code>dofs</code>: low-level dof location, owned/ghost arrays, field copies</li>
 <li><code>constraints</code>: Dirichlet constraint containers and periodic constraint specs</li>
-<li><code>constitutive</code>: material laws and constitutive-model helpers</li>
+<li><code>constitutive</code>: stress-strain, flux-gradient, and other local response<br>relations</li>
+<li><code>materials</code>: reusable material-property records, property containers, and<br>loaders</li>
 <li><code>boundary_models</code>: reusable weak boundary models, such as absorbing boundaries</li>
-<li><code>boundary</code>: Dirichlet constants and BC application</li>
-<li><code>loads</code>: time functions, time-dependent Dirichlet data, body loads,<br>Neumann/boundary loads, and load sets</li>
+<li><code>loads</code>: time functions, time-dependent Dirichlet data, body forces,<br>tractions, fluxes, heat sources, semantic constructors, and load sets</li>
 <li><code>forms</code>: common UFL virtual-work building blocks</li>
 <li><code>assembly</code>: form compilation, vector/matrix assembly, lumped operators/mass</li>
+<li><code>operators</code>: engineering-level K/M/C/F operators and system containers</li>
 <li><code>time</code>: explicit central-difference/Newmark kernels</li>
-<li><code>problems</code>: standard problem/state containers</li>
+<li><code>problems</code>: standard problem descriptions and state containers</li>
 <li><code>runtime</code>: time-step metadata, progress printing, and elapsed-time formatting</li>
 <li><code>solvers</code>: PETSc KSP setup and standard linear problem solve</li>
 <li><code>diagnostics</code>: distributed norms, energy-like quantities, and named scalar<br>diagnostic sets</li>
-<li><code>io</code>: MPI-safe directories, CSV logs, and XDMF time-series output</li>
+<li><code>io</code>: MPI-safe directories, CSV logs, XDMF time-series output, and named<br>result writers</li>
+<li><code>elements</code>: reserved namespace for reusable element and integration policies</li>
+<li><code>benchmarks</code>: reserved namespace for standard verification problems</li>
 </ul>
 <h2 id="core-api-direction">Core API Direction</h2>
 <ul>
 <li>Use <code>assembly.assemble_lumped_operator(V, coefficient, measure)</code> for generic<br>diagonal operators on a function space <code>V</code>.</li>
 <li>Use <code>mesh.import_gmsh_model(...)</code> or <code>mesh.read_gmsh_mesh(...)</code> to convert<br>Gmsh meshes into DOLFINx meshes with physical tags.</li>
+<li>Use <code>mesh.rectangle(lower, upper, cells, cell_type=&quot;quadrilateral&quot;)</code> for a<br>structured rectangular mesh in beginner examples. Choose the analysis element<br>degree later with <code>fields</code> or <code>spaces</code>.</li>
+<li>Use <code>mesh.summarize_mesh(...)</code> or <code>FEMMesh.summary()</code> before assembly when<br>an agent or reviewer needs to confirm dimensions, cell counts, and tags.</li>
+<li>Use <code>mesh.require_cell_tags(...)</code> and <code>mesh.require_facet_tags(...)</code> when an<br>input file must contain specific material or boundary labels.</li>
+<li>Use <code>spaces.scalar_space(...)</code> and <code>spaces.vector_space(...)</code> as concise<br>Lagrange defaults; use <code>lagrange_space(...)</code> or <code>vector_lagrange_space(...)</code><br>when the element family should be explicit in code.</li>
+<li>Use <code>fields.displacement(...)</code> and <code>fields.temperature(...)</code> in beginner<br>application workflows to avoid exposing trial/test bookkeeping.</li>
+<li>Use <code>mesh.boundary(...)</code> to name geometric locations before applying loads<br>or constraints.</li>
+<li>Use <code>constraints.fixed(target, location=..., value=...)</code> for application-level<br>fixed-value boundary conditions. Vector fields default to all components; use<br><code>components=0</code> or <code>components=(0, 1)</code> for selected components.</li>
 <li>Use <code>mesh.read_xdmf_mesh(...)</code> and <code>mesh.write_xdmf_mesh(...)</code> for DOLFINx<br>XDMF mesh exchange.</li>
 <li>Use <code>mesh.convert_external_mesh_to_xdmf(...)</code> or<br><code>mesh_formats.convert_to_xdmf(...)</code> for Abaqus <code>.inp</code>, NASTRAN <code>.bdf/.nas</code>,<br>VTK, and other meshio-supported external CAE mesh formats.</li>
 <li>Use <code>assembly.assemble_lumped_mass(V, density, measure)</code> as the mass-specific<br>wrapper.</li>
 <li>Use <code>problems.TransientState</code> for first-order transient unknowns.</li>
 <li>Use <code>problems.SecondOrderDynamicsState</code> for displacement/velocity/acceleration<br>dynamics. <code>ExplicitDynamicsState</code> remains as a compatibility alias.</li>
 <li>Use <code>constitutive.elasticity.estimate_elastic_wave_speeds(material)</code> when a<br>wave solver needs scalar wave-speed estimates from an elastic material.</li>
+<li>Use <code>constitutive.elasticity.stress(displacement, properties)</code> to apply an<br>elastic constitutive relation to a displacement field.</li>
+<li>Use <code>materials.load_material(name, model=...)</code> for reusable material records<br>stored in material-centered JSON files under <code>materials/data</code>; keep material<br>parameters in SI units.</li>
 <li>Use <code>constraints</code> for strong constraints. Use <code>loads.NeumannLoad</code> or<br><code>loads.BoundaryLoad</code> for natural boundary data that enters the weak form.</li>
+<li>Use <code>loads.traction(...)</code>, <code>loads.body_force(...)</code>, <code>loads.heat_flux(...)</code>,<br>and <code>loads.heat_source(...)</code> as readable natural-load constructors in<br>application code.</li>
+<li>Use <code>problems.FEMProblem(...).summary()</code> to expose the mesh, spaces,<br>materials, constraints, loads, boundary models, and forms in a single<br>inspectable record.</li>
+<li>Use <code>io.ResultWriter(path, domain, fields)</code> when a workflow writes the same<br>fields repeatedly.</li>
+<li>Use <code>io.interpolate_for_xdmf(...)</code> when a higher-order analysis field must be<br>written to XDMF on a linear mesh.</li>
+<li>Use <code>operators.stiffness_operator(...)</code>, <code>operators.mass_operator(...)</code>,<br><code>operators.force_vector(...)</code>, and <code>operators.LinearSystem(...)</code> when a<br>workflow should be written in engineering matrix notation such as <code>K x = F</code>.</li>
+<li>Use <code>problems.LinearSystemProblem(system=..., solution=...)</code> to solve an<br>operator-level <code>K x = F</code> system without manually handling variational forms.</li>
 </ul>
 <h2 id="boundary-data-rule">Boundary Data Rule</h2>
 <ul>
@@ -110,11 +134,78 @@ form = abc.form(velocity, test_function)</code></pre>
 <ul>
 <li>Generic FE operations: function spaces, dof maps, weak-form blocks, matrix/vector<br>assembly, time-integration kernels, KSP solves, diagnostics, and output.</li>
 <li>Reusable physics primitives: standard strain/stress operators and material-law<br>containers live under <code>constitutive</code>, not as first-level workflow modules.</li>
+<li>Material-property records live under <code>materials</code>; constitutive equations live<br>under <code>constitutive</code>.</li>
+<li>Future element, operator-family, and benchmark assets belong under<br><code>elements</code>, <code>operators</code>, and <code>benchmarks</code> rather than crowding the first-level<br>workflow modules.</li>
 <li>Application assets stay outside: geometry, case-specific sources, benchmark<br>constants, and paper-specific parameters belong in applications or examples.</li>
 </ul>
+<h2 id="materials-and-constitutive-laws">Materials And Constitutive Laws</h2>
+<p>Material properties and constitutive laws are deliberately separate:</p>
+<pre><code>from agentfem.constitutive import elasticity
+
+properties = elasticity.isotropic_elastic(
+    name=&quot;my_material&quot;,
+    young=250e9,
+    poisson=0.23,
+    density=3100.0,
+)
+sigma = elasticity.stress(displacement, properties)</code></pre>
+<p>Here <code>properties</code> stores constants, while <code>elasticity.stress(...)</code> is the stress-strain relation. This keeps material data reusable across different analysis workflows.</p>
+<h2 id="operator-layer">Operator Layer</h2>
+<p>The operator layer is for users who think in finite-element matrices and vectors:</p>
+<pre><code>from agentfem import constraints, fields, loads, mesh, operators
+
+displacement = fields.displacement(domain, degree=1)
+left_boundary = mesh.boundary(domain, left_marker, name=&quot;left&quot;)
+right_boundary = mesh.boundary(domain, right_marker, name=&quot;right&quot;)
+fixed_left = constraints.fixed(
+    displacement,
+    location=left_boundary,
+    value=0.0,
+)
+right_traction = loads.traction(
+    value=(0.0, -1.0e6),
+    location=right_boundary,
+)
+K = operators.stiffness_operator(displacement, properties)
+F = operators.force_vector(
+    target=displacement,
+    loads=[right_traction],
+)
+system = operators.LinearSystem(stiffness=K, force=F)
+problem = problems.LinearSystemProblem(
+    system=system,
+    unknown=displacement,
+    bcs=fixed_left.bcs,
+)
+problem.solve()</code></pre>
+<p>The system still exposes forms internally for DOLFINx assembly/solve, but application code can be read as <code>K x = F</code>. Dynamics workflows can use <code>SecondOrderSystem</code> to record <code>M</code>, <code>C</code>, <code>K</code>, and <code>F</code>.</p>
+<p>For beginner application code, prefer unknown bundles:</p>
+<pre><code>from agentfem import fields, loads, mesh, operators
+
+displacement = fields.displacement(domain, degree=1)
+K = operators.stiffness_operator(displacement, properties)
+right_boundary = mesh.boundary(domain, right_marker, name=&quot;right&quot;)
+right_traction = loads.traction(
+    value=(0.0, -1.0e6),
+    location=right_boundary,
+)
+F = operators.force_vector(
+    target=displacement,
+    loads=[right_traction],
+)</code></pre>
+<p>The bundle stores the function space, solution field, trial function, and test function internally. Advanced workflows can still use <code>spaces</code> directly.</p>
+<h2 id="material-library">Material Library</h2>
+<p>The material library is material-centered and data-backed. Edit one JSON file per material under <code>materials/data/</code> when adding persistent material records:</p>
+<pre><code>from agentfem.materials import list_material_models, list_materials, load_material
+
+print(list_materials(model=&quot;isotropic_linear_elastic&quot;))
+print(list_material_models(&quot;silicon_nitride_generic&quot;))
+material = load_material(&quot;silicon_nitride_generic&quot;, model=&quot;isotropic_linear_elastic&quot;)</code></pre>
+<p>Each record must declare <code>id</code>, <code>display_name</code>, <code>family</code>, <code>unit_system: &quot;SI&quot;</code>, <code>source</code>, and a <code>models</code> mapping. The loader validates records and returns material-property objects suitable for <code>agentfem.constitutive</code> relations.</p>
 <h2 id="examples">Examples</h2>
 <p>Run examples from the parent directory of the source checkout:</p>
 <pre><code>python agentfem/examples/static_elasticity_2d.py
+python agentfem/examples/transient_heat_2d.py
 python agentfem/examples/wave_packet_plate_2d.py</code></pre>
 <p>The examples write XDMF output to <code>agentfem/examples_output/</code> for ParaView.</p>
       </article>

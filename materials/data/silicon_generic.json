@@ -1,0 +1,14 @@
+{
+  "id": "silicon_generic",
+  "display_name": "Silicon, generic orientation-averaged",
+  "family": "semiconductor",
+  "unit_system": "SI",
+  "source": "orientation-averaged_typical_value",
+  "models": {
+    "isotropic_linear_elastic": {
+      "young": 130000000000.0,
+      "poisson": 0.28,
+      "density": 2330.0
+    }
+  }
+}

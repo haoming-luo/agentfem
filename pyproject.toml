@@ -25,6 +25,15 @@ notebooks = ["jupyterlab", "ipykernel", "nbformat", "nbclient"]
 package-dir = { "agentfem" = "." }
 packages = [
   "agentfem",
+  "agentfem.benchmarks",
   "agentfem.boundary_models",
   "agentfem.constitutive",
+  "agentfem.elements",
+  "agentfem.kernel",
+  "agentfem.materials",
+  "agentfem.mesh",
+  "agentfem.operators",
 ]
+
+[tool.setuptools.package-data]
+"agentfem.materials" = ["data/*.json"]

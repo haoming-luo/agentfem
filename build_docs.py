@@ -30,6 +30,11 @@ PAGES = [
         ROOT / "docs" / "extension_rules.md",
         SITE_DIR / "extension-rules.html",
     ),
+    Page(
+        "Tutorial Design",
+        ROOT / "docs" / "tutorial_design.md",
+        SITE_DIR / "tutorial-design.html",
+    ),
     Page("Validation", ROOT / "docs" / "validation.md", SITE_DIR / "validation.html"),
     Page(
         "Architecture Review",

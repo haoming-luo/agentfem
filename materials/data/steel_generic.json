@@ -1,0 +1,14 @@
+{
+  "id": "steel_generic",
+  "display_name": "Steel, generic",
+  "family": "metal",
+  "unit_system": "SI",
+  "source": "typical_engineering_value",
+  "models": {
+    "isotropic_linear_elastic": {
+      "young": 200000000000.0,
+      "poisson": 0.30,
+      "density": 7850.0
+    }
+  }
+}

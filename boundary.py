@@ -16,16 +16,33 @@ def scalar_constant(domain, value=0.0):
     return fem.Constant(domain, PETSc.ScalarType(value))
 
 
-def component_dirichlet_bc(V, component: int, marker, value=0.0):
+def component_dirichlet_bc(V, component: int, marker=None, value=0.0, *, location=None):
     """Create a Dirichlet BC for one component of a vector function space.
 
     Returns ``(constant, bc)`` so callers can update ``constant.value`` during
     transient solves.
     """
 
-    constant = scalar_constant(V.mesh, value)
-    component_dofs = dofs.locate_component_dofs(V, component, marker)
-    bc = fem.dirichletbc(constant, component_dofs, V.sub(component))
+    marker = _marker(marker, location)
+    space = _space(V)
+    constant = scalar_constant(space.mesh, value)
+    component_dofs = dofs.locate_component_dofs(space, component, marker)
+    bc = fem.dirichletbc(constant, component_dofs, space.sub(component))
+    return constant, bc
+
+
+def scalar_dirichlet_bc(V, marker=None, value=0.0, *, location=None):
+    """Create a Dirichlet BC for a scalar function space.
+
+    Returns ``(constant, bc)`` so callers can update ``constant.value`` during
+    transient solves.
+    """
+
+    marker = _marker(marker, location)
+    space = _space(V)
+    constant = scalar_constant(space.mesh, value)
+    scalar_dofs = dofs.locate_dofs(space, marker)
+    bc = fem.dirichletbc(constant, scalar_dofs, space)
     return constant, bc
 
 
@@ -34,3 +51,14 @@ def apply_dirichlet_bcs(function, bcs) -> None:
 
     fem_petsc.set_bc(function.x.petsc_vec, bcs)
     function.x.scatter_forward()
+
+
+def _space(V):
+    return V.space if hasattr(V, "space") else V
+
+
+def _marker(marker, location):
+    selected = location if location is not None else marker
+    if selected is None:
+        raise ValueError("A marker or location is required for a Dirichlet boundary.")
+    return selected.marker if hasattr(selected, "marker") else selected

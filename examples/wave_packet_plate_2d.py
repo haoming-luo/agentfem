@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+from typing import NamedTuple
 
 import numpy as np
 import ufl
@@ -24,7 +25,7 @@ if str(SOURCE_PARENT) not in sys.path:
     sys.path.insert(0, str(SOURCE_PARENT))
 
 from agentfem import assembly
-from agentfem import boundary
+from agentfem import constraints
 from agentfem import forms
 from agentfem import io as fem_io
 from agentfem import mesh as fem_mesh
@@ -35,44 +36,104 @@ from agentfem.boundary_models import absorbing
 from agentfem.constitutive import elasticity
 
 
+class PeriodicProjection(NamedTuple):
+    """Parent dof pairs used for explicit top-bottom periodic projection."""
+
+    pairs: tuple[tuple[np.ndarray, np.ndarray], ...]
+    pair_count: int
+
+
 def wave_packet(t: float, amplitude: float, frequency: float, width: float) -> float:
     omega = 2.0 * np.pi * frequency
-    return amplitude * np.sin(omega * t) * np.exp(-((t - 3.0 * width) / width) ** 2)
+    return amplitude * np.sin(omega * t) * np.exp(
+        -((t - 3.0 * width) ** 2) / (2.0 * width**2)
+    )
 
 
-def periodic_pairs_by_y(domain, V, bottom_marker, top_marker, *, tol=1.0e-12):
-    bottom_dofs = fem.locate_dofs_geometrical(V, bottom_marker)
-    top_dofs = fem.locate_dofs_geometrical(V, top_marker)
-    coords = V.tabulate_dof_coordinates()
-    bottom = sorted(bottom_dofs, key=lambda dof: coords[dof, 0])
-    top = sorted(top_dofs, key=lambda dof: coords[dof, 0])
-    if len(bottom) != len(top):
-        raise RuntimeError("Periodic projection requires matching top/bottom dofs.")
+def build_top_bottom_periodic_projection(V, height: float, tolerance: float):
+    """Create component-wise matching top-bottom dof pairs.
+
+    This mirrors the projection used in the wave_packet demo: after each
+    explicit update, paired top/bottom dofs are averaged component by component.
+    """
+
+    domain = V.mesh
+    if domain.comm.size > 1:
+        raise RuntimeError("This explicit periodic projection example is serial-only.")
+
+    bottom_marker = lambda x: np.isclose(x[1], 0.0, rtol=0.0, atol=tolerance)
+    top_marker = lambda x: np.isclose(x[1], height, rtol=0.0, atol=tolerance)
     pairs = []
-    for b, t in zip(bottom, top):
-        if not np.isclose(coords[b, 0], coords[t, 0], atol=tol, rtol=0.0):
-            raise RuntimeError("Top/bottom periodic dofs are not aligned in x.")
-        pairs.append((b, t))
-    return pairs
+    pair_count = 0
+    for component in range(V.num_sub_spaces):
+        Vc, _ = V.sub(component).collapse()
+        coords = Vc.tabulate_dof_coordinates()
+        bottom_parent, bottom_child = fem.locate_dofs_geometrical(
+            (V.sub(component), Vc), bottom_marker
+        )
+        top_parent, top_child = fem.locate_dofs_geometrical((V.sub(component), Vc), top_marker)
+
+        if len(bottom_child) != len(top_child):
+            raise RuntimeError(
+                "Periodic projection requires matching top/bottom dofs "
+                f"for component {component}."
+            )
+
+        bottom_order = np.argsort(coords[bottom_child, 0])
+        top_order = np.argsort(coords[top_child, 0])
+        bottom_parent = np.asarray(bottom_parent[bottom_order], dtype=np.int32)
+        top_parent = np.asarray(top_parent[top_order], dtype=np.int32)
+        bottom_x = coords[bottom_child[bottom_order], 0]
+        top_x = coords[top_child[top_order], 0]
+
+        if not np.allclose(bottom_x, top_x, atol=tolerance, rtol=0.0):
+            mismatch = float(np.max(np.abs(bottom_x - top_x)))
+            raise RuntimeError(
+                "Top/bottom periodic dofs are not aligned in x "
+                f"for component {component}: max mismatch={mismatch:.3e}."
+            )
+
+        pairs.append((bottom_parent, top_parent))
+        pair_count = len(bottom_parent)
+    return PeriodicProjection(tuple(pairs), pair_count)
 
 
-def project_periodic(function, pairs) -> None:
+def apply_periodic_projection(function, projection: PeriodicProjection | None) -> None:
+    """Enforce top-bottom periodic equality by averaging paired dofs."""
+
+    if projection is None:
+        return
     values = function.x.array
-    for bottom, top in pairs:
-        avg = 0.5 * (values[bottom] + values[top])
-        values[bottom] = avg
-        values[top] = avg
+    for bottom_dofs, top_dofs in projection.pairs:
+        averaged = 0.5 * (values[bottom_dofs] + values[top_dofs])
+        values[bottom_dofs] = averaged
+        values[top_dofs] = averaged
     function.x.scatter_forward()
+
+
+def periodic_projection_mismatch(function, projection: PeriodicProjection | None) -> float:
+    """Return max absolute top-bottom mismatch after projection."""
+
+    if projection is None:
+        return 0.0
+    values = function.x.array
+    mismatch = 0.0
+    for bottom_dofs, top_dofs in projection.pairs:
+        if len(bottom_dofs) > 0:
+            mismatch = max(mismatch, float(np.max(np.abs(values[bottom_dofs] - values[top_dofs]))))
+    return function.function_space.mesh.comm.allreduce(mismatch, op=MPI.MAX)
 
 
 def main() -> None:
     comm = MPI.COMM_WORLD
     length = 1.2e-6
     height = 0.24e-6
+    denx = 240
+    deny = 48
     domain = mesh.create_rectangle(
         comm,
         [np.array([0.0, 0.0]), np.array([length, height])],
-        [120, 24],
+        [denx,deny],
         cell_type=mesh.CellType.quadrilateral,
     )
 
@@ -96,14 +157,9 @@ def main() -> None:
     def right(x):
         return np.isclose(x[0], length)
 
-    def bottom(x):
-        return np.isclose(x[1], 0.0)
-
-    def top(x):
-        return np.isclose(x[1], height)
-
-    left_y, left_y_bc = boundary.component_dirichlet_bc(V, 1, left, value=0.0)
-    periodic_pairs = periodic_pairs_by_y(domain, V, bottom, top, tol=1.0e-13)
+    left_y_constraint = constraints.component_dirichlet(V, 0, left, value=0.0)
+    tolerance = min(length / denx, height / deny) * 1.0e-6
+    periodic_projection = build_top_bottom_periodic_projection(V, height, tolerance)
 
     ds_right, _ = fem_mesh.tagged_boundary_measure(domain, right, tag=2)
     normal = ufl.FacetNormal(domain)
@@ -115,52 +171,52 @@ def main() -> None:
         normal=normal,
     )
 
-    frequency = 90.78e9
+    frequency = 40.78e9
     width = 3.0 * np.pi / (2.0 * np.pi * frequency)
-    dt = 0.35 * min(length / 120, height / 24) / cp
-    steps = 200
+    dt = 0.35 * min(length / denx, height / deny) / cp
+    steps = 1000
     source_amplitude = 4.9e-13
 
     out = Path(__file__).resolve().parents[1] / "examples_output" / "wave_packet_plate_2d.xdmf"
     stepper = runtime.TimeStepper(
         total_steps=steps,
         dt=dt,
-        save_every=20,
-        print_every=25,
+        save_every=10,
+        print_every=100,
+    )
+    residual_form = fem.form(
+        forms.stiffness_form(elasticity.stress(state.u, material), elasticity.strain(v_test), measure=dx)
+        + abc.form(state.v, v_test)
     )
 
     with fem_io.XDMFTimeSeries(out, domain) as xdmf:
         xdmf.write_fields(0.0, state.u, state.v)
         for info in stepper:
             t = info.time
-            left_y.value = PETSc.ScalarType(
+            left_y_constraint.value.value = PETSc.ScalarType(
                 wave_packet(t, source_amplitude, frequency, width)
             )
             state.predict_displacement(dt)
-            boundary.apply_dirichlet_bcs(state.u_next, [left_y_bc])
-            project_periodic(state.u_next, periodic_pairs)
+            constraints.apply_dirichlet_bcs(state.u_next, [left_y_constraint.bc])
+            apply_periodic_projection(state.u_next, periodic_projection)
+            state.accept_displacement()
 
-            stress = material.sigma(state.u_next)
-            residual_form = fem.form(
-                forms.stiffness_form(stress, elasticity.strain(v_test), measure=dx)
-                + abc.form(state.v, v_test)
-            )
             residual = assembly.assemble_vector(residual_form)
             state.set_acceleration_from_residual(residual, lumped.inv_mass)
             residual.destroy()
-            boundary.apply_dirichlet_bcs(state.a_next, [left_y_bc])
-            project_periodic(state.a_next, periodic_pairs)
+            apply_periodic_projection(state.a_next, periodic_projection)
             state.correct_velocity(dt)
-            boundary.apply_dirichlet_bcs(state.v_next, [left_y_bc])
-            project_periodic(state.v_next, periodic_pairs)
-            state.accept_step()
+            apply_periodic_projection(state.v_next, periodic_projection)
+            state.accept_velocity_acceleration()
 
             if info.should_save:
                 xdmf.write_fields(t, state.u, state.v)
             if info.should_print and comm.rank == 0:
+                periodic_err = periodic_projection_mismatch(state.u, periodic_projection)
                 print(
                     f"step {info.index:4d}/{steps} "
-                    f"t={t:.3e} max|u|={np.max(np.abs(state.u.x.array)):.3e}",
+                    f"t={t:.3e} max|u|={np.max(np.abs(state.u.x.array)):.3e} "
+                    f"periodic_err={periodic_err:.3e}",
                     flush=True,
                 )
 

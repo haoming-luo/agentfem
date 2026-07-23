@@ -1,19 +1,24 @@
 # Module Map Reference
 
-- `mesh.py`: mesh import/read/write, mesh tags, and measures
+- `mesh/`: mesh import/read/write, named regions, summaries, tag checks,
+  tags, and measures
 - `mesh_formats.py`: optional external CAE mesh conversion
 - `spaces.py`: function spaces and named functions
-- `dofs.py`: dof lookup and field copying
-- `boundary.py`: low-level Dirichlet helpers
-- `constraints.py`: constraint containers
-- `loads.py`: loads and time functions
-- `constitutive/`: material laws
+- `fields.py`: application-level unknown bundles
+- `dofs.py`: low-level dof lookup and field copying
+- `constraints.py`: constraint containers and semantic Dirichlet constructors
+- `loads.py`: loads, natural boundary data, semantic constructors, and time functions
+- `constitutive/`: local response relations
+- `materials/`: material-property records and loaders
 - `boundary_models/`: weak boundary models
 - `forms.py`: UFL weak-form blocks
 - `assembly.py`: matrix/vector/lumped assembly
+- `operators/`: engineering-level K/M/C/F operators and system containers
 - `time.py`: time integration kernels
-- `problems.py`: state and problem containers
+- `problems.py`: problem summaries, system problems, and state containers
 - `runtime.py`: progress and time-step cadence
 - `solvers.py`: PETSc solver wrappers
 - `diagnostics.py`: norms and scalar diagnostics
-- `io.py`: output helpers
+- `io.py`: output writers and scalar logs
+- `elements/`: element and integration-policy namespace
+- `benchmarks/`: verification benchmark namespace

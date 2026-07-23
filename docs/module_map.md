@@ -4,23 +4,27 @@ This map links FEM concepts to the current Python modules.
 
 | Concept | Module |
 | --- | --- |
-| Mesh import, tags, and measures | `mesh.py` |
+| Mesh import, named regions, tags, summaries, checks, and measures | `mesh/` |
 | External mesh formats | `mesh_formats.py` |
-| Function spaces | `spaces.py` |
-| Dof lookup and field copying | `dofs.py` |
-| Strong BC construction | `boundary.py` |
-| Constraint containers | `constraints.py` |
-| Loads and time signals | `loads.py` |
-| Constitutive laws | `constitutive/` |
+| Function spaces and Lagrange defaults | `spaces.py` |
+| Application-level unknown fields | `fields.py` |
+| Low-level dof lookup and field copying | `dofs.py` |
+| Constraint containers and strong BC construction | `constraints.py` |
+| Loads, natural boundary data, and time signals | `loads.py` |
+| Constitutive response relations | `constitutive/` |
+| Material records and property containers | `materials/` |
 | Boundary models | `boundary_models/` |
-| UFL weak-form blocks | `forms.py` |
+| UFL weak-form blocks, including stiffness, mass, diffusion, and loads | `forms.py` |
 | Assembly | `assembly.py` |
+| Engineering-level K/M/C/F operators | `operators/` |
 | Time kernels | `time.py` |
-| Problem/state containers | `problems.py` |
+| Problem summaries, system problems, and state containers | `problems.py` |
 | Runtime cadence | `runtime.py` |
 | Linear solvers | `solvers.py` |
 | Diagnostics | `diagnostics.py` |
-| Output | `io.py` |
+| Output writers and scalar logs | `io.py` |
+| Element and integration policies | `elements/` |
+| Verification benchmarks | `benchmarks/` |
 | Runnable workflows | `examples/` |
 
 Application geometry, case inputs, and problem-specific sources should stay in

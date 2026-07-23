@@ -19,6 +19,7 @@
 <a class="" href="module-map.html">Module Map</a>
 <a class="" href="api-style.html">API Style</a>
 <a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
 <a class="" href="validation.html">Validation</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
@@ -32,22 +33,25 @@
 <ol>
 <li>Read <code>WORKFLOW.md</code> to identify the standard finite-element sequence.</li>
 <li>Read <code>CONCEPTS.md</code> to align terminology before changing code.</li>
+<li>Inspect or create a mesh summary before reasoning about boundary tags,<br>material regions, or output dimensions.</li>
 <li>Inspect the target application only after mapping it to AgentFEM concepts.</li>
 <li>Prefer existing <code>agentfem</code> APIs before adding new helpers.</li>
 <li>Add reusable code only when it belongs to a standard FEM concept.</li>
 </ol>
 <h2 id="progressive-reading">Progressive Reading</h2>
 <ul>
-<li>Mesh or boundary tagging: read <code>docs/module_map.md</code>, then inspect <code>mesh.py</code>.</li>
-<li>Function spaces or fields: inspect <code>spaces.py</code> and <code>dofs.py</code>.</li>
-<li>Essential boundary conditions: read <code>CONCEPTS.md</code> and use <code>constraints.py</code>.</li>
-<li>Natural loads: read <code>CONCEPTS.md</code> and use <code>loads.py</code>.</li>
+<li>Mesh or boundary tagging: read <code>docs/module_map.md</code>, then use<br><code>mesh.summarize_mesh</code>, <code>mesh.require_cell_tags</code>, and<br><code>mesh.require_facet_tags</code>.</li>
+<li>Application unknowns: use <code>fields.py</code> before dropping to <code>spaces.py</code>.</li>
+<li>Function spaces or low-level dof work: inspect <code>spaces.py</code> and <code>dofs.py</code>.</li>
+<li>Essential boundary conditions: read <code>CONCEPTS.md</code>, then use <code>constraints.py</code>.</li>
+<li>Natural loads: read <code>CONCEPTS.md</code>, then use <code>loads.body_load</code>,<br><code>loads.neumann</code>, or <code>loads.boundary_load</code>.</li>
 <li>Constitutive laws: read <code>docs/extension_rules.md</code>, then use <code>constitutive/</code>.</li>
 <li>Absorbing or Robin-like terms: use <code>boundary_models/</code>.</li>
 <li>Assembly or lumped operators: inspect <code>assembly.py</code>.</li>
 <li>Time stepping: inspect <code>time.py</code>, <code>runtime.py</code>, and <code>problems.py</code>.</li>
 <li>Solves: inspect <code>solvers.py</code>.</li>
-<li>Results: inspect <code>diagnostics.py</code> and <code>io.py</code>.</li>
+<li>Problem summaries: use <code>problems.FEMProblem</code> when a workflow needs a<br>structured audit record.</li>
+<li>Results: inspect <code>diagnostics.py</code>, then use <code>io.CSVLogger</code>,<br><code>io.XDMFTimeSeries</code>, or <code>io.ResultWriter</code>.</li>
 <li>Example workflows: inspect <code>examples/</code> after reading <code>WORKFLOW.md</code>.</li>
 </ul>
 <h2 id="agent-rules">Agent Rules</h2>

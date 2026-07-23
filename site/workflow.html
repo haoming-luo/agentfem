@@ -19,6 +19,7 @@
 <a class="" href="module-map.html">Module Map</a>
 <a class="" href="api-style.html">API Style</a>
 <a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
 <a class="" href="validation.html">Validation</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
@@ -31,12 +32,14 @@
 <h2 id="standard-sequence">Standard Sequence</h2>
 <ol>
 <li>Define, import, convert, or read the mesh.</li>
-<li>Create function spaces.</li>
-<li>Create unknown fields and state containers.</li>
-<li>Define constitutive laws and material properties.</li>
+<li>Inspect the mesh summary and require expected material/boundary tags.</li>
+<li>Define named mesh regions for boundaries, material zones, or point sets.</li>
+<li>Create function spaces or application unknown fields.</li>
+<li>Create state containers when needed.</li>
+<li>Load or define material properties, then choose constitutive laws.</li>
 <li>Define essential constraints.</li>
 <li>Define weak loads and boundary models.</li>
-<li>Build weak forms.</li>
+<li>Build operators or weak forms.</li>
 <li>Compile and assemble forms.</li>
 <li>Solve algebraic systems or advance in time.</li>
 <li>Evaluate diagnostics.</li>
@@ -44,25 +47,30 @@
 </ol>
 <h2 id="module-map">Module Map</h2>
 <ul>
-<li>Mesh import, tags, and measures: <code>mesh.py</code></li>
+<li>Mesh import, named regions, tags, summaries, checks, and measures: <code>mesh/</code></li>
 <li>External CAE mesh conversion: <code>mesh_formats.py</code></li>
 <li>Spaces and fields: <code>spaces.py</code></li>
-<li>Dofs and vector access: <code>dofs.py</code></li>
-<li>Constraints: <code>constraints.py</code>, <code>boundary.py</code></li>
-<li>Loads: <code>loads.py</code></li>
+<li>Low-level dofs and vector access: <code>dofs.py</code></li>
+<li>Constraints: <code>constraints.py</code></li>
+<li>Loads and natural boundary data: <code>loads.py</code></li>
 <li>Constitutive laws: <code>constitutive/</code></li>
+<li>Material library: <code>materials/</code></li>
 <li>Boundary models: <code>boundary_models/</code></li>
 <li>Weak-form blocks: <code>forms.py</code></li>
 <li>Assembly: <code>assembly.py</code></li>
+<li>Operator families: <code>operators/</code></li>
 <li>Time kernels: <code>time.py</code></li>
-<li>Problem/state containers: <code>problems.py</code></li>
+<li>Problem summaries and state containers: <code>problems.py</code></li>
 <li>Runtime cadence: <code>runtime.py</code></li>
 <li>Solvers: <code>solvers.py</code></li>
 <li>Diagnostics: <code>diagnostics.py</code></li>
 <li>Output: <code>io.py</code></li>
+<li>Element/integration policies: <code>elements/</code></li>
+<li>Verification benchmarks: <code>benchmarks/</code></li>
 </ul>
 <h2 id="design-principle">Design Principle</h2>
 <p>The workflow should be easy for a human researcher to read and easy for an agent to audit. A simulation file may call reusable helpers, but it should still show the finite-element meaning of each step.</p>
+<p>First-level Python modules are reserved for the main FEM workflow. Subpackages hold reusable asset families, such as constitutive laws, material records, boundary models, element policies, operator families, and benchmarks. Low-level implementation helpers such as <code>boundary.py</code>, <code>dofs.py</code>, and <code>kernel/</code> should not be featured in beginner workflows.</p>
       </article>
     </main>
   </div>

@@ -19,6 +19,7 @@
 <a class="active" href="module-map.html">Module Map</a>
 <a class="" href="api-style.html">API Style</a>
 <a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
 <a class="" href="validation.html">Validation</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
@@ -31,23 +32,27 @@
 <table>
 <thead><tr><th>Concept</th><th>Module</th></tr></thead>
 <tbody>
-<tr><td>Mesh import, tags, and measures</td><td><code>mesh.py</code></td></tr>
+<tr><td>Mesh import, named regions, tags, summaries, checks, and measures</td><td><code>mesh/</code></td></tr>
 <tr><td>External mesh formats</td><td><code>mesh_formats.py</code></td></tr>
-<tr><td>Function spaces</td><td><code>spaces.py</code></td></tr>
-<tr><td>Dof lookup and field copying</td><td><code>dofs.py</code></td></tr>
-<tr><td>Strong BC construction</td><td><code>boundary.py</code></td></tr>
-<tr><td>Constraint containers</td><td><code>constraints.py</code></td></tr>
-<tr><td>Loads and time signals</td><td><code>loads.py</code></td></tr>
-<tr><td>Constitutive laws</td><td><code>constitutive/</code></td></tr>
+<tr><td>Function spaces and Lagrange defaults</td><td><code>spaces.py</code></td></tr>
+<tr><td>Application-level unknown fields</td><td><code>fields.py</code></td></tr>
+<tr><td>Low-level dof lookup and field copying</td><td><code>dofs.py</code></td></tr>
+<tr><td>Constraint containers and strong BC construction</td><td><code>constraints.py</code></td></tr>
+<tr><td>Loads, natural boundary data, and time signals</td><td><code>loads.py</code></td></tr>
+<tr><td>Constitutive response relations</td><td><code>constitutive/</code></td></tr>
+<tr><td>Material records and property containers</td><td><code>materials/</code></td></tr>
 <tr><td>Boundary models</td><td><code>boundary_models/</code></td></tr>
-<tr><td>UFL weak-form blocks</td><td><code>forms.py</code></td></tr>
+<tr><td>UFL weak-form blocks, including stiffness, mass, diffusion, and loads</td><td><code>forms.py</code></td></tr>
 <tr><td>Assembly</td><td><code>assembly.py</code></td></tr>
+<tr><td>Engineering-level K/M/C/F operators</td><td><code>operators/</code></td></tr>
 <tr><td>Time kernels</td><td><code>time.py</code></td></tr>
-<tr><td>Problem/state containers</td><td><code>problems.py</code></td></tr>
+<tr><td>Problem summaries, system problems, and state containers</td><td><code>problems.py</code></td></tr>
 <tr><td>Runtime cadence</td><td><code>runtime.py</code></td></tr>
 <tr><td>Linear solvers</td><td><code>solvers.py</code></td></tr>
 <tr><td>Diagnostics</td><td><code>diagnostics.py</code></td></tr>
-<tr><td>Output</td><td><code>io.py</code></td></tr>
+<tr><td>Output writers and scalar logs</td><td><code>io.py</code></td></tr>
+<tr><td>Element and integration policies</td><td><code>elements/</code></td></tr>
+<tr><td>Verification benchmarks</td><td><code>benchmarks/</code></td></tr>
 <tr><td>Runnable workflows</td><td><code>examples/</code></td></tr>
 </tbody>
 </table>

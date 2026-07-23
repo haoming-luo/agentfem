@@ -6,6 +6,16 @@ operation.
 Keep problem-specific geometry, source histories, benchmark constants, and paper
 parameters in application packages or examples.
 
+Use `materials/` for reusable SI-unit material-property records. Use
+`constitutive/` for equations that map state to stress, flux, tangents, or other
+responses.
+
+Use `elements/`, `operators/`, and `benchmarks/` only for reusable asset
+families. Keep first-level modules focused on the standard FEM workflow.
+
+Use operator-level language for beginner application tutorials. Use weak-form
+language only when the tutorial is teaching formulation details.
+
 When a new concept is added, update:
 
 - `CONCEPTS.md`

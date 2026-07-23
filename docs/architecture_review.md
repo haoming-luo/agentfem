@@ -8,8 +8,8 @@ traditional finite-element workflows and agent-oriented use.
 - The first-level modules mostly match standard FEM steps: mesh import/read,
   spaces, dofs, constraints, loads, forms, assembly, time integration, solvers,
   diagnostics, and output.
-- Constitutive laws are below `constitutive/`, which matches finite-element
-  language better than placing material laws directly at the first level.
+- Constitutive response relations are below `constitutive/`, while material
+  records and property containers are below `materials/`.
 - Weak boundary physics is below `boundary_models/`, which separates Robin,
   impedance, absorbing, and convection-like terms from essential constraints
   and Neumann loads.
@@ -19,22 +19,28 @@ traditional finite-element workflows and agent-oriented use.
   solver workflow code independent from Abaqus, NASTRAN, COMSOL, or VTK details.
 - The package has both human-facing workflow docs and skill-ready progressive
   references for agents.
+- Mesh summaries, tag checks, material-property summaries, load summaries,
+  constraint summaries, boundary-model summaries, and `FEMProblem.summary()` now
+  provide a first layer of agent-readable model inspection.
 
 ## Main Refinements Needed
 
-1. Keep mesh import generic:
-   `mesh.py` should own reusable Gmsh and XDMF import/read/write operations,
-   while application packages own geometry construction and meshing parameters.
-   External file conversion should stay in `mesh_formats.py`.
+1. Keep mesh import and mesh regions generic:
+   `mesh/` should own reusable Gmsh and XDMF import/read/write operations,
+   named mesh regions, tag checks, summaries, and simple structured mesh
+   constructors. Application packages still own problem-specific geometry
+   construction and meshing parameters. External file conversion should stay in
+   `mesh_formats.py`.
 
-2. Separate boundary concepts more clearly:
-   `boundary.py` currently means Dirichlet helper operations, while
-   `boundary_models/` means weak boundary physics. This is acceptable, but the
-   naming should stay explicit in docs and APIs.
+2. Keep boundary concepts separate:
+   Public strong boundary conditions should enter through `constraints.py`.
+   `boundary.py` is a low-level implementation helper for Dirichlet constants
+   and dof application. Weak boundary physics belongs in `boundary_models/`.
 
 3. Promote problem definition:
-   `problems.py` should gradually become the standard place for reusable
-   problem/state containers, not a bag of case-specific records.
+   `problems.py` now contains a lightweight `FEMProblem` description plus
+   reusable state containers. Future work should keep this descriptive rather
+   than turning it into hidden framework logic.
 
 4. Make form construction more discoverable:
    `forms.py` should expose small weak-form blocks with clear names, such as
@@ -63,10 +69,10 @@ traditional finite-element workflows and agent-oriented use.
 ## Suggested Priority
 
 1. Tighten docs links and module routing.
-2. Add small examples for each standard workflow step.
-3. Improve `forms.py` into a clearer library of reusable weak-form blocks.
-4. Add typed containers for standard analyses: static, first-order transient,
+2. Improve `forms.py` into a clearer library of reusable weak-form blocks.
+3. Add typed containers for standard analyses: static, first-order transient,
    and second-order dynamics.
+4. Add small examples for each standard workflow step after APIs stabilize.
 5. Add constitutive submodules only when at least one application needs them:
    anisotropic elasticity, viscoelasticity, thermal conduction, and coupled
    models.

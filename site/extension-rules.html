@@ -19,6 +19,7 @@
 <a class="" href="module-map.html">Module Map</a>
 <a class="" href="api-style.html">API Style</a>
 <a class="active" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
 <a class="" href="validation.html">Validation</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
@@ -37,13 +38,37 @@
 </ul>
 <h2 id="add-to-constitutive-when">Add to <code>constitutive/</code> When</h2>
 <ul>
-<li>The code defines a material law or local response relation.</li>
+<li>The code defines a local response relation.</li>
 <li>The code maps strain, gradient, state, or internal variables to stress, flux,<br>tangent, or related quantities.</li>
+<li>The code should not primarily store reusable material constants.</li>
+</ul>
+<h2 id="add-to-materials-when">Add to <code>materials/</code> When</h2>
+<ul>
+<li>The change is a reusable material-property record or a loader/validator for<br>records.</li>
+<li>The record can be expressed as SI-unit data with a model name and source note.</li>
+<li>The code defines typed parameter containers used by constitutive relations.</li>
+<li>The change should not introduce weak forms, stresses, fluxes, or solver logic.</li>
 </ul>
 <h2 id="add-to-boundarymodels-when">Add to <code>boundary_models/</code> When</h2>
 <ul>
 <li>The code defines a reusable weak boundary physics model.</li>
 <li>The boundary term is more than a simple Neumann load.</li>
+</ul>
+<h2 id="add-to-elements-when">Add to <code>elements/</code> When</h2>
+<ul>
+<li>The code names a reusable interpolation, quadrature, or integration policy.</li>
+<li>The concept applies across multiple applications and is not only a DOLFINx<br>one-line constructor.</li>
+</ul>
+<h2 id="add-to-operators-when">Add to <code>operators/</code> When</h2>
+<ul>
+<li>An assembled operator family has enough reusable behavior to outgrow<br><code>assembly.py</code>.</li>
+<li>The code describes mass, stiffness, damping, projection, block, or<br>preconditioner-ready operators.</li>
+<li>The API should be understandable to users who think in <code>K x = F</code> or<br><code>M a + C v + K u = F</code>.</li>
+</ul>
+<h2 id="add-to-benchmarks-when">Add to <code>benchmarks/</code> When</h2>
+<ul>
+<li>The case has expected quantities, tolerances, and repeatable validation<br>commands.</li>
+<li>The goal is verification, not teaching workflow usage.</li>
 </ul>
 <h2 id="keep-in-the-application-when">Keep in the Application When</h2>
 <ul>

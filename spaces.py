@@ -12,11 +12,23 @@ def lagrange_space(domain, degree: int = 1):
     return fem.functionspace(domain, ("Lagrange", degree))
 
 
+def scalar_space(domain, degree: int = 1):
+    """Create a scalar Lagrange function space."""
+
+    return lagrange_space(domain, degree=degree)
+
+
 def vector_lagrange_space(domain, degree: int = 1, dim: int | None = None):
     """Create a vector Lagrange function space."""
 
     value_dim = domain.geometry.dim if dim is None else dim
     return fem.functionspace(domain, ("Lagrange", degree, (value_dim,)))
+
+
+def vector_space(domain, degree: int = 1, dim: int | None = None):
+    """Create a vector Lagrange function space."""
+
+    return vector_lagrange_space(domain, degree=degree, dim=dim)
 
 
 def test_function(V):

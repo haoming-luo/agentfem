@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tutorial Design - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <div class="brand">AgentFEM</div>
+      <div class="tagline">Agent-oriented finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="examples.html">Examples</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="active" href="tutorial-design.html">Tutorial Design</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="application-tutorial-design">Application Tutorial Design</h1>
+<p>AgentFEM tutorials should match the user&#x27;s finite-element maturity level.</p>
+<h2 id="level-1-application-and-operator-tutorials">Level 1: Application And Operator Tutorials</h2>
+<p>Use this level for users who understand engineering FEM concepts such as <code>K x = F</code>, <code>M a + C v + K u = F</code>, boundary conditions, and material properties, but may not be comfortable deriving weak forms.</p>
+<p>Recommended vocabulary:</p>
+<ul>
+<li>Mesh</li>
+<li>Mesh regions, such as fixed and loaded boundaries</li>
+<li>Unknown field, such as displacement or temperature</li>
+<li>Material properties</li>
+<li>Constraints</li>
+<li>Loads</li>
+<li><code>K</code>, <code>M</code>, <code>C</code>, <code>F</code></li>
+<li><code>LinearSystem</code> or <code>SecondOrderSystem</code></li>
+<li>Solve or time integration</li>
+<li>Output</li>
+</ul>
+<p>Example style:</p>
+<pre><code>displacement = fields.displacement(domain, degree=1)
+left_boundary = mesh.boundary(domain, left_marker, name=&quot;left&quot;)
+right_boundary = mesh.boundary(domain, right_marker, name=&quot;right&quot;)
+fixed_left = constraints.fixed(
+    displacement,
+    location=left_boundary,
+    value=0.0,
+)
+right_traction = loads.traction(
+    value=(0.0, -1.0e6),
+    location=right_boundary,
+)
+K = operators.stiffness_operator(displacement, properties)
+F = operators.force_vector(
+    target=displacement,
+    loads=[right_traction],
+)
+system = operators.LinearSystem(stiffness=K, force=F)
+problem = problems.LinearSystemProblem(
+    system=system,
+    unknown=displacement,
+    bcs=fixed_left.bcs,
+)
+problem.solve()</code></pre>
+<p>Do not start these tutorials with <code>V</code>, <code>du</code>, <code>v</code>, or <code>sigma : epsilon(v)</code> unless the tutorial is explicitly teaching weak forms.</p>
+<h2 id="level-2-weak-form-tutorials">Level 2: Weak-Form Tutorials</h2>
+<p>Use this level for researchers who want to inspect, modify, or publish the finite-element formulation.</p>
+<p>Recommended vocabulary:</p>
+<ul>
+<li>Strain</li>
+<li>Stress</li>
+<li>Flux</li>
+<li>Test/trial functions</li>
+<li>Weak forms</li>
+<li>Assembly</li>
+</ul>
+<p>Example style:</p>
+<pre><code>sigma = elasticity.stress(du, properties)
+a = forms.stiffness_form(sigma, elasticity.strain(v))</code></pre>
+<p>Weak-form tutorials may use <code>problems.LinearVariationalProblem</code>. Application tutorials should prefer <code>problems.LinearSystemProblem</code>.</p>
+<h2 id="level-3-solver-and-algorithm-tutorials">Level 3: Solver And Algorithm Tutorials</h2>
+<p>Use this level for users modifying time integrators, nonlinear loops, preconditioners, coupling algorithms, or parallel behavior.</p>
+<p>Recommended vocabulary:</p>
+<ul>
+<li>Residual</li>
+<li>Tangent</li>
+<li>Predictor/corrector</li>
+<li>Lumped operator</li>
+<li>KSP/PC</li>
+<li>Diagnostics</li>
+<li>MPI checks</li>
+</ul>
+<h2 id="rule">Rule</h2>
+<p>Beginner application tutorials should be written in operator-level language. Weak-form expressions remain available as the transparent lower layer.</p>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

@@ -19,6 +19,7 @@
 <a class="" href="module-map.html">Module Map</a>
 <a class="" href="api-style.html">API Style</a>
 <a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
 <a class="active" href="validation.html">Validation</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
@@ -33,6 +34,8 @@
 <li>Imports use the current package layout.</li>
 <li>Public concepts appear in the correct module family.</li>
 <li>Application-specific code does not leak into the platform core.</li>
+<li>Mesh summaries and required tag checks are used when a workflow depends on<br>material or boundary labels.</li>
+<li>Public dataclasses that represent reusable FEM assets provide inspectable<br>summaries when practical.</li>
 </ul>
 <h2 id="numerical-checks">Numerical Checks</h2>
 <ul>
@@ -41,11 +44,13 @@
 <li>Check that diagnostic values are finite.</li>
 <li>For MPI-aware code, run at least one small parallel smoke test when possible.</li>
 <li>For workflow examples, run the example and check that XDMF/HDF5 output is<br>produced.</li>
+<li>For transient examples, verify that time-series fields are written at more<br>than one time value.</li>
 </ul>
 <h2 id="modeling-checks">Modeling Checks</h2>
 <ul>
 <li>Units are explicit and consistent.</li>
 <li>Constraints, loads, and boundary models are not mixed.</li>
+<li>Required material and boundary tags are checked before weak forms are built.</li>
 <li>Time-step choices are connected to the relevant stability estimate.</li>
 <li>Mesh density is connected to wavelength, gradients, or geometry resolution.</li>
 </ul>
