@@ -22,6 +22,7 @@ def locate_component_dofs(V, component: int, marker):
 def owned_size(function: fem.Function) -> int:
     """Number of owned scalar entries in a DOLFINx function vector."""
 
+    function = _unwrap(function)
     dofmap = function.function_space.dofmap
     return dofmap.index_map.size_local * dofmap.index_map_bs
 
@@ -29,12 +30,14 @@ def owned_size(function: fem.Function) -> int:
 def owned_array(function: fem.Function):
     """Writable owned slice of a DOLFINx function vector."""
 
+    function = _unwrap(function)
     return function.x.array[: owned_size(function)]
 
 
 def assign_owned(function: fem.Function, values) -> None:
     """Assign owned entries and update ghost entries."""
 
+    function = _unwrap(function)
     owned_array(function)[:] = values
     function.x.scatter_forward()
 
@@ -42,5 +45,11 @@ def assign_owned(function: fem.Function, values) -> None:
 def copy_function(target: fem.Function, source: fem.Function) -> None:
     """Copy one finite-element function into another and update ghosts."""
 
+    target = _unwrap(target)
+    source = _unwrap(source)
     target.x.array[:] = source.x.array
     target.x.scatter_forward()
+
+
+def _unwrap(function):
+    return function.function if hasattr(function, "function") and hasattr(function, "x") else function

@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from numbers import Integral, Real
 
+from .. import amplitudes
+from ..kernel import constants
 from . import boundary
 
 
@@ -20,6 +22,7 @@ class DirichletConstraint:
     bc: object
     value: object | None = None
     name: str = "dirichlet"
+    location: object | None = None
 
     @classmethod
     def component(
@@ -41,19 +44,52 @@ class DirichletConstraint:
             value=value,
             location=location,
         )
-        return cls(bc=bc, value=constant, name=name)
+        selected_location = location
+        return cls(bc=bc, value=constant, name=name, location=selected_location)
 
     @classmethod
     def scalar(cls, V, marker=None, value=0.0, *, location=None, name: str = "dirichlet"):
         """Create a scalar Dirichlet constraint."""
 
         constant, bc = boundary.scalar_dirichlet_bc(V, marker, value=value, location=location)
-        return cls(bc=bc, value=constant, name=name)
+        return cls(bc=bc, value=constant, name=name, location=location)
 
     def summary(self) -> dict[str, object]:
         """Return a compact description for logs and agent inspection."""
 
-        return {"name": self.name, "kind": "dirichlet_constraint"}
+        return {
+            "name": self.name,
+            "kind": "dirichlet_constraint",
+            "location": getattr(self.location, "name", None),
+        }
+
+
+@dataclass(frozen=True)
+class TimeDependentDirichlet:
+    """Dirichlet constraint driven by an amplitude."""
+
+    constant: object
+    bc: object
+    amplitude: amplitudes.Amplitude
+    name: str = "time_dependent_dirichlet"
+    location: object | None = None
+
+    def update(self, time: float) -> float:
+        """Evaluate the amplitude and update the backing constant."""
+
+        value = self.amplitude(time)
+        self.constant.value = constants.scalar_value(value)
+        return value
+
+    def summary(self) -> dict[str, object]:
+        """Return a compact description for logs and agent inspection."""
+
+        return {
+            "name": self.name,
+            "kind": "time_dependent_dirichlet",
+            "location": getattr(self.location, "name", None),
+            "amplitude": self.amplitude.summary(),
+        }
 
 
 def scalar_dirichlet(
@@ -62,11 +98,13 @@ def scalar_dirichlet(
     value=0.0,
     *,
     location=None,
+    on=None,
     name: str = "dirichlet",
 ) -> DirichletConstraint:
     """Semantic wrapper for scalar essential boundary data."""
 
-    return DirichletConstraint.scalar(V, marker, value=value, location=location, name=name)
+    selected_location = _select_location(location=location, on=on)
+    return DirichletConstraint.scalar(V, marker, value=value, location=selected_location, name=name)
 
 
 def component_dirichlet(
@@ -76,16 +114,18 @@ def component_dirichlet(
     value=0.0,
     *,
     location=None,
+    on=None,
     name: str = "dirichlet",
 ) -> DirichletConstraint:
     """Semantic wrapper for vector-component essential boundary data."""
 
+    selected_location = _select_location(location=location, on=on)
     return DirichletConstraint.component(
         V,
         component,
         marker,
         value=value,
-        location=location,
+        location=selected_location,
         name=name,
     )
 
@@ -97,19 +137,87 @@ def dirichlet(
     *,
     component: int | None = None,
     location=None,
+    on=None,
     name: str = "dirichlet",
 ) -> DirichletConstraint:
     """Create scalar or component-wise Dirichlet data from one entry point."""
 
+    selected_location = _select_location(location=location, on=on)
     if component is None:
-        return scalar_dirichlet(V, marker, value=value, location=location, name=name)
+        return scalar_dirichlet(V, marker, value=value, location=selected_location, name=name)
     return component_dirichlet(
         V,
         component,
         marker,
         value=value,
-        location=location,
+        location=selected_location,
         name=name,
+    )
+
+
+def time_dependent_component_dirichlet(
+    target,
+    component: int,
+    marker=None,
+    value=None,
+    *,
+    amplitude=None,
+    location=None,
+    on=None,
+    name: str = "time_dependent_dirichlet",
+) -> TimeDependentDirichlet:
+    """Create a component-wise Dirichlet constraint driven by an amplitude."""
+
+    selected_location = _select_location(location=location, on=on)
+    selected_amplitude = amplitude if amplitude is not None else value
+    if selected_amplitude is None:
+        raise ValueError("time_dependent_component_dirichlet requires value= or amplitude=.")
+    history = amplitudes.as_amplitude(selected_amplitude, name=name)
+    constant, bc = boundary.component_dirichlet_bc(
+        target,
+        component,
+        marker,
+        value=0.0,
+        location=selected_location,
+    )
+    return TimeDependentDirichlet(
+        constant=constant,
+        bc=bc,
+        amplitude=history,
+        name=name,
+        location=selected_location,
+    )
+
+
+def time_dependent_scalar_dirichlet(
+    target,
+    marker=None,
+    value=None,
+    *,
+    amplitude=None,
+    location=None,
+    on=None,
+    name: str = "time_dependent_dirichlet",
+) -> TimeDependentDirichlet:
+    """Create a scalar Dirichlet constraint driven by an amplitude."""
+
+    selected_location = _select_location(location=location, on=on)
+    selected_amplitude = amplitude if amplitude is not None else value
+    if selected_amplitude is None:
+        raise ValueError("time_dependent_scalar_dirichlet requires value= or amplitude=.")
+    history = amplitudes.as_amplitude(selected_amplitude, name=name)
+    constant, bc = boundary.scalar_dirichlet_bc(
+        target,
+        marker,
+        value=0.0,
+        location=selected_location,
+    )
+    return TimeDependentDirichlet(
+        constant=constant,
+        bc=bc,
+        amplitude=history,
+        name=name,
+        location=selected_location,
     )
 
 
@@ -122,7 +230,8 @@ def apply_dirichlet_bcs(function, bcs) -> None:
 def fixed(
     target,
     *,
-    location,
+    location=None,
+    on=None,
     value=0.0,
     components: int | tuple[int, ...] | list[int] | None = None,
     name: str | None = None,
@@ -135,14 +244,17 @@ def fixed(
     constrained.
     """
 
-    label = name or f"fixed_{getattr(location, 'name', 'location')}"
+    selected_location = _select_location(location=location, on=on)
+    if selected_location is None:
+        raise ValueError("fixed requires a geometric location. Pass on=... or location=....")
+    label = name or f"fixed_{getattr(selected_location, 'name', 'location')}"
     if components is None:
         components = _all_components_or_none(target)
 
     if components is None:
         return ConstraintSet(
             dirichlet=[
-                scalar_dirichlet(target, location=location, value=value, name=label),
+                scalar_dirichlet(target, location=selected_location, value=value, name=label),
             ]
         )
 
@@ -153,7 +265,7 @@ def fixed(
             component_dirichlet(
                 target,
                 component,
-                location=location,
+                location=selected_location,
                 value=component_value,
                 name=f"{label}_component_{component}",
             )
@@ -162,16 +274,24 @@ def fixed(
     )
 
 
-def fixed_component(target, component: int, *, location, value=0.0, name: str | None = None):
+def fixed_component(
+    target,
+    component: int,
+    *,
+    location=None,
+    on=None,
+    value=0.0,
+    name: str | None = None,
+):
     """Create a fixed-value constraint for one vector component."""
 
-    return fixed(target, location=location, value=value, components=component, name=name)
+    return fixed(target, location=location, on=on, value=value, components=component, name=name)
 
 
-def fixed_all(target, *, location, value=0.0, name: str | None = None):
+def fixed_all(target, *, location=None, on=None, value=0.0, name: str | None = None):
     """Create a scalar/all-dof fixed-value constraint."""
 
-    return fixed(target, location=location, value=value, components=None, name=name)
+    return fixed(target, location=location, on=on, value=value, components=None, name=name)
 
 
 def _all_components_or_none(target) -> tuple[int, ...] | None:
@@ -207,6 +327,12 @@ def _component_values(value, count: int) -> tuple:
 
 def _is_scalar_value(value) -> bool:
     return isinstance(value, (str, bytes, Real)) or not hasattr(value, "__len__")
+
+
+def _select_location(*, location=None, on=None):
+    if location is not None and on is not None:
+        raise ValueError("Pass either on=... or location=..., not both.")
+    return location if location is not None else on
 
 
 @dataclass(frozen=True)

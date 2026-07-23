@@ -15,6 +15,18 @@ class LinearSystem:
     damping: object | None = None
     name: str = "linear_system"
 
+    @property
+    def K(self):
+        """Engineering alias for the left-hand operator."""
+
+        return self.stiffness
+
+    @property
+    def F(self):
+        """Engineering alias for the right-hand vector."""
+
+        return self.force
+
     def lhs_form(self):
         """Return the stiffness-like left-hand-side form."""
 
@@ -41,6 +53,12 @@ class LinearSystem:
         }
 
 
+def linear_system(K, F, *, name: str = "Kx_eq_F") -> LinearSystem:
+    """Create a linear system in engineering notation, ``K x = F``."""
+
+    return LinearSystem(stiffness=K, force=F, name=name)
+
+
 @dataclass(frozen=True)
 class SecondOrderSystem:
     """Engineering-level second-order system, ``M a + C v + K u = F``."""
@@ -50,6 +68,30 @@ class SecondOrderSystem:
     damping: object | None = None
     force: object | None = None
     name: str = "second_order_system"
+
+    @property
+    def M(self):
+        """Engineering alias for the mass operator."""
+
+        return self.mass
+
+    @property
+    def C(self):
+        """Engineering alias for the damping operator."""
+
+        return self.damping
+
+    @property
+    def K(self):
+        """Engineering alias for the stiffness operator."""
+
+        return self.stiffness
+
+    @property
+    def F(self):
+        """Engineering alias for the force vector."""
+
+        return self.force
 
     def summary(self) -> dict[str, object]:
         """Return a compact M/C/K/F system summary."""

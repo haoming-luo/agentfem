@@ -22,6 +22,12 @@ def scalar_constant(domain_or_field, value=0.0):
     return fem.Constant(domain_of(domain_or_field), PETSc.ScalarType(value))
 
 
+def scalar_value(value):
+    """Convert a scalar to the active PETSc scalar type."""
+
+    return PETSc.ScalarType(value)
+
+
 def vector_constant(domain_or_field, values):
     """Create a vector constant using the active PETSc scalar type."""
 

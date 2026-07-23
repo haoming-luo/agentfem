@@ -12,6 +12,7 @@
       <div class="brand">AgentFEM</div>
       <div class="tagline">Agent-oriented finite-element workflows</div>
       <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
 <a class="" href="agent-guide.html">Agent Guide</a>
 <a class="" href="workflow.html">Workflow</a>
 <a class="active" href="concepts.html">Concepts</a>
@@ -29,18 +30,27 @@
       <article>
 <h1 id="agentfem-concepts">AgentFEM Concepts</h1>
 <p>This file defines the vocabulary that humans and AI agents should use when working with AgentFEM.</p>
+<h2 id="study">Study</h2>
+<p>The early analysis context: analysis type, physics, dimension, and modeling assumptions. Examples include linear static solid mechanics in 2D plane strain, transient heat transfer in 2D, or second-order dynamics in 3D. A study is a modeling declaration and validation object; it does not assemble or solve. Constitutive laws and operators may use it to select modeling assumptions such as 2D plane strain or plane stress.</p>
+<h2 id="model">Model</h2>
+<p>A lightweight registry of mesh, regions, fields, amplitudes, materials, constraints, loads, and boundary models under a study. A model supports checks and summaries for humans and agents. It should not hide operator construction or solving.</p>
 <h2 id="mesh">Mesh</h2>
 <p>The computational domain and its topology/geometry. Mesh generation may be application-specific, but standard mesh import, reading, tagging, and boundary measures should use reusable helpers when possible.</p>
 <p>A mesh summary records dimension, local/global entity counts, and available cell/facet tags. A required-tag check is a modeling guard: it should fail early when a material region or boundary label is missing.</p>
 <p>External CAE mesh formats such as Abaqus input, NASTRAN bulk data, VTK, and COMSOL-exported neutral formats should be converted into a DOLFINx-readable format before analysis. AgentFEM treats this as mesh-format conversion, not as a physics or solver concern.</p>
 <h2 id="mesh-region">Mesh Region</h2>
 <p>A named geometric location on the mesh, such as a boundary, material region, or point set. Loads and constraints should be described as acting on regions and targeting unknown fields.</p>
+<p>Boundary regions provide restricted <code>ds(tag)</code> measures. Cell regions provide restricted <code>dx(tag)</code> measures for material-dependent domain integrals.</p>
 <h2 id="function-space">Function Space</h2>
 <p>The finite-element approximation space for scalar, vector, or mixed unknowns. Examples include displacement, temperature, pressure, and internal variables.</p>
 <h2 id="unknown-field">Unknown Field</h2>
 <p>An application-level finite-element unknown that bundles the space, solution field, trial function, and test function. Unknown fields let beginner workflows say <code>displacement</code> or <code>temperature</code> instead of manually managing <code>V</code>, <code>u</code>, <code>du</code>, and <code>v</code>.</p>
 <h2 id="field">Field</h2>
 <p>A finite-element function living in a function space. Fields may represent an unknown, a state variable, a coefficient, or an output quantity.</p>
+<p>AgentFEM fields support eager same-space field algebra. For compatible fields on the same function space, operations such as <code>u + dt * v</code> immediately compute and return a new field with numerical dof values, similar to Cast3M field operations or tensor-style array arithmetic. This is intentionally different from symbolic weak-form expressions.</p>
+<h2 id="amplitude">Amplitude</h2>
+<p>A named time history or scale factor used to drive prescribed data. Amplitudes may be constant, ramped, tabular, sinusoidal, or application-defined. They are model assets, but they are not finite-element fields: they do not own a function space or spatial degrees of freedom.</p>
+<p>Loads, constraints, sources, and prescribed data may reference amplitudes.</p>
 <h2 id="constitutive-law">Constitutive Law</h2>
 <p>A local response relation that maps state to stress, flux, tangent, or another response quantity. Elastic stress-strain equations belong here. Future viscoelasticity, plasticity, thermal conduction, and coupled response laws should also live here.</p>
 <h2 id="material-record">Material Record</h2>
@@ -59,12 +69,23 @@
 <p>A UFL expression representing a weak-form contribution before assembly.</p>
 <h2 id="operator">Operator</h2>
 <p>An assembled vector, matrix, diagonal/lumped operator, or linear algebra object that acts on a field or residual.</p>
+<p>At the application layer, operators should read like engineering finite-element notation: <code>K u = F</code>, <code>M a + C v + K u = F</code>, or <code>(C/dt + K) T = C T_old/dt + Q</code>. AgentFEM operator constructors may still store UFL expressions before assembly, but their names should communicate the matrix/vector role.</p>
+<p>Operator contributions should remain addable. A multi-material stiffness may be represented explicitly as <code>K = K1 + K2</code> or, preferably in audited scripts, as <code>operators.combine(K1, K2, name=&quot;K&quot;)</code>.</p>
+<p>Model-first helpers such as <code>model.stiffness(u)</code> may generate these contribution sums from registered materials and regions, but the generated operator should still be inspectable.</p>
+<h2 id="analysis-step">Analysis Step</h2>
+<p>A solve stage under a study. A step records the analysis method, time increment when relevant, visible operators, boundary conditions, and solver options.</p>
+<p>Examples include a linear static step solving <code>K U = F</code> and an implicit Euler heat-transfer step solving <code>(C / dt + K) T_next = C T_old / dt + Q</code>.</p>
+<p>The step should not hide the finite-element meaning. It is the place where visible operators become a solveable algebraic problem.</p>
 <h2 id="element-policy">Element Policy</h2>
 <p>A reusable interpolation, quadrature, or integration choice. DOLFINx should remain the backend, but AgentFEM may eventually name common element policies for consistent human and agent workflows.</p>
 <h2 id="state">State</h2>
 <p>A collection of fields used by a solver or time integrator. Examples include first-order transient states and second-order displacement/velocity/acceleration states.</p>
+<p>For explicit second-order dynamics, the state may also store a mid-step velocity such as <code>v_mid</code>, because central-difference boundary damping and absorbing boundaries often use half-step velocity data.</p>
+<h2 id="time-integrator">Time Integrator</h2>
+<p>A time integrator advances a transient state according to a named numerical method. In AgentFEM, <code>time.explicit.central_difference(...)</code> represents the explicit central-difference method, i.e. the Newmark family with <code>beta=0</code> and <code>gamma=1/2</code>.</p>
+<p>Integrator names should describe the analysis route first, such as explicit dynamics, and expose method parameters through <code>summary()</code> rather than forcing beginner workflows to start from algorithm parameters.</p>
 <h2 id="problem">Problem</h2>
-<p>A lightweight description of the finite-element workflow: mesh, spaces, fields, materials, constraints, loads, boundary models, and forms. A problem description is for auditability and orchestration; it should not hide the weak form.</p>
+<p>A discrete algebraic or transient system, such as <code>K x = F</code>, <code>C xdot + K x = F</code>, or <code>M a + C v + K u = F</code>. Problems solve systems; steps describe the analysis stage, studies declare context, and models register assets.</p>
 <h2 id="diagnostic">Diagnostic</h2>
 <p>A scalar or field quantity used to inspect correctness, convergence, stability, or physical behavior.</p>
 <h2 id="benchmark">Benchmark</h2>

@@ -6,10 +6,13 @@ from dataclasses import dataclass
 
 import ufl
 
+from agentfem import fields as field_api
+
 
 def scalar_viscous_boundary_form(velocity, test_function, measure, impedance):
     """Isotropic viscous boundary term, ``Z * v . w``."""
 
+    velocity = field_api.unwrap(velocity)
     return impedance * ufl.inner(velocity, test_function) * measure
 
 
@@ -24,6 +27,7 @@ def normal_tangential_viscous_boundary_form(
 ):
     """Viscous boundary term with separate normal and tangential impedances."""
 
+    velocity = field_api.unwrap(velocity)
     v_normal = ufl.dot(velocity, normal)
     w_normal = ufl.dot(test_function, normal)
     v_tangent = velocity - v_normal * normal

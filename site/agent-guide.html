@@ -12,6 +12,7 @@
       <div class="brand">AgentFEM</div>
       <div class="tagline">Agent-oriented finite-element workflows</div>
       <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
 <a class="active" href="agent-guide.html">Agent Guide</a>
 <a class="" href="workflow.html">Workflow</a>
 <a class="" href="concepts.html">Concepts</a>
@@ -33,6 +34,7 @@
 <ol>
 <li>Read <code>WORKFLOW.md</code> to identify the standard finite-element sequence.</li>
 <li>Read <code>CONCEPTS.md</code> to align terminology before changing code.</li>
+<li>Identify or create the <code>studies.Study</code> before choosing constitutive laws or<br>operators.</li>
 <li>Inspect or create a mesh summary before reasoning about boundary tags,<br>material regions, or output dimensions.</li>
 <li>Inspect the target application only after mapping it to AgentFEM concepts.</li>
 <li>Prefer existing <code>agentfem</code> APIs before adding new helpers.</li>
@@ -41,6 +43,9 @@
 <h2 id="progressive-reading">Progressive Reading</h2>
 <ul>
 <li>Mesh or boundary tagging: read <code>docs/module_map.md</code>, then use<br><code>mesh.summarize_mesh</code>, <code>mesh.require_cell_tags</code>, and<br><code>mesh.require_facet_tags</code>.</li>
+<li>Study setup: use <code>studies.linear_static</code>, <code>studies.first_order_transient</code>, or<br><code>studies.second_order_dynamics</code> before building operators.</li>
+<li>Model audit: use <code>model.tree()</code>, <code>model.manifest()</code>, <code>model.summary()</code>, and<br><code>model.check()</code> when multiple fields, regions, loads, constraints, or steps<br>must be inspected.</li>
+<li>Model registration: use <code>model.field(...)</code>, <code>model.material(...)</code>,<br><code>model.fix(...)</code>, and <code>model.traction(...)</code> in application workflows when the<br>assets should stay visible and auditable.</li>
 <li>Application unknowns: use <code>fields.py</code> before dropping to <code>spaces.py</code>.</li>
 <li>Function spaces: inspect <code>spaces.py</code>; only inspect <code>kernel/dofs.py</code> for<br>implementation-level dof work.</li>
 <li>Essential boundary conditions: read <code>CONCEPTS.md</code>, then use <code>constraints/</code>.</li>
@@ -50,7 +55,8 @@
 <li>Assembly or lumped operators: inspect <code>assembly.py</code>.</li>
 <li>Time stepping: inspect <code>time/</code> and <code>problems.py</code>.</li>
 <li>Solves: inspect <code>solvers.py</code>.</li>
-<li>Problem summaries: use <code>problems.FEMProblem</code> when a workflow needs a<br>structured audit record.</li>
+<li>Analysis steps: prefer <code>model.step(...)</code> or <code>model.linear_static_step(...)</code><br>when a model owns fields, materials, loads, and constraints. Use<br><code>problems.linear_static</code> or <code>problems.first_order_transient</code> when a workflow<br>intentionally starts from explicit K/C/F operators without model ownership.</li>
+<li>Problem summaries: use <code>problems.FEMProblem</code> when a workflow needs a<br>broader structured audit record.</li>
 <li>Results: inspect <code>diagnostics.py</code>, then use <code>io.CSVLogger</code>,<br><code>io.XDMFTimeSeries</code>, or <code>io.ResultWriter</code>.</li>
 <li>Example workflows: inspect <code>examples/</code> after reading <code>WORKFLOW.md</code>.</li>
 </ul>

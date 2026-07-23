@@ -12,6 +12,7 @@
       <div class="brand">AgentFEM</div>
       <div class="tagline">Agent-oriented finite-element workflows</div>
       <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
 <a class="" href="agent-guide.html">Agent Guide</a>
 <a class="" href="workflow.html">Workflow</a>
 <a class="" href="concepts.html">Concepts</a>
@@ -39,9 +40,16 @@
 <h2 id="rules">Rules</h2>
 <ul>
 <li>Keep the finite-element workflow visible.</li>
+<li>Identify the study context before selecting constitutive laws or operators.</li>
 <li>Inspect mesh summaries and required tags before building weak forms.</li>
+<li>Use lightweight models for registry, checks, summaries, and model-owned<br>analysis steps; do not hide K/F systems or finite-element meaning.</li>
+<li>Prefer model registration helpers such as <code>model.field(...)</code>,<br><code>model.material(...)</code>, <code>model.fix(...)</code>, and <code>model.traction(...)</code> for<br>application examples.</li>
 <li>Use <code>FEMProblem.summary()</code> or equivalent structured summaries when auditing a<br>workflow.</li>
 <li>Use AgentFEM modules before writing ad hoc DOLFINx/PETSc boilerplate.</li>
+<li>Prefer the stable public workflow modules first: <code>studies</code>, <code>mesh</code>, <code>models</code>, <code>fields</code>,<br><code>materials</code>, <code>constitutive</code>, <code>constraints</code>, <code>loads</code>, <code>operators</code>,<br><code>problems</code>, <code>solvers</code>, <code>time</code>, and <code>io</code>.</li>
+<li>Prefer <code>step = model.linear_static_step(target=u)</code> when a model has<br>registered materials, constraints, and loads. Use <code>model.stiffness(...)</code>,<br><code>model.external_force(...)</code>, and <code>operators.combine(...)</code> when an example<br>must expose individual contributions.</li>
+<li>Keep operator notation such as <code>K = operators.stiffness(...)</code>,<br><code>F = operators.load_vector(...)</code>, and<br><code>step = problems.linear_static(K, F, study=..., ...)</code> available for<br>transparent research/debugging examples.</li>
+<li>Prefer <code>step = problems.first_order_transient(...)</code> for first-order transient<br>workflows instead of hand-combining effective matrices in tutorial code.</li>
 <li>Put local response relations under <code>constitutive/</code>.</li>
 <li>Put weak boundary physics under <code>boundary_models/</code>.</li>
 <li>Put Dirichlet, periodic, and MPC relations under <code>constraints</code>.</li>

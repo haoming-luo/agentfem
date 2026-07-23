@@ -13,18 +13,24 @@ SOURCE_PARENT = Path(__file__).resolve().parents[2]
 if str(SOURCE_PARENT) not in sys.path:
     sys.path.insert(0, str(SOURCE_PARENT))
 
-from agentfem import constraints
 from agentfem import fields
 from agentfem import io as fem_io
 from agentfem import mesh as fem_mesh
+from agentfem import models
 from agentfem import operators
+from agentfem import problems
+from agentfem import studies
 from agentfem import time as fem_time
-from agentfem.problems import LinearSystemProblem
 from agentfem.solvers import LinearSolverOptions
 
 
 def main() -> None:
     comm = MPI.COMM_WORLD
+    study = studies.first_order_transient(
+        physics="heat_transfer",
+        dimension=2,
+        name="transient_heat_conduction",
+    )
     domain = fem_mesh.rectangle(
         lower=(0.0, 0.0),
         upper=(1.0, 0.4),
@@ -32,8 +38,9 @@ def main() -> None:
         comm=comm,
         cell_type="quadrilateral",
     )
+    model = models.create(study=study, mesh=domain, name="heat_transfer_model")
 
-    temperature = fields.temperature(domain, degree=1, value=300.0)
+    temperature = model.field(fields.temperature(domain, degree=1, value=300.0))
     previous_temperature = fields.scalar_unknown(
         domain,
         name="TemperaturePrevious",
@@ -53,17 +60,9 @@ def main() -> None:
 
     left_boundary = fem_mesh.boundary(domain, left, name="left", tag=1)
     right_boundary = fem_mesh.boundary(domain, right, name="right", tag=2)
-    hot_boundary = constraints.fixed(
-        temperature,
-        location=left_boundary,
-        value=400.0,
-    )
-    cold_boundary = constraints.fixed(
-        temperature,
-        location=right_boundary,
-        value=300.0,
-    )
-    bcs = hot_boundary.bcs + cold_boundary.bcs
+    model.fix(temperature, on=left_boundary, value=400.0)
+    model.fix(temperature, on=right_boundary, value=300.0)
+    model.check()
 
     dt = 10
     total_steps = 1500
@@ -75,31 +74,27 @@ def main() -> None:
         print_every=50,
     )
 
-    M_over_dt = operators.mass_operator(temperature, rho_cp / dt, measure=dx)
-    K = operators.diffusion_operator(temperature, conductivity, measure=dx)
-    F_source = operators.body_force_vector(heat_source, temperature, measure=dx)
+    C = operators.capacity_operator(temperature, rho_cp, measure=dx)
+    K = operators.conduction_operator(temperature, conductivity, measure=dx)
+    Q = operators.heat_source_vector(heat_source, temperature, measure=dx)
 
-    effective_K = M_over_dt.expression + K.expression
-    effective_F = (
-        operators.mass_operator(
-            previous_temperature.value,
-            temperature,
-            rho_cp / dt,
-            measure=dx,
-        ).expression
-        + F_source.expression
+    capacity_history = operators.heat_capacity_vector(
+        previous_temperature.value,
+        temperature,
+        rho_cp,
+        measure=dx,
     )
-    system = operators.LinearSystem(
-        stiffness=effective_K,
-        force=effective_F,
-        name="implicit_euler_heat_Keff_T_eq_Feff",
-    )
-
-    problem = LinearSystemProblem(
-        system=system,
+    problem = problems.first_order_transient(
+        capacity=C,
+        stiffness=K,
+        history=capacity_history,
+        source=Q,
+        dt=dt,
+        study=study,
         unknown=temperature,
-        bcs=bcs,
+        bcs=model.bcs(),
         solver_options=LinearSolverOptions(ksp_type="preonly", pc_type="lu"),
+        name="heat_implicit_euler_step",
     )
 
     out = Path(__file__).resolve().parents[1] / "examples_output" / "transient_heat_2d.xdmf"

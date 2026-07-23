@@ -9,6 +9,8 @@ from dolfinx import fem
 from dolfinx import io
 from mpi4py import MPI
 
+from . import fields as field_api
+
 
 def ensure_output_dir(path: Path, comm: MPI.Comm) -> None:
     """Create an output directory once, then synchronize all ranks."""
@@ -65,7 +67,7 @@ class XDMFTimeSeries:
         """Write one or more finite-element functions at a time value."""
 
         for field in fields:
-            self._file.write_function(field, time)
+            self._file.write_function(field_api.unwrap(field), time)
 
 
 class ResultWriter:
@@ -102,6 +104,7 @@ def interpolate_for_xdmf(field, *, degree: int = 1, name: str | None = None):
     interpolated visualization copy while keeping the solve itself high-order.
     """
 
+    field = field_api.unwrap(field)
     domain = field.function_space.mesh
     shape = getattr(field, "ufl_shape", ())
     element = ("Lagrange", degree) if len(shape) == 0 else ("Lagrange", degree, shape)

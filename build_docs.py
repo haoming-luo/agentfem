@@ -19,6 +19,7 @@ class Page:
 
 PAGES = [
     Page("Home", ROOT / "README.md", SITE_DIR / "index.html"),
+    Page("Install", ROOT / "INSTALL.md", SITE_DIR / "install.html"),
     Page("Agent Guide", ROOT / "AGENT_GUIDE.md", SITE_DIR / "agent-guide.html"),
     Page("Workflow", ROOT / "WORKFLOW.md", SITE_DIR / "workflow.html"),
     Page("Concepts", ROOT / "CONCEPTS.md", SITE_DIR / "concepts.html"),

@@ -11,47 +11,43 @@ but may not be comfortable deriving weak forms.
 Recommended vocabulary:
 
 - Mesh
+- Study context
+- Model registry and checks
 - Mesh regions, such as fixed and loaded boundaries
 - Unknown field, such as displacement or temperature
 - Material properties
 - Constraints
 - Loads
 - `K`, `M`, `C`, `F`
-- `LinearSystem` or `SecondOrderSystem`
+- Analysis step, such as `K x = F` or `(C / dt + K) x_next = C x_old / dt + F`
+- `SecondOrderSystem` when the tutorial is about dynamics
 - Solve or time integration
 - Output
 
 Example style:
 
 ```python
-displacement = fields.displacement(domain, degree=1)
+study = studies.linear_static(
+    physics="solid_mechanics",
+    dimension=2,
+    assumption="plane_strain",
+)
+model = models.create(study=study, mesh=domain)
+displacement = model.field(fields.displacement(domain, degree=1))
 left_boundary = mesh.boundary(domain, left_marker, name="left")
 right_boundary = mesh.boundary(domain, right_marker, name="right")
-fixed_left = constraints.fixed(
-    displacement,
-    location=left_boundary,
-    value=0.0,
-)
-right_traction = loads.traction(
-    value=(0.0, -1.0e6),
-    location=right_boundary,
-)
-K = operators.stiffness_operator(displacement, properties)
-F = operators.force_vector(
-    target=displacement,
-    loads=[right_traction],
-)
-system = operators.LinearSystem(stiffness=K, force=F)
-problem = problems.LinearSystemProblem(
-    system=system,
-    unknown=displacement,
-    bcs=fixed_left.bcs,
-)
-problem.solve()
+model.fix(displacement, on=left_boundary, value=0.0)
+model.traction(value=(0.0, -1.0e6), on=right_boundary)
+model.material(properties)
+step = model.linear_static_step(target=displacement)
+step.solve()
+print(model.tree())
 ```
 
 Do not start these tutorials with `V`, `du`, `v`, or `sigma : epsilon(v)` unless
 the tutorial is explicitly teaching weak forms.
+For 2D solid mechanics, always show whether the study is `plane_strain` or
+`plane_stress`, because that changes the elastic constitutive relation.
 
 ## Level 2: Weak-Form Tutorials
 
@@ -70,12 +66,15 @@ Recommended vocabulary:
 Example style:
 
 ```python
-sigma = elasticity.stress(du, properties)
+sigma = elasticity.stress(du, properties, study=study)
 a = forms.stiffness_form(sigma, elasticity.strain(v))
 ```
 
 Weak-form tutorials may use `problems.LinearVariationalProblem`. Application
-tutorials should prefer `problems.LinearSystemProblem`.
+tutorials should prefer model-owned step constructors such as
+`model.linear_static_step(...)`. Tutorials that explicitly teach operator
+notation may use `problems.linear_static(...)` and
+`problems.first_order_transient(...)`.
 
 ## Level 3: Solver And Algorithm Tutorials
 

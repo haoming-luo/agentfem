@@ -106,6 +106,36 @@ class BoundaryRegion:
         }
 
 
+@dataclass(frozen=True)
+class CellRegion:
+    """Named cell/material region on a mesh.
+
+    A cell region stores the tagged cell measure used for material-dependent
+    domain integrals such as stiffness, mass, heat capacity, or body sources.
+    """
+
+    name: str
+    domain: object
+    tag: int
+    cell_tags: object
+    dx: object
+
+    @property
+    def measure(self):
+        """Domain integration measure restricted to this cell region."""
+
+        return self.dx(self.tag)
+
+    def summary(self) -> dict[str, object]:
+        """Return a compact region summary."""
+
+        return {
+            "name": self.name,
+            "kind": "cell_region",
+            "tag": self.tag,
+        }
+
+
 def import_gmsh_model(
     model,
     comm: MPI.Comm = MPI.COMM_WORLD,
@@ -315,6 +345,28 @@ def boundary_region(domain, marker, *, name: str = "boundary", tag: int = 1) -> 
     return boundary(domain, marker, name=name, tag=tag)
 
 
+def cell_region(domain, cell_tags=None, *, tag: int, name: str = "cell_region", marker=None) -> CellRegion:
+    """Create a named cell/material region.
+
+    Pass existing ``cell_tags`` from an imported mesh, or pass a geometric
+    ``marker`` to locate and tag cells directly.
+    """
+
+    if cell_tags is None:
+        if marker is None:
+            raise ValueError("cell_region requires cell_tags or marker.")
+        cell_tags = mark_cells(domain, locate_cells(domain, marker), tag)
+    else:
+        require_cell_tags(cell_tags, tag)
+    return CellRegion(
+        name=name,
+        domain=domain,
+        tag=tag,
+        cell_tags=cell_tags,
+        dx=cell_measure(domain, cell_tags),
+    )
+
+
 def region_measure(location):
     """Return a region's restricted measure or pass through a measure."""
 
@@ -325,6 +377,58 @@ def region_marker(location):
     """Return a region's marker or pass through a marker callable."""
 
     return location.marker if hasattr(location, "marker") else location
+
+
+def locate_cells(domain, marker):
+    """Locate cells using a geometrical marker."""
+
+    return mesh.locate_entities(domain, domain.topology.dim, marker)
+
+
+def mark_cells(domain, cells, tag: int):
+    """Create cell meshtags for a set of cells."""
+
+    tdim = domain.topology.dim
+    cells = np.asarray(cells, dtype=np.int32)
+    cells = np.sort(cells)
+    values = np.full(len(cells), tag, dtype=np.int32)
+    return mesh.meshtags(domain, tdim, cells, values)
+
+
+def mark_cell_regions(domain, tag_to_marker: dict[int, object]):
+    """Create cell meshtags from several geometric cell markers.
+
+    Each marker should select one material/domain region. Regions must not
+    overlap on the same local mesh partition, and every local cell must be
+    selected by exactly one marker. Markers are evaluated at cell midpoints so
+    complementary material definitions do not leave untagged interface cells.
+    """
+
+    tdim = domain.topology.dim
+    cell_map = domain.topology.index_map(tdim)
+    cells = np.arange(cell_map.size_local, dtype=np.int32)
+    midpoints = mesh.compute_midpoints(domain, tdim, cells).T
+    values = np.full(len(cells), -1, dtype=np.int32)
+    for tag, marker in tag_to_marker.items():
+        selected = np.asarray(marker(midpoints), dtype=bool)
+        if selected.shape != values.shape:
+            raise ValueError(
+                "Cell region marker must return one boolean per cell midpoint. "
+                f"Expected shape {values.shape}, got {selected.shape}."
+            )
+        overlap = selected & (values >= 0)
+        if np.any(overlap):
+            sample = cells[overlap][:5].tolist()
+            raise ValueError(f"Cell region markers overlap on cells: {sample}.")
+        values[selected] = int(tag)
+    if len(tag_to_marker) == 0:
+        raise ValueError("mark_cell_regions requires at least one marker.")
+    missing = values < 0
+    if np.any(missing):
+        sample = cells[missing][:5].tolist()
+        raise ValueError(f"Cell region markers leave untagged cells: {sample}.")
+    order = np.argsort(cells)
+    return mesh.meshtags(domain, tdim, cells[order], values[order])
 
 
 def locate_boundary_facets(domain, marker):
@@ -339,6 +443,7 @@ def mark_facets(domain, facets, tag: int):
 
     facet_dim = domain.topology.dim - 1
     facets = np.asarray(facets, dtype=np.int32)
+    facets = np.sort(facets)
     values = np.full(len(facets), tag, dtype=np.int32)
     return mesh.meshtags(domain, facet_dim, facets, values)
 
@@ -353,6 +458,18 @@ def boundary_measure(domain, facet_tags=None):
     """Create a boundary integration measure."""
 
     return ufl.Measure("ds", domain=domain, subdomain_data=facet_tags)
+
+
+def cell_measure(domain, cell_tags=None):
+    """Create a domain integration measure."""
+
+    return ufl.Measure("dx", domain=domain, subdomain_data=cell_tags)
+
+
+def facet_normal(domain):
+    """Return the outward facet normal for boundary models."""
+
+    return ufl.FacetNormal(domain)
 
 
 def tagged_boundary_measure(domain, marker, tag: int):

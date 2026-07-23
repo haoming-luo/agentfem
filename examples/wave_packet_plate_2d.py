@@ -18,13 +18,13 @@ import numpy as np
 import ufl
 from dolfinx import fem, mesh
 from mpi4py import MPI
-from petsc4py import PETSc
 
 SOURCE_PARENT = Path(__file__).resolve().parents[2]
 if str(SOURCE_PARENT) not in sys.path:
     sys.path.insert(0, str(SOURCE_PARENT))
 
 from agentfem import assembly
+from agentfem import amplitudes
 from agentfem import constraints
 from agentfem import forms
 from agentfem import io as fem_io
@@ -41,13 +41,6 @@ class PeriodicProjection(NamedTuple):
 
     pairs: tuple[tuple[np.ndarray, np.ndarray], ...]
     pair_count: int
-
-
-def wave_packet(t: float, amplitude: float, frequency: float, width: float) -> float:
-    omega = 2.0 * np.pi * frequency
-    return amplitude * np.sin(omega * t) * np.exp(
-        -((t - 3.0 * width) ** 2) / (2.0 * width**2)
-    )
 
 
 def build_top_bottom_periodic_projection(V, height: float, tolerance: float):
@@ -138,7 +131,7 @@ def main() -> None:
     )
 
     V = spaces.vector_lagrange_space(domain, degree=1)
-    state = problems.SecondOrderDynamicsState.create(V)
+    state = problems.second_order_state(V)
     v_test = spaces.test_function(V)
 
     material = elasticity.isotropic_elastic(
@@ -150,6 +143,7 @@ def main() -> None:
     cp, cs = elasticity.estimate_elastic_wave_speeds(material)
     dx = ufl.dx(domain=domain)
     lumped = problems.LumpedMassOperator.assemble(V, material.density, measure=dx)
+    integrator = fem_time.explicit.central_difference(state=state, mass=lumped)
 
     def left(x):
         return np.isclose(x[0], 0.0)
@@ -157,7 +151,6 @@ def main() -> None:
     def right(x):
         return np.isclose(x[0], length)
 
-    left_y_constraint = constraints.component_dirichlet(V, 0, left, value=0.0)
     tolerance = min(length / denx, height / deny) * 1.0e-6
     periodic_projection = build_top_bottom_periodic_projection(V, height, tolerance)
 
@@ -176,6 +169,18 @@ def main() -> None:
     dt = 0.35 * min(length / denx, height / deny) / cp
     steps = 1000
     source_amplitude = 4.9e-13
+    source_pulse = amplitudes.gaussian_modulated_sine(
+        amplitude=source_amplitude,
+        frequency=frequency,
+        width=width,
+        name="source_pulse",
+    )
+    left_y_constraint = constraints.time_dependent_component_dirichlet(
+        V,
+        component=0,
+        on=left,
+        value=source_pulse,
+    )
 
     out = Path(__file__).resolve().parents[1] / "examples_output" / "wave_packet_plate_2d.xdmf"
     stepper = fem_time.TimeStepper(
@@ -186,28 +191,29 @@ def main() -> None:
     )
     residual_form = fem.form(
         forms.stiffness_form(elasticity.stress(state.u, material), elasticity.strain(v_test), measure=dx)
-        + abc.form(state.v, v_test)
+        + abc.form(state.v_mid, v_test)
     )
 
     with fem_io.XDMFTimeSeries(out, domain) as xdmf:
         xdmf.write_fields(0.0, state.u, state.v)
         for info in stepper:
             t = info.time
-            left_y_constraint.value.value = PETSc.ScalarType(
-                wave_packet(t, source_amplitude, frequency, width)
-            )
-            state.predict_displacement(dt)
+            left_y_constraint.update(t)
+            integrator.predict_displacement(dt)
             constraints.apply_dirichlet_bcs(state.u_next, [left_y_constraint.bc])
             apply_periodic_projection(state.u_next, periodic_projection)
-            state.accept_displacement()
+            integrator.update_displacement()
+
+            integrator.update_midstep_velocity(dt)
+            apply_periodic_projection(state.v_mid, periodic_projection)
 
             residual = assembly.assemble_vector(residual_form)
-            state.set_acceleration_from_residual(residual, lumped.inv_mass)
+            integrator.solve_acceleration(residual)
             residual.destroy()
             apply_periodic_projection(state.a_next, periodic_projection)
-            state.correct_velocity(dt)
+            integrator.update_velocity(dt)
             apply_periodic_projection(state.v_next, periodic_projection)
-            state.accept_velocity_acceleration()
+            integrator.advance_velocity_acceleration()
 
             if info.should_save:
                 xdmf.write_fields(t, state.u, state.v)

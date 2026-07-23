@@ -12,6 +12,7 @@
       <div class="brand">AgentFEM</div>
       <div class="tagline">Agent-oriented finite-element workflows</div>
       <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
 <a class="" href="agent-guide.html">Agent Guide</a>
 <a class="" href="workflow.html">Workflow</a>
 <a class="" href="concepts.html">Concepts</a>
@@ -28,23 +29,33 @@
     <main>
       <article>
 <h1 id="agentfem-examples">AgentFEM Examples</h1>
-<p>These examples are written as workflow references for both researchers and agents. Each one should expose the finite-element sequence clearly:</p>
+<p>These examples are release-facing workflow references. They should show the finite-element sequence clearly and avoid exposing low-level DOLFINx details unless the example is intentionally advanced.</p>
+<h2 id="recommended-reading-order">Recommended Reading Order</h2>
 <ol>
-<li>Mesh</li>
-<li>Regions for boundary and domain locations</li>
-<li>Application unknowns with <code>fields</code></li>
-<li>Material properties and constitutive relations</li>
-<li>Constraints, loads, and boundary models applied to regions</li>
-<li>Operators such as <code>K</code>, <code>M</code>, <code>C</code>, and <code>F</code></li>
-<li>Assembly and solve or time stepping</li>
-<li>Diagnostics and output</li>
+<li><code>static_elasticity_2d.py</code><br>Beginner template. Demonstrates the preferred MVP path:<br>`Study -&gt; Model -&gt; Field -&gt; Material -&gt; Regions -&gt; Constraints/Loads -&gt;<br>model.linear_static_step(...) -&gt; solve -&gt; XDMF`.</li>
 </ol>
-<p>Beginner application examples should prefer operator-level language such as <code>K x = F</code> and <code>LinearSystemProblem</code> before introducing weak-form details. Use <code>constraints.fixed(...)</code> for application-level fixed-value boundary conditions. For vector fields it fixes all components by default; pass <code>components=0</code> or <code>components=(0, 1)</code> to constrain selected components.</p>
-<h2 id="examples">Examples</h2>
+<ol>
+<li><code>transient_heat_2d.py</code><br>Intermediate template. Demonstrates first-order transient heat conduction<br>with visible <code>C</code>, <code>K</code>, history, source, time stepper, and output.</li>
+</ol>
+<ol>
+<li><code>wave_packet_plate_2d.py</code><br>Advanced explicit dynamics example. Demonstrates source amplitudes,<br>central-difference integration, periodic projection, and absorbing boundary<br>contributions.</li>
+</ol>
+<ol>
+<li><code>wave_packet_inclusion_2d.py</code><br>Advanced material-region example. Demonstrates a stiff circular inclusion,<br>regional material assignment, explicit dynamics, periodic projection, and<br>absorbing boundary handling.</li>
+</ol>
+<h2 id="run">Run</h2>
+<p>From the <code>agentfem</code> directory:</p>
+<pre><code>python examples/static_elasticity_2d.py
+python examples/transient_heat_2d.py</code></pre>
+<p>From the parent development directory:</p>
+<pre><code>python agentfem/examples/static_elasticity_2d.py
+python agentfem/examples/transient_heat_2d.py</code></pre>
+<p>Outputs are written to <code>examples_output/*.xdmf</code> and can be opened in ParaView.</p>
+<h2 id="style-rules">Style Rules</h2>
 <ul>
-<li><code>static_elasticity_2d.py</code>: small linear-elastic cantilever-style solve.</li>
-<li><code>transient_heat_2d.py</code>: implicit-Euler transient heat-conduction solve.</li>
-<li><code>wave_packet_plate_2d.py</code>: simplified plate wave-packet propagation with<br>source displacement, top/bottom periodic projection, and right absorbing<br>boundary model.</li>
+<li>Beginner examples should use <code>model.tree()</code>, <code>model.check()</code>, and<br>model-owned steps when possible.</li>
+<li>Intermediate examples may show <code>operators</code> and <code>problems</code> directly when the<br>algebraic system is the teaching point.</li>
+<li>Advanced examples may expose time-integration formulas, projections, and<br>boundary-model internals, but should keep reusable operations in AgentFEM<br>modules.</li>
 </ul>
       </article>
     </main>

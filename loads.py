@@ -1,48 +1,26 @@
-"""Standard load and time-dependent boundary helpers."""
+"""Standard natural-load helpers."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
 
 import ufl
-from petsc4py import PETSc
 
+from . import amplitudes
 from .constraints import boundary
+from .constraints import TimeDependentDirichlet
+from .constraints import time_dependent_component_dirichlet as _constraint_time_dirichlet
 from . import forms
 from .kernel import constants
 
 
-@dataclass(frozen=True)
-class TimeFunction:
-    """Named scalar function of time."""
-
-    name: str
-    value: Callable[[float], float]
-
-    def __call__(self, t: float) -> float:
-        return float(self.value(t))
+TimeFunction = amplitudes.Amplitude
 
 
-@dataclass(frozen=True)
-class TimeDependentDirichlet:
-    """A Dirichlet boundary condition driven by a scalar time function."""
+def time_dependent_component_dirichlet(V, component: int, marker, time_function):
+    """Compatibility wrapper for time-dependent component Dirichlet constraints."""
 
-    constant: object
-    bc: object
-    time_function: TimeFunction
-
-    def update(self, t: float) -> float:
-        value = self.time_function(t)
-        self.constant.value = PETSc.ScalarType(value)
-        return value
-
-
-def time_dependent_component_dirichlet(V, component: int, marker, time_function: TimeFunction):
-    """Create a time-dependent Dirichlet BC on one vector component."""
-
-    constant, bc = boundary.component_dirichlet_bc(V, component, marker, value=0.0)
-    return TimeDependentDirichlet(constant=constant, bc=bc, time_function=time_function)
+    return _constraint_time_dirichlet(V, component, marker, value=time_function)
 
 
 def apply_dirichlet_bcs(function, bcs) -> None:
@@ -51,10 +29,10 @@ def apply_dirichlet_bcs(function, bcs) -> None:
     boundary.apply_dirichlet_bcs(function, bcs)
 
 
-def constant_time_function(value: float, name: str = "constant") -> TimeFunction:
+def constant_time_function(value: float, name: str = "constant") -> amplitudes.Amplitude:
     """Represent a constant value with the same interface as transient data."""
 
-    return TimeFunction(name=name, value=lambda _t: value)
+    return amplitudes.constant(value, name=name)
 
 
 @dataclass(frozen=True)
@@ -170,15 +148,23 @@ def heat_source(value, *, domain=None, target=None, measure=ufl.dx, name: str = 
     return body_load(value, measure=measure, name=name, domain=domain, target=target)
 
 
-def boundary_load(value, measure=None, *, location=None, name: str = "boundary_load") -> BoundaryLoad:
+def boundary_load(
+    value,
+    measure=None,
+    *,
+    location=None,
+    on=None,
+    name: str = "boundary_load",
+) -> BoundaryLoad:
     """Create a generic natural boundary load."""
 
-    selected_measure = measure if measure is not None else _location_measure(location)
+    selected_location = _select_location(location=location, on=on)
+    selected_measure = measure if measure is not None else _location_measure(selected_location)
     return BoundaryLoad(
-        value=_as_constant(value, location=location),
+        value=_as_constant(value, location=selected_location),
         measure=selected_measure,
         name=name,
-        location=location,
+        location=selected_location,
     )
 
 
@@ -188,16 +174,16 @@ def neumann(value, measure, *, name: str = "neumann_load") -> NeumannLoad:
     return NeumannLoad(value=value, measure=measure, name=name)
 
 
-def traction(value, *, location, name: str = "traction") -> BoundaryLoad:
+def traction(value, *, location=None, on=None, name: str = "traction") -> BoundaryLoad:
     """Create a mechanical traction applied on a boundary region."""
 
-    return boundary_load(value, location=location, name=name)
+    return boundary_load(value, location=location, on=on, name=name)
 
 
-def heat_flux(value, *, location, name: str = "heat_flux") -> BoundaryLoad:
+def heat_flux(value, *, location=None, on=None, name: str = "heat_flux") -> BoundaryLoad:
     """Create a prescribed heat flux applied on a boundary region."""
 
-    return boundary_load(value, location=location, name=name)
+    return boundary_load(value, location=location, on=on, name=name)
 
 
 def body_force_form(force, test_function):
@@ -218,6 +204,12 @@ def _location_measure(location):
     if not hasattr(location, "measure"):
         raise ValueError("location must provide a boundary integration measure.")
     return location.measure
+
+
+def _select_location(*, location=None, on=None):
+    if location is not None and on is not None:
+        raise ValueError("Pass either on=... or location=..., not both.")
+    return location if location is not None else on
 
 
 def _as_constant(value, *, location=None, domain=None, target=None):

@@ -12,6 +12,7 @@
       <div class="brand">AgentFEM</div>
       <div class="tagline">Agent-oriented finite-element workflows</div>
       <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
 <a class="" href="agent-guide.html">Agent Guide</a>
 <a class="" href="workflow.html">Workflow</a>
 <a class="" href="concepts.html">Concepts</a>
@@ -31,13 +32,14 @@
 <p>This note records the current architecture direction from the perspective of traditional finite-element workflows and agent-oriented use.</p>
 <h2 id="current-strengths">Current Strengths</h2>
 <ul>
-<li>The first-level modules mostly match standard FEM steps: mesh import/read,<br>spaces, fields, constraints, loads, forms, assembly, operators, time<br>integration, solvers, diagnostics, and output.</li>
+<li>The first-level modules mostly match standard FEM steps: studies, mesh<br>import/read, models, spaces, fields, constraints, loads, forms, assembly,<br>operators, problems, time integration, solvers, diagnostics, and output.</li>
 <li>Constitutive response relations are below <code>constitutive/</code>, while material<br>records and property containers are below <code>materials/</code>.</li>
+<li>Study assumptions now influence constitutive behavior where implemented,<br>including 2D isotropic plane strain and plane stress elasticity.</li>
 <li>Weak boundary physics is below <code>boundary_models/</code>, which separates Robin,<br>impedance, absorbing, and convection-like terms from essential constraints<br>and Neumann loads.</li>
 <li>Application-specific geometry and source definitions are outside AgentFEM,<br>keeping the core package reusable.</li>
 <li>External CAE mesh conversion is separated into <code>mesh/formats.py</code>, keeping<br>solver workflow code independent from Abaqus, NASTRAN, COMSOL, or VTK details.</li>
 <li>The package has both human-facing workflow docs and skill-ready progressive<br>references for agents.</li>
-<li>Mesh summaries, tag checks, material-property summaries, load summaries,<br>constraint summaries, boundary-model summaries, and <code>FEMProblem.summary()</code> now<br>provide a first layer of agent-readable model inspection.</li>
+<li>Study summaries, model summaries, mesh summaries, tag checks,<br>material-property summaries, load summaries, constraint summaries, and<br>boundary-model summaries now provide a first layer of agent-readable<br>inspection.</li>
 </ul>
 <h2 id="main-refinements-needed">Main Refinements Needed</h2>
 <ol>
@@ -47,7 +49,7 @@
 <li>Keep boundary concepts separate:<br>Public strong boundary conditions should enter through <code>constraints/</code>.<br><code>constraints/boundary.py</code> is a low-level implementation helper for<br>Dirichlet constants and dof application. Weak boundary physics belongs in<br><code>boundary_models/</code>.</li>
 </ol>
 <ol>
-<li>Promote problem definition:<br><code>problems.py</code> now contains a lightweight <code>FEMProblem</code> description plus<br>reusable state containers. Future work should keep this descriptive rather<br>than turning it into hidden framework logic.</li>
+<li>Keep study, model, and problem responsibilities separate:<br><code>studies.py</code> declares context, <code>models.py</code> registers assets and checks the<br>model, and <code>problems.py</code> represents discrete systems to solve.</li>
 </ol>
 <ol>
 <li>Make form construction more discoverable:<br><code>forms.py</code> should expose small weak-form blocks with clear names, such as<br>mass, stiffness, damping, body load, traction, and flux contributions.</li>
@@ -70,7 +72,7 @@
 <ol>
 <li>Tighten docs links and module routing.</li>
 <li>Improve <code>forms.py</code> into a clearer library of reusable weak-form blocks.</li>
-<li>Add typed containers for standard analyses: static, first-order transient,<br>and second-order dynamics.</li>
+<li>Add typed containers for standard discrete systems: static, first-order<br>transient, and second-order dynamics.</li>
 <li>Add small examples for each standard workflow step after APIs stabilize.</li>
 <li>Add constitutive submodules only when at least one application needs them:<br>anisotropic elasticity, viscoelasticity, thermal conduction, and coupled<br>models.</li>
 </ol>

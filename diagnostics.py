@@ -9,12 +9,14 @@ import numpy as np
 from dolfinx import fem
 from mpi4py import MPI
 
+from . import fields as field_api
 from .kernel import dofs
 
 
 def kinetic_energy(mass_lumped: np.ndarray, velocity: fem.Function) -> float:
     """Global kinetic energy from a lumped mass vector and velocity field."""
 
+    velocity = field_api.unwrap(velocity)
     local = 0.5 * float(np.sum(mass_lumped * dofs.owned_array(velocity) ** 2))
     return velocity.function_space.mesh.comm.allreduce(local, op=MPI.SUM)
 
@@ -22,6 +24,7 @@ def kinetic_energy(mass_lumped: np.ndarray, velocity: fem.Function) -> float:
 def max_abs(function: fem.Function) -> float:
     """Global max absolute value of a finite-element field."""
 
+    function = field_api.unwrap(function)
     local = float(np.max(np.abs(function.x.array)))
     return function.function_space.mesh.comm.allreduce(local, op=MPI.MAX)
 

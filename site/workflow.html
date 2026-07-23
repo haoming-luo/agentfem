@@ -12,6 +12,7 @@
       <div class="brand">AgentFEM</div>
       <div class="tagline">Agent-oriented finite-element workflows</div>
       <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
 <a class="" href="agent-guide.html">Agent Guide</a>
 <a class="active" href="workflow.html">Workflow</a>
 <a class="" href="concepts.html">Concepts</a>
@@ -31,17 +32,20 @@
 <p>AgentFEM uses a standard finite-element workflow. Application code should make this sequence visible unless there is a strong reason to encapsulate it.</p>
 <h2 id="standard-sequence">Standard Sequence</h2>
 <ol>
+<li>Define the study context: analysis type, physics, dimension, and modeling<br>assumptions.</li>
 <li>Define, import, convert, or read the mesh.</li>
+<li>Create a lightweight model registry when auditability or agent inspection is<br>useful.</li>
 <li>Inspect the mesh summary and require expected material/boundary tags.</li>
-<li>Define named mesh regions for boundaries, material zones, or point sets.</li>
+<li>Define named mesh regions for boundaries, material zones, or point sets.<br>Boundary regions carry <code>ds(tag)</code>; cell/material regions carry <code>dx(tag)</code>.</li>
 <li>Create function spaces or application unknown fields.</li>
 <li>Create state containers when needed.</li>
 <li>Load or define material properties, then choose constitutive laws.</li>
+<li>Define reusable amplitudes for prescribed time histories or scale factors.</li>
 <li>Define essential constraints.</li>
 <li>Define weak loads and boundary models.</li>
-<li>Build operators or weak forms.</li>
-<li>Compile and assemble forms.</li>
-<li>Solve algebraic systems or advance in time.</li>
+<li>Build operators or weak forms. Use model-first helpers such as<br><code>model.stiffness(...)</code> for standard registered assets, or operator-first<br>constructors such as <code>operators.stiffness(...)</code> and<br><code>operators.combine(...)</code> when each contribution should be explicit.</li>
+<li>Create and register an analysis step with <code>model.step(...)</code> or<br><code>model.linear_static_step(...)</code>. The step should expose visible operators,<br>such as <code>K U = F</code> or <code>(C / dt + K) T_next = C T_old / dt + Q</code>.</li>
+<li>Compile, assemble, and solve the step, or advance in time.</li>
 <li>Evaluate diagnostics.</li>
 <li>Write outputs.</li>
 </ol>
@@ -49,7 +53,10 @@
 <ul>
 <li>Mesh import, named regions, tags, summaries, checks, and measures: <code>mesh/</code></li>
 <li>External CAE mesh conversion: <code>mesh/formats.py</code></li>
+<li>Study contexts: <code>studies.py</code></li>
+<li>Model registry and checks: <code>models.py</code></li>
 <li>Spaces and fields: <code>spaces.py</code></li>
+<li>Time histories and scale factors: <code>amplitudes.py</code></li>
 <li>Low-level dofs and vector access: <code>kernel/dofs.py</code></li>
 <li>Constraints: <code>constraints/</code></li>
 <li>Loads and natural boundary data: <code>loads.py</code></li>
@@ -59,8 +66,9 @@
 <li>Weak-form blocks: <code>forms.py</code></li>
 <li>Assembly: <code>assembly.py</code></li>
 <li>Operator families: <code>operators/</code></li>
-<li>Time integration and runtime cadence: <code>time/</code></li>
-<li>Problem summaries and state containers: <code>problems.py</code></li>
+<li>Time integration: <code>time/explicit.py</code>, future <code>time/implicit.py</code>, and runtime cadence</li>
+<li>Model-owned analysis-step creation: <code>models.py</code></li>
+<li>Algebraic problems, reusable step containers, and state containers:<br><code>problems.py</code></li>
 <li>Solvers: <code>solvers.py</code></li>
 <li>Diagnostics: <code>diagnostics.py</code></li>
 <li>Output: <code>io.py</code></li>
@@ -69,6 +77,8 @@
 </ul>
 <h2 id="design-principle">Design Principle</h2>
 <p>The workflow should be easy for a human researcher to read and easy for an agent to audit. A simulation file may call reusable helpers, but it should still show the finite-element meaning of each step.</p>
+<p>Prefer <code>model.tree()</code> and <code>model.manifest()</code> before a solve when an agent, reviewer, or notebook user needs to inspect the current model state.</p>
+<p>Beginner workflows should prefer the stable public path: <code>studies</code>, <code>mesh</code>, <code>models</code>, <code>fields</code>, <code>materials</code>, <code>constitutive</code>, <code>constraints</code>, <code>amplitudes</code>, <code>loads</code>, <code>operators</code>, <code>problems</code>, <code>solvers</code>, <code>time</code>, and <code>io</code>.</p>
 <p>First-level Python modules are reserved for the main FEM workflow. Subpackages hold reusable asset families, such as constitutive laws, material records, boundary models, element policies, operator families, and benchmarks. Low-level implementation helpers such as <code>constraints/boundary.py</code> and <code>kernel/dofs.py</code> should not be featured in beginner workflows.</p>
       </article>
     </main>

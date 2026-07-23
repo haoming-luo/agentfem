@@ -1,27 +1,54 @@
 # AgentFEM Examples
 
-These examples are written as workflow references for both researchers and
-agents. Each one should expose the finite-element sequence clearly:
+These examples are release-facing workflow references. They should show the
+finite-element sequence clearly and avoid exposing low-level DOLFINx details
+unless the example is intentionally advanced.
 
-1. Mesh
-2. Regions for boundary and domain locations
-3. Application unknowns with `fields`
-4. Material properties and constitutive relations
-5. Constraints, loads, and boundary models applied to regions
-6. Operators such as `K`, `M`, `C`, and `F`
-7. Assembly and solve or time stepping
-8. Diagnostics and output
+## Recommended Reading Order
 
-Beginner application examples should prefer operator-level language such as
-`K x = F` and `LinearSystemProblem` before introducing weak-form details.
-Use `constraints.fixed(...)` for application-level fixed-value boundary
-conditions. For vector fields it fixes all components by default; pass
-`components=0` or `components=(0, 1)` to constrain selected components.
+1. `static_elasticity_2d.py`
+   Beginner template. Demonstrates the preferred MVP path:
+   `Study -> Model -> Field -> Material -> Regions -> Constraints/Loads ->
+   model.linear_static_step(...) -> solve -> XDMF`.
 
-## Examples
+2. `transient_heat_2d.py`
+   Intermediate template. Demonstrates first-order transient heat conduction
+   with visible `C`, `K`, history, source, time stepper, and output.
 
-- `static_elasticity_2d.py`: small linear-elastic cantilever-style solve.
-- `transient_heat_2d.py`: implicit-Euler transient heat-conduction solve.
-- `wave_packet_plate_2d.py`: simplified plate wave-packet propagation with
-  source displacement, top/bottom periodic projection, and right absorbing
-  boundary model.
+3. `wave_packet_plate_2d.py`
+   Advanced explicit dynamics example. Demonstrates source amplitudes,
+   central-difference integration, periodic projection, and absorbing boundary
+   contributions.
+
+4. `wave_packet_inclusion_2d.py`
+   Advanced material-region example. Demonstrates a stiff circular inclusion,
+   regional material assignment, explicit dynamics, periodic projection, and
+   absorbing boundary handling.
+
+## Run
+
+From the `agentfem` directory:
+
+```bash
+python examples/static_elasticity_2d.py
+python examples/transient_heat_2d.py
+```
+
+From the parent development directory:
+
+```bash
+python agentfem/examples/static_elasticity_2d.py
+python agentfem/examples/transient_heat_2d.py
+```
+
+Outputs are written to `examples_output/*.xdmf` and can be opened in ParaView.
+
+## Style Rules
+
+- Beginner examples should use `model.tree()`, `model.check()`, and
+  model-owned steps when possible.
+- Intermediate examples may show `operators` and `problems` directly when the
+  algebraic system is the teaching point.
+- Advanced examples may expose time-integration formulas, projections, and
+  boundary-model internals, but should keep reusable operations in AgentFEM
+  modules.

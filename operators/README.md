@@ -23,5 +23,31 @@ F = operators.force_vector(
 system = operators.LinearSystem(stiffness=K, force=F)
 ```
 
+## Algebra Layers
+
+AgentFEM separates immediate field algebra from operator algebra.
+
+Field algebra is dof-wise and returns a new field:
+
+```python
+u_pred = u + dt * v + 0.5 * dt**2 * a
+speed_norm = fields.norm(v)
+```
+
+Operator algebra is finite-element matrix/vector algebra and returns vectors
+or scalars:
+
+```python
+M = operators.mass_operator(displacement, density)
+F_mass = operators.action(M, u)
+q = operators.quadratic_form(M, u)  # u^T M u
+q = operators.xtmx(u, M)            # Cast3M-style alias
+q = operators.xtmy(u, M, v)         # u^T M v
+```
+
+Use explicit functions for these products instead of overloading `u @ v`; two
+fields can represent pointwise products, algebraic dot products, weak-form
+integrals, or mass-weighted products, and those meanings should stay visible.
+
 Low-level weak forms remain available in `agentfem.forms`, and assembly remains
 available in `agentfem.assembly`.

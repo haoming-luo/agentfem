@@ -2,20 +2,23 @@
 
 AgentFEM workflow:
 
-1. Mesh
-2. Mesh summary and required tag checks
-3. Function spaces
-4. Fields and states
-5. Constitutive laws
-6. Problem summary when auditability is useful
-7. Constraints
-8. Loads
-9. Boundary models
-10. Forms
-11. Assembly
-12. Solve or time step
-13. Diagnostics
-14. Output
+1. Study context: analysis type, physics, dimension, and assumptions
+2. Mesh
+3. Model registry when auditability is useful
+4. Mesh summary and required tag checks
+5. Function spaces
+6. Fields and states
+7. Constitutive laws
+8. Amplitudes when prescribed data changes with time
+9. Constraints
+10. Loads
+11. Boundary models
+12. Operators or forms: model-first helpers for standard registered assets,
+    operator-first constructors for explicit contributions
+13. Analysis step from visible operators
+14. Assembly, solve, or time integration
+15. Diagnostics
+16. Output
 
 Do not collapse these steps so aggressively that a reviewer cannot see the
 finite-element model.

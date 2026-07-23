@@ -12,8 +12,11 @@ __all__ = [
     "TimeStep",
     "TimeStepper",
     "acceleration_from_residual",
+    "central_difference_update_midstep_velocity",
     "central_difference_correct_velocity",
     "central_difference_predict_displacement",
+    "central_difference_update_velocity",
+    "explicit",
     "format_duration",
 ]
 
@@ -37,6 +40,13 @@ def acceleration_from_residual(acceleration, residual, inv_mass: np.ndarray) -> 
     dofs.assign_owned(acceleration, -residual.array * inv_mass)
 
 
+def central_difference_update_midstep_velocity(velocity_mid, velocity, acceleration, dt: float) -> None:
+    """Update the central-difference mid-step velocity."""
+
+    velocity_mid.x.array[:] = velocity.x.array + 0.5 * dt * acceleration.x.array
+    velocity_mid.x.scatter_forward()
+
+
 def central_difference_correct_velocity(
     velocity_next, velocity, acceleration, acceleration_next, dt: float
 ) -> None:
@@ -46,3 +56,15 @@ def central_difference_correct_velocity(
         acceleration.x.array + acceleration_next.x.array
     )
     velocity_next.x.scatter_forward()
+
+
+def central_difference_update_velocity(
+    velocity_next, velocity_mid, acceleration_next, dt: float
+) -> None:
+    """Update whole-step velocity from mid-step velocity and new acceleration."""
+
+    velocity_next.x.array[:] = velocity_mid.x.array + 0.5 * dt * acceleration_next.x.array
+    velocity_next.x.scatter_forward()
+
+
+from . import explicit

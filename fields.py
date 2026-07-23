@@ -10,9 +10,113 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+from dolfinx import fem
 from mpi4py import MPI
 
 from . import spaces
+from .kernel import dofs
+
+
+@dataclass
+class Field:
+    """Tensor-like finite-element field with immediate-value algebra.
+
+    Arithmetic is intentionally eager: operations between compatible fields
+    create a new DOLFINx function with computed dof values. This mirrors CAE
+    field algebra such as Cast3M ``vp = vit0 + res1 * acc0``.
+    """
+
+    function: fem.Function
+    name: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.name is not None:
+            self.function.name = self.name
+
+    @property
+    def x(self):
+        """Return the underlying vector data."""
+
+        return self.function.x
+
+    @property
+    def function_space(self):
+        """Return the underlying function space."""
+
+        return self.function.function_space
+
+    @property
+    def ufl_shape(self):
+        """Return the UFL value shape."""
+
+        return self.function.ufl_shape
+
+    @property
+    def value(self):
+        """Compatibility alias for workflows expecting a field value."""
+
+        return self.function
+
+    def __getattr__(self, name: str):
+        return getattr(self.function, name)
+
+    def __len__(self) -> int:
+        shape = getattr(self.function, "ufl_shape", ())
+        if len(shape) == 0:
+            raise TypeError("Scalar fields do not have len().")
+        return int(shape[0])
+
+    def __add__(self, other):
+        return _binary_field_op(self, other, np.add, "add")
+
+    def __radd__(self, other):
+        return _binary_field_op(other, self, np.add, "add")
+
+    def __sub__(self, other):
+        return _binary_field_op(self, other, np.subtract, "sub")
+
+    def __rsub__(self, other):
+        return _binary_field_op(other, self, np.subtract, "sub")
+
+    def __mul__(self, other):
+        return _binary_field_op(self, other, np.multiply, "mul")
+
+    def __rmul__(self, other):
+        return _binary_field_op(other, self, np.multiply, "mul")
+
+    def __truediv__(self, other):
+        return _binary_field_op(self, other, np.divide, "div")
+
+    def __rtruediv__(self, other):
+        return _binary_field_op(other, self, np.divide, "div")
+
+    def __neg__(self):
+        result = empty_like(self, name=f"neg_{self.function.name}")
+        result.x.array[:] = -self.x.array
+        result.x.scatter_forward()
+        return result
+
+    def assign(self, source) -> None:
+        """Assign another compatible field, DOLFINx function, or scalar."""
+
+        assign(self, source)
+
+    def copy(self, *, name: str | None = None) -> "Field":
+        """Return a numerical copy of this field."""
+
+        result = empty_like(self, name=name or self.function.name)
+        dofs.copy_function(result.function, self.function)
+        return result
+
+    def summary(self) -> dict[str, object]:
+        """Return a compact field summary."""
+
+        return {
+            "name": self.function.name,
+            "kind": "field",
+            "shape": self.ufl_shape,
+            "space": str(self.function_space.ufl_element()),
+        }
 
 
 @dataclass(frozen=True)
@@ -123,4 +227,161 @@ def temperature(domain, *, degree: int = 1, value=0.0) -> UnknownField:
         value=field.value,
         trial=field.trial,
         test=field.test,
+    )
+
+
+def wrap(function, *, name: str | None = None) -> Field:
+    """Wrap a DOLFINx function as an AgentFEM field."""
+
+    if isinstance(function, Field):
+        if name is not None:
+            function.function.name = name
+        return function
+    return Field(function=function, name=name)
+
+
+def unwrap(field_or_function):
+    """Return the underlying DOLFINx function when given an AgentFEM field."""
+
+    if isinstance(field_or_function, Field):
+        return field_or_function.function
+    if hasattr(field_or_function, "value") and hasattr(field_or_function.value, "x"):
+        return field_or_function.value
+    return field_or_function
+
+
+def empty_like(field_or_function, *, name: str | None = None) -> Field:
+    """Create a zero-valued field with the same function space."""
+
+    function = unwrap(field_or_function)
+    return Field(fem.Function(function.function_space, name=name or "Field"))
+
+
+def compute(expression, *, name: str | None = None) -> Field:
+    """Return a computed field.
+
+    For eager AgentFEM field algebra, ``expression`` is already a field. This
+    helper gives user code a readable Cast3M-like spelling when a named result
+    is desired.
+    """
+
+    if isinstance(expression, Field):
+        if name is None:
+            return expression
+        return expression.copy(name=name)
+    if hasattr(expression, "function_space") and hasattr(expression, "x"):
+        return wrap(expression, name=name)
+    raise TypeError("fields.compute currently requires a Field or DOLFINx Function.")
+
+
+def assign(target, source) -> None:
+    """Assign a scalar, compatible field, or DOLFINx function into ``target``."""
+
+    target_function = unwrap(target)
+    if np.isscalar(source):
+        target_function.x.array[:] = source
+        target_function.x.scatter_forward()
+        return
+    source_function = unwrap(source)
+    require_same_space(target_function, source_function)
+    dofs.copy_function(target_function, source_function)
+
+
+def dot(left, right) -> float:
+    """Return the distributed algebraic dot product of two compatible fields.
+
+    This is an immediate numerical dof-vector operation, not a weak-form
+    integral. Use operator-level helpers for mass-weighted or stiffness-weighted
+    products such as ``x^T M y``.
+    """
+
+    require_same_space(left, right)
+    left_function = unwrap(left)
+    right_function = unwrap(right)
+    local = float(np.dot(dofs.owned_array(left_function), dofs.owned_array(right_function)))
+    return left_function.function_space.mesh.comm.allreduce(local, op=MPI.SUM)
+
+
+def weighted_dot(left, weights, right=None) -> float:
+    """Return ``left^T diag(weights) right`` for compatible fields.
+
+    ``weights`` is normally a lumped mass/capacity/stiffness-like diagonal
+    vector assembled on the same function space. If ``right`` is omitted, this
+    returns ``left^T diag(weights) left``.
+    """
+
+    if right is None:
+        right = left
+    require_same_space(left, right)
+    left_function = unwrap(left)
+    right_function = unwrap(right)
+    left_values = dofs.owned_array(left_function)
+    right_values = dofs.owned_array(right_function)
+    owned_weights = np.asarray(weights)[: len(left_values)]
+    if len(owned_weights) != len(left_values):
+        raise ValueError(
+            "weighted_dot requires weights with at least the local owned dof length."
+        )
+    local = float(np.sum(owned_weights * left_values * right_values))
+    return left_function.function_space.mesh.comm.allreduce(local, op=MPI.SUM)
+
+
+def norm(field, *, weight=None) -> float:
+    """Return the distributed algebraic norm of a field.
+
+    Without ``weight`` this is ``sqrt(field^T field)``. With a lumped diagonal
+    weight this is ``sqrt(field^T diag(weight) field)``.
+    """
+
+    value = weighted_dot(field, weight) if weight is not None else dot(field, field)
+    return float(np.sqrt(value))
+
+
+def require_same_space(left, right) -> None:
+    """Raise if two fields/functions are not on the same function space."""
+
+    left_function = unwrap(left)
+    right_function = unwrap(right)
+    if left_function.function_space is not right_function.function_space:
+        raise ValueError(
+            "Field algebra requires the same function space in this release. "
+            f"Got {left_function.function_space!r} and {right_function.function_space!r}."
+        )
+
+
+def same_space(left, right) -> bool:
+    """Return whether two fields/functions share the same function space."""
+
+    return unwrap(left).function_space is unwrap(right).function_space
+
+
+def _binary_field_op(left, right, op, op_name: str) -> Field:
+    left_is_field = _is_field_like(left)
+    right_is_field = _is_field_like(right)
+    if not left_is_field and not right_is_field:
+        raise TypeError("At least one operand must be a field.")
+
+    template = left if left_is_field else right
+    result = empty_like(template, name=f"{op_name}_{unwrap(template).name}")
+
+    if left_is_field:
+        left_values = unwrap(left).x.array
+    else:
+        left_values = left
+    if right_is_field:
+        right_values = unwrap(right).x.array
+    else:
+        right_values = right
+
+    if left_is_field and right_is_field:
+        require_same_space(left, right)
+
+    result.x.array[:] = op(left_values, right_values)
+    result.x.scatter_forward()
+    return result
+
+
+def _is_field_like(value) -> bool:
+    return isinstance(value, Field) or (
+        hasattr(value, "function_space") and hasattr(value, "x")
     )

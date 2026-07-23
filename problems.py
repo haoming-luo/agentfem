@@ -8,6 +8,7 @@ import numpy as np
 from dolfinx import fem
 
 from . import assembly
+from . import fields
 from . import spaces
 from . import time
 from .kernel import dofs
@@ -81,6 +82,31 @@ class LinearSystemProblem:
     bcs: list = field(default_factory=list)
     solver_options: LinearSolverOptions | None = None
 
+    @classmethod
+    def from_operators(
+        cls,
+        K,
+        F,
+        *,
+        unknown=None,
+        solution=None,
+        constraints=None,
+        bcs=None,
+        solver_options: LinearSolverOptions | None = None,
+        name: str = "Kx_eq_F",
+    ):
+        """Create a linear-system problem from engineering notation."""
+
+        from . import operators
+
+        return cls(
+            system=operators.linear_system(K, F, name=name),
+            unknown=unknown,
+            solution=solution,
+            bcs=_collect_bcs(constraints=constraints, bcs=bcs),
+            solver_options=solver_options,
+        )
+
     def solve(self):
         """Compile the system operators and solve into ``solution``."""
 
@@ -112,6 +138,51 @@ class LinearSystemProblem:
 
 
 @dataclass
+class AnalysisStep:
+    """Inspectable analysis step that owns one algebraic solve.
+
+    The step is the public workflow layer between a ``Study`` and an algebraic
+    problem. It records the analysis intent and method, but keeps K/C/F-style
+    operators visible through ``system`` and ``problem``.
+    """
+
+    name: str
+    problem: LinearSystemProblem
+    study: object | None = None
+    method: str = "direct_linear_solve"
+    dt: float | None = None
+
+    @property
+    def system(self):
+        """Return the engineering algebraic system used by this step."""
+
+        return self.problem.system
+
+    @property
+    def bcs(self):
+        """Return boundary conditions collected for this step."""
+
+        return self.problem.bcs
+
+    def solve(self):
+        """Solve this analysis step."""
+
+        return self.problem.solve()
+
+    def summary(self) -> dict[str, object]:
+        """Return a compact, agent-readable step summary."""
+
+        return {
+            "kind": "analysis_step",
+            "name": self.name,
+            "study": _describe_asset(self.study) if self.study is not None else None,
+            "method": self.method,
+            "dt": self.dt,
+            "problem": self.problem.summary(),
+        }
+
+
+@dataclass
 class TransientState:
     """Current/next fields for a first-order transient unknown."""
 
@@ -140,6 +211,7 @@ class SecondOrderDynamicsState:
     u: object
     v: object
     a: object
+    v_mid: object
     u_next: object
     v_next: object
     a_next: object
@@ -156,12 +228,13 @@ class SecondOrderDynamicsState:
         """Create zero-initialized explicit dynamics fields for a space."""
 
         return cls(
-            u=spaces.named_function(V, displacement_name),
-            v=spaces.named_function(V, velocity_name),
-            a=spaces.named_function(V, acceleration_name),
-            u_next=spaces.named_function(V, displacement_name),
-            v_next=spaces.named_function(V, velocity_name),
-            a_next=spaces.named_function(V, acceleration_name),
+            u=fields.wrap(spaces.named_function(V, displacement_name)),
+            v=fields.wrap(spaces.named_function(V, velocity_name)),
+            a=fields.wrap(spaces.named_function(V, acceleration_name)),
+            v_mid=fields.wrap(spaces.named_function(V, f"{velocity_name}_Midstep")),
+            u_next=fields.wrap(spaces.named_function(V, displacement_name)),
+            v_next=fields.wrap(spaces.named_function(V, velocity_name)),
+            a_next=fields.wrap(spaces.named_function(V, acceleration_name)),
         )
 
     def predict_displacement(self, dt: float) -> None:
@@ -174,25 +247,50 @@ class SecondOrderDynamicsState:
 
         time.acceleration_from_residual(self.a_next, residual, inv_mass)
 
+    def update_midstep_velocity(self, dt: float) -> None:
+        """Update ``v_mid`` with the central-difference half-step formula."""
+
+        time.central_difference_update_midstep_velocity(self.v_mid, self.v, self.a, dt)
+
     def correct_velocity(self, dt: float) -> None:
         """Correct ``v_next`` using ``a`` and ``a_next``."""
 
         time.central_difference_correct_velocity(self.v_next, self.v, self.a, self.a_next, dt)
 
-    def accept_step(self) -> None:
+    def update_velocity(self, dt: float) -> None:
+        """Update ``v_next`` from ``v_mid`` and ``a_next``."""
+
+        time.central_difference_update_velocity(self.v_next, self.v_mid, self.a_next, dt)
+
+    def update_displacement(self) -> None:
+        """Copy ``u_next`` into the current displacement state."""
+
+        dofs.copy_function(self.u, self.u_next)
+
+    def advance_state(self) -> None:
         """Copy next-step fields into current fields."""
 
         dofs.copy_function(self.u, self.u_next)
         dofs.copy_function(self.v, self.v_next)
         dofs.copy_function(self.a, self.a_next)
 
-    def accept_displacement(self) -> None:
-        """Copy ``u_next`` into ``u``."""
+    def accept_step(self) -> None:
+        """Compatibility alias for ``advance_state``."""
 
-        dofs.copy_function(self.u, self.u_next)
+        self.advance_state()
+
+    def accept_displacement(self) -> None:
+        """Compatibility alias for ``update_displacement``."""
+
+        self.update_displacement()
 
     def accept_velocity_acceleration(self) -> None:
-        """Copy ``v_next`` and ``a_next`` into ``v`` and ``a``."""
+        """Compatibility alias for advancing velocity and acceleration."""
+
+        self.advance_velocity_acceleration()
+
+    def advance_velocity_acceleration(self) -> None:
+        """Advance velocity and acceleration to the next time level."""
 
         dofs.copy_function(self.v, self.v_next)
         dofs.copy_function(self.a, self.a_next)
@@ -219,9 +317,181 @@ class LumpedMassOperator:
 ExplicitDynamicsState = SecondOrderDynamicsState
 
 
+def second_order_state(field_or_space, **kwargs) -> SecondOrderDynamicsState:
+    """Create a second-order dynamics state from a field or function space."""
+
+    if hasattr(field_or_space, "space"):
+        V = field_or_space.space
+    elif hasattr(field_or_space, "function_space"):
+        V = field_or_space.function_space
+    else:
+        V = field_or_space
+    return SecondOrderDynamicsState.create(V, **kwargs)
+
+
+def linear_system(
+    K,
+    F,
+    *,
+    unknown=None,
+    solution=None,
+    constraints=None,
+    bcs=None,
+    solver_options: LinearSolverOptions | None = None,
+    name: str = "Kx_eq_F",
+) -> LinearSystemProblem:
+    """Create a ``K x = F`` problem without exposing variational boilerplate."""
+
+    return LinearSystemProblem.from_operators(
+        K,
+        F,
+        unknown=unknown,
+        solution=solution,
+        constraints=constraints,
+        bcs=bcs,
+        solver_options=solver_options,
+        name=name,
+    )
+
+
+def linear_static(
+    K,
+    F,
+    *,
+    study=None,
+    unknown=None,
+    solution=None,
+    constraints=None,
+    bcs=None,
+    solver_options: LinearSolverOptions | None = None,
+    name: str = "linear_static",
+) -> AnalysisStep:
+    """Create a linear static analysis step in ``K x = F`` notation."""
+
+    _require_study_analysis(study, "linear_static")
+    problem = linear_system(
+        K,
+        F,
+        unknown=unknown,
+        solution=solution,
+        constraints=constraints,
+        bcs=bcs,
+        solver_options=solver_options,
+        name=name,
+    )
+    return AnalysisStep(
+        name=name,
+        study=study,
+        problem=problem,
+        method="linear_static",
+    )
+
+
+def first_order_transient(
+    *,
+    capacity,
+    stiffness,
+    history,
+    source=None,
+    dt: float,
+    study=None,
+    unknown=None,
+    solution=None,
+    constraints=None,
+    bcs=None,
+    solver_options: LinearSolverOptions | None = None,
+    name: str = "first_order_transient_step",
+    method: str = "implicit_euler",
+) -> AnalysisStep:
+    """Create a first-order transient step.
+
+    This builds the common implicit Euler system
+    ``(C / dt + K) x_next = C x_previous / dt + Q`` while keeping ``C``, ``K``,
+    history, and source as explicit operator-level inputs.
+    """
+
+    from . import operators
+
+    _require_study_analysis(study, "first_order_transient")
+    if dt <= 0.0:
+        raise ValueError("first_order_transient requires dt > 0.")
+
+    C_over_dt = operators.scale(
+        capacity,
+        1.0 / dt,
+        name="C_over_dt",
+        kind=f"{method}_capacity_over_dt",
+    )
+    history_over_dt = operators.scale(
+        history,
+        1.0 / dt,
+        name="F_history_over_dt",
+        kind=f"{method}_history_over_dt",
+    )
+    lhs = operators.combine(
+        C_over_dt,
+        stiffness,
+        name="K_effective",
+        kind=f"{method}_lhs",
+    )
+    rhs_terms = (history_over_dt,) if source is None else (history_over_dt, source)
+    rhs = operators.combine(
+        *rhs_terms,
+        name="F_effective",
+        kind=f"{method}_rhs",
+    )
+    problem = linear_system(
+        lhs,
+        rhs,
+        unknown=unknown,
+        solution=solution,
+        constraints=constraints,
+        bcs=bcs,
+        solver_options=solver_options,
+        name=name,
+    )
+    return AnalysisStep(
+        name=name,
+        study=study,
+        problem=problem,
+        method=method,
+        dt=dt,
+    )
+
+
+def _collect_bcs(*, constraints=None, bcs=None) -> list:
+    result = []
+    if bcs is not None:
+        result.extend(_as_list(bcs))
+    if constraints is not None:
+        for item in _as_list(constraints):
+            if hasattr(item, "bcs"):
+                result.extend(item.bcs)
+            elif hasattr(item, "bc"):
+                result.append(item.bc)
+            else:
+                result.append(item)
+    return result
+
+
+def _as_list(value) -> list:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    return [value]
+
+
 def _describe_asset(asset) -> object:
     if hasattr(asset, "as_dict"):
         return asset.as_dict()
     if hasattr(asset, "summary"):
         return asset.summary()
     return getattr(asset, "name", repr(asset))
+
+
+def _require_study_analysis(study, analysis: str) -> None:
+    if study is not None and hasattr(study, "require"):
+        study.require(analysis=analysis)

@@ -5,11 +5,13 @@ traditional finite-element workflows and agent-oriented use.
 
 ## Current Strengths
 
-- The first-level modules mostly match standard FEM steps: mesh import/read,
-  spaces, fields, constraints, loads, forms, assembly, operators, time
-  integration, solvers, diagnostics, and output.
+- The first-level modules mostly match standard FEM steps: studies, mesh
+  import/read, models, spaces, fields, constraints, loads, forms, assembly,
+  operators, problems, time integration, solvers, diagnostics, and output.
 - Constitutive response relations are below `constitutive/`, while material
   records and property containers are below `materials/`.
+- Study assumptions now influence constitutive behavior where implemented,
+  including 2D isotropic plane strain and plane stress elasticity.
 - Weak boundary physics is below `boundary_models/`, which separates Robin,
   impedance, absorbing, and convection-like terms from essential constraints
   and Neumann loads.
@@ -19,9 +21,10 @@ traditional finite-element workflows and agent-oriented use.
   solver workflow code independent from Abaqus, NASTRAN, COMSOL, or VTK details.
 - The package has both human-facing workflow docs and skill-ready progressive
   references for agents.
-- Mesh summaries, tag checks, material-property summaries, load summaries,
-  constraint summaries, boundary-model summaries, and `FEMProblem.summary()` now
-  provide a first layer of agent-readable model inspection.
+- Study summaries, model summaries, mesh summaries, tag checks,
+  material-property summaries, load summaries, constraint summaries, and
+  boundary-model summaries now provide a first layer of agent-readable
+  inspection.
 
 ## Main Refinements Needed
 
@@ -38,10 +41,9 @@ traditional finite-element workflows and agent-oriented use.
    Dirichlet constants and dof application. Weak boundary physics belongs in
    `boundary_models/`.
 
-3. Promote problem definition:
-   `problems.py` now contains a lightweight `FEMProblem` description plus
-   reusable state containers. Future work should keep this descriptive rather
-   than turning it into hidden framework logic.
+3. Keep study, model, and problem responsibilities separate:
+   `studies.py` declares context, `models.py` registers assets and checks the
+   model, and `problems.py` represents discrete systems to solve.
 
 4. Make form construction more discoverable:
    `forms.py` should expose small weak-form blocks with clear names, such as
@@ -72,8 +74,8 @@ traditional finite-element workflows and agent-oriented use.
 
 1. Tighten docs links and module routing.
 2. Improve `forms.py` into a clearer library of reusable weak-form blocks.
-3. Add typed containers for standard analyses: static, first-order transient,
-   and second-order dynamics.
+3. Add typed containers for standard discrete systems: static, first-order
+   transient, and second-order dynamics.
 4. Add small examples for each standard workflow step after APIs stabilize.
 5. Add constitutive submodules only when at least one application needs them:
    anisotropic elasticity, viscoelasticity, thermal conduction, and coupled

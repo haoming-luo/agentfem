@@ -20,6 +20,7 @@ markdown_extensions:
 
 nav:
   - Home: README.md
+  - Install: INSTALL.md
   - Agent Guide: AGENT_GUIDE.md
   - Workflow: WORKFLOW.md
   - Concepts: CONCEPTS.md

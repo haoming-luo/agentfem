@@ -54,6 +54,8 @@ def apply_dirichlet_bcs(function, bcs) -> None:
 
 
 def _space(V):
+    if hasattr(V, "function_space"):
+        return V.function_space
     return V.space if hasattr(V, "space") else V
 
 
