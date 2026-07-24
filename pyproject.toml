@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentfem"
-version = "0.1.0"
+version = "0.1.1"
 description = "Agent-oriented finite-element workflow tools built on DOLFINx/PETSc."
 readme = "README.md"
 requires-python = ">=3.11"

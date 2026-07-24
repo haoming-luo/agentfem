@@ -1,6 +1,6 @@
 """Reusable finite-element workflow tools built on DOLFINx/PETSc."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 from . import amplitudes
 from . import assembly
