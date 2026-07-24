@@ -1,13 +1,15 @@
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentfem"
-version = "0.1.1"
+version = "0.1.2"
 description = "Agent-oriented finite-element workflow tools built on DOLFINx/PETSc."
 readme = "README.md"
 requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 authors = [
   { name = "Haoming Luo" }
 ]

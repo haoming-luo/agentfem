@@ -140,9 +140,13 @@ thing a new model exposes.
 
 - `WORKFLOW.md`: standard AgentFEM modeling sequence.
 - `INSTALL.md`: tested MVP environment and smoke-test command.
+- `LICENSE`: Apache-2.0 license for the open-source core.
+- `CONTRIBUTING.md`: contribution expectations and sign-off guidance.
 - `CONCEPTS.md`: shared vocabulary for finite-element and agent workflows.
 - `AGENT_GUIDE.md`: first file for AI agents working in this repository.
 - `docs/`: design notes, module map, validation notes, and extension rules.
+- `docs/licensing.md`: licensing strategy for the open-source core and
+  optional commercial extensions.
 - `docs/publishing.md`: PyPI release checklist and Trusted Publisher setup.
 - `site/index.html`: generated static documentation site.
 
@@ -161,3 +165,10 @@ replacement. The stable direction is:
 - operator-first workflows for transparent research code,
 - structured model manifests for agents,
 - examples and benchmarks that make assumptions explicit.
+
+## License
+
+AgentFEM is licensed under the Apache License, Version 2.0. The open-source core
+can be used in research, education, and commercial settings under that license.
+Commercial services, validated industrial workflows, hosted products, and
+proprietary extensions may be developed separately.
