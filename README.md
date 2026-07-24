@@ -26,31 +26,44 @@ operator-level `K/M/C/F` notation, model inspection, and ParaView/XDMF output.
 
 ## Install
 
-AgentFEM currently expects a working FEniCSx/DOLFINx stack. The recommended
-route is conda-forge:
+AgentFEM depends on the FEniCSx/DOLFINx scientific computing stack. The
+recommended route is conda-forge, because it can resolve DOLFINx, PETSc, MPI,
+and HDF5 together.
+
+### Recommended: conda-forge
+
+Create a fresh environment:
 
 ```bash
-mamba create -n agentfem-env -c conda-forge \
-  python=3.11 fenics-dolfinx=0.11 gmsh mpi4py petsc4py \
-  meshio matplotlib jupyterlab ipykernel
+mamba create -n agentfem-env -c conda-forge python=3.11 agentfem
 mamba activate agentfem-env
 ```
 
-For local development from this repository:
+Or install into an existing conda environment:
 
 ```bash
-python -m pip install -e .
+mamba install -c conda-forge agentfem
 ```
 
-After the first PyPI release, users will install AgentFEM with:
+### PyPI
+
+If you already have a working FEniCSx/DOLFINx environment:
 
 ```bash
 python -m pip install agentfem
 ```
 
-`requirements.txt` records the tested MVP stack and optional documentation /
-notebook helpers. Pure pip installation of DOLFINx can be fragile because MPI,
-PETSc, and HDF5 must match.
+### Local development
+
+```bash
+git clone https://github.com/haoming-luo/agentfem.git
+cd agentfem
+python -m pip install -e .
+```
+
+`requirements.txt` records the tested MVP stack and optional documentation and
+notebook helpers. Pure pip installation of the full FEniCSx stack can be fragile
+because MPI, PETSc, and HDF5 must match.
 
 ## Quick Start
 
