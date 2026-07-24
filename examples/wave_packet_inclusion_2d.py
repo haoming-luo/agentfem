@@ -185,7 +185,7 @@ def main() -> None:
     state = problems.second_order_state(displacement)
 
     center = np.array((0.25 * length, 0.50 * height))
-    radius = 0.18 * height
+    radius = 0.15 * height
 
     def inclusion_marker(x):
         return (x[0] - center[0]) ** 2 + (x[1] - center[1]) ** 2 <= radius**2
