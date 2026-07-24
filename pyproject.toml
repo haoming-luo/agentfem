@@ -11,15 +11,40 @@ requires-python = ">=3.11"
 authors = [
   { name = "Haoming Luo" }
 ]
+keywords = [
+  "finite-element",
+  "fem",
+  "cae",
+  "dolfinx",
+  "fenicsx",
+  "scientific-computing",
+  "agent-oriented",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Physics",
+]
 dependencies = [
   "numpy",
   "mpi4py",
 ]
 
+[project.urls]
+Homepage = "https://github.com/haoming-luo/agentfem"
+Repository = "https://github.com/haoming-luo/agentfem"
+Issues = "https://github.com/haoming-luo/agentfem/issues"
+Documentation = "https://github.com/haoming-luo/agentfem#readme"
+
 [project.optional-dependencies]
 mesh-formats = ["meshio"]
 docs = ["mkdocs", "mkdocs-material", "pymdown-extensions"]
 notebooks = ["jupyterlab", "ipykernel", "nbformat", "nbclient"]
+dev = ["build", "twine"]
 
 [tool.setuptools]
 package-dir = { "agentfem" = "." }
@@ -32,6 +57,7 @@ packages = [
   "agentfem.elements",
   "agentfem.kernel",
   "agentfem.materials",
+  "agentfem.materials.data",
   "agentfem.mesh",
   "agentfem.operators",
   "agentfem.time",

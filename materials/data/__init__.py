@@ -1,0 +1,1 @@
+"""Packaged material property records."""

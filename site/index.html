@@ -22,6 +22,7 @@
 <a class="" href="extension-rules.html">Extension Rules</a>
 <a class="" href="tutorial-design.html">Tutorial Design</a>
 <a class="" href="validation.html">Validation</a>
+<a class="" href="publishing.html">Publishing</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
 <a class="" href="skill.html">AgentFEM Skill</a></nav>
@@ -47,6 +48,8 @@
 mamba activate agentfem-env</code></pre>
 <p>For local development from this repository:</p>
 <pre><code>python -m pip install -e .</code></pre>
+<p>After the first PyPI release, users will install AgentFEM with:</p>
+<pre><code>python -m pip install agentfem</code></pre>
 <p><code>requirements.txt</code> records the tested MVP stack and optional documentation / notebook helpers. Pure pip installation of DOLFINx can be fragile because MPI, PETSc, and HDF5 must match.</p>
 <h2 id="quick-start">Quick Start</h2>
 <p>Run the beginner static-elasticity example:</p>
@@ -110,6 +113,7 @@ from agentfem import solvers, time, io, diagnostics</code></pre>
 <li><code>CONCEPTS.md</code>: shared vocabulary for finite-element and agent workflows.</li>
 <li><code>AGENT_GUIDE.md</code>: first file for AI agents working in this repository.</li>
 <li><code>docs/</code>: design notes, module map, validation notes, and extension rules.</li>
+<li><code>docs/publishing.md</code>: PyPI release checklist and Trusted Publisher setup.</li>
 <li><code>site/index.html</code>: generated static documentation site.</li>
 </ul>
 <p>Rebuild the local documentation site with:</p>

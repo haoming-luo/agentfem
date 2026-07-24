@@ -42,6 +42,12 @@ For local development from this repository:
 python -m pip install -e .
 ```
 
+After the first PyPI release, users will install AgentFEM with:
+
+```bash
+python -m pip install agentfem
+```
+
 `requirements.txt` records the tested MVP stack and optional documentation /
 notebook helpers. Pure pip installation of DOLFINx can be fragile because MPI,
 PETSc, and HDF5 must match.
@@ -137,6 +143,7 @@ thing a new model exposes.
 - `CONCEPTS.md`: shared vocabulary for finite-element and agent workflows.
 - `AGENT_GUIDE.md`: first file for AI agents working in this repository.
 - `docs/`: design notes, module map, validation notes, and extension rules.
+- `docs/publishing.md`: PyPI release checklist and Trusted Publisher setup.
 - `site/index.html`: generated static documentation site.
 
 Rebuild the local documentation site with:

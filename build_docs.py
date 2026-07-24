@@ -37,6 +37,7 @@ PAGES = [
         SITE_DIR / "tutorial-design.html",
     ),
     Page("Validation", ROOT / "docs" / "validation.md", SITE_DIR / "validation.html"),
+    Page("Publishing", ROOT / "docs" / "publishing.md", SITE_DIR / "publishing.html"),
     Page(
         "Architecture Review",
         ROOT / "docs" / "architecture_review.md",

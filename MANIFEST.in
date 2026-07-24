@@ -1,0 +1,18 @@
+include README.md
+include INSTALL.md
+include WORKFLOW.md
+include CONCEPTS.md
+include AGENT_GUIDE.md
+include pyproject.toml
+recursive-include materials/data *.json
+recursive-include docs *.md
+recursive-include skills *.md
+recursive-include examples *.py *.md
+recursive-include benchmarks *.py *.md
+recursive-include elements *.md
+recursive-include operators *.md
+prune site
+prune examples_output
+global-exclude .DS_Store
+global-exclude __pycache__
+global-exclude *.py[cod]

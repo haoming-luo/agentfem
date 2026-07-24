@@ -1,5 +1,7 @@
 """Reusable finite-element workflow tools built on DOLFINx/PETSc."""
 
+__version__ = "0.1.0"
+
 from . import amplitudes
 from . import assembly
 from . import boundary_models
@@ -48,6 +50,7 @@ def public_api() -> tuple[str, ...]:
 
 __all__ = [
     "PUBLIC_WORKFLOW_MODULES",
+    "__version__",
     "amplitudes",
     "assembly",
     "boundary_models",

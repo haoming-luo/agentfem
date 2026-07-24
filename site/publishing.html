@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Publishing - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <div class="brand">AgentFEM</div>
+      <div class="tagline">Agent-oriented finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="examples.html">Examples</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
+<a class="" href="validation.html">Validation</a>
+<a class="active" href="publishing.html">Publishing</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="publishing-agentfem-to-pypi">Publishing AgentFEM to PyPI</h1>
+<p>AgentFEM is distributed as a pure Python package. It expects users to install a compatible FEniCSx/DOLFINx stack first, usually from conda-forge, then install AgentFEM with pip.</p>
+<h2 id="first-time-pypi-setup">First-Time PyPI Setup</h2>
+<ol>
+<li>Create or log in to the PyPI account that will own <code>agentfem</code>.</li>
+<li>Create a pending Trusted Publisher for:<br>- owner: <code>haoming-luo</code><br>- repository: <code>agentfem</code><br>- workflow filename: <code>publish-pypi.yml</code><br>- environment name: <code>pypi</code></li>
+<li>Confirm the package name <code>agentfem</code> is available on PyPI.</li>
+</ol>
+<p>Trusted Publishing is preferred because GitHub Actions can publish with OIDC without storing a long-lived PyPI API token in repository secrets.</p>
+<h2 id="release-checklist">Release Checklist</h2>
+<ol>
+<li>Update the version in <code>pyproject.toml</code>.</li>
+<li>Update <code>__version__</code> in <code>__init__.py</code>.</li>
+<li>Run the smoke examples in a FEniCSx environment.</li>
+<li>Build a local wheel:</li>
+</ol>
+<p>``<code>bash python -m pip install -e &quot;.[dev]&quot; python -m build python -m twine check dist/* </code>``</p>
+<ol>
+<li>Commit the release changes.</li>
+<li>Create and push a version tag:</li>
+</ol>
+<p>``<code>bash git tag v0.1.0 git push origin v0.1.0 </code>``</p>
+<p>The GitHub Actions workflow <code>.github/workflows/publish-pypi.yml</code> publishes the tagged release to PyPI.</p>
+<h2 id="install-command-for-users">Install Command for Users</h2>
+<p>After publication:</p>
+<pre><code>python -m pip install agentfem</code></pre>
+<p>For optional mesh format conversion:</p>
+<pre><code>python -m pip install &quot;agentfem[mesh-formats]&quot;</code></pre>
+      </article>
+    </main>
+  </div>
+</body>
+</html>
