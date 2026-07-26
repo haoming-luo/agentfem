@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import ufl
+from dolfinx import fem
 from dolfinx import io
 from dolfinx import mesh
 from dolfinx.io import gmsh as gmshio
@@ -339,6 +340,31 @@ def boundary(domain, marker, *, name: str = "boundary", tag: int = 1) -> Boundar
     )
 
 
+def face(
+    domain,
+    *,
+    axis: str | int,
+    value: float,
+    name: str | None = None,
+    tag: int = 1,
+    tolerance: float | None = None,
+) -> BoundaryRegion:
+    """Create a planar exterior boundary region such as ``x = 0``.
+
+    This is the common application-level shortcut for rectangular/box-like
+    domains. More complex boundaries can still use ``boundary(domain, marker)``.
+    """
+
+    axis_id = _axis_id(axis, domain.geometry.dim)
+    atol = _coordinate_tolerance(domain) if tolerance is None else float(tolerance)
+
+    def marker(x):
+        return np.isclose(x[axis_id], value, rtol=0.0, atol=atol)
+
+    label = name or f"{_axis_name(axis_id)}_{value:g}"
+    return boundary(domain, marker, name=label, tag=tag)
+
+
 def boundary_region(domain, marker, *, name: str = "boundary", tag: int = 1) -> BoundaryRegion:
     """Alias for ``boundary`` when a more explicit name reads better."""
 
@@ -431,6 +457,30 @@ def mark_cell_regions(domain, tag_to_marker: dict[int, object]):
     return mesh.meshtags(domain, tdim, cells[order], values[order])
 
 
+def tag_field(domain, tags, *, name: str = "Tag"):
+    """Create a DG0 visualization field from cell tags.
+
+    The current implementation supports cell tags. It is useful for writing
+    material ids, partitions, or element groups to XDMF for ParaView inspection.
+    """
+
+    if tags is None:
+        raise ValueError("tag_field requires a MeshTags object.")
+    if int(tags.dim) != int(domain.topology.dim):
+        raise ValueError(
+            "tag_field currently supports cell tags only. "
+            f"Got tag dimension {tags.dim}, mesh cell dimension {domain.topology.dim}."
+        )
+    Q = fem.functionspace(domain, ("DG", 0))
+    result = fem.Function(Q, name=name)
+    values = result.x.array
+    dofmap = Q.dofmap
+    for cell, tag in zip(tags.indices, tags.values):
+        values[dofmap.cell_dofs(int(cell))] = float(tag)
+    result.x.scatter_forward()
+    return result
+
+
 def locate_boundary_facets(domain, marker):
     """Locate exterior facets using a geometrical marker."""
 
@@ -477,3 +527,29 @@ def tagged_boundary_measure(domain, marker, tag: int):
 
     facet_tags = mark_boundary_facets(domain, marker, tag)
     return boundary_measure(domain, facet_tags), facet_tags
+
+
+def _axis_id(axis: str | int, gdim: int) -> int:
+    if isinstance(axis, str):
+        names = {"x": 0, "y": 1, "z": 2}
+        key = axis.lower()
+        if key not in names:
+            raise ValueError("axis must be 'x', 'y', 'z', or an integer.")
+        axis_id = names[key]
+    else:
+        axis_id = int(axis)
+    if axis_id < 0 or axis_id >= int(gdim):
+        raise ValueError(f"axis {axis!r} is outside geometric dimension {gdim}.")
+    return axis_id
+
+
+def _axis_name(axis_id: int) -> str:
+    return ("x", "y", "z")[axis_id] if axis_id < 3 else f"axis{axis_id}"
+
+
+def _coordinate_tolerance(domain) -> float:
+    coords = domain.geometry.x
+    if coords.size == 0:
+        return 1.0e-12
+    span = float(np.max(coords) - np.min(coords))
+    return max(1.0, span) * 1.0e-12

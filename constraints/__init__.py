@@ -10,6 +10,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from numbers import Integral, Real
 
+import numpy as np
+from dolfinx import fem
+from mpi4py import MPI
+
 from .. import amplitudes
 from ..kernel import constants
 from . import boundary
@@ -333,6 +337,201 @@ def _select_location(*, location=None, on=None):
     if location is not None and on is not None:
         raise ValueError("Pass either on=... or location=..., not both.")
     return location if location is not None else on
+
+
+def _space(target):
+    if hasattr(target, "space"):
+        return target.space
+    if hasattr(target, "function_space"):
+        return target.function_space
+    if hasattr(target, "value") and hasattr(target.value, "function_space"):
+        return target.value.function_space
+    return target
+
+
+def _region_marker(location):
+    marker = getattr(location, "marker", location)
+    if marker is None:
+        raise ValueError("Periodic constraints require master/slave markers or regions.")
+    return marker
+
+
+def _axis_id(axis: str | int, gdim: int) -> int:
+    if isinstance(axis, str):
+        names = {"x": 0, "y": 1, "z": 2}
+        key = axis.lower()
+        if key not in names:
+            raise ValueError("match_axis must be 'x', 'y', 'z', or an integer.")
+        axis_id = names[key]
+    else:
+        axis_id = int(axis)
+    if axis_id < 0 or axis_id >= int(gdim):
+        raise ValueError(f"match_axis {axis!r} is outside geometric dimension {gdim}.")
+    return axis_id
+
+
+@dataclass(frozen=True)
+class PeriodicProjectionConstraint:
+    """Projection-style periodic constraint for explicit field updates.
+
+    This method enforces equality by averaging paired dof values. It is useful
+    for serial explicit dynamics workflows, but it is not a strict MPC
+    constraint and does not currently support distributed meshes.
+    """
+
+    pairs: tuple[tuple[np.ndarray, np.ndarray], ...]
+    pair_count: int
+    name: str = "periodic_projection"
+    master: object | None = None
+    slave: object | None = None
+    match_axis: str | int = 0
+    supports_parallel: bool = False
+
+    def apply(self, function) -> None:
+        """Apply periodic equality by averaging paired dof values."""
+
+        from .. import fields
+
+        function = fields.unwrap(function)
+        values = function.x.array
+        for slave_dofs, master_dofs in self.pairs:
+            averaged = 0.5 * (values[slave_dofs] + values[master_dofs])
+            values[slave_dofs] = averaged
+            values[master_dofs] = averaged
+        function.x.scatter_forward()
+
+    def __call__(self, function) -> None:
+        """Callable alias for use by time integrators."""
+
+        self.apply(function)
+
+    def mismatch(self, function) -> float:
+        """Return the max absolute paired-dof mismatch."""
+
+        from .. import fields
+
+        function = fields.unwrap(function)
+        values = function.x.array
+        local = 0.0
+        for slave_dofs, master_dofs in self.pairs:
+            if len(slave_dofs) > 0:
+                local = max(local, float(np.max(np.abs(values[slave_dofs] - values[master_dofs]))))
+        return function.function_space.mesh.comm.allreduce(local, op=MPI.MAX)
+
+    def summary(self) -> dict[str, object]:
+        """Return method and limitation details for logs or agents."""
+
+        return {
+            "name": self.name,
+            "kind": "periodic_constraint",
+            "method": "projection",
+            "enforcement": "nodal_pair_averaging",
+            "pair_count": self.pair_count,
+            "master": getattr(self.master, "name", None),
+            "slave": getattr(self.slave, "name", None),
+            "match_axis": self.match_axis,
+            "supports_parallel": self.supports_parallel,
+        }
+
+
+def periodic(
+    target,
+    *,
+    master,
+    slave,
+    match_axis: str | int = 0,
+    method: str = "projection",
+    tolerance: float = 1.0e-12,
+    name: str = "periodic",
+):
+    """Create a periodic constraint with an explicit method choice."""
+
+    normalized = method.lower().replace("-", "_")
+    if normalized in {"projection", "nodal_projection"}:
+        return periodic_projection(
+            target,
+            master=master,
+            slave=slave,
+            match_axis=match_axis,
+            tolerance=tolerance,
+            name=name,
+        )
+    if normalized in {"mpc", "multi_point_constraint"}:
+        raise NotImplementedError(
+            "constraints.periodic(..., method='mpc') is planned but not implemented. "
+            "Use method='projection' for serial explicit projection workflows."
+        )
+    raise ValueError(f"Unknown periodic constraint method: {method!r}.")
+
+
+def periodic_projection(
+    target,
+    *,
+    master,
+    slave,
+    match_axis: str | int = 0,
+    tolerance: float = 1.0e-12,
+    name: str = "periodic_projection",
+) -> PeriodicProjectionConstraint:
+    """Create component-wise dof pairs for projection-style periodicity."""
+
+    V = _space(target)
+    domain = V.mesh
+    if domain.comm.size > 1:
+        raise RuntimeError(
+            "Projection-style periodic constraints are serial-only in this release. "
+            "Use method='mpc' when a parallel implementation is added."
+        )
+    master_marker = _region_marker(master)
+    slave_marker = _region_marker(slave)
+    axis_id = _axis_id(match_axis, domain.geometry.dim)
+    pairs = []
+    pair_count = 0
+    components = range(V.num_sub_spaces) if getattr(V, "num_sub_spaces", 0) else (None,)
+    for component in components:
+        if component is None:
+            coords = V.tabulate_dof_coordinates()
+            slave_parent = fem.locate_dofs_geometrical(V, slave_marker)
+            master_parent = fem.locate_dofs_geometrical(V, master_marker)
+            slave_child = slave_parent
+            master_child = master_parent
+        else:
+            Vc, _ = V.sub(component).collapse()
+            coords = Vc.tabulate_dof_coordinates()
+            slave_parent, slave_child = fem.locate_dofs_geometrical(
+                (V.sub(component), Vc), slave_marker
+            )
+            master_parent, master_child = fem.locate_dofs_geometrical(
+                (V.sub(component), Vc), master_marker
+            )
+        if len(slave_child) != len(master_child):
+            raise RuntimeError(
+                "Periodic projection requires matching slave/master dofs "
+                f"for component {component}."
+            )
+
+        slave_order = np.argsort(coords[slave_child, axis_id])
+        master_order = np.argsort(coords[master_child, axis_id])
+        slave_parent = np.asarray(slave_parent[slave_order], dtype=np.int32)
+        master_parent = np.asarray(master_parent[master_order], dtype=np.int32)
+        slave_coords = coords[slave_child[slave_order], axis_id]
+        master_coords = coords[master_child[master_order], axis_id]
+        if not np.allclose(slave_coords, master_coords, atol=tolerance, rtol=0.0):
+            mismatch = float(np.max(np.abs(slave_coords - master_coords)))
+            raise RuntimeError(
+                "Periodic projection dofs are not aligned on match_axis "
+                f"{match_axis!r}: max mismatch={mismatch:.3e}."
+            )
+        pairs.append((slave_parent, master_parent))
+        pair_count += len(slave_parent)
+    return PeriodicProjectionConstraint(
+        pairs=tuple(pairs),
+        pair_count=pair_count,
+        name=name,
+        master=master,
+        slave=slave,
+        match_axis=match_axis,
+    )
 
 
 @dataclass(frozen=True)

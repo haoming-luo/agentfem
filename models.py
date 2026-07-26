@@ -123,6 +123,31 @@ class Model:
             )
         )
 
+    def periodic(
+        self,
+        target,
+        *,
+        master,
+        slave,
+        match_axis=0,
+        method: str = "projection",
+        tolerance: float = 1.0e-12,
+        name: str = "periodic",
+    ):
+        """Create and register a periodic constraint."""
+
+        return self.add_constraint(
+            constraint_api.periodic(
+                target,
+                master=master,
+                slave=slave,
+                match_axis=match_axis,
+                method=method,
+                tolerance=tolerance,
+                name=name,
+            )
+        )
+
     def add_load(self, load):
         """Register a natural load/source and return it."""
 
@@ -162,6 +187,35 @@ class Model:
         if measure is not None:
             kwargs["measure"] = measure
         return self.add_load(load_api.heat_source(value, **kwargs))
+
+    def absorbing_boundary(
+        self,
+        *,
+        on,
+        density,
+        pressure_wave_speed,
+        shear_wave_speed=None,
+        normal=None,
+        mode: str = "normal_shear",
+    ):
+        """Create and register a common viscous absorbing boundary model."""
+
+        from .boundary_models import absorbing
+        from . import mesh as mesh_api
+
+        selected_normal = normal
+        if selected_normal is None and mode == "normal_shear":
+            selected_normal = mesh_api.facet_normal(self.mesh)
+        return self.add_boundary_model(
+            absorbing.lysmer_kuhlemeyer_boundary(
+                on.measure if hasattr(on, "measure") else on,
+                density=density,
+                pressure_wave_speed=pressure_wave_speed,
+                shear_wave_speed=shear_wave_speed,
+                normal=selected_normal,
+                mode=mode,
+            )
+        )
 
     def stiffness(
         self,
@@ -236,6 +290,71 @@ class Model:
                 f"Materials without regions: {missing}."
             )
         return operators.combine(*parts, name=name, kind="partitioned_stiffness")
+
+    def lumped_mass(
+        self,
+        target,
+        material=None,
+        *,
+        measure=None,
+        method: str = "row_sum",
+        name: str = "M_lumped",
+    ):
+        """Assemble a lumped mass operator from registered material densities.
+
+        The model-first path is region aware: a single material may use the
+        whole domain, while multiple materials must each have a cell region.
+        """
+
+        if method.lower().replace("-", "_") not in {"row_sum", "diagonal", "lumped"}:
+            raise ValueError("model.lumped_mass currently supports method='row_sum'.")
+
+        from . import assembly
+        from . import problems
+
+        V = _space(target)
+        if material is not None:
+            record = self._material_record(material)
+            selected_measure = measure if measure is not None else _record_measure(record)
+            mass = _assemble_lumped_mass(assembly, V, _density(record.item), selected_measure)
+            return problems.LumpedMassOperator(
+                mass=mass,
+                inv_mass=assembly.inverse_diagonal(mass),
+            )
+
+        if not self.materials:
+            raise ValueError("model.lumped_mass requires at least one registered material.")
+        if measure is not None and len(self.materials) > 1:
+            raise ValueError(
+                "model.lumped_mass with multiple materials cannot use one explicit measure. "
+                "Pass material=... or let each material use its registered region."
+            )
+        if len(self.materials) == 1:
+            record = self.materials[0]
+            selected_measure = measure if measure is not None else _record_measure(record)
+            mass = _assemble_lumped_mass(assembly, V, _density(record.item), selected_measure)
+            return problems.LumpedMassOperator(
+                mass=mass,
+                inv_mass=assembly.inverse_diagonal(mass),
+            )
+
+        mass = None
+        missing = []
+        for record in self.materials:
+            if record.region is None:
+                missing.append(_describe(record.item))
+                continue
+            part = _assemble_lumped_mass(assembly, V, _density(record.item), record.region.measure)
+            mass = part if mass is None else mass + part
+        if missing:
+            raise ValueError(
+                "Multiple-material lumped mass requires every material to have a region. "
+                f"Materials without regions: {missing}."
+            )
+        return problems.LumpedMassOperator(
+            mass=mass,
+            inv_mass=assembly.inverse_diagonal(mass),
+        )
 
     def load_vector(self, target, loads=None, *, load=None):
         """Create a total load vector from registered or explicit loads."""
@@ -443,6 +562,13 @@ class Model:
                 name=name or "linear_static",
                 **kwargs,
             )
+        if normalized in {"second_order_dynamics", "explicit_dynamics", "explicit"}:
+            return self.explicit_dynamics_step(
+                target=target,
+                constraints=constraints,
+                name=name or "explicit_dynamics",
+                **kwargs,
+            )
         raise ValueError(f"Unsupported model step kind {selected_kind!r}.")
 
     def linear_static_step(
@@ -473,6 +599,50 @@ class Model:
         )
         return self.add_step(step)
 
+    def explicit_dynamics_step(
+        self,
+        *,
+        target,
+        dt: float,
+        steps: int,
+        residual=None,
+        state=None,
+        mass=None,
+        prescribed=(),
+        constraints=None,
+        save_every: int = 1,
+        print_every: int = 1,
+        name: str = "explicit_dynamics",
+    ):
+        """Create and register a second-order explicit dynamics step."""
+
+        from . import problems
+        from . import time as time_api
+
+        self.check()
+        selected_state = state if state is not None else problems.second_order_state(target)
+        selected_mass = mass if mass is not None else self.lumped_mass(target)
+        integrator = time_api.explicit.central_difference(
+            state=selected_state,
+            mass=selected_mass,
+        )
+        if residual is None:
+            residual = self.force_balance(internal=self.internal_force(selected_state.u))
+        step = problems.explicit_dynamics(
+            state=selected_state,
+            integrator=integrator,
+            residual=residual,
+            study=self.study,
+            prescribed=prescribed,
+            constraints=self.constraints if constraints is None else constraints,
+            dt=dt,
+            steps=steps,
+            save_every=save_every,
+            print_every=print_every,
+            name=name,
+        )
+        return self.add_step(step)
+
     def operator(self, kind: str, target, **kwargs):
         """Create a model-level operator by name.
 
@@ -486,6 +656,8 @@ class Model:
             return self.stiffness(target, **kwargs)
         if normalized in {"load", "load_vector", "force", "f"}:
             return self.load_vector(target, **kwargs)
+        if normalized in {"mass", "lumped_mass", "m_lumped", "ml"}:
+            return self.lumped_mass(target, **kwargs)
         if normalized in {"internal_force", "f_internal", "fint"}:
             return self.internal_force(target, **kwargs)
         if normalized in {"external_force", "f_external", "fext"}:
@@ -722,6 +894,35 @@ def _internal_force_from_record(
     return operator.renamed(name)
 
 
+def _space(target):
+    if hasattr(target, "space"):
+        return target.space
+    if hasattr(target, "function_space"):
+        return target.function_space
+    if hasattr(target, "value") and hasattr(target.value, "function_space"):
+        return target.value.function_space
+    return target
+
+
+def _record_measure(record: _WithRegion):
+    return record.region.measure if record.region is not None else None
+
+
+def _assemble_lumped_mass(assembly, V, density: float, measure):
+    if measure is None:
+        return assembly.assemble_lumped_mass(V, density=density)
+    return assembly.assemble_lumped_mass(V, density=density, measure=measure)
+
+
+def _density(material) -> float:
+    if not hasattr(material, "density"):
+        raise ValueError(f"Material {_describe(material)!r} does not define density.")
+    density = float(material.density)
+    if density <= 0.0:
+        raise ValueError(f"Material {_describe(material)!r} must have positive density.")
+    return density
+
+
 def _describe(item):
     if item is None:
         return None
@@ -798,6 +999,15 @@ def _regions_from_asset(asset) -> tuple[object, ...]:
         return _regions_from_asset(asset.dirichlet)
     if hasattr(asset, "periodic"):
         regions = list(_regions_from_asset(asset.periodic))
+        return tuple(regions)
+    if hasattr(asset, "master") or hasattr(asset, "slave"):
+        regions = []
+        master = getattr(asset, "master", None)
+        slave = getattr(asset, "slave", None)
+        if master is not None:
+            regions.append(master)
+        if slave is not None:
+            regions.append(slave)
         return tuple(regions)
     region = getattr(asset, "location", None) or getattr(asset, "region", None)
     return () if region is None else (region,)

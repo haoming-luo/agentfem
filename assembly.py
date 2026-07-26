@@ -47,7 +47,6 @@ def assemble_lumped_operator(V, coefficient=1.0, measure=ufl.dx) -> np.ndarray:
     lumped_vec = assemble_vector(lumped_form)
     lumped = lumped_vec.array.copy()
     lumped_vec.destroy()
-    lumped[lumped <= 0.0] = np.inf
     return lumped
 
 

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .. import constraints
+from .. import constraints as constraint_api
 from .. import fields
 from .. import operators
 from ..kernel import dofs
@@ -112,37 +112,45 @@ class ExplicitDynamicsIntegrator:
         *,
         time: float | None = None,
         residual_operator=None,
+        prescribed: Iterable[object] = (),
+        constraints: Iterable[object] = (),
         displacement_bcs=None,
         projections: Iterable[Callable[[object], None]] = (),
         update_prescribed_values: Iterable[Callable[[float], object]] = (),
     ):
         """Advance one explicit central-difference step.
 
-        This high-level helper is intentionally thin. Formula-level examples can
-        call the individual methods directly when the algorithm should remain
-        visible line by line.
+        ``prescribed`` contains prescribed values such as time-dependent
+        Dirichlet data. ``constraints`` contains model constraints such as
+        periodic relations. Older low-level arguments such as
+        ``displacement_bcs`` and ``projections`` remain supported for explicit
+        formula-level scripts.
         """
 
+        prescribed_values = tuple(prescribed)
+        active_constraints = tuple(constraints) + tuple(projections)
         if time is not None:
+            for item in prescribed_values:
+                if hasattr(item, "update"):
+                    item.update(time)
             for update in update_prescribed_values:
                 update(time)
         self.predict_displacement(dt)
+        displacement_bcs = _collect_bcs(prescribed_values, displacement_bcs)
         if displacement_bcs:
-            constraints.apply_dirichlet_bcs(self.state.u_next, displacement_bcs)
-        for projection in projections:
-            projection(self.state.u_next)
+            constraint_api.apply_dirichlet_bcs(self.state.u_next, displacement_bcs)
+        _apply_constraints(active_constraints, self.state.u_next)
         self.update_displacement()
         self.update_midstep_velocity(dt)
+        _apply_constraints(active_constraints, self.state.v_mid)
         residual = operators.assemble_vector(residual_operator)
         try:
             self.solve_acceleration(residual)
         finally:
             residual.destroy()
-        for projection in projections:
-            projection(self.state.a_next)
+        _apply_constraints(active_constraints, self.state.a_next)
         self.update_velocity(dt)
-        for projection in projections:
-            projection(self.state.v_next)
+        _apply_constraints(active_constraints, self.state.v_next)
         self.advance_velocity_acceleration()
 
     def summary(self) -> dict[str, object]:
@@ -173,3 +181,25 @@ def central_difference(
         method="central_difference",
         name=name,
     )
+
+
+def _collect_bcs(prescribed, displacement_bcs) -> list:
+    result = []
+    if displacement_bcs:
+        result.extend(displacement_bcs)
+    for item in prescribed:
+        if hasattr(item, "bcs"):
+            result.extend(item.bcs)
+        elif hasattr(item, "bc"):
+            result.append(item.bc)
+    return result
+
+
+def _apply_constraints(constraints, field) -> None:
+    for item in constraints:
+        if hasattr(item, "apply"):
+            item.apply(field)
+        elif callable(item):
+            item(field)
+        elif hasattr(item, "periodic"):
+            _apply_constraints(item.periodic, field)

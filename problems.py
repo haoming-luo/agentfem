@@ -183,6 +183,107 @@ class AnalysisStep:
 
 
 @dataclass
+class ExplicitDynamicsStep:
+    """Inspectable second-order explicit dynamics step.
+
+    This is the workflow layer for the standard loop
+    ``predict -> apply constraints -> residual -> acceleration -> advance``.
+    The integrator and residual operator remain explicit so advanced users can
+    inspect or replace them.
+    """
+
+    name: str
+    state: object
+    integrator: object
+    residual: object
+    dt: float
+    steps: int
+    study: object | None = None
+    prescribed: tuple[object, ...] = ()
+    constraints: tuple[object, ...] = ()
+    save_every: int = 1
+    print_every: int = 1
+
+    def run(
+        self,
+        *,
+        output=None,
+        domain=None,
+        fields=(),
+        progress=None,
+        comm=None,
+    ):
+        """Run the explicit dynamics step with optional output and progress text."""
+
+        from . import io
+        from .diagnostics import comm_of, print_on_root
+
+        selected_comm = comm if comm is not None else comm_of(self.state.u)
+        stepper = time.TimeStepper(
+            total_steps=self.steps,
+            dt=self.dt,
+            save_every=self.save_every,
+            print_every=self.print_every,
+        )
+        output_fields = tuple(fields)
+
+        if output is None:
+            for info in stepper:
+                self._advance_one(info.time)
+                if info.should_print and progress is not None:
+                    message = progress(info, self.state)
+                    if message:
+                        print_on_root(selected_comm, message)
+            return self
+
+        if domain is None:
+            domain = self.state.u.function_space.mesh
+        with io.XDMFTimeSeries(output, domain) as xdmf:
+            xdmf.write_fields(0.0, *output_fields)
+            for info in stepper:
+                self._advance_one(info.time)
+                if info.should_save:
+                    xdmf.write_fields(info.time, *output_fields)
+                if info.should_print and progress is not None:
+                    message = progress(info, self.state)
+                    if message:
+                        print_on_root(selected_comm, message)
+        return self
+
+    def _advance_one(self, t: float) -> None:
+        self.integrator.step(
+            self.dt,
+            time=t,
+            residual_operator=self.residual,
+            prescribed=self.prescribed,
+            constraints=self.constraints,
+        )
+
+    def summary(self) -> dict[str, object]:
+        """Return a compact, agent-readable explicit step summary."""
+
+        return {
+            "kind": "explicit_dynamics_step",
+            "name": self.name,
+            "study": _describe_asset(self.study) if self.study is not None else None,
+            "dt": self.dt,
+            "steps": self.steps,
+            "save_every": self.save_every,
+            "print_every": self.print_every,
+            "integrator": (
+                self.integrator.summary()
+                if hasattr(self.integrator, "summary")
+                else repr(self.integrator)
+            ),
+            "residual": (
+                self.residual.summary() if hasattr(self.residual, "summary") else repr(self.residual)
+            ),
+            "num_prescribed": len(self.prescribed),
+            "num_constraints": len(self.constraints),
+        }
+
+
+@dataclass
 class TransientState:
     """Current/next fields for a first-order transient unknown."""
 
@@ -456,6 +557,42 @@ def first_order_transient(
         problem=problem,
         method=method,
         dt=dt,
+    )
+
+
+def explicit_dynamics(
+    *,
+    state,
+    integrator,
+    residual,
+    dt: float,
+    steps: int,
+    study=None,
+    prescribed=(),
+    constraints=(),
+    save_every: int = 1,
+    print_every: int = 1,
+    name: str = "explicit_dynamics",
+) -> ExplicitDynamicsStep:
+    """Create a second-order explicit dynamics step."""
+
+    _require_study_analysis(study, "second_order_dynamics")
+    if dt <= 0.0:
+        raise ValueError("explicit_dynamics requires dt > 0.")
+    if steps <= 0:
+        raise ValueError("explicit_dynamics requires steps > 0.")
+    return ExplicitDynamicsStep(
+        name=name,
+        study=study,
+        state=state,
+        integrator=integrator,
+        residual=residual,
+        prescribed=tuple(_as_list(prescribed)),
+        constraints=tuple(_as_list(constraints)),
+        dt=dt,
+        steps=int(steps),
+        save_every=int(save_every),
+        print_every=int(print_every),
     )
 
 

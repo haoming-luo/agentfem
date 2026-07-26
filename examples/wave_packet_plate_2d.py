@@ -34,6 +34,7 @@ from agentfem import time as fem_time
 from agentfem import spaces
 from agentfem.boundary_models import absorbing
 from agentfem.constitutive import elasticity
+from agentfem.diagnostics import print_on_root
 
 
 class PeriodicProjection(NamedTuple):
@@ -217,17 +218,16 @@ def main() -> None:
 
             if info.should_save:
                 xdmf.write_fields(t, state.u, state.v)
-            if info.should_print and comm.rank == 0:
+            if info.should_print:
                 periodic_err = periodic_projection_mismatch(state.u, periodic_projection)
-                print(
+                print_on_root(
+                    comm,
                     f"step {info.index:4d}/{steps} "
                     f"t={t:.3e} max|u|={np.max(np.abs(state.u.x.array)):.3e} "
                     f"periodic_err={periodic_err:.3e}",
-                    flush=True,
                 )
 
-    if comm.rank == 0:
-        print(f"Wave-packet plate result: {out}")
+    print_on_root(comm, f"Wave-packet plate result: {out}")
 
 
 if __name__ == "__main__":

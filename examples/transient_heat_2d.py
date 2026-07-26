@@ -21,6 +21,7 @@ from agentfem import operators
 from agentfem import problems
 from agentfem import studies
 from agentfem import time as fem_time
+from agentfem.diagnostics import print_on_root
 from agentfem.solvers import LinearSolverOptions
 
 
@@ -105,15 +106,14 @@ def main() -> None:
             previous_temperature.assign_from(temperature)
             if info.should_save:
                 xdmf.write_fields(info.time, temperature.value)
-            if info.should_print and comm.rank == 0:
-                print(
+            if info.should_print:
+                print_on_root(
+                    comm,
                     f"step {info.index:4d}/{total_steps} "
                     f"t={info.time:.3e} maxT={temperature.max_value():.3f}",
-                    flush=True,
                 )
 
-    if comm.rank == 0:
-        print(f"Transient heat result: {out}")
+    print_on_root(comm, f"Transient heat result: {out}")
 
 
 if __name__ == "__main__":
