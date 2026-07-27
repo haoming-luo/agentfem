@@ -14,6 +14,9 @@ from dolfinx.io import gmsh as gmshio
 from mpi4py import MPI
 
 from . import formats
+from . import selectors as select
+from .regions import RegionSet
+from .selectors import Selector, ball, box, disk, layer, plane, where
 
 
 @dataclass(frozen=True)
@@ -329,6 +332,7 @@ def require_facet_tags(facet_tags, required: int | tuple[int, ...] | list[int]) 
 def boundary(domain, marker, *, name: str = "boundary", tag: int = 1) -> BoundaryRegion:
     """Create a named exterior boundary region from a geometric marker."""
 
+    marker = where(marker)
     ds, facet_tags = tagged_boundary_measure(domain, marker, tag=tag)
     return BoundaryRegion(
         name=name,
@@ -362,7 +366,7 @@ def face(
         return np.isclose(x[axis_id], value, rtol=0.0, atol=atol)
 
     label = name or f"{_axis_name(axis_id)}_{value:g}"
-    return boundary(domain, marker, name=label, tag=tag)
+    return boundary(domain, where(marker, name=label), name=label, tag=tag)
 
 
 def boundary_region(domain, marker, *, name: str = "boundary", tag: int = 1) -> BoundaryRegion:
@@ -405,10 +409,55 @@ def region_marker(location):
     return location.marker if hasattr(location, "marker") else location
 
 
+def cells(domain, *, name: str, where, tag: int = 1) -> CellRegion:
+    """Create a named cell region from a selector."""
+
+    return cell_region(domain, tag=tag, name=name, marker=where)
+
+
+def partition_cells(domain, **regions) -> RegionSet:
+    """Partition mesh cells into named cell regions.
+
+    The input values are selectors or vectorized coordinate predicates. Every
+    local cell must belong to exactly one region. Internally this creates
+    cell tags, but user code receives named ``CellRegion`` objects.
+    """
+
+    if not regions:
+        raise ValueError("partition_cells requires at least one named region.")
+    tag_to_name = {tag: name for tag, name in enumerate(regions, start=1)}
+    tag_to_selector = {
+        tag: where(regions[name], name=name)
+        for tag, name in tag_to_name.items()
+    }
+    cell_tags = mark_cell_regions(domain, tag_to_selector)
+    region_objects = {
+        name: cell_region(domain, cell_tags, tag=tag, name=name)
+        for tag, name in tag_to_name.items()
+    }
+    return RegionSet(domain=domain, regions=region_objects, tags=cell_tags, kind="cell")
+
+
+def partition_boundaries(domain, **regions) -> RegionSet:
+    """Create named exterior boundary regions from selectors."""
+
+    if not regions:
+        raise ValueError("partition_boundaries requires at least one named boundary.")
+    region_objects = {}
+    for tag, (name, selector) in enumerate(regions.items(), start=1):
+        region_objects[name] = boundary(
+            domain,
+            where(selector, name=name),
+            name=name,
+            tag=tag,
+        )
+    return RegionSet(domain=domain, regions=region_objects, tags=None, kind="boundary")
+
+
 def locate_cells(domain, marker):
     """Locate cells using a geometrical marker."""
 
-    return mesh.locate_entities(domain, domain.topology.dim, marker)
+    return mesh.locate_entities(domain, domain.topology.dim, where(marker))
 
 
 def mark_cells(domain, cells, tag: int):
@@ -436,7 +485,8 @@ def mark_cell_regions(domain, tag_to_marker: dict[int, object]):
     midpoints = mesh.compute_midpoints(domain, tdim, cells).T
     values = np.full(len(cells), -1, dtype=np.int32)
     for tag, marker in tag_to_marker.items():
-        selected = np.asarray(marker(midpoints), dtype=bool)
+        selector = where(marker)
+        selected = np.asarray(selector(midpoints), dtype=bool)
         if selected.shape != values.shape:
             raise ValueError(
                 "Cell region marker must return one boolean per cell midpoint. "
@@ -485,7 +535,7 @@ def locate_boundary_facets(domain, marker):
     """Locate exterior facets using a geometrical marker."""
 
     facet_dim = domain.topology.dim - 1
-    return mesh.locate_entities_boundary(domain, facet_dim, marker)
+    return mesh.locate_entities_boundary(domain, facet_dim, where(marker))
 
 
 def mark_facets(domain, facets, tag: int):

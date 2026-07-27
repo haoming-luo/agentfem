@@ -43,6 +43,48 @@ targeting unknown fields.
 Boundary regions provide restricted `ds(tag)` measures. Cell regions provide
 restricted `dx(tag)` measures for material-dependent domain integrals.
 
+AgentFEM should treat regions as the user-facing modeling concept and
+`MeshTags`/integer tags as implementation details. The long-term mesh/domain
+language should follow:
+
+```text
+Domain -> Region -> Assignment -> Step
+```
+
+Concrete geometry predicates such as disks, boxes, planes, or user functions
+are selectors: they are ways to create regions, not the core concept. A region
+may also originate from imported CAE mesh semantics such as Abaqus `NSET`,
+`ELSET`, and `SURFACE`, NASTRAN sets/properties, or Gmsh physical groups. These
+sources should be mapped into the same AgentFEM region interface so materials,
+loads, constraints, boundary models, and outputs can all target named regions.
+
+Application examples should prefer named region collections such as
+`regions.matrix` or `regions.left_boundary` over exposing `tag=1`, `tag=2`, or
+raw `MeshTags` unless the example is explicitly teaching the low-level mesh
+tagging layer.
+
+## Selector
+
+A reusable rule for selecting mesh entities by coordinates, imported tags, or
+another backend-specific source. Selectors do not generate geometry or meshes;
+they answer whether coordinates or entities belong to a region.
+
+Selectors may be composed with boolean logic, for example complement, union,
+and intersection. Convenience selectors such as disks, boxes, planes, and
+layers are useful for common examples, but `where(lambda x: ...)` should be a
+fallback for custom advanced selection rather than the beginner-facing path.
+
+## Region Set
+
+A named collection of related regions, often representing a cell partition,
+boundary grouping, or imported set/surface table. Region sets should support
+attribute and dictionary-style access, summaries for agents, and optional
+visualization fields when backed by cell tags.
+
+For cell material partitions, AgentFEM should check that selected regions do
+not overlap and do not leave unassigned cells unless the API explicitly allows
+partial partitions.
+
 ## Function Space
 
 The finite-element approximation space for scalar, vector, or mixed unknowns.

@@ -17,6 +17,10 @@ finite-element simulation with AgentFEM.
 
 ## Progressive Reading
 
+- Mesh, domain, or region modeling: read the Mesh Region, Selector, and Region
+  Set concepts in `CONCEPTS.md`. Prefer named regions and region sets over raw
+  integer tags in user-facing workflows. Use low-level `MeshTags` helpers only
+  when importing, validating, or teaching the tagging implementation.
 - Mesh or boundary tagging: read `docs/module_map.md`, then use
   `mesh.summarize_mesh`, `mesh.require_cell_tags`, and
   `mesh.require_facet_tags`.
@@ -53,6 +57,10 @@ finite-element simulation with AgentFEM.
 
 - Do not mix constraints, loads, and boundary models.
 - Do not hide the finite-element workflow inside overly broad abstractions.
+- Do not make concrete geometry helpers, such as circle/disk/box predicates,
+  the core modeling concept. Treat them as selectors used to build named
+  regions. Regions are the stable interface for materials, loads, constraints,
+  boundary models, output, and imported CAE mesh groups.
 - Keep application-specific geometry, source definitions, and parameter choices
   outside the core platform.
 - Validate imports, syntax, and a small runnable case after structural changes.

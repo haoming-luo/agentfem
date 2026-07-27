@@ -66,26 +66,14 @@ def main() -> None:
     # 4. Material regions: split cells into matrix and circular inclusion.
     center = np.array((0.25 * length, 0.50 * height))
     radius = 0.15 * height
-
-    def inclusion_marker(x):
-        return (x[0] - center[0]) ** 2 + (x[1] - center[1]) ** 2 <= radius**2
-
-    def inclusion_core_marker(x):
-        return (x[0] - center[0]) ** 2 + (x[1] - center[1]) ** 2 <= (0.90 * radius) ** 2
-
-    def matrix_marker(x):
-        return (x[0] - center[0]) ** 2 + (x[1] - center[1]) ** 2 > radius**2
-
-    cell_tags = fem_mesh.mark_cell_regions(
+    inclusion_selector = fem_mesh.disk(center=center, radius=radius)
+    inclusion_core = fem_mesh.disk(center=center, radius=0.90 * radius)
+    regions = fem_mesh.partition_cells(
         domain,
-        {
-            1: matrix_marker,
-            2: inclusion_marker,
-        },
+        matrix=~inclusion_selector,
+        stiff_inclusion=inclusion_selector,
     )
-    material_id = fem_mesh.tag_field(domain, cell_tags, name="MaterialId")
-    matrix_region = fem_mesh.cell_region(domain, cell_tags, tag=1, name="matrix")
-    inclusion_region = fem_mesh.cell_region(domain, cell_tags, tag=2, name="stiff_inclusion")
+    material_id = regions.field("MaterialId")
 
     # 5. Materials: the inclusion is twice as stiff as the matrix.
     matrix_material = model.material(
@@ -95,7 +83,7 @@ def main() -> None:
             poisson=0.27,
             name="matrix isotropic elastic",
         ),
-        region=matrix_region,
+        region=regions.matrix,
     )
     inclusion_material = model.material(
         elasticity.isotropic_elastic(
@@ -104,7 +92,7 @@ def main() -> None:
             poisson=matrix_material.poisson,
             name="2x Young inclusion isotropic elastic",
         ),
-        region=inclusion_region,
+        region=regions.stiff_inclusion,
     )
     model.check()
 
@@ -191,7 +179,6 @@ def main() -> None:
         dt=dt,
         steps=steps,
         save_every=10,
-        print_every=100,
         name="wave_packet_explicit_step",
     )
 
@@ -207,7 +194,7 @@ def main() -> None:
 
     def progress_message(info, step_state):
         periodic_err = periodic.mismatch(step_state.u)
-        inclusion_stats = diagnostics.magnitude_stats(step_state.u, on=inclusion_core_marker)
+        inclusion_stats = diagnostics.magnitude_stats(step_state.u, on=inclusion_core)
         return (
             f"step {info.index:4d}/{steps} "
             f"t={info.time:.3e} max|u|={max_magnitude(step_state.u):.3e} "

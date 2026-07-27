@@ -610,8 +610,8 @@ class Model:
         mass=None,
         prescribed=(),
         constraints=None,
-        save_every: int = 1,
-        print_every: int = 1,
+        save_every: int | None = None,
+        print_every: int | None = None,
         name: str = "explicit_dynamics",
     ):
         """Create and register a second-order explicit dynamics step."""

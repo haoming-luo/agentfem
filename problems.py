@@ -201,8 +201,8 @@ class ExplicitDynamicsStep:
     study: object | None = None
     prescribed: tuple[object, ...] = ()
     constraints: tuple[object, ...] = ()
-    save_every: int = 1
-    print_every: int = 1
+    save_every: int | None = None
+    print_every: int | None = None
 
     def run(
         self,
@@ -219,11 +219,13 @@ class ExplicitDynamicsStep:
         from .diagnostics import comm_of, print_on_root
 
         selected_comm = comm if comm is not None else comm_of(self.state.u)
+        save_every = _save_interval(self.save_every, output=output, steps=self.steps)
+        print_every = _print_interval(self.print_every, self.steps)
         stepper = time.TimeStepper(
             total_steps=self.steps,
             dt=self.dt,
-            save_every=self.save_every,
-            print_every=self.print_every,
+            save_every=save_every,
+            print_every=print_every,
         )
         output_fields = tuple(fields)
 
@@ -269,7 +271,7 @@ class ExplicitDynamicsStep:
             "dt": self.dt,
             "steps": self.steps,
             "save_every": self.save_every,
-            "print_every": self.print_every,
+            "print_every": _print_interval(self.print_every, self.steps),
             "integrator": (
                 self.integrator.summary()
                 if hasattr(self.integrator, "summary")
@@ -570,8 +572,8 @@ def explicit_dynamics(
     study=None,
     prescribed=(),
     constraints=(),
-    save_every: int = 1,
-    print_every: int = 1,
+    save_every: int | None = None,
+    print_every: int | None = None,
     name: str = "explicit_dynamics",
 ) -> ExplicitDynamicsStep:
     """Create a second-order explicit dynamics step."""
@@ -591,8 +593,8 @@ def explicit_dynamics(
         constraints=tuple(_as_list(constraints)),
         dt=dt,
         steps=int(steps),
-        save_every=int(save_every),
-        print_every=int(print_every),
+        save_every=None if save_every is None else int(save_every),
+        print_every=None if print_every is None else int(print_every),
     )
 
 
@@ -609,6 +611,20 @@ def _collect_bcs(*, constraints=None, bcs=None) -> list:
             else:
                 result.append(item)
     return result
+
+
+def _print_interval(print_every: int | None, steps: int) -> int:
+    if print_every is None:
+        return max(1, int(steps) // 10)
+    return int(print_every)
+
+
+def _save_interval(save_every: int | None, *, output, steps: int) -> int:
+    if save_every is not None:
+        return int(save_every)
+    if output is None:
+        return 0
+    return int(steps)
 
 
 def _as_list(value) -> list:
