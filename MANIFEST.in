@@ -1,6 +1,7 @@
 include README.md
 include LICENSE
 include NOTICE
+include CITATION.cff
 include CONTRIBUTING.md
 include INSTALL.md
 include WORKFLOW.md

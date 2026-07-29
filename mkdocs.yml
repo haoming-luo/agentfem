@@ -1,5 +1,5 @@
 site_name: AgentFEM
-site_description: Agent-oriented finite-element workflow platform built on DOLFINx/PETSc.
+site_description: AI-assisted finite-element simulation and agent-readable CAE workflows.
 repo_name: AgentFEM
 docs_dir: .
 site_dir: site

@@ -1,8 +1,23 @@
 # AgentFEM
 
-AgentFEM is an agent-oriented finite-element workflow platform built on
-DOLFINx/PETSc. It aims to make finite-element scripts readable to both
-researchers and AI agents by keeping the standard CAE workflow visible:
+AgentFEM is an open-source platform for AI-assisted finite-element simulation,
+agent-readable CAE workflows, reusable operators, and human-agent collaborative
+scientific computing.
+
+AgentFEM was initiated by Haoming Luo and open-sourced on GitHub in July 2026.
+It is an early open-source practice toward AI-assisted finite-element
+simulation and agent-readable CAE workflows. The project is supported and
+motivated by engineering needs from the Materials Department of TPRI / Xi'an
+Thermal Power Research Institute, including power-generation equipment
+inspection, materials evaluation, and engineering simulation.
+
+AgentFEM focuses on making finite-element simulation workflows readable,
+structured, and reproducible. It aims to make engineering modeling, material
+definition, region management, loads and boundary conditions, solution steps,
+and result outputs understandable and reusable by researchers, while also
+readable, checkable, editable, and automatically orchestrated by AI agents.
+
+The standard AgentFEM workflow remains visible:
 
 ```text
 Study -> Model -> Mesh/Regions -> Fields -> Materials -> Loads/Constraints
@@ -23,6 +38,17 @@ operator-level `K/M/C/F` notation, model inspection, and ParaView/XDMF output.
 - Transparent layers: daily workflows use `models`, `fields`, `loads`,
   `operators`, and `problems`; advanced users can still drop to `forms`,
   `assembly`, PETSc, or DOLFINx when needed.
+
+## Architecture
+
+AgentFEM adopts a three-layer design:
+
+- Engineering simulation application layer: `Study`, `Model`, `Region`,
+  `Material`, `Load`, `Step`, and `Result`.
+- Finite-element operator and weak-form extension layer: reusable operators,
+  constitutive laws, constraints, and custom variational forms.
+- Numerical solver kernel layer: integration with FEniCSx/DOLFINx, PETSc, MPI,
+  and related scientific-computing infrastructure.
 
 ## Install
 
@@ -168,6 +194,27 @@ Rebuild the local documentation site with:
 ```bash
 python build_docs.py
 ```
+
+## Citation
+
+If AgentFEM helps your research or engineering work, please cite the project
+metadata in `CITATION.cff`.
+
+```yaml
+title: "AgentFEM: AI-assisted finite-element simulation and agent-readable CAE workflows"
+authors:
+  - family-names: Luo
+    given-names: Haoming
+    affiliation: "Materials Department, Xi'an Thermal Power Research Institute (TPRI)"
+date-released: 2026-07-24
+```
+
+## Author / Maintainer
+
+Haoming Luo is the initiator and maintainer of AgentFEM. His interests include
+computational mechanics, materials engineering, finite-element simulation, and
+AI-assisted scientific computing, with education and research experience
+associated with INSA Lyon and Ecole Polytechnique.
 
 ## MVP Status
 

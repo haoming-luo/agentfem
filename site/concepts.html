@@ -10,7 +10,7 @@
   <div class="layout">
     <aside>
       <div class="brand">AgentFEM</div>
-      <div class="tagline">Agent-oriented finite-element workflows</div>
+      <div class="tagline">AI-assisted finite-element workflows</div>
       <nav><a class="" href="index.html">Home</a>
 <a class="" href="install.html">Install</a>
 <a class="" href="agent-guide.html">Agent Guide</a>
@@ -43,6 +43,16 @@
 <h2 id="mesh-region">Mesh Region</h2>
 <p>A named geometric location on the mesh, such as a boundary, material region, or point set. Loads and constraints should be described as acting on regions and targeting unknown fields.</p>
 <p>Boundary regions provide restricted <code>ds(tag)</code> measures. Cell regions provide restricted <code>dx(tag)</code> measures for material-dependent domain integrals.</p>
+<p>AgentFEM should treat regions as the user-facing modeling concept and <code>MeshTags</code>/integer tags as implementation details. The long-term mesh/domain language should follow:</p>
+<pre><code>Domain -&gt; Region -&gt; Assignment -&gt; Step</code></pre>
+<p>Concrete geometry predicates such as disks, boxes, planes, or user functions are selectors: they are ways to create regions, not the core concept. A region may also originate from imported CAE mesh semantics such as Abaqus <code>NSET</code>, <code>ELSET</code>, and <code>SURFACE</code>, NASTRAN sets/properties, or Gmsh physical groups. These sources should be mapped into the same AgentFEM region interface so materials, loads, constraints, boundary models, and outputs can all target named regions.</p>
+<p>Application examples should prefer named region collections such as <code>regions.matrix</code> or <code>regions.left_boundary</code> over exposing <code>tag=1</code>, <code>tag=2</code>, or raw <code>MeshTags</code> unless the example is explicitly teaching the low-level mesh tagging layer.</p>
+<h2 id="selector">Selector</h2>
+<p>A reusable rule for selecting mesh entities by coordinates, imported tags, or another backend-specific source. Selectors do not generate geometry or meshes; they answer whether coordinates or entities belong to a region.</p>
+<p>Selectors may be composed with boolean logic, for example complement, union, and intersection. Convenience selectors such as disks, boxes, planes, and layers are useful for common examples, but <code>where(lambda x: ...)</code> should be a fallback for custom advanced selection rather than the beginner-facing path.</p>
+<h2 id="region-set">Region Set</h2>
+<p>A named collection of related regions, often representing a cell partition, boundary grouping, or imported set/surface table. Region sets should support attribute and dictionary-style access, summaries for agents, and optional visualization fields when backed by cell tags.</p>
+<p>For cell material partitions, AgentFEM should check that selected regions do not overlap and do not leave unassigned cells unless the API explicitly allows partial partitions.</p>
 <h2 id="function-space">Function Space</h2>
 <p>The finite-element approximation space for scalar, vector, or mixed unknowns. Examples include displacement, temperature, pressure, and internal variables.</p>
 <h2 id="unknown-field">Unknown Field</h2>

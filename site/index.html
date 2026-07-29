@@ -10,7 +10,7 @@
   <div class="layout">
     <aside>
       <div class="brand">AgentFEM</div>
-      <div class="tagline">Agent-oriented finite-element workflows</div>
+      <div class="tagline">AI-assisted finite-element workflows</div>
       <nav><a class="active" href="index.html">Home</a>
 <a class="" href="install.html">Install</a>
 <a class="" href="agent-guide.html">Agent Guide</a>
@@ -31,7 +31,10 @@
     <main>
       <article>
 <h1 id="agentfem">AgentFEM</h1>
-<p>AgentFEM is an agent-oriented finite-element workflow platform built on DOLFINx/PETSc. It aims to make finite-element scripts readable to both researchers and AI agents by keeping the standard CAE workflow visible:</p>
+<p>AgentFEM is an open-source platform for AI-assisted finite-element simulation, agent-readable CAE workflows, reusable operators, and human-agent collaborative scientific computing.</p>
+<p>AgentFEM was initiated by Haoming Luo and open-sourced on GitHub in July 2026. It is an early open-source practice toward AI-assisted finite-element simulation and agent-readable CAE workflows. The project is supported and motivated by engineering needs from the Materials Department of TPRI / Xi&#x27;an Thermal Power Research Institute, including power-generation equipment inspection, materials evaluation, and engineering simulation.</p>
+<p>AgentFEM focuses on making finite-element simulation workflows readable, structured, and reproducible. It aims to make engineering modeling, material definition, region management, loads and boundary conditions, solution steps, and result outputs understandable and reusable by researchers, while also readable, checkable, editable, and automatically orchestrated by AI agents.</p>
+<p>The standard AgentFEM workflow remains visible:</p>
 <pre><code>Study -&gt; Model -&gt; Mesh/Regions -&gt; Fields -&gt; Materials -&gt; Loads/Constraints
       -&gt; Operators -&gt; Step -&gt; Solve -&gt; Diagnostics/Output</code></pre>
 <p>The current MVP focuses on linear elasticity, transient heat conduction, explicit elastodynamics, reusable loads and constraints, material records, operator-level <code>K/M/C/F</code> notation, model inspection, and ParaView/XDMF output.</p>
@@ -41,17 +44,29 @@
 <li>Inspectable objects for agents: <code>study.summary()</code>, <code>model.manifest()</code>,<br><code>operator.summary()</code>, and step summaries.</li>
 <li>Transparent layers: daily workflows use <code>models</code>, <code>fields</code>, <code>loads</code>,<br><code>operators</code>, and <code>problems</code>; advanced users can still drop to <code>forms</code>,<br><code>assembly</code>, PETSc, or DOLFINx when needed.</li>
 </ul>
+<h2 id="architecture">Architecture</h2>
+<p>AgentFEM adopts a three-layer design:</p>
+<ul>
+<li>Engineering simulation application layer: <code>Study</code>, <code>Model</code>, <code>Region</code>,<br><code>Material</code>, <code>Load</code>, <code>Step</code>, and <code>Result</code>.</li>
+<li>Finite-element operator and weak-form extension layer: reusable operators,<br>constitutive laws, constraints, and custom variational forms.</li>
+<li>Numerical solver kernel layer: integration with FEniCSx/DOLFINx, PETSc, MPI,<br>and related scientific-computing infrastructure.</li>
+</ul>
 <h2 id="install">Install</h2>
-<p>AgentFEM currently expects a working FEniCSx/DOLFINx stack. The recommended route is conda-forge:</p>
-<pre><code>mamba create -n agentfem-env -c conda-forge \
-  python=3.11 fenics-dolfinx=0.11 gmsh mpi4py petsc4py \
-  meshio matplotlib jupyterlab ipykernel
+<p>AgentFEM depends on the FEniCSx/DOLFINx scientific computing stack. The recommended route is conda-forge, because it can resolve DOLFINx, PETSc, MPI, and HDF5 together.</p>
+<h3 id="recommended-conda-forge">Recommended: conda-forge</h3>
+<p>Create a fresh environment:</p>
+<pre><code>mamba create -n agentfem-env -c conda-forge python=3.11 agentfem
 mamba activate agentfem-env</code></pre>
-<p>For local development from this repository:</p>
-<pre><code>python -m pip install -e .</code></pre>
-<p>After the first PyPI release, users will install AgentFEM with:</p>
+<p>Or install into an existing conda environment:</p>
+<pre><code>mamba install -c conda-forge agentfem</code></pre>
+<h3 id="pypi">PyPI</h3>
+<p>If you already have a working FEniCSx/DOLFINx environment:</p>
 <pre><code>python -m pip install agentfem</code></pre>
-<p><code>requirements.txt</code> records the tested MVP stack and optional documentation / notebook helpers. Pure pip installation of DOLFINx can be fragile because MPI, PETSc, and HDF5 must match.</p>
+<h3 id="local-development">Local development</h3>
+<pre><code>git clone https://github.com/haoming-luo/agentfem.git
+cd agentfem
+python -m pip install -e .</code></pre>
+<p><code>requirements.txt</code> records the tested MVP stack and optional documentation and notebook helpers. Pure pip installation of the full FEniCSx stack can be fragile because MPI, PETSc, and HDF5 must match.</p>
 <h2 id="quick-start">Quick Start</h2>
 <p>Run the beginner static-elasticity example:</p>
 <pre><code>python examples/static_elasticity_2d.py</code></pre>
@@ -122,6 +137,16 @@ from agentfem import solvers, time, io, diagnostics</code></pre>
 </ul>
 <p>Rebuild the local documentation site with:</p>
 <pre><code>python build_docs.py</code></pre>
+<h2 id="citation">Citation</h2>
+<p>If AgentFEM helps your research or engineering work, please cite the project metadata in <code>CITATION.cff</code>.</p>
+<pre><code>title: &quot;AgentFEM: AI-assisted finite-element simulation and agent-readable CAE workflows&quot;
+authors:
+  - family-names: Luo
+    given-names: Haoming
+    affiliation: &quot;Materials Department, Xi&#x27;an Thermal Power Research Institute (TPRI)&quot;
+date-released: 2026-07-24</code></pre>
+<h2 id="author-maintainer">Author / Maintainer</h2>
+<p>Haoming Luo is the initiator and maintainer of AgentFEM. His interests include computational mechanics, materials engineering, finite-element simulation, and AI-assisted scientific computing, with education and research experience associated with INSA Lyon and Ecole Polytechnique.</p>
 <h2 id="mvp-status">MVP Status</h2>
 <p>AgentFEM is a research-oriented MVP. It is not yet a general-purpose CAE replacement. The stable direction is:</p>
 <ul>

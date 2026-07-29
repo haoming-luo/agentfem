@@ -10,7 +10,7 @@
   <div class="layout">
     <aside>
       <div class="brand">AgentFEM</div>
-      <div class="tagline">Agent-oriented finite-element workflows</div>
+      <div class="tagline">AI-assisted finite-element workflows</div>
       <nav><a class="" href="index.html">Home</a>
 <a class="" href="install.html">Install</a>
 <a class="active" href="agent-guide.html">Agent Guide</a>
@@ -44,6 +44,7 @@
 </ol>
 <h2 id="progressive-reading">Progressive Reading</h2>
 <ul>
+<li>Mesh, domain, or region modeling: read the Mesh Region, Selector, and Region<br>Set concepts in <code>CONCEPTS.md</code>. Prefer named regions and region sets over raw<br>integer tags in user-facing workflows. Use low-level <code>MeshTags</code> helpers only<br>when importing, validating, or teaching the tagging implementation.</li>
 <li>Mesh or boundary tagging: read <code>docs/module_map.md</code>, then use<br><code>mesh.summarize_mesh</code>, <code>mesh.require_cell_tags</code>, and<br><code>mesh.require_facet_tags</code>.</li>
 <li>Study setup: use <code>studies.linear_static</code>, <code>studies.first_order_transient</code>, or<br><code>studies.second_order_dynamics</code> before building operators.</li>
 <li>Model audit: use <code>model.tree()</code>, <code>model.manifest()</code>, <code>model.summary()</code>, and<br><code>model.check()</code> when multiple fields, regions, loads, constraints, or steps<br>must be inspected.</li>
@@ -66,6 +67,7 @@
 <ul>
 <li>Do not mix constraints, loads, and boundary models.</li>
 <li>Do not hide the finite-element workflow inside overly broad abstractions.</li>
+<li>Do not make concrete geometry helpers, such as circle/disk/box predicates,<br>the core modeling concept. Treat them as selectors used to build named<br>regions. Regions are the stable interface for materials, loads, constraints,<br>boundary models, output, and imported CAE mesh groups.</li>
 <li>Keep application-specific geometry, source definitions, and parameter choices<br>outside the core platform.</li>
 <li>Validate imports, syntax, and a small runnable case after structural changes.</li>
 <li>When changing a public concept, update <code>CONCEPTS.md</code>, <code>WORKFLOW.md</code>, and the<br>relevant skill references.</li>

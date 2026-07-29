@@ -326,7 +326,7 @@ def render_page(page: Page) -> str:
   <div class="layout">
     <aside>
       <div class="brand">AgentFEM</div>
-      <div class="tagline">Agent-oriented finite-element workflows</div>
+      <div class="tagline">AI-assisted finite-element workflows</div>
       <nav>{nav}</nav>
     </aside>
     <main>

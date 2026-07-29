@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agentfem"
 version = "0.1.2"
-description = "Agent-oriented finite-element workflow tools built on DOLFINx/PETSc."
+description = "AI-assisted finite-element simulation and agent-readable CAE workflows."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
@@ -14,13 +14,14 @@ authors = [
   { name = "Haoming Luo" }
 ]
 keywords = [
-  "finite-element",
+  "finite-element-method",
   "fem",
-  "cae",
-  "dolfinx",
-  "fenicsx",
+  "CAE",
+  "FEniCSx",
+  "DOLFINx",
+  "AI-assisted-simulation",
+  "agent-readable-workflow",
   "scientific-computing",
-  "agent-oriented",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
