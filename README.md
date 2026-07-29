@@ -5,11 +5,9 @@ agent-readable CAE workflows, reusable operators, and human-agent collaborative
 scientific computing.
 
 AgentFEM was initiated by Haoming Luo and open-sourced on GitHub in July 2026.
-It is an early open-source practice toward AI-assisted finite-element
-simulation and agent-readable CAE workflows. The project is supported and
-motivated by engineering needs from the Materials Department of TPRI / Xi'an
-Thermal Power Research Institute, including power-generation equipment
-inspection, materials evaluation, and engineering simulation.
+It is an early open-source practice toward making finite-element simulation
+workflows readable, structured, reproducible, and usable by both researchers
+and AI agents.
 
 AgentFEM focuses on making finite-element simulation workflows readable,
 structured, and reproducible. It aims to make engineering modeling, material
@@ -215,6 +213,9 @@ Haoming Luo is the initiator and maintainer of AgentFEM. His interests include
 computational mechanics, materials engineering, finite-element simulation, and
 AI-assisted scientific computing, with education and research experience
 associated with INSA Lyon and Ecole Polytechnique.
+
+The project is also motivated by engineering needs in materials evaluation,
+defect inspection, and simulation analysis for power-generation equipment.
 
 ## MVP Status
 
