@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentfem"
-version = "0.1.2"
+version = "0.1.3"
 description = "AI-assisted finite-element simulation and agent-readable CAE workflows."
 readme = "README.md"
 requires-python = ">=3.11"

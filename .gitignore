@@ -24,5 +24,8 @@ results/
 results_*/
 examples_output/
 
+# Private planning notes, not part of the public package.
+local_notes/
+
 # Keep the generated local documentation site unless intentionally removed.
 !site/

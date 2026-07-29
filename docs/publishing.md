@@ -34,8 +34,8 @@ without storing a long-lived PyPI API token in repository secrets.
 6. Create and push a version tag:
 
    ```bash
-   git tag v0.1.2
-   git push origin v0.1.2
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
    ```
 
 The GitHub Actions workflow `.github/workflows/publish-pypi.yml` publishes the
