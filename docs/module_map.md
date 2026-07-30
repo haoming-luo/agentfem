@@ -28,6 +28,12 @@ This map links FEM concepts to the current Python modules.
 | Element and integration policies | `elements/` |
 | Verification benchmarks | `benchmarks/` |
 | Runnable workflows | `examples/` |
+| Versioned AF-IR scientific records | `ir/` |
+| Structured validation issues and reports | `validation.py` |
+| Backend descriptors, registry, and lowering adapters | `backends/` |
+| Typed parameters, sampling, campaign plans, resumable case execution | `campaigns/` |
+| Scientific dataset schemas, arrays, provenance, and splits | `datasets/` |
+| Surrogate/ROM models, validation, applicability, neural-operator/PINN contracts | `surrogates/` |
 
 Application geometry, case inputs, and problem-specific sources should stay in
 application packages or examples until they become reusable platform concepts.

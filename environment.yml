@@ -1,0 +1,12 @@
+name: agentfem-dev
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - fenics-dolfinx=0.11
+  - mpich
+  - mpi4py
+  - petsc4py
+  - numpy
+  - pytest
+  - pip

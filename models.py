@@ -214,6 +214,7 @@ class Model:
                 shear_wave_speed=shear_wave_speed,
                 normal=selected_normal,
                 mode=mode,
+                location=on,
             )
         )
 
@@ -688,22 +689,169 @@ class Model:
                 result.append(constraint.bc)
         return result
 
-    def check(self) -> None:
-        """Run lightweight modeling checks without assembling a system."""
+    def validate(self):
+        """Return structured, addressable model-validation results.
 
-        if self.study is None:
-            raise ValueError("Model.check requires a study.")
-        if self.mesh is None:
-            raise ValueError("Model.check requires a mesh.")
-        if self.mesh.geometry.dim != self.study.dimension:
-            raise ValueError(
-                f"Study dimension {self.study.dimension} does not match mesh "
-                f"geometric dimension {self.mesh.geometry.dim}."
+        This method does not assemble forms or solve a system.  It validates
+        scientific registry structure and backend-independent relationships
+        that can be checked cheaply before execution.  Paths such as
+        ``model.materials[1].region`` are stable repair targets for humans,
+        agents, and future validation tools.
+        """
+
+        from .validation import ValidationReport, issue
+
+        issues = []
+        study = self.study
+        domain = _domain(self.mesh)
+
+        if study is None:
+            issues.append(
+                issue(
+                    "AFM-MODEL-001",
+                    "model.study",
+                    "A finite-element model requires a Study.",
+                    hint="Create a study with agentfem.studies before the model.",
+                )
             )
+        elif hasattr(study, "validate"):
+            try:
+                study.validate()
+            except (TypeError, ValueError) as exc:
+                issues.append(
+                    issue(
+                        "AFM-STUDY-001",
+                        "model.study",
+                        str(exc),
+                        hint="Revise the analysis, physics, dimension, or assumption.",
+                    )
+                )
+
+        if domain is None:
+            issues.append(
+                issue(
+                    "AFM-MODEL-002",
+                    "model.mesh",
+                    "A finite-element model requires a mesh.",
+                    hint="Create or import the mesh before defining regions and fields.",
+                )
+            )
+        elif study is not None:
+            geometry = getattr(domain, "geometry", None)
+            mesh_dimension = getattr(geometry, "dim", None)
+            if mesh_dimension is None:
+                issues.append(
+                    issue(
+                        "AFM-MESH-001",
+                        "model.mesh",
+                        "The registered mesh does not expose a geometric dimension.",
+                        hint="Register a DOLFINx mesh or an AgentFEM FEMMesh.",
+                    )
+                )
+            elif int(mesh_dimension) != int(study.dimension):
+                issues.append(
+                    issue(
+                        "AFM-MODEL-003",
+                        "model.mesh.geometry.dim",
+                        (
+                            f"Study dimension {study.dimension} does not match "
+                            f"mesh geometric dimension {mesh_dimension}."
+                        ),
+                        hint="Revise the Study dimension or use the intended mesh.",
+                        study_dimension=int(study.dimension),
+                        mesh_dimension=int(mesh_dimension),
+                    )
+                )
+
         if not self.fields:
-            raise ValueError("Model.check requires at least one field.")
-        if getattr(self.study, "is_solid_mechanics", False) and not self.materials:
-            raise ValueError("Solid-mechanics models require at least one material.")
+            issues.append(
+                issue(
+                    "AFM-MODEL-004",
+                    "model.fields",
+                    "A finite-element model requires at least one field.",
+                    hint="Register an unknown with model.field(...).",
+                )
+            )
+        elif domain is not None:
+            for index, field_object in enumerate(self.fields):
+                field_domain = _field_domain(field_object)
+                if field_domain is not None and field_domain is not domain:
+                    issues.append(
+                        issue(
+                            "AFM-FIELD-001",
+                            f"model.fields[{index}]",
+                            "The field is defined on a different mesh from the model.",
+                            hint="Create the field on model.mesh or register the intended mesh.",
+                        )
+                    )
+
+        if (
+            study is not None
+            and getattr(study, "is_solid_mechanics", False)
+            and not self.materials
+        ):
+            issues.append(
+                issue(
+                    "AFM-MATERIAL-001",
+                    "model.materials",
+                    "Solid-mechanics models require at least one material.",
+                    hint="Register material properties with model.material(...).",
+                )
+            )
+
+        if len(self.materials) > 1:
+            for index, record in enumerate(self.materials):
+                if getattr(record, "region", None) is None:
+                    issues.append(
+                        issue(
+                            "AFM-MATERIAL-002",
+                            f"model.materials[{index}].region",
+                            "Every material in a multi-material model needs a region.",
+                            hint="Pass region=... when registering each material.",
+                        )
+                    )
+
+        for collection_name in (
+            "fields",
+            "amplitudes",
+            "constraints",
+            "loads",
+            "boundary_models",
+            "regions",
+            "steps",
+        ):
+            duplicates = _duplicate_names(getattr(self, collection_name))
+            for name in duplicates:
+                issues.append(
+                    issue(
+                        "AFM-NAME-001",
+                        f"model.{collection_name}",
+                        f"Name {name!r} is used more than once.",
+                        severity="warning",
+                        hint="Use unique names when objects must be addressed for repair or reuse.",
+                        duplicate_name=name,
+                    )
+                )
+
+        if domain is not None:
+            for index, region in enumerate(self.regions):
+                region_domain = getattr(region, "domain", None)
+                if region_domain is not None and region_domain is not domain:
+                    issues.append(
+                        issue(
+                            "AFM-REGION-001",
+                            f"model.regions[{index}]",
+                            "The region belongs to a different mesh from the model.",
+                            hint="Recreate the region on model.mesh.",
+                        )
+                    )
+
+        return ValidationReport.from_issues(issues, scope=f"model:{self.name}")
+
+    def check(self) -> None:
+        """Raise one structured error report if model validation fails."""
+
+        self.validate().raise_if_errors()
 
     def _register_regions_from_asset(self, asset) -> None:
         for region in _regions_from_asset(asset):
@@ -786,6 +934,9 @@ class Model:
         return {
             "kind": "agentfem_model_manifest",
             "version": 1,
+            "schema": "agentfem.af-ir",
+            "schema_version": "0.1.0",
+            "status": "experimental",
             "model": self.summary(),
             "workflow_order": (
                 "study",
@@ -799,6 +950,65 @@ class Model:
                 "steps",
             ),
         }
+
+    def to_ir(
+        self,
+        *,
+        include_validation: bool = True,
+        metadata: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        """Export the supported model semantics as an AF-IR document.
+
+        AF-IR 0.1 is a versioned scientific record, not yet a complete
+        backend-neutral executable serialization.  Backend runtime objects that
+        lack public semantics are marked opaque instead of being serialized
+        through unstable representations.
+        """
+
+        from . import __version__
+        from .backends import get_backend
+        from .ir import model_document
+
+        document = model_document(
+            self,
+            agentfem_version=__version__,
+            backend=get_backend().descriptor.as_dict(),
+            include_validation=include_validation,
+            metadata=metadata,
+        )
+        return document.as_dict()
+
+    def write_ir(
+        self,
+        path,
+        *,
+        include_validation: bool = True,
+        metadata: dict[str, object] | None = None,
+    ):
+        """Write a deterministic AF-IR JSON record and return its path.
+
+        For a distributed DOLFINx mesh, rank zero performs the file write and
+        all ranks synchronize before returning.
+        """
+
+        from pathlib import Path
+        from .ir import write_document
+
+        output = Path(path)
+        domain = _domain(self.mesh)
+        comm = getattr(domain, "comm", None)
+        rank = getattr(comm, "rank", 0)
+        if rank == 0:
+            write_document(
+                self.to_ir(
+                    include_validation=include_validation,
+                    metadata=metadata,
+                ),
+                output,
+            )
+        if comm is not None and hasattr(comm, "barrier"):
+            comm.barrier()
+        return output
 
     def tree(self) -> str:
         """Return a compact text model tree for logs, notebooks, and agents."""
@@ -979,10 +1189,42 @@ def _as_tuple(item) -> tuple:
 def _mesh_summary(mesh):
     if mesh is None:
         return None
+    mesh = _domain(mesh)
     return {
         "topological_dim": mesh.topology.dim,
         "geometric_dim": mesh.geometry.dim,
     }
+
+
+def _domain(mesh):
+    """Return the DOLFINx domain stored directly or inside ``FEMMesh``."""
+
+    if mesh is None:
+        return None
+    return getattr(mesh, "domain", mesh)
+
+
+def _field_domain(field_object):
+    """Return a field mesh when it can be determined without assembly."""
+
+    space = getattr(field_object, "space", None)
+    if space is None:
+        value = getattr(field_object, "value", field_object)
+        space = getattr(value, "function_space", None)
+    return getattr(space, "mesh", None)
+
+
+def _duplicate_names(items) -> tuple[str, ...]:
+    counts: dict[str, int] = {}
+    for item in items:
+        name = getattr(item, "name", None)
+        if name is None and hasattr(item, "summary"):
+            summary = item.summary()
+            if isinstance(summary, dict):
+                name = summary.get("name")
+        if isinstance(name, str) and name:
+            counts[name] = counts.get(name, 0) + 1
+    return tuple(sorted(name for name, count in counts.items() if count > 1))
 
 
 def _regions_from_asset(asset) -> tuple[object, ...]:

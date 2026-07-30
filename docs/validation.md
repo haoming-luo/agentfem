@@ -2,6 +2,11 @@
 
 Every nontrivial change should be checked at three levels.
 
+Public model validation should use `model.validate()` when callers need a
+complete structured report, or `model.check()` when execution must stop on
+errors. New issues should define a stable `AFM-*` code, a scientific-object
+path, a severity, and a repair hint where a local repair is meaningful.
+
 ## Structural Checks
 
 - Imports use the current package layout.
@@ -11,6 +16,10 @@ Every nontrivial change should be checked at three levels.
   material or boundary labels.
 - Public dataclasses that represent reusable FEM assets provide inspectable
   summaries when practical.
+- AF-IR exports are deterministic JSON, contain no non-finite values, and mark
+  unresolved runtime objects as opaque.
+- Backend capability claims are covered by tests and do not exceed the actual
+  lowering implementation.
 
 ## Numerical Checks
 
@@ -39,6 +48,7 @@ When an agent modifies AgentFEM, it should report:
 - Which files were edited.
 - Which validation commands were run.
 - What remains unverified.
+- Which validation issue codes or AF-IR fields changed.
 
 ## Mesh Conversion Checks
 

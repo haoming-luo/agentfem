@@ -50,6 +50,20 @@ Use these rules before adding new public functions or modules.
   commands.
 - The goal is verification, not teaching workflow usage.
 
+## Add to `ir/` When
+
+- The code defines versioned scientific records, references, migrations, or
+  serialization behavior.
+- The representation preserves domain meaning independently of live backend
+  object identity.
+- The change has round-trip or golden-document tests.
+
+## Add to `backends/` When
+
+- The code describes backend capability or lowers a supported semantic object.
+- Unsupported behavior is rejected explicitly.
+- The adapter has numerical evidence for every advertised capability.
+
 ## Keep in the Application When
 
 - The code encodes a specific geometry.

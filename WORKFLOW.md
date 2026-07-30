@@ -26,9 +26,23 @@ this sequence visible unless there is a strong reason to encapsulate it.
 13. Create and register an analysis step with `model.step(...)` or
     `model.linear_static_step(...)`. The step should expose visible operators,
     such as `K U = F` or `(C / dt + K) T_next = C T_old / dt + Q`.
-14. Compile, assemble, and solve the step, or advance in time.
-15. Evaluate diagnostics.
-16. Write outputs.
+14. Run `model.validate()` or `model.check()` before execution. When the case
+    is an auditable artifact, write `model.write_ir(...)`.
+15. Compile, assemble, and solve the step, or advance in time.
+16. Evaluate diagnostics.
+17. Write outputs and, as execution records mature, preserve provenance and
+    validation evidence with the result.
+
+For a collection of related cases, continue with:
+
+18. Define a typed `campaigns.ParameterSpace` with bounds and units.
+19. Create a deterministic design of experiments and fresh model variants.
+20. Run or resume the campaign and extract declared `datasets.Quantity`
+    outputs.
+21. Split the resulting `ScientificDataset` independently before training.
+22. Validate a surrogate or reduced-order model, declare its applicability
+    domain, and retain a high-fidelity FEM fallback where extrapolation would
+    be unsafe.
 
 ## Module Map
 
@@ -56,6 +70,14 @@ this sequence visible unless there is a strong reason to encapsulate it.
 - Output: `io.py`
 - Element/integration policies: `elements/`
 - Verification benchmarks: `benchmarks/`
+- Versioned scientific records: `ir/`
+- Structured validation reports and issue codes: `validation.py`
+- Backend capabilities and compilation adapters: `backends/`
+- Parameter spaces, sampling, case identity, and resumable execution:
+  `campaigns/`
+- Unit/shape-aware learning data and simulation provenance: `datasets/`
+- Surrogate/ROM baselines, validation, applicability guards, and
+  neural-operator/PINN contracts: `surrogates/`
 
 ## Design Principle
 
@@ -69,7 +91,7 @@ reviewer, or notebook user needs to inspect the current model state.
 Beginner workflows should prefer the stable public path:
 `studies`, `mesh`, `models`, `fields`, `materials`, `constitutive`,
 `constraints`, `amplitudes`, `loads`, `operators`, `problems`, `solvers`,
-`time`, and `io`.
+`time`, `io`, `campaigns`, `datasets`, and `surrogates`.
 
 First-level Python modules are reserved for the main FEM workflow. Subpackages
 hold reusable asset families, such as constitutive laws, material records,

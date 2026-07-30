@@ -27,8 +27,10 @@ finite-element simulation with AgentFEM.
 - Study setup: use `studies.linear_static`, `studies.first_order_transient`, or
   `studies.second_order_dynamics` before building operators.
 - Model audit: use `model.tree()`, `model.manifest()`, `model.summary()`, and
-  `model.check()` when multiple fields, regions, loads, constraints, or steps
-  must be inspected.
+  `model.validate()` when multiple fields, regions, loads, constraints, or
+  steps must be inspected. Use `model.check()` to stop before execution on
+  validation errors and `model.write_ir(...)` when a persistent scientific
+  record is required.
 - Model registration: use `model.field(...)`, `model.material(...)`,
   `model.fix(...)`, and `model.traction(...)` in application workflows when the
   assets should stay visible and auditable.
@@ -51,6 +53,17 @@ finite-element simulation with AgentFEM.
   broader structured audit record.
 - Results: inspect `diagnostics.py`, then use `io.CSVLogger`,
   `io.XDMFTimeSeries`, or `io.ResultWriter`.
+- AF-IR and repair: inspect `ir/` and `validation.py`. Treat AF-IR 0.1 as an
+  experimental record, not as proof of backend-neutral executability.
+- Backend work: inspect `backends/` and
+  `docs/air_architecture_roadmap.md`. Preserve the full FEniCSx path and do not
+  advertise a backend until its capabilities are independently tested.
+- Parameter campaigns and learned models: read
+  `docs/ai_native_learning.md`, then inspect `campaigns/`, `datasets/`, and
+  `surrogates/`. Build a fresh model per case; retain units, output shapes,
+  case IDs, validation data, and applicability behavior. Do not present a
+  training residual or successful prediction call as independent scientific
+  validation.
 - Example workflows: inspect `examples/` after reading `WORKFLOW.md`.
 
 ## Agent Rules
@@ -64,8 +77,12 @@ finite-element simulation with AgentFEM.
 - Keep application-specific geometry, source definitions, and parameter choices
   outside the core platform.
 - Validate imports, syntax, and a small runnable case after structural changes.
+- Report structured validation codes and paths when they are available; do not
+  replace them with an unaddressed generic error.
 - When changing a public concept, update `CONCEPTS.md`, `WORKFLOW.md`, and the
   relevant skill references.
+- Do not silently extrapolate a learned model. Reject the request or invoke an
+  explicit high-fidelity fallback and report which source produced the result.
 
 ## Current Platform Focus
 

@@ -234,3 +234,78 @@ or physical behavior.
 
 A standard verification problem with expected quantities and tolerances.
 Benchmarks validate platform capabilities; examples teach workflows.
+
+## AF-IR Document
+
+A versioned, JSON-safe scientific record of the supported AgentFEM model
+structure. AF-IR 0.1 is experimental: it records public semantics and marks
+unresolved backend runtime objects as opaque. It is not yet a complete
+backend-neutral executable serialization.
+
+The readable Python program remains the primary authoring language. AF-IR is
+the persistent exchange, validation, provenance, and future lowering artifact.
+
+## Validation Issue
+
+An addressable finding with a stable code, scientific-object path, severity,
+message, repair hint, and optional context. Validation reports let people and
+agents repair a model at the level of `model.materials[1].region` or
+`model.steps[0]`, rather than inferring scientific intent from a Python
+traceback.
+
+## Backend Adapter
+
+The explicit boundary through which a supported scientific operator is
+compiled and assembled by a numerical backend. FEniCSx is the only production
+backend in the current release. The adapter is a seam for progressive
+architecture, not evidence of multi-backend coverage.
+
+## Parameter Space
+
+An ordered, typed schema for related simulation cases. Each parameter carries
+its admissible values and may carry units, description, nominal value, and
+linear or logarithmic scale. A parameter space is scientific input metadata,
+not merely a matrix column list.
+
+## Campaign
+
+A reproducible collection of immutable-by-construction case variants. A
+campaign binds a parameter space and sampling plan to deterministic case IDs,
+fresh case construction, declared output quantities, execution evidence,
+failure records, and resumable artifacts.
+
+Within-case MPI and across-case distribution are distinct. All ranks may
+cooperate on one FEniCSx solve; deterministic campaign-plan shards may be sent
+to separate jobs. Python threads are not assumed to be a safe FEM executor.
+
+## Scientific Dataset
+
+Successful campaign samples together with their parameter schema, output
+names, units, shapes, field encodings, case identities, provenance, and
+artifact links. A scientific dataset must retain enough information to explain
+what a learned mapping means and which simulations supplied its evidence.
+
+## Surrogate Model
+
+A learned or reduced-order approximation to a declared mapping. In AgentFEM,
+the model is incomplete as a scientific asset until it has independent
+validation evidence, a stated applicability domain, and defined behavior for
+out-of-domain inputs.
+
+Surrogates may substitute for repeated solves, accelerate components inside
+FEM, or participate in hybrid screening/active-learning loops. These roles
+require different evidence.
+
+## Neural Operator
+
+A learned function-to-function map. Its contract must specify field units and
+components, mesh/grid/graph/sensor representation, geometry and boundary
+encoding, projection to and from FEM spaces, and field/physics validation. An
+architecture name such as FNO or DeepONet does not supply this scientific
+contract by itself.
+
+## Physics-Informed Model
+
+A learning workflow with explicit strong, weak, or discrete physics residuals
+and boundary, initial, interface, or observation conditions. Arbitrary UFL
+forms are not presumed to convert automatically into valid PINN residuals.

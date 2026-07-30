@@ -9,7 +9,9 @@
 <body>
   <div class="layout">
     <aside>
-      <div class="brand">AgentFEM</div>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
       <div class="tagline">AI-assisted finite-element workflows</div>
       <nav><a class="" href="index.html">Home</a>
 <a class="" href="install.html">Install</a>
@@ -25,6 +27,8 @@
 <a class="" href="licensing.html">Licensing</a>
 <a class="" href="publishing.html">Publishing</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
 <a class="" href="skill.html">AgentFEM Skill</a></nav>
     </aside>
@@ -102,6 +106,27 @@
 <p>A scalar or field quantity used to inspect correctness, convergence, stability, or physical behavior.</p>
 <h2 id="benchmark">Benchmark</h2>
 <p>A standard verification problem with expected quantities and tolerances. Benchmarks validate platform capabilities; examples teach workflows.</p>
+<h2 id="af-ir-document">AF-IR Document</h2>
+<p>A versioned, JSON-safe scientific record of the supported AgentFEM model structure. AF-IR 0.1 is experimental: it records public semantics and marks unresolved backend runtime objects as opaque. It is not yet a complete backend-neutral executable serialization.</p>
+<p>The readable Python program remains the primary authoring language. AF-IR is the persistent exchange, validation, provenance, and future lowering artifact.</p>
+<h2 id="validation-issue">Validation Issue</h2>
+<p>An addressable finding with a stable code, scientific-object path, severity, message, repair hint, and optional context. Validation reports let people and agents repair a model at the level of <code>model.materials[1].region</code> or <code>model.steps[0]</code>, rather than inferring scientific intent from a Python traceback.</p>
+<h2 id="backend-adapter">Backend Adapter</h2>
+<p>The explicit boundary through which a supported scientific operator is compiled and assembled by a numerical backend. FEniCSx is the only production backend in the current release. The adapter is a seam for progressive architecture, not evidence of multi-backend coverage.</p>
+<h2 id="parameter-space">Parameter Space</h2>
+<p>An ordered, typed schema for related simulation cases. Each parameter carries its admissible values and may carry units, description, nominal value, and linear or logarithmic scale. A parameter space is scientific input metadata, not merely a matrix column list.</p>
+<h2 id="campaign">Campaign</h2>
+<p>A reproducible collection of immutable-by-construction case variants. A campaign binds a parameter space and sampling plan to deterministic case IDs, fresh case construction, declared output quantities, execution evidence, failure records, and resumable artifacts.</p>
+<p>Within-case MPI and across-case distribution are distinct. All ranks may cooperate on one FEniCSx solve; deterministic campaign-plan shards may be sent to separate jobs. Python threads are not assumed to be a safe FEM executor.</p>
+<h2 id="scientific-dataset">Scientific Dataset</h2>
+<p>Successful campaign samples together with their parameter schema, output names, units, shapes, field encodings, case identities, provenance, and artifact links. A scientific dataset must retain enough information to explain what a learned mapping means and which simulations supplied its evidence.</p>
+<h2 id="surrogate-model">Surrogate Model</h2>
+<p>A learned or reduced-order approximation to a declared mapping. In AgentFEM, the model is incomplete as a scientific asset until it has independent validation evidence, a stated applicability domain, and defined behavior for out-of-domain inputs.</p>
+<p>Surrogates may substitute for repeated solves, accelerate components inside FEM, or participate in hybrid screening/active-learning loops. These roles require different evidence.</p>
+<h2 id="neural-operator">Neural Operator</h2>
+<p>A learned function-to-function map. Its contract must specify field units and components, mesh/grid/graph/sensor representation, geometry and boundary encoding, projection to and from FEM spaces, and field/physics validation. An architecture name such as FNO or DeepONet does not supply this scientific contract by itself.</p>
+<h2 id="physics-informed-model">Physics-Informed Model</h2>
+<p>A learning workflow with explicit strong, weak, or discrete physics residuals and boundary, initial, interface, or observation conditions. Arbitrary UFL forms are not presumed to convert automatically into valid PINN residuals.</p>
       </article>
     </main>
   </div>

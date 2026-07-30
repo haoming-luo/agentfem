@@ -25,3 +25,11 @@
 - `io.py`: output writers and scalar logs
 - `elements/`: element and integration-policy namespace
 - `benchmarks/`: verification benchmark namespace
+- `ir/`: experimental versioned AF-IR scientific records
+- `validation.py`: structured issue codes, paths, hints, and reports
+- `backends/`: backend descriptors and advanced lowering adapters
+- `campaigns/`: typed parameters, deterministic sampling, case plans,
+  resumable execution, and MPI-aware persistence
+- `datasets/`: unit/shape-aware learning data and case provenance
+- `surrogates/`: baseline learned/ROM models, validation, applicability guards,
+  and neural-operator/PINN contracts

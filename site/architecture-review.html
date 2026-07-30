@@ -9,7 +9,9 @@
 <body>
   <div class="layout">
     <aside>
-      <div class="brand">AgentFEM</div>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
       <div class="tagline">AI-assisted finite-element workflows</div>
       <nav><a class="" href="index.html">Home</a>
 <a class="" href="install.html">Install</a>
@@ -25,6 +27,8 @@
 <a class="" href="licensing.html">Licensing</a>
 <a class="" href="publishing.html">Publishing</a>
 <a class="active" href="architecture-review.html">Architecture Review</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
 <a class="" href="skill.html">AgentFEM Skill</a></nav>
     </aside>
@@ -32,6 +36,7 @@
       <article>
 <h1 id="agentfem-architecture-review">AgentFEM Architecture Review</h1>
 <p>This note records the current architecture direction from the perspective of traditional finite-element workflows and agent-oriented use.</p>
+<p>For the full FEniCSx-first engineering plan, AF-IR schema boundary, backend strategy, agent repair protocol, execution-evidence design, and phased roadmap, see <code>docs/air_architecture_roadmap.md</code>.</p>
 <h2 id="current-strengths">Current Strengths</h2>
 <ul>
 <li>The first-level modules mostly match standard FEM steps: studies, mesh<br>import/read, models, spaces, fields, constraints, loads, forms, assembly,<br>operators, problems, time integration, solvers, diagnostics, and output.</li>
@@ -42,6 +47,9 @@
 <li>External CAE mesh conversion is separated into <code>mesh/formats.py</code>, keeping<br>solver workflow code independent from Abaqus, NASTRAN, COMSOL, or VTK details.</li>
 <li>The package has both human-facing workflow docs and skill-ready progressive<br>references for agents.</li>
 <li>Study summaries, model summaries, mesh summaries, tag checks,<br>material-property summaries, load summaries, constraint summaries, and<br>boundary-model summaries now provide a first layer of agent-readable<br>inspection.</li>
+<li>AF-IR 0.1 provides an explicitly experimental, versioned JSON-safe record of<br>supported public model semantics.</li>
+<li>Structured validation issues now carry stable codes, object paths, severity,<br>and repair hints.</li>
+<li>Operator compilation crosses a narrow backend adapter boundary while<br>FEniCSx remains the only production backend.</li>
 </ul>
 <h2 id="main-refinements-needed">Main Refinements Needed</h2>
 <ol>
@@ -72,11 +80,11 @@
 </ul>
 <h2 id="suggested-priority">Suggested Priority</h2>
 <ol>
-<li>Tighten docs links and module routing.</li>
-<li>Improve <code>forms.py</code> into a clearer library of reusable weak-form blocks.</li>
-<li>Add typed containers for standard discrete systems: static, first-order<br>transient, and second-order dynamics.</li>
-<li>Add small examples for each standard workflow step after APIs stabilize.</li>
-<li>Add constitutive submodules only when at least one application needs them:<br>anisotropic elasticity, viscoelasticity, thermal conduction, and coupled<br>models.</li>
+<li>Build verification benchmarks and continuous tests around the current<br>FEniCSx execution path.</li>
+<li>Expand addressable validation for regions, assignments, operators, steps,<br>and solver policies.</li>
+<li>Stabilize AF-IR object identity, references, loading, and migrations.</li>
+<li>Introduce semantic/runtime separation for a small set of proven operator<br>families.</li>
+<li>Add execution records and provenance before pursuing broad multi-backend<br>claims.</li>
 </ol>
       </article>
     </main>

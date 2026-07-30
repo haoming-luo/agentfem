@@ -79,6 +79,18 @@ def main() -> None:
         solver_options=LinearSolverOptions(ksp_type="preonly", pc_type="lu"),
         name="cantilever_Ku_eq_F",
     )
+    ir_out = (
+        Path(__file__).resolve().parents[1]
+        / "examples_output"
+        / "static_elasticity_2d.afir.json"
+    )
+    model.write_ir(
+        ir_out,
+        metadata={
+            "example": "static_elasticity_2d",
+            "purpose": "executable AF-IR record before solve",
+        },
+    )
     step.solve()
 
     # 8. Output: write displacement to XDMF for ParaView.
@@ -88,6 +100,7 @@ def main() -> None:
         xdmf.write_fields(0.0, output_displacement)
 
     print_on_root(comm, model.tree())
+    print_on_root(comm, f"AF-IR record: {ir_out}")
     print_on_root(comm, f"Static elasticity result: {out}")
 
 

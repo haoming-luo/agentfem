@@ -9,7 +9,7 @@ unless the example is intentionally advanced.
 1. `static_elasticity_2d.py`
    Beginner template. Demonstrates the preferred MVP path:
    `Study -> Model -> Field -> Material -> Regions -> Constraints/Loads ->
-   model.linear_static_step(...) -> solve -> XDMF`.
+   model.linear_static_step(...) -> AF-IR record -> solve -> XDMF`.
 
 2. `transient_heat_2d.py`
    Intermediate template. Demonstrates first-order transient heat conduction
@@ -25,6 +25,13 @@ unless the example is intentionally advanced.
    regional material assignment, explicit dynamics, periodic projection, and
    absorbing boundary handling.
 
+5. `static_elasticity_surrogate_campaign.py`
+   AI-native collection workflow. Demonstrates typed parameters, a
+   reproducible design of experiments, fresh FEniCSx model construction per
+   case, resumable execution records, a unit-aware scientific dataset, a
+   transparent surrogate baseline, independent validation, and guarded
+   high-fidelity fallback.
+
 ## Run
 
 From the `agentfem` directory:
@@ -32,6 +39,7 @@ From the `agentfem` directory:
 ```bash
 python examples/static_elasticity_2d.py
 python examples/transient_heat_2d.py
+python examples/static_elasticity_surrogate_campaign.py
 ```
 
 From the parent development directory:
@@ -42,6 +50,12 @@ python agentfem/examples/transient_heat_2d.py
 ```
 
 Outputs are written to `examples_output/*.xdmf` and can be opened in ParaView.
+The static example also writes `static_elasticity_2d.afir.json`, an
+experimental versioned record of the supported scientific model structure
+before execution.
+The campaign example writes per-case evidence, a compressed dataset, and a
+portable NumPy surrogate artifact beneath
+`examples_output/static_elasticity_surrogate_campaign/`.
 
 ## Style Rules
 

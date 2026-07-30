@@ -47,24 +47,34 @@ Documentation = "https://github.com/haoming-luo/agentfem#readme"
 mesh-formats = ["meshio"]
 docs = ["mkdocs", "mkdocs-material", "pymdown-extensions"]
 notebooks = ["jupyterlab", "ipykernel", "nbformat", "nbclient"]
-dev = ["build", "twine"]
+ml = ["torch"]
+dev = ["build", "pytest", "twine"]
 
 [tool.setuptools]
 package-dir = { "agentfem" = "." }
 packages = [
   "agentfem",
   "agentfem.benchmarks",
+  "agentfem.backends",
   "agentfem.boundary_models",
+  "agentfem.campaigns",
   "agentfem.constraints",
   "agentfem.constitutive",
+  "agentfem.datasets",
   "agentfem.elements",
   "agentfem.kernel",
+  "agentfem.ir",
   "agentfem.materials",
   "agentfem.materials.data",
   "agentfem.mesh",
   "agentfem.operators",
+  "agentfem.surrogates",
   "agentfem.time",
 ]
 
 [tool.setuptools.package-data]
 "agentfem.materials" = ["data/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

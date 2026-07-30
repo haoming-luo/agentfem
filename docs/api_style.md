@@ -29,6 +29,11 @@ for AI agents.
   finite-element concept that humans or agents may audit.
 - Give material-like dataclasses an `as_dict()` method when constants and
   derived quantities are useful for logs or validation.
+- Use `to_ir()` for a versioned scientific record. Do not use `repr()` as a
+  persistent fallback for backend objects because it may contain memory
+  addresses and no scientific semantics.
+- Validation failures intended for repair should carry a stable code and an
+  object path in a `ValidationIssue`.
 - Avoid hidden global state.
 
 ## Semantic Constructors
@@ -86,6 +91,17 @@ for AI agents.
   control.
 - Use concept names in errors and summaries: constraint, load, boundary model,
   constitutive law, operator, state, and diagnostic.
+- Prefer a repair address such as `model.materials[1].region` and a specific
+  hint over a generic execution error.
+- Parameter-study APIs must carry bounds, units, and deterministic case IDs.
+  Prefer a fresh `build(parameters)` case factory over mutating one live backend
+  model across samples.
+- Learning outputs must be declared with names, shapes, and units before a
+  campaign runs. Do not infer a scientific schema only from the first returned
+  NumPy array.
+- A surrogate prediction API should report its source, uncertainty semantics,
+  applicability decision, and fallback behavior. It must not silently
+  extrapolate or describe residual scale as calibrated epistemic uncertainty.
 
 ## Error Messages
 

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import ufl
 
 from agentfem import fields as field_api
+from agentfem.ir.values import describe_value
 
 
 def scalar_viscous_boundary_form(velocity, test_function, measure, impedance):
@@ -51,6 +52,7 @@ class ViscousAbsorbingBoundary:
     tangential_impedance: object | None = None
     normal: object | None = None
     name: str = "viscous_absorbing_boundary"
+    location: object | None = None
 
     def form(self, velocity, test_function):
         """Return the UFL boundary form for this absorbing boundary."""
@@ -80,6 +82,9 @@ class ViscousAbsorbingBoundary:
             "name": self.name,
             "kind": "viscous_absorbing_boundary",
             "mode": "scalar" if self.tangential_impedance is None else "normal_tangential",
+            "location": getattr(self.location, "name", None),
+            "normal_impedance": describe_value(self.normal_impedance),
+            "tangential_impedance": describe_value(self.tangential_impedance),
         }
 
 
@@ -91,6 +96,7 @@ def lysmer_kuhlemeyer_boundary(
     shear_wave_speed=None,
     normal=None,
     mode: str = "normal_shear",
+    location=None,
 ):
     """Create a Lysmer-Kuhlemeyer-style viscous absorbing boundary.
 
@@ -103,6 +109,7 @@ def lysmer_kuhlemeyer_boundary(
             measure=measure,
             normal_impedance=density * pressure_wave_speed,
             name="lysmer_kuhlemeyer_scalar",
+            location=location,
         )
     if mode == "normal_shear":
         if normal is None:
@@ -115,5 +122,6 @@ def lysmer_kuhlemeyer_boundary(
             normal_impedance=density * pressure_wave_speed,
             tangential_impedance=density * shear_wave_speed,
             name="lysmer_kuhlemeyer_normal_shear",
+            location=location,
         )
     raise ValueError(f"unknown absorbing boundary mode: {mode!r}")

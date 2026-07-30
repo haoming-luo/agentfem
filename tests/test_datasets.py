@@ -1,0 +1,125 @@
+from __future__ import annotations
+
+import numpy as np
+import pytest
+
+from agentfem import campaigns, datasets
+
+
+def _dataset():
+    space = campaigns.ParameterSpace.create(
+        campaigns.RealParameter("x", 1.0e-2, 1.0e2, scale="log", unit="Pa"),
+        campaigns.ChoiceParameter("mode", ("a", "b")),
+    )
+    quantities = (
+        datasets.Quantity("qoi", unit="m"),
+        datasets.Quantity(
+            "field",
+            shape=(3,),
+            unit="K",
+            kind="sampled_field",
+            field_encoding={"coordinates": [0.0, 0.5, 1.0]},
+        ),
+    )
+    samples = (
+        datasets.Sample(
+            case_id="a",
+            inputs={"x": 1.0e-2, "mode": "a"},
+            outputs={"qoi": 1.0, "field": [1.0, 2.0, 3.0]},
+            provenance={"run": "run-a"},
+        ),
+        datasets.Sample(
+            case_id="b",
+            inputs={"x": 1.0e2, "mode": "b"},
+            outputs={"qoi": 2.0, "field": [3.0, 2.0, 1.0]},
+            provenance={"run": "run-b"},
+        ),
+    )
+    return datasets.ScientificDataset(
+        parameter_space=space,
+        quantities=quantities,
+        samples=samples,
+        name="scientific",
+    )
+
+
+def test_dataset_matrix_contract_and_round_trip(tmp_path):
+    dataset = _dataset()
+    manifest = dataset.write(tmp_path / "dataset")
+    restored = datasets.ScientificDataset.read(manifest)
+
+    assert dataset.x_matrix().shape == (2, 3)
+    assert dataset.y_matrix().shape == (2, 4)
+    np.testing.assert_allclose(dataset.x_matrix()[0], [0.0, 1.0, 0.0])
+    np.testing.assert_allclose(dataset.x_matrix()[1], [1.0, 0.0, 1.0])
+    np.testing.assert_allclose(restored.x_matrix(), dataset.x_matrix())
+    np.testing.assert_allclose(restored.y_matrix(), dataset.y_matrix())
+    assert restored.quantities[1].unit == "K"
+    assert restored.samples[0].provenance["run"] == "run-a"
+
+
+def test_choice_features_are_one_hot_and_round_trip_without_ordinal_distance():
+    space = _dataset().parameter_space
+
+    encoded_a = space.encode({"x": 1.0, "mode": "a"})
+    encoded_b = space.encode({"x": 1.0, "mode": "b"})
+
+    np.testing.assert_allclose(encoded_a, [0.5, 1.0, 0.0])
+    np.testing.assert_allclose(encoded_b, [0.5, 0.0, 1.0])
+    assert space.decode(encoded_a) == {"x": 1.0, "mode": "a"}
+    assert space.decode(encoded_b) == {"x": 1.0, "mode": "b"}
+
+    with pytest.raises(ValueError, match="one-hot"):
+        space.decode([0.5, 0.5, 0.5])
+
+
+def test_field_quantity_requires_an_explicit_encoding():
+    with pytest.raises(ValueError, match="field_encoding"):
+        datasets.Quantity(
+            "temperature",
+            shape=(4,),
+            unit="K",
+            kind="sampled_field",
+        )
+
+
+def test_dataset_rejects_wrong_output_shape():
+    dataset = _dataset()
+    with pytest.raises(ValueError, match="requires shape"):
+        datasets.ScientificDataset(
+            parameter_space=dataset.parameter_space,
+            quantities=dataset.quantities,
+            samples=(
+                datasets.Sample(
+                    case_id="bad",
+                    inputs={"x": 1.0, "mode": "a"},
+                    outputs={"qoi": 1.0, "field": [1.0, 2.0]},
+                ),
+            ),
+        )
+
+
+def test_dataset_split_is_reproducible_and_nonempty():
+    base = _dataset()
+    samples = tuple(
+        datasets.Sample(
+            case_id=str(index),
+            inputs={"x": 10.0 ** (-2.0 + 4.0 * index / 9.0), "mode": "a"},
+            outputs={"qoi": float(index), "field": [index, index + 1, index + 2]},
+        )
+        for index in range(10)
+    )
+    dataset = datasets.ScientificDataset(
+        parameter_space=base.parameter_space,
+        quantities=base.quantities,
+        samples=samples,
+    )
+
+    first = dataset.split(validation_fraction=0.2, seed=10)
+    second = dataset.split(validation_fraction=0.2, seed=10)
+
+    assert [item.case_id for item in first.train.samples] == [
+        item.case_id for item in second.train.samples
+    ]
+    assert len(first.train.samples) == 8
+    assert len(first.validation.samples) == 2

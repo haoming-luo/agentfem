@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 import ufl
@@ -16,7 +16,13 @@ from agentfem.kernel import dofs
 
 @dataclass(frozen=True)
 class OperatorForm:
-    """Named UFL form before compilation or assembly."""
+    """Named scientific operator with a current backend expression.
+
+    ``expression`` is intentionally still a UFL object in the FEniCSx-first
+    implementation.  The remaining fields preserve enough scientific identity
+    to inspect composition and to grow a separate semantic operator
+    specification without breaking today's executable path.
+    """
 
     name: str
     expression: object
@@ -24,6 +30,8 @@ class OperatorForm:
     role: str = "operator"
     family: str = "generic"
     parts: tuple[object, ...] = ()
+    operation: str = "primitive"
+    metadata: dict[str, object] = field(default_factory=dict)
 
     def __add__(self, other):
         """Combine compatible operator forms by adding their expressions."""
@@ -45,20 +53,29 @@ class OperatorForm:
 
         return scale(self, 1.0 / factor)
 
-    def compile(self):
-        """Compile the UFL expression into a DOLFINx form."""
+    def compile(self, *, backend=None):
+        """Compile through the selected backend adapter."""
 
-        return assembly.make_form(self.expression)
+        from agentfem.backends import get_backend
 
-    def assemble_matrix(self, *, bcs=None):
+        selected = get_backend() if backend is None else backend
+        return selected.compile_form(self.expression)
+
+    def assemble_matrix(self, *, bcs=None, backend=None):
         """Compile and assemble this operator as a matrix."""
 
-        return assembly.assemble_matrix(self.compile(), bcs=bcs)
+        from agentfem.backends import get_backend
 
-    def assemble_vector(self):
+        selected = get_backend() if backend is None else backend
+        return selected.assemble_matrix(self.expression, bcs=bcs)
+
+    def assemble_vector(self, *, backend=None):
         """Compile and assemble this operator as a vector."""
 
-        return assembly.assemble_vector(self.compile())
+        from agentfem.backends import get_backend
+
+        selected = get_backend() if backend is None else backend
+        return selected.assemble_vector(self.expression)
 
     def summary(self) -> dict[str, object]:
         """Return a compact operator description."""
@@ -68,8 +85,15 @@ class OperatorForm:
             "kind": self.kind,
             "role": self.role,
             "family": self.family,
+            "operation": self.operation,
             "parts": self.parts,
+            "metadata": dict(self.metadata),
         }
+
+    def to_ir(self) -> dict[str, object]:
+        """Return the serializable scientific portion of this operator."""
+
+        return self.summary()
 
     def renamed(
         self,
@@ -88,6 +112,8 @@ class OperatorForm:
             role=role or self.role,
             family=family or self.family,
             parts=self.parts,
+            operation=self.operation,
+            metadata=dict(self.metadata),
         )
 
 
@@ -111,7 +137,12 @@ def combine(*operators, name: str = "combined_operator", kind: str = "combined_o
                     f"Cannot combine operator roles {role!r} and {operator.role!r}."
                 )
             families.append(operator.family)
-            parts.append(operator.summary())
+            parts.append(
+                {
+                    "relation": "operand",
+                    "operator": operator.summary(),
+                }
+            )
     return OperatorForm(
         name=name,
         kind=kind,
@@ -119,6 +150,8 @@ def combine(*operators, name: str = "combined_operator", kind: str = "combined_o
         family="+".join(families) if families else "generic",
         expression=expression,
         parts=tuple(parts),
+        operation="sum",
+        metadata={"operand_count": len(operators)},
     )
 
 
@@ -132,7 +165,15 @@ def scale(operator, factor, *, name: str | None = None, kind: str | None = None)
             kind=kind or operator.kind,
             role=operator.role,
             family=operator.family,
-            parts=operator.parts,
+            parts=(
+                {
+                    "relation": "scaled_operand",
+                    "factor": _coefficient_description(factor),
+                    "operator": operator.summary(),
+                },
+            ),
+            operation="scale",
+            metadata={"source_name": operator.name},
         )
     return OperatorForm(
         name=name or "scaled_operator",
@@ -140,31 +181,42 @@ def scale(operator, factor, *, name: str | None = None, kind: str | None = None)
         kind=kind or "scaled_operator",
         role="operator",
         family="generic",
+        operation="scale",
+        metadata={"factor": _coefficient_description(factor)},
     )
 
 
-def compile_form(operator: OperatorForm):
+def compile_form(operator: OperatorForm, *, backend=None):
     """Compile an ``OperatorForm`` or raw UFL form."""
 
     if isinstance(operator, OperatorForm):
-        return operator.compile()
-    return assembly.make_form(operator)
+        return operator.compile(backend=backend)
+    from agentfem.backends import get_backend
+
+    selected = get_backend() if backend is None else backend
+    return selected.compile_form(operator)
 
 
-def assemble_matrix(operator, *, bcs=None):
+def assemble_matrix(operator, *, bcs=None, backend=None):
     """Assemble an operator-level matrix from an ``OperatorForm`` or UFL form."""
 
     if isinstance(operator, OperatorForm):
-        return operator.assemble_matrix(bcs=bcs)
-    return assembly.assemble_matrix(assembly.make_form(operator), bcs=bcs)
+        return operator.assemble_matrix(bcs=bcs, backend=backend)
+    from agentfem.backends import get_backend
+
+    selected = get_backend() if backend is None else backend
+    return selected.assemble_matrix(operator, bcs=bcs)
 
 
-def assemble_vector(operator):
+def assemble_vector(operator, *, backend=None):
     """Assemble an operator-level vector from an ``OperatorForm`` or UFL form."""
 
     if isinstance(operator, OperatorForm):
-        return operator.assemble_vector()
-    return assembly.assemble_vector(assembly.make_form(operator))
+        return operator.assemble_vector(backend=backend)
+    from agentfem.backends import get_backend
+
+    selected = get_backend() if backend is None else backend
+    return selected.assemble_vector(operator)
 
 
 def action(operator, field):
@@ -559,6 +611,24 @@ def _matrix_or_diagonal(operator):
 
 def _expression(operator):
     return operator.expression if isinstance(operator, OperatorForm) else operator
+
+
+def _coefficient_description(value):
+    """Describe a scale coefficient without serializing backend internals."""
+
+    if isinstance(value, (str, bool, int, float)):
+        return value
+    if hasattr(value, "value"):
+        coefficient = getattr(value, "value")
+        if hasattr(coefficient, "tolist"):
+            coefficient = coefficient.tolist()
+        if isinstance(coefficient, (str, bool, int, float, list, tuple)):
+            return coefficient
+    value_type = type(value)
+    return {
+        "kind": "backend_coefficient",
+        "python_type": f"{value_type.__module__}.{value_type.__qualname__}",
+    }
 
 
 def _normalize_loads(loads, load):

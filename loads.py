@@ -11,6 +11,7 @@ from .constraints import boundary
 from .constraints import TimeDependentDirichlet
 from .constraints import time_dependent_component_dirichlet as _constraint_time_dirichlet
 from . import forms
+from .ir.values import describe_value
 from .kernel import constants
 
 
@@ -49,7 +50,11 @@ class BodyLoad:
     def summary(self) -> dict[str, object]:
         """Return a compact description for logs and agent inspection."""
 
-        return {"name": self.name, "kind": "body_load"}
+        return {
+            "name": self.name,
+            "kind": "body_load",
+            "value": describe_value(self.value),
+        }
 
 
 @dataclass(frozen=True)
@@ -71,6 +76,7 @@ class BoundaryLoad:
             "name": self.name,
             "kind": "boundary_load",
             "location": getattr(self.location, "name", None),
+            "value": describe_value(self.value),
         }
 
 
@@ -88,7 +94,11 @@ class NeumannLoad:
     def summary(self) -> dict[str, object]:
         """Return a compact description for logs and agent inspection."""
 
-        return {"name": self.name, "kind": "neumann_load"}
+        return {
+            "name": self.name,
+            "kind": "neumann_load",
+            "value": describe_value(self.value),
+        }
 
 
 @dataclass(frozen=True)

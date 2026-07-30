@@ -19,6 +19,26 @@ class LinearSolverOptions:
     atol: float | None = None
     max_it: int | None = None
 
+    def __post_init__(self) -> None:
+        if self.rtol is not None and self.rtol <= 0.0:
+            raise ValueError("LinearSolverOptions.rtol must be positive.")
+        if self.atol is not None and self.atol <= 0.0:
+            raise ValueError("LinearSolverOptions.atol must be positive.")
+        if self.max_it is not None and self.max_it <= 0:
+            raise ValueError("LinearSolverOptions.max_it must be positive.")
+
+    def summary(self) -> dict[str, object]:
+        """Return an inspectable solver-policy record."""
+
+        return {
+            "kind": "linear_solver_options",
+            "ksp_type": self.ksp_type,
+            "pc_type": self.pc_type,
+            "rtol": self.rtol,
+            "atol": self.atol,
+            "max_it": self.max_it,
+        }
+
 
 def create_ksp(comm, options: LinearSolverOptions | None = None):
     """Create and configure a PETSc KSP object."""

@@ -8,6 +8,11 @@ include WORKFLOW.md
 include CONCEPTS.md
 include AGENT_GUIDE.md
 include pyproject.toml
+include environment.yml
+include logo/AgentFEM_logo.png
+include logo/AgentFEM_logo_transparent.png
+include logo/README.md
+exclude logo/AgentFEM_logo_tranparent.png
 recursive-include materials/data *.json
 recursive-include docs *.md
 recursive-include skills *.md
@@ -15,6 +20,7 @@ recursive-include examples *.py *.md
 recursive-include benchmarks *.py *.md
 recursive-include elements *.md
 recursive-include operators *.md
+recursive-include tests *.py
 prune site
 prune examples_output
 global-exclude .DS_Store

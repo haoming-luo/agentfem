@@ -3,6 +3,10 @@
 This note records the current architecture direction from the perspective of
 traditional finite-element workflows and agent-oriented use.
 
+For the full FEniCSx-first engineering plan, AF-IR schema boundary, backend
+strategy, agent repair protocol, execution-evidence design, and phased roadmap,
+see `docs/air_architecture_roadmap.md`.
+
 ## Current Strengths
 
 - The first-level modules mostly match standard FEM steps: studies, mesh
@@ -25,6 +29,12 @@ traditional finite-element workflows and agent-oriented use.
   material-property summaries, load summaries, constraint summaries, and
   boundary-model summaries now provide a first layer of agent-readable
   inspection.
+- AF-IR 0.1 provides an explicitly experimental, versioned JSON-safe record of
+  supported public model semantics.
+- Structured validation issues now carry stable codes, object paths, severity,
+  and repair hints.
+- Operator compilation crosses a narrow backend adapter boundary while
+  FEniCSx remains the only production backend.
 
 ## Main Refinements Needed
 
@@ -72,11 +82,12 @@ traditional finite-element workflows and agent-oriented use.
 
 ## Suggested Priority
 
-1. Tighten docs links and module routing.
-2. Improve `forms.py` into a clearer library of reusable weak-form blocks.
-3. Add typed containers for standard discrete systems: static, first-order
-   transient, and second-order dynamics.
-4. Add small examples for each standard workflow step after APIs stabilize.
-5. Add constitutive submodules only when at least one application needs them:
-   anisotropic elasticity, viscoelasticity, thermal conduction, and coupled
-   models.
+1. Build verification benchmarks and continuous tests around the current
+   FEniCSx execution path.
+2. Expand addressable validation for regions, assignments, operators, steps,
+   and solver policies.
+3. Stabilize AF-IR object identity, references, loading, and migrations.
+4. Introduce semantic/runtime separation for a small set of proven operator
+   families.
+5. Add execution records and provenance before pursuing broad multi-backend
+   claims.

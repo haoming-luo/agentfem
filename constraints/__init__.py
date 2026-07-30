@@ -15,6 +15,7 @@ from dolfinx import fem
 from mpi4py import MPI
 
 from .. import amplitudes
+from ..ir.values import describe_value
 from ..kernel import constants
 from . import boundary
 
@@ -65,6 +66,7 @@ class DirichletConstraint:
             "name": self.name,
             "kind": "dirichlet_constraint",
             "location": getattr(self.location, "name", None),
+            "value": describe_value(self.value),
         }
 
 

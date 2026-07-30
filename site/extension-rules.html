@@ -9,7 +9,9 @@
 <body>
   <div class="layout">
     <aside>
-      <div class="brand">AgentFEM</div>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
       <div class="tagline">AI-assisted finite-element workflows</div>
       <nav><a class="" href="index.html">Home</a>
 <a class="" href="install.html">Install</a>
@@ -25,6 +27,8 @@
 <a class="" href="licensing.html">Licensing</a>
 <a class="" href="publishing.html">Publishing</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
 <a class="" href="skill.html">AgentFEM Skill</a></nav>
     </aside>
@@ -72,6 +76,18 @@
 <ul>
 <li>The case has expected quantities, tolerances, and repeatable validation<br>commands.</li>
 <li>The goal is verification, not teaching workflow usage.</li>
+</ul>
+<h2 id="add-to-ir-when">Add to <code>ir/</code> When</h2>
+<ul>
+<li>The code defines versioned scientific records, references, migrations, or<br>serialization behavior.</li>
+<li>The representation preserves domain meaning independently of live backend<br>object identity.</li>
+<li>The change has round-trip or golden-document tests.</li>
+</ul>
+<h2 id="add-to-backends-when">Add to <code>backends/</code> When</h2>
+<ul>
+<li>The code describes backend capability or lowers a supported semantic object.</li>
+<li>Unsupported behavior is rejected explicitly.</li>
+<li>The adapter has numerical evidence for every advertised capability.</li>
 </ul>
 <h2 id="keep-in-the-application-when">Keep in the Application When</h2>
 <ul>

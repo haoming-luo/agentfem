@@ -16,9 +16,18 @@ AgentFEM workflow:
 12. Operators or forms: model-first helpers for standard registered assets,
     operator-first constructors for explicit contributions
 13. Analysis step from visible operators
-14. Assembly, solve, or time integration
-15. Diagnostics
-16. Output
+14. Structured validation and optional AF-IR record
+15. Assembly, solve, or time integration
+16. Diagnostics
+17. Output and available execution evidence
+
+For related-case collections:
+
+18. Typed parameter space and deterministic sampling plan
+19. Fresh model construction per case
+20. Resumable campaign execution and declared quantities
+21. Scientific dataset plus independent train/validation split
+22. Surrogate/ROM validation, applicability guard, and explicit FEM fallback
 
 Do not collapse these steps so aggressively that a reviewer cannot see the
 finite-element model.

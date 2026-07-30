@@ -6,6 +6,7 @@ site_dir: site
 
 theme:
   name: material
+  logo: logo/AgentFEM_logo_transparent.png
   features:
     - navigation.sections
     - navigation.indexes
@@ -33,6 +34,8 @@ nav:
       - Tutorial Design: docs/tutorial_design.md
       - Validation: docs/validation.md
       - Architecture Review: docs/architecture_review.md
+      - AIR Architecture Roadmap: docs/air_architecture_roadmap.md
+      - AI-Native Campaigns and Learning: docs/ai_native_learning.md
       - Documentation Site: docs/documentation_site.md
   - Skill:
       - AgentFEM Skill: skills/agentfem/SKILL.md

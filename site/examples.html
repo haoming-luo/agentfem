@@ -9,7 +9,9 @@
 <body>
   <div class="layout">
     <aside>
-      <div class="brand">AgentFEM</div>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
       <div class="tagline">AI-assisted finite-element workflows</div>
       <nav><a class="" href="index.html">Home</a>
 <a class="" href="install.html">Install</a>
@@ -25,6 +27,8 @@
 <a class="" href="licensing.html">Licensing</a>
 <a class="" href="publishing.html">Publishing</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
 <a class="" href="skill.html">AgentFEM Skill</a></nav>
     </aside>
@@ -34,7 +38,7 @@
 <p>These examples are release-facing workflow references. They should show the finite-element sequence clearly and avoid exposing low-level DOLFINx details unless the example is intentionally advanced.</p>
 <h2 id="recommended-reading-order">Recommended Reading Order</h2>
 <ol>
-<li><code>static_elasticity_2d.py</code><br>Beginner template. Demonstrates the preferred MVP path:<br>`Study -&gt; Model -&gt; Field -&gt; Material -&gt; Regions -&gt; Constraints/Loads -&gt;<br>model.linear_static_step(...) -&gt; solve -&gt; XDMF`.</li>
+<li><code>static_elasticity_2d.py</code><br>Beginner template. Demonstrates the preferred MVP path:<br>`Study -&gt; Model -&gt; Field -&gt; Material -&gt; Regions -&gt; Constraints/Loads -&gt;<br>model.linear_static_step(...) -&gt; AF-IR record -&gt; solve -&gt; XDMF`.</li>
 </ol>
 <ol>
 <li><code>transient_heat_2d.py</code><br>Intermediate template. Demonstrates first-order transient heat conduction<br>with visible <code>C</code>, <code>K</code>, history, source, time stepper, and output.</li>
@@ -45,14 +49,18 @@
 <ol>
 <li><code>wave_packet_inclusion_2d.py</code><br>Advanced material-region example. Demonstrates a stiff circular inclusion,<br>regional material assignment, explicit dynamics, periodic projection, and<br>absorbing boundary handling.</li>
 </ol>
+<ol>
+<li><code>static_elasticity_surrogate_campaign.py</code><br>AI-native collection workflow. Demonstrates typed parameters, a<br>reproducible design of experiments, fresh FEniCSx model construction per<br>case, resumable execution records, a unit-aware scientific dataset, a<br>transparent surrogate baseline, independent validation, and guarded<br>high-fidelity fallback.</li>
+</ol>
 <h2 id="run">Run</h2>
 <p>From the <code>agentfem</code> directory:</p>
 <pre><code>python examples/static_elasticity_2d.py
-python examples/transient_heat_2d.py</code></pre>
+python examples/transient_heat_2d.py
+python examples/static_elasticity_surrogate_campaign.py</code></pre>
 <p>From the parent development directory:</p>
 <pre><code>python agentfem/examples/static_elasticity_2d.py
 python agentfem/examples/transient_heat_2d.py</code></pre>
-<p>Outputs are written to <code>examples_output/*.xdmf</code> and can be opened in ParaView.</p>
+<p>Outputs are written to <code>examples_output/*.xdmf</code> and can be opened in ParaView. The static example also writes <code>static_elasticity_2d.afir.json</code>, an experimental versioned record of the supported scientific model structure before execution. The campaign example writes per-case evidence, a compressed dataset, and a portable NumPy surrogate artifact beneath <code>examples_output/static_elasticity_surrogate_campaign/</code>.</p>
 <h2 id="style-rules">Style Rules</h2>
 <ul>
 <li>Beginner examples should use <code>model.tree()</code>, <code>model.check()</code>, and<br>model-owned steps when possible.</li>

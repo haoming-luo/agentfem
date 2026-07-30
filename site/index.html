@@ -9,7 +9,9 @@
 <body>
   <div class="layout">
     <aside>
-      <div class="brand">AgentFEM</div>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
       <div class="tagline">AI-assisted finite-element workflows</div>
       <nav><a class="active" href="index.html">Home</a>
 <a class="" href="install.html">Install</a>
@@ -25,13 +27,16 @@
 <a class="" href="licensing.html">Licensing</a>
 <a class="" href="publishing.html">Publishing</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
 <a class="" href="skill.html">AgentFEM Skill</a></nav>
     </aside>
     <main>
       <article>
+<p align="center"><img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM logo" width="320"></p>
 <h1 id="agentfem">AgentFEM</h1>
-<p>AgentFEM is an open-source platform for AI-assisted finite-element simulation, agent-readable CAE workflows, reusable operators, and human-agent collaborative scientific computing.</p>
+<p>AgentFEM is an open-source platform for AI-assisted finite-element simulation, agent-readable CAE workflows, reusable operators, and human-agent collaborative scientific computing. Its first collection-level interfaces connect typed parameter studies and traceable FEniCSx runs to scientific datasets, surrogates, reduced-order models, and guarded high-fidelity fallback.</p>
 <p>AgentFEM was initiated by Haoming Luo and open-sourced on GitHub in July 2026. It is an early open-source practice toward making finite-element simulation workflows readable, structured, reproducible, and usable by both researchers and AI agents.</p>
 <p>AgentFEM focuses on making finite-element simulation workflows readable, structured, and reproducible. It aims to make engineering modeling, material definition, region management, loads and boundary conditions, solution steps, and result outputs understandable and reusable by researchers, while also readable, checkable, editable, and automatically orchestrated by AI agents.</p>
 <p>The standard AgentFEM workflow remains visible:</p>
@@ -41,7 +46,8 @@
 <h2 id="why-agentfem">Why AgentFEM</h2>
 <ul>
 <li>Finite-element language for humans: <code>model.linear_static_step(...)</code>,<br><code>model.tree()</code>, <code>operators.xtmx(...)</code>, and field algebra such as<br><code>u_next = u + dt * v + 0.5 * dt**2 * a</code>.</li>
-<li>Inspectable objects for agents: <code>study.summary()</code>, <code>model.manifest()</code>,<br><code>operator.summary()</code>, and step summaries.</li>
+<li>Inspectable objects for agents: <code>study.summary()</code>, <code>model.manifest()</code>,<br><code>model.to_ir()</code>, structured validation reports, <code>operator.summary()</code>, and<br>step summaries.</li>
+<li>Collection-level scientific workflows: deterministic campaign cases,<br>resumable evidence, unit/shape-aware datasets, transparent surrogate<br>baselines, independent validation, and explicit applicability domains.</li>
 <li>Transparent layers: daily workflows use <code>models</code>, <code>fields</code>, <code>loads</code>,<br><code>operators</code>, and <code>problems</code>; advanced users can still drop to <code>forms</code>,<br><code>assembly</code>, PETSc, or DOLFINx when needed.</li>
 </ul>
 <h2 id="architecture">Architecture</h2>
@@ -51,6 +57,7 @@
 <li>Finite-element operator and weak-form extension layer: reusable operators,<br>constitutive laws, constraints, and custom variational forms.</li>
 <li>Numerical solver kernel layer: integration with FEniCSx/DOLFINx, PETSc, MPI,<br>and related scientific-computing infrastructure.</li>
 </ul>
+<p>The current implementation is intentionally FEniCSx-first. Experimental AF-IR records preserve the supported scientific structure separately from live backend objects, and a narrow backend adapter makes compilation boundaries explicit. This is a progressive architecture, not a claim of complete backend-neutral execution.</p>
 <h2 id="install">Install</h2>
 <p>AgentFEM depends on the FEniCSx/DOLFINx scientific computing stack. The recommended route is conda-forge, because it can resolve DOLFINx, PETSc, MPI, and HDF5 together.</p>
 <h3 id="recommended-conda-forge">Recommended: conda-forge</h3>
@@ -107,13 +114,19 @@ step = model.linear_static_step(target=u)
 step.solve()
 
 print(model.tree())</code></pre>
+<p>Inspect the model before execution or write a deterministic experimental AF-IR record:</p>
+<pre><code>report = model.validate()
+print(report.format())
+model.write_ir(&quot;cantilever.afir.json&quot;)</code></pre>
+<p>Validation issues contain stable codes, scientific-object paths, and repair hints. AF-IR 0.1 is marked experimental: it records supported public semantics and identifies unresolved backend runtime objects as opaque.</p>
 <p>The <code>Step</code> path is the recommended public workflow. It still exposes the operator system for review:</p>
 <pre><code>print(step.system.summary())</code></pre>
 <h2 id="public-workflow-modules">Public Workflow Modules</h2>
 <p>Beginner and agent-generated workflows should prefer:</p>
 <pre><code>from agentfem import studies, mesh, models, fields, materials, constitutive
 from agentfem import amplitudes, constraints, loads, operators, problems
-from agentfem import solvers, time, io, diagnostics</code></pre>
+from agentfem import solvers, time, io, diagnostics
+from agentfem import campaigns, datasets, surrogates</code></pre>
 <p>Lower-level modules such as <code>forms</code>, <code>assembly</code>, <code>spaces</code>, and <code>kernel</code> remain available for extension work and debugging, but they should not be the first thing a new model exposes.</p>
 <h2 id="examples">Examples</h2>
 <ul>
@@ -121,6 +134,7 @@ from agentfem import solvers, time, io, diagnostics</code></pre>
 <li><code>examples/transient_heat_2d.py</code>: intermediate first-order transient heat solve.</li>
 <li><code>examples/wave_packet_plate_2d.py</code>: advanced explicit dynamics wave example.</li>
 <li><code>examples/wave_packet_inclusion_2d.py</code>: advanced wave propagation with<br>regional material assignment and absorbing/periodic boundary handling.</li>
+<li><code>examples/static_elasticity_surrogate_campaign.py</code>: FEniCSx parameter<br>campaign, scientific dataset, surrogate validation, and guarded FEM fallback.</li>
 </ul>
 <h2 id="documentation">Documentation</h2>
 <ul>
@@ -131,6 +145,8 @@ from agentfem import solvers, time, io, diagnostics</code></pre>
 <li><code>CONCEPTS.md</code>: shared vocabulary for finite-element and agent workflows.</li>
 <li><code>AGENT_GUIDE.md</code>: first file for AI agents working in this repository.</li>
 <li><code>docs/</code>: design notes, module map, validation notes, and extension rules.</li>
+<li><code>docs/air_architecture_roadmap.md</code>: FEniCSx-first engineering plan and<br>staged AF-IR/AIR architecture.</li>
+<li><code>docs/ai_native_learning.md</code>: implemented campaign/dataset/surrogate<br>contracts and the staged neural-operator/PINN route.</li>
 <li><code>docs/licensing.md</code>: licensing strategy for the open-source core and<br>optional commercial extensions.</li>
 <li><code>docs/publishing.md</code>: PyPI release checklist and Trusted Publisher setup.</li>
 <li><code>site/index.html</code>: generated static documentation site.</li>
@@ -153,7 +169,7 @@ date-released: 2026-07-24</code></pre>
 <ul>
 <li>model-first workflows for common analyses,</li>
 <li>operator-first workflows for transparent research code,</li>
-<li>structured model manifests for agents,</li>
+<li>versioned scientific records and structured repair reports for agents,</li>
 <li>examples and benchmarks that make assumptions explicit.</li>
 </ul>
 <h2 id="license">License</h2>

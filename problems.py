@@ -127,6 +127,11 @@ class LinearSystemProblem:
             "system": self.system.summary() if hasattr(self.system, "summary") else repr(self.system),
             "solution": getattr(self._solution(), "name", repr(self._solution())),
             "num_bcs": len(self.bcs),
+            "solver": (
+                self.solver_options.summary()
+                if self.solver_options is not None
+                else LinearSolverOptions().summary()
+            ),
         }
 
     def _solution(self):

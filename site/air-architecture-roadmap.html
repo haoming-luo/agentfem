@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AIR Architecture Roadmap - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
+      <div class="tagline">AI-assisted finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="examples.html">Examples</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="licensing.html">Licensing</a>
+<a class="" href="publishing.html">Publishing</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="active" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="agentfem-air-architecture-and-engineering-roadmap">AgentFEM AIR Architecture and Engineering Roadmap</h1>
+<h2 id="purpose">Purpose</h2>
+<p>This document turns the long-term AF-IR/AIR argument into an engineering sequence. It distinguishes:</p>
+<ul>
+<li>what AgentFEM already executes,</li>
+<li>what this release has made explicit,</li>
+<li>what should be built next,</li>
+<li>what should remain a research question,</li>
+<li>and what must not be claimed before evidence exists.</li>
+</ul>
+<p>AgentFEM is not required to finish the final architecture before it becomes useful. The near-term goal is a dependable, high-level, open finite-element environment on FEniCSx. The long-term goal is a scientific layer through which humans and agents can construct, inspect, validate, execute, and accumulate finite-element knowledge while numerical backends continue to evolve.</p>
+<h2 id="core-position">Core Position</h2>
+<p>Deep FEniCSx integration is the present strength of AgentFEM.</p>
+<p>FEniCSx supplies mature weak-form, finite-element, PETSc, MPI, and output machinery. AgentFEM should use those capabilities fully. A backend-neutral interface that exposes only the intersection of imagined future solvers would be less useful, less testable, and less scientifically honest than a strong FEniCSx implementation.</p>
+<p>At the same time, backend runtime objects must not become the only surviving record of scientific intent. The architecture should therefore evolve along two coordinated tracks:</p>
+<ol>
+<li><strong>FEniCSx product depth</strong><br>- broader supported analyses,<br>- stable public workflows,<br>- verification benchmarks,<br>- deterministic diagnostics,<br>- serial and MPI testing,<br>- reliable output and restart behavior.</li>
+</ol>
+<ol>
+<li><strong>AIR/AF-IR durability</strong><br>- versioned scientific records,<br>- stable object identities and references,<br>- structured validation and repair,<br>- explicit compilation boundaries,<br>- execution provenance,<br>- migrations,<br>- and eventually independently tested lowering targets.</li>
+</ol>
+<p>Neither track substitutes for the other. A beautiful schema without a strong solver path is not a finite-element platform. A strong solver wrapper without durable scientific records cannot become the shared human-agent layer proposed by AgentFEM.</p>
+<h2 id="current-architectural-reality">Current Architectural Reality</h2>
+<p>The current executable path is:</p>
+<pre><code>Human / agent-authored Python
+        |
+        v
+AgentFEM Study / Model / Region / Field / Material / Load / Step
+        |
+        v
+AgentFEM operators containing UFL expressions
+        |
+        v
+DOLFINx form compilation and assembly
+        |
+        v
+PETSc / MPI solve or AgentFEM time integration
+        |
+        v
+Diagnostics and XDMF output</code></pre>
+<p>This already has important AIR properties:</p>
+<ul>
+<li>the top-level vocabulary follows finite-element practice;</li>
+<li>constraints, loads, and weak boundary models are distinct;</li>
+<li>operators retain engineering names such as <code>K</code>, <code>M</code>, <code>C</code>, and <code>F</code>;</li>
+<li>steps expose analysis and time-integration intent;</li>
+<li>summaries and model trees are inspectable;</li>
+<li>expert users can descend to UFL, DOLFINx, and PETSc.</li>
+</ul>
+<p>The main technical coupling is also clear:</p>
+<ul>
+<li>fields contain DOLFINx functions and spaces;</li>
+<li>regions contain DOLFINx mesh tags and UFL measures;</li>
+<li>constraints contain DOLFINx boundary-condition objects;</li>
+<li>loads and boundary models may contain UFL coefficients and forms;</li>
+<li><code>OperatorForm.expression</code> is currently a UFL expression;</li>
+<li>solving and output are directly implemented with DOLFINx/PETSc APIs.</li>
+</ul>
+<p>This means AgentFEM 0.1 is best described as a human- and agent-readable scientific layer with an experimental AF-IR record, executed through a FEniCSx-first runtime. It is not yet a complete backend-independent compiler.</p>
+<h2 id="module-by-module-assessment">Module-by-Module Assessment</h2>
+<h3 id="studiespy"><code>studies.py</code></h3>
+<p>This is one of the cleanest semantic modules. <code>Study</code> is immutable, normalized, and validated before execution. It is already close to a persistable AF-IR node. Its next need is a capability table linking analysis/physics combinations to implemented operators and steps; expanding the vocabulary without this table would let users declare unsupported studies too easily.</p>
+<h3 id="modelspy"><code>models.py</code></h3>
+<p><code>Model</code> is the central scientific registry and the strongest part of the public language. It also carries the greatest architectural pressure: registration, convenience constructors, regional assembly, validation, step construction, inspection, and export now meet in one large module.</p>
+<p>Do not split it merely to reduce line count. First stabilize the public responsibilities, then move internal services behind the same <code>Model</code> API:</p>
+<ul>
+<li>assignment registry,</li>
+<li>validator,</li>
+<li>operator builder,</li>
+<li>step factory,</li>
+<li>AF-IR exporter.</li>
+</ul>
+<p>The important boundary is responsibility, not file size.</p>
+<h3 id="mesh"><code>mesh/</code></h3>
+<p>Named boundary/cell regions and selectors provide the right public concept. The current region objects remain runtime DOLFINx assets, and raw generated meshes do not retain enough construction data for reconstruction. The AF-IR export therefore marks runtime mesh summaries as non-reconstructable.</p>
+<p>The next durable object is a <code>MeshSpec</code>/<code>MeshSource</code> that can represent:</p>
+<ul>
+<li>structured constructor parameters,</li>
+<li>imported file identity and checksum,</li>
+<li>Gmsh physical groups,</li>
+<li>conversion warnings,</li>
+<li>and the relationship between source labels and AgentFEM regions.</li>
+</ul>
+<h3 id="fieldspy"><code>fields.py</code></h3>
+<p><code>UnknownField</code> provides excellent top-level readability. Eager <code>Field</code> arithmetic is useful for explicit state updates and has a clear PyTorch/Cast3M feel. The main risk is conceptual ambiguity between:</p>
+<ul>
+<li>eager dof-vector algebra,</li>
+<li>symbolic UFL expressions,</li>
+<li>and discrete operator action.</li>
+</ul>
+<p>The current documentation distinguishes these, and this distinction should become a validation/type rule before mixed and tensor fields expand.</p>
+<h3 id="materials-and-constitutive"><code>materials/</code> and <code>constitutive/</code></h3>
+<p>Separating data records, property containers, and response laws is correct. Material properties already serialize well. The missing durable relations are:</p>
+<ul>
+<li>units,</li>
+<li>source/provenance at the property instance,</li>
+<li>applicable study assumptions,</li>
+<li>law/version identity,</li>
+<li>and explicit material-to-region references.</li>
+</ul>
+<p>These should be added before a large material catalog.</p>
+<h3 id="constraints-loadspy-and-boundarymodels"><code>constraints/</code>, <code>loads.py</code>, and <code>boundary_models/</code></h3>
+<p>The conceptual separation is strong and should remain non-negotiable. Scientific summaries now preserve common prescribed/load values and absorbing impedances. Remaining gaps include target-field identity, full region references, local coordinate systems, amplitudes on general loads, and capability declarations for serial-only periodic projection.</p>
+<p>The periodic projection implementation is correctly explicit about being a serial, nodal-averaging method rather than a general MPC solution. Future MPC support should be a new implementation of the same semantic constraint, not a silent change in the existing method.</p>
+<h3 id="operators"><code>operators/</code></h3>
+<p>The K/M/C/F language is the clearest bridge between engineering review and backend computation. Operator composition now retains sum/scale history, but primitive operators still need explicit dependencies on fields, materials, regions, coefficients, and measures. <code>OperatorSpec</code> should grow from these common families while <code>OperatorForm.expression</code> remains the efficient UFL runtime path.</p>
+<h3 id="problemspy-time-and-solverspy"><code>problems.py</code>, <code>time/</code>, and <code>solvers.py</code></h3>
+<p>The separation among systems, steps, states, and time integrators is sound. Solver options are now inspectable and validated. The next missing interface is an execution plan that records when compilation, constraint application, state updates, diagnostics, and output occur. Numerical execution still calls DOLFINx/PETSc directly in several places, which is appropriate until the plan interface has real use.</p>
+<h3 id="diagnosticspy-and-iopy"><code>diagnostics.py</code> and <code>io.py</code></h3>
+<p>These modules execute useful operations but do not yet form an evidence system. Diagnostics need units, acceptance criteria, time/step identity, and benchmark comparison. Output needs field/source identity, checksums, parallel/restart metadata, and a run manifest.</p>
+<h3 id="documentation-skill-and-examples">Documentation skill and examples</h3>
+<p>The skill already gives agents a progressive reading order and important concept boundaries. The next gain will come from pairing those instructions with structured validation codes and small repair examples. Examples should remain readable teaching artifacts; separate benchmarks must carry numerical expected values and tolerances.</p>
+<h3 id="packaging-and-ci">Packaging and CI</h3>
+<p>The conda-forge FEniCSx environment is the correct reproducibility anchor for the current stack. Unit/interface tests, serial solve, two-rank MPI solve, package build, and documentation build are the minimum release gates. PyPI metadata alone cannot install the full MPI/PETSc/DOLFINx stack reliably, so the documentation must continue to make the conda path primary.</p>
+<h2 id="architecture-introduced-in-this-iteration">Architecture Introduced in This Iteration</h2>
+<h3 id="versioned-af-ir-document-envelope">Versioned AF-IR document envelope</h3>
+<p><code>agentfem.ir</code> now defines:</p>
+<ul>
+<li><code>AFIR_SCHEMA</code>,</li>
+<li><code>AFIR_SCHEMA_VERSION</code>,</li>
+<li><code>IRDocument</code>,</li>
+<li>deterministic JSON serialization,</li>
+<li>explicit opaque markers for runtime objects that do not yet have stable<br>scientific serialization,</li>
+<li><code>model.to_ir()</code> and <code>model.write_ir(...)</code>.</li>
+</ul>
+<p>AF-IR 0.1 is marked <code>experimental</code>. It records supported public semantics and does not imply that arbitrary UFL expressions can be reconstructed or lowered to another backend.</p>
+<h3 id="structured-validation-and-repair-addresses">Structured validation and repair addresses</h3>
+<p><code>model.validate()</code> now returns a <code>ValidationReport</code> containing <code>ValidationIssue</code> objects. Every issue has:</p>
+<ul>
+<li>a stable code,</li>
+<li>a scientific-object path,</li>
+<li>a severity,</li>
+<li>an explanation,</li>
+<li>an optional repair hint,</li>
+<li>and optional structured context.</li>
+</ul>
+<p>For example:</p>
+<pre><code>[ERROR AFM-MATERIAL-002] model.materials[1].region:
+Every material in a multi-material model needs a region.
+Hint: Pass region=... when registering each material.</code></pre>
+<p><code>model.check()</code> remains the fail-fast public guard, but it now raises a <code>ModelValidationError</code> carrying the complete structured report.</p>
+<h3 id="honest-backend-seam">Honest backend seam</h3>
+<p><code>agentfem.backends</code> now provides:</p>
+<ul>
+<li><code>BackendDescriptor</code>,</li>
+<li><code>BackendAdapter</code>,</li>
+<li>lazy backend registration,</li>
+<li>an explicit default backend,</li>
+<li>a <code>FEniCSxBackend</code> implementation.</li>
+</ul>
+<p><code>OperatorForm.compile</code>, <code>assemble_matrix</code>, and <code>assemble_vector</code> now cross this seam. The seam is deliberately narrow. It does not claim that fields, meshes, constraints, steps, or all operators are backend neutral.</p>
+<h3 id="preserved-operator-construction-history">Preserved operator construction history</h3>
+<p>Operator scaling and addition now retain:</p>
+<ul>
+<li>operation kind (<code>primitive</code>, <code>scale</code>, or <code>sum</code>),</li>
+<li>operand summaries,</li>
+<li>scale factors when representable,</li>
+<li>source names,</li>
+<li>operand count.</li>
+</ul>
+<p>This repairs a major scientific-record problem: <code>C / dt</code> and <code>K1 + K2</code> should not become anonymous UFL expressions after composition.</p>
+<h3 id="first-test-and-continuous-integration-foundation">First test and continuous-integration foundation</h3>
+<p>The project now contains unit/interface tests for:</p>
+<ul>
+<li>validation reports,</li>
+<li>AF-IR serialization,</li>
+<li>backend registration,</li>
+<li>operator composition metadata,</li>
+<li>solver-policy validation.</li>
+</ul>
+<p>The static FEniCSx example is also a serial and two-rank MPI smoke test and writes an AF-IR record from rank zero. CI configuration uses a conda-forge FEniCSx environment because MPI, PETSc, and DOLFINx should be tested as one compatible stack.</p>
+<h2 id="target-architecture">Target Architecture</h2>
+<p>The desired long-term flow is:</p>
+<pre><code>Natural language / expert / domain model / general agent / imported case
+                              |
+                              v
+                 AgentFEM public Python language
+                              |
+                              v
+                Canonical semantic AF-IR graph
+                 /            |             \
+                v             v              v
+        validation       transformation    scientific memory
+        and repair       and composition   and provenance
+                \             |              /
+                 \            v             /
+                  ---- execution plan -----
+                              |
+                  backend capability match
+                              |
+            +-----------------+------------------+
+            |                 |                  |
+            v                 v                  v
+      FEniCSx lowering   future lowering   export/service target
+            |                 |                  |
+            v                 v                  v
+      PETSc/MPI result   verified result    external execution
+            \                 |                  /
+             +-------- execution evidence ------+
+                              |
+                              v
+                  human/agent review and reuse</code></pre>
+<p>The canonical graph is not required to contain every backend detail. Backend-specific extensions are acceptable when they are:</p>
+<ul>
+<li>explicitly namespaced,</li>
+<li>capability checked,</li>
+<li>preserved during round trips,</li>
+<li>visible to reviewers,</li>
+<li>and rejected rather than silently approximated on unsupported targets.</li>
+</ul>
+<h2 id="design-laws">Design Laws</h2>
+<h3 id="scientific-meaning-before-serialization-convenience">Scientific meaning before serialization convenience</h3>
+<p>A JSON field should exist because it represents a meaningful finite-element decision, not merely because a Python attribute was easy to dump.</p>
+<h3 id="one-strong-backend-before-superficial-portability">One strong backend before superficial portability</h3>
+<p>The FEniCSx path remains the reference implementation. A second backend should be added to test the semantic boundary, not to create a marketing checklist.</p>
+<h3 id="semantic-objects-and-compiled-objects-have-different-lifetimes">Semantic objects and compiled objects have different lifetimes</h3>
+<p>A <code>MaterialAssignment</code> or <code>OperatorSpec</code> should be persistable across sessions. A DOLFINx <code>Form</code>, PETSc matrix, communicator, and dof map are runtime objects. They may be cached or referenced in an execution record, but they should not define the canonical scientific model.</p>
+<h3 id="unsupported-behavior-is-data">Unsupported behavior is data</h3>
+<p>An unsupported formulation must produce an addressable capability or validation failure. It must not be silently dropped, translated approximately, or hidden inside generated backend code.</p>
+<h3 id="progressive-disclosure-applies-to-architecture">Progressive disclosure applies to architecture</h3>
+<p>Beginner code should remain short. Researchers should see operators and solver policies. Backend specialists should reach UFL, PETSc, MPI, quadrature, and dof-level behavior.</p>
+<h3 id="human-and-agent-interfaces-share-one-state">Human and agent interfaces share one state</h3>
+<p>The agent API must not operate an invisible model different from the model shown to the engineer. Python objects, AF-IR records, validation reports, and execution evidence should describe the same scientific state.</p>
+<h2 id="missing-interfaces-and-proposed-designs">Missing Interfaces and Proposed Designs</h2>
+<h3 id="stable-object-identity-and-references">Stable object identity and references</h3>
+<p>Current names are useful but not always unique. Future AF-IR nodes need:</p>
+<pre><code>ObjectId(namespace=&quot;model&quot;, kind=&quot;region&quot;, name=&quot;left&quot;, revision=1)</code></pre>
+<p>Requirements:</p>
+<ul>
+<li>deterministic within one model document;</li>
+<li>human-readable where possible;</li>
+<li>no dependence on Python memory addresses;</li>
+<li>references survive serialization and migration;</li>
+<li>duplicate display names produce a validation issue;</li>
+<li>renaming has explicit migration semantics.</li>
+</ul>
+<p>Do not introduce global UUIDs everywhere in the public Python API. Begin with document-local deterministic identifiers and retain friendly names.</p>
+<h3 id="semantic-specification-versus-compiled-artifact">Semantic specification versus compiled artifact</h3>
+<p>The operator path should eventually distinguish:</p>
+<pre><code>OperatorSpec(
+    family=&quot;elastic_stiffness&quot;,
+    role=&quot;matrix&quot;,
+    target=Ref(&quot;field:displacement&quot;),
+    material=Ref(&quot;material:steel&quot;),
+    region=Ref(&quot;region:matrix&quot;),
+)
+
+CompiledOperator(
+    spec=...,
+    backend=&quot;fenicsx&quot;,
+    expression=ufl_form,
+    cache_key=...,
+)</code></pre>
+<p>This should be introduced family by family, beginning with operators that have clear portable semantics:</p>
+<ul>
+<li>scalar mass/capacity,</li>
+<li>diffusion/conduction,</li>
+<li>isotropic elastic stiffness,</li>
+<li>body source,</li>
+<li>traction/flux,</li>
+<li>simple Dirichlet constraints.</li>
+</ul>
+<p>Do not attempt to parse arbitrary UFL back into a universal semantic tree. Custom UFL should remain an explicit backend extension with declared capabilities and reduced validation coverage.</p>
+<h3 id="execution-plan">Execution plan</h3>
+<p>A <code>Step</code> currently combines description and execution. A future <code>ExecutionPlan</code> should resolve:</p>
+<ul>
+<li>selected backend,</li>
+<li>capability requirements,</li>
+<li>ordered compilation tasks,</li>
+<li>assembly tasks,</li>
+<li>constraint transformations,</li>
+<li>solver/integrator policy,</li>
+<li>diagnostic schedule,</li>
+<li>output schedule,</li>
+<li>restart and checkpoint policy.</li>
+</ul>
+<p>The plan should be inspectable before execution and should have a stable hash over scientific inputs plus declared numerical policy.</p>
+<h3 id="execution-record-and-scientific-evidence">Execution record and scientific evidence</h3>
+<p>Each run should be able to produce:</p>
+<pre><code>case.agentfem.py
+case.afir.json
+case.plan.json
+case.validation.json
+case.run.json
+results/</code></pre>
+<p><code>case.run.json</code> should include:</p>
+<ul>
+<li>AgentFEM and backend versions;</li>
+<li>MPI size and scalar type;</li>
+<li>mesh identity and partition information;</li>
+<li>solver options and convergence reason;</li>
+<li>time-step and stability estimates;</li>
+<li>warnings and capability fallbacks;</li>
+<li>outputs with checksums;</li>
+<li>diagnostics and benchmark comparisons;</li>
+<li>start/end status;</li>
+<li>human approvals or edits when supplied.</li>
+</ul>
+<p>This is the foundation for scientific memory. It is not a claim that every successful run is scientifically correct.</p>
+<h3 id="schema-migration">Schema migration</h3>
+<p>Before AF-IR is called stable, implement:</p>
+<ul>
+<li>semantic-version compatibility rules;</li>
+<li><code>load_document(...)</code>;</li>
+<li>schema validation;</li>
+<li>migration functions such as <code>0.1 -&gt; 0.2</code>;</li>
+<li>round-trip tests;</li>
+<li>golden example documents;</li>
+<li>preservation of unknown namespaced extensions;</li>
+<li>clear failure for unsupported future major versions.</li>
+</ul>
+<p>The Python API and AF-IR schema may evolve at different rates. They need an explicit compatibility table.</p>
+<h3 id="capability-negotiation">Capability negotiation</h3>
+<p>Backend descriptors should eventually answer questions such as:</p>
+<ul>
+<li>supported mesh cell families;</li>
+<li>supported field value shapes;</li>
+<li>element/interpolation policies;</li>
+<li>supported constitutive/operator families;</li>
+<li>strong and weak constraint types;</li>
+<li>serial/MPI support;</li>
+<li>scalar/complex support;</li>
+<li>nonlinear/autodiff support;</li>
+<li>output formats;</li>
+<li>restart support.</li>
+</ul>
+<p>Capability matching should return structured issues at paths such as:</p>
+<pre><code>model.steps[0].operators.K
+model.constraints[2]
+model.outputs[0]</code></pre>
+<p>A backend must never advertise a broad capability such as <code>solid_mechanics</code> when only one narrow formulation has been verified.</p>
+<h3 id="agent-repair-protocol">Agent repair protocol</h3>
+<p>Documentation and a skill help an agent choose APIs, but reliable repair also needs a machine-operable protocol:</p>
+<pre><code>{
+  &quot;code&quot;: &quot;AFM-MATERIAL-002&quot;,
+  &quot;path&quot;: &quot;model.materials[1].region&quot;,
+  &quot;severity&quot;: &quot;error&quot;,
+  &quot;message&quot;: &quot;Every material in a multi-material model needs a region.&quot;,
+  &quot;allowed_repairs&quot;: [
+    &quot;assign_existing_region&quot;,
+    &quot;define_region&quot;,
+    &quot;remove_material_assignment&quot;
+  ]
+}</code></pre>
+<p>Future validators may add <code>allowed_repairs</code>, but they should not automatically apply scientific changes unless policy and user authority allow it.</p>
+<h3 id="extension-protocol">Extension protocol</h3>
+<p>Every custom extension should declare:</p>
+<ul>
+<li>semantic name and version;</li>
+<li>required backend capabilities;</li>
+<li>serializable parameters;</li>
+<li>validation hook;</li>
+<li>lowering hook;</li>
+<li>summary and documentation;</li>
+<li>benchmark or example evidence;</li>
+<li>whether it is deterministic;</li>
+<li>whether it supports MPI;</li>
+<li>fallback behavior, normally explicit rejection.</li>
+</ul>
+<p>This is a stronger extension boundary than accepting arbitrary callables with no record of their meaning.</p>
+<h3 id="batch-surrogate-and-tool-service-interfaces">Batch, surrogate, and tool-service interfaces</h3>
+<p>Agent-native simulation will often operate collections rather than one case. The long-term layer should support:</p>
+<ul>
+<li>parameter definitions with units and bounds;</li>
+<li>immutable case variants;</li>
+<li>deterministic case IDs;</li>
+<li>sweep and design-of-experiment plans;</li>
+<li>resumable execution;</li>
+<li>extracted quantities of interest;</li>
+<li>field sampling contracts;</li>
+<li>dataset manifests;</li>
+<li>links between samples and the exact AF-IR/run record;</li>
+<li>asynchronous local, cluster, or service execution.</li>
+</ul>
+<p>The first local implementation now provides typed real/integer/choice parameters, deterministic random/Latin-hypercube/factorial plans, stable case IDs, resumable case records, deterministic plan shards, within-case MPI coordination, scientific dataset manifests, NumPy ridge and POD baselines, an optional PyTorch MLP adapter, independent validation reports, and a guarded high-fidelity fallback. This advances part of the former Phase C/E route without claiming that AF-IR reconstruction or remote execution is complete.</p>
+<p>The implemented separation is:</p>
+<pre><code>case factory -&gt; FEM execution -&gt; case/run evidence -&gt; scientific dataset
+             -&gt; learning adapter -&gt; validation -&gt; applicability guard
+             -&gt; prediction or explicit FEM fallback</code></pre>
+<p>Neural-operator and PINN objects currently define contract-only records for field encoding, geometry/mesh policy, physical residuals, conditions, and required checks. They are intentionally not executable trainers. Arbitrary UFL is not assumed to lower to a differentiable strong residual.</p>
+<p>An MCP or other tool interface should expose operations such as:</p>
+<pre><code>validate_model
+explain_model
+compile_plan
+run_case
+get_status
+read_diagnostics
+compare_runs
+export_artifact</code></pre>
+<p>The service interface should wrap the same AF-IR and validation semantics used locally. It should not create a second hidden representation.</p>
+<h2 id="fenicsx-first-product-priorities">FEniCSx-First Product Priorities</h2>
+<p>The following work has higher near-term value than adding a second backend:</p>
+<ol>
+<li>Linear static elasticity<br>- verified plane strain and plane stress;<br>- 3D isotropic elasticity;<br>- reaction forces;<br>- solver convergence records;<br>- mesh-convergence benchmarks.</li>
+</ol>
+<ol>
+<li>Transient heat transfer<br>- model-owned step API;<br>- time-dependent sources and boundary conditions;<br>- convection/Robin boundaries;<br>- energy balance;<br>- restart.</li>
+</ol>
+<ol>
+<li>Explicit dynamics<br>- stable time-step estimation;<br>- energy and momentum diagnostics;<br>- clear residual sign conventions;<br>- robust constraint behavior;<br>- serial and MPI benchmark coverage;<br>- absorbing-boundary validation.</li>
+</ol>
+<ol>
+<li>Mesh and region reliability<br>- partition completeness and overlap checks;<br>- imported tag provenance;<br>- empty-region detection;<br>- region visualization;<br>- deterministic region identities.</li>
+</ol>
+<ol>
+<li>Materials and constitutive behavior<br>- units and provenance;<br>- validated model/assumption compatibility;<br>- thermal properties;<br>- carefully staged anisotropy and path dependence.</li>
+</ol>
+<ol>
+<li>Output and restart<br>- output manifests;<br>- checksums;<br>- consistent field naming;<br>- checkpoint/restart contracts;<br>- parallel behavior.</li>
+</ol>
+<ol>
+<li>Verification assets<br>- benchmarks separate from tutorials;<br>- expected values and tolerances;<br>- mesh/time-step convergence;<br>- serial/MPI parity where meaningful.</li>
+</ol>
+<h2 id="phased-delivery-plan">Phased Delivery Plan</h2>
+<h3 id="phase-a-strengthen-the-executable-core">Phase A: strengthen the executable core</h3>
+<p>Target: current 0.1.x line.</p>
+<ul>
+<li>keep FEniCSx as the sole production backend;</li>
+<li>add unit tests for semantic containers;</li>
+<li>run static example in serial and with two MPI ranks in CI;</li>
+<li>add small numerical benchmarks;</li>
+<li>expand structured model validation;</li>
+<li>make solver policies inspectable;</li>
+<li>keep AF-IR explicitly experimental.</li>
+</ul>
+<p>Exit evidence:</p>
+<ul>
+<li>reproducible environment;</li>
+<li>unit suite;</li>
+<li>serial and two-rank MPI static numerical smoke test;</li>
+<li>at least three benchmark quantities with tolerances;</li>
+<li>no silent unsupported behavior in demonstrated workflows.</li>
+</ul>
+<h3 id="phase-b-af-ir-02-scientific-records">Phase B: AF-IR 0.2 scientific records</h3>
+<p>Target: v0.2.</p>
+<ul>
+<li>stable document-local object IDs;</li>
+<li>explicit references between core model assets;</li>
+<li>JSON Schema or equivalent formal validation;</li>
+<li>load/write and migration API;</li>
+<li>golden AF-IR documents;</li>
+<li>execution-plan prototype;</li>
+<li>run record with environment and output evidence;</li>
+<li>validation codes documented as public contracts.</li>
+</ul>
+<p>Exit evidence:</p>
+<ul>
+<li>round trip for supported examples;</li>
+<li>migration test from AF-IR 0.1;</li>
+<li>deterministic document hashes;</li>
+<li>agent repair evaluation on planted model defects.</li>
+</ul>
+<h3 id="phase-c-semanticruntime-separation">Phase C: semantic/runtime separation</h3>
+<p>Target: v0.3.</p>
+<ul>
+<li><code>OperatorSpec</code> and <code>CompiledOperator</code> for selected common families;</li>
+<li>backend capability matching;</li>
+<li>namespaced FEniCSx extensions;</li>
+<li>compilation caches keyed by semantic and numerical policy;</li>
+<li>broader benchmark suite;</li>
+<li>harden the implemented batch/sweep interface and link every case to<br>content-addressed AF-IR/run records.</li>
+</ul>
+<p>Exit evidence:</p>
+<ul>
+<li>supported model can be reconstructed without retaining live UFL objects;</li>
+<li>compiled FEniCSx result agrees with reference implementation;</li>
+<li>custom UFL survives as an explicit extension rather than being erased.</li>
+</ul>
+<h3 id="phase-d-test-the-boundary">Phase D: test the boundary</h3>
+<p>Target: research milestone after v0.3, not a calendar promise.</p>
+<ul>
+<li>choose one deliberately narrow second target;</li>
+<li>lower a small semantic subset;</li>
+<li>compare results and unsupported-capability behavior;</li>
+<li>revise AF-IR where the second implementation reveals accidental FEniCSx<br>assumptions.</li>
+</ul>
+<p>Good candidates are not necessarily full solvers. A second target might be:</p>
+<ul>
+<li>an export deck for a restricted static problem;</li>
+<li>a matrix/reference backend for tiny verification cases;</li>
+<li>a service adapter;</li>
+<li>or another open finite-element library for a narrow operator family.</li>
+</ul>
+<p>Exit evidence:</p>
+<ul>
+<li>independent lowering of the same AF-IR subset;</li>
+<li>explicit capability differences;</li>
+<li>benchmark agreement within declared tolerances;</li>
+<li>no weakening of the FEniCSx path.</li>
+</ul>
+<h3 id="phase-e-scientific-memory-and-agent-operations">Phase E: scientific memory and agent operations</h3>
+<ul>
+<li>indexed run/evidence records;</li>
+<li>retrieval by scientific entities and assumptions;</li>
+<li>comparison and regression tools;</li>
+<li>approved reusable patterns;</li>
+<li>extend the implemented dataset/surrogate foundation with merge,<br>deduplication, uncertainty calibration, active-learning proposals, and<br>reviewed external trainers;</li>
+<li>tool-service/MCP interface;</li>
+<li>access-control and audit policies for consequential execution.</li>
+</ul>
+<p>Exit evidence:</p>
+<ul>
+<li>a reviewed case can be found, understood, rerun, compared, and adapted;</li>
+<li>agent actions remain attributable to AF-IR nodes and execution records;</li>
+<li>human review does not require reconstructing intent from generated code.</li>
+</ul>
+<h2 id="verification-matrix">Verification Matrix</h2>
+<p>Every public capability should eventually carry a matrix with:</p>
+<table>
+<thead><tr><th>Layer</th><th>Required evidence</th></tr></thead>
+<tbody>
+<tr><td>Semantic</td><td>constructor and validation tests</td></tr>
+<tr><td>Serialization</td><td>JSON safety, round trip, migration, golden file</td></tr>
+<tr><td>Lowering</td><td>form shape and backend capability test</td></tr>
+<tr><td>Assembly</td><td>tiny matrix/vector reference</td></tr>
+<tr><td>Solve</td><td>analytical/manufactured/benchmark quantity</td></tr>
+<tr><td>Parallel</td><td>MPI smoke and declared limitations</td></tr>
+<tr><td>Human use</td><td>readable example and defect-localization task</td></tr>
+<tr><td>Agent use</td><td>generation/repair task with structured feedback</td></tr>
+<tr><td>Provenance</td><td>complete run record and output identity</td></tr>
+</tbody>
+</table>
+<p>Not every early feature needs all rows immediately, but its documentation must state which rows are missing.</p>
+<h2 id="decisions-to-avoid">Decisions to Avoid</h2>
+<ul>
+<li>Do not replace readable Python with JSON as the primary human language.</li>
+<li>Do not advertise multi-backend support when only descriptors exist.</li>
+<li>Do not serialize <code>repr()</code> values containing memory addresses.</li>
+<li>Do not promise arbitrary UFL portability.</li>
+<li>Do not make a monolithic <code>solve_everything(...)</code> API the beginner path.</li>
+<li>Do not hide analysis assumptions inside backend defaults.</li>
+<li>Do not auto-repair scientific intent without an explicit policy.</li>
+<li>Do not treat examples as verification benchmarks.</li>
+<li>Do not expand feature coverage faster than validation evidence.</li>
+<li>Do not describe successful execution as proof of physical correctness.</li>
+</ul>
+<h2 id="near-term-implementation-queue">Near-Term Implementation Queue</h2>
+<p>The next concrete code changes should be:</p>
+<ol>
+<li>Add formal types for object IDs and references.</li>
+<li>Add AF-IR loading plus strict version checks.</li>
+<li>Add validation for region emptiness, partition overlap/completeness, target<br>mesh consistency, and step/operator completeness.</li>
+<li>Add an execution record for the static example.</li>
+<li>Add benchmark objects with expected quantities and tolerances.</li>
+<li>Add solver convergence reason and iteration count to execution evidence.</li>
+<li>Add a model-owned transient heat step and corresponding AF-IR coverage.</li>
+<li>Introduce <code>OperatorSpec</code> only for mass, diffusion, isotropic elasticity,<br>and simple loads.</li>
+<li>Extend the existing two-rank smoke test to focused MPI validation for<br>transient state, diagnostics, and output.</li>
+<li>Evaluate agent defect repair using the new issue codes and paths.</li>
+<li>Replace embedded campaign AF-IR provenance with content-addressed model and<br>run-record references.</li>
+<li>Add standard QoI extractors for point values, integrals, reactions,<br>energies, curves, and mesh-independent field samples.</li>
+<li>Add an execution-service protocol so local plan shards, Slurm jobs, and<br>hosted runners produce the same case records.</li>
+<li>Add Gaussian-process/ensemble uncertainty adapters and active-learning<br>proposal records before automatic retraining.</li>
+<li>Implement field projection and reviewed residual families before enabling<br>neural-operator or PINN training adapters.</li>
+</ol>
+<h2 id="success-criterion">Success Criterion</h2>
+<p>AgentFEM succeeds in the near term if it becomes a finite-element environment that engineers can actually use and trust for its supported analyses.</p>
+<p>It succeeds in the longer term if a scientific model can outlive:</p>
+<ul>
+<li>the prompt that produced it,</li>
+<li>the particular model that authored it,</li>
+<li>the Python process that executed it,</li>
+<li>and eventually the first backend that compiled it,</li>
+</ul>
+<p>while remaining understandable to the people responsible for the result.</p>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

@@ -9,7 +9,9 @@
 <body>
   <div class="layout">
     <aside>
-      <div class="brand">AgentFEM</div>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
       <div class="tagline">AI-assisted finite-element workflows</div>
       <nav><a class="" href="index.html">Home</a>
 <a class="" href="install.html">Install</a>
@@ -25,6 +27,8 @@
 <a class="" href="licensing.html">Licensing</a>
 <a class="" href="publishing.html">Publishing</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
 <a class="" href="skill.html">AgentFEM Skill</a></nav>
     </aside>
@@ -52,6 +56,8 @@
 <li>Return dataclasses for reusable FEM assets.</li>
 <li>Give reusable dataclasses a <code>summary()</code> method when the object represents a<br>finite-element concept that humans or agents may audit.</li>
 <li>Give material-like dataclasses an <code>as_dict()</code> method when constants and<br>derived quantities are useful for logs or validation.</li>
+<li>Use <code>to_ir()</code> for a versioned scientific record. Do not use <code>repr()</code> as a<br>persistent fallback for backend objects because it may contain memory<br>addresses and no scientific semantics.</li>
+<li>Validation failures intended for repair should carry a stable code and an<br>object path in a <code>ValidationIssue</code>.</li>
 <li>Avoid hidden global state.</li>
 </ul>
 <h2 id="semantic-constructors">Semantic Constructors</h2>
@@ -74,6 +80,10 @@
 <li>Prefer problem-level constructors such as<br><code>problems.linear_static(K, F, study=..., unknown=..., constraints=...)</code> and<br><code>problems.first_order_transient(capacity=C, stiffness=K, history=..., dt=...)</code><br>when an example is intentionally teaching explicit operator notation.</li>
 <li>Keep lower-level dataclasses available for advanced users who need direct<br>control.</li>
 <li>Use concept names in errors and summaries: constraint, load, boundary model,<br>constitutive law, operator, state, and diagnostic.</li>
+<li>Prefer a repair address such as <code>model.materials[1].region</code> and a specific<br>hint over a generic execution error.</li>
+<li>Parameter-study APIs must carry bounds, units, and deterministic case IDs.<br>Prefer a fresh <code>build(parameters)</code> case factory over mutating one live backend<br>model across samples.</li>
+<li>Learning outputs must be declared with names, shapes, and units before a<br>campaign runs. Do not infer a scientific schema only from the first returned<br>NumPy array.</li>
+<li>A surrogate prediction API should report its source, uncertainty semantics,<br>applicability decision, and fallback behavior. It must not silently<br>extrapolate or describe residual scale as calibrated epistemic uncertainty.</li>
 </ul>
 <h2 id="error-messages">Error Messages</h2>
 <p>Raise errors that explain the modeling issue, not only the Python issue. For example, say that a normal vector is required for normal/tangential absorbing boundaries.</p>

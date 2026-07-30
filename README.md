@@ -1,8 +1,12 @@
+<p align="center"><img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM logo" width="320"></p>
+
 # AgentFEM
 
 AgentFEM is an open-source platform for AI-assisted finite-element simulation,
 agent-readable CAE workflows, reusable operators, and human-agent collaborative
-scientific computing.
+scientific computing. Its first collection-level interfaces connect typed
+parameter studies and traceable FEniCSx runs to scientific datasets,
+surrogates, reduced-order models, and guarded high-fidelity fallback.
 
 AgentFEM was initiated by Haoming Luo and open-sourced on GitHub in July 2026.
 It is an early open-source practice toward making finite-element simulation
@@ -32,7 +36,11 @@ operator-level `K/M/C/F` notation, model inspection, and ParaView/XDMF output.
   `model.tree()`, `operators.xtmx(...)`, and field algebra such as
   `u_next = u + dt * v + 0.5 * dt**2 * a`.
 - Inspectable objects for agents: `study.summary()`, `model.manifest()`,
-  `operator.summary()`, and step summaries.
+  `model.to_ir()`, structured validation reports, `operator.summary()`, and
+  step summaries.
+- Collection-level scientific workflows: deterministic campaign cases,
+  resumable evidence, unit/shape-aware datasets, transparent surrogate
+  baselines, independent validation, and explicit applicability domains.
 - Transparent layers: daily workflows use `models`, `fields`, `loads`,
   `operators`, and `problems`; advanced users can still drop to `forms`,
   `assembly`, PETSc, or DOLFINx when needed.
@@ -47,6 +55,12 @@ AgentFEM adopts a three-layer design:
   constitutive laws, constraints, and custom variational forms.
 - Numerical solver kernel layer: integration with FEniCSx/DOLFINx, PETSc, MPI,
   and related scientific-computing infrastructure.
+
+The current implementation is intentionally FEniCSx-first. Experimental AF-IR
+records preserve the supported scientific structure separately from live
+backend objects, and a narrow backend adapter makes compilation boundaries
+explicit. This is a progressive architecture, not a claim of complete
+backend-neutral execution.
 
 ## Install
 
@@ -144,6 +158,19 @@ step.solve()
 print(model.tree())
 ```
 
+Inspect the model before execution or write a deterministic experimental AF-IR
+record:
+
+```python
+report = model.validate()
+print(report.format())
+model.write_ir("cantilever.afir.json")
+```
+
+Validation issues contain stable codes, scientific-object paths, and repair
+hints. AF-IR 0.1 is marked experimental: it records supported public semantics
+and identifies unresolved backend runtime objects as opaque.
+
 The `Step` path is the recommended public workflow. It still exposes the
 operator system for review:
 
@@ -159,6 +186,7 @@ Beginner and agent-generated workflows should prefer:
 from agentfem import studies, mesh, models, fields, materials, constitutive
 from agentfem import amplitudes, constraints, loads, operators, problems
 from agentfem import solvers, time, io, diagnostics
+from agentfem import campaigns, datasets, surrogates
 ```
 
 Lower-level modules such as `forms`, `assembly`, `spaces`, and `kernel` remain
@@ -172,6 +200,8 @@ thing a new model exposes.
 - `examples/wave_packet_plate_2d.py`: advanced explicit dynamics wave example.
 - `examples/wave_packet_inclusion_2d.py`: advanced wave propagation with
   regional material assignment and absorbing/periodic boundary handling.
+- `examples/static_elasticity_surrogate_campaign.py`: FEniCSx parameter
+  campaign, scientific dataset, surrogate validation, and guarded FEM fallback.
 
 ## Documentation
 
@@ -182,6 +212,10 @@ thing a new model exposes.
 - `CONCEPTS.md`: shared vocabulary for finite-element and agent workflows.
 - `AGENT_GUIDE.md`: first file for AI agents working in this repository.
 - `docs/`: design notes, module map, validation notes, and extension rules.
+- `docs/air_architecture_roadmap.md`: FEniCSx-first engineering plan and
+  staged AF-IR/AIR architecture.
+- `docs/ai_native_learning.md`: implemented campaign/dataset/surrogate
+  contracts and the staged neural-operator/PINN route.
 - `docs/licensing.md`: licensing strategy for the open-source core and
   optional commercial extensions.
 - `docs/publishing.md`: PyPI release checklist and Trusted Publisher setup.
@@ -224,7 +258,7 @@ replacement. The stable direction is:
 
 - model-first workflows for common analyses,
 - operator-first workflows for transparent research code,
-- structured model manifests for agents,
+- versioned scientific records and structured repair reports for agents,
 - examples and benchmarks that make assumptions explicit.
 
 ## License

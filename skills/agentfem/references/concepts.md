@@ -41,5 +41,24 @@
   beta=0 and gamma=1/2.
 - Diagnostic: quantity used to inspect correctness, stability, or physics.
 - Benchmark: verification case with expected quantities and tolerances.
+- AF-IR document: experimental versioned scientific record; it is not yet a
+  complete backend-neutral executable serialization.
+- Validation issue: stable code, object path, severity, message, and repair
+  hint for an addressable model finding.
+- Backend adapter: explicit compilation boundary. FEniCSx is currently the only
+  production backend.
+- Parameter space: ordered typed simulation inputs with admissible values,
+  bounds, units, and scale.
+- Campaign: deterministic related cases with fresh construction, case IDs,
+  output contracts, execution evidence, failure records, and resume behavior.
+- Scientific dataset: numeric inputs/outputs plus units, shapes, field
+  encodings, case identities, provenance, and artifacts.
+- Surrogate: learned or reduced-order mapping whose scientific asset includes
+  independent validation, applicability, and out-of-domain behavior.
+- Neural operator: function-to-function model requiring explicit field,
+  geometry, boundary, mesh, and projection encodings.
+- Physics-informed model: learning contract with explicit strong, weak, or
+  discrete residuals and conditions; arbitrary UFL is not automatically a PINN
+  residual.
 
 Never treat Neumann data as a Dirichlet constraint.

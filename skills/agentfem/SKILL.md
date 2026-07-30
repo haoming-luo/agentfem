@@ -27,10 +27,17 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   application examples.
 - Use `FEMProblem.summary()` or equivalent structured summaries when auditing a
   workflow.
+- Use `model.validate()` for addressable issue reports, `model.check()` before
+  execution, and `model.write_ir(...)` when a persistent AF-IR record is part
+  of the task.
 - Use AgentFEM modules before writing ad hoc DOLFINx/PETSc boilerplate.
 - Prefer the stable public workflow modules first: `studies`, `mesh`, `models`, `fields`,
   `materials`, `constitutive`, `constraints`, `loads`, `operators`,
-  `problems`, `solvers`, `time`, and `io`.
+  `problems`, `solvers`, `time`, `io`, `campaigns`, `datasets`, and
+  `surrogates`.
+- Treat `ir` and `validation` as public inspection/record interfaces. Treat
+  `backends` as an advanced extension boundary. FEniCSx is the only production
+  backend in the current release.
 - Prefer `step = model.linear_static_step(target=u)` when a model has
   registered materials, constraints, and loads. Use `model.stiffness(...)`,
   `model.external_force(...)`, and `operators.combine(...)` when an example
@@ -46,6 +53,12 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
 - Put Dirichlet, periodic, and MPC relations under `constraints`.
 - Put Neumann, traction, flux, and body sources under `loads`.
 - Validate small cases before reporting success.
+- Do not claim that experimental AF-IR records make arbitrary UFL workflows
+  backend neutral.
+- For parameter collections, build a fresh case per sample, retain case/run
+  evidence, split validation data independently, and guard learned-model
+  applicability. Do not silently extrapolate or imply that neural-operator and
+  PINN contract records are executable trainers.
 
 ## When Extending AgentFEM
 

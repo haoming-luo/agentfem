@@ -4,15 +4,19 @@ __version__ = "0.1.3"
 
 from . import amplitudes
 from . import assembly
+from . import backends
 from . import boundary_models
 from . import benchmarks
+from . import campaigns
 from . import constraints
 from . import constitutive
+from . import datasets
 from . import diagnostics
 from . import fields
 from . import elements
 from . import forms
 from . import io
+from . import ir
 from . import loads
 from . import materials
 from . import mesh
@@ -22,7 +26,9 @@ from . import problems
 from . import solvers
 from . import spaces
 from . import studies
+from . import surrogates
 from . import time
+from . import validation
 
 PUBLIC_WORKFLOW_MODULES = (
     "studies",
@@ -39,6 +45,12 @@ PUBLIC_WORKFLOW_MODULES = (
     "solvers",
     "time",
     "io",
+    "diagnostics",
+    "ir",
+    "campaigns",
+    "datasets",
+    "surrogates",
+    "validation",
 )
 
 
@@ -53,15 +65,19 @@ __all__ = [
     "__version__",
     "amplitudes",
     "assembly",
+    "backends",
     "boundary_models",
     "benchmarks",
+    "campaigns",
     "constraints",
     "constitutive",
+    "datasets",
     "diagnostics",
     "fields",
     "elements",
     "forms",
     "io",
+    "ir",
     "loads",
     "materials",
     "mesh",
@@ -71,6 +87,8 @@ __all__ = [
     "solvers",
     "spaces",
     "studies",
+    "surrogates",
     "time",
+    "validation",
     "public_api",
 ]

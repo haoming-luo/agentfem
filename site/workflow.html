@@ -9,7 +9,9 @@
 <body>
   <div class="layout">
     <aside>
-      <div class="brand">AgentFEM</div>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
       <div class="tagline">AI-assisted finite-element workflows</div>
       <nav><a class="" href="index.html">Home</a>
 <a class="" href="install.html">Install</a>
@@ -25,6 +27,8 @@
 <a class="" href="licensing.html">Licensing</a>
 <a class="" href="publishing.html">Publishing</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
 <a class="" href="skill.html">AgentFEM Skill</a></nav>
     </aside>
@@ -47,9 +51,18 @@
 <li>Define weak loads and boundary models.</li>
 <li>Build operators or weak forms. Use model-first helpers such as<br><code>model.stiffness(...)</code> for standard registered assets, or operator-first<br>constructors such as <code>operators.stiffness(...)</code> and<br><code>operators.combine(...)</code> when each contribution should be explicit.</li>
 <li>Create and register an analysis step with <code>model.step(...)</code> or<br><code>model.linear_static_step(...)</code>. The step should expose visible operators,<br>such as <code>K U = F</code> or <code>(C / dt + K) T_next = C T_old / dt + Q</code>.</li>
+<li>Run <code>model.validate()</code> or <code>model.check()</code> before execution. When the case<br>is an auditable artifact, write <code>model.write_ir(...)</code>.</li>
 <li>Compile, assemble, and solve the step, or advance in time.</li>
 <li>Evaluate diagnostics.</li>
-<li>Write outputs.</li>
+<li>Write outputs and, as execution records mature, preserve provenance and<br>validation evidence with the result.</li>
+</ol>
+<p>For a collection of related cases, continue with:</p>
+<ol>
+<li>Define a typed <code>campaigns.ParameterSpace</code> with bounds and units.</li>
+<li>Create a deterministic design of experiments and fresh model variants.</li>
+<li>Run or resume the campaign and extract declared <code>datasets.Quantity</code><br>outputs.</li>
+<li>Split the resulting <code>ScientificDataset</code> independently before training.</li>
+<li>Validate a surrogate or reduced-order model, declare its applicability<br>domain, and retain a high-fidelity FEM fallback where extrapolation would<br>be unsafe.</li>
 </ol>
 <h2 id="module-map">Module Map</h2>
 <ul>
@@ -76,11 +89,17 @@
 <li>Output: <code>io.py</code></li>
 <li>Element/integration policies: <code>elements/</code></li>
 <li>Verification benchmarks: <code>benchmarks/</code></li>
+<li>Versioned scientific records: <code>ir/</code></li>
+<li>Structured validation reports and issue codes: <code>validation.py</code></li>
+<li>Backend capabilities and compilation adapters: <code>backends/</code></li>
+<li>Parameter spaces, sampling, case identity, and resumable execution:<br><code>campaigns/</code></li>
+<li>Unit/shape-aware learning data and simulation provenance: <code>datasets/</code></li>
+<li>Surrogate/ROM baselines, validation, applicability guards, and<br>neural-operator/PINN contracts: <code>surrogates/</code></li>
 </ul>
 <h2 id="design-principle">Design Principle</h2>
 <p>The workflow should be easy for a human researcher to read and easy for an agent to audit. A simulation file may call reusable helpers, but it should still show the finite-element meaning of each step.</p>
 <p>Prefer <code>model.tree()</code> and <code>model.manifest()</code> before a solve when an agent, reviewer, or notebook user needs to inspect the current model state.</p>
-<p>Beginner workflows should prefer the stable public path: <code>studies</code>, <code>mesh</code>, <code>models</code>, <code>fields</code>, <code>materials</code>, <code>constitutive</code>, <code>constraints</code>, <code>amplitudes</code>, <code>loads</code>, <code>operators</code>, <code>problems</code>, <code>solvers</code>, <code>time</code>, and <code>io</code>.</p>
+<p>Beginner workflows should prefer the stable public path: <code>studies</code>, <code>mesh</code>, <code>models</code>, <code>fields</code>, <code>materials</code>, <code>constitutive</code>, <code>constraints</code>, <code>amplitudes</code>, <code>loads</code>, <code>operators</code>, <code>problems</code>, <code>solvers</code>, <code>time</code>, <code>io</code>, <code>campaigns</code>, <code>datasets</code>, and <code>surrogates</code>.</p>
 <p>First-level Python modules are reserved for the main FEM workflow. Subpackages hold reusable asset families, such as constitutive laws, material records, boundary models, element policies, operator families, and benchmarks. Low-level implementation helpers such as <code>constraints/boundary.py</code> and <code>kernel/dofs.py</code> should not be featured in beginner workflows.</p>
       </article>
     </main>

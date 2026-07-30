@@ -30,9 +30,24 @@ aside {
   overflow: auto;
 }
 .brand {
-  font-size: 22px;
-  font-weight: 760;
+  display: block;
   margin-bottom: 4px;
+}
+.brand img {
+  display: block;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+  width: 190px;
+}
+.project-logo {
+  margin: 0 auto 24px;
+  text-align: center;
+}
+.project-logo img,
+article > p[align="center"] img {
+  height: auto;
+  max-width: min(100%, 320px);
 }
 .tagline {
   color: var(--muted);

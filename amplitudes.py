@@ -138,6 +138,10 @@ def tabular(
             "points": int(len(time_data)),
             "start_time": float(time_data[0]),
             "end_time": float(time_data[-1]),
+            "times": time_data.tolist(),
+            "values": value_data.tolist(),
+            "left": float(left_value),
+            "right": float(right_value),
         },
     )
 

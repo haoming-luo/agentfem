@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import html
 import re
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent
 SITE_DIR = ROOT / "site"
+LOGO_FILES = (
+    "AgentFEM_logo.png",
+    "AgentFEM_logo_transparent.png",
+)
 
 
 @dataclass(frozen=True)
@@ -43,6 +48,16 @@ PAGES = [
         "Architecture Review",
         ROOT / "docs" / "architecture_review.md",
         SITE_DIR / "architecture-review.html",
+    ),
+    Page(
+        "AIR Architecture Roadmap",
+        ROOT / "docs" / "air_architecture_roadmap.md",
+        SITE_DIR / "air-architecture-roadmap.html",
+    ),
+    Page(
+        "AI-Native Campaigns and Learning",
+        ROOT / "docs" / "ai_native_learning.md",
+        SITE_DIR / "ai-native-learning.html",
     ),
     Page(
         "Documentation Site",
@@ -143,6 +158,17 @@ def markdown_to_html(markdown: str) -> str:
             flush_table()
             continue
 
+        if (
+            line.startswith("<p")
+            and line.endswith("</p>")
+            and "<img " in line
+        ):
+            flush_paragraph()
+            flush_list()
+            flush_table()
+            out.append(line)
+            continue
+
         heading = re.match(r"^(#{1,4})\s+(.*)$", line)
         if heading:
             flush_paragraph()
@@ -222,9 +248,24 @@ aside {
   overflow: auto;
 }
 .brand {
-  font-size: 22px;
-  font-weight: 760;
+  display: block;
   margin-bottom: 4px;
+}
+.brand img {
+  display: block;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+  width: 190px;
+}
+.project-logo {
+  margin: 0 auto 24px;
+  text-align: center;
+}
+.project-logo img,
+article > p[align="center"] img {
+  height: auto;
+  max-width: min(100%, 320px);
 }
 .tagline {
   color: var(--muted);
@@ -325,7 +366,9 @@ def render_page(page: Page) -> str:
 <body>
   <div class="layout">
     <aside>
-      <div class="brand">AgentFEM</div>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
       <div class="tagline">AI-assisted finite-element workflows</div>
       <nav>{nav}</nav>
     </aside>
@@ -342,7 +385,10 @@ def render_page(page: Page) -> str:
 
 def main() -> None:
     (SITE_DIR / "assets").mkdir(parents=True, exist_ok=True)
+    (SITE_DIR / "logo").mkdir(parents=True, exist_ok=True)
     (SITE_DIR / "assets" / "style.css").write_text(STYLE.strip() + "\n")
+    for filename in LOGO_FILES:
+        shutil.copy2(ROOT / "logo" / filename, SITE_DIR / "logo" / filename)
     for page in PAGES:
         page.output.write_text(render_page(page))
     print(f"Built AgentFEM documentation site: {SITE_DIR / 'index.html'}")
