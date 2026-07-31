@@ -33,6 +33,18 @@ Run the visible finite-deformation case with:
 python agentfem_periodic_hyperelastic.py --stretch 1.20
 ```
 
+Run one distributed simulation across two MPI ranks with:
+
+```bash
+mpiexec -n 2 python agentfem_periodic_hyperelastic.py --stretch 1.20
+```
+
+This is within-case parallelism: DOLFINx partitions the mesh, every rank
+assembles its cells, `dolfinx_mpc` distributes the chained equation graph, and
+PETSc/MUMPS solves one distributed system. It is not two independent copies of
+the same serial job. `dolfinx_mpc` must match the installed DOLFINx minor
+version.
+
 The main Python file contains the visible, Abaqus-style analysis controls:
 automatic initial/minimum/maximum increment sizes, a maximum of ten accepted
 increments, cutback limits, and the maximum Newton iterations per attempt.
@@ -61,7 +73,7 @@ For finite strain, the conventional request `E` resolves to spatial
 logarithmic strain `LE`. Green--Lagrange strain is available explicitly as
 `GREEN`; it is not mislabeled as Abaqus `E`.
 
-The default plan writes one logical ParaView result dataset:
+In serial, the default plan writes one logical ParaView result dataset:
 
 - `periodic_cell.xdmf`: the small temporal index;
 - `periodic_cell.h5`: compressed topology, retained reference coordinates,
@@ -72,6 +84,14 @@ Open the XDMF in ParaView to play the actual deformation and switch fields
 without a Warp filter or multi-block selection. No directory of per-frame VTU
 files is required. `SDV` is absent because the substituted Neo-Hookean model
 has no state variables.
+
+Under MPI, collective DOLFINx I/O writes
+`periodic_cell_parallel.xdmf` and its HDF5 heavy data. This scientific record
+contains the reference mesh, displacement, and all requested cell fields for
+every accepted increment. Use ParaView's Warp By Vector for presentation.
+Directly deformed compact geometry, PNG, and GIF/MP4 rendering remain serial
+postprocessing products; they are intentionally not produced concurrently by
+multiple ranks.
 
 The visualization and scientific-history products have different jobs:
 
@@ -103,8 +123,10 @@ file as Abaqus syntax, writes a documented XDMF/HDF5 conversion, and lets
 DOLFINx read that converted mesh. The workflow is therefore an explicit source
 → neutral mesh → DOLFINx pipeline, not a hidden native Abaqus reader.
 
-Current limitation: exact Abaqus equation elimination is serial. The
-scientific constraint object and reduction are reusable, but distributed
-ownership/ghost handling needs a dedicated parallel MPC backend. The example
-rejects a multi-rank launch rather than presenting duplicated serial jobs as
-parallel computation. Other DOLFINx AgentFEM examples remain true MPI runs.
+Serial execution uses AgentFEM's explicit affine transformation. MPI execution
+flattens the same chained equation graph to independent masters, maps Abaqus
+labels to global DOLFINx dofs, supplies every owned and ghost slave relation,
+and uses `dolfinx_mpc` for distributed assembly and back-substitution. The two
+paths are required to match in reduced residual, Newton convergence, and
+periodic mismatch. AMG near-nullspace transfer and affine-MPC reaction recovery
+remain future parallel capabilities.

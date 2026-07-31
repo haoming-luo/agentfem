@@ -11,7 +11,8 @@ together:
 3. Abaqus node labels are retained independently of DOLFINx ordering;
 4. all linear `*EQUATION` terms are parsed, validated, and matched to vector
    displacement degrees of freedom;
-5. chained edge and corner equations become an exact affine reduction;
+5. chained edge and corner equations become an exact serial or distributed
+   affine reduction;
 6. a 3D compressible Neo-Hookean equilibrium is solved incrementally;
 7. XDMF/HDF5 time-series fields, VTU, PNG, GIF/MP4, exact macro histories,
    AF-IR, and convergence evidence are written from one top-level model.
@@ -134,10 +135,12 @@ are deliberately not approximated from homogenized stress: exact affine-MPC
 reaction recovery requires verified constraint multipliers and is listed as a
 remaining result capability.
 
-The unified XDMF/HDF5 series is both the direct ParaView product and the
-scientific field record: topology is shared, reference coordinates are
+In serial, the unified XDMF/HDF5 series is both the direct ParaView product and
+the scientific field record: topology is shared, reference coordinates are
 retained, every frame stores coordinates `x+u`, and all fields share that
-grid. The authoritative homogenized
+grid. Under MPI, DOLFINx writes a collective reference-configuration XDMF/HDF5
+history with `U` and all requested cell fields; direct deformed rendering is a
+separate serial postprocess. The authoritative homogenized
 response is computed from the UFL forms before visualization projection:
 
 ```text
@@ -174,31 +177,38 @@ A credible run should report:
 - positive sampled `det(F)` values;
 - finite averaged first-Piola and Cauchy stresses;
 - consistency between two homogenized stress transformations;
-- an undeformed/deformed VTU pair, a scale-one comparison image, and an
-  incremental animation.
+- serial presentation products (comparison image and incremental animation),
+  or a collective MPI XDMF field history.
 
 The code rejects duplicate equation slaves, cyclic equation graphs, missing
-node-to-dof matches, non-positive target `det(F)`, non-finite residuals, and
-parallel execution of the current serial elimination backend.
+node-to-dof matches, non-positive target `det(F)`, and non-finite residuals.
 
-## Current Engineering Limit
+## Distributed equation backend
 
-The exact equation backend is serial. The example rejects `mpiexec -n 2`
-instead of silently running two duplicate serial jobs. Sparse direct MUMPS is the trustworthy
-reference policy for the present 40k-dof example. Production distributed
-support needs:
+Serial execution constructs an explicit sparse transformation. MPI execution
+uses the same source-level equation graph but:
 
-- global node-label/dof ownership;
-- distributed construction of `T` and `u_bar`;
-- ghost-consistent chained-equation resolution;
-- reduced near-nullspace transfer for AMG;
-- MPI validation of reactions, homogenized stress, and periodic mismatch.
+- resolves chained slaves to independent masters before partition-dependent
+  numbering;
+- maps source labels to global DOLFINx block dofs and owning ranks;
+- supplies identical relations for every locally visible owned or ghost slave;
+- carries the non-homogeneous macroscopic deformation as an affine predictor;
+- constrains Newton corrections homogeneously with `dolfinx_mpc`;
+- assembles and solves one PETSc/MUMPS system across all ranks.
 
-The public constraint semantics need not change when that backend is added.
-`dolfinx_mpc` is the leading backend candidate, but it is a compiled optional
-dependency and the current DOLFINx 0.11 environment does not contain it.
-AgentFEM will advertise parallel Abaqus-equation support only after the
-arbitrary chained equations and finite-strain solve pass two-rank parity tests.
+The public model language is unchanged. A two-rank parity probe on this mesh
+has 44,826 global displacement dofs, 4,212 equation slaves, and 40,602
+independent dofs. For a 1.02 stretch, serial and two-rank runs have the same
+initial reduced residual (`0.613379810971141`), converge in three Newton
+iterations to approximately `1.5e-12`, and retain equation mismatch below
+`2e-17`.
+
+`dolfinx_mpc` is a compiled optional dependency and must match the DOLFINx
+minor version. Sparse direct MUMPS remains the trustworthy reference policy for
+this 40k-dof example. Distributed AMG near-nullspace transfer, verified
+constraint reactions, scaling studies beyond a few ranks, and directly
+deformed collective visualization remain engineering work rather than implied
+capabilities.
 
 ## User-material migration is a separate capability
 

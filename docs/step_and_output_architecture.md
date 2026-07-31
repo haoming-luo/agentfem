@@ -145,19 +145,18 @@ XDMF and HDF5 are one logical dataset. Putting the heavy arrays inline in XML
 would create a much larger, slower text file without improving scientific
 meaning. PVD/VTU remains an optional compatibility backend, not the default.
 
-The current compact writer is serial. Parallel collective HDF5 requires an
-explicit data-ownership and global-numbering design; silently gathering a
-large distributed simulation to rank zero is not an acceptable production
-solution.
+The directly deformed compact writer is serial. Under MPI, AgentFEM delegates
+the scientific field history to DOLFINx's collective XDMF/HDF5 writer rather
+than gathering a large distributed mesh to rank zero. That MPI product retains
+the reference mesh, `U`, and requested cell fields; direct `x+u` presentation
+is rendered later as a serial postprocess.
 
-The current exact importer for arbitrary chained Abaqus `*EQUATION` constraints
-is also serial. Ordinary DOLFINx problems, diagnostics, and progress reporting
-are MPI-aware, but launching this periodic-cell example on several ranks would
-only duplicate a serial job. A production distributed MPC backend must map
-source labels to distributed global dofs, assemble constrained operators
-collectively, back-substitute ghost values, and pass serial/MPI parity tests.
-`dolfinx_mpc` is the intended first backend candidate; it is an optional
-compiled dependency and is not silently emulated when unavailable.
+Arbitrary chained Abaqus `*EQUATION` constraints have a distributed
+`dolfinx_mpc` backend. It resolves the source equation graph before mapping
+labels to global dofs, explicitly supplies relations for owned and ghost
+slaves, assembles constrained operators collectively, and back-substitutes
+Newton corrections. The dependency is optional, compiled, version-matched to
+DOLFINx, and never silently emulated when unavailable.
 
 ## Result roles remain distinct
 
@@ -186,8 +185,8 @@ multiaxial damage model.
 
 ## Next gates
 
-1. Test compact XDMF on MPI with a collective topology/geometry ownership
-   contract before advertising parallel output.
+1. Extend collective MPI output from reference-configuration scientific fields
+   to an ownership-safe directly deformed geometry product.
 2. Add named point, region, reaction, and energy history extractors.
 3. Introduce restartable quadrature state with trial/commit/rollback.
 4. Integrate J2 only with a consistent tangent, cutback, and one-element path

@@ -279,7 +279,15 @@ def _current_element_volume(J, domain, *, name="EVOL"):
     vector = fem_petsc.assemble_vector(
         fem.form(test * J * ufl.dx(domain=domain))
     )
-    output.x.array[:] = vector.array_r
+    owned_size = int(
+        space.dofmap.index_map.size_local
+        * space.dofmap.index_map_bs
+    )
+    if vector.array_r.size != owned_size:
+        raise RuntimeError(
+            "Element-volume vector does not match the owned DG0 dof count."
+        )
+    output.x.array[:owned_size] = vector.array_r
     output.x.scatter_forward()
     vector.destroy()
     return output

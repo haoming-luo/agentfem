@@ -4,9 +4,11 @@ channels:
 dependencies:
   - python=3.11
   - fenics-dolfinx=0.11
+  - dolfinx_mpc=0.11
   - mpich
   - mpi4py
   - petsc4py
+  - h5py
   - numpy
   - pytest
   - pip

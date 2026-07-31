@@ -3,7 +3,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from agentfem.constraints.affine import _build_reduction
+from agentfem.constraints.affine import (
+    _build_reduction,
+    _expand_semantic_relations,
+)
 from agentfem.mesh import abaqus
 
 
@@ -80,6 +83,18 @@ def test_affine_reduction_rejects_constraint_cycles():
         assert "Cyclic" in str(exc)
     else:
         raise AssertionError("A cyclic affine relation must be rejected.")
+
+
+def test_semantic_chain_can_resolve_to_a_zero_correction():
+    relations = {
+        (20, 0): {(10, 0): 1.0, (1, 0): -1.0},
+        (10, 0): {(1, 0): 1.0},
+    }
+
+    expanded = _expand_semantic_relations(relations, {(1, 0)})
+
+    assert expanded[(10, 0)] == {}
+    assert expanded[(20, 0)] == {}
 
 
 def test_periodic_cell_volume_uses_control_node_lattice():

@@ -7,7 +7,7 @@ conda-forge unless you already maintain a compatible MPI/PETSc/DOLFINx build.
 
 ```bash
 mamba create -n agentfem-env -c conda-forge \
-  python=3.11 fenics-dolfinx=0.11 gmsh mpi4py petsc4py \
+  python=3.11 fenics-dolfinx=0.11 dolfinx_mpc=0.11 gmsh mpi4py petsc4py \
   meshio matplotlib jupyterlab ipykernel
 mamba activate agentfem-env
 ```
@@ -46,6 +46,16 @@ For a two-rank smoke test:
 mpiexec -n 2 python examples/static_elasticity_2d.py
 ```
 
+The Abaqus `*EQUATION` periodic-cell example also supports within-case MPI:
+
+```bash
+mpiexec -n 2 python \
+  examples/abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py \
+  --stretch 1.05
+```
+
+This path requires `dolfinx_mpc` with the same minor version as DOLFINx.
+
 The launcher and `mpi4py` must come from the same MPI implementation. On macOS,
 Homebrew Open MPI can appear before a conda MPICH launcher on `PATH`; check
 `which mpiexec` and use the environment's `bin/mpiexec` when they differ.
@@ -54,6 +64,8 @@ Homebrew Open MPI can appear before a conda MPICH launcher on `PATH`; check
 
 - `meshio`: external CAE mesh conversion, including Abaqus `.inp` and NASTRAN
   `.bdf/.nas` formats where supported by meshio.
+- `dolfinx_mpc`: distributed multi-point constraints for Abaqus `*EQUATION`
+  and periodic-cell workflows.
 - `mkdocs`, `mkdocs-material`, `pymdown-extensions`: documentation site.
 - `jupyterlab`, `ipykernel`: notebook workflows.
 

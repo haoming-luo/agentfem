@@ -178,8 +178,9 @@ These should be added before a large material catalog.
 The conceptual separation is strong and should remain non-negotiable.
 Scientific summaries now preserve common prescribed/load values and absorbing
 impedances. Remaining gaps include target-field identity, full region
-references, local coordinate systems, amplitudes on general loads, and
-capability declarations for serial-only periodic projection.
+references, local coordinate systems, amplitudes on general loads, and clear
+capability declarations that distinguish serial nodal projection from the
+distributed Abaqus-equation MPC backend.
 
 The periodic projection implementation is correctly explicit about being a
 serial, nodal-averaging method rather than a general MPC solution. Future MPC
@@ -835,8 +836,8 @@ The next concrete code changes should be:
 7. Add a model-owned transient heat step and checkpoint/restart.
 8. Integrate J2 plasticity only after local state, consistent tangent,
    increment cutback, and single-element path tests are complete.
-9. Extend the two-rank smoke test to focused MPI validation for
-   transient state, diagnostics, and output.
+9. Keep the Abaqus-equation serial/two-rank parity gate and extend focused MPI
+   validation to transient state, diagnostics, scaling, and deformed output.
 10. Add a global adaptive creep step and reproduce closed-form/NAFEMS cases.
 11. Add fatigue stress-history extraction and field-result provenance.
 12. Complete standard QoIs for reactions, energies, curves, and

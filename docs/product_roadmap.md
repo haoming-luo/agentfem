@@ -31,7 +31,7 @@ core, results, verification, and documentation have priority.
 | Power-law creep | material-point verified | constant-stress, relaxation, tensor increments, exact piecewise-constant stress paths | no global adaptive creep step |
 | Stress-life fatigue | postprocessor | Basquin/tabulated S-N, rainflow, Goodman, Miner assessment from named result histories | no multiaxial critical-plane method |
 | External CAE mesh | integrated Abaqus path + conversion interface | generic meshio conversion; Abaqus node labels; verified C3D10 import; linear equation parsing | full solver-deck sections/material cards are not imported |
-| Abaqus periodic equations | serial FEM-integrated | exact chained affine elimination and 3D Neo-Hookean load path | distributed MPC ownership and AMG near-nullspace transfer remain |
+| Abaqus periodic equations | serial + two-rank FEM-integrated | exact chained affine elimination, distributed `dolfinx_mpc`, and 3D Neo-Hookean load path | AMG near-nullspace transfer, reactions, and scaling studies remain |
 | Abaqus user-material bridge | interface contract | solver-neutral material-point input/output and migration specification | no compiled adapter or quadrature-state global driver |
 | Result/data flow | integrated foundation | compact deformed XDMF/HDF5 time series, fields, histories, QoIs, integrals/averages/norms, campaign/dataset bridge | reactions, point probes, restart remain |
 

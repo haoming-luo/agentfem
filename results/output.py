@@ -8,6 +8,7 @@ import xml.etree.ElementTree as ET
 
 import numpy as np
 from dolfinx import fem, plot
+from dolfinx.io import XDMFFile
 import h5py
 
 from .field_catalog import resolve_field_variables
@@ -122,23 +123,35 @@ class FieldOutput:
         reference_xdmf = None
         unified_xdmf = None
         if self.backend in {"xdmf", "both"}:
-            unified_xdmf = output / f"{basename}.xdmf"
-            geometry_scale = (
-                0.0
-                if self.configuration == "reference"
-                else self.deformation_scale
-            )
-            unified_xdmf = write_unified_xdmf_series(
-                unified_xdmf,
-                selected,
-                per_frame_fields,
-                deformation_scale=geometry_scale,
-                store_reference_geometry=True,
-            )
+            if domain.comm.size > 1:
+                reference_xdmf = write_parallel_xdmf_series(
+                    output / f"{basename}_parallel.xdmf",
+                    selected,
+                    per_frame_fields,
+                )
+            else:
+                unified_xdmf = output / f"{basename}.xdmf"
+                geometry_scale = (
+                    0.0
+                    if self.configuration == "reference"
+                    else self.deformation_scale
+                )
+                unified_xdmf = write_unified_xdmf_series(
+                    unified_xdmf,
+                    selected,
+                    per_frame_fields,
+                    deformation_scale=geometry_scale,
+                    store_reference_geometry=True,
+                )
 
         pvd_path = None
         frame_paths = ()
         if self.backend in {"pvd", "both"}:
+            if domain.comm.size > 1:
+                raise NotImplementedError(
+                    "PVD presentation output is serial. Use backend='xdmf' "
+                    "for collective MPI output, then render after the solve."
+                )
             pvd_path, frame_paths = write_deformed_vtk_series(
                 output / f"{basename}_deformed.pvd",
                 selected,
@@ -184,6 +197,39 @@ def field_output(
         deformation_scale=deformation_scale,
         backend=backend,
     )
+
+
+def write_parallel_xdmf_series(
+    xdmf_path,
+    snapshots,
+    cell_fields,
+) -> Path:
+    """Collectively write reference-configuration MPI field histories.
+
+    DOLFINx owns the distributed topology, HDF5 layout, and collective I/O.
+    Directly deformed geometry remains a serial presentation product; the
+    displacement field in this scientific file can be warped in ParaView.
+    """
+
+    selected = tuple(snapshots)
+    fields_by_frame = tuple(cell_fields)
+    if not selected or len(selected) != len(fields_by_frame):
+        raise ValueError(
+            "Parallel XDMF requires equal non-empty snapshot and field frames."
+        )
+    domain = selected[0].solution.function_space.mesh
+    xdmf = Path(xdmf_path)
+    if domain.comm.rank == 0:
+        xdmf.parent.mkdir(parents=True, exist_ok=True)
+    domain.comm.barrier()
+    with XDMFFile(domain.comm, xdmf, "w") as writer:
+        writer.write_mesh(domain)
+        for snapshot, fields in zip(selected, fields_by_frame):
+            time = float(snapshot.load_factor)
+            writer.write_function(snapshot.solution, time)
+            for field in fields:
+                writer.write_function(field, time)
+    return xdmf
 
 
 def write_unified_xdmf_series(

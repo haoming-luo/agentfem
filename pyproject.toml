@@ -33,6 +33,7 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Physics",
 ]
 dependencies = [
+  "h5py",
   "numpy",
   "mpi4py",
 ]
@@ -46,6 +47,7 @@ Documentation = "https://github.com/haoming-luo/agentfem#readme"
 [project.optional-dependencies]
 mesh-formats = ["meshio"]
 visualization = ["meshio", "pyvista", "pillow", "matplotlib"]
+parallel-mpc = ["dolfinx_mpc>=0.11,<0.12"]
 docs = ["mkdocs", "mkdocs-material", "pymdown-extensions"]
 notebooks = ["jupyterlab", "ipykernel", "nbformat", "nbclient"]
 ml = ["torch"]

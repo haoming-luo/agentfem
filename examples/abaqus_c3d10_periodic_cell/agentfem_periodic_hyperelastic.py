@@ -43,15 +43,12 @@ def run(
     source = Path(source or HERE)
     output = Path(output or HERE / "output")
     comm = MPI.COMM_WORLD
-    if comm.size != 1:
-        raise RuntimeError(
-            "The imported Abaqus *EQUATION elimination used by this example is "
-            "currently serial. Running it under mpiexec would duplicate a serial "
-            "job, not create a valid distributed MPC solve. Use AgentFEM's MPI "
-            "examples for true distributed solves while the dolfinx_mpc backend "
-            "is implemented and verified."
-        )
     print_on_root(comm, "[JOB] periodic_neo_hookean_cell")
+    if comm.size > 1:
+        print_on_root(
+            comm,
+            f"[MPI] {comm.size} ranks | distributed Abaqus *EQUATION via dolfinx_mpc",
+        )
     print_on_root(comm, "[PRE] Reading Abaqus C3D10 mesh and *EQUATION data...")
 
     # 1. Import the quadratic tetrahedral mesh and Abaqus periodic equations.
@@ -149,6 +146,17 @@ def run(
     dx = ufl.dx(domain=cell.domain)
     minimum_J, maximum_J = results.quadrature_extrema(J, cell.domain, degree=4)
     final_homogenized = homogenized[-1]
+    local_maximum_displacement = float(
+        np.max(
+            np.linalg.norm(
+                displacement.value.x.array.reshape(-1, 3),
+                axis=1,
+            )
+        )
+    )
+    maximum_displacement = float(
+        comm.allreduce(local_maximum_displacement, op=MPI.MAX)
+    )
     result.add_quantities(
         {
             "target_deformation_gradient": target_F,
@@ -163,14 +171,7 @@ def run(
             ),
             "solid_reference_fraction": final_homogenized.solid_reference_fraction,
             "periodic_equation_max_error": periodicity.mismatch(),
-            "maximum_displacement": float(
-                np.max(
-                    np.linalg.norm(
-                        displacement.value.x.array.reshape(-1, 3),
-                        axis=1,
-                    )
-                )
-            ),
+            "maximum_displacement": maximum_displacement,
         }
     )
     solve_steps = step.last_solve_info.increments
@@ -245,49 +246,46 @@ def run(
             location="cells",
             description="P0 centroid/whole-element visualization field.",
         )
-    screenshot = results.render_unified_xdmf_comparison(
-        field_artifacts.unified_xdmf,
-        output / "periodic_cell_comparison.png",
-    )
     normalized_video_format = video_format.lower().lstrip(".")
     if normalized_video_format not in {"gif", "mp4"}:
         raise ValueError("video_format must be 'gif' or 'mp4'.")
-    if normalized_video_format == "gif":
-        undeformed = deformed = None
-        animation = results.render_unified_xdmf_animation(
+    screenshot = animation = undeformed = deformed = None
+    if comm.size == 1:
+        screenshot = results.render_unified_xdmf_comparison(
             field_artifacts.unified_xdmf,
-            output / "periodic_cell_deformation.gif",
-            scalar="UMAG",
-            fps=video_fps,
+            output / "periodic_cell_comparison.png",
         )
-    else:
-        undeformed, deformed = mesh.abaqus.write_deformation_vtu_pair(
-            source / "R1f10n30vc.dat",
-            cell.nodes,
-            displacement,
-            output,
-            deformation_scale=1.0,
-            basename="periodic_cell",
-        )
-        animation = results.render_deformation_animation(
-            undeformed,
-            step.snapshots,
-            cell.nodes,
-            output / "periodic_cell_deformation.mp4",
-            fps=video_fps,
-        )
-    history_npz = results.write_homogenized_history(
-        output / "homogenized_history.npz",
-        homogenized,
-    )
-    history_csv = results.write_homogenized_csv(
-        output / "homogenized_history.csv",
-        homogenized,
-    )
-    response_plot = plot_response(
-        history_npz,
-        output / "homogenized_response.png",
-    )
+        if normalized_video_format == "gif":
+            animation = results.render_unified_xdmf_animation(
+                field_artifacts.unified_xdmf,
+                output / "periodic_cell_deformation.gif",
+                scalar="UMAG",
+                fps=video_fps,
+            )
+        else:
+            undeformed, deformed = mesh.abaqus.write_deformation_vtu_pair(
+                source / "R1f10n30vc.dat",
+                cell.nodes,
+                displacement,
+                output,
+                deformation_scale=1.0,
+                basename="periodic_cell",
+            )
+            animation = results.render_deformation_animation(
+                undeformed,
+                step.snapshots,
+                cell.nodes,
+                output / "periodic_cell_deformation.mp4",
+                fps=video_fps,
+            )
+    history_npz = output / "homogenized_history.npz"
+    history_csv = output / "homogenized_history.csv"
+    response_plot = output / "homogenized_response.png"
+    if comm.rank == 0:
+        results.write_homogenized_history(history_npz, homogenized)
+        results.write_homogenized_csv(history_csv, homogenized)
+        plot_response(history_npz, response_plot)
+    comm.barrier()
     if field_artifacts.reference_xdmf is not None:
         result.add_artifact(
             "reference_field_history",
@@ -306,8 +304,10 @@ def run(
     if undeformed is not None:
         result.add_artifact("undeformed_vtu", undeformed)
         result.add_artifact("deformed_vtu", deformed)
-    result.add_artifact("deformation_comparison", screenshot)
-    result.add_artifact("deformation_animation", animation)
+    if screenshot is not None:
+        result.add_artifact("deformation_comparison", screenshot)
+    if animation is not None:
+        result.add_artifact("deformation_animation", animation)
     result.add_artifact("homogenized_history_npz", history_npz)
     result.add_artifact("homogenized_history_csv", history_csv)
     result.add_artifact("homogenized_response_plot", response_plot)
@@ -352,14 +352,19 @@ def run(
             ),
         },
     }
-    ir_path = model.write_ir(output / "periodic_cell.afir.json")
+    ir_path = output / "periodic_cell.afir.json"
     manifest_path = output / "periodic_cell.result.json"
     result.add_artifact("model_ir", ir_path)
     result.add_artifact("result_manifest", manifest_path)
-    result.write_manifest(
-        manifest_path,
-        include_histories=True,
-    )
+    # Model.write_ir is collective for distributed meshes: every rank enters,
+    # while the implementation limits the filesystem write to rank zero.
+    model.write_ir(ir_path)
+    if comm.rank == 0:
+        result.write_manifest(
+            manifest_path,
+            include_histories=True,
+        )
+    comm.barrier()
     print_on_root(comm, "[JOB] COMPLETED")
     return model, result
 

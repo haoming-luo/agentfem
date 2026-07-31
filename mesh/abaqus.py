@@ -8,6 +8,7 @@ constraints still need: Abaqus node labels and ``*EQUATION`` terms.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import product
 from pathlib import Path
 import numpy as np
 
@@ -235,37 +236,74 @@ def displacement_in_source_order(
     *,
     tolerance: float = 1.0e-9,
 ) -> np.ndarray:
-    """Return a vector field ordered by Abaqus source node labels."""
+    """Return a vector field ordered by Abaqus source node labels.
+
+    Under MPI each rank contributes its owned dofs and receives the complete
+    source-ordered array. This keeps history extraction deterministic without
+    treating ghost values as independent data.
+    """
 
     function = getattr(displacement, "value", displacement)
     space = function.function_space
-    if space.mesh.comm.size != 1:
-        raise NotImplementedError("Source-order field export is serial in this release.")
+    comm = space.mesh.comm
     block_size = int(space.dofmap.index_map_bs)
     coordinates = np.asarray(space.tabulate_dof_coordinates(), dtype=float)
     values = np.asarray(function.x.array).reshape(-1, block_size)
-    if nodes.coordinates.shape[1] < coordinates.shape[1]:
-        raise ValueError("Abaqus node coordinates have lower dimension than the field mesh.")
-    ordered = np.empty((nodes.labels.size, block_size), dtype=float)
-    buckets: dict[tuple[int, ...], list[int]] = {}
-    for block, coordinate in enumerate(coordinates):
+    dimension = coordinates.shape[1]
+    source_coordinates = np.zeros((nodes.labels.size, dimension), dtype=float)
+    copied_dimension = min(dimension, nodes.coordinates.shape[1])
+    source_coordinates[:, :copied_dimension] = nodes.coordinates[:, :copied_dimension]
+    source_buckets: dict[tuple[int, ...], list[int]] = {}
+    for source_index, coordinate in enumerate(source_coordinates):
         key = tuple(np.rint(coordinate / tolerance).astype(np.int64))
-        buckets.setdefault(key, []).append(block)
-    for source_index, coordinate in enumerate(nodes.coordinates[:, : coordinates.shape[1]]):
+        source_buckets.setdefault(key, []).append(source_index)
+    local: dict[int, np.ndarray] = {}
+    owned_count = space.dofmap.index_map.size_local
+    for block, coordinate in enumerate(coordinates[:owned_count]):
         key = tuple(np.rint(coordinate / tolerance).astype(np.int64))
-        candidates = buckets.get(key, ())
-        if not candidates:
-            raise ValueError(
-                f"Abaqus node {int(nodes.labels[source_index])} has no matching field dof."
+        candidates: list[int] = []
+        for shift in product((-1, 0, 1), repeat=dimension):
+            candidates.extend(
+                source_buckets.get(
+                    tuple(key[i] + shift[i] for i in range(dimension)),
+                    (),
+                )
             )
-        distances = np.linalg.norm(coordinates[candidates] - coordinate, axis=1)
+        if not candidates:
+            continue
+        distances = np.linalg.norm(
+            source_coordinates[candidates] - coordinate,
+            axis=1,
+        )
         closest = int(np.argmin(distances))
         if distances[closest] > tolerance:
+            continue
+        source_index = int(candidates[closest])
+        if source_index in local:
             raise ValueError(
-                f"Abaqus node {int(nodes.labels[source_index])} is "
-                f"{distances[closest]:.3e} from its closest field dof."
+                f"Abaqus node {int(nodes.labels[source_index])} matched "
+                "multiple owned field dofs."
             )
-        ordered[source_index] = values[int(candidates[closest])]
+        local[source_index] = values[block].copy()
+
+    gathered: dict[int, np.ndarray] = {}
+    for rank_values in comm.allgather(local):
+        overlap = set(gathered) & set(rank_values)
+        if overlap:
+            raise ValueError(
+                "Abaqus source nodes have duplicate distributed owners: "
+                f"{sorted(overlap)[:8]}."
+            )
+        gathered.update(rank_values)
+    missing = set(range(nodes.labels.size)) - set(gathered)
+    if missing:
+        labels = [int(nodes.labels[index]) for index in sorted(missing)[:8]]
+        raise ValueError(
+            f"Abaqus nodes have no matching distributed field dofs: {labels}."
+        )
+    ordered = np.empty((nodes.labels.size, block_size), dtype=float)
+    for source_index, value in gathered.items():
+        ordered[source_index] = value
     return ordered
 
 

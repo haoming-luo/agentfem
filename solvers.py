@@ -396,6 +396,20 @@ def solve_affine_nonlinear_path(
     space = function.function_space
     block_size = int(space.dofmap.index_map_bs)
     coordinates = np.asarray(space.tabulate_dof_coordinates(), dtype=float)
+    if space.mesh.comm.size > 1:
+        return _solve_distributed_affine_nonlinear_path(
+            residual,
+            jacobian,
+            function,
+            constraint,
+            control=control,
+            required_factors=required_factors,
+            options=selected,
+            on_increment=on_increment,
+            reporter=reporter,
+            step_name=step_name,
+            step_number=step_number,
+        )
     previous_reduced: np.ndarray | None = None
     previous_affine: np.ndarray | None = None
     history: list[AffineLoadIncrementInfo] = []
@@ -707,6 +721,382 @@ def solve_affine_nonlinear_path(
         tuple(history),
         tuple(attempt_history),
         control,
+    )
+
+
+def _solve_distributed_affine_nonlinear_path(
+    residual,
+    jacobian,
+    function,
+    constraint,
+    *,
+    control,
+    required_factors,
+    options,
+    on_increment,
+    reporter,
+    step_name,
+    step_number,
+):
+    """Distributed Newton path using homogeneous ``dolfinx_mpc`` corrections."""
+
+    import dolfinx_mpc
+
+    reduction = constraint.distributed_reduction()
+    correction = reduction.correction()
+    reduction.validate_prefix_layout(correction)
+    history: list[AffineLoadIncrementInfo] = []
+    attempt_history: list[AffineLoadIncrementInfo] = []
+    accepted_factor = 0.0
+    total_attempts = 0
+    cutbacks = 0
+    proposed_size = (
+        control.initial
+        if isinstance(control, step_controls.AutomaticIncrementation)
+        else control.load_factors[0]
+    )
+    function.x.array[:] = 0.0
+    function.x.scatter_forward()
+    _emit(
+        reporter,
+        SolveEvent(
+            "step_started",
+            step_name,
+            step_number=step_number,
+            incrementation=control.summary()["kind"],
+            message="distributed affine solve with dolfinx_mpc",
+        ),
+    )
+
+    while accepted_factor < 1.0 - 1.0e-12:
+        increment_number = len(history) + 1
+        if isinstance(control, step_controls.AutomaticIncrementation):
+            if len(history) >= control.max_increments:
+                message = (
+                    f"maximum accepted increments ({control.max_increments}) "
+                    "reached before load factor 1.0"
+                )
+                return _failed_affine_path(
+                    function,
+                    history,
+                    attempt_history,
+                    control,
+                    options,
+                    reporter,
+                    step_name,
+                    step_number,
+                    increment_number,
+                    total_attempts,
+                    accepted_factor,
+                    message,
+                )
+            factor = min(1.0, accepted_factor + proposed_size)
+            next_output = _next_output_factor(required_factors, accepted_factor)
+            if next_output is not None:
+                factor = min(factor, next_output)
+        else:
+            factor = control.load_factors[len(history)]
+
+        attempt_number = cutbacks + 1
+        total_attempts += 1
+        _emit(
+            reporter,
+            SolveEvent(
+                "increment_started",
+                step_name,
+                step_number=step_number,
+                increment=increment_number,
+                attempt=attempt_number,
+                start_factor=accepted_factor,
+                target_factor=factor,
+            ),
+        )
+        rollback = function.x.array.copy()
+        constraint.apply_affine_increment(accepted_factor, factor)
+
+        accepted_steps: list[float] = []
+        initial_norm = _distributed_reduced_residual_norm(
+            residual,
+            reduction,
+            dolfinx_mpc,
+        )
+        current_norm = initial_norm
+        threshold = (
+            options.atol + options.rtol * initial_norm
+            if np.isfinite(initial_norm)
+            else options.atol
+        )
+        converged = np.isfinite(current_norm) and current_norm <= threshold
+        iteration = 0
+        while not converged and iteration < options.max_it:
+            if not np.isfinite(current_norm):
+                break
+            iteration += 1
+            direction = _distributed_newton_direction(
+                residual,
+                jacobian,
+                correction,
+                reduction,
+                dolfinx_mpc,
+                options,
+            )
+            base = function.x.array.copy()
+            alpha = 1.0
+            accepted = False
+            while alpha + 1.0e-15 >= options.line_search_minimum:
+                function.x.array[:] = base + alpha * direction
+                function.x.scatter_forward()
+                trial_norm = _distributed_reduced_residual_norm(
+                    residual,
+                    reduction,
+                    dolfinx_mpc,
+                )
+                if np.isfinite(trial_norm) and (
+                    trial_norm < current_norm
+                    or trial_norm <= current_norm * (1.0 - 1.0e-4 * alpha)
+                ):
+                    current_norm = trial_norm
+                    accepted_steps.append(alpha)
+                    accepted = True
+                    break
+                alpha *= options.line_search_reduction
+            if not accepted:
+                function.x.array[:] = base
+                function.x.scatter_forward()
+                _emit(
+                    reporter,
+                    SolveEvent(
+                        "iteration",
+                        step_name,
+                        step_number=step_number,
+                        increment=increment_number,
+                        attempt=attempt_number,
+                        start_factor=accepted_factor,
+                        target_factor=factor,
+                        iteration=iteration,
+                        residual_norm=current_norm,
+                        step_length=0.0,
+                    ),
+                )
+                break
+            _emit(
+                reporter,
+                SolveEvent(
+                    "iteration",
+                    step_name,
+                    step_number=step_number,
+                    increment=increment_number,
+                    attempt=attempt_number,
+                    start_factor=accepted_factor,
+                    target_factor=factor,
+                    iteration=iteration,
+                    residual_norm=current_norm,
+                    step_length=accepted_steps[-1],
+                ),
+            )
+            converged = current_norm <= threshold
+
+        mismatch = float(constraint.mismatch(factor))
+        increment_info = AffineLoadIncrementInfo(
+            load_factor=factor,
+            converged=converged,
+            iterations=iteration,
+            initial_residual_norm=initial_norm,
+            residual_norm=current_norm,
+            accepted_step_lengths=tuple(accepted_steps),
+            reduced_dofs=reduction.reduced_size,
+            equation_mismatch=mismatch,
+            increment=increment_number,
+            attempt=attempt_number,
+            start_load_factor=accepted_factor,
+        )
+        attempt_history.append(increment_info)
+        if converged:
+            history.append(increment_info)
+            accepted_size = factor - accepted_factor
+            accepted_factor = factor
+            cutbacks = 0
+            if on_increment is not None:
+                on_increment(len(history), factor, function, increment_info)
+            _emit(
+                reporter,
+                SolveEvent(
+                    "increment_converged",
+                    step_name,
+                    step_number=step_number,
+                    increment=increment_number,
+                    attempt=attempt_number,
+                    start_factor=increment_info.start_load_factor,
+                    target_factor=factor,
+                    iteration=iteration,
+                    residual_norm=current_norm,
+                ),
+            )
+            if isinstance(control, step_controls.AutomaticIncrementation):
+                proposed_size = control.after_convergence(
+                    accepted_size,
+                    iteration,
+                )
+            continue
+
+        function.x.array[:] = rollback
+        function.x.scatter_forward()
+        if isinstance(control, step_controls.FixedIncrementation):
+            message = (
+                f"fixed increment failed at load factor {factor:.6g}: "
+                f"residual={_residual_text(current_norm)}, "
+                f"threshold={threshold:.6e}"
+            )
+            return _failed_affine_path(
+                function,
+                history,
+                attempt_history,
+                control,
+                options,
+                reporter,
+                step_name,
+                step_number,
+                increment_number,
+                total_attempts,
+                factor,
+                message,
+                iteration=iteration,
+                residual_norm=current_norm,
+            )
+
+        cutbacks += 1
+        next_size = control.after_failure(factor - accepted_factor)
+        if cutbacks > control.max_cutbacks or next_size < control.minimum - 1.0e-15:
+            reason = (
+                f"maximum cutbacks ({control.max_cutbacks}) exceeded"
+                if cutbacks > control.max_cutbacks
+                else f"required increment {next_size:.3g} is below minimum {control.minimum:.3g}"
+            )
+            message = (
+                f"automatic increment failed near load factor {factor:.6g}: "
+                f"{reason}"
+            )
+            return _failed_affine_path(
+                function,
+                history,
+                attempt_history,
+                control,
+                options,
+                reporter,
+                step_name,
+                step_number,
+                increment_number,
+                total_attempts,
+                factor,
+                message,
+                iteration=iteration,
+                residual_norm=current_norm,
+            )
+        proposed_size = max(control.minimum, next_size)
+        _emit(
+            reporter,
+            SolveEvent(
+                "increment_cutback",
+                step_name,
+                step_number=step_number,
+                increment=increment_number,
+                attempt=attempt_number,
+                start_factor=accepted_factor,
+                target_factor=factor,
+                iteration=iteration,
+                residual_norm=current_norm,
+                next_increment=proposed_size,
+            ),
+        )
+
+    function.x.scatter_forward()
+    _emit(
+        reporter,
+        SolveEvent(
+            "step_completed",
+            step_name,
+            step_number=step_number,
+            increment=len(history),
+            attempt=total_attempts,
+            target_factor=1.0,
+        ),
+    )
+    return function, AffineLoadPathInfo(
+        tuple(history),
+        tuple(attempt_history),
+        control,
+    )
+
+
+def _distributed_reduced_residual_norm(
+    residual,
+    reduction,
+    dolfinx_mpc,
+) -> float:
+    vector = dolfinx_mpc.assemble_vector(residual, reduction.mpc)
+    vector.ghostUpdate(
+        addv=PETSc.InsertMode.ADD,
+        mode=PETSc.ScatterMode.REVERSE,
+    )
+    _homogenize_mpc_vector(vector, reduction.mpc)
+    fem_petsc.set_bc(vector, reduction.bcs)
+    value = float(vector.norm())
+    vector.destroy()
+    return value
+
+
+def _distributed_newton_direction(
+    residual,
+    jacobian,
+    correction,
+    reduction,
+    dolfinx_mpc,
+    options,
+) -> np.ndarray:
+    full_residual = dolfinx_mpc.assemble_vector(residual, reduction.mpc)
+    full_residual.ghostUpdate(
+        addv=PETSc.InsertMode.ADD,
+        mode=PETSc.ScatterMode.REVERSE,
+    )
+    _homogenize_mpc_vector(full_residual, reduction.mpc)
+    fem_petsc.set_bc(full_residual, reduction.bcs)
+    tangent = dolfinx_mpc.assemble_matrix(
+        jacobian,
+        reduction.mpc,
+        bcs=reduction.bcs,
+    )
+    tangent.assemble()
+    right_hand_side = full_residual.copy()
+    right_hand_side.scale(-1.0)
+    correction.x.array[:] = 0.0
+    solve_matrix_system(
+        tangent,
+        right_hand_side,
+        correction.x.petsc_vec,
+        options.linear_options,
+    )
+    correction.x.scatter_forward()
+    reduction.mpc.homogenize(correction)
+    reduction.mpc.backsubstitution(correction)
+    local_size = reduction.original_space.dofmap.index_map.size_local
+    ghost_count = reduction.original_space.dofmap.index_map.num_ghosts
+    block_size = int(reduction.original_space.dofmap.index_map_bs)
+    original_array_size = int((local_size + ghost_count) * block_size)
+    direction = correction.x.array[:original_array_size].copy()
+    full_residual.destroy()
+    right_hand_side.destroy()
+    tangent.destroy()
+    return direction
+
+
+def _homogenize_mpc_vector(vector, mpc) -> None:
+    """Zero slave rows in an augmented PETSc vector."""
+
+    with vector.localForm() as local:
+        local.array_w[np.asarray(mpc.slaves, dtype=np.int32)] = 0.0
+    vector.ghostUpdate(
+        addv=PETSc.InsertMode.INSERT,
+        mode=PETSc.ScatterMode.FORWARD,
     )
 
 

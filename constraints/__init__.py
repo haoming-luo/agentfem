@@ -21,6 +21,7 @@ from . import boundary
 from .affine import (
     AbaqusPeriodicConstraint,
     AffineReduction,
+    DistributedAffineReduction,
     abaqus_periodic_cell,
 )
 
