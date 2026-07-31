@@ -9,6 +9,7 @@ import ufl
 from dolfinx import fem
 import h5py
 from mpi4py import MPI
+import pytest
 
 from agentfem import campaigns, datasets, mesh, results
 from agentfem.results.finite_strain import HomogenizedFrame
@@ -200,7 +201,7 @@ def test_result_format_is_concise_and_does_not_dump_numeric_manifest():
     assert "99.0" not in text
 
 
-def test_unified_xdmf_keeps_deformed_time_series_and_fields_in_one_h5(tmp_path):
+def _write_two_frame_unified_xdmf(tmp_path):
     domain = mesh.rectangle(
         (0.0, 0.0),
         (1.0, 1.0),
@@ -234,18 +235,37 @@ def test_unified_xdmf_keeps_deformed_time_series_and_fields_in_one_h5(tmp_path):
         snapshots,
         cell_frames,
     )
-    grids = results.read_unified_xdmf_series(xdmf)
+    return xdmf
+
+
+def test_unified_xdmf_keeps_deformed_time_series_and_fields_in_one_h5(tmp_path):
+    xdmf = _write_two_frame_unified_xdmf(tmp_path)
 
     assert xdmf.exists()
     assert xdmf.with_suffix(".h5").exists()
     assert len(tuple(tmp_path.iterdir())) == 2
+    with h5py.File(xdmf.with_suffix(".h5"), "r") as h5:
+        assert h5.attrs["agentfem_schema"] == "agentfem.unified-xdmf"
+        geometry0 = np.asarray(h5["Frames/0000/Geometry"])
+        geometry1 = np.asarray(h5["Frames/0001/Geometry"])
+        np.testing.assert_allclose(geometry1[:, 0], 1.1 * geometry0[:, 0])
+        np.testing.assert_allclose(
+            np.asarray(h5["Frames/0001/Cell/MISES"]),
+            10.0,
+        )
+        assert set(h5["Frames/0001/Point"]) == {"U", "UMAG"}
+        assert set(h5["Frames/0001/Cell"]) == {"MISES"}
+
+
+def test_unified_xdmf_optional_pyvista_reader(tmp_path):
+    pytest.importorskip("pyvista")
+    xdmf = _write_two_frame_unified_xdmf(tmp_path)
+
+    grids = results.read_unified_xdmf_series(xdmf)
+
     assert len(grids) == 2
     np.testing.assert_allclose(grids[1].points[:, 0], 1.1 * grids[0].points[:, 0])
     np.testing.assert_allclose(grids[1].cell_data["MISES"], 10.0)
-    with h5py.File(xdmf.with_suffix(".h5"), "r") as h5:
-        assert h5.attrs["agentfem_schema"] == "agentfem.unified-xdmf"
-        assert set(h5["Frames/0001/Point"]) == {"U", "UMAG"}
-        assert set(h5["Frames/0001/Cell"]) == {"MISES"}
 
 
 def test_result_bulk_quantity_and_history_records_share_explicit_axes():
