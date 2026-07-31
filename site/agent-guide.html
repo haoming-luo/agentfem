@@ -19,6 +19,13 @@
 <a class="" href="workflow.html">Workflow</a>
 <a class="" href="concepts.html">Concepts</a>
 <a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
 <a class="" href="module-map.html">Module Map</a>
 <a class="" href="api-style.html">API Style</a>
 <a class="" href="extension-rules.html">Extension Rules</a>
@@ -57,17 +64,19 @@
 <li>Function spaces: inspect <code>spaces.py</code>; only inspect <code>kernel/dofs.py</code> for<br>implementation-level dof work.</li>
 <li>Essential boundary conditions: read <code>CONCEPTS.md</code>, then use <code>constraints/</code>.</li>
 <li>Natural loads: read <code>CONCEPTS.md</code>, then use <code>loads.body_load</code>,<br><code>loads.neumann</code>, or <code>loads.boundary_load</code>.</li>
-<li>Constitutive laws: read <code>docs/extension_rules.md</code>, then use <code>constitutive/</code>.</li>
+<li>Constitutive laws: read <code>docs/nonlinear_materials.md</code>, query<br><code>constitutive.capabilities()</code>, then use <code>constitutive/</code>. Never turn a<br>material-point law into a claimed FEM step without state/tangent/solver<br>evidence.</li>
 <li>Absorbing or Robin-like terms: use <code>boundary_models/</code>.</li>
 <li>Assembly or lumped operators: inspect <code>assembly.py</code>.</li>
 <li>Time stepping: inspect <code>time/</code> and <code>problems.py</code>.</li>
 <li>Solves: inspect <code>solvers.py</code>.</li>
+<li>Step incrementation: use <code>steps.automatic(...)</code> by default or<br><code>steps.fixed(...)</code> only when exact fixed subdivision is scientifically<br>intended. <code>max_increments</code> limits accepted increments; Newton <code>max_it</code><br>limits iterations in one attempt.</li>
 <li>Analysis steps: prefer <code>model.step(...)</code> or <code>model.linear_static_step(...)</code><br>when a model owns fields, materials, loads, and constraints. Use<br><code>problems.linear_static</code> or <code>problems.first_order_transient</code> when a workflow<br>intentionally starts from explicit K/C/F operators without model ownership.</li>
 <li>Problem summaries: use <code>problems.FEMProblem</code> when a workflow needs a<br>broader structured audit record.</li>
-<li>Results: inspect <code>diagnostics.py</code>, then use <code>io.CSVLogger</code>,<br><code>io.XDMFTimeSeries</code>, or <code>io.ResultWriter</code>.</li>
+<li>Results: read <code>docs/results_and_campaigns.md</code>; use <code>solve_result()</code>,<br><code>results.SimulationResult</code>, assembled QoIs in <code>results</code>, then attach XDMF/CSV<br>artifacts from <code>io</code>.</li>
 <li>AF-IR and repair: inspect <code>ir/</code> and <code>validation.py</code>. Treat AF-IR 0.1 as an<br>experimental record, not as proof of backend-neutral executability.</li>
 <li>Backend work: inspect <code>backends/</code> and<br><code>docs/air_architecture_roadmap.md</code>. Preserve the full FEniCSx path and do not<br>advertise a backend until its capabilities are independently tested.</li>
 <li>Parameter campaigns and learned models: read<br><code>docs/ai_native_learning.md</code>, then inspect <code>campaigns/</code>, <code>datasets/</code>, and<br><code>surrogates/</code>. Build a fresh model per case; retain units, output shapes,<br>case IDs, validation data, and applicability behavior. Do not present a<br>training residual or successful prediction call as independent scientific<br>validation.</li>
+<li>External meshes: inventory with <code>mesh.inspect_external_mesh(...)</code> before<br>choosing cell/facet types. Preserve conversion manifests and never describe<br>mesh conversion as full Abaqus/ANSYS deck import.</li>
 <li>Example workflows: inspect <code>examples/</code> after reading <code>WORKFLOW.md</code>.</li>
 </ul>
 <h2 id="agent-rules">Agent Rules</h2>
@@ -79,10 +88,12 @@
 <li>Validate imports, syntax, and a small runnable case after structural changes.</li>
 <li>Report structured validation codes and paths when they are available; do not<br>replace them with an unaddressed generic error.</li>
 <li>When changing a public concept, update <code>CONCEPTS.md</code>, <code>WORKFLOW.md</code>, and the<br>relevant skill references.</li>
+<li>Keep solve increments and result frames distinct. Use output<br><code>every=&quot;increment&quot;</code> or <code>intervals=...</code>; reserve “frame” for saved/read result<br>states.</li>
+<li>State whether a nonlinear capability is FEM-integrated, material-point<br>verified, or a postprocessor. Use the benchmark registry as evidence.</li>
 <li>Do not silently extrapolate a learned model. Reject the request or invoke an<br>explicit high-fidelity fallback and report which source produced the result.</li>
 </ul>
 <h2 id="current-platform-focus">Current Platform Focus</h2>
-<p>AgentFEM currently focuses on DOLFINx/PETSc workflows, linear elasticity, explicit dynamics, weak loads, absorbing boundary models, diagnostics, and XDMF output. The architecture should remain open to thermal, multiphysics, viscoelastic, anisotropic, and coupled simulations.</p>
+<p>AgentFEM currently focuses on a dependable DOLFINx/PETSc path: linear elasticity, heat/dynamics building blocks, a bounded Neo-Hookean nonlinear solve, result/campaign/data flow, external mesh conversion, and deliberately staged J2, creep, and fatigue tools. Product depth and verification take priority over adding material names or backend abstractions.</p>
       </article>
     </main>
   </div>

@@ -19,6 +19,13 @@
 <a class="" href="workflow.html">Workflow</a>
 <a class="" href="concepts.html">Concepts</a>
 <a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
 <a class="" href="module-map.html">Module Map</a>
 <a class="" href="api-style.html">API Style</a>
 <a class="" href="extension-rules.html">Extension Rules</a>
@@ -52,6 +59,9 @@ mamba activate agentfem-env</code></pre>
 <pre><code>Model: cantilever_model
 ...
 Static elasticity result: .../examples_output/static_elasticity_2d.xdmf</code></pre>
+<p>For a two-rank smoke test:</p>
+<pre><code>mpiexec -n 2 python examples/static_elasticity_2d.py</code></pre>
+<p>The launcher and <code>mpi4py</code> must come from the same MPI implementation. On macOS, Homebrew Open MPI can appear before a conda MPICH launcher on <code>PATH</code>; check <code>which mpiexec</code> and use the environment&#x27;s <code>bin/mpiexec</code> when they differ.</p>
 <h2 id="optional-tools">Optional Tools</h2>
 <ul>
 <li><code>meshio</code>: external CAE mesh conversion, including Abaqus <code>.inp</code> and NASTRAN<br><code>.bdf/.nas</code> formats where supported by meshio.</li>

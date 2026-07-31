@@ -1,0 +1,68 @@
+# Abaqus UMAT and UHYPER Migration Boundary
+
+## What “compatible” should mean
+
+AgentFEM should not advertise arbitrary Abaqus user subroutines as directly
+portable merely because their Fortran entry-point names are known. A credible
+bridge must preserve the material-point contract:
+
+- old and new deformation gradients, time, temperature, field variables,
+  properties, and state variables enter one update;
+- the update returns Cauchy stress, updated state, energy, and an algorithmic
+  tangent in a declared tensor convention;
+- the global nonlinear driver stores state at quadrature points, commits it
+  only after a converged increment, and uses the returned tangent consistently;
+- one-point, one-element, and full load-path comparisons establish equivalence.
+
+`constitutive.user_material` now records this solver-neutral boundary. It is an
+interface contract, not an executable Abaqus runtime.
+
+## Why UHYPER is the first practical bridge
+
+UHYPER is narrower than UMAT. It describes isotropic hyperelastic energy and
+its derivatives with respect to invariants. That maps naturally to
+AgentFEM/UFL energy formulations and has no general inelastic stress-history
+algorithm to reproduce. A first adapter can therefore:
+
+1. compile a restricted UHYPER routine into a shared library;
+2. call it at selected invariants;
+3. map the returned energy derivatives into an AgentFEM constitutive law;
+4. compare stress and tangent over prescribed deformation paths;
+5. validate a single finite element before a periodic cell.
+
+## Why UMAT requires a constitutive driver
+
+UMAT is a stateful integration algorithm. Abaqus calls it at every material
+point and expects updated Cauchy stress, `STATEV`, and `DDSDDE`. A useful bridge
+therefore requires more than a Python wrapper:
+
+- quadrature-point storage for stress and state variables;
+- trial/commit/rollback semantics across Newton iterations;
+- Abaqus tensor ordering and engineering-shear conversion;
+- finite-rotation and objective-rate conventions;
+- the exact meaning of the old/new deformation gradients;
+- handling of time-step suggestions and possibly nonsymmetric tangents;
+- explicit policy for Abaqus utility calls, includes, orientations, thermal
+  coupling, and element-dependent modified deformation gradients.
+
+A routine limited to the standard arguments, `PROPS`, and `STATEV` is a
+reasonable first migration target. Routines that call Abaqus utilities or
+depend on solver internals need source-level adaptation and cannot be promised
+as drop-in compatible.
+
+## Progressive implementation route
+
+| Stage | Deliverable | Evidence gate |
+| --- | --- | --- |
+| 0 | Solver-neutral material-point input/output contract | validation tests |
+| 1 | UHYPER energy adapter | deformation-path stress/tangent comparison |
+| 2 | Quadrature state, trial/commit/rollback | one-element inelastic test |
+| 3 | Restricted UMAT shared-library adapter | identical material-point paths |
+| 4 | Global nonlinear integration | one-element and benchmark agreement |
+| 5 | Wider Abaqus conventions and utilities | capability matrix per routine |
+
+The important architectural decision is that AgentFEM's global solver consumes
+the neutral material-point protocol. Native Python/C++ materials and Abaqus
+adapters become alternative providers behind the same boundary. This avoids
+making the public model language depend on Abaqus, while preserving a realistic
+route for valuable user-material libraries.

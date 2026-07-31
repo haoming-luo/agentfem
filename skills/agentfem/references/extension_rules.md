@@ -22,3 +22,11 @@ When a new concept is added, update:
 - `WORKFLOW.md` if the workflow changes
 - `docs/module_map.md`
 - The relevant skill reference
+
+For a new constitutive capability, also add:
+
+- an entry in `constitutive/catalog.py`;
+- a benchmark obligation in `benchmarks/registry.py`;
+- material-point evidence before any global FEM convenience step;
+- explicit state/tangent/increment-control evidence before marking it
+  `fem_integrated`.

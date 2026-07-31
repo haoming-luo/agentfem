@@ -19,6 +19,7 @@ from typing import Callable, Mapping
 
 from ..datasets import Quantity, Sample, ScientificDataset
 from ..ir.schema import to_json_safe
+from ..results import SimulationResult
 from .parameters import ParameterSpace, SamplingPlan
 
 
@@ -259,7 +260,8 @@ class Campaign:
 
     ``build(parameters)`` may construct an AgentFEM model, a model/step bundle,
     or any user-defined case object. ``evaluate(case)`` must return either a
-    mapping of named outputs or :class:`CaseOutcome`.
+    mapping of named outputs, :class:`CaseOutcome`, or
+    :class:`agentfem.results.SimulationResult`.
     """
 
     def __init__(
@@ -268,9 +270,13 @@ class Campaign:
         name: str,
         parameter_space: ParameterSpace,
         outputs: tuple[Quantity, ...],
-        evaluate: Callable[[object], Mapping[str, object] | CaseOutcome],
+        evaluate: Callable[
+            [object],
+            Mapping[str, object] | CaseOutcome | SimulationResult,
+        ],
         build: Callable[[Mapping[str, object]], object] | None = None,
         metadata: Mapping[str, object] | None = None,
+        execution: ExecutionPolicy | None = None,
     ) -> None:
         selected_name = str(name).strip()
         if not selected_name:
@@ -290,6 +296,7 @@ class Campaign:
         self.evaluate = evaluate
         self.build = build
         self.metadata = dict(metadata or {})
+        self.execution = execution or ExecutionPolicy()
 
     def plan(self, sampling: SamplingPlan) -> CampaignPlan:
         """Bind one compatible sampling plan to deterministic case IDs."""
@@ -335,7 +342,7 @@ class Campaign:
             != self.parameter_space.summary()
         ):
             raise ValueError("CampaignPlan parameter space differs from the campaign.")
-        selected_policy = policy or ExecutionPolicy()
+        selected_policy = policy or self.execution
         output = None if output_directory is None else Path(output_directory)
         rank = getattr(comm, "rank", 0)
         if output is not None and rank == 0:
@@ -421,7 +428,10 @@ class Campaign:
                 else self.build(dict(case.parameters))
             )
             raw = self.evaluate(built)
-            outcome = raw if isinstance(raw, CaseOutcome) else CaseOutcome(outputs=raw)
+            outcome = _as_case_outcome(
+                raw,
+                expected_names=tuple(quantity.name for quantity in self.outputs),
+            )
             expected = {quantity.name for quantity in self.outputs}
             actual = set(outcome.outputs)
             if actual != expected:
@@ -474,6 +484,7 @@ class Campaign:
             "build": _callable_identity(self.build),
             "evaluate": _callable_identity(self.evaluate),
             "metadata": self.metadata,
+            "execution": self.execution.summary(),
         }
 
 
@@ -481,6 +492,31 @@ def create(**kwargs) -> Campaign:
     """Create a :class:`Campaign` using the public functional spelling."""
 
     return Campaign(**kwargs)
+
+
+def _as_case_outcome(
+    raw: Mapping[str, object] | CaseOutcome | SimulationResult,
+    *,
+    expected_names: tuple[str, ...],
+) -> CaseOutcome:
+    """Normalize a campaign evaluator result without serializing live fields."""
+
+    if isinstance(raw, CaseOutcome):
+        return raw
+    if isinstance(raw, SimulationResult):
+        return CaseOutcome(
+            outputs=raw.outputs(expected_names),
+            provenance={"simulation_result": raw.summary()},
+            artifacts={
+                name: str(path) for name, path in raw.artifacts.items()
+            },
+        )
+    if isinstance(raw, Mapping):
+        return CaseOutcome(outputs=raw)
+    raise TypeError(
+        "Campaign.evaluate must return a mapping, CaseOutcome, or "
+        "SimulationResult."
+    )
 
 
 def _case_provenance(built) -> dict[str, object]:

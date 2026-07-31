@@ -19,6 +19,13 @@
 <a class="" href="workflow.html">Workflow</a>
 <a class="" href="concepts.html">Concepts</a>
 <a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
 <a class="" href="module-map.html">Module Map</a>
 <a class="active" href="api-style.html">API Style</a>
 <a class="" href="extension-rules.html">Extension Rules</a>
@@ -66,11 +73,11 @@
 <li>Provide application-level constructors when they reduce boilerplate, such as<br><code>constraints.fixed(...)</code> for fixed-value Dirichlet conditions.</li>
 <li>Field arithmetic should be eager and explicit for same-space field algebra:<br><code>field_a + scalar * field_b</code> returns a numerical AgentFEM field, not a hidden<br>symbolic solve.</li>
 <li>Use <code>amplitudes</code> for reusable time histories and scale factors that can<br>drive loads, constraints, sources, or prescribed data.</li>
-<li>Hide backend scalar-type details inside concept constructors such as<br><code>loads.traction(...)</code>, <code>constraints.fixed(...)</code>, and material-property<br>loaders.</li>
+<li>Hide backend scalar-type details inside concept constructors such as<br><code>loads.traction(...)</code>, <code>loads.pressure(...)</code>, <code>constraints.fixed(...)</code>,<br><code>constraints.symmetry(...)</code>, and material-property<br>loaders.</li>
 <li>Application examples should not call <code>PETSc.ScalarType</code> directly. Use<br><code>kernel.constants.scalar_value(...)</code> in low-level helpers and<br><code>amplitudes.Amplitude</code> with<br><code>constraints.time_dependent_component_dirichlet(...)</code> for time-dependent<br>boundary data.</li>
 <li>For vector fields, application-level constraint constructors should make the<br>common case short: <code>constraints.fixed(displacement, on=left)</code> fixes all<br>displacement components, while <code>components=0</code> or <code>components=(0, 1)</code> selects<br>individual dofs.</li>
 <li>Prefer <code>on=...</code> for geometric targets in user-facing APIs. Keep <code>location=...</code><br>as a compatibility spelling for explicit region objects.</li>
-<li>Provide model-level registration helpers such as <code>model.field(...)</code>,<br><code>model.fix(...)</code>, and <code>model.traction(...)</code> when they keep the workflow<br>readable without hiding finite-element meaning.</li>
+<li>Provide model-level registration helpers such as <code>model.field(...)</code>,<br><code>model.fix(...)</code>, <code>model.symmetry(...)</code>, <code>model.pressure(...)</code>, and<br><code>model.traction(...)</code> when they keep the workflow<br>readable without hiding finite-element meaning.</li>
 <li>Provide model-level operator helpers such as <code>model.stiffness(...)</code>,<br><code>model.internal_force(...)</code>, and <code>model.external_force(...)</code> for daily<br>application scripts. These helpers should delegate to <code>operators</code> and<br>preserve inspectable operator summaries.</li>
 <li>Prefer model-owned step helpers such as <code>model.linear_static_step(...)</code> for<br>beginner workflows. The step should expose its K/F system through summaries<br>so it remains auditable rather than becoming a black box.</li>
 <li>Provide operator-level constructors for engineering FEM notation, such as<br><code>operators.stiffness(...)</code>, <code>operators.capacity_operator(...)</code>,<br><code>operators.conduction_operator(...)</code>, and <code>operators.load_vector(...)</code>.</li>

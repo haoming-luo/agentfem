@@ -167,6 +167,24 @@ def linear_static(
     )
 
 
+def nonlinear_static(
+    *,
+    physics: str,
+    dimension: int,
+    assumption: str | None = None,
+    name: str | None = None,
+) -> Study:
+    """Define a nonlinear static study."""
+
+    return define(
+        analysis="nonlinear_static",
+        physics=physics,
+        dimension=dimension,
+        assumption=assumption,
+        name=name,
+    )
+
+
 def first_order_transient(
     *,
     physics: str,

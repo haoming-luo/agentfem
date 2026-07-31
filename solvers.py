@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 
+import numpy as np
 from petsc4py import PETSc
 
+from dolfinx import fem
 import dolfinx.fem.petsc as fem_petsc
+
+from . import steps as step_controls
 
 
 @dataclass(frozen=True)
@@ -18,6 +23,7 @@ class LinearSolverOptions:
     rtol: float | None = None
     atol: float | None = None
     max_it: int | None = None
+    factor_solver_type: str | None = None
 
     def __post_init__(self) -> None:
         if self.rtol is not None and self.rtol <= 0.0:
@@ -26,6 +32,15 @@ class LinearSolverOptions:
             raise ValueError("LinearSolverOptions.atol must be positive.")
         if self.max_it is not None and self.max_it <= 0:
             raise ValueError("LinearSolverOptions.max_it must be positive.")
+        factor_pc_types = {"lu", "cholesky", "ilu", "icc"}
+        if (
+            self.factor_solver_type is not None
+            and self.pc_type.lower() not in factor_pc_types
+        ):
+            raise ValueError(
+                "factor_solver_type requires a factorization preconditioner: "
+                f"pc_type must be one of {sorted(factor_pc_types)}."
+            )
 
     def summary(self) -> dict[str, object]:
         """Return an inspectable solver-policy record."""
@@ -37,7 +52,212 @@ class LinearSolverOptions:
             "rtol": self.rtol,
             "atol": self.atol,
             "max_it": self.max_it,
+            "factor_solver_type": self.factor_solver_type,
         }
+
+
+@dataclass(frozen=True)
+class NonlinearSolverOptions:
+    """PETSc SNES/KSP policy for nonlinear finite-element solves."""
+
+    snes_type: str = "newtonls"
+    rtol: float = 1.0e-8
+    atol: float = 1.0e-10
+    max_it: int = 50
+    line_search_type: str | None = "bt"
+    ksp_type: str = "preonly"
+    pc_type: str = "lu"
+    error_if_not_converged: bool = True
+
+    def __post_init__(self) -> None:
+        if self.rtol <= 0.0 or self.atol <= 0.0:
+            raise ValueError("Nonlinear solver tolerances must be positive.")
+        if self.max_it <= 0:
+            raise ValueError("NonlinearSolverOptions.max_it must be positive.")
+
+    def petsc_options(self) -> dict[str, object]:
+        options: dict[str, object] = {
+            "snes_type": self.snes_type,
+            "snes_rtol": self.rtol,
+            "snes_atol": self.atol,
+            "snes_max_it": self.max_it,
+            "snes_error_if_not_converged": self.error_if_not_converged,
+            "ksp_type": self.ksp_type,
+            "pc_type": self.pc_type,
+        }
+        if self.line_search_type is not None:
+            options["snes_linesearch_type"] = self.line_search_type
+        return options
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "nonlinear_solver_options",
+            "snes_type": self.snes_type,
+            "rtol": self.rtol,
+            "atol": self.atol,
+            "max_it": self.max_it,
+            "line_search_type": self.line_search_type,
+            "ksp_type": self.ksp_type,
+            "pc_type": self.pc_type,
+            "error_if_not_converged": self.error_if_not_converged,
+        }
+
+
+@dataclass(frozen=True)
+class NonlinearSolveInfo:
+    """Convergence evidence returned by a PETSc SNES solve."""
+
+    converged_reason: int
+    iterations: int
+    function_norm: float
+
+    @property
+    def converged(self) -> bool:
+        return self.converged_reason > 0
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "nonlinear_solve_info",
+            "converged": self.converged,
+            "converged_reason": self.converged_reason,
+            "iterations": self.iterations,
+            "function_norm": self.function_norm,
+        }
+
+
+@dataclass(frozen=True)
+class AffineNewtonOptions:
+    """Newton policy for an affine-reduced nonlinear equilibrium path."""
+
+    rtol: float = 1.0e-8
+    atol: float = 1.0e-9
+    max_it: int = 30
+    line_search_reduction: float = 0.5
+    line_search_minimum: float = 1.0 / 128.0
+    ksp_type: str = "preonly"
+    pc_type: str = "lu"
+    ksp_rtol: float = 1.0e-10
+    ksp_max_it: int = 1000
+    factor_solver_type: str | None = "mumps"
+    error_if_not_converged: bool = True
+
+    def __post_init__(self) -> None:
+        if self.rtol <= 0.0 or self.atol <= 0.0:
+            raise ValueError("Affine Newton tolerances must be positive.")
+        if self.max_it <= 0:
+            raise ValueError("AffineNewtonOptions.max_it must be positive.")
+        if not 0.0 < self.line_search_reduction < 1.0:
+            raise ValueError("line_search_reduction must lie between zero and one.")
+        if not 0.0 < self.line_search_minimum <= 1.0:
+            raise ValueError("line_search_minimum must lie in (0, 1].")
+        if self.ksp_rtol <= 0.0 or self.ksp_max_it <= 0:
+            raise ValueError("Affine Newton KSP tolerances must be positive.")
+
+    @property
+    def linear_options(self) -> LinearSolverOptions:
+        return LinearSolverOptions(
+            ksp_type=self.ksp_type,
+            pc_type=self.pc_type,
+            rtol=self.ksp_rtol,
+            max_it=self.ksp_max_it,
+            factor_solver_type=self.factor_solver_type,
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "affine_newton_options",
+            "rtol": self.rtol,
+            "atol": self.atol,
+            "max_it": self.max_it,
+            "line_search_reduction": self.line_search_reduction,
+            "line_search_minimum": self.line_search_minimum,
+            "linear_solver": self.linear_options.summary(),
+            "error_if_not_converged": self.error_if_not_converged,
+        }
+
+
+@dataclass(frozen=True)
+class AffineLoadIncrementInfo:
+    """Convergence evidence for one macroscopic load increment."""
+
+    load_factor: float
+    converged: bool
+    iterations: int
+    initial_residual_norm: float
+    residual_norm: float
+    accepted_step_lengths: tuple[float, ...]
+    reduced_dofs: int
+    equation_mismatch: float
+    increment: int = 0
+    attempt: int = 1
+    start_load_factor: float = 0.0
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "increment": self.increment,
+            "attempt": self.attempt,
+            "start_load_factor": self.start_load_factor,
+            "load_factor": self.load_factor,
+            "increment_size": self.load_factor - self.start_load_factor,
+            "converged": self.converged,
+            "iterations": self.iterations,
+            "initial_residual_norm": _finite_or_none(self.initial_residual_norm),
+            "residual_norm": _finite_or_none(self.residual_norm),
+            "accepted_step_lengths": self.accepted_step_lengths,
+            "reduced_dofs": self.reduced_dofs,
+            "equation_mismatch": self.equation_mismatch,
+        }
+
+
+@dataclass(frozen=True)
+class AffineLoadPathInfo:
+    """Convergence evidence for an incrementally applied affine constraint."""
+
+    increments: tuple[AffineLoadIncrementInfo, ...]
+    attempts: tuple[AffineLoadIncrementInfo, ...] = ()
+    incrementation: object | None = None
+
+    @property
+    def converged(self) -> bool:
+        return (
+            bool(self.increments)
+            and all(step.converged for step in self.increments)
+            and abs(self.increments[-1].load_factor - 1.0) <= 1.0e-12
+        )
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "affine_nonlinear_load_path",
+            "converged": self.converged,
+            "accepted_increment_count": len(self.increments),
+            "attempt_count": len(self.attempts),
+            "incrementation": (
+                None
+                if self.incrementation is None
+                else self.incrementation.summary()
+            ),
+            "increments": [step.as_dict() for step in self.increments],
+            "attempts": [step.as_dict() for step in self.attempts],
+        }
+
+
+@dataclass(frozen=True)
+class SolveEvent:
+    """One structured event emitted by a nonlinear analysis step."""
+
+    kind: str
+    step_name: str
+    step_number: int = 1
+    increment: int = 0
+    attempt: int = 0
+    start_factor: float = 0.0
+    target_factor: float = 0.0
+    iteration: int = 0
+    residual_norm: float | None = None
+    step_length: float | None = None
+    next_increment: float | None = None
+    incrementation: str = ""
+    message: str = ""
 
 
 def create_ksp(comm, options: LinearSolverOptions | None = None):
@@ -48,6 +268,8 @@ def create_ksp(comm, options: LinearSolverOptions | None = None):
     ksp.setType(options.ksp_type)
     pc = ksp.getPC()
     pc.setType(options.pc_type)
+    if options.factor_solver_type is not None:
+        pc.setFactorSolverType(options.factor_solver_type)
     if options.rtol is not None or options.atol is not None or options.max_it is not None:
         ksp.setTolerances(
             rtol=options.rtol,
@@ -104,3 +326,479 @@ def solve_linear_problem(
     b.destroy()
     A.destroy()
     return solution
+
+
+def solve_nonlinear_problem(
+    residual_form,
+    solution,
+    *,
+    bcs=None,
+    jacobian_form=None,
+    options: NonlinearSolverOptions | None = None,
+    petsc_options_prefix: str = "agentfem_nonlinear_",
+) -> tuple[object, NonlinearSolveInfo]:
+    """Solve ``R(u; v) = 0`` with the current DOLFINx PETSc/SNES interface."""
+
+    from dolfinx.fem.petsc import NonlinearProblem
+
+    selected = options or NonlinearSolverOptions()
+    problem = NonlinearProblem(
+        residual_form,
+        solution,
+        bcs=[] if bcs is None else list(bcs),
+        J=jacobian_form,
+        petsc_options_prefix=petsc_options_prefix,
+        petsc_options=selected.petsc_options(),
+    )
+    solved = problem.solve()
+    solved.x.scatter_forward()
+    solver = problem.solver
+    info = NonlinearSolveInfo(
+        converged_reason=int(solver.getConvergedReason()),
+        iterations=int(solver.getIterationNumber()),
+        function_norm=float(solver.getFunctionNorm()),
+    )
+    return solved, info
+
+
+def solve_affine_nonlinear_path(
+    residual_form,
+    jacobian_form,
+    solution,
+    constraint,
+    *,
+    load_factors=None,
+    incrementation=None,
+    output_factors=(),
+    options: AffineNewtonOptions | None = None,
+    on_increment=None,
+    reporter=None,
+    step_name: str = "affine_nonlinear",
+    step_number: int = 1,
+) -> tuple[object, AffineLoadPathInfo]:
+    """Solve a nonlinear path under ``u = T q + u_bar`` constraints.
+
+    The implementation assembles the ordinary full-space DOLFINx residual and
+    tangent, then applies exact variational reduction.  This keeps constitutive
+    forms independent of the constraint backend.
+    """
+
+    selected = options or AffineNewtonOptions()
+    control = step_controls.normalize(
+        incrementation,
+        load_factors=load_factors,
+    )
+    required_factors = _normalized_output_factors(output_factors)
+
+    residual = fem.form(residual_form)
+    jacobian = fem.form(jacobian_form)
+    function = solution.value if hasattr(solution, "value") else solution
+    space = function.function_space
+    block_size = int(space.dofmap.index_map_bs)
+    coordinates = np.asarray(space.tabulate_dof_coordinates(), dtype=float)
+    previous_reduced: np.ndarray | None = None
+    previous_affine: np.ndarray | None = None
+    history: list[AffineLoadIncrementInfo] = []
+    attempt_history: list[AffineLoadIncrementInfo] = []
+    accepted_factor = 0.0
+    total_attempts = 0
+    cutbacks = 0
+    proposed_size = (
+        control.initial
+        if isinstance(control, step_controls.AutomaticIncrementation)
+        else control.load_factors[0]
+    )
+    _emit(
+        reporter,
+        SolveEvent(
+            "step_started",
+            step_name,
+            step_number=step_number,
+            incrementation=control.summary()["kind"],
+        ),
+    )
+
+    while accepted_factor < 1.0 - 1.0e-12:
+        increment_number = len(history) + 1
+        if isinstance(control, step_controls.AutomaticIncrementation):
+            if len(history) >= control.max_increments:
+                message = (
+                    f"maximum accepted increments ({control.max_increments}) "
+                    "reached before load factor 1.0"
+                )
+                return _failed_affine_path(
+                    function,
+                    history,
+                    attempt_history,
+                    control,
+                    selected,
+                    reporter,
+                    step_name,
+                    step_number,
+                    increment_number,
+                    total_attempts,
+                    accepted_factor,
+                    message,
+                )
+            factor = min(1.0, accepted_factor + proposed_size)
+            next_output = _next_output_factor(required_factors, accepted_factor)
+            if next_output is not None:
+                factor = min(factor, next_output)
+        else:
+            factor = control.load_factors[len(history)]
+        attempt_number = cutbacks + 1
+        total_attempts += 1
+        _emit(
+            reporter,
+            SolveEvent(
+                "increment_started",
+                step_name,
+                step_number=step_number,
+                increment=increment_number,
+                attempt=attempt_number,
+                start_factor=accepted_factor,
+                target_factor=factor,
+            ),
+        )
+        rollback = function.x.array.copy()
+        reduction = constraint.reduction(factor)
+        T = reduction.matrix(function.function_space.mesh.comm)
+        current_F = np.eye(block_size) + factor * (
+            constraint.deformation_gradient - np.eye(block_size)
+        )
+        current_affine = reduction.initial_reduced_values(
+            coordinates,
+            current_F,
+            block_size=block_size,
+        )
+        if previous_reduced is None:
+            reduced_values = current_affine.copy()
+        else:
+            if previous_reduced.size != reduction.reduced_size:
+                raise RuntimeError("Affine reduction topology changed between load increments.")
+            reduced_values = previous_reduced + current_affine - previous_affine
+        _assign_reconstructed(function, reduction, reduced_values)
+
+        accepted_steps: list[float] = []
+        initial_norm = _reduced_residual_norm(residual, T)
+        current_norm = initial_norm
+        threshold = (
+            selected.atol + selected.rtol * initial_norm
+            if np.isfinite(initial_norm)
+            else selected.atol
+        )
+        converged = np.isfinite(current_norm) and current_norm <= threshold
+        iteration = 0
+        reduced_tangent = None
+        while not converged and iteration < selected.max_it:
+            if not np.isfinite(current_norm):
+                break
+            iteration += 1
+            full_residual = fem_petsc.assemble_vector(residual)
+            full_residual.ghostUpdate(
+                addv=PETSc.InsertMode.ADD,
+                mode=PETSc.ScatterMode.REVERSE,
+            )
+            full_tangent = fem_petsc.assemble_matrix(jacobian)
+            full_tangent.assemble()
+            reduced_residual = T.createVecRight()
+            T.multTranspose(full_residual, reduced_residual)
+            reduced_tangent = full_tangent.PtAP(T, result=reduced_tangent)
+            right_hand_side = reduced_residual.copy()
+            right_hand_side.scale(-1.0)
+            increment = reduced_residual.duplicate()
+            increment.set(0.0)
+            solve_matrix_system(
+                reduced_tangent,
+                right_hand_side,
+                increment,
+                selected.linear_options,
+            )
+            direction = increment.array_r.copy()
+
+            full_residual.destroy()
+            full_tangent.destroy()
+            reduced_residual.destroy()
+            right_hand_side.destroy()
+            increment.destroy()
+
+            alpha = 1.0
+            accepted = False
+            while alpha + 1.0e-15 >= selected.line_search_minimum:
+                trial = reduced_values + alpha * direction
+                _assign_reconstructed(function, reduction, trial)
+                trial_norm = _reduced_residual_norm(residual, T)
+                if np.isfinite(trial_norm) and (
+                    trial_norm < current_norm
+                    or trial_norm <= current_norm * (1.0 - 1.0e-4 * alpha)
+                ):
+                    reduced_values = trial
+                    current_norm = trial_norm
+                    accepted_steps.append(alpha)
+                    accepted = True
+                    break
+                alpha *= selected.line_search_reduction
+            if not accepted:
+                _assign_reconstructed(function, reduction, reduced_values)
+                _emit(
+                    reporter,
+                    SolveEvent(
+                        "iteration",
+                        step_name,
+                        step_number=step_number,
+                        increment=increment_number,
+                        attempt=attempt_number,
+                        start_factor=accepted_factor,
+                        target_factor=factor,
+                        iteration=iteration,
+                        residual_norm=current_norm,
+                        step_length=0.0,
+                    ),
+                )
+                break
+            _emit(
+                reporter,
+                SolveEvent(
+                    "iteration",
+                    step_name,
+                    step_number=step_number,
+                    increment=increment_number,
+                    attempt=attempt_number,
+                    start_factor=accepted_factor,
+                    target_factor=factor,
+                    iteration=iteration,
+                    residual_norm=current_norm,
+                    step_length=accepted_steps[-1],
+                ),
+            )
+            converged = current_norm <= threshold
+
+        if reduced_tangent is not None:
+            reduced_tangent.destroy()
+        mismatch = float(constraint.mismatch(factor))
+        increment_info = AffineLoadIncrementInfo(
+            load_factor=factor,
+            converged=converged,
+            iterations=iteration,
+            initial_residual_norm=initial_norm,
+            residual_norm=current_norm,
+            accepted_step_lengths=tuple(accepted_steps),
+            reduced_dofs=reduction.reduced_size,
+            equation_mismatch=mismatch,
+            increment=increment_number,
+            attempt=attempt_number,
+            start_load_factor=accepted_factor,
+        )
+        attempt_history.append(increment_info)
+        T.destroy()
+        if converged:
+            previous_reduced = reduced_values.copy()
+            previous_affine = current_affine.copy()
+            history.append(increment_info)
+            accepted_size = factor - accepted_factor
+            accepted_factor = factor
+            cutbacks = 0
+            if on_increment is not None:
+                on_increment(len(history), factor, function, increment_info)
+            _emit(
+                reporter,
+                SolveEvent(
+                    "increment_converged",
+                    step_name,
+                    step_number=step_number,
+                    increment=increment_number,
+                    attempt=attempt_number,
+                    start_factor=increment_info.start_load_factor,
+                    target_factor=factor,
+                    iteration=iteration,
+                    residual_norm=current_norm,
+                ),
+            )
+            if isinstance(control, step_controls.AutomaticIncrementation):
+                proposed_size = control.after_convergence(
+                    accepted_size,
+                    iteration,
+                )
+            continue
+
+        function.x.array[:] = rollback
+        function.x.scatter_forward()
+        if isinstance(control, step_controls.FixedIncrementation):
+            message = (
+                f"fixed increment failed at load factor {factor:.6g}: "
+                f"residual={_residual_text(current_norm)}, "
+                f"threshold={threshold:.6e}"
+            )
+            return _failed_affine_path(
+                function,
+                history,
+                attempt_history,
+                control,
+                selected,
+                reporter,
+                step_name,
+                step_number,
+                increment_number,
+                total_attempts,
+                factor,
+                message,
+                iteration=iteration,
+                residual_norm=current_norm,
+            )
+
+        cutbacks += 1
+        next_size = control.after_failure(factor - accepted_factor)
+        if cutbacks > control.max_cutbacks or next_size < control.minimum - 1.0e-15:
+            reason = (
+                f"maximum cutbacks ({control.max_cutbacks}) exceeded"
+                if cutbacks > control.max_cutbacks
+                else f"required increment {next_size:.3g} is below minimum {control.minimum:.3g}"
+            )
+            message = (
+                f"automatic increment failed near load factor {factor:.6g}: "
+                f"{reason}"
+            )
+            return _failed_affine_path(
+                function,
+                history,
+                attempt_history,
+                control,
+                selected,
+                reporter,
+                step_name,
+                step_number,
+                increment_number,
+                total_attempts,
+                factor,
+                message,
+                iteration=iteration,
+                residual_norm=current_norm,
+            )
+        proposed_size = max(control.minimum, next_size)
+        _emit(
+            reporter,
+            SolveEvent(
+                "increment_cutback",
+                step_name,
+                step_number=step_number,
+                increment=increment_number,
+                attempt=attempt_number,
+                start_factor=accepted_factor,
+                target_factor=factor,
+                iteration=iteration,
+                residual_norm=current_norm,
+                next_increment=proposed_size,
+            ),
+        )
+
+    function.x.scatter_forward()
+    _emit(
+        reporter,
+        SolveEvent(
+            "step_completed",
+            step_name,
+            step_number=step_number,
+            increment=len(history),
+            attempt=total_attempts,
+            target_factor=1.0,
+        ),
+    )
+    return function, AffineLoadPathInfo(
+        tuple(history),
+        tuple(attempt_history),
+        control,
+    )
+
+
+def _failed_affine_path(
+    function,
+    history,
+    attempts,
+    control,
+    options,
+    reporter,
+    step_name,
+    step_number,
+    increment,
+    total_attempts,
+    target_factor,
+    message,
+    *,
+    iteration=0,
+    residual_norm=None,
+):
+    _emit(
+        reporter,
+        SolveEvent(
+            "step_failed",
+            step_name,
+            step_number=step_number,
+            increment=increment,
+            attempt=total_attempts,
+            target_factor=target_factor,
+            iteration=iteration,
+            residual_norm=residual_norm,
+            message=message,
+        ),
+    )
+    info = AffineLoadPathInfo(tuple(history), tuple(attempts), control)
+    if options.error_if_not_converged:
+        raise RuntimeError(message)
+    function.x.scatter_forward()
+    return function, info
+
+
+def _normalized_output_factors(values) -> tuple[float, ...]:
+    selected = tuple(float(value) for value in values)
+    if any(not isfinite(value) or value <= 0.0 or value > 1.0 for value in selected):
+        raise ValueError("Output factors must lie in the normalized interval (0, 1].")
+    if any(right <= left for left, right in zip(selected, selected[1:])):
+        raise ValueError("Output factors must be strictly increasing.")
+    return selected
+
+
+def _next_output_factor(values, current: float) -> float | None:
+    for value in values:
+        if value > current + 1.0e-12:
+            return value
+    return None
+
+
+def _emit(reporter, event: SolveEvent) -> None:
+    if reporter is None:
+        return
+    if hasattr(reporter, "emit"):
+        reporter.emit(event)
+    else:
+        reporter(event)
+
+
+def _finite_or_none(value):
+    selected = float(value)
+    return selected if np.isfinite(selected) else None
+
+
+def _residual_text(value) -> str:
+    return f"{float(value):.6e}" if np.isfinite(value) else "non-finite"
+
+
+def _assign_reconstructed(function, reduction, reduced_values) -> None:
+    values = reduction.reconstruct(reduced_values)
+    if values.size != function.x.array.size:
+        raise RuntimeError("Affine reconstruction size does not match the solution vector.")
+    function.x.array[:] = values
+    function.x.scatter_forward()
+
+
+def _reduced_residual_norm(residual_form, transformation) -> float:
+    full = fem_petsc.assemble_vector(residual_form)
+    full.ghostUpdate(
+        addv=PETSc.InsertMode.ADD,
+        mode=PETSc.ScatterMode.REVERSE,
+    )
+    reduced = transformation.createVecRight()
+    transformation.multTranspose(full, reduced)
+    value = float(reduced.norm())
+    full.destroy()
+    reduced.destroy()
+    return value

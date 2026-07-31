@@ -1,5 +1,11 @@
 # AgentFEM AIR Architecture and Engineering Roadmap
 
+> Product priority note: the executable FEniCSx product, nonlinear mechanics,
+> results, interoperability, and verification now have the governing
+> near-term roadmap in `docs/product_roadmap.md`. AF-IR remains experimental
+> and should advance only when a loader, migration, validator, or independent
+> consumer creates evidence for a stable representation.
+
 ## Purpose
 
 This document turns the long-term AF-IR/AIR argument into an engineering
@@ -815,29 +821,34 @@ state which rows are missing.
 
 The next concrete code changes should be:
 
-1. Add formal types for object IDs and references.
-2. Add AF-IR loading plus strict version checks.
+1. Unify linear, nonlinear, and transient outputs through `SimulationResult`;
+   finish reactions, energies, point/path probes, projection, and restart.
+2. Harden Neo-Hookean nonlinear-static solving and build the quadrature-state
+   protocol required for a real J2 finite-element step.
 3. Add validation for region emptiness, partition overlap/completeness, target
    mesh consistency, and step/operator completeness.
-4. Add an execution record for the static example.
-5. Add benchmark objects with expected quantities and tolerances.
-6. Add solver convergence reason and iteration count to execution evidence.
-7. Add a model-owned transient heat step and corresponding AF-IR coverage.
-8. Introduce `OperatorSpec` only for mass, diffusion, isotropic elasticity,
-   and simple loads.
-9. Extend the existing two-rank smoke test to focused MPI validation for
+4. Complete external mesh volume/boundary region import with real Abaqus,
+   Nastran, Gmsh, Exodus, and MED golden files.
+5. Expand the test-linked benchmark registry with expected quantities,
+   tolerances, and mesh/time convergence.
+6. Record solver convergence reason and iteration count in every result.
+7. Add a model-owned transient heat step and checkpoint/restart.
+8. Integrate J2 plasticity only after local state, consistent tangent,
+   increment cutback, and single-element path tests are complete.
+9. Extend the two-rank smoke test to focused MPI validation for
    transient state, diagnostics, and output.
-10. Evaluate agent defect repair using the new issue codes and paths.
-11. Replace embedded campaign AF-IR provenance with content-addressed model and
-    run-record references.
-12. Add standard QoI extractors for point values, integrals, reactions,
-    energies, curves, and mesh-independent field samples.
+10. Add a global adaptive creep step and reproduce closed-form/NAFEMS cases.
+11. Add fatigue stress-history extraction and field-result provenance.
+12. Complete standard QoIs for reactions, energies, curves, and
+    mesh-independent field samples.
 13. Add an execution-service protocol so local plan shards, Slurm jobs, and
     hosted runners produce the same case records.
 14. Add Gaussian-process/ensemble uncertainty adapters and active-learning
     proposal records before automatic retraining.
 15. Implement field projection and reviewed residual families before enabling
     neural-operator or PINN training adapters.
+16. Revisit AF-IR loading/migration/object IDs only alongside an executable
+    consumer and golden cases; do not let schema work displace product gates.
 
 ## Success Criterion
 

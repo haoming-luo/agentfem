@@ -81,6 +81,39 @@ class BoundaryLoad:
 
 
 @dataclass(frozen=True)
+class PressureLoad:
+    """Pressure load pulled back to a reference boundary measure."""
+
+    pressure: object
+    traction: object
+    measure: object
+    configuration: str = "reference"
+    name: str = "pressure"
+    location: object | None = None
+
+    @property
+    def value(self):
+        return self.traction
+
+    def form(self, test_function):
+        return forms.boundary_flux_virtual_work(
+            self.traction,
+            test_function,
+            self.measure,
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "kind": "pressure_load",
+            "location": getattr(self.location, "name", None),
+            "pressure": describe_value(self.pressure),
+            "configuration": self.configuration,
+            "sign_convention": "positive pressure acts inward",
+        }
+
+
+@dataclass(frozen=True)
 class NeumannLoad:
     """Natural boundary condition applied through the weak-form right hand side."""
 
@@ -188,6 +221,61 @@ def traction(value, *, location=None, on=None, name: str = "traction") -> Bounda
     """Create a mechanical traction applied on a boundary region."""
 
     return boundary_load(value, location=location, on=on, name=name)
+
+
+def pressure(
+    value,
+    *,
+    location=None,
+    on=None,
+    normal=None,
+    configuration: str = "reference",
+    displacement=None,
+    name: str = "pressure",
+) -> PressureLoad:
+    """Create inward pressure on a reference or current boundary.
+
+    ``configuration="reference"`` is a dead nominal pressure ``-p N``.
+    ``configuration="current"`` is a follower pressure pulled back with
+    Nanson's relation, ``-p J F^{-T} N``; it therefore requires the current
+    displacement field and contributes to the nonlinear tangent automatically.
+    """
+
+    selected_location = _select_location(location=location, on=on)
+    if selected_location is None or not hasattr(selected_location, "domain"):
+        raise ValueError("pressure requires a boundary region with a domain.")
+    domain = selected_location.domain
+    selected_pressure = _as_constant(value, location=selected_location)
+    reference_normal = normal if normal is not None else ufl.FacetNormal(domain)
+    normalized = str(configuration).lower().replace("-", "_")
+    if normalized in {"reference", "dead", "nominal"}:
+        traction_value = -selected_pressure * reference_normal
+        normalized = "reference"
+    elif normalized in {"current", "follower"}:
+        if displacement is None:
+            raise ValueError(
+                "Current-configuration follower pressure requires displacement=...."
+            )
+        current = getattr(displacement, "value", displacement)
+        dimension = len(current)
+        F = ufl.Identity(dimension) + ufl.grad(current)
+        traction_value = (
+            -selected_pressure
+            * ufl.det(F)
+            * ufl.inv(F).T
+            * reference_normal
+        )
+        normalized = "current"
+    else:
+        raise ValueError("pressure configuration must be reference or current.")
+    return PressureLoad(
+        pressure=selected_pressure,
+        traction=traction_value,
+        measure=selected_location.measure,
+        configuration=normalized,
+        name=name,
+        location=selected_location,
+    )
 
 
 def heat_flux(value, *, location=None, on=None, name: str = "heat_flux") -> BoundaryLoad:

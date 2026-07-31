@@ -15,6 +15,11 @@ from .core import (
     case_id,
     create,
 )
+from .config import (
+    CampaignSpecification,
+    load_specification,
+    specification_from_dict,
+)
 from .parameters import (
     ChoiceParameter,
     IntegerParameter,
@@ -32,6 +37,7 @@ __all__ = [
     "CampaignCase",
     "CampaignPlan",
     "CampaignReport",
+    "CampaignSpecification",
     "CaseOutcome",
     "CaseRunRecord",
     "ChoiceParameter",
@@ -45,5 +51,7 @@ __all__ = [
     "explicit",
     "full_factorial",
     "latin_hypercube",
+    "load_specification",
     "random",
+    "specification_from_dict",
 ]

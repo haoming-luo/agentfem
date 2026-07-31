@@ -7,6 +7,7 @@ relations such as stress-strain laws live in ``agentfem.constitutive``.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 
 import numpy as np
 
@@ -19,6 +20,16 @@ class ElasticIsotropicProperties:
     young: float
     density: float
     poisson: float
+
+    def __post_init__(self) -> None:
+        if not isfinite(float(self.young)) or self.young <= 0.0:
+            raise ValueError("ElasticIsotropicProperties.young must be positive.")
+        if not isfinite(float(self.density)) or self.density <= 0.0:
+            raise ValueError("ElasticIsotropicProperties.density must be positive.")
+        if not isfinite(float(self.poisson)) or not (-1.0 < self.poisson < 0.5):
+            raise ValueError(
+                "ElasticIsotropicProperties.poisson must satisfy -1 < nu < 0.5."
+            )
 
     @property
     def lambda_(self) -> float:
@@ -77,6 +88,16 @@ class ElasticAnisotropic2DProperties:
         C = np.asarray(self.stiffness_voigt, dtype=float)
         if C.shape != (3, 3):
             raise ValueError("2D anisotropic stiffness_voigt must be a 3x3 matrix.")
+        if not np.all(np.isfinite(C)):
+            raise ValueError("2D anisotropic stiffness_voigt must be finite.")
+        if not np.allclose(C, C.T, rtol=1.0e-10, atol=1.0e-12):
+            raise ValueError("2D anisotropic stiffness_voigt must be symmetric.")
+        if np.min(np.linalg.eigvalsh(C)) <= 0.0:
+            raise ValueError(
+                "2D anisotropic stiffness_voigt must be positive definite."
+            )
+        if not isfinite(float(self.density)) or self.density <= 0.0:
+            raise ValueError("ElasticAnisotropic2DProperties.density must be positive.")
         object.__setattr__(self, "stiffness_voigt", C)
 
     @property

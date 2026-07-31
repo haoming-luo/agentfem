@@ -40,6 +40,16 @@ Model: cantilever_model
 Static elasticity result: .../examples_output/static_elasticity_2d.xdmf
 ```
 
+For a two-rank smoke test:
+
+```bash
+mpiexec -n 2 python examples/static_elasticity_2d.py
+```
+
+The launcher and `mpi4py` must come from the same MPI implementation. On macOS,
+Homebrew Open MPI can appear before a conda MPICH launcher on `PATH`; check
+`which mpiexec` and use the environment's `bin/mpiexec` when they differ.
+
 ## Optional Tools
 
 - `meshio`: external CAE mesh conversion, including Abaqus `.inp` and NASTRAN

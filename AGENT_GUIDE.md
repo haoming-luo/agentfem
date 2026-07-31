@@ -40,19 +40,27 @@ finite-element simulation with AgentFEM.
 - Essential boundary conditions: read `CONCEPTS.md`, then use `constraints/`.
 - Natural loads: read `CONCEPTS.md`, then use `loads.body_load`,
   `loads.neumann`, or `loads.boundary_load`.
-- Constitutive laws: read `docs/extension_rules.md`, then use `constitutive/`.
+- Constitutive laws: read `docs/nonlinear_materials.md`, query
+  `constitutive.capabilities()`, then use `constitutive/`. Never turn a
+  material-point law into a claimed FEM step without state/tangent/solver
+  evidence.
 - Absorbing or Robin-like terms: use `boundary_models/`.
 - Assembly or lumped operators: inspect `assembly.py`.
 - Time stepping: inspect `time/` and `problems.py`.
 - Solves: inspect `solvers.py`.
+- Step incrementation: use `steps.automatic(...)` by default or
+  `steps.fixed(...)` only when exact fixed subdivision is scientifically
+  intended. `max_increments` limits accepted increments; Newton `max_it`
+  limits iterations in one attempt.
 - Analysis steps: prefer `model.step(...)` or `model.linear_static_step(...)`
   when a model owns fields, materials, loads, and constraints. Use
   `problems.linear_static` or `problems.first_order_transient` when a workflow
   intentionally starts from explicit K/C/F operators without model ownership.
 - Problem summaries: use `problems.FEMProblem` when a workflow needs a
   broader structured audit record.
-- Results: inspect `diagnostics.py`, then use `io.CSVLogger`,
-  `io.XDMFTimeSeries`, or `io.ResultWriter`.
+- Results: read `docs/results_and_campaigns.md`; use `solve_result()`,
+  `results.SimulationResult`, assembled QoIs in `results`, then attach XDMF/CSV
+  artifacts from `io`.
 - AF-IR and repair: inspect `ir/` and `validation.py`. Treat AF-IR 0.1 as an
   experimental record, not as proof of backend-neutral executability.
 - Backend work: inspect `backends/` and
@@ -64,6 +72,9 @@ finite-element simulation with AgentFEM.
   case IDs, validation data, and applicability behavior. Do not present a
   training residual or successful prediction call as independent scientific
   validation.
+- External meshes: inventory with `mesh.inspect_external_mesh(...)` before
+  choosing cell/facet types. Preserve conversion manifests and never describe
+  mesh conversion as full Abaqus/ANSYS deck import.
 - Example workflows: inspect `examples/` after reading `WORKFLOW.md`.
 
 ## Agent Rules
@@ -81,12 +92,18 @@ finite-element simulation with AgentFEM.
   replace them with an unaddressed generic error.
 - When changing a public concept, update `CONCEPTS.md`, `WORKFLOW.md`, and the
   relevant skill references.
+- Keep solve increments and result frames distinct. Use output
+  `every="increment"` or `intervals=...`; reserve “frame” for saved/read result
+  states.
+- State whether a nonlinear capability is FEM-integrated, material-point
+  verified, or a postprocessor. Use the benchmark registry as evidence.
 - Do not silently extrapolate a learned model. Reject the request or invoke an
   explicit high-fidelity fallback and report which source produced the result.
 
 ## Current Platform Focus
 
-AgentFEM currently focuses on DOLFINx/PETSc workflows, linear elasticity,
-explicit dynamics, weak loads, absorbing boundary models, diagnostics, and XDMF
-output. The architecture should remain open to thermal, multiphysics,
-viscoelastic, anisotropic, and coupled simulations.
+AgentFEM currently focuses on a dependable DOLFINx/PETSc path: linear
+elasticity, heat/dynamics building blocks, a bounded Neo-Hookean nonlinear
+solve, result/campaign/data flow, external mesh conversion, and deliberately
+staged J2, creep, and fatigue tools. Product depth and verification take
+priority over adding material names or backend abstractions.

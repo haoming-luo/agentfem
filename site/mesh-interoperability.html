@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mesh Interoperability - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
+      <div class="tagline">AI-assisted finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="active" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="licensing.html">Licensing</a>
+<a class="" href="publishing.html">Publishing</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="external-mesh-interoperability">External Mesh Interoperability</h1>
+<h2 id="scope">Scope</h2>
+<p>AgentFEM uses the optional <code>meshio</code> dependency to inspect and convert common external mesh formats. The official <a href="https://github.com/nschloe/meshio">meshio format list</a> includes Abaqus <code>.inp</code>, ANSYS <code>.msh</code>, Nastran <code>.bdf/.fem/.nas</code>, Exodus, MED, Gmsh, VTK/VTU, and XDMF among others.</p>
+<p>This is mesh interoperability, not full solver-deck import. Material cards, contacts, element formulations, steps, amplitudes, coordinate systems, and solver controls require format-specific semantic adapters.</p>
+<h2 id="inspect-before-converting">Inspect Before Converting</h2>
+<pre><code>from agentfem import mesh
+
+summary = mesh.inspect_external_mesh(&quot;model.inp&quot;)
+print(summary.as_dict())</code></pre>
+<p>The inventory exposes point count, element blocks, cell sets, point sets, and data arrays. Choosing a volume topology without this inspection can silently discard boundary elements or mixed element families.</p>
+<h2 id="preserve-volume-and-boundary-sets">Preserve Volume and Boundary Sets</h2>
+<pre><code>conversion = mesh.convert_external_mesh_to_xdmf(
+    &quot;model.inp&quot;,
+    &quot;model.xdmf&quot;,
+    cell_type=&quot;triangle&quot;,
+    facet_type=&quot;line&quot;,
+    prune_z=True,
+)
+converted_mesh = mesh.read_converted_xdmf(conversion)</code></pre>
+<p>The main XDMF contains <code>agentfem_region</code> tags for named volume/cell sets. The separate facet XDMF contains <code>agentfem_boundary</code> tags for named boundary sets. A JSON manifest records source blocks, numeric tag mapping, complete memberships, selected topologies, and warnings. <code>read_converted_xdmf(...)</code> also handles the meshio-XDMF distinction between grid names and tag attribute names.</p>
+<p>One DOLFINx <code>MeshTags</code> object stores one integer per entity. If source sets overlap, one deterministic tag is written and the complete overlapping membership remains in the manifest.</p>
+<h2 id="abaqus-labels-custom-extensions-and-equations">Abaqus Labels, Custom Extensions, and Equations</h2>
+<p>Generic conversion is not enough when constraints refer to Abaqus node labels. <code>mesh.read_abaqus_mesh(...)</code> explicitly selects Abaqus syntax, so a keyword mesh may use <code>.dat</code> without relying on extension guessing. It returns the DOLFINx mesh together with the preserved source node table and conversion evidence.</p>
+<p><code>mesh.abaqus.read_equations(...)</code> parses homogeneous linear <code>*EQUATION</code> constraints, including continued term lines. For periodic finite-deformation cells, <code>constraints.abaqus_periodic_cell(...)</code> maps source labels to displacement dofs and constructs exact affine elimination. See <a href="abaqus_periodic_cell.md">Abaqus C3D10 Periodic Cell</a>.</p>
+<h2 id="current-limits">Current Limits</h2>
+<ul>
+<li>point/node sets are inventoried but not yet converted to a DOLFINx point<br>region;</li>
+<li>surface definitions derived from element faces are not reconstructed unless<br>explicit lower-dimensional cells exist;</li>
+<li>mixed top-dimensional element families need an explicit selection;</li>
+<li>high-order compatibility remains format-specific; Abaqus <code>C3D10</code> /<br>meshio <code>tetra10</code> / DOLFINx quadratic tetrahedral geometry is now covered by<br>a real import and nonlinear example;</li>
+<li>ANSYS CDB support depends on the installed reader and is not claimed merely<br>from the file extension.</li>
+</ul>
+<p>The next release gate is a corpus of small legal meshes from each target format, with named-set golden manifests and a real DOLFINx read/solve check.</p>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

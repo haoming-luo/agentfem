@@ -19,6 +19,13 @@
 <a class="" href="workflow.html">Workflow</a>
 <a class="" href="concepts.html">Concepts</a>
 <a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
 <a class="active" href="module-map.html">Module Map</a>
 <a class="" href="api-style.html">API Style</a>
 <a class="" href="extension-rules.html">Extension Rules</a>
@@ -40,16 +47,19 @@
 <thead><tr><th>Concept</th><th>Module</th></tr></thead>
 <tbody>
 <tr><td>Mesh import, boundary/cell regions, tags, summaries, checks, and measures</td><td><code>mesh/</code></td></tr>
-<tr><td>External mesh formats</td><td><code>mesh/formats.py</code></td></tr>
+<tr><td>External mesh inventory, cell/facet set conversion, and manifests</td><td><code>mesh/formats.py</code></td></tr>
+<tr><td>Abaqus labels, equations, periodic-cell geometry, and source-order output</td><td><code>mesh/abaqus.py</code></td></tr>
 <tr><td>Study context: analysis type, physics, dimension, and assumptions</td><td><code>studies.py</code></td></tr>
 <tr><td>Model registry, amplitudes, material assignments, checks, summaries, and model-first operators</td><td><code>models.py</code></td></tr>
+<tr><td>Extensible analysis/material lowering behind <code>model.step()</code></td><td><code>step_providers.py</code></td></tr>
 <tr><td>Function spaces and Lagrange defaults</td><td><code>spaces.py</code></td></tr>
 <tr><td>Application-level unknown fields</td><td><code>fields.py</code></td></tr>
 <tr><td>Time histories and scale factors for prescribed data</td><td><code>amplitudes.py</code></td></tr>
 <tr><td>Low-level dof lookup and field copying</td><td><code>kernel/dofs.py</code></td></tr>
 <tr><td>Constraint containers and strong BC construction</td><td><code>constraints/</code></td></tr>
 <tr><td>Loads and natural boundary data</td><td><code>loads.py</code></td></tr>
-<tr><td>Constitutive response relations</td><td><code>constitutive/</code></td></tr>
+<tr><td>Constitutive response relations and maturity catalog</td><td><code>constitutive/</code></td></tr>
+<tr><td>Material-point contracts and UMAT/UHYPER bridge specifications</td><td><code>constitutive/user_material.py</code></td></tr>
 <tr><td>Material records and property containers</td><td><code>materials/</code></td></tr>
 <tr><td>Boundary models</td><td><code>boundary_models/</code></td></tr>
 <tr><td>UFL weak-form blocks, including stiffness, mass, diffusion, and loads</td><td><code>forms.py</code></td></tr>
@@ -57,16 +67,21 @@
 <tr><td>Engineering-level K/M/C/F operators</td><td><code>operators/</code></td></tr>
 <tr><td>Explicit/implicit time integration routes and runtime cadence</td><td><code>time/</code></td></tr>
 <tr><td>Analysis steps, system problems, and state containers</td><td><code>problems.py</code></td></tr>
-<tr><td>Linear solvers</td><td><code>solvers.py</code></td></tr>
+<tr><td>Automatic/fixed incrementation and cutback policy</td><td><code>steps.py</code></td></tr>
+<tr><td>Linear/nonlinear solvers and convergence evidence</td><td><code>solvers.py</code></td></tr>
+<tr><td>Scientific results, QoIs, histories, artifacts, and dataset bridge</td><td><code>results/</code></td></tr>
+<tr><td>Finite-strain fields and periodic-cell homogenization</td><td><code>results/finite_strain.py</code></td></tr>
+<tr><td>Standard result variables and context-aware aliases</td><td><code>results/field_catalog.py</code></td></tr>
+<tr><td>Declarative field requests and unified XDMF/HDF5 time-series writer</td><td><code>results/output.py</code></td></tr>
 <tr><td>Diagnostics</td><td><code>diagnostics.py</code></td></tr>
 <tr><td>Output writers and scalar logs</td><td><code>io.py</code></td></tr>
 <tr><td>Element and integration policies</td><td><code>elements/</code></td></tr>
-<tr><td>Verification benchmarks</td><td><code>benchmarks/</code></td></tr>
+<tr><td>Test-linked verification obligations</td><td><code>benchmarks/</code></td></tr>
 <tr><td>Runnable workflows</td><td><code>examples/</code></td></tr>
 <tr><td>Versioned AF-IR scientific records</td><td><code>ir/</code></td></tr>
 <tr><td>Structured validation issues and reports</td><td><code>validation.py</code></td></tr>
 <tr><td>Backend descriptors, registry, and lowering adapters</td><td><code>backends/</code></td></tr>
-<tr><td>Typed parameters, sampling, campaign plans, resumable case execution</td><td><code>campaigns/</code></td></tr>
+<tr><td>Typed/JSON parameters, sampling, campaign plans, resumable case execution</td><td><code>campaigns/</code></td></tr>
 <tr><td>Scientific dataset schemas, arrays, provenance, and splits</td><td><code>datasets/</code></td></tr>
 <tr><td>Surrogate/ROM models, validation, applicability, neural-operator/PINN contracts</td><td><code>surrogates/</code></td></tr>
 </tbody>

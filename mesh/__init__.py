@@ -14,6 +14,7 @@ from dolfinx.io import gmsh as gmshio
 from mpi4py import MPI
 
 from . import formats
+from . import abaqus
 from . import selectors as select
 from .regions import RegionSet
 from .selectors import Selector, ball, box, disk, layer, plane, where
@@ -264,6 +265,108 @@ def convert_external_mesh_to_xdmf(*args, **kwargs):
     from .formats import convert_to_xdmf
 
     return convert_to_xdmf(*args, **kwargs)
+
+
+def inspect_external_mesh(path):
+    """Inventory external element blocks and named sets before conversion."""
+
+    return formats.inspect_external_mesh(path)
+
+
+def read_abaqus_mesh(
+    path: str | Path,
+    converted_path: str | Path,
+    comm: MPI.Comm = MPI.COMM_WORLD,
+    *,
+    cell_type: str | None = None,
+) -> abaqus.AbaqusMeshImport:
+    """Convert and read an Abaqus mesh while retaining source node labels.
+
+    ``path`` may use a nonstandard extension such as ``.dat``; the reader
+    explicitly selects Abaqus keyword syntax rather than guessing by suffix.
+    """
+
+    source = Path(path)
+    converted = Path(converted_path)
+    if comm.rank == 0:
+        converted.parent.mkdir(parents=True, exist_ok=True)
+    comm.barrier()
+    nodes = abaqus.read_node_table(source)
+    conversion = None
+    conversion_error = None
+    if comm.rank == 0:
+        try:
+            conversion = formats.convert_abaqus_inp_to_xdmf(
+                source,
+                converted,
+                cell_type=cell_type,
+            )
+        except Exception as exc:  # broadcast avoids stranding non-root ranks
+            conversion_error = (type(exc).__name__, str(exc))
+    conversion, conversion_error = comm.bcast(
+        (conversion, conversion_error),
+        root=0,
+    )
+    if conversion_error is not None:
+        error_type, message = conversion_error
+        raise RuntimeError(
+            f"Abaqus mesh conversion failed on MPI rank zero "
+            f"({error_type}): {message}"
+        )
+    comm.barrier()
+    imported = read_converted_xdmf(conversion, comm=comm)
+    if comm.size == 1 and nodes.labels.size != imported.domain.geometry.x.shape[0]:
+        raise ValueError(
+            "Abaqus node count does not match the converted DOLFINx geometry: "
+            f"{nodes.labels.size} source nodes versus "
+            f"{imported.domain.geometry.x.shape[0]} geometry nodes."
+        )
+    return abaqus.AbaqusMeshImport(imported, nodes, conversion)
+
+
+def external_mesh_formats() -> dict[str, str]:
+    """Return common external formats supported through optional ``meshio``."""
+
+    return formats.describe_supported_external_formats()
+
+
+def read_converted_xdmf(
+    conversion,
+    comm: MPI.Comm = MPI.COMM_WORLD,
+    *,
+    mesh_name: str = "Grid",
+    tag_grid_name: str = "Grid",
+) -> FEMMesh:
+    """Read a :class:`mesh.formats.MeshConversionResult` into DOLFINx.
+
+    meshio writes named set values as XDMF attributes on a grid. DOLFINx
+    distinguishes the grid ``name`` from ``attribute_name``; this helper owns
+    that interoperability detail for both cell and separate facet files.
+    """
+
+    with io.XDMFFile(comm, str(conversion.mesh_path), "r") as xdmf:
+        domain = xdmf.read_mesh(name=mesh_name)
+        cell_tags = None
+        if conversion.region_tags:
+            tdim = domain.topology.dim
+            domain.topology.create_connectivity(tdim, tdim)
+            cell_tags = xdmf.read_meshtags(
+                domain,
+                name=tag_grid_name,
+                attribute_name="agentfem_region",
+            )
+
+    facet_tags = None
+    if conversion.facet_path is not None and conversion.boundary_tags:
+        with io.XDMFFile(comm, str(conversion.facet_path), "r") as xdmf:
+            tdim = domain.topology.dim
+            domain.topology.create_connectivity(tdim - 1, tdim)
+            facet_tags = xdmf.read_meshtags(
+                domain,
+                name=tag_grid_name,
+                attribute_name="agentfem_boundary",
+            )
+    return FEMMesh(domain, cell_tags, facet_tags)
 
 
 def summarize_tags(tags) -> TagSummary | None:

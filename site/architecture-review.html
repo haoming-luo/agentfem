@@ -19,6 +19,13 @@
 <a class="" href="workflow.html">Workflow</a>
 <a class="" href="concepts.html">Concepts</a>
 <a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
 <a class="" href="module-map.html">Module Map</a>
 <a class="" href="api-style.html">API Style</a>
 <a class="" href="extension-rules.html">Extension Rules</a>
@@ -59,7 +66,7 @@
 <li>Keep boundary concepts separate:<br>Public strong boundary conditions should enter through <code>constraints/</code>.<br><code>constraints/boundary.py</code> is a low-level implementation helper for<br>Dirichlet constants and dof application. Weak boundary physics belongs in<br><code>boundary_models/</code>.</li>
 </ol>
 <ol>
-<li>Keep study, model, and problem responsibilities separate:<br><code>studies.py</code> declares context, <code>models.py</code> registers assets and checks the<br>model, and <code>problems.py</code> represents discrete systems to solve.</li>
+<li>Keep study, model, and problem responsibilities separate:<br><code>studies.py</code> declares context, <code>models.py</code> registers assets and checks the<br>model, <code>step_providers.py</code> lowers supported analysis/material protocols, and<br><code>problems.py</code> represents discrete systems to solve. <code>Model.step</code> remains the<br>stable public entry point; adding a material family does not justify adding<br>a case-specific method to every model.</li>
 </ol>
 <ol>
 <li>Make form construction more discoverable:<br><code>forms.py</code> should expose small weak-form blocks with clear names, such as<br>mass, stiffness, damping, body load, traction, and flux contributions.</li>
@@ -80,11 +87,11 @@
 </ul>
 <h2 id="suggested-priority">Suggested Priority</h2>
 <ol>
-<li>Build verification benchmarks and continuous tests around the current<br>FEniCSx execution path.</li>
-<li>Expand addressable validation for regions, assignments, operators, steps,<br>and solver policies.</li>
-<li>Stabilize AF-IR object identity, references, loading, and migrations.</li>
-<li>Introduce semantic/runtime separation for a small set of proven operator<br>families.</li>
-<li>Add execution records and provenance before pursuing broad multi-backend<br>claims.</li>
+<li>Harden the current FEniCSx execution, result, visualization, campaign, and<br>dataset path around selected real engineering analyses.</li>
+<li>Advance nonlinear materials through explicit maturity gates: material<br>point, FEM integration, benchmark, then workflow.</li>
+<li>Verify external mesh volume/boundary set preservation with real format<br>fixtures.</li>
+<li>Expand addressable validation for regions, assignments, operators, steps,<br>solver policies, and result contracts.</li>
+<li>Evolve AF-IR identity/loading/migration only when an executable consumer or<br>golden case requires it; do not let schema breadth outrun product evidence.</li>
 </ol>
       </article>
     </main>

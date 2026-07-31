@@ -61,6 +61,21 @@ def validate_material_model(material_name: str, model: str, record: dict) -> Non
             raise ValueError(
                 f"material {material_name!r} model {model!r} stiffness_voigt must be 3x3."
             )
+        if not np.all(np.isfinite(C)):
+            raise ValueError(
+                f"material {material_name!r} model {model!r} stiffness_voigt "
+                "must contain finite values."
+            )
+        if not np.allclose(C, C.T, rtol=1.0e-10, atol=1.0e-12):
+            raise ValueError(
+                f"material {material_name!r} model {model!r} stiffness_voigt "
+                "must be symmetric."
+            )
+        if np.min(np.linalg.eigvalsh(C)) <= 0.0:
+            raise ValueError(
+                f"material {material_name!r} model {model!r} stiffness_voigt "
+                "must be positive definite."
+            )
         return
     if model == "orthotropic_plane_stress_2d":
         for key in ("ex", "ey", "gxy", "density"):

@@ -32,6 +32,23 @@ unless the example is intentionally advanced.
    transparent surrogate baseline, independent validation, and guarded
    high-fidelity fallback.
 
+6. `campaign_from_json.py`
+   Small declarative sweep. Parameters, sampling, outputs, and execution policy
+   come from JSON; trusted scientific evaluation remains Python.
+
+7. `material_models.py`
+   Nonlinear-material scope example. Prints the maturity catalog and exercises
+   a J2 uniaxial load path, power-law creep history, rainflow counting, and
+   Miner damage.
+
+8. `abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py`
+   Advanced interoperability and finite-deformation reference. Imports a real
+   Abaqus `C3D10` mesh, preserves node labels, eliminates 4,212 periodic
+   `*EQUATION` constraints, solves a 3D Neo-Hookean load path, and writes
+   scale-one deformed VTU/PNG evidence. Read the folder README before treating
+   it as an Abaqus comparison: the unavailable user material and user MPC are
+   deliberately replaced by explicit AgentFEM semantics.
+
 ## Run
 
 From the `agentfem` directory:
@@ -40,6 +57,8 @@ From the `agentfem` directory:
 python examples/static_elasticity_2d.py
 python examples/transient_heat_2d.py
 python examples/static_elasticity_surrogate_campaign.py
+python examples/campaign_from_json.py
+python examples/material_models.py
 ```
 
 From the parent development directory:

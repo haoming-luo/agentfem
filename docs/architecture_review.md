@@ -53,7 +53,10 @@ see `docs/air_architecture_roadmap.md`.
 
 3. Keep study, model, and problem responsibilities separate:
    `studies.py` declares context, `models.py` registers assets and checks the
-   model, and `problems.py` represents discrete systems to solve.
+   model, `step_providers.py` lowers supported analysis/material protocols, and
+   `problems.py` represents discrete systems to solve. `Model.step` remains the
+   stable public entry point; adding a material family does not justify adding
+   a case-specific method to every model.
 
 4. Make form construction more discoverable:
    `forms.py` should expose small weak-form blocks with clear names, such as
@@ -82,12 +85,13 @@ see `docs/air_architecture_roadmap.md`.
 
 ## Suggested Priority
 
-1. Build verification benchmarks and continuous tests around the current
-   FEniCSx execution path.
-2. Expand addressable validation for regions, assignments, operators, steps,
-   and solver policies.
-3. Stabilize AF-IR object identity, references, loading, and migrations.
-4. Introduce semantic/runtime separation for a small set of proven operator
-   families.
-5. Add execution records and provenance before pursuing broad multi-backend
-   claims.
+1. Harden the current FEniCSx execution, result, visualization, campaign, and
+   dataset path around selected real engineering analyses.
+2. Advance nonlinear materials through explicit maturity gates: material
+   point, FEM integration, benchmark, then workflow.
+3. Verify external mesh volume/boundary set preservation with real format
+   fixtures.
+4. Expand addressable validation for regions, assignments, operators, steps,
+   solver policies, and result contracts.
+5. Evolve AF-IR identity/loading/migration only when an executable consumer or
+   golden case requires it; do not let schema breadth outrun product evidence.

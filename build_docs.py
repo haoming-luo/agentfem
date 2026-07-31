@@ -29,6 +29,41 @@ PAGES = [
     Page("Workflow", ROOT / "WORKFLOW.md", SITE_DIR / "workflow.html"),
     Page("Concepts", ROOT / "CONCEPTS.md", SITE_DIR / "concepts.html"),
     Page("Examples", ROOT / "examples" / "README.md", SITE_DIR / "examples.html"),
+    Page(
+        "Product Roadmap",
+        ROOT / "docs" / "product_roadmap.md",
+        SITE_DIR / "product-roadmap.html",
+    ),
+    Page(
+        "Nonlinear Materials",
+        ROOT / "docs" / "nonlinear_materials.md",
+        SITE_DIR / "nonlinear-materials.html",
+    ),
+    Page(
+        "Results and Campaigns",
+        ROOT / "docs" / "results_and_campaigns.md",
+        SITE_DIR / "results-and-campaigns.html",
+    ),
+    Page(
+        "Stable Steps and Compact Output",
+        ROOT / "docs" / "step_and_output_architecture.md",
+        SITE_DIR / "step-and-output-architecture.html",
+    ),
+    Page(
+        "Mesh Interoperability",
+        ROOT / "docs" / "mesh_interoperability.md",
+        SITE_DIR / "mesh-interoperability.html",
+    ),
+    Page(
+        "Abaqus Periodic Cell",
+        ROOT / "docs" / "abaqus_periodic_cell.md",
+        SITE_DIR / "abaqus-periodic-cell.html",
+    ),
+    Page(
+        "Abaqus User Materials",
+        ROOT / "docs" / "abaqus_user_material_bridge.md",
+        SITE_DIR / "abaqus-user-material-bridge.html",
+    ),
     Page("Module Map", ROOT / "docs" / "module_map.md", SITE_DIR / "module-map.html"),
     Page("API Style", ROOT / "docs" / "api_style.md", SITE_DIR / "api-style.html"),
     Page(

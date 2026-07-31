@@ -15,17 +15,23 @@ AgentFEM workflow:
 11. Boundary models
 12. Operators or forms: model-first helpers for standard registered assets,
     operator-first constructors for explicit contributions
-13. Analysis step from visible operators
+13. Analysis step through `model.step(...)` and an inspectable provider, or
+    directly from visible operators for research/debugging
+    - nonlinear subdivision belongs to `steps.automatic(...)` or the explicit
+      compatibility mode `steps.fixed(...)`;
+    - output intervals are a separate result request, not solver increments.
 14. Structured validation and optional AF-IR record
 15. Assembly, solve, or time integration
-16. Diagnostics
-17. Output and available execution evidence
+16. `SimulationResult`, physical QoIs, diagnostics, and histories
+17. Compact unified XDMF/HDF5 visualization/output artifacts attached to the
+    result; use PVD/VTU only when specifically required
 
 For related-case collections:
 
-18. Typed parameter space and deterministic sampling plan
+18. Typed parameter space and deterministic sampling plan, optionally from
+    safe JSON
 19. Fresh model construction per case
-20. Resumable campaign execution and declared quantities
+20. Resumable campaign execution; evaluators may return `SimulationResult`
 21. Scientific dataset plus independent train/validation split
 22. Surrogate/ROM validation, applicability guard, and explicit FEM fallback
 

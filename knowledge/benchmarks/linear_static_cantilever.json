@@ -1,0 +1,29 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.linear_static_cantilever",
+  "title": "Two-dimensional linear-static cantilever",
+  "status": "executable_smoke",
+  "purpose": "Exercise the model-first linear elasticity path, strong support, boundary traction, K/F system construction, PETSc solve, AF-IR export, and XDMF output.",
+  "physics": "small-strain isotropic linear elasticity in plane strain",
+  "execution": {
+    "command": "python examples/static_elasticity_2d.py",
+    "example": "examples/static_elasticity_2d.py",
+    "evidence": "The example must solve without validation errors and write finite displacement results plus an AF-IR record."
+  },
+  "observables": [
+    "All displacement degrees of freedom are finite.",
+    "The fixed boundary remains at the prescribed displacement.",
+    "The displacement magnitude is nonzero under nonzero traction.",
+    "The result and AF-IR files are written by rank zero."
+  ],
+  "acceptance": [
+    "The example exits successfully in the tested FEniCSx environment.",
+    "Model validation contains no errors before solve.",
+    "The output can be opened as an XDMF finite-element field."
+  ],
+  "limitations": [
+    "This is currently an executable integration smoke test, not a mesh-convergence or analytical-error benchmark.",
+    "A future benchmark revision should compare tip displacement and reaction against beam theory and a converged two-dimensional reference."
+  ]
+}

@@ -12,7 +12,14 @@ from . import fields
 from . import spaces
 from . import time
 from .kernel import dofs
-from .solvers import LinearSolverOptions, solve_linear_problem
+from .solvers import (
+    AffineNewtonOptions,
+    LinearSolverOptions,
+    NonlinearSolverOptions,
+    solve_affine_nonlinear_path,
+    solve_linear_problem,
+    solve_nonlinear_problem,
+)
 
 
 @dataclass
@@ -71,6 +78,14 @@ class LinearVariationalProblem:
             options=self.solver_options,
         )
 
+    def solve_result(self, *, name: str = "linear_variational_result"):
+        """Solve and wrap the solution in a scientific result object."""
+
+        from .results import from_solution
+
+        solution = self.solve()
+        return from_solution(solution, name=name)
+
 
 @dataclass
 class LinearSystemProblem:
@@ -119,6 +134,18 @@ class LinearSystemProblem:
             options=self.solver_options,
         )
 
+    def solve_result(self, *, name: str | None = None):
+        """Solve and return a :class:`SimulationResult`."""
+
+        from .results import from_solution
+
+        solution = self.solve()
+        return from_solution(
+            solution,
+            name=name or getattr(self.system, "name", "linear_system_result"),
+            metadata={"problem": self.summary()},
+        )
+
     def summary(self) -> dict[str, object]:
         """Return an inspectable K/F problem summary."""
 
@@ -140,6 +167,182 @@ class LinearSystemProblem:
         if self.unknown is not None and hasattr(self.unknown, "value"):
             return self.unknown.value
         raise ValueError("LinearSystemProblem requires solution or unknown.")
+
+
+@dataclass
+class NonlinearVariationalProblem:
+    """Nonlinear residual problem ``R(u; v) = 0`` solved by PETSc SNES."""
+
+    residual_form: object
+    solution: object
+    bcs: list = field(default_factory=list)
+    jacobian_form: object | None = None
+    solver_options: NonlinearSolverOptions | None = None
+    name: str = "nonlinear_problem"
+    petsc_options_prefix: str = "agentfem_nonlinear_"
+    last_solve_info: object | None = field(default=None, init=False)
+
+    def solve(self):
+        """Solve and return the live DOLFINx solution field."""
+
+        solution, info = solve_nonlinear_problem(
+            self.residual_form,
+            self.solution,
+            bcs=self.bcs,
+            jacobian_form=self.jacobian_form,
+            options=self.solver_options,
+            petsc_options_prefix=self.petsc_options_prefix,
+        )
+        self.last_solve_info = info
+        return solution
+
+    def solve_result(self):
+        """Solve and return a result with SNES convergence evidence."""
+
+        from .results import from_solution
+
+        solution = self.solve()
+        return from_solution(
+            solution,
+            name=self.name,
+            metadata={
+                "problem": self.summary(),
+                "solve": self.last_solve_info.as_dict(),
+            },
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "nonlinear_variational_problem",
+            "name": self.name,
+            "solution": getattr(self.solution, "name", type(self.solution).__name__),
+            "num_bcs": len(self.bcs),
+            "solver": (
+                self.solver_options.summary()
+                if self.solver_options is not None
+                else NonlinearSolverOptions().summary()
+            ),
+            "last_solve": (
+                None
+                if self.last_solve_info is None
+                else self.last_solve_info.as_dict()
+            ),
+        }
+
+
+@dataclass
+class AffineNonlinearVariationalProblem:
+    """Nonlinear equilibrium under an exact affine dof reduction."""
+
+    residual_form: object
+    jacobian_form: object
+    solution: object
+    constraint: object
+    load_factors: tuple[float, ...] | None = None
+    incrementation: object | None = None
+    solver_options: AffineNewtonOptions | None = None
+    output_every: int | None = 1
+    output_factors: tuple[float, ...] = ()
+    progress: object = True
+    status_file: object | None = None
+    step_number: int = 1
+    name: str = "affine_nonlinear_problem"
+    last_solve_info: object | None = field(default=None, init=False)
+    snapshots: list = field(default_factory=list, init=False)
+
+    def solve(self):
+        if self.output_every is not None and self.output_every <= 0:
+            raise ValueError("Affine nonlinear output_every must be positive.")
+        self.snapshots.clear()
+        self.snapshots.append(_load_snapshot(0, 0.0, self.solution, zero=True))
+
+        def capture(index, factor, solution, solve_info):
+            save_by_increment = (
+                self.output_every is not None
+                and index % self.output_every == 0
+            )
+            save_by_factor = any(
+                abs(factor - value) <= 1.0e-12
+                for value in self.output_factors
+            )
+            if save_by_increment or save_by_factor or abs(factor - 1.0) <= 1.0e-12:
+                self.snapshots.append(
+                    _load_snapshot(
+                        index,
+                        factor,
+                        solution,
+                        solve_info=solve_info,
+                    )
+                )
+
+        from .diagnostics import StandardRunReporter, comm_of
+
+        if self.progress is True:
+            reporter = StandardRunReporter(
+                comm_of(self.solution),
+                status_file=self.status_file,
+            )
+        elif self.progress in (False, None):
+            reporter = None
+        else:
+            reporter = self.progress
+        solution, info = solve_affine_nonlinear_path(
+            self.residual_form,
+            self.jacobian_form,
+            self.solution,
+            self.constraint,
+            load_factors=self.load_factors,
+            incrementation=self.incrementation,
+            output_factors=self.output_factors,
+            options=self.solver_options,
+            on_increment=capture,
+            reporter=reporter,
+            step_name=self.name,
+            step_number=self.step_number,
+        )
+        self.last_solve_info = info
+        return solution
+
+    def solve_result(self):
+        from .results import from_solution
+
+        solution = self.solve()
+        return from_solution(
+            solution,
+            name=self.name,
+            metadata={
+                "problem": self.summary(),
+                "solve": self.last_solve_info.as_dict(),
+            },
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "affine_nonlinear_variational_problem",
+            "name": self.name,
+            "solution": getattr(self.solution, "name", type(self.solution).__name__),
+            "constraint": self.constraint.summary(),
+            "load_factors": self.load_factors,
+            "incrementation": (
+                None
+                if self.incrementation is None
+                else self.incrementation.summary()
+            ),
+            "output_every": self.output_every,
+            "output_factors": self.output_factors,
+            "snapshot_count": len(self.snapshots),
+            "step_number": self.step_number,
+            "solver": (
+                self.solver_options.summary()
+                if self.solver_options is not None
+                else AffineNewtonOptions().summary()
+            ),
+            "last_solve": (
+                None
+                if self.last_solve_info is None
+                else self.last_solve_info.as_dict()
+            ),
+        }
 
 
 @dataclass
@@ -173,6 +376,28 @@ class AnalysisStep:
         """Solve this analysis step."""
 
         return self.problem.solve()
+
+    def solve_result(self):
+        """Solve while retaining the existing ``solve()`` return contract.
+
+        ``solve()`` continues to return the live DOLFINx solution field for
+        backwards compatibility.  This method returns the higher-level result
+        container used by post-processing, campaigns, and datasets.
+        """
+
+        from .results import from_solution
+
+        solution = self.problem.solve()
+        return from_solution(
+            solution,
+            name=self.name,
+            metadata={
+                "step": self.summary(),
+                "study": (
+                    _describe_asset(self.study) if self.study is not None else None
+                ),
+            },
+        )
 
     def summary(self) -> dict[str, object]:
         """Return a compact, agent-readable step summary."""
@@ -492,6 +717,115 @@ def linear_static(
         study=study,
         problem=problem,
         method="linear_static",
+    )
+
+
+def nonlinear(
+    residual,
+    solution,
+    *,
+    jacobian=None,
+    constraints=None,
+    bcs=None,
+    solver_options: NonlinearSolverOptions | None = None,
+    name: str = "nonlinear",
+    petsc_options_prefix: str = "agentfem_nonlinear_",
+) -> NonlinearVariationalProblem:
+    """Create a general nonlinear residual problem."""
+
+    return NonlinearVariationalProblem(
+        residual_form=residual,
+        jacobian_form=jacobian,
+        solution=solution,
+        bcs=_collect_bcs(constraints=constraints, bcs=bcs),
+        solver_options=solver_options,
+        name=name,
+        petsc_options_prefix=petsc_options_prefix,
+    )
+
+
+def affine_nonlinear(
+    residual,
+    solution,
+    *,
+    jacobian,
+    constraint,
+    load_factors=None,
+    incrementation=None,
+    solver_options: AffineNewtonOptions | None = None,
+    output_every: int | None = 1,
+    output_factors=(),
+    progress=True,
+    status_file=None,
+    name: str = "affine_nonlinear",
+) -> AffineNonlinearVariationalProblem:
+    """Create a nonlinear problem reduced by an affine constraint map."""
+
+    return AffineNonlinearVariationalProblem(
+        residual_form=residual,
+        jacobian_form=jacobian,
+        solution=solution,
+        constraint=constraint,
+        load_factors=(
+            None
+            if load_factors is None
+            else tuple(float(value) for value in load_factors)
+        ),
+        incrementation=incrementation,
+        solver_options=solver_options,
+        output_every=(
+            None if output_every is None else int(output_every)
+        ),
+        output_factors=tuple(float(value) for value in output_factors),
+        progress=progress,
+        status_file=status_file,
+        name=name,
+    )
+
+
+@dataclass(frozen=True)
+class LoadIncrementSnapshot:
+    """A copied solution state at one nonlinear load factor."""
+
+    index: int
+    load_factor: float
+    solution: object
+    solve_info: object | None = None
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "index": self.index,
+            "load_factor": self.load_factor,
+            "solution": getattr(self.solution, "name", type(self.solution).__name__),
+            "solve": (
+                None
+                if self.solve_info is None
+                else self.solve_info.as_dict()
+            ),
+        }
+
+
+def _load_snapshot(
+    index: int,
+    load_factor: float,
+    solution,
+    *,
+    solve_info=None,
+    zero: bool = False,
+) -> LoadIncrementSnapshot:
+    selected = solution.value if hasattr(solution, "value") else solution
+    copied = fem.Function(
+        selected.function_space,
+        name=getattr(selected, "name", "Solution"),
+    )
+    if not zero:
+        copied.x.array[:] = selected.x.array
+        copied.x.scatter_forward()
+    return LoadIncrementSnapshot(
+        index=int(index),
+        load_factor=float(load_factor),
+        solution=copied,
+        solve_info=solve_info,
     )
 
 

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Results and Campaigns - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
+      <div class="tagline">AI-assisted finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="active" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="licensing.html">Licensing</a>
+<a class="" href="publishing.html">Publishing</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="results-batch-simulation-and-learning-data">Results, Batch Simulation, and Learning Data</h1>
+<h2 id="one-result-contract">One Result Contract</h2>
+<p><code>results.SimulationResult</code> is the scientific result of one analysis. It can hold:</p>
+<ul>
+<li>scalar or fixed-shape quantities of interest;</li>
+<li>live finite-element fields and field-artifact links;</li>
+<li>time/load/iteration histories;</li>
+<li>solver and model metadata;</li>
+<li>visualization, checkpoint, and report artifacts.</li>
+</ul>
+<p>XDMF, CSV, and NumPy files are artifacts, not the result abstraction itself. This distinction lets one solve feed visualization, a campaign, a report, or a training dataset without each consumer reverse-engineering output files. <code>write_manifest(...)</code> records artifacts inside the manifest directory with relative paths by default, so moving one complete result directory does not break its links.</p>
+<p>Linear problems, engineering <code>AnalysisStep</code> objects, and nonlinear problems provide <code>solve_result()</code> while preserving the older <code>solve()</code> field-return contract.</p>
+<h2 id="field-output-versus-history-output">Field output versus history output</h2>
+<p>AgentFEM follows the established finite-element distinction:</p>
+<ul>
+<li><strong>field output</strong> is a spatial field over a mesh at selected frames;</li>
+<li><strong>history output</strong> is a frequently sampled scalar/vector/tensor at a small<br>region, probe, control node, or global integral;</li>
+<li><strong>quantities of interest</strong> are named values selected for reports, campaigns,<br>verification, or learning datasets.</li>
+</ul>
+<p><code>SimulationResult.add_quantity</code> and <code>add_history</code> construct an already computed scientific result. They are not output-request syntax. Batch forms <code>add_quantities(mapping)</code> and <code>add_histories(axis, mapping)</code> avoid repetitive calls. A field-output request is declared before export:</p>
+<pre><code>request = results.field_output(
+    &quot;U&quot;, &quot;S&quot;, &quot;E&quot;, &quot;EVOL&quot;,
+    every=1,
+    configuration=&quot;deformed&quot;,
+    backend=&quot;xdmf&quot;,
+)
+artifacts = request.write_finite_strain(
+    &quot;output&quot;,
+    domain=domain,
+    snapshots=step.snapshots,
+    material=material,
+)</code></pre>
+<p>The field catalog owns aliases and physical meaning. In a finite-strain context, <code>E</code> resolves to <code>LE</code>; <code>GREEN</code> requests Green--Lagrange strain explicitly. This keeps short engineering vocabulary without allowing one name to silently change tensor meaning.</p>
+<h2 id="one-compact-scientific-and-presentation-series">One compact scientific and presentation series</h2>
+<p>AgentFEM&#x27;s default finite-strain backend writes one temporal <code>.xdmf</code> index and one compressed <code>.h5</code> heavy-data store. Topology is stored once. Each frame contains:</p>
+<ul>
+<li>its load/time value;</li>
+<li>coordinates <code>x + scale*u</code>;</li>
+<li>nodal <code>U</code> and <code>UMAG</code>;</li>
+<li>every requested cell field on that same grid.</li>
+</ul>
+<p>ParaView therefore opens one source, finds the time axis, animates the actual deformed geometry, and switches among all fields without a Warp filter or multi-block selection. The HDF5 store also retains the reference coordinates, so the directly viewable result does not discard finite-element provenance. <code>deformation_scale=1</code> is the physical configuration; another value is explicitly a presentation scale.</p>
+<p>XDMF is the small XML description and HDF5 is the compact numerical payload. Inlining millions of values into XML would produce a much larger and slower file, so the pair should be treated as one logical result dataset. The optional <code>backend=&quot;pvd&quot;</code> and <code>&quot;both&quot;</code> modes remain available for tools that specifically require PVD/VTU, but they are no longer the default.</p>
+<h2 id="quantities-of-interest">Quantities of Interest</h2>
+<p><code>results.integral</code>, <code>results.average</code>, and <code>results.l2_norm</code> assemble physical expressions with MPI reduction. <code>SimulationResult.add_dof_statistics(...)</code> captures coefficient extrema and counts for quick inspection; those values are explicitly not physical domain integrals.</p>
+<pre><code>solved = step.solve_result()
+solved.add_dof_statistics(u, prefix=&quot;u&quot;, unit=&quot;m&quot;)
+solved.add_quantity(
+    &quot;mean_temperature&quot;,
+    results.average(T, measure=dx),
+    unit=&quot;K&quot;,
+)
+solved.add_quantities({&quot;mean_temperature&quot;: mean_T, &quot;heat_flux&quot;: total_flux})
+solved.write_manifest(&quot;result.json&quot;)</code></pre>
+<h2 id="campaign-to-dataset">Campaign to Dataset</h2>
+<p>A campaign evaluator may return:</p>
+<ul>
+<li>a mapping of declared outputs;</li>
+<li><code>campaigns.CaseOutcome</code> with provenance/artifacts;</li>
+<li>or a <code>SimulationResult</code>.</li>
+</ul>
+<p>In the last case AgentFEM extracts only the declared QoIs into the scientific dataset. Live DOLFINx fields are not serialized into table columns; their artifacts remain linked.</p>
+<p>Campaign configuration can be written as safe JSON for parameter definitions, sampling, output contracts, and execution policy. Python still supplies the trusted model builder/evaluator. The JSON file never imports or evaluates arbitrary code.</p>
+<p>The current runner is serial across cases and MPI-aware within each FEM case. Use deterministic plan shards for schedulers or separate MPI jobs rather than Python threads.</p>
+<h2 id="next-result-priorities">Next Result Priorities</h2>
+<ol>
+<li>reaction force/resultant extractors;</li>
+<li>named point and path probes;</li>
+<li>stress/strain projection for visualization;</li>
+<li>energy and balance diagnostics;</li>
+<li>checkpoint/restart manifests;</li>
+<li>mesh-independent field sampling for neural operators;</li>
+<li>scheduler executors that preserve identical case records.</li>
+</ol>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,37 @@
+{
+  "name": "spring_parameter_study",
+  "description": "Minimal safe file-driven campaign; replace the evaluator with FEM.",
+  "parameters": [
+    {
+      "kind": "real",
+      "name": "stiffness",
+      "lower": 1000.0,
+      "upper": 5000.0,
+      "unit": "N/m",
+      "scale": "log"
+    },
+    {
+      "kind": "real",
+      "name": "load",
+      "lower": 10.0,
+      "upper": 100.0,
+      "unit": "N"
+    }
+  ],
+  "sampling": {
+    "method": "latin_hypercube",
+    "count": 8,
+    "seed": 2026
+  },
+  "outputs": [
+    {
+      "name": "response",
+      "unit": "m"
+    }
+  ],
+  "execution": {
+    "mode": "serial",
+    "resume": true,
+    "fail_fast": false
+  }
+}

@@ -23,8 +23,10 @@ from . import mesh
 from . import models
 from . import operators
 from . import problems
+from . import results
 from . import solvers
 from . import spaces
+from . import steps
 from . import studies
 from . import surrogates
 from . import time
@@ -42,7 +44,9 @@ PUBLIC_WORKFLOW_MODULES = (
     "loads",
     "operators",
     "problems",
+    "results",
     "solvers",
+    "steps",
     "time",
     "io",
     "diagnostics",
@@ -84,8 +88,10 @@ __all__ = [
     "models",
     "operators",
     "problems",
+    "results",
     "solvers",
     "spaces",
+    "steps",
     "studies",
     "surrogates",
     "time",

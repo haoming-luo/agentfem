@@ -1,0 +1,318 @@
+"""Finite-strain field output and periodic-cell homogenization."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+import numpy as np
+import ufl
+from dolfinx import fem
+import dolfinx.fem.petsc as fem_petsc
+
+from ..constitutive import hyperelasticity
+from .field_catalog import resolve_field_variables
+from .quantities import integral
+
+
+@dataclass(frozen=True)
+class HomogenizedFrame:
+    """Macroscopic response reconstructed from one periodic-cell state."""
+
+    load_factor: float
+    deformation_gradient: np.ndarray
+    green_lagrange_strain: np.ndarray
+    logarithmic_strain: np.ndarray
+    first_piola_stress: np.ndarray
+    cauchy_stress: np.ndarray
+    deformation_jacobian: float
+    strain_energy_density: float
+    solid_reference_fraction: float
+    solid_current_fraction: float
+    stress_consistency_error: float
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "load_factor": self.load_factor,
+            "deformation_gradient": self.deformation_gradient.tolist(),
+            "green_lagrange_strain": self.green_lagrange_strain.tolist(),
+            "logarithmic_strain": self.logarithmic_strain.tolist(),
+            "first_piola_stress": self.first_piola_stress.tolist(),
+            "cauchy_stress": self.cauchy_stress.tolist(),
+            "deformation_jacobian": self.deformation_jacobian,
+            "strain_energy_density": self.strain_energy_density,
+            "solid_reference_fraction": self.solid_reference_fraction,
+            "solid_current_fraction": self.solid_current_fraction,
+            "stress_consistency_error": self.stress_consistency_error,
+        }
+
+
+def finite_strain_cell_fields(
+    displacement,
+    properties,
+    *,
+    variables=("F", "E", "GREEN", "P", "S", "MISES", "J", "SENER", "EVOL"),
+) -> tuple[object, ...]:
+    """Create requested standard P0 finite-strain cell fields.
+
+    ``E`` follows finite-strain output convention and resolves to logarithmic
+    strain ``LE``. Green--Lagrange strain remains available explicitly as
+    ``GREEN``. Fields are centroid samples except ``EVOL``, which is assembled
+    as the reference-element integral of ``J``.
+    """
+
+    function = getattr(displacement, "value", displacement)
+    domain = function.function_space.mesh
+    F = hyperelasticity.deformation_gradient(function)
+    E = hyperelasticity.green_lagrange_strain(function)
+    J = ufl.det(F)
+    P = hyperelasticity.first_piola(function, properties)
+    sigma = hyperelasticity.cauchy_stress(function, properties)
+    psi = hyperelasticity.strain_energy_density(function, properties)
+    identity = ufl.Identity(F.ufl_shape[0])
+    deviator = sigma - ufl.tr(sigma) / 3.0 * identity
+    von_mises = ufl.sqrt(1.5 * ufl.inner(deviator, deviator))
+    requested = resolve_field_variables(variables, finite_strain=True)
+    sampled_F = None
+    fields = []
+    for variable in requested:
+        if variable.key == "U":
+            continue
+        if variable.key == "F":
+            field = _cell_sample(F, domain, variable.key)
+            sampled_F = field
+        elif variable.key == "LE":
+            if sampled_F is None:
+                sampled_F = _cell_sample(F, domain, "F")
+            field = _logarithmic_strain_field(sampled_F, variable.key)
+        elif variable.key == "GREEN":
+            field = _cell_sample(E, domain, variable.key)
+        elif variable.key == "P":
+            field = _cell_sample(P, domain, variable.key)
+        elif variable.key == "S":
+            field = _cell_sample(sigma, domain, variable.key)
+        elif variable.key == "MISES":
+            field = _cell_sample(von_mises, domain, variable.key)
+        elif variable.key == "J":
+            field = _cell_sample(J, domain, variable.key)
+        elif variable.key == "SENER":
+            field = _cell_sample(psi, domain, variable.key)
+        elif variable.key == "EVOL":
+            field = _current_element_volume(J, domain, name=variable.key)
+        else:
+            raise NotImplementedError(
+                f"Finite-strain output does not provide {variable.key!r}."
+            )
+        fields.append(field)
+    return tuple(fields)
+
+
+def homogenize_periodic_cell(
+    displacement,
+    properties,
+    *,
+    macro_deformation_gradient,
+    cell_reference_volume: float,
+    load_factor: float,
+) -> HomogenizedFrame:
+    """Return volume-normalized macroscopic finite-strain response.
+
+    Voids carry zero stress. Integrals are therefore over the solid mesh but
+    divided by the complete periodic-cell volume, matching an RVE effective
+    stress rather than a matrix-phase average.
+    """
+
+    function = getattr(displacement, "value", displacement)
+    domain = function.function_space.mesh
+    dx = ufl.dx(domain=domain)
+    Fbar = np.asarray(macro_deformation_gradient, dtype=float)
+    if Fbar.shape != (3, 3) or np.linalg.det(Fbar) <= 0.0:
+        raise ValueError("macro_deformation_gradient must be a positive-J 3x3 matrix.")
+    if not np.isfinite(cell_reference_volume) or cell_reference_volume <= 0.0:
+        raise ValueError("cell_reference_volume must be finite and positive.")
+
+    F = hyperelasticity.deformation_gradient(function)
+    J = ufl.det(F)
+    P = hyperelasticity.first_piola(function, properties)
+    sigma = hyperelasticity.cauchy_stress(function, properties)
+    psi = hyperelasticity.strain_energy_density(function, properties)
+    reference_solid_volume = float(integral(ufl.as_ufl(1.0), measure=dx))
+    current_solid_volume = float(integral(J, measure=dx))
+    Pbar = np.asarray(integral(P, measure=dx), dtype=float) / cell_reference_volume
+    Jbar = float(np.linalg.det(Fbar))
+    sigma_bar = (
+        np.asarray(integral(J * sigma, measure=dx), dtype=float)
+        / (Jbar * cell_reference_volume)
+    )
+    P_from_sigma = Jbar * sigma_bar @ np.linalg.inv(Fbar).T
+    green = 0.5 * (Fbar.T @ Fbar - np.eye(3))
+    logarithmic = _logarithmic_strain(Fbar)
+    return HomogenizedFrame(
+        load_factor=float(load_factor),
+        deformation_gradient=Fbar,
+        green_lagrange_strain=green,
+        logarithmic_strain=logarithmic,
+        first_piola_stress=Pbar,
+        cauchy_stress=sigma_bar,
+        deformation_jacobian=Jbar,
+        strain_energy_density=float(integral(psi, measure=dx))
+        / cell_reference_volume,
+        solid_reference_fraction=reference_solid_volume / cell_reference_volume,
+        solid_current_fraction=current_solid_volume / (Jbar * cell_reference_volume),
+        stress_consistency_error=float(np.max(np.abs(Pbar - P_from_sigma))),
+    )
+
+
+def write_homogenized_history(
+    path: str | Path,
+    frames,
+) -> Path:
+    """Write an exact, compact NumPy history for plotting and ML reuse."""
+
+    selected = tuple(frames)
+    if not selected:
+        raise ValueError("write_homogenized_history requires at least one frame.")
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(
+        output,
+        load_factor=np.asarray([frame.load_factor for frame in selected]),
+        deformation_gradient=np.asarray(
+            [frame.deformation_gradient for frame in selected]
+        ),
+        green_lagrange_strain=np.asarray(
+            [frame.green_lagrange_strain for frame in selected]
+        ),
+        logarithmic_strain=np.asarray(
+            [frame.logarithmic_strain for frame in selected]
+        ),
+        first_piola_stress=np.asarray(
+            [frame.first_piola_stress for frame in selected]
+        ),
+        cauchy_stress=np.asarray([frame.cauchy_stress for frame in selected]),
+        deformation_jacobian=np.asarray(
+            [frame.deformation_jacobian for frame in selected]
+        ),
+        strain_energy_density=np.asarray(
+            [frame.strain_energy_density for frame in selected]
+        ),
+        solid_reference_fraction=np.asarray(
+            [frame.solid_reference_fraction for frame in selected]
+        ),
+        solid_current_fraction=np.asarray(
+            [frame.solid_current_fraction for frame in selected]
+        ),
+        stress_consistency_error=np.asarray(
+            [frame.stress_consistency_error for frame in selected]
+        ),
+    )
+    return output
+
+
+def write_homogenized_csv(path: str | Path, frames) -> Path:
+    """Write flattened macro tensors in a human-readable table."""
+
+    selected = tuple(frames)
+    if not selected:
+        raise ValueError("write_homogenized_csv requires at least one frame.")
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    tensor_names = (
+        "deformation_gradient",
+        "green_lagrange_strain",
+        "logarithmic_strain",
+        "first_piola_stress",
+        "cauchy_stress",
+    )
+    component_names = tuple(f"{i + 1}{j + 1}" for i in range(3) for j in range(3))
+    header = ["load_factor"]
+    for tensor in tensor_names:
+        header.extend(f"{tensor}_{component}" for component in component_names)
+    header.extend(
+        (
+            "deformation_jacobian",
+            "strain_energy_density",
+            "solid_reference_fraction",
+            "solid_current_fraction",
+            "stress_consistency_error",
+        )
+    )
+    rows = []
+    for frame in selected:
+        row = [frame.load_factor]
+        for tensor in tensor_names:
+            row.extend(np.asarray(getattr(frame, tensor)).reshape(-1))
+        row.extend(
+            (
+                frame.deformation_jacobian,
+                frame.strain_energy_density,
+                frame.solid_reference_fraction,
+                frame.solid_current_fraction,
+                frame.stress_consistency_error,
+            )
+        )
+        rows.append(row)
+    np.savetxt(
+        output,
+        np.asarray(rows, dtype=float),
+        delimiter=",",
+        header=",".join(header),
+        comments="",
+    )
+    return output
+
+
+def _cell_sample(expression, domain, name: str):
+    shape = tuple(expression.ufl_shape)
+    element = ("DG", 0) if not shape else ("DG", 0, shape)
+    space = fem.functionspace(domain, element)
+    output = fem.Function(space, name=name)
+    evaluator = fem.Expression(expression, space.element.interpolation_points)
+    output.interpolate(evaluator)
+    return output
+
+
+def _current_element_volume(J, domain, *, name="EVOL"):
+    space = fem.functionspace(domain, ("DG", 0))
+    output = fem.Function(space, name=name)
+    test = ufl.TestFunction(space)
+    vector = fem_petsc.assemble_vector(
+        fem.form(test * J * ufl.dx(domain=domain))
+    )
+    output.x.array[:] = vector.array_r
+    output.x.scatter_forward()
+    vector.destroy()
+    return output
+
+
+def _logarithmic_strain_field(deformation_gradient, name: str):
+    """Return DG0 spatial Hencky strain ``log(V)`` from a DG0 ``F`` field."""
+
+    space = deformation_gradient.function_space
+    output = fem.Function(space, name=name)
+    dimension = deformation_gradient.ufl_shape[0]
+    values = np.asarray(deformation_gradient.x.array).reshape(
+        -1,
+        dimension,
+        dimension,
+    )
+    logarithmic = np.empty_like(values)
+    for index, F in enumerate(values):
+        eigenvalues, eigenvectors = np.linalg.eigh(F @ F.T)
+        if np.any(eigenvalues <= 0.0):
+            raise ValueError("Logarithmic strain requires positive principal stretches.")
+        logarithmic[index] = (
+            eigenvectors
+            @ np.diag(0.5 * np.log(eigenvalues))
+            @ eigenvectors.T
+        )
+    output.x.array[:] = logarithmic.reshape(-1)
+    output.x.scatter_forward()
+    return output
+
+
+def _logarithmic_strain(F: np.ndarray) -> np.ndarray:
+    eigenvalues, eigenvectors = np.linalg.eigh(F.T @ F)
+    if np.any(eigenvalues <= 0.0):
+        raise ValueError("Logarithmic strain requires a positive-definite F.T F.")
+    return eigenvectors @ np.diag(0.5 * np.log(eigenvalues)) @ eigenvectors.T

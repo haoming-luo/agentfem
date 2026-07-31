@@ -4,6 +4,11 @@ AgentFEM documentation is written as linked Markdown files. The current
 recommended static-site layer is MkDocs because it is simple, friendly to
 research software, and easy for agents to inspect.
 
+MkDocs builds the engineering design pages under `docs/`. The dependency-free
+`build_docs.py` builder additionally collects the repository README,
+installation/workflow/concept guides, examples, and project skill into the
+complete local site.
+
 ## Local Preview
 
 From the repository root:

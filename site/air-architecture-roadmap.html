@@ -19,6 +19,13 @@
 <a class="" href="workflow.html">Workflow</a>
 <a class="" href="concepts.html">Concepts</a>
 <a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
 <a class="" href="module-map.html">Module Map</a>
 <a class="" href="api-style.html">API Style</a>
 <a class="" href="extension-rules.html">Extension Rules</a>
@@ -35,6 +42,7 @@
     <main>
       <article>
 <h1 id="agentfem-air-architecture-and-engineering-roadmap">AgentFEM AIR Architecture and Engineering Roadmap</h1>
+<p>&gt; Product priority note: the executable FEniCSx product, nonlinear mechanics, &gt; results, interoperability, and verification now have the governing &gt; near-term roadmap in <code>docs/product_roadmap.md</code>. AF-IR remains experimental &gt; and should advance only when a loader, migration, validator, or independent &gt; consumer creates evidence for a stable representation.</p>
 <h2 id="purpose">Purpose</h2>
 <p>This document turns the long-term AF-IR/AIR argument into an engineering sequence. It distinguishes:</p>
 <ul>
@@ -573,21 +581,22 @@ export_artifact</code></pre>
 <h2 id="near-term-implementation-queue">Near-Term Implementation Queue</h2>
 <p>The next concrete code changes should be:</p>
 <ol>
-<li>Add formal types for object IDs and references.</li>
-<li>Add AF-IR loading plus strict version checks.</li>
+<li>Unify linear, nonlinear, and transient outputs through <code>SimulationResult</code>;<br>finish reactions, energies, point/path probes, projection, and restart.</li>
+<li>Harden Neo-Hookean nonlinear-static solving and build the quadrature-state<br>protocol required for a real J2 finite-element step.</li>
 <li>Add validation for region emptiness, partition overlap/completeness, target<br>mesh consistency, and step/operator completeness.</li>
-<li>Add an execution record for the static example.</li>
-<li>Add benchmark objects with expected quantities and tolerances.</li>
-<li>Add solver convergence reason and iteration count to execution evidence.</li>
-<li>Add a model-owned transient heat step and corresponding AF-IR coverage.</li>
-<li>Introduce <code>OperatorSpec</code> only for mass, diffusion, isotropic elasticity,<br>and simple loads.</li>
-<li>Extend the existing two-rank smoke test to focused MPI validation for<br>transient state, diagnostics, and output.</li>
-<li>Evaluate agent defect repair using the new issue codes and paths.</li>
-<li>Replace embedded campaign AF-IR provenance with content-addressed model and<br>run-record references.</li>
-<li>Add standard QoI extractors for point values, integrals, reactions,<br>energies, curves, and mesh-independent field samples.</li>
+<li>Complete external mesh volume/boundary region import with real Abaqus,<br>Nastran, Gmsh, Exodus, and MED golden files.</li>
+<li>Expand the test-linked benchmark registry with expected quantities,<br>tolerances, and mesh/time convergence.</li>
+<li>Record solver convergence reason and iteration count in every result.</li>
+<li>Add a model-owned transient heat step and checkpoint/restart.</li>
+<li>Integrate J2 plasticity only after local state, consistent tangent,<br>increment cutback, and single-element path tests are complete.</li>
+<li>Extend the two-rank smoke test to focused MPI validation for<br>transient state, diagnostics, and output.</li>
+<li>Add a global adaptive creep step and reproduce closed-form/NAFEMS cases.</li>
+<li>Add fatigue stress-history extraction and field-result provenance.</li>
+<li>Complete standard QoIs for reactions, energies, curves, and<br>mesh-independent field samples.</li>
 <li>Add an execution-service protocol so local plan shards, Slurm jobs, and<br>hosted runners produce the same case records.</li>
 <li>Add Gaussian-process/ensemble uncertainty adapters and active-learning<br>proposal records before automatic retraining.</li>
 <li>Implement field projection and reviewed residual families before enabling<br>neural-operator or PINN training adapters.</li>
+<li>Revisit AF-IR loading/migration/object IDs only alongside an executable<br>consumer and golden cases; do not let schema work displace product gates.</li>
 </ol>
 <h2 id="success-criterion">Success Criterion</h2>
 <p>AgentFEM succeeds in the near term if it becomes a finite-element environment that engineers can actually use and trust for its supported analyses.</p>

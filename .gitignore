@@ -20,7 +20,8 @@ build/
 *.pvd
 *.vtu
 *.pvtu
-results/
+# Use ``results_*`` or ``examples_output`` for run directories; ``results/``
+# is the public ``agentfem.results`` source package.
 results_*/
 examples_output/
 

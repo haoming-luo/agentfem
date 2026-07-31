@@ -19,6 +19,13 @@
 <a class="" href="workflow.html">Workflow</a>
 <a class="active" href="concepts.html">Concepts</a>
 <a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
 <a class="" href="module-map.html">Module Map</a>
 <a class="" href="api-style.html">API Style</a>
 <a class="" href="extension-rules.html">Extension Rules</a>
@@ -69,6 +76,7 @@
 <p>Loads, constraints, sources, and prescribed data may reference amplitudes.</p>
 <h2 id="constitutive-law">Constitutive Law</h2>
 <p>A local response relation that maps state to stress, flux, tangent, or another response quantity. Elastic stress-strain equations belong here. Future viscoelasticity, plasticity, thermal conduction, and coupled response laws should also live here.</p>
+<p>A constitutive name does not imply a complete FEM analysis. AgentFEM records whether a capability is FEM-integrated, material-point verified, or a postprocessor. Path-dependent material FEM integration additionally requires quadrature state, a consistent tangent or documented alternative, increment control, convergence evidence, and restart behavior.</p>
 <h2 id="material-record">Material Record</h2>
 <p>A reusable set of material constants with units and provenance. Material records are data assets. Constitutive laws are equations. Keep these concepts separate so one material record can be used by different solvers or law families when appropriate.</p>
 <h2 id="material-properties">Material Properties</h2>
@@ -92,6 +100,11 @@
 <p>A solve stage under a study. A step records the analysis method, time increment when relevant, visible operators, boundary conditions, and solver options.</p>
 <p>Examples include a linear static step solving <code>K U = F</code> and an implicit Euler heat-transfer step solving <code>(C / dt + K) T_next = C T_old / dt + Q</code>.</p>
 <p>The step should not hide the finite-element meaning. It is the place where visible operators become a solveable algebraic problem.</p>
+<h2 id="increment-attempt-and-iteration">Increment, Attempt, and Iteration</h2>
+<p>An Increment advances load or time within one analysis Step. An Attempt is one try at that Increment; a failed nonlinear attempt may be rolled back and retried after a cutback. An Iteration is one Newton correction inside an Attempt.</p>
+<p>Automatic incrementation chooses accepted Increment sizes from convergence behavior. Its <code>max_increments</code> value is a termination limit, not a requested count. A fixed subdivision is a separate, explicit policy. Newton <code>max_it</code> limits Iterations in one Attempt and therefore has different semantics.</p>
+<h2 id="output-interval-and-frame">Output Interval and Frame</h2>
+<p>An output interval or time point requests when fields should be persisted. A Frame is the saved result state produced at one such point or accepted Increment. Frames do not drive the nonlinear algorithm. Exact output marks may require the solver to land at those values, while cutbacks may introduce additional internal Increments.</p>
 <h2 id="element-policy">Element Policy</h2>
 <p>A reusable interpolation, quadrature, or integration choice. DOLFINx should remain the backend, but AgentFEM may eventually name common element policies for consistent human and agent workflows.</p>
 <h2 id="state">State</h2>
@@ -104,8 +117,10 @@
 <p>A discrete algebraic or transient system, such as <code>K x = F</code>, <code>C xdot + K x = F</code>, or <code>M a + C v + K u = F</code>. Problems solve systems; steps describe the analysis stage, studies declare context, and models register assets.</p>
 <h2 id="diagnostic">Diagnostic</h2>
 <p>A scalar or field quantity used to inspect correctness, convergence, stability, or physical behavior.</p>
+<h2 id="simulation-result">Simulation Result</h2>
+<p>The scientific view of one completed analysis: named quantities of interest, fields, histories, solver/model metadata, and artifact links. XDMF, CSV, and NumPy files are result artifacts rather than the result abstraction itself. A simulation result can supply declared campaign outputs without serializing live finite-element fields into a tabular dataset.</p>
 <h2 id="benchmark">Benchmark</h2>
-<p>A standard verification problem with expected quantities and tolerances. Benchmarks validate platform capabilities; examples teach workflows.</p>
+<p>A standard verification problem with expected quantities and tolerances. Benchmarks validate platform capabilities; examples teach workflows. The benchmark registry links a stable identifier, criterion, reference, automated test, and capability maturity.</p>
 <h2 id="af-ir-document">AF-IR Document</h2>
 <p>A versioned, JSON-safe scientific record of the supported AgentFEM model structure. AF-IR 0.1 is experimental: it records public semantics and marks unresolved backend runtime objects as opaque. It is not yet a complete backend-neutral executable serialization.</p>
 <p>The readable Python program remains the primary authoring language. AF-IR is the persistent exchange, validation, provenance, and future lowering artifact.</p>

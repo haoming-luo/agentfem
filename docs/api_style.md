@@ -49,7 +49,8 @@ for AI agents.
 - Use `amplitudes` for reusable time histories and scale factors that can
   drive loads, constraints, sources, or prescribed data.
 - Hide backend scalar-type details inside concept constructors such as
-  `loads.traction(...)`, `constraints.fixed(...)`, and material-property
+  `loads.traction(...)`, `loads.pressure(...)`, `constraints.fixed(...)`,
+  `constraints.symmetry(...)`, and material-property
   loaders.
 - Application examples should not call `PETSc.ScalarType` directly. Use
   `kernel.constants.scalar_value(...)` in low-level helpers and
@@ -63,7 +64,8 @@ for AI agents.
 - Prefer `on=...` for geometric targets in user-facing APIs. Keep `location=...`
   as a compatibility spelling for explicit region objects.
 - Provide model-level registration helpers such as `model.field(...)`,
-  `model.fix(...)`, and `model.traction(...)` when they keep the workflow
+  `model.fix(...)`, `model.symmetry(...)`, `model.pressure(...)`, and
+  `model.traction(...)` when they keep the workflow
   readable without hiding finite-element meaning.
 - Provide model-level operator helpers such as `model.stiffness(...)`,
   `model.internal_force(...)`, and `model.external_force(...)` for daily

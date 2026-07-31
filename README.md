@@ -26,9 +26,11 @@ Study -> Model -> Mesh/Regions -> Fields -> Materials -> Loads/Constraints
       -> Operators -> Step -> Solve -> Diagnostics/Output
 ```
 
-The current MVP focuses on linear elasticity, transient heat conduction,
-explicit elastodynamics, reusable loads and constraints, material records,
-operator-level `K/M/C/F` notation, model inspection, and ParaView/XDMF output.
+The current executable core covers linear elasticity, transient heat
+conduction, explicit elastodynamics, and a first nonlinear-static
+Neo-Hookean path. J2 plasticity and power-law creep are currently verified
+material-point tools, while stress-life fatigue is a postprocessor. Those
+maturity levels are deliberately distinct and queryable in code.
 
 ## Why AgentFEM
 
@@ -41,6 +43,10 @@ operator-level `K/M/C/F` notation, model inspection, and ParaView/XDMF output.
 - Collection-level scientific workflows: deterministic campaign cases,
   resumable evidence, unit/shape-aware datasets, transparent surrogate
   baselines, independent validation, and explicit applicability domains.
+- One result path: solved fields, quantities, histories, visualization
+  artifacts, batch outputs, and training data share `SimulationResult`.
+- CAE mesh interoperability: inspect and convert supported external meshes
+  while retaining named volume/boundary memberships in a conversion manifest.
 - Transparent layers: daily workflows use `models`, `fields`, `loads`,
   `operators`, and `problems`; advanced users can still drop to `forms`,
   `assembly`, PETSc, or DOLFINx when needed.
@@ -186,7 +192,7 @@ Beginner and agent-generated workflows should prefer:
 from agentfem import studies, mesh, models, fields, materials, constitutive
 from agentfem import amplitudes, constraints, loads, operators, problems
 from agentfem import solvers, time, io, diagnostics
-from agentfem import campaigns, datasets, surrogates
+from agentfem import campaigns, datasets, results, surrogates
 ```
 
 Lower-level modules such as `forms`, `assembly`, `spaces`, and `kernel` remain
@@ -202,6 +208,10 @@ thing a new model exposes.
   regional material assignment and absorbing/periodic boundary handling.
 - `examples/static_elasticity_surrogate_campaign.py`: FEniCSx parameter
   campaign, scientific dataset, surrogate validation, and guarded FEM fallback.
+- `examples/campaign_from_json.py`: safe JSON campaign specification with a
+  trusted Python evaluator.
+- `examples/material_models.py`: nonlinear-material maturity, J2 load path,
+  creep history, rainflow counting, and Miner damage.
 
 ## Documentation
 
@@ -212,6 +222,13 @@ thing a new model exposes.
 - `CONCEPTS.md`: shared vocabulary for finite-element and agent workflows.
 - `AGENT_GUIDE.md`: first file for AI agents working in this repository.
 - `docs/`: design notes, module map, validation notes, and extension rules.
+- `docs/product_roadmap.md`: product-first priorities and capability release
+  gates.
+- `docs/nonlinear_materials.md`: implemented nonlinear laws, formulas, and
+  honest FEM/material-point/postprocessor boundaries.
+- `docs/results_and_campaigns.md`: result, QoI, campaign, and dataset contract.
+- `docs/mesh_interoperability.md`: external mesh conversion and named-set
+  preservation.
 - `docs/air_architecture_roadmap.md`: FEniCSx-first engineering plan and
   staged AF-IR/AIR architecture.
 - `docs/ai_native_learning.md`: implemented campaign/dataset/surrogate
@@ -256,8 +273,11 @@ defect inspection, and simulation analysis for power-generation equipment.
 AgentFEM is a research-oriented MVP. It is not yet a general-purpose CAE
 replacement. The stable direction is:
 
+- a dependable FEniCSx-first product for selected engineering analyses,
 - model-first workflows for common analyses,
 - operator-first workflows for transparent research code,
+- one result-to-visualization/campaign/dataset flow,
+- staged nonlinear materials whose maturity is tied to tests and benchmarks,
 - versioned scientific records and structured repair reports for agents,
 - examples and benchmarks that make assumptions explicit.
 

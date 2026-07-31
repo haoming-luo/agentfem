@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+from time import monotonic
 from typing import Callable
 
 import numpy as np
@@ -52,6 +54,125 @@ def print_on_root(obj, *args, root: int = 0, flush: bool = True, **kwargs) -> No
 
     if is_root(obj, root=root):
         print(*args, flush=flush, **kwargs)
+
+
+@dataclass
+class StandardRunReporter:
+    """Immediate rank-zero progress for long-running analysis steps.
+
+    The console is deliberately human-facing.  When ``status_file`` is given,
+    a compact line-oriented record is flushed after every accepted increment
+    or cutback so terminals, schedulers, and agents can monitor the same run.
+    """
+
+    comm: object
+    status_file: str | Path | None = None
+    show_iterations: bool = True
+
+    def __post_init__(self) -> None:
+        self.status_file = (
+            None if self.status_file is None else Path(self.status_file)
+        )
+        self._started = monotonic()
+        self._status_initialized = False
+
+    def emit(self, event) -> None:
+        """Report one solver event; non-root ranks remain silent."""
+
+        if self.comm.rank != 0:
+            return
+        elapsed = monotonic() - self._started
+        kind = event.kind
+        if kind == "step_started":
+            self._print(
+                f"[STEP {event.step_number}] {event.step_name} "
+                f"| {event.incrementation}"
+            )
+            self._write_status(
+                "STEP INC ATT LOAD_FACTOR INCREMENT ITERATIONS RESIDUAL STATUS ELAPSED_S"
+            )
+        elif kind == "increment_started":
+            self._print(
+                f"  [INC {event.increment} | ATT {event.attempt}] "
+                f"{event.start_factor:.6g} -> {event.target_factor:.6g} "
+                f"(d={event.target_factor - event.start_factor:.3g})"
+            )
+        elif kind == "iteration" and self.show_iterations:
+            alpha = (
+                ""
+                if event.step_length is None
+                else f" | alpha={event.step_length:.3g}"
+            )
+            self._print(
+                f"    ITER {event.iteration:02d} "
+                f"| residual={event.residual_norm:.6e}{alpha}"
+            )
+        elif kind == "increment_converged":
+            self._print(
+                f"  [INC {event.increment}] CONVERGED "
+                f"| iterations={event.iteration} "
+                f"| residual={event.residual_norm:.6e} "
+                f"| elapsed={elapsed:.1f}s"
+            )
+            self._write_status(
+                f"{event.step_number} {event.increment} {event.attempt} "
+                f"{event.target_factor:.16g} "
+                f"{event.target_factor - event.start_factor:.16g} "
+                f"{event.iteration} {event.residual_norm:.16e} "
+                f"CONVERGED {elapsed:.6f}"
+            )
+        elif kind == "increment_cutback":
+            self._print(
+                f"  [INC {event.increment} | ATT {event.attempt}] CUTBACK "
+                f"| residual={_number(event.residual_norm)} "
+                f"| next d={event.next_increment:.3g}"
+            )
+            self._write_status(
+                f"{event.step_number} {event.increment} {event.attempt} "
+                f"{event.target_factor:.16g} "
+                f"{event.target_factor - event.start_factor:.16g} "
+                f"{event.iteration} {_number(event.residual_norm)} "
+                f"CUTBACK {elapsed:.6f}"
+            )
+        elif kind == "step_completed":
+            self._print(
+                f"[STEP {event.step_number}] COMPLETED "
+                f"| increments={event.increment} "
+                f"| attempts={event.attempt} "
+                f"| elapsed={elapsed:.1f}s"
+            )
+            self._write_status(
+                f"{event.step_number} {event.increment} {event.attempt} "
+                f"1 0 0 0 COMPLETED {elapsed:.6f}"
+            )
+        elif kind == "step_failed":
+            self._print(
+                f"[STEP {event.step_number}] FAILED | {event.message}"
+            )
+            self._write_status(
+                f"{event.step_number} {event.increment} {event.attempt} "
+                f"{event.target_factor:.16g} 0 {event.iteration} "
+                f"{_number(event.residual_norm)} FAILED {elapsed:.6f}"
+            )
+
+    def _print(self, message: str) -> None:
+        print(message, flush=True)
+
+    def _write_status(self, line: str) -> None:
+        if self.status_file is None:
+            return
+        self.status_file.parent.mkdir(parents=True, exist_ok=True)
+        mode = "a" if self._status_initialized else "w"
+        with self.status_file.open(mode, encoding="utf-8", buffering=1) as stream:
+            stream.write(line + "\n")
+            stream.flush()
+        self._status_initialized = True
+
+
+def _number(value) -> str:
+    if value is None:
+        return "n/a"
+    return f"{float(value):.6e}"
 
 
 def kinetic_energy(mass_lumped: np.ndarray, velocity: fem.Function) -> float:

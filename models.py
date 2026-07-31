@@ -11,6 +11,12 @@ from numbers import Integral
 
 from . import constraints as constraint_api
 from . import loads as load_api
+from .step_providers import (
+    StepProvider,
+    StepProviderRegistry,
+    register_step_provider,
+    step_providers,
+)
 
 
 @dataclass
@@ -187,6 +193,71 @@ class Model:
         if measure is not None:
             kwargs["measure"] = measure
         return self.add_load(load_api.heat_source(value, **kwargs))
+
+    def pressure(
+        self,
+        value,
+        *,
+        on=None,
+        location=None,
+        configuration: str = "reference",
+        displacement=None,
+        name: str = "pressure",
+    ):
+        """Create and register dead or follower pressure."""
+
+        return self.add_load(
+            load_api.pressure(
+                value,
+                on=on,
+                location=location,
+                configuration=configuration,
+                displacement=displacement,
+                name=name,
+            )
+        )
+
+    def symmetry(
+        self,
+        target,
+        *,
+        on=None,
+        location=None,
+        normal_axis,
+        name: str | None = None,
+    ):
+        """Create and register an axis-aligned solid symmetry condition."""
+
+        return self.add_constraint(
+            constraint_api.symmetry(
+                target,
+                on=on,
+                location=location,
+                normal_axis=normal_axis,
+                name=name,
+            )
+        )
+
+    def roller(
+        self,
+        target,
+        *,
+        on=None,
+        location=None,
+        normal_axis,
+        name: str | None = None,
+    ):
+        """Create and register an axis-aligned roller/support condition."""
+
+        return self.add_constraint(
+            constraint_api.roller(
+                target,
+                on=on,
+                location=location,
+                normal_axis=normal_axis,
+                name=name,
+            )
+        )
 
     def absorbing_boundary(
         self,
@@ -527,6 +598,8 @@ class Model:
     def add_step(self, step):
         """Register an analysis step and return it."""
 
+        if hasattr(step, "step_number"):
+            step.step_number = len(self.steps) + 1
         self.steps.append(step)
         return step
 
@@ -552,25 +625,21 @@ class Model:
         selected_kind = kind or getattr(self.study, "analysis", None)
         if selected_kind is None:
             raise ValueError("model.step requires kind=... or a study with an analysis.")
-        normalized = selected_kind.lower().replace("-", "_")
-        if normalized in {"linear_static", "static"}:
-            return self.linear_static_step(
-                target=target,
-                K=K,
-                F=F,
-                constraints=constraints,
-                solver_options=solver_options,
-                name=name or "linear_static",
+        from .step_providers import lower_step
+
+        return lower_step(
+            self,
+            analysis=selected_kind,
+            target=target,
+            options={
+                "K": K,
+                "F": F,
+                "constraints": constraints,
+                "solver_options": solver_options,
+                "name": name,
                 **kwargs,
-            )
-        if normalized in {"second_order_dynamics", "explicit_dynamics", "explicit"}:
-            return self.explicit_dynamics_step(
-                target=target,
-                constraints=constraints,
-                name=name or "explicit_dynamics",
-                **kwargs,
-            )
-        raise ValueError(f"Unsupported model step kind {selected_kind!r}.")
+            },
+        )
 
     def linear_static_step(
         self,
@@ -599,6 +668,148 @@ class Model:
             name=name,
         )
         return self.add_step(step)
+
+    def hyperelastic_step(
+        self,
+        *,
+        target,
+        material=None,
+        constraints=None,
+        solver_options=None,
+        measure=None,
+        name: str = "hyperelastic",
+        petsc_options_prefix: str = "agentfem_hyperelastic_",
+        incrementation=None,
+        increments: int | None = None,
+        load_factors=None,
+        output=None,
+        output_every: int | None = None,
+        progress=True,
+        status_file=None,
+    ):
+        """Create a compressible Neo-Hookean nonlinear static problem.
+
+        The first implementation intentionally supports one material
+        contribution. Multiple-region finite-strain materials need explicit
+        kinematic and interface verification before becoming a convenience
+        path.
+        """
+
+        import ufl
+
+        from . import problems
+        from .constitutive import hyperelasticity
+
+        self.check()
+        if hasattr(self.study, "require"):
+            self.study.require(analysis="nonlinear_static", physics="solid_mechanics")
+        if getattr(self.study, "dimension", None) == 2 and getattr(
+            self.study, "assumption", None
+        ) != "plane_strain":
+            raise NotImplementedError(
+                "The Neo-Hookean 2D convenience step currently represents "
+                "plane strain only; plane stress requires a local thickness-stretch solve."
+            )
+        if material is None:
+            if len(self.materials) != 1:
+                raise ValueError(
+                    "model.hyperelastic_step requires material=... or exactly "
+                    "one registered material."
+                )
+            record = self.materials[0]
+        else:
+            record = self._material_record(material)
+        properties = record.item
+        if not isinstance(properties, hyperelasticity.NeoHookeanProperties):
+            raise TypeError(
+                "model.hyperelastic_step requires NeoHookeanProperties."
+            )
+        selected_measure = measure
+        if selected_measure is None:
+            selected_measure = (
+                record.region.measure if record.region is not None else ufl.dx
+            )
+        residual = hyperelasticity.internal_virtual_work(
+            target.value,
+            target.test,
+            properties,
+            measure=selected_measure,
+        )
+        if self.loads:
+            external = self.external_force(target)
+            residual -= external.expression
+        jacobian = hyperelasticity.tangent(
+            residual,
+            target.value,
+            target.trial,
+        )
+        selected_constraints = self.constraints if constraints is None else constraints
+        selected_constraints = _as_tuple(selected_constraints)
+        affine_constraints = [
+            item
+            for item in selected_constraints
+            if isinstance(item, constraint_api.AbaqusPeriodicConstraint)
+        ]
+        if affine_constraints:
+            if len(affine_constraints) != 1 or len(selected_constraints) != 1:
+                raise ValueError(
+                    "The affine hyperelastic path currently requires exactly one "
+                    "AbaqusPeriodicConstraint and no separate Dirichlet constraints."
+                )
+            from . import steps as step_api
+
+            selected_incrementation = step_api.normalize(
+                incrementation,
+                increments=increments,
+                load_factors=load_factors,
+            )
+            if output is not None and output_every is not None:
+                raise ValueError(
+                    "Pass output=... or output_every=..., not both."
+                )
+            selected_output_every = (
+                getattr(output, "every", None)
+                if output is not None
+                else (1 if output_every is None else int(output_every))
+            )
+            output_factors = (
+                output.required_factors()
+                if output is not None and hasattr(output, "required_factors")
+                else ()
+            )
+            problem = problems.affine_nonlinear(
+                residual,
+                target.value,
+                jacobian=jacobian,
+                constraint=affine_constraints[0],
+                incrementation=selected_incrementation,
+                solver_options=solver_options,
+                output_every=selected_output_every,
+                output_factors=output_factors,
+                progress=progress,
+                status_file=status_file,
+                name=name,
+            )
+        else:
+            if (
+                incrementation is not None
+                or increments is not None
+                or load_factors is not None
+            ):
+                raise ValueError(
+                    "Incremental hyperelastic loading currently requires an "
+                    "AbaqusPeriodicConstraint."
+                )
+            problem = problems.nonlinear(
+                residual,
+                target.value,
+                jacobian=jacobian,
+                constraints=selected_constraints,
+                solver_options=solver_options,
+                name=name,
+                petsc_options_prefix=petsc_options_prefix,
+            )
+        return self.add_step(problem)
 
     def explicit_dynamics_step(
         self,

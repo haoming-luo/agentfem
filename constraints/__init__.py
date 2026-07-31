@@ -18,6 +18,11 @@ from .. import amplitudes
 from ..ir.values import describe_value
 from ..kernel import constants
 from . import boundary
+from .affine import (
+    AbaqusPeriodicConstraint,
+    AffineReduction,
+    abaqus_periodic_cell,
+)
 
 
 @dataclass(frozen=True)
@@ -294,6 +299,61 @@ def fixed_component(
     return fixed(target, location=location, on=on, value=value, components=component, name=name)
 
 
+def symmetry(
+    target,
+    *,
+    on=None,
+    location=None,
+    normal_axis: int | str,
+    value=0.0,
+    name: str | None = None,
+) -> "ConstraintSet":
+    """Apply an axis-aligned solid-mechanics symmetry condition.
+
+    For displacement-only solid elements, symmetry fixes the displacement
+    component normal to the plane. Arbitrary inclined symmetry planes require
+    a linear multi-point constraint and are deliberately not approximated here.
+    """
+
+    component = _axis_component(normal_axis)
+    available = _all_components_or_none(target)
+    if available is None or component not in available:
+        raise ValueError(
+            f"normal_axis={normal_axis!r} selects component {component}, "
+            f"but the target provides components={available!r}."
+        )
+    selected_location = _select_location(location=location, on=on)
+    label = name or f"symmetry_{'xyz'[component]}"
+    return fixed(
+        target,
+        location=selected_location,
+        value=value,
+        components=component,
+        name=label,
+    )
+
+
+def roller(
+    target,
+    *,
+    on=None,
+    location=None,
+    normal_axis: int | str,
+    value=0.0,
+    name: str | None = None,
+) -> "ConstraintSet":
+    """Alias for an axis-aligned frictionless roller/support condition."""
+
+    return symmetry(
+        target,
+        on=on,
+        location=location,
+        normal_axis=normal_axis,
+        value=value,
+        name=name or f"roller_{normal_axis}",
+    )
+
+
 def fixed_all(target, *, location=None, on=None, value=0.0, name: str | None = None):
     """Create a scalar/all-dof fixed-value constraint."""
 
@@ -339,6 +399,19 @@ def _select_location(*, location=None, on=None):
     if location is not None and on is not None:
         raise ValueError("Pass either on=... or location=..., not both.")
     return location if location is not None else on
+
+
+def _axis_component(axis: int | str) -> int:
+    if isinstance(axis, str):
+        normalized = axis.lower().strip()
+        names = {"x": 0, "y": 1, "z": 2}
+        if normalized not in names:
+            raise ValueError("normal_axis must be x, y, z, 0, 1, or 2.")
+        return names[normalized]
+    selected = int(axis)
+    if selected not in {0, 1, 2}:
+        raise ValueError("normal_axis must be x, y, z, 0, 1, or 2.")
+    return selected
 
 
 def _space(target):

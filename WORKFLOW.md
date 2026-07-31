@@ -25,29 +25,35 @@ this sequence visible unless there is a strong reason to encapsulate it.
     `operators.combine(...)` when each contribution should be explicit.
 13. Create and register an analysis step with `model.step(...)` or
     `model.linear_static_step(...)`. The step should expose visible operators,
-    such as `K U = F` or `(C / dt + K) T_next = C T_old / dt + Q`.
+    such as `K U = F` or `(C / dt + K) T_next = C T_old / dt + Q`. For a
+    nonlinear path, use `steps.automatic(...)` normally and
+    `steps.fixed(...)` only for an intentionally fixed path.
 14. Run `model.validate()` or `model.check()` before execution. When the case
     is an auditable artifact, write `model.write_ir(...)`.
 15. Compile, assemble, and solve the step, or advance in time.
-16. Evaluate diagnostics.
-17. Write outputs and, as execution records mature, preserve provenance and
-    validation evidence with the result.
+16. Solve to a `results.SimulationResult` when the result will feed more than
+    one consumer.
+17. Evaluate physical QoIs, diagnostics, and histories. Keep coefficient
+    statistics distinct from assembled physical integrals.
+18. Write visualization/output artifacts and attach them to the result.
 
 For a collection of related cases, continue with:
 
-18. Define a typed `campaigns.ParameterSpace` with bounds and units.
-19. Create a deterministic design of experiments and fresh model variants.
-20. Run or resume the campaign and extract declared `datasets.Quantity`
+19. Define a typed `campaigns.ParameterSpace` with bounds and units, directly
+    or through a safe JSON campaign specification.
+20. Create a deterministic design of experiments and fresh model variants.
+21. Run or resume the campaign and extract declared `datasets.Quantity`
     outputs.
-21. Split the resulting `ScientificDataset` independently before training.
-22. Validate a surrogate or reduced-order model, declare its applicability
+22. Split the resulting `ScientificDataset` independently before training.
+23. Validate a surrogate or reduced-order model, declare its applicability
     domain, and retain a high-fidelity FEM fallback where extrapolation would
     be unsafe.
 
 ## Module Map
 
 - Mesh import, named regions, tags, summaries, checks, and measures: `mesh/`
-- External CAE mesh conversion: `mesh/formats.py`
+- External CAE mesh inventory/conversion and named-set manifests:
+  `mesh/formats.py`
 - Study contexts: `studies.py`
 - Model registry and checks: `models.py`
 - Spaces and fields: `spaces.py`
@@ -55,7 +61,7 @@ For a collection of related cases, continue with:
 - Low-level dofs and vector access: `kernel/dofs.py`
 - Constraints: `constraints/`
 - Loads and natural boundary data: `loads.py`
-- Constitutive laws: `constitutive/`
+- Constitutive laws and their queryable maturity catalog: `constitutive/`
 - Material library: `materials/`
 - Boundary models: `boundary_models/`
 - Weak-form blocks: `forms.py`
@@ -65,7 +71,9 @@ For a collection of related cases, continue with:
 - Model-owned analysis-step creation: `models.py`
 - Algebraic problems, reusable step containers, and state containers:
   `problems.py`
-- Solvers: `solvers.py`
+- Step incrementation and cutback: `steps.py`
+- Solvers and convergence policy: `solvers.py`
+- Scientific result/QoI/dataset bridge: `results/`
 - Diagnostics: `diagnostics.py`
 - Output: `io.py`
 - Element/integration policies: `elements/`

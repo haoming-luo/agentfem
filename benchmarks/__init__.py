@@ -1,3 +1,9 @@
-"""Standard verification benchmark namespace."""
+"""Reusable verification obligations and benchmark metadata."""
 
-__all__: list[str] = []
+from .registry import BenchmarkSpec, benchmark, list_benchmarks
+
+__all__ = [
+    "BenchmarkSpec",
+    "benchmark",
+    "list_benchmarks",
+]

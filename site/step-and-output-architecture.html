@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stable Steps and Compact Output - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
+      <div class="tagline">AI-assisted finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="active" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="licensing.html">Licensing</a>
+<a class="" href="publishing.html">Publishing</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="stable-steps-and-compact-field-output">Stable Steps and Compact Field Output</h1>
+<p>This note records two architectural decisions made while turning the Abaqus C3D10 periodic-cell migration into reusable AgentFEM infrastructure.</p>
+<h2 id="stable-public-step-extensible-lowering">Stable public step, extensible lowering</h2>
+<p>The public language is:</p>
+<pre><code>from agentfem import steps
+
+step = model.step(
+    target=u,
+    material=material,
+    constraints=constraints,
+    incrementation=steps.automatic(
+        initial=0.1,
+        minimum=1.0e-5,
+        maximum=0.25,
+        max_increments=100,
+    ),
+)</code></pre>
+<p>It should not become <code>model.neo_hookean_step</code>, <code>model.j2_step</code>, <code>model.creep_step</code>, and one more method for every future constitutive law. Those names mix two distinct decisions:</p>
+<ol>
+<li>the Study selects the analysis family and physics;</li>
+<li>a step provider decides whether one implemented material protocol can be<br>lowered to an executable problem.</li>
+</ol>
+<p><code>step_providers.py</code> now owns that second decision. A provider declares:</p>
+<ul>
+<li>accepted analysis names;</li>
+<li>a read-only compatibility predicate;</li>
+<li>a lowering function;</li>
+<li>priority and a human-readable description.</li>
+</ul>
+<p>The default registry currently contains linear-static operator, Neo-Hookean finite-strain static, and central-difference explicit providers. The registry is public and inspectable through <code>models.step_providers()</code>.</p>
+<p>This is an extension seam, not a promise that arbitrary registered code is scientifically valid. A new plasticity or creep provider is admissible only after its constitutive state, trial/commit/rollback policy, tangent, increment control, output, and benchmarks exist. Until then, the material-point law stays truthfully below the FEM-integrated maturity level.</p>
+<h2 id="step-increment-iteration-and-frame">Step, increment, iteration, and frame</h2>
+<p>These words are not interchangeable:</p>
+<ul>
+<li>a <strong>Step</strong> is one analysis procedure or loading stage;</li>
+<li>an <strong>Increment</strong> advances load or time within a Step;</li>
+<li>an <strong>Iteration</strong> is one Newton equilibrium correction inside an Increment;</li>
+<li>an <strong>Attempt</strong> is one try at an Increment, including retries after cutback;</li>
+<li>a <strong>Frame</strong> is a saved result state, not a unit of nonlinear solution.</li>
+</ul>
+<p>Automatic incrementation is the default for the affine finite-strain path. <code>max_increments=10</code> means “use no more than ten accepted increments”; it does not request exactly ten. Exact fixed subdivision remains explicit:</p>
+<pre><code>step = model.step(..., incrementation=steps.fixed(10))</code></pre>
+<p>The automatic controller increases the next increment after fast convergence, keeps or reduces it after harder convergence, and rolls the solution back before retrying a failed attempt with a cutback. <code>minimum</code>, <code>maximum</code>, <code>max_increments</code>, and <code>max_cutbacks</code> are termination safeguards. Constitutive models with internal variables must implement trial/commit/rollback before using the same controller globally.</p>
+<p>Solver convergence remains a separate, visible choice:</p>
+<pre><code>step = model.step(
+    ...,
+    incrementation=steps.automatic(max_increments=100),
+    solver_options=AffineNewtonOptions(max_it=25),
+)</code></pre>
+<p>Thus <code>max_increments</code> limits accepted load/time advances, whereas <code>max_it</code> limits Newton iterations in one attempt.</p>
+<h2 id="output-requests-do-not-control-the-nonlinear-algorithm">Output requests do not control the nonlinear algorithm</h2>
+<p>Saving every accepted increment follows the Abaqus/Standard convention:</p>
+<pre><code>output = results.field_output(&quot;U&quot;, &quot;S&quot;, &quot;E&quot;, every=&quot;increment&quot;)</code></pre>
+<p>Uniform output marks use output intervals:</p>
+<pre><code>output = results.field_output(&quot;U&quot;, &quot;S&quot;, &quot;E&quot;, intervals=6)
+step = model.step(..., output=output)</code></pre>
+<p>With <code>intervals=6</code>, the initial state and six interval endpoints form seven result frames. The nonlinear controller lands on those requested marks and may insert additional internal increments after cutbacks. <code>frames</code> is reserved for the states read back from a result dataset; it is not a solve-control argument.</p>
+<h2 id="standard-run-feedback">Standard run feedback</h2>
+<p>Nonlinear steps report progress on MPI rank zero without requiring routine CLI flags:</p>
+<pre><code>[STEP 1] periodic_neo_hookean | automatic_incrementation
+  [INC 1 | ATT 1] 0 -&gt; 0.25 (d=0.25)
+    ITER 01 | residual=...
+  [INC 1] CONVERGED | iterations=...</code></pre>
+<p>Passing <code>status_file=&quot;job.sta&quot;</code> adds a flushed, line-oriented status record. <code>progress=False</code> remains available for managed campaigns, but silence is not the interactive default.</p>
+<h2 id="one-logical-field-dataset">One logical field dataset</h2>
+<p>The default finite-strain result consists of:</p>
+<pre><code>results.xdmf   small temporal/field description
+results.h5     compressed numerical payload</code></pre>
+<p>The HDF5 payload stores topology once, retains reference coordinates, and stores each frame&#x27;s deformed coordinates plus all requested point and cell attributes. The XDMF presents those frames as one temporal collection. ParaView can therefore:</p>
+<ul>
+<li>discover time/load values;</li>
+<li>play the true <code>x+u</code> geometry directly;</li>
+<li>switch <code>U</code>, stress, strain, <code>J</code>, energy, and other fields on the same grid;</li>
+<li>avoid one VTU file per frame and avoid a manual Warp filter.</li>
+</ul>
+<p>XDMF and HDF5 are one logical dataset. Putting the heavy arrays inline in XML would create a much larger, slower text file without improving scientific meaning. PVD/VTU remains an optional compatibility backend, not the default.</p>
+<p>The current compact writer is serial. Parallel collective HDF5 requires an explicit data-ownership and global-numbering design; silently gathering a large distributed simulation to rank zero is not an acceptable production solution.</p>
+<p>The current exact importer for arbitrary chained Abaqus <code>*EQUATION</code> constraints is also serial. Ordinary DOLFINx problems, diagnostics, and progress reporting are MPI-aware, but launching this periodic-cell example on several ranks would only duplicate a serial job. A production distributed MPC backend must map source labels to distributed global dofs, assemble constrained operators collectively, back-substitute ghost values, and pass serial/MPI parity tests. <code>dolfinx_mpc</code> is the intended first backend candidate; it is an optional compiled dependency and is not silently emulated when unavailable.</p>
+<h2 id="result-roles-remain-distinct">Result roles remain distinct</h2>
+<ul>
+<li>A field series answers “where is a quantity distributed?”</li>
+<li>A history answers “how did a selected value evolve?”</li>
+<li>A QoI answers “what value enters a report, decision, campaign, or dataset?”</li>
+</ul>
+<p>The unified XDMF does not replace exact homogenized histories or training tables. Visualization fields may be projected to cell centers, whereas the periodic-cell NPZ/CSV response is integrated from the governing UFL expressions. Consumers should not reconstruct authoritative macro response by re-averaging a visualization field.</p>
+<h2 id="implemented-adjacent-foundations">Implemented adjacent foundations</h2>
+<ul>
+<li>automatic affine finite-strain increments with convergence-based growth,<br>rollback, cutback, accepted/attempt histories, and <code>.sta</code> reporting;</li>
+<li>axis-aligned solid <code>symmetry</code>/<code>roller</code> constraints;</li>
+<li>reference dead pressure and current follower pressure using Nanson pullback;</li>
+<li>exact piecewise-constant material-point creep histories;</li>
+<li>auditable fatigue assessment from a named <code>SimulationResult</code> history.</li>
+</ul>
+<p>These additions are intentionally reusable. They do not turn material-point creep into a global creep solver or scalar S-N fatigue into a general multiaxial damage model.</p>
+<h2 id="next-gates">Next gates</h2>
+<ol>
+<li>Test compact XDMF on MPI with a collective topology/geometry ownership<br>contract before advertising parallel output.</li>
+<li>Add named point, region, reaction, and energy history extractors.</li>
+<li>Introduce restartable quadrature state with trial/commit/rollback.</li>
+<li>Integrate J2 only with a consistent tangent, cutback, and one-element path<br>benchmarks.</li>
+<li>Build a global implicit creep provider only after the same state and<br>rollback machinery exists.</li>
+<li>Let fatigue consume verified extracted histories; add a fatigue field only<br>after hotspot/element mapping and provenance are defined.</li>
+<li>Add load-controlled finite-strain examples for dead and follower pressure,<br>including tangent and sign checks.</li>
+</ol>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

@@ -19,6 +19,13 @@
 <a class="" href="workflow.html">Workflow</a>
 <a class="" href="concepts.html">Concepts</a>
 <a class="active" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
 <a class="" href="module-map.html">Module Map</a>
 <a class="" href="api-style.html">API Style</a>
 <a class="" href="extension-rules.html">Extension Rules</a>
@@ -52,11 +59,22 @@
 <ol>
 <li><code>static_elasticity_surrogate_campaign.py</code><br>AI-native collection workflow. Demonstrates typed parameters, a<br>reproducible design of experiments, fresh FEniCSx model construction per<br>case, resumable execution records, a unit-aware scientific dataset, a<br>transparent surrogate baseline, independent validation, and guarded<br>high-fidelity fallback.</li>
 </ol>
+<ol>
+<li><code>campaign_from_json.py</code><br>Small declarative sweep. Parameters, sampling, outputs, and execution policy<br>come from JSON; trusted scientific evaluation remains Python.</li>
+</ol>
+<ol>
+<li><code>material_models.py</code><br>Nonlinear-material scope example. Prints the maturity catalog and exercises<br>a J2 uniaxial load path, power-law creep history, rainflow counting, and<br>Miner damage.</li>
+</ol>
+<ol>
+<li><code>abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py</code><br>Advanced interoperability and finite-deformation reference. Imports a real<br>Abaqus <code>C3D10</code> mesh, preserves node labels, eliminates 4,212 periodic<br><code>*EQUATION</code> constraints, solves a 3D Neo-Hookean load path, and writes<br>scale-one deformed VTU/PNG evidence. Read the folder README before treating<br>it as an Abaqus comparison: the unavailable user material and user MPC are<br>deliberately replaced by explicit AgentFEM semantics.</li>
+</ol>
 <h2 id="run">Run</h2>
 <p>From the <code>agentfem</code> directory:</p>
 <pre><code>python examples/static_elasticity_2d.py
 python examples/transient_heat_2d.py
-python examples/static_elasticity_surrogate_campaign.py</code></pre>
+python examples/static_elasticity_surrogate_campaign.py
+python examples/campaign_from_json.py
+python examples/material_models.py</code></pre>
 <p>From the parent development directory:</p>
 <pre><code>python agentfem/examples/static_elasticity_2d.py
 python agentfem/examples/transient_heat_2d.py</code></pre>

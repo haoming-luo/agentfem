@@ -26,6 +26,8 @@
   behavior.
 - Constitutive law: local response relation mapping state to stress, flux, or
   tangent quantities.
+- Constitutive maturity: `fem_integrated`, `material_point_verified`, or
+  `postprocessor`. Query it; do not infer it from the law name.
 - Material record: SI-unit constants plus model name and source note. It is data,
   not the equation itself.
 - Material properties: typed parameter object used by constitutive relations.
@@ -40,6 +42,8 @@
   `time.explicit.central_difference(...)`; central difference is Newmark with
   beta=0 and gamma=1/2.
 - Diagnostic: quantity used to inspect correctness, stability, or physics.
+- Simulation result: named QoIs, fields, histories, metadata, and artifact
+  links from one analysis; it bridges solves, campaigns, and datasets.
 - Benchmark: verification case with expected quantities and tolerances.
 - AF-IR document: experimental versioned scientific record; it is not yet a
   complete backend-neutral executable serialization.
@@ -51,6 +55,8 @@
   bounds, units, and scale.
 - Campaign: deterministic related cases with fresh construction, case IDs,
   output contracts, execution evidence, failure records, and resume behavior.
+- External mesh conversion: a topology/set conversion with a manifest, not a
+  full commercial solver-deck import.
 - Scientific dataset: numeric inputs/outputs plus units, shapes, field
   encodings, case identities, provenance, and artifacts.
 - Surrogate: learned or reduced-order mapping whose scientific asset includes

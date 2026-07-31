@@ -45,6 +45,7 @@ Documentation = "https://github.com/haoming-luo/agentfem#readme"
 
 [project.optional-dependencies]
 mesh-formats = ["meshio"]
+visualization = ["meshio", "pyvista", "pillow", "matplotlib"]
 docs = ["mkdocs", "mkdocs-material", "pymdown-extensions"]
 notebooks = ["jupyterlab", "ipykernel", "nbformat", "nbclient"]
 ml = ["torch"]
@@ -68,6 +69,7 @@ packages = [
   "agentfem.materials.data",
   "agentfem.mesh",
   "agentfem.operators",
+  "agentfem.results",
   "agentfem.surrogates",
   "agentfem.time",
 ]

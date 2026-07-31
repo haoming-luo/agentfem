@@ -124,6 +124,12 @@ response quantity. Elastic stress-strain equations belong here. Future
 viscoelasticity, plasticity, thermal conduction, and coupled response laws
 should also live here.
 
+A constitutive name does not imply a complete FEM analysis. AgentFEM records
+whether a capability is FEM-integrated, material-point verified, or a
+postprocessor. Path-dependent material FEM integration additionally requires
+quadrature state, a consistent tangent or documented alternative, increment
+control, convergence evidence, and restart behavior.
+
 ## Material Record
 
 A reusable set of material constants with units and provenance. Material
@@ -191,6 +197,26 @@ heat-transfer step solving `(C / dt + K) T_next = C T_old / dt + Q`.
 The step should not hide the finite-element meaning. It is the place where
 visible operators become a solveable algebraic problem.
 
+## Increment, Attempt, and Iteration
+
+An Increment advances load or time within one analysis Step. An Attempt is one
+try at that Increment; a failed nonlinear attempt may be rolled back and
+retried after a cutback. An Iteration is one Newton correction inside an
+Attempt.
+
+Automatic incrementation chooses accepted Increment sizes from convergence
+behavior. Its `max_increments` value is a termination limit, not a requested
+count. A fixed subdivision is a separate, explicit policy. Newton `max_it`
+limits Iterations in one Attempt and therefore has different semantics.
+
+## Output Interval and Frame
+
+An output interval or time point requests when fields should be persisted. A
+Frame is the saved result state produced at one such point or accepted
+Increment. Frames do not drive the nonlinear algorithm. Exact output marks may
+require the solver to land at those values, while cutbacks may introduce
+additional internal Increments.
+
 ## Element Policy
 
 A reusable interpolation, quadrature, or integration choice. DOLFINx should
@@ -230,10 +256,20 @@ assets.
 A scalar or field quantity used to inspect correctness, convergence, stability,
 or physical behavior.
 
+## Simulation Result
+
+The scientific view of one completed analysis: named quantities of interest,
+fields, histories, solver/model metadata, and artifact links. XDMF, CSV, and
+NumPy files are result artifacts rather than the result abstraction itself.
+A simulation result can supply declared campaign outputs without serializing
+live finite-element fields into a tabular dataset.
+
 ## Benchmark
 
 A standard verification problem with expected quantities and tolerances.
 Benchmarks validate platform capabilities; examples teach workflows.
+The benchmark registry links a stable identifier, criterion, reference,
+automated test, and capability maturity.
 
 ## AF-IR Document
 

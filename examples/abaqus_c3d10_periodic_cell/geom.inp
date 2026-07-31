@@ -1,0 +1,138 @@
+*Heading
+ Periodic BC's of RSA Random Monodisperse 
+ Porous Elastoplastic Composite
+ COPYRIGHT DANAS, LMS, ECOLE POLYTECHNIQUE, 2012
+ GEOMETRY BY MATHEMATICA USER-FILE, MESH BY NETGEN 
+*Preprint, echo=NO, model=NO, history=NO, contact=NO
+**
+** Material parameters
+*PARAMETER
+ eyoung=1000.0
+ poisson=0.3
+ sy=1.0
+ nexp=10.0
+**
+** Incrementation parameters
+*PARAMETER
+ tmax=1.0
+ mnstep=1.e-12
+ mxstep=0.005
+ instep=1.e-4
+** Loading parameters
+*PARAMETER
+ beta=0.5
+ E11=tmax
+ F12=0.e0
+ F13=0.e0
+ F21=0.e0
+ F23=0.e0
+ F31=0.e0
+ F32=0.e0
+ E33=0.e0
+** Convergence parameters (not active)
+*PARAMETER
+ RTOL=5.e-3
+ UTOL=1.e-2
+**
+**
+***********************************
+** GEOMETRY
+**
+*INCLUDE, INPUT=R1f10n30vc.dat
+**
+*NSET, NSET=FIX
+ 1
+*NSET, NSET=FRONT
+ 4 
+*NSET, NSET=TOP
+ 9
+*NSET, NSET=RIGHT
+ 7
+*ELSET, ELSET=ALLE
+MATRIX
+**
+** 
+***********************************
+** MATERIALS
+** 
+** Section: Section-1
+*solid section, ELSET=MATRIX, MATERIAL=MATRIX
+*Material, NAME=MATRIX
+*USER MATERIAL,CONSTANTS=4,UNSYMM
+ <eyoung>, <poisson>, <sy>, <nexp>
+*DEPVAR
+ 16 
+**
+**
+*******BC's & CONSTRAINTS****************************
+**
+** Periodic Boundary Conditions
+**
+*EQUATION, INPUT=R1f10n30vc.mpc
+**
+**
+**POINT_fixed
+**
+*BOUNDARY, OP=NEW
+FIX, 1, 3
+**
+**
+**********MPC FOR TOP AND RIGHT ---> Dij control*********************
+*MPC,USER
+1, TOP, RIGHT
+**
+*******IC's****************************
+**
+** EP,  YFLAG, XS, LODE etc....
+*Initial conditions, Type=Solution
+ ALLE, 0., 0., 0., 0., 0., 0., 0.,
+ 0., 0., 0., 0., 0., 0., 0., 
+ 0., 0.
+**
+**
+*******STEP****************************
+**
+*STEP,INC=2,NLGEOM
+*STATIC
+<instep>, <tmax>, <mnstep>, <mxstep>
+*BOUNDARY
+ RIGHT, 1,, <E11>
+ RIGHT, 2,, <F21>
+ RIGHT, 3,, <F31>
+ TOP, 1,, <F12>
+** TOP, 2,, <E22>
+ TOP, 3,, <F32>
+ FRONT, 1,, <F13>
+ FRONT, 2,, <F23>
+ FRONT, 3,, <E33>
+**
+**CONTROLS,PARAMETERS=FIELD,FIELD=DISPLACEMENT
+** <RTOL>, <UTOL>
+**
+**
+**
+*******OUTPUT****************************
+**
+**
+*OUTPUT,FIELD,FREQ=1
+*ELEMENT OUTPUT, POSITION=CENTROIDAL, ELSET=ALLE
+ S,E, SDV
+*ELEMENT OUTPUT, ELSET=ALLE
+ EVOL
+*NODE OUTPUT
+ U
+**
+**
+**
+*OUTPUT,HISTORY,FREQ=1
+**ENERGY OUTPUT
+** ALLIE,ALLSE,ALLWK,ETOTAL
+*NODE OUTPUT,NSET=TOP
+ U, RF, TF, COORD
+*NODE OUTPUT,NSET=RIGHT
+ U, RF, TF, COORD
+*NODE OUTPUT,NSET=FRONT
+ U, RF, TF, COORD
+*END STEP
+**
+**

@@ -1,0 +1,31 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.campaign_surrogate_pipeline",
+  "title": "Static-elasticity campaign to guarded surrogate pipeline",
+  "status": "executable_integration",
+  "purpose": "Exercise deterministic sampling, case identity, resumable FEniCSx execution, scientific dataset materialization, independent surrogate validation, artifact persistence, and high-fidelity fallback.",
+  "physics": "parameterized small-strain isotropic linear elasticity",
+  "execution": {
+    "command": "python examples/static_elasticity_surrogate_campaign.py",
+    "example": "examples/static_elasticity_surrogate_campaign.py",
+    "evidence": "Serial and two-rank MPI smoke runs must complete all requested cases; rerunning the serial identifier must reuse completed case records."
+  },
+  "observables": [
+    "Deterministic case IDs are stable for a fixed campaign name and parameter sample.",
+    "Every successful dataset sample carries inputs, named outputs, provenance, and a case ID.",
+    "The persisted surrogate names its training case IDs.",
+    "Outside-domain prediction is rejected or explicitly sourced from the FEniCSx fallback."
+  ],
+  "acceptance": [
+    "The four-case CI smoke campaign reports four completed and zero failed cases.",
+    "A repeated run reuses all four completed records.",
+    "The two-rank MPI run writes a single consistent dataset and surrogate artifact.",
+    "The dataset and surrogate artifacts survive read/write round trips."
+  ],
+  "limitations": [
+    "Four samples test orchestration, not engineering-grade surrogate accuracy.",
+    "The current residual-scale uncertainty is not calibrated epistemic uncertainty.",
+    "Remote schedulers, content-addressed stores, and active-learning governance remain deferred."
+  ]
+}

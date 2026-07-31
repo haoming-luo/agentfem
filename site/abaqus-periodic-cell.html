@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Abaqus Periodic Cell - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
+      <div class="tagline">AI-assisted finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="active" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="licensing.html">Licensing</a>
+<a class="" href="publishing.html">Publishing</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="abaqus-c3d10-periodic-cell">Abaqus C3D10 Periodic Cell</h1>
+<h2 id="what-this-capability-proves">What This Capability Proves</h2>
+<p>The <code>examples/abaqus_c3d10_periodic_cell/</code> workflow exercises several layers together:</p>
+<ol>
+<li>a custom-extension <code>.dat</code> file is read explicitly as Abaqus syntax;</li>
+<li><code>C3D10</code> is mapped to meshio <code>tetra10</code> and read by DOLFINx as a quadratic<br>tetrahedral geometry;</li>
+<li>Abaqus node labels are retained independently of DOLFINx ordering;</li>
+<li>all linear <code>*EQUATION</code> terms are parsed, validated, and matched to vector<br>displacement degrees of freedom;</li>
+<li>chained edge and corner equations become an exact affine reduction;</li>
+<li>a 3D compressible Neo-Hookean equilibrium is solved incrementally;</li>
+<li>XDMF/HDF5 time-series fields, VTU, PNG, GIF/MP4, exact macro histories,<br>AF-IR, and convergence evidence are written from one top-level model.</li>
+</ol>
+<p>The constraint has the algebraic form</p>
+<pre><code>u = T q + u_bar(F_macro)</code></pre>
+<p>and the nonlinear equations are reduced variationally:</p>
+<pre><code>r(q) = T^T R(u)
+K_reduced(q) = T^T K(u) T</code></pre>
+<p>This is the same elimination principle used by Abaqus/Standard linear equations, expressed as an inspectable AgentFEM object.</p>
+<h2 id="scientific-boundary">Scientific Boundary</h2>
+<p>The original Abaqus deck is not fully reproducible from the files supplied. Its <code>*USER MATERIAL</code> and <code>*MPC,USER</code> implementations are absent. AgentFEM therefore preserves the mesh and linear periodic equations, but deliberately substitutes:</p>
+<ul>
+<li>a documented compressible Neo-Hookean energy;</li>
+<li>a complete prescribed macroscopic deformation gradient.</li>
+</ul>
+<p>This is a meaningful interoperability and finite-deformation validation case. It is not a material-response comparison with the original user subroutines.</p>
+<h2 id="public-workflow">Public Workflow</h2>
+<pre><code>cell = mesh.read_abaqus_mesh(
+    &quot;R1f10n30vc.dat&quot;,
+    &quot;output/mesh.xdmf&quot;,
+    cell_type=&quot;tetra10&quot;,
+)
+equations = mesh.abaqus.read_equations(&quot;R1f10n30vc.mpc&quot;)
+u = model.field(fields.displacement(cell.domain, degree=2))
+
+periodicity = model.constraint(
+    constraints.abaqus_periodic_cell(
+        u,
+        nodes=cell.nodes,
+        equations=equations,
+        deformation_gradient=F_macro,
+        anchor_node=1,
+        reference_nodes=(7, 9, 4),
+    )
+)
+output = results.field_output(
+    &quot;U&quot;, &quot;S&quot;, &quot;E&quot;, &quot;EVOL&quot;,
+    every=&quot;increment&quot;,
+    configuration=&quot;deformed&quot;,
+    backend=&quot;xdmf&quot;,
+)
+incrementation = steps.automatic(
+    initial=0.25,
+    minimum=1.0e-4,
+    maximum=0.5,
+    max_increments=10,
+)
+step = model.step(
+    target=u,
+    constraints=periodicity,
+    incrementation=incrementation,
+    output=output,
+    solver_options=AffineNewtonOptions(max_it=25),
+    status_file=&quot;output/periodic_cell.sta&quot;,
+)
+result = step.solve_result()
+output.write_finite_strain(
+    &quot;output&quot;,
+    domain=cell.domain,
+    snapshots=step.snapshots,
+    material=material,
+)</code></pre>
+<h2 id="one-step-several-increments-several-frames">One step, several increments, several frames</h2>
+<p>This case defines one nonlinear static Step. Its automatic controller chooses the accepted Increment count from convergence behavior. <code>max_increments=10</code> is a safety limit, not a request to perform ten increments. A failed attempt is rolled back and retried with a smaller increment.</p>
+<p><code>every=&quot;increment&quot;</code> saves the initial state and every accepted Increment. This matches the meaning of Abaqus <code>*OUTPUT, FIELD, FREQUENCY=1</code>: output frequency is counted in increments, not analysis steps. The final state is always retained. If six evenly spaced result states are required independently of automatic solver decisions, use <code>intervals=6</code>; these are output marks, and the saved states become Frames only in the result dataset.</p>
+<p>The console reports preprocessing, Step, Increment, Attempt, Newton Iteration, postprocessing, and output stages. <code>periodic_cell.sta</code> is flushed after each accepted increment or cutback so a long run can be monitored without waiting for completion.</p>
+<h2 id="spatial-fields-and-macro-histories">Spatial fields and macro histories</h2>
+<table>
+<thead><tr><th>Abaqus request</th><th>AgentFEM result</th><th>Storage</th></tr></thead>
+<tbody>
+<tr><td><code>U</code></td><td>displacement</td><td>unified XDMF/HDF5</td></tr>
+<tr><td><code>S</code></td><td>Cauchy stress</td><td>unified XDMF/HDF5 + macro NPZ/CSV</td></tr>
+<tr><td><code>E</code> in finite strain</td><td>spatial logarithmic strain <code>LE</code></td><td>unified XDMF/HDF5</td></tr>
+<tr><td><code>GREEN</code></td><td>explicit Green--Lagrange strain</td><td>when requested</td></tr>
+<tr><td><code>EVOL</code></td><td>current element volume</td><td>unified XDMF/HDF5</td></tr>
+<tr><td><code>P</code></td><td>first Piola stress</td><td>unified XDMF/HDF5 + macro NPZ/CSV</td></tr>
+<tr><td><code>F</code>, <code>J</code></td><td>deformation gradient and determinant</td><td>unified XDMF/HDF5</td></tr>
+<tr><td><code>MISES</code>, <code>SENER</code></td><td>equivalent stress and strain energy</td><td>unified XDMF/HDF5</td></tr>
+<tr><td><code>SDV</code></td><td>not applicable to the current stateless Neo-Hookean law</td><td>—</td></tr>
+</tbody>
+</table>
+<p>The result manifest additionally stores vector <code>U</code> and current <code>COORD</code> histories at Abaqus control nodes <code>RIGHT</code>, <code>TOP</code>, and <code>FRONT</code>. <code>RF</code> and <code>TF</code> are deliberately not approximated from homogenized stress: exact affine-MPC reaction recovery requires verified constraint multipliers and is listed as a remaining result capability.</p>
+<p>The unified XDMF/HDF5 series is both the direct ParaView product and the scientific field record: topology is shared, reference coordinates are retained, every frame stores coordinates <code>x+u</code>, and all fields share that grid. The authoritative homogenized response is computed from the UFL forms before visualization projection:</p>
+<pre><code>P_bar = (1 / V_cell) integral_over_solid(P dV0)
+sigma_bar = (1 / (J_bar V_cell)) integral_over_solid(J sigma dV0)
+P_bar_check = J_bar sigma_bar F_bar^-T</code></pre>
+<p>The complete cell volume appears in the denominator; the void carries zero stress. Both first-Piola routes are evaluated and their maximum difference is recorded. Exact histories go to NPZ and CSV, so plots and training data do not depend on re-averaging visualization samples.</p>
+<h2 id="import-pipeline">Import pipeline</h2>
+<pre><code>Abaqus .dat ──meshio(file_format=&quot;abaqus&quot;)──&gt; XDMF/HDF5 ──&gt; DOLFINx
+     └────────AgentFEM node-label parser───────────────┘
+Abaqus .mpc ──AgentFEM *EQUATION parser───────────────&gt; affine reduction</code></pre>
+<p>The neutral conversion makes topology selection and any set loss visible in a manifest. Labels and equations are retained separately because generic mesh conversion cannot preserve every periodic-constraint requirement.</p>
+<h2 id="evidence-and-failure-checks">Evidence and Failure Checks</h2>
+<p>A credible run should report:</p>
+<ul>
+<li>14,942 imported nodes and 8,781 <code>tetra10</code> cells;</li>
+<li>4,212 equation constraints and 40,602 independent displacement dofs;</li>
+<li>Newton convergence for every load factor;</li>
+<li>a near-machine-zero equation mismatch;</li>
+<li>positive sampled <code>det(F)</code> values;</li>
+<li>finite averaged first-Piola and Cauchy stresses;</li>
+<li>consistency between two homogenized stress transformations;</li>
+<li>an undeformed/deformed VTU pair, a scale-one comparison image, and an<br>incremental animation.</li>
+</ul>
+<p>The code rejects duplicate equation slaves, cyclic equation graphs, missing node-to-dof matches, non-positive target <code>det(F)</code>, non-finite residuals, and parallel execution of the current serial elimination backend.</p>
+<h2 id="current-engineering-limit">Current Engineering Limit</h2>
+<p>The exact equation backend is serial. The example rejects <code>mpiexec -n 2</code> instead of silently running two duplicate serial jobs. Sparse direct MUMPS is the trustworthy reference policy for the present 40k-dof example. Production distributed support needs:</p>
+<ul>
+<li>global node-label/dof ownership;</li>
+<li>distributed construction of <code>T</code> and <code>u_bar</code>;</li>
+<li>ghost-consistent chained-equation resolution;</li>
+<li>reduced near-nullspace transfer for AMG;</li>
+<li>MPI validation of reactions, homogenized stress, and periodic mismatch.</li>
+</ul>
+<p>The public constraint semantics need not change when that backend is added. <code>dolfinx_mpc</code> is the leading backend candidate, but it is a compiled optional dependency and the current DOLFINx 0.11 environment does not contain it. AgentFEM will advertise parallel Abaqus-equation support only after the arbitrary chained equations and finite-strain solve pass two-rank parity tests.</p>
+<h2 id="user-material-migration-is-a-separate-capability">User-material migration is a separate capability</h2>
+<p>Mesh/equation import does not imply that arbitrary <code>UMAT</code> or <code>UHYPER</code> source already runs. <code>docs/abaqus_user_material_bridge.md</code> defines the required quadrature state, tensor conversions, compiler boundary, and validation ladder. UHYPER is the narrower first target; stateful UMAT integration follows only after a global constitutive driver exists.</p>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

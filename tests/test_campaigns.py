@@ -3,8 +3,9 @@ from __future__ import annotations
 import json
 
 import numpy as np
+import pytest
 
-from agentfem import campaigns, datasets
+from agentfem import campaigns, datasets, results
 
 
 def _space():
@@ -154,3 +155,83 @@ def test_campaign_does_not_hide_a_nonroot_mpi_failure():
     assert report.dataset is None
     assert report.records[0].error_type == "agentfem.campaigns.MPIRankFailure"
     assert "rank 1" in report.records[0].error_message
+
+
+def test_json_specification_drives_sampling_execution_and_dataset(tmp_path):
+    spec_path = tmp_path / "campaign.json"
+    spec_path.write_text(
+        json.dumps(
+            {
+                "name": "configured",
+                "parameters": [
+                    {
+                        "kind": "real",
+                        "name": "x",
+                        "lower": 1.0,
+                        "upper": 3.0,
+                        "unit": "m",
+                    },
+                    {
+                        "kind": "choice",
+                        "name": "mode",
+                        "choices": ["a", "b"],
+                    },
+                ],
+                "sampling": {
+                    "method": "explicit",
+                    "samples": [
+                        {"x": 1.0, "mode": "a"},
+                        {"x": 3.0, "mode": "b"},
+                    ],
+                },
+                "outputs": [{"name": "y", "unit": "m"}],
+                "execution": {"resume": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+    specification = campaigns.load_specification(spec_path)
+    campaign = specification.create_campaign(
+        evaluate=lambda values: {"y": values["x"] * 2.0}
+    )
+
+    report = campaign.run(
+        specification.sampling,
+        output_directory=tmp_path / "run",
+    )
+
+    assert report.completed == 2
+    assert specification.parameter_space.names == ("x", "mode")
+    np.testing.assert_allclose(report.dataset.y_matrix(), [[2.0], [6.0]])
+
+
+def test_campaign_accepts_simulation_result_without_serializing_live_fields(tmp_path):
+    space = campaigns.ParameterSpace.create(
+        campaigns.RealParameter("load", 1.0, 2.0, unit="N")
+    )
+
+    def evaluate(values):
+        result = results.SimulationResult(
+            "beam",
+            metadata={"backend": "test"},
+        )
+        result.add_quantity("tip_displacement", values["load"] * 0.1, unit="m")
+        result.add_field("displacement", artifact="beam.xdmf")
+        result.add_artifact("fields", "beam.xdmf")
+        return result
+
+    campaign = campaigns.create(
+        name="result_bridge",
+        parameter_space=space,
+        outputs=(datasets.Quantity("tip_displacement", unit="m"),),
+        evaluate=evaluate,
+    )
+    report = campaign.run(
+        campaigns.explicit(space, ({"load": 1.5},)),
+        output_directory=tmp_path,
+    )
+
+    sample = report.dataset.samples[0]
+    assert sample.outputs["tip_displacement"] == pytest.approx(0.15)
+    assert sample.artifacts == {"fields": "beam.xdmf"}
+    assert sample.provenance["simulation_result"]["fields"] == ("displacement",)
