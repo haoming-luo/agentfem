@@ -12,6 +12,18 @@ modeling declaration and validation object; it does not assemble or solve.
 Constitutive laws and operators may use it to select modeling assumptions such
 as 2D plane strain or plane stress.
 
+## Solution Procedure
+
+A numerical route used to solve a declared study. The study answers what
+physical equations and assumptions define the problem; the procedure answers
+how the discrete equations advance. Examples are linear static,
+implicit-Euler heat transfer, Standard/Newmark dynamics,
+Standard/generalized-alpha dynamics, and Explicit/central difference.
+
+`SolutionProcedure` is initially a compact description used by summaries,
+validation, and step-provider dispatch. It should not grow into a second study
+object or force every algorithm parameter into beginner-facing code.
+
 ## Model
 
 A lightweight registry of mesh, regions, fields, amplitudes, materials,
@@ -126,7 +138,12 @@ should also live here.
 
 A constitutive name does not imply a complete FEM analysis. AgentFEM records
 whether a capability is FEM-integrated, material-point verified, or a
-postprocessor. Path-dependent material FEM integration additionally requires
+postprocessor. The first global J2 route has committed/trial quadrature state,
+an algorithmically consistent tangent, rollback/cutback, and restart
+equivalence evidence, but is deliberately serial-only while its distributed
+state contract is still being verified. Temperature-dependent Arrhenius
+power-law creep remains a local constitutive capability, not a claimed global
+creep analysis. Path-dependent material FEM integration additionally requires
 quadrature state, a consistent tangent or documented alternative, increment
 control, convergence evidence, and restart behavior.
 
@@ -236,9 +253,10 @@ absorbing boundaries often use half-step velocity data.
 ## Time Integrator
 
 A time integrator advances a transient state according to a named numerical
-method. In AgentFEM, `time.explicit.central_difference(...)` represents the
-explicit central-difference method, i.e. the Newmark family with `beta=0` and
-`gamma=1/2`.
+method. AgentFEM provides implicit Newmark and generalized-alpha descriptions
+for linear structural dynamics and
+`time.explicit.central_difference(...)` for explicit central difference, i.e.
+the Newmark family with `beta=0` and `gamma=1/2`.
 
 Integrator names should describe the analysis route first, such as explicit
 dynamics, and expose method parameters through `summary()` rather than forcing

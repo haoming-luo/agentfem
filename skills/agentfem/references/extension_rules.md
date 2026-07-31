@@ -30,3 +30,12 @@ For a new constitutive capability, also add:
 - material-point evidence before any global FEM convenience step;
 - explicit state/tangent/increment-control evidence before marking it
   `fem_integrated`.
+
+For a stateful material, reuse `constitutive.quadrature` and prove
+trial/commit/rollback plus restart equivalence. Do not create a case-local
+history array or mutate committed state during Newton.
+
+For a new transient route, add or reuse a `SolutionProcedure`; do not encode
+the algorithm by renaming the physical Study. Standard/Explicit, time
+integration, nonlinear solver, incrementation, and output cadence are
+different decisions.

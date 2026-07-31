@@ -44,6 +44,7 @@ class Study:
     assumption: str | None = None
     time_domain: str | None = None
     linearity: str | None = None
+    preferred_procedure: str | None = None
     name: str = "study"
 
     def __post_init__(self) -> None:
@@ -58,6 +59,11 @@ class Study:
         object.__setattr__(self, "assumption", assumption)
         object.__setattr__(self, "time_domain", time_domain)
         object.__setattr__(self, "linearity", linearity)
+        object.__setattr__(
+            self,
+            "preferred_procedure",
+            _normalize_optional(self.preferred_procedure),
+        )
         self.validate()
 
     @property
@@ -127,6 +133,7 @@ class Study:
             "assumption": self.assumption,
             "time_domain": self.time_domain,
             "linearity": self.linearity,
+            "preferred_procedure": self.preferred_procedure,
         }
 
 
@@ -137,6 +144,7 @@ def define(
     dimension: int,
     assumption: str | None = None,
     name: str | None = None,
+    preferred_procedure: str | None = None,
 ) -> Study:
     """Define a general finite-element study context."""
 
@@ -146,6 +154,7 @@ def define(
         dimension=dimension,
         assumption=assumption,
         name=name or f"{_normalize(analysis)}_{_normalize(physics)}",
+        preferred_procedure=preferred_procedure,
     )
 
 
@@ -226,6 +235,7 @@ def second_order_dynamics(
     dimension: int,
     assumption: str | None = None,
     name: str | None = None,
+    procedure: str | None = None,
 ) -> Study:
     """Define a second-order dynamics study."""
 
@@ -234,6 +244,47 @@ def second_order_dynamics(
         physics=physics,
         dimension=dimension,
         assumption=assumption,
+        name=name,
+        preferred_procedure=procedure,
+    )
+
+
+def implicit_dynamics(
+    *,
+    physics: str,
+    dimension: int,
+    assumption: str | None = None,
+    method: str = "newmark",
+    name: str | None = None,
+) -> Study:
+    """Define second-order dynamics with a Standard/implicit preference."""
+
+    normalized = _normalize(method)
+    if normalized not in {"newmark", "generalized_alpha"}:
+        raise ValueError("Implicit dynamics method must be 'newmark' or 'generalized_alpha'.")
+    return second_order_dynamics(
+        physics=physics,
+        dimension=dimension,
+        assumption=assumption,
+        procedure=normalized,
+        name=name,
+    )
+
+
+def explicit_dynamics(
+    *,
+    physics: str,
+    dimension: int,
+    assumption: str | None = None,
+    name: str | None = None,
+) -> Study:
+    """Define second-order dynamics with an Explicit preference."""
+
+    return second_order_dynamics(
+        physics=physics,
+        dimension=dimension,
+        assumption=assumption,
+        procedure="central_difference",
         name=name,
     )
 

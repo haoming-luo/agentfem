@@ -38,12 +38,13 @@ Those names mix two distinct decisions:
 - a lowering function;
 - priority and a human-readable description.
 
-The default registry currently contains linear-static operator,
-Neo-Hookean finite-strain static, and central-difference explicit providers.
+The default registry currently contains linear-static, implicit-Euler heat,
+Neo-Hookean finite-strain, 3D stateful J2, Newmark/generalized-alpha implicit
+dynamics, and central-difference explicit providers.
 The registry is public and inspectable through `models.step_providers()`.
 
 This is an extension seam, not a promise that arbitrary registered code is
-scientifically valid. A new plasticity or creep provider is admissible only
+scientifically valid. A new stateful material provider is admissible only
 after its constitutive state, trial/commit/rollback policy, tangent, increment
 control, output, and benchmarks exist. Until then, the material-point law stays
 truthfully below the FEM-integrated maturity level.
@@ -218,12 +219,14 @@ multiaxial damage model.
 
 1. Extend collective MPI output from reference-configuration scientific fields
    to an ownership-safe directly deformed geometry product.
-2. Add named point, region, reaction, and energy history extractors.
-3. Introduce restartable quadrature state with trial/commit/rollback.
-4. Integrate J2 only with a consistent tangent, cutback, and one-element path
-   benchmarks.
-5. Build a global implicit creep provider only after the same state and
-   rollback machinery exists.
+2. Promote the implemented strong-BC reaction field and M/K energy diagnostic
+   into named point/region histories; define affine/weak reactions separately.
+3. Extend the implemented J2 quadrature transaction from serial layout-bound
+   checkpoints to portable MPI cell identity and multi-region state.
+4. Add forced-cutback, reaction/energy, field-output, mesh-convergence, and
+   external J2 benchmark gates.
+5. Build global implicit creep by consuming the same state and rollback
+   machinery.
 6. Let fatigue consume verified extracted histories; add a fatigue field only
    after hotspot/element mapping and provenance are defined.
 7. Add load-controlled finite-strain examples for dead and follower pressure,

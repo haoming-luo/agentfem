@@ -22,6 +22,8 @@
 <a class="" href="product-roadmap.html">Product Roadmap</a>
 <a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
+<a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
+<a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
@@ -50,10 +52,11 @@
 <p>The standard AgentFEM workflow remains visible:</p>
 <pre><code>Study -&gt; Model -&gt; Mesh/Regions -&gt; Fields -&gt; Materials -&gt; Loads/Constraints
       -&gt; Operators -&gt; Step -&gt; Solve -&gt; Diagnostics/Output</code></pre>
-<p>The current executable core covers linear elasticity, transient heat conduction, explicit elastodynamics, and a first nonlinear-static Neo-Hookean path. J2 plasticity and power-law creep are currently verified material-point tools, while stress-life fatigue is a postprocessor. Those maturity levels are deliberately distinct and queryable in code.</p>
+<p>The current executable core covers linear and thermoelasticity, implicit heat transfer, Newmark/generalized-alpha and central-difference dynamics, Neo-Hookean finite strain, and a 3D small-strain J2 path with quadrature state, analytical consistent tangent, cutback, and serial restart. Power-law and Arrhenius creep are currently verified material-point tools, while stress-life fatigue is a postprocessor. Those maturity levels remain deliberately distinct and queryable in code.</p>
 <h2 id="why-agentfem">Why AgentFEM</h2>
 <ul>
 <li>Finite-element language for humans: <code>model.linear_static_step(...)</code>,<br><code>model.tree()</code>, <code>operators.xtmx(...)</code>, and field algebra such as<br><code>u_next = u + dt * v + 0.5 * dt**2 * a</code>.</li>
+<li>One procedure vocabulary: <code>Study</code> states the physical problem;<br><code>SolutionProcedure</code> records Standard/Explicit, equation order, integration<br>algorithm, statefulness, and global-solve requirements.</li>
 <li>Inspectable objects for agents: <code>study.summary()</code>, <code>model.manifest()</code>,<br><code>model.to_ir()</code>, structured validation reports, <code>operator.summary()</code>, and<br>step summaries.</li>
 <li>Collection-level scientific workflows: deterministic campaign cases,<br>resumable evidence, unit/shape-aware datasets, transparent surrogate<br>baselines, independent validation, and explicit applicability domains.</li>
 <li>One result path: solved fields, quantities, histories, visualization<br>artifacts, batch outputs, and training data share <code>SimulationResult</code>.</li>

@@ -45,6 +45,16 @@ PAGES = [
         SITE_DIR / "nonlinear-solid-architecture.html",
     ),
     Page(
+        "Procedures, Thermal Stress, and Creep",
+        ROOT / "docs" / "solution_procedures_and_thermal_creep.md",
+        SITE_DIR / "solution-procedures-and-thermal-creep.html",
+    ),
+    Page(
+        "Scientific Function Reference",
+        ROOT / "docs" / "reference" / "scientific_function_reference.md",
+        SITE_DIR / "scientific-function-reference.html",
+    ),
+    Page(
         "Results and Campaigns",
         ROOT / "docs" / "results_and_campaigns.md",
         SITE_DIR / "results-and-campaigns.html",

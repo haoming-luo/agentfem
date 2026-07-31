@@ -22,6 +22,8 @@
 <a class="" href="product-roadmap.html">Product Roadmap</a>
 <a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
+<a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
+<a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
@@ -51,6 +53,7 @@
 <tr><td>External mesh inventory, cell/facet set conversion, and manifests</td><td><code>mesh/formats.py</code></td></tr>
 <tr><td>Abaqus labels, equations, periodic-cell geometry, and source-order output</td><td><code>mesh/abaqus.py</code></td></tr>
 <tr><td>Study context: analysis type, physics, dimension, and assumptions</td><td><code>studies.py</code></td></tr>
+<tr><td>Standard/Explicit family, equation order, algorithm, and state policy</td><td><code>procedures.py</code></td></tr>
 <tr><td>Model registry, amplitudes, material assignments, checks, summaries, and model-first operators</td><td><code>models.py</code></td></tr>
 <tr><td>Extensible analysis/material lowering behind <code>model.step()</code></td><td><code>step_providers.py</code></td></tr>
 <tr><td>Function spaces and Lagrange defaults</td><td><code>spaces.py</code></td></tr>
@@ -60,13 +63,15 @@
 <tr><td>Constraint containers and strong BC construction</td><td><code>constraints/</code></td></tr>
 <tr><td>Loads and natural boundary data</td><td><code>loads.py</code></td></tr>
 <tr><td>Constitutive response relations and maturity catalog</td><td><code>constitutive/</code></td></tr>
+<tr><td>Quadrature-point committed/trial state</td><td><code>constitutive/quadrature.py</code></td></tr>
+<tr><td>Global stateful solid-mechanics procedures</td><td><code>mechanics/</code></td></tr>
 <tr><td>Material-point contracts and UMAT/UHYPER bridge specifications</td><td><code>constitutive/user_material.py</code></td></tr>
 <tr><td>Material records and property containers</td><td><code>materials/</code></td></tr>
 <tr><td>Boundary models</td><td><code>boundary_models/</code></td></tr>
 <tr><td>UFL weak-form blocks, including stiffness, mass, diffusion, and loads</td><td><code>forms.py</code></td></tr>
 <tr><td>Assembly</td><td><code>assembly.py</code></td></tr>
 <tr><td>Engineering-level K/M/C/F operators</td><td><code>operators/</code></td></tr>
-<tr><td>Explicit/implicit time integration routes and runtime cadence</td><td><code>time/</code></td></tr>
+<tr><td>Central difference, Newmark, generalized-alpha, and runtime cadence</td><td><code>time/</code></td></tr>
 <tr><td>Analysis steps, system problems, and state containers</td><td><code>problems.py</code></td></tr>
 <tr><td>Automatic/fixed incrementation and cutback policy</td><td><code>steps.py</code></td></tr>
 <tr><td>Linear/nonlinear solvers and convergence evidence</td><td><code>solvers.py</code></td></tr>

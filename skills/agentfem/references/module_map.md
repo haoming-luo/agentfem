@@ -7,6 +7,8 @@
 - `mesh/abaqus.py`: Abaqus node labels, `*EQUATION` parsing, periodic-cell
   geometry, and source-order VTU output
 - `studies.py`: analysis context, physics, dimensions, and modeling assumptions
+- `procedures.py`: Standard/Explicit family, equation order, integration
+  algorithm, state policy, and solve requirements
 - `models.py`: lightweight model registry, amplitudes, material assignments,
   checks, summaries, and model-first operators
 - `step_providers.py`: extensible analysis/material lowering behind
@@ -18,6 +20,8 @@
 - `constraints/`: constraint containers and semantic Dirichlet constructors
 - `loads.py`: loads, natural boundary data, and semantic constructors
 - `constitutive/`: local response relations and queryable maturity catalog
+- `constitutive/quadrature.py`: committed/trial integration-point state
+- `mechanics/`: global stateful solid-mechanics procedures
 - `constitutive/user_material.py`: solver-neutral material-point contract and
   non-executable UMAT/UHYPER bridge specifications
 - `materials/`: material-property records and loaders
@@ -25,7 +29,7 @@
 - `forms.py`: UFL weak-form blocks
 - `assembly.py`: matrix/vector/lumped assembly
 - `operators/`: engineering-level K/M/C/F operators and system containers
-- `time/`: explicit/implicit time integration routes, progress, and cadence
+- `time/`: central difference, Newmark, generalized-alpha, progress, and cadence
 - `problems.py`: analysis steps, system problems, and state containers
 - `solvers.py`: PETSc solver wrappers and convergence evidence
 - `steps.py`: automatic/fixed analysis-step incrementation and cutback policy

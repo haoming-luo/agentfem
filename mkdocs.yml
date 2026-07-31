@@ -25,6 +25,8 @@ nav:
       - Product Roadmap: product_roadmap.md
       - Nonlinear Solid Architecture: nonlinear_solid_architecture.md
       - Nonlinear Materials: nonlinear_materials.md
+      - Procedures, Thermal Stress, and Creep: solution_procedures_and_thermal_creep.md
+      - Scientific Function Reference: reference/scientific_function_reference.md
       - Results and Campaigns: results_and_campaigns.md
       - Stable Steps and Compact Output: step_and_output_architecture.md
       - Mesh Interoperability: mesh_interoperability.md

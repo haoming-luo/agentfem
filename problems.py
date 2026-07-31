@@ -5,7 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import numpy as np
+import ufl
 from dolfinx import fem
+from petsc4py import PETSc
 
 from . import assembly
 from . import fields
@@ -162,6 +164,39 @@ class LinearSystemProblem:
             ),
         }
 
+    def reaction_field(self, *, name: str = "RF"):
+        """Return the unconstrained algebraic residual ``K u - F``.
+
+        At converged free dofs this is zero up to solver tolerance; values at
+        strongly constrained dofs are the nodal reactions. Weak, affine-MPC,
+        and contact reactions require their own verified definitions.
+        """
+
+        import dolfinx.fem.petsc as fem_petsc
+        from petsc4py import PETSc
+
+        solution = self._solution()
+        lhs = fem.form(self.system.lhs_form())
+        rhs = fem.form(self.system.rhs_form())
+        matrix = fem_petsc.assemble_matrix(lhs)
+        matrix.assemble()
+        external = fem_petsc.assemble_vector(rhs)
+        external.ghostUpdate(
+            addv=PETSc.InsertMode.ADD,
+            mode=PETSc.ScatterMode.REVERSE,
+        )
+        residual = matrix.createVecLeft()
+        matrix.mult(solution.x.petsc_vec, residual)
+        residual.axpy(-1.0, external)
+        reaction = fem.Function(solution.function_space, name=name)
+        values = residual.array_r
+        reaction.x.array[: len(values)] = values
+        reaction.x.scatter_forward()
+        residual.destroy()
+        external.destroy()
+        matrix.destroy()
+        return reaction
+
     def _solution(self):
         if self.solution is not None:
             return self.solution
@@ -181,6 +216,7 @@ class NonlinearVariationalProblem:
     solver_options: NonlinearSolverOptions | NewtonSolverOptions | None = None
     name: str = "nonlinear_problem"
     petsc_options_prefix: str = "agentfem_nonlinear_"
+    procedure: object | None = None
     last_solve_info: object | None = field(default=None, init=False)
 
     def solve(self):
@@ -228,7 +264,15 @@ class NonlinearVariationalProblem:
                 if self.last_solve_info is None
                 else self.last_solve_info.as_dict()
             ),
+            "procedure": (
+                None if self.procedure is None else self.procedure.summary()
+            ),
         }
+
+    def reaction_field(self, *, name: str = "RF"):
+        """Return the assembled nonlinear residual at the current solution."""
+
+        return _reaction_field(self.residual_form, self.solution, name=name)
 
 
 @dataclass
@@ -248,6 +292,7 @@ class AffineNonlinearVariationalProblem:
     status_file: object | None = None
     step_number: int = 1
     name: str = "affine_nonlinear_problem"
+    procedure: object | None = None
     last_solve_info: object | None = field(default=None, init=False)
     snapshots: list = field(default_factory=list, init=False)
 
@@ -343,6 +388,9 @@ class AffineNonlinearVariationalProblem:
                 if self.last_solve_info is None
                 else self.last_solve_info.as_dict()
             ),
+            "procedure": (
+                None if self.procedure is None else self.procedure.summary()
+            ),
         }
 
 
@@ -360,6 +408,7 @@ class AnalysisStep:
     study: object | None = None
     method: str = "direct_linear_solve"
     dt: float | None = None
+    procedure: object | None = None
 
     @property
     def system(self):
@@ -410,6 +459,9 @@ class AnalysisStep:
             "method": self.method,
             "dt": self.dt,
             "problem": self.problem.summary(),
+            "procedure": (
+                None if self.procedure is None else self.procedure.summary()
+            ),
         }
 
 
@@ -434,6 +486,7 @@ class ExplicitDynamicsStep:
     constraints: tuple[object, ...] = ()
     save_every: int | None = None
     print_every: int | None = None
+    procedure: object | None = None
 
     def run(
         self,
@@ -513,6 +566,255 @@ class ExplicitDynamicsStep:
             ),
             "num_prescribed": len(self.prescribed),
             "num_constraints": len(self.constraints),
+            "procedure": (
+                None if self.procedure is None else self.procedure.summary()
+            ),
+        }
+
+
+@dataclass
+class ImplicitDynamicsStep:
+    """Linear Newmark/generalized-alpha structural-dynamics step."""
+
+    name: str
+    state: object
+    problem: LinearVariationalProblem
+    parameters: object
+    dt: float
+    steps: int
+    displacement_predictor: object
+    velocity_predictor: object
+    displacement_alpha_predictor: object
+    velocity_alpha_predictor: object
+    study: object | None = None
+    update_load: object | None = None
+    save_every: int | None = None
+    print_every: int | None = None
+    procedure: object | None = None
+    progress: object = True
+
+    def run(self, *, output=None, fields=(), progress=None, comm=None):
+        """Advance the implicit dynamics step with standard progress output."""
+
+        from . import io
+        from .diagnostics import comm_of, print_on_root
+
+        selected_comm = comm if comm is not None else comm_of(self.state.u)
+        selected_progress = self.progress if progress is None else progress
+        save_every = _save_interval(self.save_every, output=output, steps=self.steps)
+        print_every = _print_interval(self.print_every, self.steps)
+        stepper = time.TimeStepper(
+            total_steps=self.steps,
+            dt=self.dt,
+            save_every=save_every,
+            print_every=print_every,
+        )
+        output_fields = tuple(fields) or (
+            self.state.u.value,
+            self.state.v.value,
+            self.state.a.value,
+        )
+        if output is None:
+            for info in stepper:
+                self._advance_one(info.time)
+                if info.should_print and selected_progress:
+                    print_on_root(
+                        selected_comm,
+                        f"[{self.name}] increment {info.index}/{self.steps} "
+                        f"t={info.time:.6g}",
+                    )
+            return self
+        domain = self.state.u.function_space.mesh
+        with io.XDMFTimeSeries(output, domain) as xdmf:
+            xdmf.write_fields(0.0, *output_fields)
+            for info in stepper:
+                self._advance_one(info.time)
+                if info.should_save:
+                    xdmf.write_fields(info.time, *output_fields)
+                if info.should_print and selected_progress:
+                    print_on_root(
+                        selected_comm,
+                        f"[{self.name}] increment {info.index}/{self.steps} "
+                        f"t={info.time:.6g}",
+                    )
+        return self
+
+    def solve(self):
+        self.run()
+        return self.state.u.value
+
+    def solve_result(self):
+        from .results import from_solution
+
+        solution = self.solve()
+        return from_solution(
+            solution,
+            name=self.name,
+            metadata={"step": self.summary()},
+        )
+
+    def _advance_one(self, time_value: float) -> None:
+        p = self.parameters
+        dt = self.dt
+        u = self.state.u.value
+        v = self.state.v.value
+        a = self.state.a.value
+        u_predictor = self.displacement_predictor
+        v_predictor = self.velocity_predictor
+        u_predictor.x.array[:] = (
+            u.x.array
+            + dt * v.x.array
+            + dt**2 * (0.5 - p.beta) * a.x.array
+        )
+        v_predictor.x.array[:] = (
+            v.x.array + dt * (1.0 - p.gamma) * a.x.array
+        )
+        self.displacement_alpha_predictor.x.array[:] = (
+            (1.0 - p.alpha_f) * u_predictor.x.array
+            + p.alpha_f * u.x.array
+        )
+        self.velocity_alpha_predictor.x.array[:] = (
+            (1.0 - p.alpha_f) * v_predictor.x.array
+            + p.alpha_f * v.x.array
+        )
+        for function in (
+            u_predictor,
+            v_predictor,
+            self.displacement_alpha_predictor,
+            self.velocity_alpha_predictor,
+        ):
+            function.x.scatter_forward()
+        if self.update_load is not None:
+            evaluation_time = (
+                (1.0 - p.alpha_f) * time_value
+                + p.alpha_f * (time_value - dt)
+            )
+            self.update_load(evaluation_time)
+        self.problem.solve()
+        self.state.u_next.value.x.array[:] = (
+            u_predictor.x.array
+            + p.beta * dt**2 * self.state.a_next.value.x.array
+        )
+        self.state.v_next.value.x.array[:] = (
+            v_predictor.x.array
+            + p.gamma * dt * self.state.a_next.value.x.array
+        )
+        self.state.u_next.value.x.scatter_forward()
+        self.state.v_next.value.x.scatter_forward()
+        self.state.advance_state()
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "implicit_dynamics_step",
+            "name": self.name,
+            "study": _describe_asset(self.study) if self.study is not None else None,
+            "procedure": (
+                None if self.procedure is None else self.procedure.summary()
+            ),
+            "integration": self.parameters.summary(),
+            "dt": self.dt,
+            "steps": self.steps,
+            "save_every": self.save_every,
+            "print_every": _print_interval(self.print_every, self.steps),
+            "problem": {
+                "num_bcs": len(self.problem.bcs),
+                "solver": (
+                    self.problem.solver_options.summary()
+                    if self.problem.solver_options is not None
+                    else LinearSolverOptions().summary()
+                ),
+            },
+        }
+
+
+@dataclass
+class FirstOrderTransientStep:
+    """Reusable implicit-Euler step loop for heat/diffusion problems."""
+
+    name: str
+    problem: AnalysisStep
+    current: object
+    previous: object
+    dt: float
+    steps: int
+    study: object | None = None
+    update_load: object | None = None
+    save_every: int | None = None
+    print_every: int | None = None
+    progress: object = True
+    procedure: object | None = None
+
+    def run(self, *, output=None, fields=(), progress=None, comm=None):
+        from . import io
+        from .diagnostics import comm_of, print_on_root
+
+        selected_comm = comm if comm is not None else comm_of(self.current)
+        selected_progress = self.progress if progress is None else progress
+        stepper = time.TimeStepper(
+            total_steps=self.steps,
+            dt=self.dt,
+            save_every=_save_interval(
+                self.save_every,
+                output=output,
+                steps=self.steps,
+            ),
+            print_every=_print_interval(self.print_every, self.steps),
+        )
+        selected_fields = tuple(fields) or (self.current,)
+
+        def advance(info):
+            if self.update_load is not None:
+                self.update_load(info.time)
+            self.problem.solve()
+            self.previous.x.array[:] = self.current.x.array
+            self.previous.x.scatter_forward()
+            if info.should_print and selected_progress:
+                print_on_root(
+                    selected_comm,
+                    f"[{self.name}] increment {info.index}/{self.steps} "
+                    f"t={info.time:.6g}",
+                )
+
+        if output is None:
+            for info in stepper:
+                advance(info)
+            return self
+        domain = self.current.function_space.mesh
+        with io.XDMFTimeSeries(output, domain) as xdmf:
+            xdmf.write_fields(0.0, *selected_fields)
+            for info in stepper:
+                advance(info)
+                if info.should_save:
+                    xdmf.write_fields(info.time, *selected_fields)
+        return self
+
+    def solve(self):
+        self.run()
+        return self.current
+
+    def solve_result(self):
+        from .results import from_solution
+
+        solution = self.solve()
+        return from_solution(
+            solution,
+            name=self.name,
+            metadata={"step": self.summary()},
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "first_order_transient_step",
+            "name": self.name,
+            "study": _describe_asset(self.study) if self.study is not None else None,
+            "procedure": (
+                None if self.procedure is None else self.procedure.summary()
+            ),
+            "dt": self.dt,
+            "steps": self.steps,
+            "save_every": self.save_every,
+            "print_every": _print_interval(self.print_every, self.steps),
+            "problem": self.problem.summary(),
         }
 
 
@@ -713,11 +1015,14 @@ def linear_static(
         solver_options=solver_options,
         name=name,
     )
+    from . import procedures
+
     return AnalysisStep(
         name=name,
         study=study,
         problem=problem,
         method="linear_static",
+        procedure=procedures.linear_static(),
     )
 
 
@@ -734,6 +1039,8 @@ def nonlinear(
 ) -> NonlinearVariationalProblem:
     """Create a general nonlinear residual problem."""
 
+    from . import procedures
+
     return NonlinearVariationalProblem(
         residual_form=residual,
         jacobian_form=jacobian,
@@ -742,6 +1049,7 @@ def nonlinear(
         solver_options=solver_options,
         name=name,
         petsc_options_prefix=petsc_options_prefix,
+        procedure=procedures.nonlinear_static(),
     )
 
 
@@ -762,6 +1070,8 @@ def affine_nonlinear(
 ) -> AffineNonlinearVariationalProblem:
     """Create a nonlinear problem reduced by an affine constraint map."""
 
+    from . import procedures
+
     return AffineNonlinearVariationalProblem(
         residual_form=residual,
         jacobian_form=jacobian,
@@ -781,6 +1091,7 @@ def affine_nonlinear(
         progress=progress,
         status_file=status_file,
         name=name,
+        procedure=procedures.nonlinear_static(),
     )
 
 
@@ -893,12 +1204,70 @@ def first_order_transient(
         solver_options=solver_options,
         name=name,
     )
+    from . import procedures
+
     return AnalysisStep(
         name=name,
         study=study,
         problem=problem,
         method=method,
         dt=dt,
+        procedure=procedures.implicit_euler(),
+    )
+
+
+def first_order_transient_run(
+    *,
+    capacity,
+    stiffness,
+    history,
+    current,
+    previous,
+    dt: float,
+    steps: int,
+    source=None,
+    study=None,
+    constraints=None,
+    bcs=None,
+    solver_options: LinearSolverOptions | None = None,
+    update_load=None,
+    save_every: int | None = None,
+    print_every: int | None = None,
+    progress=True,
+    name: str = "first_order_transient",
+) -> FirstOrderTransientStep:
+    """Create an executable implicit-Euler time step and loop."""
+
+    from . import procedures
+
+    if steps <= 0:
+        raise ValueError("first_order_transient_run requires steps > 0.")
+    problem = first_order_transient(
+        capacity=capacity,
+        stiffness=stiffness,
+        history=history,
+        source=source,
+        dt=dt,
+        study=study,
+        solution=current,
+        constraints=constraints,
+        bcs=bcs,
+        solver_options=solver_options,
+        name=name,
+    )
+    return FirstOrderTransientStep(
+        name=name,
+        problem=problem,
+        current=current,
+        previous=previous,
+        dt=float(dt),
+        steps=int(steps),
+        study=study,
+        update_load=update_load,
+        save_every=save_every,
+        print_every=print_every,
+        progress=progress,
+        procedure=procedures.implicit_euler(),
     )
 
 
@@ -923,6 +1292,8 @@ def explicit_dynamics(
         raise ValueError("explicit_dynamics requires dt > 0.")
     if steps <= 0:
         raise ValueError("explicit_dynamics requires steps > 0.")
+    from . import procedures
+
     return ExplicitDynamicsStep(
         name=name,
         study=study,
@@ -935,7 +1306,114 @@ def explicit_dynamics(
         steps=int(steps),
         save_every=None if save_every is None else int(save_every),
         print_every=None if print_every is None else int(print_every),
+        procedure=procedures.central_difference(),
     )
+
+
+def implicit_dynamics(
+    *,
+    state,
+    mass,
+    stiffness,
+    force,
+    damping=None,
+    dt: float,
+    steps: int,
+    parameters=None,
+    study=None,
+    constraints=(),
+    bcs=None,
+    solver_options: LinearSolverOptions | None = None,
+    update_load=None,
+    progress=True,
+    save_every: int | None = None,
+    print_every: int | None = None,
+    name: str = "implicit_dynamics",
+) -> ImplicitDynamicsStep:
+    """Create a linear Newmark or generalized-alpha dynamics step.
+
+    Strong constraints are imposed as zero acceleration. This is correct for
+    time-invariant prescribed displacements; moving supports require a
+    prescribed kinematic-history object and are rejected by the future
+    validation layer rather than silently approximated here.
+    """
+
+    from . import procedures
+    from .time import implicit as implicit_time
+
+    _require_study_analysis(study, "second_order_dynamics")
+    if dt <= 0.0 or steps <= 0:
+        raise ValueError("implicit_dynamics requires dt > 0 and steps > 0.")
+    selected = implicit_time.newmark() if parameters is None else parameters
+    am = selected.alpha_m
+    af = selected.alpha_f
+    beta = selected.beta
+    gamma = selected.gamma
+    effective_expression = (
+        (1.0 - am) * mass.expression
+        + (1.0 - af) * gamma * dt * (
+            0 if damping is None else damping.expression
+        )
+        + (1.0 - af) * beta * dt**2 * stiffness.expression
+    )
+    V = state.a.value.function_space
+    u_predictor = fem.Function(V, name="DisplacementPredictor")
+    v_predictor = fem.Function(V, name="VelocityPredictor")
+    u_alpha_predictor = fem.Function(V, name="DisplacementAlphaPredictor")
+    v_alpha_predictor = fem.Function(V, name="VelocityAlphaPredictor")
+    rhs = force.expression - am * ufl.action(
+        mass.expression,
+        state.a.value,
+    )
+    if damping is not None:
+        rhs -= ufl.action(damping.expression, v_alpha_predictor)
+    rhs -= ufl.action(stiffness.expression, u_alpha_predictor)
+    source_bcs = _collect_bcs(constraints=constraints, bcs=bcs)
+    acceleration_bcs = _zero_kinematic_bcs(source_bcs, V)
+    problem = LinearVariationalProblem(
+        bilinear_form=fem.form(effective_expression),
+        linear_form=fem.form(rhs),
+        solution=state.a_next.value,
+        bcs=acceleration_bcs,
+        solver_options=solver_options,
+    )
+    return ImplicitDynamicsStep(
+        name=name,
+        state=state,
+        problem=problem,
+        parameters=selected,
+        dt=float(dt),
+        steps=int(steps),
+        displacement_predictor=u_predictor,
+        velocity_predictor=v_predictor,
+        displacement_alpha_predictor=u_alpha_predictor,
+        velocity_alpha_predictor=v_alpha_predictor,
+        study=study,
+        update_load=update_load,
+        save_every=save_every,
+        print_every=print_every,
+        progress=progress,
+        procedure=(
+            procedures.newmark()
+            if selected.method == "newmark"
+            else procedures.generalized_alpha()
+        ),
+    )
+
+
+def _zero_kinematic_bcs(source_bcs, V) -> list:
+    result = []
+    shape = V.element.value_shape
+    value = (
+        PETSc.ScalarType(0.0)
+        if len(shape) == 0
+        else np.zeros(shape, dtype=PETSc.ScalarType)
+    )
+    for bc in source_bcs:
+        dof_indices = bc.dof_indices()
+        dofs = dof_indices[0] if isinstance(dof_indices, tuple) else dof_indices
+        result.append(fem.dirichletbc(value, dofs, V))
+    return result
 
 
 def _collect_bcs(*, constraints=None, bcs=None) -> list:
@@ -951,6 +1429,23 @@ def _collect_bcs(*, constraints=None, bcs=None) -> list:
             else:
                 result.append(item)
     return result
+
+
+def _reaction_field(residual_form, solution, *, name: str):
+    import dolfinx.fem.petsc as fem_petsc
+    from petsc4py import PETSc
+
+    residual = fem_petsc.assemble_vector(fem.form(residual_form))
+    residual.ghostUpdate(
+        addv=PETSc.InsertMode.ADD,
+        mode=PETSc.ScatterMode.REVERSE,
+    )
+    reaction = fem.Function(solution.function_space, name=name)
+    values = residual.array_r
+    reaction.x.array[: len(values)] = values
+    reaction.x.scatter_forward()
+    residual.destroy()
+    return reaction
 
 
 def _print_interval(print_every: int | None, steps: int) -> int:

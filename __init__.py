@@ -19,10 +19,12 @@ from . import io
 from . import ir
 from . import loads
 from . import materials
+from . import mechanics
 from . import mesh
 from . import models
 from . import operators
 from . import problems
+from . import procedures
 from . import results
 from . import solvers
 from . import spaces
@@ -38,12 +40,14 @@ PUBLIC_WORKFLOW_MODULES = (
     "models",
     "fields",
     "materials",
+    "mechanics",
     "constitutive",
     "constraints",
     "amplitudes",
     "loads",
     "operators",
     "problems",
+    "procedures",
     "results",
     "solvers",
     "steps",
@@ -84,10 +88,12 @@ __all__ = [
     "ir",
     "loads",
     "materials",
+    "mechanics",
     "mesh",
     "models",
     "operators",
     "problems",
+    "procedures",
     "results",
     "solvers",
     "spaces",

@@ -38,6 +38,7 @@ class StepProvider:
     lower: Callable[[object, StepRequest], object]
     priority: int = 0
     description: str = ""
+    procedure: str | None = None
 
     def __post_init__(self) -> None:
         normalized = tuple(_normalize(item) for item in self.analyses)
@@ -53,6 +54,7 @@ class StepProvider:
             "analyses": self.analyses,
             "priority": self.priority,
             "description": self.description,
+            "procedure": self.procedure,
         }
 
 
@@ -151,10 +153,56 @@ def _lower_linear_static(model, request: StepRequest):
     )
 
 
+def _accept_transient_heat(model, request: StepRequest) -> bool:
+    return (
+        request.target is not None
+        and getattr(getattr(model, "study", None), "physics", None)
+        == "heat_transfer"
+    )
+
+
+def _lower_transient_heat(model, request: StepRequest):
+    options = dict(request.options)
+    options.pop("K", None)
+    options.pop("F", None)
+    material = options.pop("material", None)
+    name = options.pop("name", None) or "transient_heat"
+    return model.heat_transfer_step(
+        target=request.target,
+        material=material,
+        name=name,
+        **options,
+    )
+
+
 def _accept_neo_hookean(model, request: StepRequest) -> bool:
     from .constitutive.hyperelasticity import NeoHookeanProperties
 
     return isinstance(_selected_material(model, request), NeoHookeanProperties)
+
+
+def _accept_j2(model, request: StepRequest) -> bool:
+    from .constitutive.plasticity import J2LinearIsotropicHardening
+
+    return isinstance(
+        _selected_material(model, request),
+        J2LinearIsotropicHardening,
+    )
+
+
+def _lower_j2(model, request: StepRequest):
+    options = dict(request.options)
+    material = _selected_material(model, request)
+    options.pop("material", None)
+    options.pop("K", None)
+    options.pop("F", None)
+    name = options.pop("name", None) or "j2_plasticity"
+    return model.j2_plasticity_step(
+        target=request.target,
+        material=material,
+        name=name,
+        **options,
+    )
 
 
 def _lower_neo_hookean(model, request: StepRequest):
@@ -173,7 +221,15 @@ def _lower_neo_hookean(model, request: StepRequest):
 
 
 def _accept_explicit_dynamics(model, request: StepRequest) -> bool:
-    return request.target is not None
+    method = request.options.get("method") or getattr(
+        getattr(model, "study", None),
+        "preferred_procedure",
+        None,
+    )
+    return request.target is not None and (
+        method is None
+        or _normalize(method) in {"explicit_dynamics", "central_difference"}
+    )
 
 
 def _lower_explicit_dynamics(model, request: StepRequest):
@@ -182,9 +238,39 @@ def _lower_explicit_dynamics(model, request: StepRequest):
     options.pop("K", None)
     options.pop("F", None)
     options.pop("solver_options", None)
+    options.pop("method", None)
     name = options.pop("name", None) or "explicit_dynamics"
     return model.explicit_dynamics_step(
         target=request.target,
+        name=name,
+        **options,
+    )
+
+
+def _accept_implicit_dynamics(model, request: StepRequest) -> bool:
+    method = request.options.get("method") or getattr(
+        getattr(model, "study", None),
+        "preferred_procedure",
+        None,
+    )
+    return request.target is not None and _normalize(method or "") in {
+        "newmark",
+        "generalized_alpha",
+    }
+
+
+def _lower_implicit_dynamics(model, request: StepRequest):
+    options = dict(request.options)
+    options.pop("material", None)
+    method = options.pop("method", None) or getattr(
+        model.study,
+        "preferred_procedure",
+        None,
+    )
+    name = options.pop("name", None) or f"{method}_dynamics"
+    return model.implicit_dynamics_step(
+        target=request.target,
+        method=method,
         name=name,
         **options,
     )
@@ -197,11 +283,21 @@ def _normalize(value: str) -> str:
         "hyperelastic": "nonlinear_static",
         "neo_hookean": "nonlinear_static",
         "explicit": "explicit_dynamics",
-        "second_order_dynamics": "explicit_dynamics",
     }
     return aliases.get(normalized, normalized)
 
 
+register_step_provider(
+    StepProvider(
+        name="implicit_euler_heat_transfer",
+        analyses=("first_order_transient",),
+        accepts=_accept_transient_heat,
+        lower=_lower_transient_heat,
+        priority=100,
+        description="Lower heat capacity/conduction/source to implicit Euler.",
+        procedure="standard/implicit_euler",
+    )
+)
 register_step_provider(
     StepProvider(
         name="linear_static_operators",
@@ -210,6 +306,21 @@ register_step_provider(
         lower=_lower_linear_static,
         priority=100,
         description="Lower K/F engineering operators to a linear static solve.",
+        procedure="standard/linear",
+    )
+)
+register_step_provider(
+    StepProvider(
+        name="j2_small_strain_static",
+        analyses=("nonlinear_static",),
+        accepts=_accept_j2,
+        lower=_lower_j2,
+        priority=110,
+        description=(
+            "Lower J2 plasticity to quadrature-state Newton equilibrium "
+            "with algorithmic tangent and cutback."
+        ),
+        procedure="standard/newton/stateful",
     )
 )
 register_step_provider(
@@ -220,15 +331,28 @@ register_step_provider(
         lower=_lower_neo_hookean,
         priority=100,
         description="Lower a Neo-Hookean material to total-Lagrangian equilibrium.",
+        procedure="standard/newton",
+    )
+)
+register_step_provider(
+    StepProvider(
+        name="implicit_structural_dynamics",
+        analyses=("second_order_dynamics",),
+        accepts=_accept_implicit_dynamics,
+        lower=_lower_implicit_dynamics,
+        priority=110,
+        description="Lower second-order operators to Newmark/generalized-alpha.",
+        procedure="standard/newmark_or_generalized_alpha",
     )
 )
 register_step_provider(
     StepProvider(
         name="central_difference_explicit_dynamics",
-        analyses=("explicit_dynamics",),
+        analyses=("explicit_dynamics", "second_order_dynamics"),
         accepts=_accept_explicit_dynamics,
         lower=_lower_explicit_dynamics,
         priority=100,
         description="Lower a second-order study to explicit central difference.",
+        procedure="explicit/central_difference",
     )
 )

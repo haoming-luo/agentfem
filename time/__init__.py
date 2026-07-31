@@ -17,6 +17,10 @@ __all__ = [
     "central_difference_predict_displacement",
     "central_difference_update_velocity",
     "explicit",
+    "implicit",
+    "GeneralizedAlphaParameters",
+    "generalized_alpha",
+    "newmark",
     "format_duration",
 ]
 
@@ -68,3 +72,5 @@ def central_difference_update_velocity(
 
 
 from . import explicit
+from . import implicit
+from .implicit import GeneralizedAlphaParameters, generalized_alpha, newmark

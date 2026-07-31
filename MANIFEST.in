@@ -17,6 +17,7 @@ recursive-include docs *.md
 recursive-include skills *.md
 recursive-include examples *.py *.md *.json *.inp *.dat *.mpc
 recursive-include benchmarks *.py *.md
+recursive-include knowledge *.json *.md
 recursive-include elements *.md
 recursive-include operators *.md
 recursive-include tests *.py

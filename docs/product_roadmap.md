@@ -25,15 +25,17 @@ core, results, verification, and documentation have priority.
 
 | Capability | Maturity | What is usable now | Important limit |
 | --- | --- | --- | --- |
-| Linear elasticity | FEM-integrated | 2D isotropic/selected anisotropic, static and dynamics building blocks | broader 3D verification and reactions remain |
+| Linear elasticity | FEM-integrated | 2D isotropic/selected anisotropic, static/dynamics building blocks, strong-BC reaction field, M/K energy diagnostic | broader 3D verification and affine/weak reactions remain |
+| Thermoelasticity | FEM-integrated | implicit-Euler heat transfer and sequential isotropic thermal stress in 2D/3D | no property tables or monolithic two-way coupling |
+| Structural dynamics | FEM-integrated foundation | central difference, Newmark, and generalized-alpha through one procedure vocabulary | implicit route is linear; moving supports and common OutputPlan remain |
 | Compressible Neo-Hookean | FEM-integrated | nonlinear static solve; 3D and 2D plane strain forms | one-material convenience step; no 2D plane stress local solve |
-| J2 plasticity | material-point verified | 3D radial return and exact uniaxial path updates | no quadrature-state FEM driver or consistent global tangent |
-| Power-law creep | material-point verified | constant-stress, relaxation, tensor increments, exact piecewise-constant stress paths | no global adaptive creep step |
+| J2 plasticity | FEM-integrated foundation | 3D quadrature state, analytical tangent, global Newton, cutback, serial restart | no plane stress, multi-region driver, MPI-portable restart, or external benchmark |
+| Power-law creep | material-point verified | constant-stress, relaxation, tensor increments, exact stress paths, normalized Arrhenius temperature dependence | no global adaptive creep step |
 | Stress-life fatigue | postprocessor | Basquin/tabulated S-N, rainflow, Goodman, Miner assessment from named result histories | no multiaxial critical-plane method |
 | External CAE mesh | integrated Abaqus path + conversion interface | generic meshio conversion; Abaqus node labels; verified C3D10 import; linear equation parsing | full solver-deck sections/material cards are not imported |
 | Abaqus periodic equations | serial + two-rank FEM-integrated | exact chained affine elimination, distributed `dolfinx_mpc`, and 3D Neo-Hookean load path | AMG near-nullspace transfer, reactions, and scaling studies remain |
 | Abaqus user-material bridge | interface contract | solver-neutral material-point input/output and migration specification | no compiled adapter or quadrature-state global driver |
-| Result/data flow | integrated foundation | declarative field/history/diagnostic/presentation plans; compact deformed XDMF/HDF5; complete RVE tensor histories; campaign/dataset bridge | reactions, general point/region probes, restart remain |
+| Result/data flow | integrated foundation | declarative field/history/diagnostic/presentation plans; compact deformed XDMF/HDF5; complete RVE tensor histories; campaign/dataset bridge; serial J2 checkpoint | reactions, general point/region probes, common transient manifest, and portable MPI restart remain |
 
 The same table is queryable in code through
 `constitutive.capabilities()` and `benchmarks.list_benchmarks()`.
@@ -67,13 +69,16 @@ an agent, user, or README from confusing these levels.
 
 ### P1: nonlinear solid mechanics
 
+- harden the new `SolutionProcedure` separation and make Standard/Explicit
+  transient steps share result, progress, energy, and checkpoint manifests;
 - finish Neo-Hookean load-controlled and multi-region verification;
 - harden the implemented stateless periodic-cell automatic incrementation with
   forced-cutback regression cases and homogenized tangent checks; the serial
   affine and distributed `dolfinx_mpc` paths already share one public Newton
   policy and output contract;
-- introduce quadrature-state storage and a constitutive update protocol;
-- integrate J2 isotropic hardening with a consistent algorithmic tangent;
+- extend the implemented quadrature-state transaction and 3D J2 analytical
+  tangent path to multi-region ownership, forced-cutback tests, reactions,
+  output projection, and portable MPI checkpoint identity;
 - extend the current deformation-controlled automatic path to general
   displacement/load control;
 - add reaction, internal/external work, and energy-balance histories with
@@ -91,7 +96,12 @@ than depend on Abaqus interfaces directly.
 
 ### P2: time-dependent materials and life
 
-- global implicit creep step with adaptive increments and restartable state;
+- make the implemented Arrhenius power-law local model consume the J2
+  quadrature transaction in a global implicit creep step with adaptive time
+  increments and restartable state;
+- treat sequential temperature-to-creep as the first useful power-component
+  route; add monolithic coupling only for cases with material heat generation
+  or meaningful mechanical feedback;
 - creep/relaxation single-element verification followed by NAFEMS cases;
 - named result histories feed an auditable fatigue assessment now; add
   automatic stress extraction at named regions/points and fatigue fields;

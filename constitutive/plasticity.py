@@ -1,9 +1,9 @@
 """Small-strain J2 plasticity material-point integration.
 
-This module provides a verified local radial-return update.  It is not yet a
-quadrature-field driver for a complete DOLFINx nonlinear analysis; that
-integration boundary is kept explicit instead of being hidden behind a
-misleading model-level solve call.
+The local radial-return mapping and analytical algorithmic tangent are kept
+independent of the global DOLFINx driver. Integration-point storage lives in
+``constitutive.quadrature`` and the global equilibrium path in
+``mechanics.plasticity``.
 """
 
 from __future__ import annotations
@@ -69,6 +69,7 @@ class J2Update:
     elastic: bool
     yield_function_trial: float
     plastic_multiplier_increment: float
+    algorithmic_tangent: np.ndarray
 
 
 @dataclass(frozen=True)
@@ -114,6 +115,22 @@ class J2LinearIsotropicHardening:
             equivalent_plastic_strain
         )
 
+    def elastic_tangent(self) -> np.ndarray:
+        """Return the symmetric three-dimensional elastic tangent."""
+
+        identity = np.eye(3)
+        symmetric_identity = 0.5 * (
+            np.einsum("ik,jl->ijkl", identity, identity)
+            + np.einsum("il,jk->ijkl", identity, identity)
+        )
+        deviatoric_identity = symmetric_identity - (
+            np.einsum("ij,kl->ijkl", identity, identity) / 3.0
+        )
+        return (
+            self.bulk_modulus * np.einsum("ij,kl->ijkl", identity, identity)
+            + 2.0 * self.shear_modulus * deviatoric_identity
+        )
+
     def update(
         self,
         total_strain,
@@ -148,6 +165,7 @@ class J2LinearIsotropicHardening:
                 elastic=True,
                 yield_function_trial=float(f_trial),
                 plastic_multiplier_increment=0.0,
+                algorithmic_tangent=self.elastic_tangent(),
             )
         if q_trial <= 0.0:
             raise RuntimeError("Positive J2 yield function requires q_trial > 0.")
@@ -161,12 +179,40 @@ class J2LinearIsotropicHardening:
             1.0 - 3.0 * self.shear_modulus * increment / q_trial
         ) * trial_deviator
         pressure_part = np.trace(trial_stress) / 3.0 * np.eye(3)
+        reduction = 1.0 - 3.0 * self.shear_modulus * increment / q_trial
+        identity = np.eye(3)
+        symmetric_identity = 0.5 * (
+            np.einsum("ik,jl->ijkl", identity, identity)
+            + np.einsum("il,jk->ijkl", identity, identity)
+        )
+        deviatoric_identity = symmetric_identity - (
+            np.einsum("ij,kl->ijkl", identity, identity) / 3.0
+        )
+        flow_direction = 1.5 * trial_deviator / q_trial
+        radial_coefficient = (
+            1.0
+            / (
+                q_trial
+                * (3.0 * self.shear_modulus + self.hardening_modulus)
+            )
+            - increment / q_trial**2
+        )
+        tangent = (
+            self.bulk_modulus
+            * np.einsum("ij,kl->ijkl", identity, identity)
+            + 2.0 * self.shear_modulus * reduction * deviatoric_identity
+            - 6.0
+            * self.shear_modulus**2
+            * radial_coefficient
+            * np.einsum("ij,kl->ijkl", trial_deviator, flow_direction)
+        )
         return J2Update(
             stress=pressure_part + new_deviator,
             state=J2PlasticState(plastic_strain, equivalent),
             elastic=False,
             yield_function_trial=float(f_trial),
             plastic_multiplier_increment=float(increment),
+            algorithmic_tangent=tangent,
         )
 
     def as_dict(self) -> dict[str, object]:
@@ -178,8 +224,9 @@ class J2LinearIsotropicHardening:
             "poisson": self.poisson,
             "yield_stress": self.yield_stress,
             "hardening_modulus": self.hardening_modulus,
-            "maturity": "material_point_verified",
-            "fem_quadrature_driver": False,
+            "maturity": "fem_integrated_3d",
+            "fem_quadrature_driver": True,
+            "algorithmic_tangent": "analytical_consistent",
         }
 
 

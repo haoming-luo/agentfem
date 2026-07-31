@@ -183,6 +183,36 @@ def kinetic_energy(mass_lumped: np.ndarray, velocity: fem.Function) -> float:
     return velocity.function_space.mesh.comm.allreduce(local, op=MPI.SUM)
 
 
+@dataclass(frozen=True)
+class MechanicalEnergy:
+    """Kinetic, recoverable strain, and total mechanical energy."""
+
+    kinetic: float
+    strain: float
+
+    @property
+    def total(self) -> float:
+        return self.kinetic + self.strain
+
+    def summary(self) -> dict[str, float]:
+        return {
+            "kinetic": self.kinetic,
+            "strain": self.strain,
+            "total": self.total,
+        }
+
+
+def mechanical_energy(*, mass, stiffness, displacement, velocity) -> MechanicalEnergy:
+    """Evaluate ``1/2 v^T M v`` and ``1/2 u^T K u`` from visible operators."""
+
+    from . import operators
+
+    return MechanicalEnergy(
+        kinetic=0.5 * operators.quadratic_form(mass, velocity),
+        strain=0.5 * operators.quadratic_form(stiffness, displacement),
+    )
+
+
 def max_abs(function: fem.Function) -> float:
     """Global max absolute value of a finite-element field."""
 

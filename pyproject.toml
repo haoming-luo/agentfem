@@ -73,9 +73,15 @@ packages = [
   "agentfem.datasets",
   "agentfem.elements",
   "agentfem.kernel",
+  "agentfem.knowledge",
+  "agentfem.knowledge.benchmarks",
+  "agentfem.knowledge.cards",
+  "agentfem.knowledge.decisions",
+  "agentfem.knowledge.schema",
   "agentfem.ir",
   "agentfem.materials",
   "agentfem.materials.data",
+  "agentfem.mechanics",
   "agentfem.mesh",
   "agentfem.operators",
   "agentfem.results",
@@ -85,6 +91,14 @@ packages = [
 
 [tool.setuptools.package-data]
 "agentfem.materials" = ["data/*.json"]
+"agentfem.knowledge" = [
+  "README.md",
+  "catalog.json",
+  "cards/*.json",
+  "benchmarks/*.json",
+  "schema/*.json",
+  "decisions/*.md",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

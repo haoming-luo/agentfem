@@ -1,0 +1,131 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.thermoelastic_analysis",
+  "title": "Sequential thermoelastic analysis",
+  "kind": "workflow",
+  "status": "supported",
+  "summary": "One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve.",
+  "public_api": [
+    "agentfem.constitutive.thermoelastic",
+    "agentfem.operators.thermal_expansion_vector",
+    "agentfem.constitutive.ArrheniusPowerLawCreep",
+    "agentfem.models.Model.step"
+  ],
+  "implementation": [
+    "materials/properties.py",
+    "constitutive/elasticity.py",
+    "constitutive/creep.py",
+    "operators/elasticity.py",
+    "models.py"
+  ],
+  "science": {
+    "statement": "Temperature is solved first when mechanical response does not materially feed back into heat transfer, then thermal eigenstrain enters equilibrium as an equivalent load.",
+    "equations": [
+      {
+        "label": "heat equation",
+        "expression": "rho c_p T_dot - div(k grad(T)) = Q",
+        "description": "Backward Euler advances the first-order thermal state."
+      },
+      {
+        "label": "thermal strain",
+        "expression": "epsilon_th = alpha (T - T_ref) I",
+        "description": "The reference temperature and dimensional reduction are explicit material/Study inputs."
+      },
+      {
+        "label": "sequential stress equilibrium",
+        "expression": "K u = F_ext + integral (C:epsilon_th):epsilon(v) dOmega",
+        "description": "The thermal contribution remains a named inspectable vector operator."
+      },
+      {
+        "label": "normalized Arrhenius factor",
+        "expression": "A(T) = A_ref exp[-Q/R (1/T - 1/T_ref)]",
+        "description": "The local creep coefficient retains its fitted meaning at the declared reference temperature."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "thermomechanical properties",
+        "type": "E, nu, rho, alpha, k, c_p, T_ref",
+        "unit_role": "consistent absolute-temperature system",
+        "description": "One immutable material record shared by thermal and mechanical models."
+      },
+      {
+        "name": "temperature field",
+        "type": "scalar finite-element field",
+        "unit_role": "absolute temperature",
+        "description": "Solved or prescribed temperature consumed by thermal expansion."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "Temperature",
+        "type": "transient scalar field",
+        "unit_role": "absolute temperature",
+        "description": "Implicit-Euler heat-transfer result."
+      },
+      {
+        "name": "F_thermal",
+        "type": "finite-element vector operator",
+        "unit_role": "force",
+        "description": "Equivalent load from constrained thermal expansion."
+      },
+      {
+        "name": "Displacement",
+        "type": "vector finite-element field",
+        "unit_role": "length",
+        "description": "Sequential mechanical response."
+      }
+    ],
+    "assumptions": [
+      "Small-strain isotropic thermoelasticity.",
+      "Sequential coupling: temperature affects mechanics but mechanical dissipation and deformation do not feed back into heat transfer.",
+      "Material constants are temperature independent in the current global operators."
+    ],
+    "conventions": [
+      "All Arrhenius temperatures are kelvin.",
+      "Plane strain retains the constrained out-of-plane thermal strain.",
+      "Plane stress uses the reduced in-plane constitutive law."
+    ],
+    "applicability": [
+      "Thermal gradients and thermal stress in laboratory and power-plant component models when one-way coupling is adequate.",
+      "Preparing temperature histories for future global creep integration."
+    ],
+    "limitations": [
+      "No monolithic fully coupled temperature-displacement solve.",
+      "No convection/radiation convenience boundary in this card.",
+      "Arrhenius creep remains a material-point capability until it consumes global quadrature state."
+    ]
+  },
+  "usage": {
+    "minimal_example": "Solve a heat-transfer Model with the shared material, then pass its Temperature field to mechanics.thermal_expansion(u, temperature) in a solid-mechanics Model.",
+    "examples": [
+      "examples/thermal_stress_wall_2d.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_p1_platform.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.thermoelastic_free_expansion"
+    ],
+    "validation_rules": [
+      "Reject nonpositive conductivity, specific heat, density, or absolute reference temperature.",
+      "Require an explicit 2D solid assumption for thermoelastic stress."
+    ]
+  },
+  "references": [
+    {
+      "title": "Abaqus fully coupled thermal-stress analysis",
+      "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAEANLRefMap/simaanl-c-couptempdisp.htm"
+    },
+    {
+      "title": "Abaqus heat transfer procedures",
+      "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAEANLRefMap/simaanl-c-heatproc.htm"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.solution_procedures"
+  ]
+}

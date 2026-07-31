@@ -24,8 +24,13 @@ finite-element simulation with AgentFEM.
 - Mesh or boundary tagging: read `docs/module_map.md`, then use
   `mesh.summarize_mesh`, `mesh.require_cell_tags`, and
   `mesh.require_facet_tags`.
-- Study setup: use `studies.linear_static`, `studies.first_order_transient`, or
-  `studies.second_order_dynamics` before building operators.
+- Study setup: use `studies.linear_static`, `studies.first_order_transient`,
+  `studies.implicit_dynamics`, or `studies.explicit_dynamics` before building
+  operators. Use neutral `studies.second_order_dynamics` only when downstream
+  code deliberately selects the numerical procedure.
+- Solution procedure: inspect `procedures.py` when Standard/Explicit or a
+  particular time integrator must be selected. Do not encode the algorithm by
+  inventing a new physical analysis type.
 - Model audit: use `model.tree()`, `model.manifest()`, `model.summary()`, and
   `model.validate()` when multiple fields, regions, loads, constraints, or
   steps must be inspected. Use `model.check()` to stop before execution on
@@ -103,7 +108,9 @@ finite-element simulation with AgentFEM.
 ## Current Platform Focus
 
 AgentFEM currently focuses on a dependable DOLFINx/PETSc path: linear
-elasticity, heat/dynamics building blocks, a bounded Neo-Hookean nonlinear
-solve, result/campaign/data flow, external mesh conversion, and deliberately
-staged J2, creep, and fatigue tools. Product depth and verification take
-priority over adding material names or backend abstractions.
+elasticity, implicit and explicit linear structural dynamics, implicit heat
+transfer, sequential thermoelasticity, a bounded Neo-Hookean nonlinear solve,
+result/campaign/data flow, external mesh conversion, and deliberately staged
+path-dependent material tools. The first global J2 provider is serial-only;
+Arrhenius power-law creep is still a local law. Product depth and verification
+take priority over adding material names or backend abstractions.

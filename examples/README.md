@@ -41,7 +41,17 @@ unless the example is intentionally advanced.
    a J2 uniaxial load path, power-law creep history, rainflow counting, and
    Miner damage.
 
-8. `abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py`
+8. `j2_plasticity_3d.py`
+   Global path-dependent mechanics. Demonstrates quadrature-point state,
+   analytical consistent tangent, automatic incrementation, rollback, and the
+   standard progress stream.
+
+9. `thermal_stress_wall_2d.py`
+   Power-plant-oriented sequential coupling. One thermoelastic material feeds
+   implicit heat transfer and the equivalent thermal-expansion load of a
+   plane-strain stress solve.
+
+10. `abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py`
    Advanced interoperability and finite-deformation reference. Imports a real
    Abaqus `C3D10` mesh, preserves node labels, eliminates 4,212 periodic
    `*EQUATION` constraints, solves a 3D Neo-Hookean load path, and writes
@@ -59,6 +69,8 @@ python examples/transient_heat_2d.py
 python examples/static_elasticity_surrogate_campaign.py
 python examples/campaign_from_json.py
 python examples/material_models.py
+python examples/j2_plasticity_3d.py
+python examples/thermal_stress_wall_2d.py
 ```
 
 From the parent development directory:

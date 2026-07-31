@@ -66,15 +66,22 @@ result requests.
   tensors over every saved state; they are not hard-coded to one component.
 - finite-strain checks report average `F`, average and quadrature bounds of
   `J`, maximum displacement, and optional periodic-equation mismatch.
+- `SolutionProcedure` separates physical analysis from Standard/Explicit and
+  Newmark/generalized-alpha/central-difference algorithm selection.
+- `J2QuadratureState` owns committed/trial `PE`, `PEEQ`, `S`, and `DDSDDE`;
+  the 3D global J2 provider uses its analytical algorithmic tangent, state
+  transaction, automatic cutback, and serial checkpoint.
+- isotropic thermoelastic properties feed both implicit heat transfer and the
+  equivalent thermal-expansion operator in sequential thermal-stress studies.
 
 The current Neo-Hookean path is stateless. Rolling back its displacement is
 therefore sufficient. That fact must not be generalized to plasticity or
 creep.
 
-## Required state contract for plasticity and creep
+## Implemented state contract and the remaining creep consumer
 
-Path-dependent integration must add an explicit quadrature-state subsystem
-before a material is advertised as FEM-integrated:
+Path-dependent integration uses an explicit quadrature-state subsystem before
+a material is advertised as FEM-integrated:
 
 ```text
 StateLayout
@@ -153,10 +160,13 @@ The field/history distinction follows established CAE result semantics:
 describes fields as spatial distributions saved at relatively few states and
 histories as frequent output from selected regions.
 
-Reaction force, internal/external work, and energy-balance histories are the
-next general output gates. They must be derived consistently with strong,
-weak, affine-MPC, and future contact constraints rather than inferred from a
-particular example.
+`reaction_field()` now exposes the unconstrained residual for ordinary strong
+Dirichlet linear, nonlinear, and J2 problems. This is the correct first
+building block, but it is not yet a universal reaction contract. Weak,
+affine-MPC, and future contact constraints require their own verified
+definitions. `diagnostics.mechanical_energy(...)` evaluates the visible
+\(M/K\) quadratic energies; internal/external work and complete energy-balance
+histories remain gates.
 
 ## Verification ladder
 
@@ -171,10 +181,11 @@ Each new nonlinear family advances only with evidence:
 7. serial/MPI agreement and result-schema checks;
 8. a readable public example and documented unsupported cases.
 
-The first integrated path after Neo-Hookean should be small-strain J2 isotropic
-hardening because its local update already exists and its consistent tangent,
-one-element paths, and external references can be bounded. Global implicit
-creep should then reuse the same state transaction and restart machinery.
+The first integrated stateful path is now small-strain 3D J2 isotropic
+hardening under natural loading and homogeneous supports. A prescribed-
+displacement load path still needs amplitude-aware constraint scaling. Global
+implicit creep should reuse the same transaction and restart machinery rather
+than create a second state store.
 
 ## Explicit non-goals for P1
 

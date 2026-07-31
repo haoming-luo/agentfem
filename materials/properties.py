@@ -76,6 +76,66 @@ class ElasticIsotropicProperties:
 
 
 @dataclass(frozen=True)
+class ThermoElasticIsotropicProperties(ElasticIsotropicProperties):
+    """Isotropic thermoelastic and heat-conduction properties.
+
+    The constants intentionally live in one inspectable record because
+    sequential heat-transfer/stress workflows consume the same material.
+    Temperature-dependent tables can later implement the same property
+    protocol without changing the operators.
+    """
+
+    thermal_expansion: float = 0.0
+    conductivity: float = 0.0
+    specific_heat: float = 0.0
+    reference_temperature: float = 293.15
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        values = {
+            "thermal_expansion": self.thermal_expansion,
+            "conductivity": self.conductivity,
+            "specific_heat": self.specific_heat,
+            "reference_temperature": self.reference_temperature,
+        }
+        if not all(isfinite(float(value)) for value in values.values()):
+            raise ValueError("Thermoelastic properties must be finite.")
+        if self.thermal_expansion < 0.0:
+            raise ValueError("thermal_expansion must be nonnegative.")
+        if self.conductivity <= 0.0:
+            raise ValueError("conductivity must be positive.")
+        if self.specific_heat <= 0.0:
+            raise ValueError("specific_heat must be positive.")
+        if self.reference_temperature <= 0.0:
+            raise ValueError("reference_temperature must be positive in kelvin.")
+
+    @property
+    def volumetric_heat_capacity(self) -> float:
+        return self.density * self.specific_heat
+
+    def as_dict(self) -> dict[str, float | str]:
+        result = super().as_dict()
+        result.update(
+            {
+                "model": "isotropic_linear_thermoelastic",
+                "thermal_expansion": self.thermal_expansion,
+                "conductivity": self.conductivity,
+                "specific_heat": self.specific_heat,
+                "reference_temperature": self.reference_temperature,
+                "volumetric_heat_capacity": self.volumetric_heat_capacity,
+            }
+        )
+        return result
+
+    def summary(self) -> str:
+        return (
+            f"{self.name}: isotropic thermoelastic properties, "
+            f"E={self.young:.6e}, nu={self.poisson:.6g}, "
+            f"alpha={self.thermal_expansion:.6e}, k={self.conductivity:.6e}"
+        )
+
+
+@dataclass(frozen=True)
 class ElasticAnisotropic2DProperties:
     """2D linear-elastic properties using engineering-strain Voigt notation."""
 

@@ -363,6 +363,156 @@ class Model:
             )
         return operators.combine(*parts, name=name, kind="partitioned_stiffness")
 
+    def mass(
+        self,
+        target,
+        material=None,
+        *,
+        measure=None,
+        name: str = "M",
+    ):
+        """Create a consistent mass operator from registered densities."""
+
+        import ufl
+
+        from . import operators
+
+        records = (
+            (self._material_record(material),)
+            if material is not None
+            else tuple(self.materials)
+        )
+        if not records:
+            raise ValueError("model.mass requires at least one registered material.")
+        if measure is not None and len(records) > 1:
+            raise ValueError("Pass material=... when using one explicit mass measure.")
+        parts = []
+        for index, record in enumerate(records):
+            selected_measure = (
+                measure
+                if measure is not None
+                else (
+                    record.region.measure
+                    if record.region is not None
+                    else ufl.dx
+                )
+            )
+            if len(records) > 1 and record.region is None:
+                raise ValueError(
+                    "Multiple-material mass requires a region for every material."
+                )
+            parts.append(
+                operators.mass_operator(
+                    target,
+                    _density(record.item),
+                    measure=selected_measure,
+                ).renamed(f"{name}_{index}" if len(records) > 1 else name)
+            )
+        return (
+            parts[0]
+            if len(parts) == 1
+            else operators.combine(*parts, name=name, kind="partitioned_mass")
+        )
+
+    def damping(self, target, coefficient, *, measure=None, name: str = "C"):
+        """Create a viscous damping operator."""
+
+        import ufl
+
+        from . import operators
+
+        return operators.damping_operator(
+            target,
+            coefficient,
+            measure=ufl.dx if measure is None else measure,
+        ).renamed(name)
+
+    def conduction(self, temperature, material=None, *, measure=None, name: str = "K"):
+        """Create a heat-conduction operator from a thermoelastic material."""
+
+        import ufl
+
+        from . import operators
+
+        record = (
+            self._material_record(material)
+            if material is not None
+            else _single_material(self, "model.conduction")
+        )
+        if not hasattr(record.item, "conductivity"):
+            raise ValueError("Selected material does not define conductivity.")
+        selected_measure = (
+            measure
+            if measure is not None
+            else (record.region.measure if record.region is not None else ufl.dx)
+        )
+        return operators.conduction_operator(
+            temperature,
+            record.item.conductivity,
+            measure=selected_measure,
+        ).renamed(name)
+
+    def heat_capacity(self, temperature, material=None, *, measure=None, name: str = "C"):
+        """Create ``rho c_p`` capacity from a thermoelastic material."""
+
+        import ufl
+
+        from . import operators
+
+        record = (
+            self._material_record(material)
+            if material is not None
+            else _single_material(self, "model.heat_capacity")
+        )
+        if not hasattr(record.item, "volumetric_heat_capacity"):
+            raise ValueError(
+                "Selected material does not define volumetric heat capacity."
+            )
+        selected_measure = (
+            measure
+            if measure is not None
+            else (record.region.measure if record.region is not None else ufl.dx)
+        )
+        return operators.capacity_operator(
+            temperature,
+            record.item.volumetric_heat_capacity,
+            measure=selected_measure,
+        ).renamed(name)
+
+    def thermal_expansion(
+        self,
+        target,
+        temperature,
+        material=None,
+        *,
+        measure=None,
+        name: str = "F_thermal",
+    ):
+        """Create the equivalent force from a solved temperature field."""
+
+        import ufl
+
+        from . import operators
+
+        record = (
+            self._material_record(material)
+            if material is not None
+            else _single_material(self, "model.thermal_expansion")
+        )
+        selected_measure = (
+            measure
+            if measure is not None
+            else (record.region.measure if record.region is not None else ufl.dx)
+        )
+        return operators.thermal_expansion_vector(
+            target,
+            temperature,
+            record.item,
+            study=self.study,
+            measure=selected_measure,
+            name=name,
+        )
+
     def lumped_mass(
         self,
         target,
@@ -669,6 +819,91 @@ class Model:
         )
         return self.add_step(step)
 
+    def heat_transfer_step(
+        self,
+        *,
+        target,
+        dt: float,
+        steps: int,
+        material=None,
+        C=None,
+        K=None,
+        Q=None,
+        constraints=None,
+        solver_options=None,
+        update_load=None,
+        save_every: int | None = None,
+        print_every: int | None = None,
+        progress=True,
+        name: str = "transient_heat",
+    ):
+        """Create an implicit-Euler transient heat-transfer step."""
+
+        import ufl
+        from dolfinx import fem
+
+        from . import operators
+        from . import problems
+
+        self.check()
+        if hasattr(self.study, "require"):
+            self.study.require(
+                analysis="first_order_transient",
+                physics="heat_transfer",
+            )
+        record = (
+            self._material_record(material)
+            if material is not None
+            else _single_material(self, "model.heat_transfer_step")
+        )
+        previous = fem.Function(target.space, name="TemperaturePrevious")
+        previous.x.array[:] = target.value.x.array
+        previous.x.scatter_forward()
+        capacity = (
+            self.heat_capacity(target, record.item)
+            if C is None
+            else C
+        )
+        stiffness = (
+            self.conduction(target, record.item)
+            if K is None
+            else K
+        )
+        source = Q
+        if source is None and self.loads:
+            source = self.external_force(target)
+        history = operators.heat_capacity_vector(
+            previous,
+            target,
+            record.item.volumetric_heat_capacity,
+            measure=(
+                record.region.measure
+                if record.region is not None
+                else ufl.dx
+            ),
+        )
+        step = problems.first_order_transient_run(
+            capacity=capacity,
+            stiffness=stiffness,
+            history=history,
+            source=source,
+            current=target.value,
+            previous=previous,
+            dt=dt,
+            steps=steps,
+            study=self.study,
+            constraints=(
+                self.constraints if constraints is None else constraints
+            ),
+            solver_options=solver_options,
+            update_load=update_load,
+            save_every=save_every,
+            print_every=print_every,
+            progress=progress,
+            name=name,
+        )
+        return self.add_step(step)
+
     def hyperelastic_step(
         self,
         *,
@@ -811,6 +1046,61 @@ class Model:
             )
         return self.add_step(problem)
 
+    def j2_plasticity_step(
+        self,
+        *,
+        target,
+        material=None,
+        constraints=None,
+        incrementation=None,
+        solver_options=None,
+        quadrature_degree: int = 2,
+        progress=True,
+        status_file=None,
+        name: str = "j2_plasticity",
+    ):
+        """Create a global 3D small-strain J2 plasticity step."""
+
+        from . import mechanics
+        from .constitutive.plasticity import J2LinearIsotropicHardening
+
+        self.check()
+        if hasattr(self.study, "require"):
+            self.study.require(
+                analysis="nonlinear_static",
+                physics="solid_mechanics",
+            )
+        if material is None:
+            if len(self.materials) != 1:
+                raise ValueError(
+                    "model.j2_plasticity_step requires material=... or exactly "
+                    "one registered material."
+                )
+            material = self.materials[0].item
+        else:
+            material = self._material_record(material).item
+        if not isinstance(material, J2LinearIsotropicHardening):
+            raise TypeError(
+                "model.j2_plasticity_step requires "
+                "J2LinearIsotropicHardening."
+            )
+        step = mechanics.j2_plasticity_step(
+            displacement=target,
+            material=material,
+            external_force=self.external_force(target),
+            constraints=(
+                self.constraints if constraints is None else constraints
+            ),
+            study=self.study,
+            incrementation=incrementation,
+            solver_options=solver_options,
+            quadrature_degree=quadrature_degree,
+            progress=progress,
+            status_file=status_file,
+            name=name,
+        )
+        return self.add_step(step)
+
     def explicit_dynamics_step(
         self,
         *,
@@ -849,6 +1139,69 @@ class Model:
             constraints=self.constraints if constraints is None else constraints,
             dt=dt,
             steps=steps,
+            save_every=save_every,
+            print_every=print_every,
+            name=name,
+        )
+        return self.add_step(step)
+
+    def implicit_dynamics_step(
+        self,
+        *,
+        target,
+        dt: float,
+        steps: int,
+        method: str = "newmark",
+        spectral_radius: float = 0.8,
+        M=None,
+        C=None,
+        K=None,
+        F=None,
+        state=None,
+        constraints=None,
+        solver_options=None,
+        update_load=None,
+        progress=True,
+        save_every: int | None = None,
+        print_every: int | None = None,
+        name: str = "implicit_dynamics",
+    ):
+        """Create Newmark/generalized-alpha structural dynamics."""
+
+        from . import problems
+        from . import time as time_api
+
+        self.check()
+        selected_state = (
+            state if state is not None else problems.second_order_state(target)
+        )
+        selected_method = method.lower().replace("-", "_")
+        if selected_method == "newmark":
+            parameters = time_api.newmark()
+        elif selected_method == "generalized_alpha":
+            parameters = time_api.generalized_alpha(
+                spectral_radius=spectral_radius
+            )
+        else:
+            raise ValueError(
+                "Implicit dynamics method must be 'newmark' or 'generalized_alpha'."
+            )
+        step = problems.implicit_dynamics(
+            state=selected_state,
+            mass=self.mass(target) if M is None else M,
+            damping=C,
+            stiffness=self.stiffness(target) if K is None else K,
+            force=self.external_force(target) if F is None else F,
+            dt=dt,
+            steps=steps,
+            parameters=parameters,
+            study=self.study,
+            constraints=(
+                self.constraints if constraints is None else constraints
+            ),
+            solver_options=solver_options,
+            update_load=update_load,
+            progress=progress,
             save_every=save_every,
             print_every=print_every,
             name=name,
@@ -1342,6 +1695,12 @@ def _density(material) -> float:
     if density <= 0.0:
         raise ValueError(f"Material {_describe(material)!r} must have positive density.")
     return density
+
+
+def _single_material(model: Model, caller: str) -> "_WithRegion":
+    if len(model.materials) != 1:
+        raise ValueError(f"{caller} requires material=... or exactly one material.")
+    return model.materials[0]
 
 
 def _describe(item):

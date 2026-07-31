@@ -1,0 +1,118 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.solution_procedures",
+  "title": "Solution procedure vocabulary",
+  "kind": "analysis_step",
+  "status": "supported",
+  "summary": "Separates physical analysis intent from Standard/Explicit selection, equation order, integration algorithm, state policy, and global-solve requirements.",
+  "public_api": [
+    "agentfem.procedures.SolutionProcedure",
+    "agentfem.time.newmark",
+    "agentfem.time.generalized_alpha",
+    "agentfem.problems.LinearSystemProblem.reaction_field",
+    "agentfem.diagnostics.mechanical_energy",
+    "agentfem.models.Model.step"
+  ],
+  "implementation": [
+    "procedures.py",
+    "time/implicit.py",
+    "time/explicit.py",
+    "problems.py",
+    "step_providers.py"
+  ],
+  "science": {
+    "statement": "A Study identifies the governing problem while a SolutionProcedure identifies how load or time is advanced and which global/local algorithm consumes it.",
+    "equations": [
+      {
+        "label": "second-order system",
+        "expression": "M u_ddot + C u_dot + K u = F",
+        "description": "The same physical system may be solved by implicit Newmark, generalized-alpha, or explicit central difference."
+      },
+      {
+        "label": "generalized-alpha equilibrium",
+        "expression": "M a_(n+1-alpha_m) + C v_(n+1-alpha_f) + K u_(n+1-alpha_f) = F_(n+1-alpha_f)",
+        "description": "Algorithmic parameters control stability, accuracy, and high-frequency dissipation."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "Study",
+        "type": "analysis and physics context",
+        "unit_role": "none",
+        "description": "Defines static/transient order, physics, dimension, and assumptions."
+      },
+      {
+        "name": "operators and controls",
+        "type": "M, C, K, F, dt, increments, solver policy",
+        "unit_role": "consistent finite-element system",
+        "description": "Visible numerical ingredients consumed by the selected procedure."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "step summary",
+        "type": "structured procedure record",
+        "unit_role": "none",
+        "description": "Records family, order, algorithm, control, statefulness, and solve requirements."
+      },
+      {
+        "name": "advanced state",
+        "type": "field state and convergence evidence",
+        "unit_role": "problem dependent",
+        "description": "Accepted displacement, velocity, acceleration, temperature, or material state."
+      },
+      {
+        "name": "reaction and mechanical energy diagnostics",
+        "type": "nodal residual field and scalar energy record",
+        "unit_role": "force and energy",
+        "description": "Strong-constraint reactions and visible M/K quadratic energies for supported systems."
+      }
+    ],
+    "assumptions": [
+      "Newmark and generalized-alpha are currently linear structural dynamics routes.",
+      "Implicit heat transfer currently uses backward Euler.",
+      "Central difference uses a lumped mass operator."
+    ],
+    "conventions": [
+      "Standard means a global implicit/assembled solution route, not an Abaqus compatibility claim.",
+      "Explicit means no global linear solve at each time increment.",
+      "Step, increment, iteration, attempt, and output frame remain distinct."
+    ],
+    "applicability": [
+      "Selecting and inspecting current linear static, nonlinear static, heat-transfer, and structural-dynamics routes."
+    ],
+    "limitations": [
+      "Nonlinear implicit structural dynamics is not implemented.",
+      "Moving-support kinematics for implicit dynamics are not implemented.",
+      "Explicit and implicit transient steps do not yet share the complete OutputPlan manifest."
+    ]
+  },
+  "usage": {
+    "minimal_example": "Create studies.implicit_dynamics(..., method='generalized_alpha') and call model.step(target=u, dt=..., steps=...).",
+    "examples": [
+      "examples/wave_packet_plate_2d.py",
+      "examples/thermal_stress_wall_2d.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_p1_platform.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Reject unknown procedure families, equation orders, controls, or incompatible explicit/global-solve combinations.",
+      "Reject invalid generalized-alpha spectral radius and integration parameters."
+    ]
+  },
+  "references": [
+    {
+      "title": "Chung and Hulbert generalized-alpha method",
+      "locator": "https://deepblue.lib.umich.edu/bitstream/handle/2027.42/50422/1640100803_ftp.pdf?isAllowed=y&sequence=1"
+    }
+  ],
+  "related_cards": [
+    "agentfem.material.j2_global_plasticity",
+    "agentfem.workflow.thermoelastic_analysis"
+  ]
+}

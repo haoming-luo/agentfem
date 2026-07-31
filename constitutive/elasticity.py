@@ -9,6 +9,7 @@ from agentfem import fields as field_api
 from agentfem.materials.properties import (
     ElasticAnisotropic2DProperties,
     ElasticIsotropicProperties,
+    ThermoElasticIsotropicProperties,
 )
 
 
@@ -94,6 +95,75 @@ def isotropic_stress(displacement, properties: ElasticIsotropicProperties, *, st
     )
 
 
+def thermal_strain(temperature, properties, *, dimension: int):
+    """Return isotropic free thermal strain ``alpha (T-T_ref) I``."""
+
+    selected = field_api.unwrap(temperature)
+    increment = selected - properties.reference_temperature
+    return properties.thermal_expansion * increment * ufl.Identity(int(dimension))
+
+
+def thermoelastic_stress(displacement, temperature, properties, *, study=None):
+    """Small-strain isotropic stress including thermal eigenstrain.
+
+    Plane strain retains the constrained out-of-plane thermal strain in the
+    three-dimensional trace. Plane stress uses the reduced in-plane law.
+    """
+
+    displacement = field_api.unwrap(displacement)
+    selected_temperature = field_api.unwrap(temperature)
+    if study is not None:
+        _require_elastic_study_supported(study)
+    dimension = len(displacement)
+    delta_temperature = selected_temperature - properties.reference_temperature
+    alpha_delta = properties.thermal_expansion * delta_temperature
+    eps = strain(displacement)
+    if dimension == 2 and getattr(study, "assumption", None) == "plane_stress":
+        mechanical = eps - alpha_delta * ufl.Identity(2)
+        plane_stress_lambda = properties.young * properties.poisson / (
+            1.0 - properties.poisson**2
+        )
+        return (
+            plane_stress_lambda * ufl.tr(mechanical) * ufl.Identity(2)
+            + 2.0 * properties.mu * mechanical
+        )
+    if dimension == 2 and getattr(study, "assumption", None) == "plane_strain":
+        return (
+            properties.lambda_
+            * (ufl.tr(eps) - 3.0 * alpha_delta)
+            * ufl.Identity(2)
+            + 2.0 * properties.mu * (eps - alpha_delta * ufl.Identity(2))
+        )
+    mechanical = eps - alpha_delta * ufl.Identity(dimension)
+    return (
+        properties.lambda_ * ufl.tr(mechanical) * ufl.Identity(dimension)
+        + 2.0 * properties.mu * mechanical
+    )
+
+
+def thermal_expansion_stress(temperature, properties, *, study=None, dimension=None):
+    """Return positive ``C:epsilon_thermal`` for an equivalent thermal load."""
+
+    selected = field_api.unwrap(temperature)
+    selected_dimension = int(
+        dimension if dimension is not None else getattr(study, "dimension", 3)
+    )
+    alpha_delta = (
+        properties.thermal_expansion
+        * (selected - properties.reference_temperature)
+    )
+    if selected_dimension == 2 and getattr(study, "assumption", None) == "plane_stress":
+        plane_stress_lambda = properties.young * properties.poisson / (
+            1.0 - properties.poisson**2
+        )
+        factor = 2.0 * (properties.mu + plane_stress_lambda)
+    elif selected_dimension == 2 and getattr(study, "assumption", None) == "plane_strain":
+        factor = 2.0 * properties.mu + 3.0 * properties.lambda_
+    else:
+        factor = 2.0 * properties.mu + selected_dimension * properties.lambda_
+    return factor * alpha_delta * ufl.Identity(selected_dimension)
+
+
 def isotropic_plane_strain_2d(displacement, properties: ElasticIsotropicProperties):
     """2D isotropic plane-strain stress."""
 
@@ -175,6 +245,31 @@ def isotropic_elastic(
     """Create isotropic linear-elastic properties."""
 
     return ElasticIsotropicProperties(name=name, young=young, density=density, poisson=poisson)
+
+
+def thermoelastic(
+    *,
+    young: float,
+    density: float,
+    poisson: float,
+    thermal_expansion: float,
+    conductivity: float,
+    specific_heat: float,
+    reference_temperature: float = 293.15,
+    name: str = "isotropic thermoelastic",
+) -> ThermoElasticIsotropicProperties:
+    """Create one material record for sequential thermal-stress workflows."""
+
+    return ThermoElasticIsotropicProperties(
+        name=name,
+        young=young,
+        density=density,
+        poisson=poisson,
+        thermal_expansion=thermal_expansion,
+        conductivity=conductivity,
+        specific_heat=specific_heat,
+        reference_temperature=reference_temperature,
+    )
 
 
 def anisotropic_elastic_2d(

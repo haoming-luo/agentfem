@@ -1,0 +1,89 @@
+{
+  "benchmarks": [
+    {
+      "id": "agentfem.benchmark.campaign_surrogate_pipeline",
+      "physics": "parameterized small-strain isotropic linear elasticity",
+      "source": "knowledge/benchmarks/campaign_surrogate_pipeline.json",
+      "status": "executable_integration",
+      "title": "Static-elasticity campaign to guarded surrogate pipeline"
+    },
+    {
+      "id": "agentfem.benchmark.j2_global_restart",
+      "physics": "three-dimensional small-strain Mises plasticity with linear isotropic hardening",
+      "source": "knowledge/benchmarks/j2_global_restart.json",
+      "status": "automated_regression",
+      "title": "Three-dimensional J2 patch and restart equivalence"
+    },
+    {
+      "id": "agentfem.benchmark.linear_static_cantilever",
+      "physics": "small-strain isotropic linear elasticity in plane strain",
+      "source": "knowledge/benchmarks/linear_static_cantilever.json",
+      "status": "executable_smoke",
+      "title": "Two-dimensional linear-static cantilever"
+    },
+    {
+      "id": "agentfem.benchmark.thermoelastic_free_expansion",
+      "physics": "small-strain isotropic plane-stress thermoelasticity under uniform temperature change",
+      "source": "knowledge/benchmarks/thermoelastic_free_expansion.json",
+      "status": "automated_regression",
+      "title": "Plane-stress isotropic free thermal expansion"
+    }
+  ],
+  "cards": [
+    {
+      "id": "agentfem.material.j2_global_plasticity",
+      "kind": "material",
+      "public_api": [
+        "agentfem.constitutive.J2LinearIsotropicHardening",
+        "agentfem.constitutive.J2QuadratureState",
+        "agentfem.models.Model.step"
+      ],
+      "related_cards": [
+        "agentfem.workflow.solution_procedures"
+      ],
+      "source": "knowledge/cards/j2_global_plasticity.json",
+      "status": "supported",
+      "summary": "Three-dimensional Mises plasticity with linear isotropic hardening, Basix quadrature state, analytical algorithmic tangent, incremental Newton equilibrium, rollback, cutback, and serial restart.",
+      "title": "Global small-strain J2 plasticity"
+    },
+    {
+      "id": "agentfem.workflow.solution_procedures",
+      "kind": "analysis_step",
+      "public_api": [
+        "agentfem.procedures.SolutionProcedure",
+        "agentfem.time.newmark",
+        "agentfem.time.generalized_alpha",
+        "agentfem.problems.LinearSystemProblem.reaction_field",
+        "agentfem.diagnostics.mechanical_energy",
+        "agentfem.models.Model.step"
+      ],
+      "related_cards": [
+        "agentfem.material.j2_global_plasticity",
+        "agentfem.workflow.thermoelastic_analysis"
+      ],
+      "source": "knowledge/cards/solution_procedures.json",
+      "status": "supported",
+      "summary": "Separates physical analysis intent from Standard/Explicit selection, equation order, integration algorithm, state policy, and global-solve requirements.",
+      "title": "Solution procedure vocabulary"
+    },
+    {
+      "id": "agentfem.workflow.thermoelastic_analysis",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.constitutive.thermoelastic",
+        "agentfem.operators.thermal_expansion_vector",
+        "agentfem.constitutive.ArrheniusPowerLawCreep",
+        "agentfem.models.Model.step"
+      ],
+      "related_cards": [
+        "agentfem.workflow.solution_procedures"
+      ],
+      "source": "knowledge/cards/thermoelastic_analysis.json",
+      "status": "supported",
+      "summary": "One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve.",
+      "title": "Sequential thermoelastic analysis"
+    }
+  ],
+  "schema": "agentfem.scientific-function-catalog",
+  "schema_version": "0.1.0"
+}

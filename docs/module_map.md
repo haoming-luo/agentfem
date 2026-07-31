@@ -8,6 +8,7 @@ This map links FEM concepts to the current Python modules.
 | External mesh inventory, cell/facet set conversion, and manifests | `mesh/formats.py` |
 | Abaqus labels, equations, periodic-cell geometry, and source-order output | `mesh/abaqus.py` |
 | Study context: analysis type, physics, dimension, and assumptions | `studies.py` |
+| Standard/Explicit family, equation order, algorithm, and state policy | `procedures.py` |
 | Model registry, amplitudes, material assignments, checks, summaries, and model-first operators | `models.py` |
 | Extensible analysis/material lowering behind `model.step()` | `step_providers.py` |
 | Function spaces and Lagrange defaults | `spaces.py` |
@@ -17,13 +18,15 @@ This map links FEM concepts to the current Python modules.
 | Constraint containers and strong BC construction | `constraints/` |
 | Loads and natural boundary data | `loads.py` |
 | Constitutive response relations and maturity catalog | `constitutive/` |
+| Quadrature-point committed/trial state | `constitutive/quadrature.py` |
+| Global stateful solid-mechanics procedures | `mechanics/` |
 | Material-point contracts and UMAT/UHYPER bridge specifications | `constitutive/user_material.py` |
 | Material records and property containers | `materials/` |
 | Boundary models | `boundary_models/` |
 | UFL weak-form blocks, including stiffness, mass, diffusion, and loads | `forms.py` |
 | Assembly | `assembly.py` |
 | Engineering-level K/M/C/F operators | `operators/` |
-| Explicit/implicit time integration routes and runtime cadence | `time/` |
+| Central difference, Newmark, generalized-alpha, and runtime cadence | `time/` |
 | Analysis steps, system problems, and state containers | `problems.py` |
 | Automatic/fixed incrementation and cutback policy | `steps.py` |
 | Linear/nonlinear solvers and convergence evidence | `solvers.py` |

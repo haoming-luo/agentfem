@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import isfinite
+from math import exp, isfinite
 
 import numpy as np
 
@@ -192,6 +192,126 @@ class PowerLawCreep:
             "coefficient": self.coefficient,
             "stress_exponent": self.stress_exponent,
             "time_exponent": self.time_exponent,
+            "reference_stress": self.reference_stress,
+            "reference_time": self.reference_time,
+            "maturity": "material_point_verified",
+            "fem_quadrature_driver": False,
+        }
+
+
+@dataclass(frozen=True)
+class ArrheniusPowerLawCreep:
+    """Temperature-dependent Mises power-law creep.
+
+    ``coefficient`` is the equivalent creep rate coefficient calibrated at
+    ``reference_temperature``.  The normalized Arrhenius factor avoids
+    silently changing the meaning of a fitted coefficient:
+
+    ``A(T) = A_ref exp[-Q/R (1/T - 1/T_ref)]``.
+    """
+
+    coefficient: float
+    stress_exponent: float
+    activation_energy: float
+    reference_temperature: float
+    time_exponent: float = 0.0
+    reference_stress: float = 1.0
+    reference_time: float = 1.0
+    gas_constant: float = 8.31446261815324
+    name: str = "Arrhenius Mises power-law creep"
+
+    def __post_init__(self) -> None:
+        values = (
+            self.coefficient,
+            self.stress_exponent,
+            self.activation_energy,
+            self.reference_temperature,
+            self.time_exponent,
+            self.reference_stress,
+            self.reference_time,
+            self.gas_constant,
+        )
+        if not all(isfinite(float(value)) for value in values):
+            raise ValueError("ArrheniusPowerLawCreep parameters must be finite.")
+        if self.activation_energy < 0.0:
+            raise ValueError("activation_energy must be nonnegative.")
+        if self.reference_temperature <= 0.0:
+            raise ValueError("reference_temperature must be positive in kelvin.")
+        if self.gas_constant <= 0.0:
+            raise ValueError("gas_constant must be positive.")
+        self.at_temperature(self.reference_temperature)
+
+    def temperature_factor(self, temperature: float) -> float:
+        selected = float(temperature)
+        if not isfinite(selected) or selected <= 0.0:
+            raise ValueError("temperature must be finite and positive in kelvin.")
+        exponent = -self.activation_energy / self.gas_constant * (
+            1.0 / selected - 1.0 / self.reference_temperature
+        )
+        return float(exp(exponent))
+
+    def at_temperature(self, temperature: float) -> PowerLawCreep:
+        """Return the isothermal local law at a selected absolute temperature."""
+
+        return PowerLawCreep(
+            coefficient=self.coefficient * self.temperature_factor(temperature),
+            stress_exponent=self.stress_exponent,
+            time_exponent=self.time_exponent,
+            reference_stress=self.reference_stress,
+            reference_time=self.reference_time,
+            name=f"{self.name} at {float(temperature):g} K",
+        )
+
+    def equivalent_rate(
+        self,
+        equivalent_stress: float,
+        time: float,
+        *,
+        temperature: float,
+    ) -> float:
+        return self.at_temperature(temperature).equivalent_rate(
+            equivalent_stress,
+            time,
+        )
+
+    def constant_stress_increment(
+        self,
+        equivalent_stress: float,
+        time_start: float,
+        time_end: float,
+        *,
+        temperature: float,
+    ) -> float:
+        return self.at_temperature(temperature).constant_stress_increment(
+            equivalent_stress,
+            time_start,
+            time_end,
+        )
+
+    def tensor_increment(
+        self,
+        stress,
+        time_start: float,
+        time_end: float,
+        *,
+        temperature: float,
+    ) -> np.ndarray:
+        return self.at_temperature(temperature).tensor_increment(
+            stress,
+            time_start,
+            time_end,
+        )
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "model": "arrhenius_mises_power_law_creep",
+            "coefficient_at_reference_temperature": self.coefficient,
+            "stress_exponent": self.stress_exponent,
+            "time_exponent": self.time_exponent,
+            "activation_energy": self.activation_energy,
+            "gas_constant": self.gas_constant,
+            "reference_temperature": self.reference_temperature,
             "reference_stress": self.reference_stress,
             "reference_time": self.reference_time,
             "maturity": "material_point_verified",

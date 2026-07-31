@@ -68,13 +68,23 @@ radial correction of deviatoric stress
 ```
 
 The implementation verifies that the corrected stress lies on the hardened
-yield surface and also includes an exact uniaxial update. The algorithmic
+yield surface, includes an exact uniaxial update, and returns the analytical
+algorithmic consistent tangent. The algorithmic
 family is the standard closest-point radial return described in the
 [MOOSE radial-return documentation](https://mooseframework.inl.gov/moose/source/materials/RadialReturnStressUpdate.html)
 and [Abaqus isotropic elastoplasticity theory](https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-isoelastoplast.htm).
 
-It is not yet exposed as `model.plastic_step(...)`. That name would imply a
-quadrature-field driver and consistent global tangent that do not yet exist.
+For a three-dimensional `nonlinear_static` study, `model.step(...)` now lowers
+this material to a global DOLFINx path. `PE` and `PEEQ` are committed at Basix
+quadrature points; `S` and `DDSDDE` are trial fields updated during Newton.
+Failed attempts restore displacement and committed material state before
+automatic cutback. A serial checkpoint contains displacement, accepted load
+factor, plastic strain, equivalent plastic strain, and a schema version.
+
+The current boundary is explicit: 3D small strain, one material region,
+natural-load incrementation, time-invariant strong supports, and serial
+execution/restart. Plane stress, distributed execution/restart, finite-strain
+plasticity, and a general UMAT path remain future work.
 
 ## Power-Law Creep
 
@@ -90,9 +100,15 @@ time-hardening increment and returns a named `CreepHistory`. It is useful for
 material tests and prescribed stress paths, but is explicitly not a global FE
 creep solver.
 
-The next solver milestone is not another creep-law name. It is restartable
-quadrature state plus adaptive global time integration, followed by NAFEMS
-creep benchmarks.
+`constitutive.ArrheniusPowerLawCreep` adds a normalized temperature factor
+whose coefficient is calibrated at a declared reference temperature. This is
+the appropriate local basis for high-temperature component workflows, but it
+does not yet promote creep to a global coupled solver.
+
+The next creep milestone is to reuse the implemented J2 quadrature transaction
+and restart schema, add an implicit time-local update and error estimate, then
+pass relaxation, one-element, restart, and external high-temperature
+benchmarks. A new creep-law name alone is not that milestone.
 
 ## Stress-Life Fatigue
 

@@ -22,6 +22,8 @@
 <a class="" href="product-roadmap.html">Product Roadmap</a>
 <a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
+<a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
+<a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
@@ -58,7 +60,8 @@
 <ul>
 <li>Mesh, domain, or region modeling: read the Mesh Region, Selector, and Region<br>Set concepts in <code>CONCEPTS.md</code>. Prefer named regions and region sets over raw<br>integer tags in user-facing workflows. Use low-level <code>MeshTags</code> helpers only<br>when importing, validating, or teaching the tagging implementation.</li>
 <li>Mesh or boundary tagging: read <code>docs/module_map.md</code>, then use<br><code>mesh.summarize_mesh</code>, <code>mesh.require_cell_tags</code>, and<br><code>mesh.require_facet_tags</code>.</li>
-<li>Study setup: use <code>studies.linear_static</code>, <code>studies.first_order_transient</code>, or<br><code>studies.second_order_dynamics</code> before building operators.</li>
+<li>Study setup: use <code>studies.linear_static</code>, <code>studies.first_order_transient</code>,<br><code>studies.implicit_dynamics</code>, or <code>studies.explicit_dynamics</code> before building<br>operators. Use neutral <code>studies.second_order_dynamics</code> only when downstream<br>code deliberately selects the numerical procedure.</li>
+<li>Solution procedure: inspect <code>procedures.py</code> when Standard/Explicit or a<br>particular time integrator must be selected. Do not encode the algorithm by<br>inventing a new physical analysis type.</li>
 <li>Model audit: use <code>model.tree()</code>, <code>model.manifest()</code>, <code>model.summary()</code>, and<br><code>model.validate()</code> when multiple fields, regions, loads, constraints, or<br>steps must be inspected. Use <code>model.check()</code> to stop before execution on<br>validation errors and <code>model.write_ir(...)</code> when a persistent scientific<br>record is required.</li>
 <li>Model registration: use <code>model.field(...)</code>, <code>model.material(...)</code>,<br><code>model.fix(...)</code>, and <code>model.traction(...)</code> in application workflows when the<br>assets should stay visible and auditable.</li>
 <li>Application unknowns: use <code>fields.py</code> before dropping to <code>spaces.py</code>.</li>
@@ -94,7 +97,7 @@
 <li>Do not silently extrapolate a learned model. Reject the request or invoke an<br>explicit high-fidelity fallback and report which source produced the result.</li>
 </ul>
 <h2 id="current-platform-focus">Current Platform Focus</h2>
-<p>AgentFEM currently focuses on a dependable DOLFINx/PETSc path: linear elasticity, heat/dynamics building blocks, a bounded Neo-Hookean nonlinear solve, result/campaign/data flow, external mesh conversion, and deliberately staged J2, creep, and fatigue tools. Product depth and verification take priority over adding material names or backend abstractions.</p>
+<p>AgentFEM currently focuses on a dependable DOLFINx/PETSc path: linear elasticity, implicit and explicit linear structural dynamics, implicit heat transfer, sequential thermoelasticity, a bounded Neo-Hookean nonlinear solve, result/campaign/data flow, external mesh conversion, and deliberately staged path-dependent material tools. The first global J2 provider is serial-only; Arrhenius power-law creep is still a local law. Product depth and verification take priority over adding material names or backend abstractions.</p>
       </article>
     </main>
   </div>

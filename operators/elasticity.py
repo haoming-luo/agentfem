@@ -53,6 +53,46 @@ def internal_force_vector(displacement, test_function=None, properties=None, *, 
     )
 
 
+def thermal_expansion_vector(
+    target,
+    temperature,
+    properties,
+    *,
+    study=None,
+    measure=ufl.dx,
+    name: str = "F_thermal",
+) -> OperatorForm:
+    """Equivalent nodal load produced by isotropic thermal expansion."""
+
+    if hasattr(target, "test"):
+        test = target.test
+        dimension = len(target.value)
+    else:
+        test = target
+        dimension = len(test)
+    stress = elasticity.thermal_expansion_stress(
+        temperature,
+        properties,
+        study=study,
+        dimension=dimension,
+    )
+    return OperatorForm(
+        name=name,
+        kind="thermal_expansion_vector",
+        role="vector",
+        family="thermoelasticity",
+        expression=forms.stiffness_form(
+            stress,
+            elasticity.strain(test),
+            measure=measure,
+        ),
+        metadata={
+            "reference_temperature": properties.reference_temperature,
+            "thermal_expansion": properties.thermal_expansion,
+        },
+    )
+
+
 def _elastic_args(displacement, test_function=None, properties=None):
     if hasattr(displacement, "trial") and hasattr(displacement, "test"):
         if properties is None:

@@ -2,6 +2,9 @@
 
 - Study: early analysis context containing analysis type, physics, dimension,
   and modeling assumptions.
+- Solution procedure: Standard/Explicit family, equation order, integration
+  algorithm, statefulness, and global-solve requirements. It describes how a
+  Study is solved without redefining the physical problem.
 - Model: lightweight registry for mesh, regions, fields, amplitudes, materials,
   constraints, loads, and checks. It is not a solver.
 - Model helpers: `model.field`, `model.material`, `model.fix`, and
@@ -38,6 +41,10 @@
 - Operator algebra: use `model.stiffness(...)` for registered material regions
   and `operators.combine(...)` when individual contributions must be explicit.
 - State: fields grouped for a solver or time integrator.
+- Quadrature state: committed and trial history owned at integration points;
+  rejected Newton iterates and cutbacks never mutate committed history.
+- Implicit dynamics integrator: Newmark or generalized-alpha solution of a
+  second-order system through an assembled effective operator.
 - Explicit dynamics integrator: time integrator such as
   `time.explicit.central_difference(...)`; central difference is Newmark with
   beta=0 and gamma=1/2.

@@ -22,6 +22,8 @@
 <a class="" href="product-roadmap.html">Product Roadmap</a>
 <a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
+<a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
+<a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
@@ -67,6 +69,12 @@
 <li><code>material_models.py</code><br>Nonlinear-material scope example. Prints the maturity catalog and exercises<br>a J2 uniaxial load path, power-law creep history, rainflow counting, and<br>Miner damage.</li>
 </ol>
 <ol>
+<li><code>j2_plasticity_3d.py</code><br>Global path-dependent mechanics. Demonstrates quadrature-point state,<br>analytical consistent tangent, automatic incrementation, rollback, and the<br>standard progress stream.</li>
+</ol>
+<ol>
+<li><code>thermal_stress_wall_2d.py</code><br>Power-plant-oriented sequential coupling. One thermoelastic material feeds<br>implicit heat transfer and the equivalent thermal-expansion load of a<br>plane-strain stress solve.</li>
+</ol>
+<ol>
 <li><code>abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py</code><br>Advanced interoperability and finite-deformation reference. Imports a real<br>Abaqus <code>C3D10</code> mesh, preserves node labels, eliminates 4,212 periodic<br><code>*EQUATION</code> constraints, solves a 3D Neo-Hookean load path, and writes<br>scale-one deformed VTU/PNG evidence. Read the folder README before treating<br>it as an Abaqus comparison: the unavailable user material and user MPC are<br>deliberately replaced by explicit AgentFEM semantics.</li>
 </ol>
 <h2 id="run">Run</h2>
@@ -75,7 +83,9 @@
 python examples/transient_heat_2d.py
 python examples/static_elasticity_surrogate_campaign.py
 python examples/campaign_from_json.py
-python examples/material_models.py</code></pre>
+python examples/material_models.py
+python examples/j2_plasticity_3d.py
+python examples/thermal_stress_wall_2d.py</code></pre>
 <p>From the parent development directory:</p>
 <pre><code>python agentfem/examples/static_elasticity_2d.py
 python agentfem/examples/transient_heat_2d.py</code></pre>

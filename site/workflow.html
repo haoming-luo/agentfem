@@ -22,6 +22,8 @@
 <a class="" href="product-roadmap.html">Product Roadmap</a>
 <a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
+<a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
+<a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
@@ -47,6 +49,7 @@
 <h2 id="standard-sequence">Standard Sequence</h2>
 <ol>
 <li>Define the study context: analysis type, physics, dimension, and modeling<br>assumptions.</li>
+<li>Select a solution-procedure preference only when the same physical problem<br>admits more than one route, for example Standard/Newmark,<br>Standard/generalized-alpha, or Explicit/central difference. Keep this<br>numerical choice separate from the study.</li>
 <li>Define, import, convert, or read the mesh.</li>
 <li>Create a lightweight model registry when auditability or agent inspection is<br>useful.</li>
 <li>Inspect the mesh summary and require expected material/boundary tags.</li>
@@ -78,6 +81,7 @@
 <li>Mesh import, named regions, tags, summaries, checks, and measures: <code>mesh/</code></li>
 <li>External CAE mesh inventory/conversion and named-set manifests:<br><code>mesh/formats.py</code></li>
 <li>Study contexts: <code>studies.py</code></li>
+<li>Numerical solution-procedure descriptions: <code>procedures.py</code></li>
 <li>Model registry and checks: <code>models.py</code></li>
 <li>Spaces and fields: <code>spaces.py</code></li>
 <li>Time histories and scale factors: <code>amplitudes.py</code></li>
@@ -90,8 +94,9 @@
 <li>Weak-form blocks: <code>forms.py</code></li>
 <li>Assembly: <code>assembly.py</code></li>
 <li>Operator families: <code>operators/</code></li>
-<li>Time integration: <code>time/explicit.py</code>, future <code>time/implicit.py</code>, and runtime cadence</li>
+<li>Time integration: <code>time/explicit.py</code>, <code>time/implicit.py</code>, and runtime cadence</li>
 <li>Model-owned analysis-step creation: <code>models.py</code></li>
+<li>Stateful nonlinear solid mechanics: <code>mechanics/</code></li>
 <li>Algebraic problems, reusable step containers, and state containers:<br><code>problems.py</code></li>
 <li>Step incrementation and cutback: <code>steps.py</code></li>
 <li>Solvers and convergence policy: <code>solvers.py</code></li>

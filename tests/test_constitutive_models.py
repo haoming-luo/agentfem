@@ -353,9 +353,13 @@ def test_capability_and_benchmark_catalogs_state_the_actual_maturity():
     assert constitutive.capability("neo_hookean").maturity == "fem_integrated"
     assert (
         constitutive.capability("j2_plasticity").maturity
-        == "material_point_verified"
+        == "fem_integrated"
     )
     assert constitutive.capability("stress_life_fatigue").maturity == "postprocessor"
     assert benchmarks.list_benchmarks(capability="j2_plasticity")[0].level == (
         "material_point"
+    )
+    assert any(
+        item.level == "finite_element"
+        for item in benchmarks.list_benchmarks(capability="j2_plasticity")
     )

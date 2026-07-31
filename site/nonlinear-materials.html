@@ -22,6 +22,8 @@
 <a class="" href="product-roadmap.html">Product Roadmap</a>
 <a class="active" href="nonlinear-materials.html">Nonlinear Materials</a>
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
+<a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
+<a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
@@ -66,12 +68,14 @@ psi = mu/2 (tr(F^T F) - d) - mu ln(J) + lambda/2 ln(J)^2</code></pre>
 f_trial = q_trial - (sigma_y0 + H p_old)
 Delta gamma = f_trial / (3G + H)
 radial correction of deviatoric stress</code></pre>
-<p>The implementation verifies that the corrected stress lies on the hardened yield surface and also includes an exact uniaxial update. The algorithmic family is the standard closest-point radial return described in the <a href="https://mooseframework.inl.gov/moose/source/materials/RadialReturnStressUpdate.html">MOOSE radial-return documentation</a> and <a href="https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-isoelastoplast.htm">Abaqus isotropic elastoplasticity theory</a>.</p>
-<p>It is not yet exposed as <code>model.plastic_step(...)</code>. That name would imply a quadrature-field driver and consistent global tangent that do not yet exist.</p>
+<p>The implementation verifies that the corrected stress lies on the hardened yield surface, includes an exact uniaxial update, and returns the analytical algorithmic consistent tangent. The algorithmic family is the standard closest-point radial return described in the <a href="https://mooseframework.inl.gov/moose/source/materials/RadialReturnStressUpdate.html">MOOSE radial-return documentation</a> and <a href="https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-isoelastoplast.htm">Abaqus isotropic elastoplasticity theory</a>.</p>
+<p>For a three-dimensional <code>nonlinear_static</code> study, <code>model.step(...)</code> now lowers this material to a global DOLFINx path. <code>PE</code> and <code>PEEQ</code> are committed at Basix quadrature points; <code>S</code> and <code>DDSDDE</code> are trial fields updated during Newton. Failed attempts restore displacement and committed material state before automatic cutback. A serial checkpoint contains displacement, accepted load factor, plastic strain, equivalent plastic strain, and a schema version.</p>
+<p>The current boundary is explicit: 3D small strain, one material region, natural-load incrementation, time-invariant strong supports, and serial execution/restart. Plane stress, distributed execution/restart, finite-strain plasticity, and a general UMAT path remain future work.</p>
 <h2 id="power-law-creep">Power-Law Creep</h2>
 <p><code>constitutive.PowerLawCreep</code> provides a normalized Mises time-hardening law, exact constant-stress integration, a relaxation solution, and associative tensor increments. The constant-stress and relaxation formulas are checked against the equations used in the <a href="https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-creep.htm">Abaqus creep-integration verification</a>.</p>
 <p><code>constitutive.integrate_stress_history(...)</code> is the next reusable layer: it integrates piecewise-constant scalar or tensor stress intervals with the exact time-hardening increment and returns a named <code>CreepHistory</code>. It is useful for material tests and prescribed stress paths, but is explicitly not a global FE creep solver.</p>
-<p>The next solver milestone is not another creep-law name. It is restartable quadrature state plus adaptive global time integration, followed by NAFEMS creep benchmarks.</p>
+<p><code>constitutive.ArrheniusPowerLawCreep</code> adds a normalized temperature factor whose coefficient is calibrated at a declared reference temperature. This is the appropriate local basis for high-temperature component workflows, but it does not yet promote creep to a global coupled solver.</p>
+<p>The next creep milestone is to reuse the implemented J2 quadrature transaction and restart schema, add an implicit time-local update and error estimate, then pass relaxation, one-element, restart, and external high-temperature benchmarks. A new creep-law name alone is not that milestone.</p>
 <h2 id="stress-life-fatigue">Stress-Life Fatigue</h2>
 <p>The fatigue module is a result postprocessor:</p>
 <ul>

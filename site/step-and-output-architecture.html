@@ -22,6 +22,8 @@
 <a class="" href="product-roadmap.html">Product Roadmap</a>
 <a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
+<a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
+<a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="active" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
@@ -71,8 +73,8 @@ step = model.step(
 <li>a lowering function;</li>
 <li>priority and a human-readable description.</li>
 </ul>
-<p>The default registry currently contains linear-static operator, Neo-Hookean finite-strain static, and central-difference explicit providers. The registry is public and inspectable through <code>models.step_providers()</code>.</p>
-<p>This is an extension seam, not a promise that arbitrary registered code is scientifically valid. A new plasticity or creep provider is admissible only after its constitutive state, trial/commit/rollback policy, tangent, increment control, output, and benchmarks exist. Until then, the material-point law stays truthfully below the FEM-integrated maturity level.</p>
+<p>The default registry currently contains linear-static, implicit-Euler heat, Neo-Hookean finite-strain, 3D stateful J2, Newmark/generalized-alpha implicit dynamics, and central-difference explicit providers. The registry is public and inspectable through <code>models.step_providers()</code>.</p>
+<p>This is an extension seam, not a promise that arbitrary registered code is scientifically valid. A new stateful material provider is admissible only after its constitutive state, trial/commit/rollback policy, tangent, increment control, output, and benchmarks exist. Until then, the material-point law stays truthfully below the FEM-integrated maturity level.</p>
 <h2 id="step-increment-iteration-and-frame">Step, increment, iteration, and frame</h2>
 <p>These words are not interchangeable:</p>
 <ul>
@@ -156,10 +158,10 @@ results.h5     compressed numerical payload</code></pre>
 <h2 id="next-gates">Next gates</h2>
 <ol>
 <li>Extend collective MPI output from reference-configuration scientific fields<br>to an ownership-safe directly deformed geometry product.</li>
-<li>Add named point, region, reaction, and energy history extractors.</li>
-<li>Introduce restartable quadrature state with trial/commit/rollback.</li>
-<li>Integrate J2 only with a consistent tangent, cutback, and one-element path<br>benchmarks.</li>
-<li>Build a global implicit creep provider only after the same state and<br>rollback machinery exists.</li>
+<li>Promote the implemented strong-BC reaction field and M/K energy diagnostic<br>into named point/region histories; define affine/weak reactions separately.</li>
+<li>Extend the implemented J2 quadrature transaction from serial layout-bound<br>checkpoints to portable MPI cell identity and multi-region state.</li>
+<li>Add forced-cutback, reaction/energy, field-output, mesh-convergence, and<br>external J2 benchmark gates.</li>
+<li>Build global implicit creep by consuming the same state and rollback<br>machinery.</li>
 <li>Let fatigue consume verified extracted histories; add a fatigue field only<br>after hotspot/element mapping and provenance are defined.</li>
 <li>Add load-controlled finite-strain examples for dead and follower pressure,<br>including tangent and sign checks.</li>
 </ol>

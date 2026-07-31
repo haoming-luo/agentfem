@@ -26,17 +26,22 @@ Study -> Model -> Mesh/Regions -> Fields -> Materials -> Loads/Constraints
       -> Operators -> Step -> Solve -> Diagnostics/Output
 ```
 
-The current executable core covers linear elasticity, transient heat
-conduction, explicit elastodynamics, and a first nonlinear-static
-Neo-Hookean path. J2 plasticity and power-law creep are currently verified
-material-point tools, while stress-life fatigue is a postprocessor. Those
-maturity levels are deliberately distinct and queryable in code.
+The current executable core covers linear and thermoelasticity, implicit heat
+transfer, Newmark/generalized-alpha and central-difference dynamics,
+Neo-Hookean finite strain, and a 3D small-strain J2 path with quadrature state,
+analytical consistent tangent, cutback, and serial restart. Power-law and
+Arrhenius creep are currently verified material-point tools, while stress-life
+fatigue is a postprocessor. Those maturity levels remain deliberately
+distinct and queryable in code.
 
 ## Why AgentFEM
 
 - Finite-element language for humans: `model.linear_static_step(...)`,
   `model.tree()`, `operators.xtmx(...)`, and field algebra such as
   `u_next = u + dt * v + 0.5 * dt**2 * a`.
+- One procedure vocabulary: `Study` states the physical problem;
+  `SolutionProcedure` records Standard/Explicit, equation order, integration
+  algorithm, statefulness, and global-solve requirements.
 - Inspectable objects for agents: `study.summary()`, `model.manifest()`,
   `model.to_ir()`, structured validation reports, `operator.summary()`, and
   step summaries.

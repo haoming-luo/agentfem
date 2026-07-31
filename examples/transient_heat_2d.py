@@ -6,21 +6,17 @@ from pathlib import Path
 import sys
 
 import numpy as np
-import ufl
 from mpi4py import MPI
 
 SOURCE_PARENT = Path(__file__).resolve().parents[2]
 if str(SOURCE_PARENT) not in sys.path:
     sys.path.insert(0, str(SOURCE_PARENT))
 
+from agentfem import constitutive
 from agentfem import fields
-from agentfem import io as fem_io
 from agentfem import mesh as fem_mesh
 from agentfem import models
-from agentfem import operators
-from agentfem import problems
 from agentfem import studies
-from agentfem import time as fem_time
 from agentfem.diagnostics import print_on_root
 from agentfem.solvers import LinearSolverOptions
 
@@ -40,18 +36,19 @@ def main() -> None:
         cell_type="quadrilateral",
     )
     model = models.create(study=study, mesh=domain, name="heat_transfer_model")
-
     temperature = model.field(fields.temperature(domain, degree=1, value=300.0))
-    previous_temperature = fields.scalar_unknown(
-        domain,
-        name="TemperaturePrevious",
-        degree=1,
-        value=300.0,
+    model.material(
+        constitutive.thermoelastic(
+            name="generic steel",
+            young=200.0e9,
+            poisson=0.3,
+            density=7800.0,
+            thermal_expansion=12.0e-6,
+            conductivity=45.0,
+            specific_heat=500.0,
+            reference_temperature=300.0,
+        )
     )
-
-    rho_cp = 3.9e6
-    conductivity = 45.0
-    heat_source = 0.0
 
     def left(x):
         return np.isclose(x[0], 0.0)
@@ -65,55 +62,23 @@ def main() -> None:
     model.fix(temperature, on=right_boundary, value=300.0)
     model.check()
 
-    dt = 10
-    total_steps = 1500
-    dx = ufl.dx(domain=domain)
-    stepper = fem_time.TimeStepper(
-        total_steps=total_steps,
-        dt=dt,
+    step = model.step(
+        target=temperature,
+        dt=10.0,
+        steps=1500,
         save_every=10,
         print_every=50,
-    )
-
-    C = operators.capacity_operator(temperature, rho_cp, measure=dx)
-    K = operators.conduction_operator(temperature, conductivity, measure=dx)
-    Q = operators.heat_source_vector(heat_source, temperature, measure=dx)
-
-    capacity_history = operators.heat_capacity_vector(
-        previous_temperature.value,
-        temperature,
-        rho_cp,
-        measure=dx,
-    )
-    problem = problems.first_order_transient(
-        capacity=C,
-        stiffness=K,
-        history=capacity_history,
-        source=Q,
-        dt=dt,
-        study=study,
-        unknown=temperature,
-        bcs=model.bcs(),
         solver_options=LinearSolverOptions(ksp_type="preonly", pc_type="lu"),
-        name="heat_implicit_euler_step",
+        name="heat_implicit_euler",
     )
 
     out = Path(__file__).resolve().parents[1] / "examples_output" / "transient_heat_2d.xdmf"
-    with fem_io.XDMFTimeSeries(out, domain) as xdmf:
-        xdmf.write_fields(0.0, temperature.value)
-        for info in stepper:
-            problem.solve()
-            previous_temperature.assign_from(temperature)
-            if info.should_save:
-                xdmf.write_fields(info.time, temperature.value)
-            if info.should_print:
-                print_on_root(
-                    comm,
-                    f"step {info.index:4d}/{total_steps} "
-                    f"t={info.time:.3e} maxT={temperature.max_value():.3f}",
-                )
+    step.run(output=out)
 
-    print_on_root(comm, f"Transient heat result: {out}")
+    print_on_root(
+        comm,
+        f"Transient heat result: {out}; maxT={temperature.max_value():.3f}",
+    )
 
 
 if __name__ == "__main__":

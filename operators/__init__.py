@@ -38,7 +38,12 @@ from .core import (
     xtmx,
     xtmy,
 )
-from .elasticity import elastic_stiffness, internal_force_vector, stiffness_operator
+from .elasticity import (
+    elastic_stiffness,
+    internal_force_vector,
+    stiffness_operator,
+    thermal_expansion_vector,
+)
 from .system import LinearSystem, SecondOrderSystem, linear_system
 
 assemble_lumped_mass = lumped_mass
@@ -82,6 +87,7 @@ __all__ = [
     "source_vector",
     "stiffness",
     "stiffness_operator",
+    "thermal_expansion_vector",
     "quadratic_form",
     "xtmx",
     "xtmy",

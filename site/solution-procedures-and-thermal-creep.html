@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Procedures, Thermal Stress, and Creep - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
+      <div class="tagline">AI-assisted finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
+<a class="active" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
+<a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="licensing.html">Licensing</a>
+<a class="" href="publishing.html">Publishing</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="solution-procedures-thermal-stress-and-the-creep-route">Solution Procedures, Thermal Stress, and the Creep Route</h1>
+<h2 id="problem-type-is-not-a-solver-algorithm">Problem type is not a solver algorithm</h2>
+<p><code>Study</code> answers what is being modeled: solid mechanics or heat transfer, static or transient, dimension, and kinematic assumptions. <code>SolutionProcedure</code> answers how it is solved:</p>
+<table>
+<thead><tr><th>Physical equation</th><th>Standard route</th><th>Explicit route</th></tr></thead>
+<tbody>
+<tr><td>\(K u=F\)</td><td>linear solve</td><td>not applicable</td></tr>
+<tr><td>\(R(u)=0\)</td><td>incremental Newton</td><td>not yet available</td></tr>
+<tr><td>\(C\dot T+KT=Q\)</td><td>implicit Euler</td><td>not yet available</td></tr>
+<tr><td>\(M\ddot u+C\dot u+Ku=F\)</td><td>Newmark or generalized-\(\alpha\)</td><td>central difference</td></tr>
+</tbody>
+</table>
+<p>This keeps <code>second_order_dynamics</code> from meaning “central difference” merely because that was the first implemented algorithm. It also keeps <code>incrementation</code>, Newton settings, time integration, and output cadence as separate decisions.</p>
+<p>The implicit structural route currently assumes linear operators and time-invariant prescribed displacement supports. Newmark uses average acceleration by default. Generalized-\(\alpha\) derives \(\alpha_m,\alpha_f,\beta,\gamma\) from the spectral radius at infinite frequency and provides controllable high-frequency damping. Nonlinear implicit dynamics and moving supports require additional residual, linearization, and prescribed-kinematics work.</p>
+<h2 id="the-useful-first-thermal-mechanical-route">The useful first thermal-mechanical route</h2>
+<p>Many component analyses do not need a monolithic temperature-displacement solve. If temperature affects stress but deformation and dissipation do not meaningfully affect heat transfer, the transparent route is:</p>
+<ol>
+<li>solve \(\rho c_p \dot T-\nabla\cdot(k\nabla T)=Q\);</li>
+<li>retain the temperature history;</li>
+<li>evaluate<br>\(\epsilon_{\mathrm{th}}=\alpha(T-T_{\mathrm{ref}})I\);</li>
+<li>solve mechanical equilibrium with the named equivalent operator<br>\(F_{\mathrm{thermal}}\).</li>
+</ol>
+<p>AgentFEM now stores \(E,\nu,\rho,\alpha,k,c_p,T_{\mathrm{ref}}\) in one thermoelastic property object, while heat and mechanics remain separate models sharing the mesh, material, and temperature field. Plane strain keeps the constrained out-of-plane thermal strain; plane stress uses the reduced constitutive relation.</p>
+<p>This follows the same modeling distinction documented by Abaqus: fully coupled analysis is needed when stress and temperature mutually influence each other; sequential analysis is appropriate when the coupling is effectively one way. The current route does not claim monolithic coupling.</p>
+<h2 id="why-high-temperature-creep-is-the-next-state-consumer">Why high-temperature creep is the next state consumer</h2>
+<p>The local <code>ArrheniusPowerLawCreep</code> relation is normalized at a declared reference temperature:</p>
+<p>\[ A(T)=A_{\mathrm{ref}} \exp\left[-\frac{Q}{R} \left(\frac{1}{T}-\frac{1}{T_{\mathrm{ref}}}\right)\right]. \]</p>
+<p>The implementation uses the equivalent exponent form in code; all temperatures are absolute. This local law is useful for calibration and material-point checks, but power-component credibility requires more:</p>
+<ul>
+<li>creep strain and equivalent creep strain at every integration point;</li>
+<li>an implicit local update and local error estimate over \(\Delta t\);</li>
+<li>global equilibrium at the end of every accepted time increment;</li>
+<li>commit only after convergence and rollback after cutback;</li>
+<li>temperature interpolation at the same integration points;</li>
+<li>restart equivalence, relaxation and one-element paths, then an external<br>benchmark.</li>
+</ul>
+<p>The implemented J2 quadrature transaction already supplies the essential committed/trial distinction, analytical tangent channel, rollback, and serial checkpoint pattern. Global creep should generalize and consume that contract; it should not introduce a second case-specific state store.</p>
+<h2 id="current-boundary-and-next-gates">Current boundary and next gates</h2>
+<p>Implemented now:</p>
+<ul>
+<li>explicit central difference and implicit Newmark/generalized-\(\alpha\);</li>
+<li>implicit-Euler heat transfer as a model-owned Step;</li>
+<li>sequential isotropic thermal expansion as a visible vector operator;</li>
+<li>normalized Arrhenius temperature dependence at material-point level;</li>
+<li>global 3D J2 quadrature state with analytical tangent and serial restart.</li>
+</ul>
+<p>Next gates:</p>
+<ol>
+<li>common <code>OutputPlan</code>, progress events, energy history, and manifest across<br>heat, implicit dynamics, and explicit dynamics;</li>
+<li>portable MPI state identity based on global cells/material regions rather<br>than a rank-local array layout;</li>
+<li>stateful global creep using the common transaction and automatic time<br>increments;</li>
+<li>temperature-dependent property tables and interpolation policies;</li>
+<li>monolithic coupling only after a real case demonstrates two-way feedback.</li>
+</ol>
+<p>References:</p>
+<ul>
+<li><a href="https://docs.software.vt.edu/abaqusv2024/English/SIMACAEANLRefMap/simaanl-c-couptempdisp.htm">Abaqus fully coupled thermal-stress analysis</a></li>
+<li><a href="https://docs.software.vt.edu/abaqusv2024/English/SIMACAEANLRefMap/simaanl-c-heatproc.htm">Abaqus heat-transfer procedures</a></li>
+<li><a href="https://docs.software.vt.edu/abaqusv2024/English/SIMACAESUBRefMap/simasub-c-creep.htm">Abaqus CREEP user subroutine</a></li>
+<li><a href="https://deepblue.lib.umich.edu/bitstream/handle/2027.42/50422/1640100803_ftp.pdf?isAllowed=y&amp;sequence=1">Chung and Hulbert generalized-\(\alpha\) paper</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

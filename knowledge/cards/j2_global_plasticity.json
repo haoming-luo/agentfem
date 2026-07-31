@@ -1,0 +1,125 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.material.j2_global_plasticity",
+  "title": "Global small-strain J2 plasticity",
+  "kind": "material",
+  "status": "supported",
+  "summary": "Three-dimensional Mises plasticity with linear isotropic hardening, Basix quadrature state, analytical algorithmic tangent, incremental Newton equilibrium, rollback, cutback, and serial restart.",
+  "public_api": [
+    "agentfem.constitutive.J2LinearIsotropicHardening",
+    "agentfem.constitutive.J2QuadratureState",
+    "agentfem.models.Model.step"
+  ],
+  "implementation": [
+    "constitutive/plasticity.py",
+    "constitutive/quadrature.py",
+    "mechanics/plasticity.py",
+    "step_providers.py"
+  ],
+  "science": {
+    "statement": "An elastic trial stress is projected radially onto a linearly hardened Mises surface; the same return map supplies stress, history and its analytical consistent derivative to global Newton equilibrium.",
+    "equations": [
+      {
+        "label": "yield function",
+        "expression": "f_trial = q_trial - (sigma_y0 + H p_n)",
+        "description": "A nonpositive trial value remains elastic."
+      },
+      {
+        "label": "plastic multiplier",
+        "expression": "Delta gamma = f_trial / (3 G + H)",
+        "description": "Closed-form increment for associative J2 flow with linear isotropic hardening."
+      },
+      {
+        "label": "global equilibrium",
+        "expression": "integral sigma(epsilon(u), state_n) : epsilon(v) dOmega = load_factor F_ext(v)",
+        "description": "Newton iterations use trial state based on the last committed increment."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "total strain",
+        "type": "symmetric 3x3 tensor at every quadrature point",
+        "unit_role": "strain",
+        "description": "Small total strain at the current global iterate."
+      },
+      {
+        "name": "material parameters",
+        "type": "E, nu, initial yield stress, hardening modulus",
+        "unit_role": "consistent stress system",
+        "description": "Finite, physically admissible isotropic parameters."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "S",
+        "type": "quadrature tensor field",
+        "unit_role": "stress",
+        "description": "Trial Cauchy stress used in the residual."
+      },
+      {
+        "name": "PE and PEEQ",
+        "type": "committed quadrature state",
+        "unit_role": "strain",
+        "description": "Plastic strain tensor and equivalent plastic strain."
+      },
+      {
+        "name": "DDSDDE",
+        "type": "fourth-order quadrature tensor field",
+        "unit_role": "stress per strain",
+        "description": "Analytical algorithmic consistent tangent."
+      }
+    ],
+    "assumptions": [
+      "Small strain and three spatial dimensions.",
+      "Rate independence, associative Mises flow, and linear isotropic hardening.",
+      "Natural loading with homogeneous, time-invariant strong supports in the first global provider."
+    ],
+    "conventions": [
+      "Committed history is immutable during a rejected Newton iterate.",
+      "Tensor storage is full symmetric 3x3 form rather than engineering Voigt.",
+      "The normalized load factor runs from zero to one."
+    ],
+    "applicability": [
+      "Monotone or cyclic small-strain 3D solid loading within the implemented hardening law.",
+      "Laboratory-scale regression and research workflows requiring inspectable state."
+    ],
+    "limitations": [
+      "The first global provider is serial-only and has no prescribed-displacement load path, plane-stress local constraint, finite-strain plasticity, or multi-region driver.",
+      "No external NAFEMS benchmark has yet promoted this path to benchmark-verified maturity."
+    ]
+  },
+  "usage": {
+    "minimal_example": "Register J2LinearIsotropicHardening in a 3D nonlinear_static Model, add supports and traction, then call model.step(target=u, material=steel, incrementation=steps.automatic()).",
+    "examples": [
+      "examples/j2_plasticity_3d.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_constitutive_models.py",
+      "tests/test_p1_platform.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.j2_global_restart"
+    ],
+    "validation_rules": [
+      "Reject non-3D and multi-rank global use.",
+      "Reject nonphysical material parameters.",
+      "Commit state only after convergence and restore both field and history after failure."
+    ]
+  },
+  "references": [
+    {
+      "title": "Abaqus theory: classical metal plasticity",
+      "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-isoelastoplast.htm"
+    },
+    {
+      "title": "MOOSE radial return stress update",
+      "locator": "https://mooseframework.inl.gov/moose/source/materials/RadialReturnStressUpdate.html"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.solution_procedures"
+  ]
+}

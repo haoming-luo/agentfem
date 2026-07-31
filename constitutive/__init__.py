@@ -6,19 +6,30 @@ from . import elasticity
 from . import fatigue
 from . import hyperelasticity
 from . import plasticity
+from . import quadrature
 from . import user_material
 from .catalog import ConstitutiveCapability, capabilities, capability
-from .creep import CreepHistory, PowerLawCreep, integrate_stress_history
+from .creep import (
+    ArrheniusPowerLawCreep,
+    CreepHistory,
+    PowerLawCreep,
+    integrate_stress_history,
+)
 from .elasticity import (
     AnisotropicElasticMaterial2D,
     ElasticAnisotropic2DProperties,
     ElasticIsotropicProperties,
+    ThermoElasticIsotropicProperties,
     IsotropicElasticMaterial,
     anisotropic_stress_2d,
     anisotropic_elastic_2d,
     estimate_elastic_wave_speeds,
     isotropic_stress,
     isotropic_elastic,
+    thermal_expansion_stress,
+    thermal_strain,
+    thermoelastic,
+    thermoelastic_stress,
     orthotropic_plane_stress_2d,
     stress,
 )
@@ -51,6 +62,7 @@ from .plasticity import (
     update_uniaxial,
     von_mises,
 )
+from .quadrature import J2QuadratureState, QuadratureField
 from .user_material import (
     AbaqusUserMaterialBridge,
     MaterialPointInput,
@@ -65,14 +77,17 @@ __all__ = [
     "fatigue",
     "hyperelasticity",
     "plasticity",
+    "quadrature",
     "user_material",
     "AbaqusUserMaterialBridge",
+    "ArrheniusPowerLawCreep",
     "AnisotropicElasticMaterial2D",
     "ConstitutiveCapability",
     "BasquinCurve",
     "CreepHistory",
     "ElasticAnisotropic2DProperties",
     "ElasticIsotropicProperties",
+    "ThermoElasticIsotropicProperties",
     "FatigueAssessment",
     "FatigueBlock",
     "StressCycle",
@@ -80,11 +95,13 @@ __all__ = [
     "J2LinearIsotropicHardening",
     "J2PlasticState",
     "J2Update",
+    "J2QuadratureState",
     "FiniteStrainKinematics",
     "NeoHookeanProperties",
     "MaterialPointInput",
     "MaterialPointOutput",
     "PowerLawCreep",
+    "QuadratureField",
     "TabulatedSNCurve",
     "UniaxialPlasticState",
     "UserMaterial",
@@ -97,6 +114,10 @@ __all__ = [
     "capability",
     "isotropic_stress",
     "isotropic_elastic",
+    "thermal_expansion_stress",
+    "thermal_strain",
+    "thermoelastic",
+    "thermoelastic_stress",
     "integrate_stress_history",
     "life_scale_factor",
     "damage_from_history",

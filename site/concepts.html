@@ -22,6 +22,8 @@
 <a class="" href="product-roadmap.html">Product Roadmap</a>
 <a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
+<a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
+<a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
@@ -46,6 +48,9 @@
 <p>This file defines the vocabulary that humans and AI agents should use when working with AgentFEM.</p>
 <h2 id="study">Study</h2>
 <p>The early analysis context: analysis type, physics, dimension, and modeling assumptions. Examples include linear static solid mechanics in 2D plane strain, transient heat transfer in 2D, or second-order dynamics in 3D. A study is a modeling declaration and validation object; it does not assemble or solve. Constitutive laws and operators may use it to select modeling assumptions such as 2D plane strain or plane stress.</p>
+<h2 id="solution-procedure">Solution Procedure</h2>
+<p>A numerical route used to solve a declared study. The study answers what physical equations and assumptions define the problem; the procedure answers how the discrete equations advance. Examples are linear static, implicit-Euler heat transfer, Standard/Newmark dynamics, Standard/generalized-alpha dynamics, and Explicit/central difference.</p>
+<p><code>SolutionProcedure</code> is initially a compact description used by summaries, validation, and step-provider dispatch. It should not grow into a second study object or force every algorithm parameter into beginner-facing code.</p>
 <h2 id="model">Model</h2>
 <p>A lightweight registry of mesh, regions, fields, amplitudes, materials, constraints, loads, and boundary models under a study. A model supports checks and summaries for humans and agents. It should not hide operator construction or solving.</p>
 <h2 id="mesh">Mesh</h2>
@@ -77,7 +82,7 @@
 <p>Loads, constraints, sources, and prescribed data may reference amplitudes.</p>
 <h2 id="constitutive-law">Constitutive Law</h2>
 <p>A local response relation that maps state to stress, flux, tangent, or another response quantity. Elastic stress-strain equations belong here. Future viscoelasticity, plasticity, thermal conduction, and coupled response laws should also live here.</p>
-<p>A constitutive name does not imply a complete FEM analysis. AgentFEM records whether a capability is FEM-integrated, material-point verified, or a postprocessor. Path-dependent material FEM integration additionally requires quadrature state, a consistent tangent or documented alternative, increment control, convergence evidence, and restart behavior.</p>
+<p>A constitutive name does not imply a complete FEM analysis. AgentFEM records whether a capability is FEM-integrated, material-point verified, or a postprocessor. The first global J2 route has committed/trial quadrature state, an algorithmically consistent tangent, rollback/cutback, and restart equivalence evidence, but is deliberately serial-only while its distributed state contract is still being verified. Temperature-dependent Arrhenius power-law creep remains a local constitutive capability, not a claimed global creep analysis. Path-dependent material FEM integration additionally requires quadrature state, a consistent tangent or documented alternative, increment control, convergence evidence, and restart behavior.</p>
 <h2 id="material-record">Material Record</h2>
 <p>A reusable set of material constants with units and provenance. Material records are data assets. Constitutive laws are equations. Keep these concepts separate so one material record can be used by different solvers or law families when appropriate.</p>
 <h2 id="material-properties">Material Properties</h2>
@@ -112,7 +117,7 @@
 <p>A collection of fields used by a solver or time integrator. Examples include first-order transient states and second-order displacement/velocity/acceleration states.</p>
 <p>For explicit second-order dynamics, the state may also store a mid-step velocity such as <code>v_mid</code>, because central-difference boundary damping and absorbing boundaries often use half-step velocity data.</p>
 <h2 id="time-integrator">Time Integrator</h2>
-<p>A time integrator advances a transient state according to a named numerical method. In AgentFEM, <code>time.explicit.central_difference(...)</code> represents the explicit central-difference method, i.e. the Newmark family with <code>beta=0</code> and <code>gamma=1/2</code>.</p>
+<p>A time integrator advances a transient state according to a named numerical method. AgentFEM provides implicit Newmark and generalized-alpha descriptions for linear structural dynamics and <code>time.explicit.central_difference(...)</code> for explicit central difference, i.e. the Newmark family with <code>beta=0</code> and <code>gamma=1/2</code>.</p>
 <p>Integrator names should describe the analysis route first, such as explicit dynamics, and expose method parameters through <code>summary()</code> rather than forcing beginner workflows to start from algorithm parameters.</p>
 <h2 id="problem">Problem</h2>
 <p>A discrete algebraic or transient system, such as <code>K x = F</code>, <code>C xdot + K x = F</code>, or <code>M a + C v + K u = F</code>. Problems solve systems; steps describe the analysis stage, studies declare context, and models register assets.</p>

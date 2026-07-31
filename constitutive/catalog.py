@@ -30,7 +30,9 @@ _CAPABILITIES = {
         name="linear_elasticity",
         model="isotropic and selected 2D anisotropic small-strain elasticity",
         maturity="fem_integrated",
-        available_scope="static, transient heat building blocks, and explicit dynamics",
+        available_scope=(
+            "static, sequential thermoelasticity, and implicit/explicit dynamics"
+        ),
     ),
     "neo_hookean": ConstitutiveCapability(
         name="neo_hookean",
@@ -45,18 +47,38 @@ _CAPABILITIES = {
     "j2_plasticity": ConstitutiveCapability(
         name="j2_plasticity",
         model="small-strain J2 plasticity with linear isotropic hardening",
-        maturity="material_point_verified",
-        available_scope="3D tensor and exact uniaxial radial-return updates",
+        maturity="fem_integrated",
+        available_scope=(
+            "3D small-strain global Newton path with quadrature state, "
+            "analytical consistent tangent, cutback, and serial restart"
+        ),
         limitations=(
-            "no quadrature-field state driver",
-            "no consistent-tangent FEM solve",
+            "3D only; plane stress needs a constrained local return map",
+            "the first global provider and its checkpoint are serial-only",
+            "finite-strain plasticity is not implemented",
+        ),
+    ),
+    "thermoelasticity": ConstitutiveCapability(
+        name="thermoelasticity",
+        model="isotropic linear thermoelasticity",
+        maturity="fem_integrated",
+        available_scope=(
+            "implicit heat transfer and sequential thermal-stress analysis "
+            "in 2D/3D"
+        ),
+        limitations=(
+            "temperature-dependent property tables are not implemented",
+            "fully coupled monolithic temperature-displacement is not implemented",
         ),
     ),
     "power_law_creep": ConstitutiveCapability(
         name="power_law_creep",
         model="Mises time-hardening power-law creep",
         maturity="material_point_verified",
-        available_scope="constant-stress, relaxation, and tensor increments",
+        available_scope=(
+            "constant-stress, relaxation, tensor increments, and normalized "
+            "Arrhenius temperature dependence"
+        ),
         limitations=(
             "no adaptive global time-step driver",
             "no quadrature-field state storage",

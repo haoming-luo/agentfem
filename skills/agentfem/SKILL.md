@@ -33,7 +33,7 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
 - Use AgentFEM modules before writing ad hoc DOLFINx/PETSc boilerplate.
 - Prefer the stable public workflow modules first: `studies`, `mesh`, `models`, `fields`,
   `materials`, `constitutive`, `constraints`, `loads`, `operators`,
-  `problems`, `results`, `solvers`, `steps`, `time`, `io`, `campaigns`, `datasets`, and
+  `problems`, `procedures`, `results`, `solvers`, `steps`, `time`, `io`, `campaigns`, `datasets`, and
   `surrogates`.
 - Treat `ir` and `validation` as public inspection/record interfaces. Treat
   `backends` as an advanced extension boundary. FEniCSx is the only production
@@ -50,6 +50,9 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   `solvers.newton(...)` over backend-specific solver classes. Use
   `results.output_plan(...)` to combine field, history, diagnostic, and
   presentation requests; do not use result frames as solve controls.
+- Keep `Study` and `SolutionProcedure` distinct. A dynamics Study may lower to
+  Newmark, generalized-alpha, or central difference; do not encode the
+  algorithm by changing the physical problem name.
 - Keep operator notation such as `K = operators.stiffness(...)`,
   `F = operators.load_vector(...)`, and
   `step = problems.linear_static(K, F, study=..., ...)` available for
@@ -60,6 +63,12 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
 - Query `constitutive.capabilities()` before using nonlinear materials. State
   whether a law is FEM-integrated, material-point verified, or a
   postprocessor; never infer a global solver from a material-point update.
+- Stateful materials must use quadrature-owned committed/trial state and prove
+  rollback plus restart equivalence. The current global J2 route is 3D small
+  strain; Arrhenius creep remains material-point only.
+- Prefer sequential heat-transfer then thermal-stress analysis when coupling
+  is one way. Do not claim fully coupled thermo-mechanics unless temperature
+  and mechanics are solved in one consistent nonlinear system.
 - Put weak boundary physics under `boundary_models/`.
 - Put Dirichlet, periodic, and MPC relations under `constraints`.
 - Put Neumann, traction, flux, and body sources under `loads`.
