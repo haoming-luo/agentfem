@@ -15,6 +15,7 @@ from .kernel import dofs
 from .solvers import (
     AffineNewtonOptions,
     LinearSolverOptions,
+    NewtonSolverOptions,
     NonlinearSolverOptions,
     solve_affine_nonlinear_path,
     solve_linear_problem,
@@ -177,7 +178,7 @@ class NonlinearVariationalProblem:
     solution: object
     bcs: list = field(default_factory=list)
     jacobian_form: object | None = None
-    solver_options: NonlinearSolverOptions | None = None
+    solver_options: NonlinearSolverOptions | NewtonSolverOptions | None = None
     name: str = "nonlinear_problem"
     petsc_options_prefix: str = "agentfem_nonlinear_"
     last_solve_info: object | None = field(default=None, init=False)
@@ -240,7 +241,7 @@ class AffineNonlinearVariationalProblem:
     constraint: object
     load_factors: tuple[float, ...] | None = None
     incrementation: object | None = None
-    solver_options: AffineNewtonOptions | None = None
+    solver_options: AffineNewtonOptions | NewtonSolverOptions | None = None
     output_every: int | None = 1
     output_factors: tuple[float, ...] = ()
     progress: object = True
@@ -727,7 +728,7 @@ def nonlinear(
     jacobian=None,
     constraints=None,
     bcs=None,
-    solver_options: NonlinearSolverOptions | None = None,
+    solver_options: NonlinearSolverOptions | NewtonSolverOptions | None = None,
     name: str = "nonlinear",
     petsc_options_prefix: str = "agentfem_nonlinear_",
 ) -> NonlinearVariationalProblem:
@@ -752,7 +753,7 @@ def affine_nonlinear(
     constraint,
     load_factors=None,
     incrementation=None,
-    solver_options: AffineNewtonOptions | None = None,
+    solver_options: AffineNewtonOptions | NewtonSolverOptions | None = None,
     output_every: int | None = 1,
     output_factors=(),
     progress=True,

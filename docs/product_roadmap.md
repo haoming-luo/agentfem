@@ -33,7 +33,7 @@ core, results, verification, and documentation have priority.
 | External CAE mesh | integrated Abaqus path + conversion interface | generic meshio conversion; Abaqus node labels; verified C3D10 import; linear equation parsing | full solver-deck sections/material cards are not imported |
 | Abaqus periodic equations | serial + two-rank FEM-integrated | exact chained affine elimination, distributed `dolfinx_mpc`, and 3D Neo-Hookean load path | AMG near-nullspace transfer, reactions, and scaling studies remain |
 | Abaqus user-material bridge | interface contract | solver-neutral material-point input/output and migration specification | no compiled adapter or quadrature-state global driver |
-| Result/data flow | integrated foundation | compact deformed XDMF/HDF5 time series, fields, histories, QoIs, integrals/averages/norms, campaign/dataset bridge | reactions, point probes, restart remain |
+| Result/data flow | integrated foundation | declarative field/history/diagnostic/presentation plans; compact deformed XDMF/HDF5; complete RVE tensor histories; campaign/dataset bridge | reactions, general point/region probes, restart remain |
 
 The same table is queryable in code through
 `constitutive.capabilities()` and `benchmarks.list_benchmarks()`.
@@ -69,12 +69,15 @@ an agent, user, or README from confusing these levels.
 
 - finish Neo-Hookean load-controlled and multi-region verification;
 - harden the implemented stateless periodic-cell automatic incrementation with
-  forced-cutback regression cases, then add homogenized tangent checks and a
-  distributed affine/MPC backend;
+  forced-cutback regression cases and homogenized tangent checks; the serial
+  affine and distributed `dolfinx_mpc` paths already share one public Newton
+  policy and output contract;
 - introduce quadrature-state storage and a constitutive update protocol;
 - integrate J2 isotropic hardening with a consistent algorithmic tangent;
 - extend the current deformation-controlled automatic path to general
   displacement/load control;
+- add reaction, internal/external work, and energy-balance histories with
+  verified strong, weak, and affine-MPC definitions;
 - then add tabulated hardening, kinematic hardening, and finite-strain
   plasticity only when driven by real applications.
 

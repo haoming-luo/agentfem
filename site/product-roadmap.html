@@ -21,6 +21,7 @@
 <a class="" href="examples.html">Examples</a>
 <a class="active" href="product-roadmap.html">Product Roadmap</a>
 <a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
@@ -64,9 +65,9 @@
 <tr><td>Power-law creep</td><td>material-point verified</td><td>constant-stress, relaxation, tensor increments, exact piecewise-constant stress paths</td><td>no global adaptive creep step</td></tr>
 <tr><td>Stress-life fatigue</td><td>postprocessor</td><td>Basquin/tabulated S-N, rainflow, Goodman, Miner assessment from named result histories</td><td>no multiaxial critical-plane method</td></tr>
 <tr><td>External CAE mesh</td><td>integrated Abaqus path + conversion interface</td><td>generic meshio conversion; Abaqus node labels; verified C3D10 import; linear equation parsing</td><td>full solver-deck sections/material cards are not imported</td></tr>
-<tr><td>Abaqus periodic equations</td><td>serial FEM-integrated</td><td>exact chained affine elimination and 3D Neo-Hookean load path</td><td>distributed MPC ownership and AMG near-nullspace transfer remain</td></tr>
+<tr><td>Abaqus periodic equations</td><td>serial + two-rank FEM-integrated</td><td>exact chained affine elimination, distributed <code>dolfinx_mpc</code>, and 3D Neo-Hookean load path</td><td>AMG near-nullspace transfer, reactions, and scaling studies remain</td></tr>
 <tr><td>Abaqus user-material bridge</td><td>interface contract</td><td>solver-neutral material-point input/output and migration specification</td><td>no compiled adapter or quadrature-state global driver</td></tr>
-<tr><td>Result/data flow</td><td>integrated foundation</td><td>compact deformed XDMF/HDF5 time series, fields, histories, QoIs, integrals/averages/norms, campaign/dataset bridge</td><td>reactions, point probes, restart remain</td></tr>
+<tr><td>Result/data flow</td><td>integrated foundation</td><td>declarative field/history/diagnostic/presentation plans; compact deformed XDMF/HDF5; complete RVE tensor histories; campaign/dataset bridge</td><td>reactions, general point/region probes, restart remain</td></tr>
 </tbody>
 </table>
 <p>The same table is queryable in code through <code>constitutive.capabilities()</code> and <code>benchmarks.list_benchmarks()</code>.</p>
@@ -93,10 +94,11 @@
 <h3 id="p1-nonlinear-solid-mechanics">P1: nonlinear solid mechanics</h3>
 <ul>
 <li>finish Neo-Hookean load-controlled and multi-region verification;</li>
-<li>harden the implemented stateless periodic-cell automatic incrementation with<br>forced-cutback regression cases, then add homogenized tangent checks and a<br>distributed affine/MPC backend;</li>
+<li>harden the implemented stateless periodic-cell automatic incrementation with<br>forced-cutback regression cases and homogenized tangent checks; the serial<br>affine and distributed <code>dolfinx_mpc</code> paths already share one public Newton<br>policy and output contract;</li>
 <li>introduce quadrature-state storage and a constitutive update protocol;</li>
 <li>integrate J2 isotropic hardening with a consistent algorithmic tangent;</li>
 <li>extend the current deformation-controlled automatic path to general<br>displacement/load control;</li>
+<li>add reaction, internal/external work, and energy-balance histories with<br>verified strong, weak, and affine-MPC definitions;</li>
 <li>then add tabulated hardening, kinematic hardening, and finite-strain<br>plasticity only when driven by real applications.</li>
 </ul>
 <p>For Abaqus material migration, implement UHYPER energy adaptation before the more general UMAT path. UMAT requires quadrature state, trial/commit/rollback, tensor and rotation conventions, compiler/ABI handling, and a consistent tangent. Advance compatibility one restricted subroutine class at a time, gated by material-point, one-element, and load-path comparisons. The public AgentFEM model language should consume a neutral material-point protocol rather than depend on Abaqus interfaces directly.</p>

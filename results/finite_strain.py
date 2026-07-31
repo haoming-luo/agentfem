@@ -163,6 +163,83 @@ def homogenize_periodic_cell(
     )
 
 
+def homogenize_periodic_path(
+    snapshots,
+    properties,
+    *,
+    constraint,
+) -> tuple[HomogenizedFrame, ...]:
+    """Homogenize every saved state of an affine periodic-cell analysis."""
+
+    selected = tuple(snapshots)
+    if not selected:
+        raise ValueError("homogenize_periodic_path requires saved snapshots.")
+    return tuple(
+        homogenize_periodic_cell(
+            snapshot.solution,
+            properties,
+            macro_deformation_gradient=constraint.deformation_gradient_at(
+                snapshot.load_factor
+            ),
+            cell_reference_volume=constraint.reference_cell_volume,
+            load_factor=snapshot.load_factor,
+        )
+        for snapshot in selected
+    )
+
+
+def finite_strain_diagnostics(
+    displacement,
+    *,
+    constraint=None,
+    quadrature_degree: int = 4,
+) -> dict[str, object]:
+    """Evaluate reusable physical checks for a finite-deformation solution."""
+
+    function = getattr(displacement, "value", displacement)
+    domain = function.function_space.mesh
+    measures = hyperelasticity.kinematics(function)
+    dx = ufl.dx(domain=domain)
+    minimum_J, maximum_J = _quadrature_extrema(
+        measures.jacobian,
+        domain,
+        degree=quadrature_degree,
+    )
+    dimension = int(function.ufl_shape[0])
+    coefficients = np.asarray(function.x.array).reshape(-1, dimension)
+    local_maximum = (
+        0.0
+        if coefficients.size == 0
+        else float(np.max(np.linalg.norm(coefficients, axis=1)))
+    )
+    maximum_displacement = float(
+        domain.comm.allreduce(local_maximum, op=_mpi_max())
+    )
+    reference_volume = float(integral(ufl.as_ufl(1.0), measure=dx))
+    if reference_volume <= 0.0:
+        raise ValueError("Finite-strain diagnostics require positive volume.")
+    values: dict[str, object] = {
+        "average_deformation_gradient": integral(
+            measures.deformation_gradient,
+            measure=dx,
+        )
+        / reference_volume,
+        "average_J": integral(measures.jacobian, measure=dx)
+        / reference_volume,
+        "minimum_quadrature_J": minimum_J,
+        "maximum_quadrature_J": maximum_J,
+        "maximum_displacement": maximum_displacement,
+    }
+    if constraint is not None:
+        values.update(
+            {
+                "target_deformation_gradient": constraint.deformation_gradient,
+                "periodic_equation_max_error": constraint.mismatch(),
+            }
+        )
+    return values
+
+
 def write_homogenized_history(
     path: str | Path,
     frames,
@@ -324,3 +401,15 @@ def _logarithmic_strain(F: np.ndarray) -> np.ndarray:
     if np.any(eigenvalues <= 0.0):
         raise ValueError("Logarithmic strain requires a positive-definite F.T F.")
     return eigenvectors @ np.diag(0.5 * np.log(eigenvalues)) @ eigenvectors.T
+
+
+def _quadrature_extrema(expression, domain, *, degree: int) -> tuple[float, float]:
+    from .quantities import quadrature_extrema
+
+    return quadrature_extrema(expression, domain, degree=degree)
+
+
+def _mpi_max():
+    from mpi4py import MPI
+
+    return MPI.MAX

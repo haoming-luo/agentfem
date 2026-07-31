@@ -21,6 +21,7 @@
 <a class="" href="examples.html">Examples</a>
 <a class="" href="product-roadmap.html">Product Roadmap</a>
 <a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
@@ -144,7 +145,7 @@ Diagnostics and XDMF output</code></pre>
 </ul>
 <p>These should be added before a large material catalog.</p>
 <h3 id="constraints-loadspy-and-boundarymodels"><code>constraints/</code>, <code>loads.py</code>, and <code>boundary_models/</code></h3>
-<p>The conceptual separation is strong and should remain non-negotiable. Scientific summaries now preserve common prescribed/load values and absorbing impedances. Remaining gaps include target-field identity, full region references, local coordinate systems, amplitudes on general loads, and capability declarations for serial-only periodic projection.</p>
+<p>The conceptual separation is strong and should remain non-negotiable. Scientific summaries now preserve common prescribed/load values and absorbing impedances. Remaining gaps include target-field identity, full region references, local coordinate systems, amplitudes on general loads, and clear capability declarations that distinguish serial nodal projection from the distributed Abaqus-equation MPC backend.</p>
 <p>The periodic projection implementation is correctly explicit about being a serial, nodal-averaging method rather than a general MPC solution. Future MPC support should be a new implementation of the same semantic constraint, not a silent change in the existing method.</p>
 <h3 id="operators"><code>operators/</code></h3>
 <p>The K/M/C/F language is the clearest bridge between engineering review and backend computation. Operator composition now retains sum/scale history, but primitive operators still need explicit dependencies on fields, materials, regions, coefficients, and measures. <code>OperatorSpec</code> should grow from these common families while <code>OperatorForm.expression</code> remains the efficient UFL runtime path.</p>
@@ -589,7 +590,7 @@ export_artifact</code></pre>
 <li>Record solver convergence reason and iteration count in every result.</li>
 <li>Add a model-owned transient heat step and checkpoint/restart.</li>
 <li>Integrate J2 plasticity only after local state, consistent tangent,<br>increment cutback, and single-element path tests are complete.</li>
-<li>Extend the two-rank smoke test to focused MPI validation for<br>transient state, diagnostics, and output.</li>
+<li>Keep the Abaqus-equation serial/two-rank parity gate and extend focused MPI<br>validation to transient state, diagnostics, scaling, and deformed output.</li>
 <li>Add a global adaptive creep step and reproduce closed-form/NAFEMS cases.</li>
 <li>Add fatigue stress-history extraction and field-result provenance.</li>
 <li>Complete standard QoIs for reactions, energies, curves, and<br>mesh-independent field samples.</li>

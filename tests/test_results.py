@@ -188,6 +188,67 @@ def test_field_output_intervals_are_exact_marks_not_solver_increments():
     assert request.summary()["intervals"] == 4
 
 
+def test_output_plan_combines_field_history_diagnostics_and_presentation(tmp_path):
+    field = results.field_output("U", "S", intervals=4)
+    plan = results.output_plan(
+        tmp_path,
+        field=field,
+        requests=(
+            results.solver_history(),
+            results.finite_strain_checks(quadrature_degree=5),
+        ),
+        presentation=results.presentation(
+            animation=None,
+            comparison=False,
+        ),
+        basename="job",
+    )
+
+    assert plan.every is None
+    assert plan.required_factors() == (0.25, 0.5, 0.75, 1.0)
+    summary = plan.summary()
+    assert summary["kind"] == "output_plan"
+    assert [request["kind"] for request in summary["requests"]] == [
+        "solver_history",
+        "finite_strain_diagnostics",
+    ]
+
+
+def test_solver_history_request_records_accepted_increment_evidence(tmp_path):
+    increments = (
+        SimpleNamespace(
+            load_factor=0.25,
+            start_load_factor=0.0,
+            residual_norm=1.0e-9,
+            iterations=4,
+        ),
+        SimpleNamespace(
+            load_factor=1.0,
+            start_load_factor=0.25,
+            residual_norm=2.0e-10,
+            iterations=3,
+        ),
+    )
+    result = results.SimulationResult("nonlinear")
+    context = SimpleNamespace(
+        step=SimpleNamespace(
+            last_solve_info=SimpleNamespace(increments=increments)
+        ),
+        result=result,
+    )
+
+    results.solver_history().apply(context)
+
+    np.testing.assert_allclose(
+        result.histories["increment_size"].values,
+        [0.25, 0.75],
+    )
+    np.testing.assert_allclose(
+        result.histories["newton_iterations"].values,
+        [4.0, 3.0],
+    )
+
+
 def test_result_format_is_concise_and_does_not_dump_numeric_manifest():
     result = results.SimulationResult("readable")
     result.add_quantity("long_value", np.arange(100, dtype=float))

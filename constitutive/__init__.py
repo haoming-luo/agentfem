@@ -37,7 +37,12 @@ from .fatigue import (
     rainflow_cycles,
     turning_points,
 )
-from .hyperelasticity import NeoHookeanProperties, neo_hookean
+from .hyperelasticity import (
+    FiniteStrainKinematics,
+    NeoHookeanProperties,
+    kinematics,
+    neo_hookean,
+)
 from .plasticity import (
     J2LinearIsotropicHardening,
     J2PlasticState,
@@ -75,6 +80,7 @@ __all__ = [
     "J2LinearIsotropicHardening",
     "J2PlasticState",
     "J2Update",
+    "FiniteStrainKinematics",
     "NeoHookeanProperties",
     "MaterialPointInput",
     "MaterialPointOutput",
@@ -98,6 +104,7 @@ __all__ = [
     "miner_damage",
     "rainflow_cycles",
     "neo_hookean",
+    "kinematics",
     "orthotropic_plane_stress_2d",
     "stress",
     "turning_points",

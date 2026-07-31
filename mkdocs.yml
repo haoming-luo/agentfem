@@ -23,6 +23,7 @@ nav:
   - Home: index.md
   - Design Notes:
       - Product Roadmap: product_roadmap.md
+      - Nonlinear Solid Architecture: nonlinear_solid_architecture.md
       - Nonlinear Materials: nonlinear_materials.md
       - Results and Campaigns: results_and_campaigns.md
       - Stable Steps and Compact Output: step_and_output_architecture.md

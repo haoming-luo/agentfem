@@ -90,20 +90,61 @@ def neo_hookean(
     )
 
 
+@dataclass(frozen=True)
+class FiniteStrainKinematics:
+    """Standard total-Lagrangian kinematics derived from one displacement."""
+
+    displacement: object
+
+    def __post_init__(self) -> None:
+        function = field_api.unwrap(self.displacement)
+        shape = tuple(getattr(function, "ufl_shape", ()))
+        if len(shape) != 1 or shape[0] not in {2, 3}:
+            raise ValueError(
+                "FiniteStrainKinematics requires a 2D or 3D displacement field."
+            )
+        object.__setattr__(self, "displacement", function)
+
+    @property
+    def dimension(self) -> int:
+        return int(self.displacement.ufl_shape[0])
+
+    @property
+    def deformation_gradient(self):
+        return ufl.Identity(self.dimension) + ufl.grad(self.displacement)
+
+    @property
+    def right_cauchy_green(self):
+        F = self.deformation_gradient
+        return F.T * F
+
+    @property
+    def jacobian(self):
+        return ufl.det(self.deformation_gradient)
+
+    @property
+    def green_lagrange_strain(self):
+        return 0.5 * (
+            self.right_cauchy_green - ufl.Identity(self.dimension)
+        )
+
+
+def kinematics(displacement) -> FiniteStrainKinematics:
+    """Return the standard finite-strain kinematic measures for ``u``."""
+
+    return FiniteStrainKinematics(displacement)
+
+
 def deformation_gradient(displacement):
     """Return ``F = I + grad(u)``."""
 
-    displacement = field_api.unwrap(displacement)
-    dimension = len(displacement)
-    return ufl.Identity(dimension) + ufl.grad(displacement)
+    return kinematics(displacement).deformation_gradient
 
 
 def green_lagrange_strain(displacement):
     """Return the finite-strain tensor ``E = 1/2 (F.T F - I)``."""
 
-    F = deformation_gradient(displacement)
-    dimension = F.ufl_shape[0]
-    return 0.5 * (F.T * F - ufl.Identity(dimension))
+    return kinematics(displacement).green_lagrange_strain
 
 
 def strain_energy_density_from_gradient(

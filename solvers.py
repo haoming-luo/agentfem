@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import isfinite
 
 import numpy as np
@@ -56,6 +56,16 @@ class LinearSolverOptions:
         }
 
 
+def direct_solver(*, package: str | None = None) -> LinearSolverOptions:
+    """Create a direct linear-solver policy without PETSc option names."""
+
+    return LinearSolverOptions(
+        ksp_type="preonly",
+        pc_type="lu",
+        factor_solver_type=package,
+    )
+
+
 @dataclass(frozen=True)
 class NonlinearSolverOptions:
     """PETSc SNES/KSP policy for nonlinear finite-element solves."""
@@ -67,6 +77,7 @@ class NonlinearSolverOptions:
     line_search_type: str | None = "bt"
     ksp_type: str = "preonly"
     pc_type: str = "lu"
+    factor_solver_type: str | None = None
     error_if_not_converged: bool = True
 
     def __post_init__(self) -> None:
@@ -87,6 +98,8 @@ class NonlinearSolverOptions:
         }
         if self.line_search_type is not None:
             options["snes_linesearch_type"] = self.line_search_type
+        if self.factor_solver_type is not None:
+            options["pc_factor_mat_solver_type"] = self.factor_solver_type
         return options
 
     def summary(self) -> dict[str, object]:
@@ -99,8 +112,126 @@ class NonlinearSolverOptions:
             "line_search_type": self.line_search_type,
             "ksp_type": self.ksp_type,
             "pc_type": self.pc_type,
+            "factor_solver_type": self.factor_solver_type,
             "error_if_not_converged": self.error_if_not_converged,
         }
+
+
+@dataclass(frozen=True)
+class NewtonSolverOptions:
+    """Backend-neutral Newton policy for nonlinear equilibrium."""
+
+    relative_tolerance: float = 1.0e-8
+    absolute_tolerance: float = 1.0e-9
+    maximum_iterations: int = 30
+    line_search: str | None = "backtracking"
+    line_search_reduction: float = 0.5
+    minimum_step_length: float = 1.0 / 128.0
+    linear_solver: LinearSolverOptions = field(default_factory=direct_solver)
+    error_if_not_converged: bool = True
+
+    def __post_init__(self) -> None:
+        if self.relative_tolerance <= 0.0 or self.absolute_tolerance <= 0.0:
+            raise ValueError("Newton tolerances must be positive.")
+        if self.maximum_iterations <= 0:
+            raise ValueError("Newton maximum_iterations must be positive.")
+        selected = (
+            None
+            if self.line_search is None
+            else str(self.line_search).lower().replace("-", "_").strip()
+        )
+        selected = {
+            "bt": "backtracking",
+            "backtrack": "backtracking",
+            "none": None,
+            "off": None,
+        }.get(selected, selected)
+        if selected not in {None, "backtracking", "basic"}:
+            raise ValueError(
+                "Newton line_search must be 'backtracking', 'basic', or None."
+            )
+        if not 0.0 < self.line_search_reduction < 1.0:
+            raise ValueError("Newton line_search_reduction must lie in (0, 1).")
+        if not 0.0 < self.minimum_step_length <= 1.0:
+            raise ValueError("Newton minimum_step_length must lie in (0, 1].")
+        object.__setattr__(self, "line_search", selected)
+
+    def for_snes(self) -> NonlinearSolverOptions:
+        """Translate this policy to the DOLFINx/PETSc SNES path."""
+
+        linear = self.linear_solver
+        return NonlinearSolverOptions(
+            rtol=self.relative_tolerance,
+            atol=self.absolute_tolerance,
+            max_it=self.maximum_iterations,
+            line_search_type={
+                None: None,
+                "backtracking": "bt",
+                "basic": "basic",
+            }[self.line_search],
+            ksp_type=linear.ksp_type,
+            pc_type=linear.pc_type,
+            factor_solver_type=linear.factor_solver_type,
+            error_if_not_converged=self.error_if_not_converged,
+        )
+
+    def for_affine_reduction(self) -> "AffineNewtonOptions":
+        """Translate this policy to the affine-reduction Newton path."""
+
+        linear = self.linear_solver
+        return AffineNewtonOptions(
+            rtol=self.relative_tolerance,
+            atol=self.absolute_tolerance,
+            max_it=self.maximum_iterations,
+            line_search_reduction=self.line_search_reduction,
+            line_search_minimum=(
+                self.minimum_step_length
+                if self.line_search == "backtracking"
+                else 1.0
+            ),
+            ksp_type=linear.ksp_type,
+            pc_type=linear.pc_type,
+            ksp_rtol=1.0e-10 if linear.rtol is None else float(linear.rtol),
+            ksp_max_it=1000 if linear.max_it is None else int(linear.max_it),
+            factor_solver_type=linear.factor_solver_type,
+            error_if_not_converged=self.error_if_not_converged,
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "newton_solver",
+            "relative_tolerance": self.relative_tolerance,
+            "absolute_tolerance": self.absolute_tolerance,
+            "maximum_iterations": self.maximum_iterations,
+            "line_search": self.line_search,
+            "line_search_reduction": self.line_search_reduction,
+            "minimum_step_length": self.minimum_step_length,
+            "linear_solver": self.linear_solver.summary(),
+            "error_if_not_converged": self.error_if_not_converged,
+        }
+
+
+def newton(
+    *,
+    relative_tolerance: float = 1.0e-8,
+    absolute_tolerance: float = 1.0e-9,
+    maximum_iterations: int = 30,
+    line_search: str | None = "backtracking",
+    linear_solver: LinearSolverOptions | None = None,
+    error_if_not_converged: bool = True,
+) -> NewtonSolverOptions:
+    """Create one Newton policy for ordinary and affine-constrained steps."""
+
+    return NewtonSolverOptions(
+        relative_tolerance=relative_tolerance,
+        absolute_tolerance=absolute_tolerance,
+        maximum_iterations=maximum_iterations,
+        line_search=line_search,
+        linear_solver=(
+            direct_solver() if linear_solver is None else linear_solver
+        ),
+        error_if_not_converged=error_if_not_converged,
+    )
 
 
 @dataclass(frozen=True)
@@ -334,7 +465,7 @@ def solve_nonlinear_problem(
     *,
     bcs=None,
     jacobian_form=None,
-    options: NonlinearSolverOptions | None = None,
+    options: NonlinearSolverOptions | NewtonSolverOptions | None = None,
     petsc_options_prefix: str = "agentfem_nonlinear_",
 ) -> tuple[object, NonlinearSolveInfo]:
     """Solve ``R(u; v) = 0`` with the current DOLFINx PETSc/SNES interface."""
@@ -342,6 +473,8 @@ def solve_nonlinear_problem(
     from dolfinx.fem.petsc import NonlinearProblem
 
     selected = options or NonlinearSolverOptions()
+    if isinstance(selected, NewtonSolverOptions):
+        selected = selected.for_snes()
     problem = NonlinearProblem(
         residual_form,
         solution,
@@ -370,7 +503,7 @@ def solve_affine_nonlinear_path(
     load_factors=None,
     incrementation=None,
     output_factors=(),
-    options: AffineNewtonOptions | None = None,
+    options: AffineNewtonOptions | NewtonSolverOptions | None = None,
     on_increment=None,
     reporter=None,
     step_name: str = "affine_nonlinear",
@@ -384,6 +517,8 @@ def solve_affine_nonlinear_path(
     """
 
     selected = options or AffineNewtonOptions()
+    if isinstance(selected, NewtonSolverOptions):
+        selected = selected.for_affine_reduction()
     control = step_controls.normalize(
         incrementation,
         load_factors=load_factors,
@@ -477,9 +612,7 @@ def solve_affine_nonlinear_path(
         rollback = function.x.array.copy()
         reduction = constraint.reduction(factor)
         T = reduction.matrix(function.function_space.mesh.comm)
-        current_F = np.eye(block_size) + factor * (
-            constraint.deformation_gradient - np.eye(block_size)
-        )
+        current_F = constraint.deformation_gradient_at(factor)
         current_affine = reduction.initial_reduced_values(
             coordinates,
             current_F,

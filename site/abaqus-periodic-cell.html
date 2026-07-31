@@ -21,6 +21,7 @@
 <a class="" href="examples.html">Examples</a>
 <a class="" href="product-roadmap.html">Product Roadmap</a>
 <a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
@@ -49,7 +50,7 @@
 <li><code>C3D10</code> is mapped to meshio <code>tetra10</code> and read by DOLFINx as a quadratic<br>tetrahedral geometry;</li>
 <li>Abaqus node labels are retained independently of DOLFINx ordering;</li>
 <li>all linear <code>*EQUATION</code> terms are parsed, validated, and matched to vector<br>displacement degrees of freedom;</li>
-<li>chained edge and corner equations become an exact affine reduction;</li>
+<li>chained edge and corner equations become an exact serial or distributed<br>affine reduction;</li>
 <li>a 3D compressible Neo-Hookean equilibrium is solved incrementally;</li>
 <li>XDMF/HDF5 time-series fields, VTU, PNG, GIF/MP4, exact macro histories,<br>AF-IR, and convergence evidence are written from one top-level model.</li>
 </ol>
@@ -132,7 +133,7 @@ output.write_finite_strain(
 </tbody>
 </table>
 <p>The result manifest additionally stores vector <code>U</code> and current <code>COORD</code> histories at Abaqus control nodes <code>RIGHT</code>, <code>TOP</code>, and <code>FRONT</code>. <code>RF</code> and <code>TF</code> are deliberately not approximated from homogenized stress: exact affine-MPC reaction recovery requires verified constraint multipliers and is listed as a remaining result capability.</p>
-<p>The unified XDMF/HDF5 series is both the direct ParaView product and the scientific field record: topology is shared, reference coordinates are retained, every frame stores coordinates <code>x+u</code>, and all fields share that grid. The authoritative homogenized response is computed from the UFL forms before visualization projection:</p>
+<p>In serial, the unified XDMF/HDF5 series is both the direct ParaView product and the scientific field record: topology is shared, reference coordinates are retained, every frame stores coordinates <code>x+u</code>, and all fields share that grid. Under MPI, DOLFINx writes a collective reference-configuration XDMF/HDF5 history with <code>U</code> and all requested cell fields; direct deformed rendering is a separate serial postprocess. The authoritative homogenized response is computed from the UFL forms before visualization projection:</p>
 <pre><code>P_bar = (1 / V_cell) integral_over_solid(P dV0)
 sigma_bar = (1 / (J_bar V_cell)) integral_over_solid(J sigma dV0)
 P_bar_check = J_bar sigma_bar F_bar^-T</code></pre>
@@ -152,19 +153,21 @@ Abaqus .mpc ──AgentFEM *EQUATION parser────────────�
 <li>positive sampled <code>det(F)</code> values;</li>
 <li>finite averaged first-Piola and Cauchy stresses;</li>
 <li>consistency between two homogenized stress transformations;</li>
-<li>an undeformed/deformed VTU pair, a scale-one comparison image, and an<br>incremental animation.</li>
+<li>serial presentation products (comparison image and incremental animation),<br>or a collective MPI XDMF field history.</li>
 </ul>
-<p>The code rejects duplicate equation slaves, cyclic equation graphs, missing node-to-dof matches, non-positive target <code>det(F)</code>, non-finite residuals, and parallel execution of the current serial elimination backend.</p>
-<h2 id="current-engineering-limit">Current Engineering Limit</h2>
-<p>The exact equation backend is serial. The example rejects <code>mpiexec -n 2</code> instead of silently running two duplicate serial jobs. Sparse direct MUMPS is the trustworthy reference policy for the present 40k-dof example. Production distributed support needs:</p>
+<p>The code rejects duplicate equation slaves, cyclic equation graphs, missing node-to-dof matches, non-positive target <code>det(F)</code>, and non-finite residuals.</p>
+<h2 id="distributed-equation-backend">Distributed equation backend</h2>
+<p>Serial execution constructs an explicit sparse transformation. MPI execution uses the same source-level equation graph but:</p>
 <ul>
-<li>global node-label/dof ownership;</li>
-<li>distributed construction of <code>T</code> and <code>u_bar</code>;</li>
-<li>ghost-consistent chained-equation resolution;</li>
-<li>reduced near-nullspace transfer for AMG;</li>
-<li>MPI validation of reactions, homogenized stress, and periodic mismatch.</li>
+<li>resolves chained slaves to independent masters before partition-dependent<br>numbering;</li>
+<li>maps source labels to global DOLFINx block dofs and owning ranks;</li>
+<li>supplies identical relations for every locally visible owned or ghost slave;</li>
+<li>carries the non-homogeneous macroscopic deformation as an affine predictor;</li>
+<li>constrains Newton corrections homogeneously with <code>dolfinx_mpc</code>;</li>
+<li>assembles and solves one PETSc/MUMPS system across all ranks.</li>
 </ul>
-<p>The public constraint semantics need not change when that backend is added. <code>dolfinx_mpc</code> is the leading backend candidate, but it is a compiled optional dependency and the current DOLFINx 0.11 environment does not contain it. AgentFEM will advertise parallel Abaqus-equation support only after the arbitrary chained equations and finite-strain solve pass two-rank parity tests.</p>
+<p>The public model language is unchanged. A two-rank parity probe on this mesh has 44,826 global displacement dofs, 4,212 equation slaves, and 40,602 independent dofs. For a 1.02 stretch, serial and two-rank runs have the same initial reduced residual (<code>0.613379810971141</code>), converge in three Newton iterations to approximately <code>1.5e-12</code>, and retain equation mismatch below <code>2e-17</code>.</p>
+<p><code>dolfinx_mpc</code> is a compiled optional dependency and must match the DOLFINx minor version. Sparse direct MUMPS remains the trustworthy reference policy for this 40k-dof example. Distributed AMG near-nullspace transfer, verified constraint reactions, scaling studies beyond a few ranks, and directly deformed collective visualization remain engineering work rather than implied capabilities.</p>
 <h2 id="user-material-migration-is-a-separate-capability">User-material migration is a separate capability</h2>
 <p>Mesh/equation import does not imply that arbitrary <code>UMAT</code> or <code>UHYPER</code> source already runs. <code>docs/abaqus_user_material_bridge.md</code> defines the required quadrature state, tensor conversions, compiler boundary, and validation ladder. UHYPER is the narrower first target; stateful UMAT integration follows only after a global constitutive driver exists.</p>
       </article>

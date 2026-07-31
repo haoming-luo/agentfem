@@ -36,6 +36,8 @@
 - `results/field_catalog.py`: standard field keys, aliases, and context rules
 - `results/output.py`: declarative field requests plus compact unified
   XDMF/HDF5 and optional PVD/VTU writers
+- `results/plan.py`: reusable field, history, diagnostic, presentation, and
+  manifest orchestration
 - `diagnostics.py`: norms and scalar diagnostics
 - `io.py`: output writers and scalar logs
 - `elements/`: element and integration-policy namespace

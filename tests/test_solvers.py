@@ -4,7 +4,13 @@ import pytest
 
 from agentfem import steps
 from agentfem.diagnostics import StandardRunReporter
-from agentfem.solvers import LinearSolverOptions, SolveEvent
+from agentfem.solvers import (
+    LinearSolverOptions,
+    NewtonSolverOptions,
+    SolveEvent,
+    direct_solver,
+    newton,
+)
 
 
 def test_solver_options_are_inspectable():
@@ -38,6 +44,40 @@ def test_solver_options_are_inspectable():
 def test_solver_options_reject_invalid_tolerances(kwargs):
     with pytest.raises(ValueError):
         LinearSolverOptions(**kwargs)
+
+
+def test_public_newton_policy_adapts_to_snes_and_affine_reduction():
+    policy = newton(
+        relative_tolerance=1.0e-7,
+        absolute_tolerance=1.0e-9,
+        maximum_iterations=24,
+        linear_solver=direct_solver(package="mumps"),
+    )
+
+    assert isinstance(policy, NewtonSolverOptions)
+    assert policy.summary()["kind"] == "newton_solver"
+    assert policy.summary()["linear_solver"]["factor_solver_type"] == "mumps"
+    assert policy.for_snes().petsc_options() == {
+        "snes_type": "newtonls",
+        "snes_rtol": 1.0e-7,
+        "snes_atol": 1.0e-9,
+        "snes_max_it": 24,
+        "snes_error_if_not_converged": True,
+        "ksp_type": "preonly",
+        "pc_type": "lu",
+        "snes_linesearch_type": "bt",
+        "pc_factor_mat_solver_type": "mumps",
+    }
+    affine = policy.for_affine_reduction()
+    assert affine.rtol == pytest.approx(1.0e-7)
+    assert affine.max_it == 24
+    assert affine.factor_solver_type == "mumps"
+
+
+@pytest.mark.parametrize("line_search", ("invalid", "cubic"))
+def test_public_newton_policy_rejects_unknown_line_search(line_search):
+    with pytest.raises(ValueError):
+        newton(line_search=line_search)
 
 
 def test_automatic_incrementation_uses_a_limit_not_a_requested_count():

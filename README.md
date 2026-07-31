@@ -226,6 +226,8 @@ thing a new model exposes.
   gates.
 - `docs/nonlinear_materials.md`: implemented nonlinear laws, formulas, and
   honest FEM/material-point/postprocessor boundaries.
+- `docs/nonlinear_solid_architecture.md`: P1 nonlinear-solid public language,
+  quadrature-state contract, controls, output roles, and verification gates.
 - `docs/results_and_campaigns.md`: result, QoI, campaign, and dataset contract.
 - `docs/mesh_interoperability.md`: external mesh conversion and named-set
   preservation.

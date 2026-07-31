@@ -79,12 +79,21 @@ Solver convergence remains a separate, visible choice:
 step = model.step(
     ...,
     incrementation=steps.automatic(max_increments=100),
-    solver_options=AffineNewtonOptions(max_it=25),
+    solver_options=solvers.newton(
+        maximum_iterations=25,
+        linear_solver=solvers.direct_solver(),
+    ),
 )
 ```
 
 Thus `max_increments` limits accepted load/time advances, whereas `max_it`
 limits Newton iterations in one attempt.
+
+`solvers.newton(...)` is independent of the constraint implementation.
+AgentFEM translates the same public policy to PETSc SNES for ordinary boundary
+conditions or to exact affine-reduction algebra for periodic equations.
+Backend-specific classes remain available for expert tuning but are not the
+standard model language.
 
 ## Output requests do not control the nonlinear algorithm
 
@@ -169,6 +178,28 @@ tables. Visualization fields may be projected to cell centers, whereas the
 periodic-cell NPZ/CSV response is integrated from the governing UFL
 expressions. Consumers should not reconstruct authoritative macro response by
 re-averaging a visualization field.
+
+The complete declaration can collect these distinct roles:
+
+```python
+output = results.output_plan(
+    output_directory,
+    field=results.field_output("U", "S", "E", "J", every="increment"),
+    requests=(
+        results.solver_history(),
+        results.periodic_cell_history(periodicity),
+        results.source_node_history(nodes, RIGHT=7, TOP=9),
+        results.finite_strain_checks(constraint=periodicity),
+    ),
+    presentation=results.presentation(animation="gif"),
+)
+```
+
+The plan is passed into `model.step(...)` so exact output marks constrain only
+where the nonlinear path must land. After the solve, `finalize(...)` writes
+fields, evaluates histories and diagnostics, attaches artifacts, and writes
+the model record and result manifest. A case-specific response plot remains in
+the case directory rather than becoming a misleading general result function.
 
 ## Implemented adjacent foundations
 

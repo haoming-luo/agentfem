@@ -236,7 +236,7 @@ def render_unified_xdmf_animation(
     scalar: str = "UMAG",
     fps: int = 2,
 ) -> Path:
-    """Render a GIF from AgentFEM's single XDMF/HDF5 time series."""
+    """Render a GIF or MP4 from AgentFEM's single XDMF/HDF5 series."""
 
     from .output import read_unified_xdmf_series
 
@@ -251,8 +251,9 @@ def render_unified_xdmf_animation(
     if len(grids) < 2:
         raise ValueError("Unified-XDMF animation requires at least two frames.")
     output = Path(output_path)
-    if output.suffix.lower() != ".gif":
-        raise ValueError("render_unified_xdmf_animation currently writes GIF.")
+    suffix = output.suffix.lower()
+    if suffix not in {".gif", ".mp4"}:
+        raise ValueError("Unified-XDMF animation must use .gif or .mp4.")
     arrays = []
     for grid in grids:
         if scalar in grid.point_data:
@@ -291,13 +292,26 @@ def render_unified_xdmf_animation(
         images.append(Image.fromarray(plotter.screenshot(return_img=True)))
         plotter.close()
     output.parent.mkdir(parents=True, exist_ok=True)
-    images[0].save(
-        output,
-        save_all=True,
-        append_images=images[1:],
-        duration=max(1, round(1000 / int(fps))),
-        loop=0,
-    )
+    if suffix == ".gif":
+        images[0].save(
+            output,
+            save_all=True,
+            append_images=images[1:],
+            duration=max(1, round(1000 / int(fps))),
+            loop=0,
+        )
+    else:
+        try:
+            import imageio.v3 as iio
+        except ImportError as exc:
+            raise ImportError(
+                "MP4 output requires optional `imageio` with an ffmpeg backend."
+            ) from exc
+        iio.imwrite(
+            output,
+            np.stack([np.asarray(image) for image in images]),
+            fps=int(fps),
+        )
     return output
 
 

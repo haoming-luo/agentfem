@@ -31,6 +31,7 @@ This map links FEM concepts to the current Python modules.
 | Finite-strain fields and periodic-cell homogenization | `results/finite_strain.py` |
 | Standard result variables and context-aware aliases | `results/field_catalog.py` |
 | Declarative field requests and unified XDMF/HDF5 time-series writer | `results/output.py` |
+| Combined field/history/diagnostic/presentation output contracts | `results/plan.py` |
 | Diagnostics | `diagnostics.py` |
 | Output writers and scalar logs | `io.py` |
 | Element and integration policies | `elements/` |

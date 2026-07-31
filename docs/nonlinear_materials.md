@@ -39,6 +39,13 @@ from the same residual. This follows the same
 compressible Neo-Hookean energy and automatic differentiation structure as the
 [official DOLFINx hyperelasticity demo](https://docs.fenicsproject.org/dolfinx/main/cpp/demos/demo_hyperelasticity.html).
 
+`constitutive.kinematics(u)` exposes the standard `F`, `C`, `J`, and
+Green--Lagrange measures to reusable internals and expert workflows. Ordinary
+model scripts do not need to import UFL for these quantities.
+`solvers.newton(...)` supplies one public nonlinear policy for both SNES and
+affine-reduction paths; constraint implementation no longer changes the
+top-level solver language.
+
 Two-dimensional use is plane strain. Plane stress needs a local
 out-of-plane-stretch solve and is deliberately rejected by the convenience
 step rather than approximated silently.

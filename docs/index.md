@@ -7,6 +7,8 @@ Start with:
 
 - the [product roadmap](product_roadmap.md) for priorities and maturity gates;
 - [nonlinear materials](nonlinear_materials.md) for current constitutive scope;
+- [nonlinear solid architecture](nonlinear_solid_architecture.md) for the P1
+  public API, state contract, verification ladder, and explicit non-goals;
 - [results and campaigns](results_and_campaigns.md) for simulation-to-data
   workflows;
 - [stable steps and compact output](step_and_output_architecture.md) for the

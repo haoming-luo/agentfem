@@ -40,6 +40,11 @@ PAGES = [
         SITE_DIR / "nonlinear-materials.html",
     ),
     Page(
+        "Nonlinear Solid Architecture",
+        ROOT / "docs" / "nonlinear_solid_architecture.md",
+        SITE_DIR / "nonlinear-solid-architecture.html",
+    ),
+    Page(
         "Results and Campaigns",
         ROOT / "docs" / "results_and_campaigns.md",
         SITE_DIR / "results-and-campaigns.html",

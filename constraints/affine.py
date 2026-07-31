@@ -221,6 +221,16 @@ class AbaqusPeriodicConstraint:
             raise ValueError("Periodic control nodes define a degenerate lattice cell.")
         return volume
 
+    def deformation_gradient_at(self, load_factor: float) -> np.ndarray:
+        """Return the macroscopic deformation gradient at a step load factor."""
+
+        if not np.isfinite(load_factor) or load_factor < 0.0:
+            raise ValueError("load_factor must be finite and non-negative.")
+        identity = np.eye(self.deformation_gradient.shape[0])
+        return identity + float(load_factor) * (
+            self.deformation_gradient - identity
+        )
+
     def reduction(self, load_factor: float = 1.0) -> AffineReduction:
         """Build the exact affine reduction for one load factor."""
 
@@ -255,9 +265,7 @@ class AbaqusPeriodicConstraint:
                 )
             relations[slave] = dependency
 
-        F = np.eye(block_size) + float(load_factor) * (
-            self.deformation_gradient - np.eye(block_size)
-        )
+        F = self.deformation_gradient_at(load_factor)
         prescribed: dict[int, float] = {}
         for label in self.control_nodes:
             coordinate = self.nodes.coordinate(label)[:block_size]

@@ -21,6 +21,7 @@
 <a class="" href="examples.html">Examples</a>
 <a class="" href="product-roadmap.html">Product Roadmap</a>
 <a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
@@ -45,7 +46,7 @@
 <p>AgentFEM depends on the FEniCSx/DOLFINx stack. For the MVP release, use conda-forge unless you already maintain a compatible MPI/PETSc/DOLFINx build.</p>
 <h2 id="recommended-environment">Recommended Environment</h2>
 <pre><code>mamba create -n agentfem-env -c conda-forge \
-  python=3.11 fenics-dolfinx=0.11 gmsh mpi4py petsc4py \
+  python=3.11 fenics-dolfinx=0.11 dolfinx_mpc=0.11 gmsh mpi4py petsc4py \
   meshio matplotlib jupyterlab ipykernel
 mamba activate agentfem-env</code></pre>
 <p>Then install AgentFEM from the repository root:</p>
@@ -61,10 +62,16 @@ mamba activate agentfem-env</code></pre>
 Static elasticity result: .../examples_output/static_elasticity_2d.xdmf</code></pre>
 <p>For a two-rank smoke test:</p>
 <pre><code>mpiexec -n 2 python examples/static_elasticity_2d.py</code></pre>
+<p>The Abaqus <code>*EQUATION</code> periodic-cell example also supports within-case MPI:</p>
+<pre><code>mpiexec -n 2 python \
+  examples/abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py \
+  --stretch 1.05</code></pre>
+<p>This path requires <code>dolfinx_mpc</code> with the same minor version as DOLFINx.</p>
 <p>The launcher and <code>mpi4py</code> must come from the same MPI implementation. On macOS, Homebrew Open MPI can appear before a conda MPICH launcher on <code>PATH</code>; check <code>which mpiexec</code> and use the environment&#x27;s <code>bin/mpiexec</code> when they differ.</p>
 <h2 id="optional-tools">Optional Tools</h2>
 <ul>
 <li><code>meshio</code>: external CAE mesh conversion, including Abaqus <code>.inp</code> and NASTRAN<br><code>.bdf/.nas</code> formats where supported by meshio.</li>
+<li><code>dolfinx_mpc</code>: distributed multi-point constraints for Abaqus <code>*EQUATION</code><br>and periodic-cell workflows.</li>
 <li><code>mkdocs</code>, <code>mkdocs-material</code>, <code>pymdown-extensions</code>: documentation site.</li>
 <li><code>jupyterlab</code>, <code>ipykernel</code>: notebook workflows.</li>
 </ul>

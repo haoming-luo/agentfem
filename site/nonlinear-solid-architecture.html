@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nonlinear Solid Architecture - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
+      <div class="tagline">AI-assisted finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="active" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="licensing.html">Licensing</a>
+<a class="" href="publishing.html">Publishing</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="nonlinear-solid-mechanics-architecture">Nonlinear Solid Mechanics Architecture</h1>
+<p>This document defines the P1 boundary for turning AgentFEM into a credible laboratory-scale nonlinear solid-mechanics platform. It separates executable capability from planned extension seams so that a useful API is not confused with unverified solver breadth.</p>
+<h2 id="public-analysis-language">Public analysis language</h2>
+<p>A standard finite-deformation analysis should expose engineering decisions, not weak-form or backend plumbing:</p>
+<pre><code>output = results.output_plan(
+    directory,
+    field=results.field_output(&quot;U&quot;, &quot;S&quot;, &quot;E&quot;, &quot;J&quot;, every=&quot;increment&quot;),
+    requests=(
+        results.solver_history(),
+        results.finite_strain_checks(),
+    ),
+)
+
+step = model.step(
+    target=u,
+    material=material,
+    constraints=constraints,
+    incrementation=steps.automatic(
+        initial=0.1,
+        minimum=1.0e-5,
+        maximum=0.25,
+        max_increments=100,
+    ),
+    solver_options=solvers.newton(
+        relative_tolerance=1.0e-8,
+        maximum_iterations=25,
+        linear_solver=solvers.direct_solver(),
+    ),
+    output=output,
+)
+result = output.finalize(
+    model=model,
+    step=step,
+    result=step.solve_result(),
+    target=u,
+    material=material,
+)</code></pre>
+<p>The <code>Study</code> and registered material choose a step provider. The public model does not gain one step method per constitutive law. UFL remains the internal formulation language and an expert escape hatch, but ordinary model scripts use standard kinematics, materials, constraints, loads, step controls, and result requests.</p>
+<h2 id="implemented-reusable-assets">Implemented reusable assets</h2>
+<ul>
+<li><code>constitutive.kinematics(u)</code> provides standard total-Lagrangian <code>F</code>, <code>C</code>,<br><code>J</code>, and Green--Lagrange strain.</li>
+<li><code>solvers.newton(...)</code> is one backend-neutral Newton policy. AgentFEM adapts<br>it to PETSc SNES or exact affine-reduction algebra.</li>
+<li><code>steps.automatic(...)</code> owns increment growth, cutback, termination limits,<br>and rollback of the current global displacement.</li>
+<li><code>results.output_plan(...)</code> separates field frames, histories, diagnostics,<br>presentation, model IR, and the result manifest.</li>
+<li>periodic-cell history requests integrate complete macro stress and strain<br>tensors over every saved state; they are not hard-coded to one component.</li>
+<li>finite-strain checks report average <code>F</code>, average and quadrature bounds of<br><code>J</code>, maximum displacement, and optional periodic-equation mismatch.</li>
+</ul>
+<p>The current Neo-Hookean path is stateless. Rolling back its displacement is therefore sufficient. That fact must not be generalized to plasticity or creep.</p>
+<h2 id="required-state-contract-for-plasticity-and-creep">Required state contract for plasticity and creep</h2>
+<p>Path-dependent integration must add an explicit quadrature-state subsystem before a material is advertised as FEM-integrated:</p>
+<pre><code>StateLayout
+  names, tensor shapes, units, quadrature rule, schema version
+
+MaterialPointBatch
+  committed state at the start of an increment
+  trial state associated with the current Newton iterate
+
+ConstitutiveUpdate
+  inputs: strain/deformation increment, time increment, temperature
+  outputs: stress, algorithmic tangent, trial state, local diagnostics
+
+StateTransaction
+  begin_increment()
+  update_trial()
+  commit()      only after global equilibrium converges
+  rollback()    after failed Newton attempt or cutback</code></pre>
+<p>The state is owned per integration point and material region, not as one Python object per cell and not as a global material singleton. A global step must never mutate committed state during a rejected Newton iterate. Checkpoint and restart serialize the <code>StateLayout</code>, committed arrays, mesh/material identity, step time/load, and schema version together.</p>
+<p>This mirrors the old/current state distinction required by mature stateful material systems; see the <a href="https://mooseframework.inl.gov/releases/moose/2022-06-10/syntax/Materials/index.html">MOOSE stateful material property contract</a>.</p>
+<p>This contract is the common infrastructure for small-strain J2 plasticity, creep, damage, and restricted UMAT-style adapters. It is more important than adding another catalog of local material formulas.</p>
+<h2 id="nonlinear-control-layers">Nonlinear control layers</h2>
+<p>Three control levels remain distinct:</p>
+<ol>
+<li><strong>Step control</strong> advances load or time, accepts/cuts back increments, and<br>owns termination limits.</li>
+<li><strong>Global equilibrium</strong> uses Newton iterations and a line search; the linear<br>solver is a nested policy.</li>
+<li><strong>Local constitutive integration</strong> may use its own iterations and error<br>estimate at each quadrature point.</li>
+</ol>
+<p>A local material failure must be reported with material, region, cell, quadrature point, and reason. The global controller may cut back the increment, but it must not turn a local integration failure into NaNs or silently accept an elastic substitute.</p>
+<p>Future load control belongs beside displacement control at the step level. Reaction recovery, arc-length methods, and contact each require separate verified formulations; they are not flags on the current affine solver. Automatic increment growth and cutback follow the same high-level separation used by <a href="https://docs.software.vt.edu/abaqusv2024/English/SIMACAECAERefMap/simacae-t-simconfigurestatic.htm">Abaqus/Standard static procedures</a>, without claiming equivalence of the detailed controller.</p>
+<h2 id="output-contracts">Output contracts</h2>
+<p>The result system distinguishes:</p>
+<ul>
+<li><strong>field output</strong>: distributed values over saved frames;</li>
+<li><strong>history output</strong>: selected values evolving over load/time;</li>
+<li><strong>diagnostics</strong>: convergence and physical admissibility evidence;</li>
+<li><strong>presentation</strong>: replaceable PNG/GIF/MP4 products;</li>
+<li><strong>scientific manifest</strong>: model, solver, histories, quantities, and artifacts.</li>
+</ul>
+<p><code>E</code> follows the finite-strain convention and resolves to logarithmic strain <code>LE</code>; <code>GREEN</code> requests Green--Lagrange strain explicitly. Visualization fields may be cell samples. Authoritative RVE histories use variational integration from the governing expressions and full-cell normalization.</p>
+<p>The field/history distinction follows established CAE result semantics: <a href="https://docs.software.vt.edu/abaqusv2025/English/SIMACAECAERefMap/simacae-c-simconcfieldhistory.htm">Abaqus field and history output</a> describes fields as spatial distributions saved at relatively few states and histories as frequent output from selected regions.</p>
+<p>Reaction force, internal/external work, and energy-balance histories are the next general output gates. They must be derived consistently with strong, weak, affine-MPC, and future contact constraints rather than inferred from a particular example.</p>
+<h2 id="verification-ladder">Verification ladder</h2>
+<p>Each new nonlinear family advances only with evidence:</p>
+<ol>
+<li>analytical material-point tests and invalid-state tests;</li>
+<li>one-element paths under multiple loading modes;</li>
+<li>tangent verification by directional finite differences;</li>
+<li>increment-size and mesh convergence;</li>
+<li>rollback/cutback and restart equivalence;</li>
+<li>an external benchmark with stated tolerances;</li>
+<li>serial/MPI agreement and result-schema checks;</li>
+<li>a readable public example and documented unsupported cases.</li>
+</ol>
+<p>The first integrated path after Neo-Hookean should be small-strain J2 isotropic hardening because its local update already exists and its consistent tangent, one-element paths, and external references can be bounded. Global implicit creep should then reuse the same state transaction and restart machinery.</p>
+<h2 id="explicit-non-goals-for-p1">Explicit non-goals for P1</h2>
+<ul>
+<li>no claim of general contact, arbitrary multi-physics, or finite-strain<br>plasticity;</li>
+<li>no generic Abaqus deck execution;</li>
+<li>no UMAT compatibility before state, tangent, tensor-convention, and ABI<br>gates exist;</li>
+<li>no constitutive name promoted from material-point maturity merely because a<br>Python formula is present.</li>
+</ul>
+<p>P1 succeeds when supported nonlinear solid analyses are easy to state, difficult to misuse silently, inspectable during execution, and accompanied by numerical evidence that survives refactoring and parallel execution.</p>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

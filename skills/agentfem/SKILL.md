@@ -45,10 +45,11 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   `model.external_force(...)`, and `operators.combine(...)` when an example
   must expose individual contributions.
 - For nonlinear paths, use `steps.automatic(...)` as the normal step control.
-  Treat `max_increments` as an accepted-increment ceiling and solver `max_it`
-  as the Newton-iteration ceiling for one attempt. Use
-  `results.field_output(..., every="increment")` or `intervals=...` for output;
-  do not use result frames as solve controls.
+  Treat `max_increments` as an accepted-increment ceiling and solver
+  `maximum_iterations` as the Newton-iteration ceiling for one attempt. Prefer
+  `solvers.newton(...)` over backend-specific solver classes. Use
+  `results.output_plan(...)` to combine field, history, diagnostic, and
+  presentation requests; do not use result frames as solve controls.
 - Keep operator notation such as `K = operators.stiffness(...)`,
   `F = operators.load_vector(...)`, and
   `step = problems.linear_static(K, F, study=..., ...)` available for
@@ -76,8 +77,9 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   parallel ownership rather than silently weakening periodicity.
 - For finite-deformation periodic cells, report the macro deformation
   gradient, every load increment's convergence, equation mismatch, sampled
-  `det(F)` bounds, and deformed geometry at scale one. State explicitly when a
-  user material or user MPC is unavailable and has been substituted.
+  `det(F)` bounds, complete homogenized tensor histories, and deformed geometry
+  at scale one. State explicitly when a user material or user MPC is
+  unavailable and has been substituted.
 - Prefer the unified XDMF/HDF5 backend for finite-strain time series. Verify
   shared topology, retained reference coordinates, deformed geometry, time
   values, and all point/cell attributes. Use PVD only for a consumer that

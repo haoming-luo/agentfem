@@ -21,6 +21,7 @@
 <a class="" href="examples.html">Examples</a>
 <a class="" href="product-roadmap.html">Product Roadmap</a>
 <a class="active" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
@@ -56,6 +57,7 @@
 <pre><code>F = I + grad(u)
 psi = mu/2 (tr(F^T F) - d) - mu ln(J) + lambda/2 ln(J)^2</code></pre>
 <p>and solves the first variation of total potential. Ordinary Dirichlet problems use PETSc SNES. Abaqus periodic equations use exact affine reduction and an incremental reduced Newton path. In both cases the tangent is differentiated from the same residual. This follows the same compressible Neo-Hookean energy and automatic differentiation structure as the <a href="https://docs.fenicsproject.org/dolfinx/main/cpp/demos/demo_hyperelasticity.html">official DOLFINx hyperelasticity demo</a>.</p>
+<p><code>constitutive.kinematics(u)</code> exposes the standard <code>F</code>, <code>C</code>, <code>J</code>, and Green--Lagrange measures to reusable internals and expert workflows. Ordinary model scripts do not need to import UFL for these quantities. <code>solvers.newton(...)</code> supplies one public nonlinear policy for both SNES and affine-reduction paths; constraint implementation no longer changes the top-level solver language.</p>
 <p>Two-dimensional use is plane strain. Plane stress needs a local out-of-plane-stretch solve and is deliberately rejected by the convenience step rather than approximated silently.</p>
 <p>The 3D Abaqus periodic-cell example additionally verifies quadratic tetrahedral geometry, macro-deformation control, equation mismatch, averaged stress, and quadrature-point <code>det(F)</code> bounds. It substitutes Neo-Hookean behavior for the unavailable Abaqus user material and does not claim constitutive equivalence.</p>
 <h2 id="j2-plasticity">J2 Plasticity</h2>

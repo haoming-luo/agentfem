@@ -21,6 +21,7 @@
 <a class="" href="examples.html">Examples</a>
 <a class="" href="product-roadmap.html">Product Roadmap</a>
 <a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="active" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
@@ -88,9 +89,13 @@ step = model.step(
 <pre><code>step = model.step(
     ...,
     incrementation=steps.automatic(max_increments=100),
-    solver_options=AffineNewtonOptions(max_it=25),
+    solver_options=solvers.newton(
+        maximum_iterations=25,
+        linear_solver=solvers.direct_solver(),
+    ),
 )</code></pre>
 <p>Thus <code>max_increments</code> limits accepted load/time advances, whereas <code>max_it</code> limits Newton iterations in one attempt.</p>
+<p><code>solvers.newton(...)</code> is independent of the constraint implementation. AgentFEM translates the same public policy to PETSc SNES for ordinary boundary conditions or to exact affine-reduction algebra for periodic equations. Backend-specific classes remain available for expert tuning but are not the standard model language.</p>
 <h2 id="output-requests-do-not-control-the-nonlinear-algorithm">Output requests do not control the nonlinear algorithm</h2>
 <p>Saving every accepted increment follows the Abaqus/Standard convention:</p>
 <pre><code>output = results.field_output(&quot;U&quot;, &quot;S&quot;, &quot;E&quot;, every=&quot;increment&quot;)</code></pre>
@@ -117,8 +122,8 @@ results.h5     compressed numerical payload</code></pre>
 <li>avoid one VTU file per frame and avoid a manual Warp filter.</li>
 </ul>
 <p>XDMF and HDF5 are one logical dataset. Putting the heavy arrays inline in XML would create a much larger, slower text file without improving scientific meaning. PVD/VTU remains an optional compatibility backend, not the default.</p>
-<p>The current compact writer is serial. Parallel collective HDF5 requires an explicit data-ownership and global-numbering design; silently gathering a large distributed simulation to rank zero is not an acceptable production solution.</p>
-<p>The current exact importer for arbitrary chained Abaqus <code>*EQUATION</code> constraints is also serial. Ordinary DOLFINx problems, diagnostics, and progress reporting are MPI-aware, but launching this periodic-cell example on several ranks would only duplicate a serial job. A production distributed MPC backend must map source labels to distributed global dofs, assemble constrained operators collectively, back-substitute ghost values, and pass serial/MPI parity tests. <code>dolfinx_mpc</code> is the intended first backend candidate; it is an optional compiled dependency and is not silently emulated when unavailable.</p>
+<p>The directly deformed compact writer is serial. Under MPI, AgentFEM delegates the scientific field history to DOLFINx&#x27;s collective XDMF/HDF5 writer rather than gathering a large distributed mesh to rank zero. That MPI product retains the reference mesh, <code>U</code>, and requested cell fields; direct <code>x+u</code> presentation is rendered later as a serial postprocess.</p>
+<p>Arbitrary chained Abaqus <code>*EQUATION</code> constraints have a distributed <code>dolfinx_mpc</code> backend. It resolves the source equation graph before mapping labels to global dofs, explicitly supplies relations for owned and ghost slaves, assembles constrained operators collectively, and back-substitutes Newton corrections. The dependency is optional, compiled, version-matched to DOLFINx, and never silently emulated when unavailable.</p>
 <h2 id="result-roles-remain-distinct">Result roles remain distinct</h2>
 <ul>
 <li>A field series answers “where is a quantity distributed?”</li>
@@ -126,6 +131,19 @@ results.h5     compressed numerical payload</code></pre>
 <li>A QoI answers “what value enters a report, decision, campaign, or dataset?”</li>
 </ul>
 <p>The unified XDMF does not replace exact homogenized histories or training tables. Visualization fields may be projected to cell centers, whereas the periodic-cell NPZ/CSV response is integrated from the governing UFL expressions. Consumers should not reconstruct authoritative macro response by re-averaging a visualization field.</p>
+<p>The complete declaration can collect these distinct roles:</p>
+<pre><code>output = results.output_plan(
+    output_directory,
+    field=results.field_output(&quot;U&quot;, &quot;S&quot;, &quot;E&quot;, &quot;J&quot;, every=&quot;increment&quot;),
+    requests=(
+        results.solver_history(),
+        results.periodic_cell_history(periodicity),
+        results.source_node_history(nodes, RIGHT=7, TOP=9),
+        results.finite_strain_checks(constraint=periodicity),
+    ),
+    presentation=results.presentation(animation=&quot;gif&quot;),
+)</code></pre>
+<p>The plan is passed into <code>model.step(...)</code> so exact output marks constrain only where the nonlinear path must land. After the solve, <code>finalize(...)</code> writes fields, evaluates histories and diagnostics, attaches artifacts, and writes the model record and result manifest. A case-specific response plot remains in the case directory rather than becoming a misleading general result function.</p>
 <h2 id="implemented-adjacent-foundations">Implemented adjacent foundations</h2>
 <ul>
 <li>automatic affine finite-strain increments with convergence-based growth,<br>rollback, cutback, accepted/attempt histories, and <code>.sta</code> reporting;</li>
@@ -137,7 +155,7 @@ results.h5     compressed numerical payload</code></pre>
 <p>These additions are intentionally reusable. They do not turn material-point creep into a global creep solver or scalar S-N fatigue into a general multiaxial damage model.</p>
 <h2 id="next-gates">Next gates</h2>
 <ol>
-<li>Test compact XDMF on MPI with a collective topology/geometry ownership<br>contract before advertising parallel output.</li>
+<li>Extend collective MPI output from reference-configuration scientific fields<br>to an ownership-safe directly deformed geometry product.</li>
 <li>Add named point, region, reaction, and energy history extractors.</li>
 <li>Introduce restartable quadrature state with trial/commit/rollback.</li>
 <li>Integrate J2 only with a consistent tangent, cutback, and one-element path<br>benchmarks.</li>
