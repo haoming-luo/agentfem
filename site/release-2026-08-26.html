@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>26 August 2026 Release Gate - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
+      <div class="tagline">AI-assisted finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
+<a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
+<a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="licensing.html">Licensing</a>
+<a class="" href="publishing.html">Publishing</a>
+<a class="active" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="26-august-2026-first-release-gate">26 August 2026 First-Release Gate</h1>
+<p>This page is a release contract, not a feature wish list. A checked box means the capability has executable evidence at its stated maturity. It does not promote a material-point formula to a finite-element solver.</p>
+<h2 id="release-facing-workflows">Release-facing workflows</h2>
+<table>
+<thead><tr><th>Story</th><th>Existing release asset</th><th>Gate</th></tr></thead>
+<tbody>
+<tr><td>Readable first FEM program</td><td><code>examples/static_elasticity_2d.py</code></td><td>serial and two-rank CI smoke</td></tr>
+<tr><td>Transient heat transfer</td><td><code>examples/transient_heat_2d.py</code></td><td>implicit time integration, structured progress, XDMF</td></tr>
+<tr><td>Acoustic inclusion</td><td><code>examples/wave_packet_inclusion_2d.py</code></td><td>inclusion, periodic projection, source amplitude, absorbing boundary</td></tr>
+<tr><td>Large-deformation porous cell</td><td><code>examples/abaqus_c3d10_periodic_cell/</code></td><td>C3D10 import, equations, Neo-Hookean path, homogenized/deformed output</td></tr>
+<tr><td>High-temperature creep route</td><td><code>examples/creep_hot_wall_assessment.py</code></td><td>thermoelastic FEM plus explicitly local K-R/modified-theta assessment</td></tr>
+<tr><td>Simulation to learning</td><td><code>examples/static_elasticity_surrogate_campaign.py</code></td><td>campaign, dataset, validation, domain guard, FEM fallback</td></tr>
+</tbody>
+</table>
+<p>The first four simulation examples already existed before this release pass. They are curated and gated rather than duplicated under new names.</p>
+<h2 id="mandatory-engineering-gates">Mandatory engineering gates</h2>
+<ul>
+<li>A clean wheel and source distribution build.</li>
+<li>Wheel contents include scientific knowledge and material data assets.</li>
+<li><code>pyproject.toml</code>, <code>agentfem.__version__</code>, and the Git tag agree.</li>
+<li>Full serial tests and the distributed affine/MPC regression pass.</li>
+<li>The installed wheel, rather than only an editable checkout, runs release<br>smoke examples.</li>
+<li>Generated scientific cards/catalogs are current and their API references<br>import in the FEniCSx environment.</li>
+<li>Every advertised nonlinear/time-dependent material reports its actual<br>maturity and limitations through <code>constitutive.capabilities()</code>.</li>
+</ul>
+<h2 id="explicitly-not-release-claims">Explicitly not release claims</h2>
+<ul>
+<li>Global adaptive finite-element creep and creep damage.</li>
+<li>Mesh-objective localized damage or creep crack growth.</li>
+<li>Portable MPI restart for quadrature material state.</li>
+<li>General UMAT/UHYPER binary compatibility.</li>
+<li>Arbitrary-mesh automatic FNO/PINN training.</li>
+<li>Industrial code compliance or validated material constants in the hot-wall<br>demonstration.</li>
+</ul>
+<p>These exclusions protect the credibility of what is implemented. They are the evidence plan for the next release, not fine print hidden from users.</p>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

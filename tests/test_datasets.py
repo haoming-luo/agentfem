@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from mpi4py import MPI
 
-from agentfem import campaigns, datasets
+from agentfem import campaigns, datasets, fields, mesh, surrogates
 
 
 def _dataset():
@@ -123,3 +124,42 @@ def test_dataset_split_is_reproducible_and_nonempty():
     ]
     assert len(first.train.samples) == 8
     assert len(first.validation.samples) == 2
+
+
+def test_fem_field_sample_preserves_coordinates_values_and_encoding(tmp_path):
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.5),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    temperature = fields.temperature(domain)
+    temperature.value.interpolate(lambda x: 300.0 + 10.0 * x[0])
+    encoding = surrogates.FieldEncoding(
+        name="temperature",
+        role="output",
+        unit="K",
+        representation="mesh_dofs",
+    )
+
+    sample = datasets.fem_field_sample(temperature, encoding)
+    path = sample.write(tmp_path / "temperature_field.npz")
+
+    assert sample.coordinates.shape[0] == sample.values.shape[0]
+    assert sample.encoding["unit"] == "K"
+    assert sample.metadata["source"] == "dolfinx_owned_coefficients"
+    with np.load(path, allow_pickle=False) as saved:
+        np.testing.assert_allclose(saved["values"], sample.values)
+        assert "temperature" in str(saved["encoding_json"])
+
+
+def test_scientific_dataset_has_optional_pytorch_bridge():
+    torch = pytest.importorskip("torch")
+    bundle = datasets.to_torch(_dataset())
+    features, targets = next(iter(bundle.loader(batch_size=2, shuffle=False)))
+
+    assert isinstance(features, torch.Tensor)
+    assert features.shape == (2, 3)
+    assert targets.shape == (2, 4)
+    assert bundle.output_names == ("qoi", "field")

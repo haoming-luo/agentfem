@@ -36,6 +36,7 @@
 <a class="" href="validation.html">Validation</a>
 <a class="" href="licensing.html">Licensing</a>
 <a class="" href="publishing.html">Publishing</a>
+<a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
 <a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
 <a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
@@ -51,6 +52,7 @@
 <table>
 <thead><tr><th>Stable ID</th><th>Title</th><th>Kind</th><th>Status</th></tr></thead>
 <tbody>
+<tr><td><a href="#agentfem-material-creep_damage_assessment"><code>agentfem.material.creep_damage_assessment</code></a></td><td>Creep damage and modified-theta assessment</td><td>material</td><td>supported</td></tr>
 <tr><td><a href="#agentfem-material-j2_global_plasticity"><code>agentfem.material.j2_global_plasticity</code></a></td><td>Global small-strain J2 plasticity</td><td>material</td><td>supported</td></tr>
 <tr><td><a href="#agentfem-workflow-solution_procedures"><code>agentfem.workflow.solution_procedures</code></a></td><td>Solution procedure vocabulary</td><td>analysis_step</td><td>supported</td></tr>
 <tr><td><a href="#agentfem-workflow-thermoelastic_analysis"><code>agentfem.workflow.thermoelastic_analysis</code></a></td><td>Sequential thermoelastic analysis</td><td>workflow</td><td>supported</td></tr>
@@ -61,13 +63,100 @@
 <thead><tr><th>Stable ID</th><th>Title</th><th>Physics</th><th>Status</th></tr></thead>
 <tbody>
 <tr><td><code>agentfem.benchmark.campaign_surrogate_pipeline</code></td><td>Static-elasticity campaign to guarded surrogate pipeline</td><td>parameterized small-strain isotropic linear elasticity</td><td>executable_integration</td></tr>
-<tr><td><code>agentfem.benchmark.j2_global_restart</code></td><td>Three-dimensional J2 patch and restart equivalence</td><td>three-dimensional small-strain Mises plasticity with linear isotropic hardening</td><td>automated_regression</td></tr>
+<tr><td><code>agentfem.benchmark.creep_damage_material_paths</code></td><td>Creep-damage material paths and curve projection</td><td>Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection</td><td>automated_regression</td></tr>
+<tr><td><code>agentfem.benchmark.j2_global_restart</code></td><td>Three-dimensional J2 path, displacement control, and restart equivalence</td><td>three-dimensional small-strain Mises plasticity with linear isotropic hardening</td><td>automated_regression</td></tr>
 <tr><td><code>agentfem.benchmark.linear_static_cantilever</code></td><td>Two-dimensional linear-static cantilever</td><td>small-strain isotropic linear elasticity in plane strain</td><td>executable_smoke</td></tr>
 <tr><td><code>agentfem.benchmark.thermoelastic_free_expansion</code></td><td>Plane-stress isotropic free thermal expansion</td><td>small-strain isotropic plane-stress thermoelasticity under uniform temperature change</td><td>automated_regression</td></tr>
 </tbody>
 </table>
+<h2 id="creep-damage-and-modified-theta-assessment">Creep damage and modified-theta assessment</h2>
+<p><strong>Stable ID:</strong> <code>agentfem.material.creep_damage_assessment</code>&lt;br&gt; <strong>Kind:</strong> <code>material</code>&lt;br&gt; <strong>Status:</strong> <code>supported</code>&lt;br&gt; <strong>Source card:</strong> <code>knowledge/cards/creep_damage_assessment.json</code></p>
+<p>Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, with an explicit boundary before global finite-element creep.</p>
+<h3 id="public-api">Public API</h3>
+<ul>
+<li><code>agentfem.constitutive.KachanovRabotnovCreep</code></li>
+<li><code>agentfem.constitutive.CreepDamageState</code></li>
+<li><code>agentfem.constitutive.SinhCreep</code></li>
+<li><code>agentfem.constitutive.ModifiedThetaProjection</code></li>
+</ul>
+<h3 id="scientific-contract">Scientific contract</h3>
+<p>K-R couples effective-stress creep flow to a scalar loss-of-integrity variable; the exact constant-stress update supplies a time-subdivision-independent reference, while modified theta represents a measured creep curve rather than a global equilibrium law.</p>
+<p><strong>K-R creep rate</strong></p>
+<p>$$ epsilon_dot = A (q / sigma_ref)^n / (1 - omega)^n $$</p>
+<p>Damage accelerates the equivalent creep rate through effective stress.</p>
+<p><strong>K-R damage rate</strong></p>
+<p>$$ omega_dot = B (q / sigma_ref)^m / (1 - omega)^phi $$</p>
+<p>The scalar damage state grows from zero toward a declared failure threshold.</p>
+<p><strong>modified theta projection</strong></p>
+<p>$$ epsilon = epsilon_0 + A1(1-exp(-alpha t)) + B1(exp(alpha t)-1) $$</p>
+<p>Primary and tertiary terms project a creep strain-time curve.</p>
+<h4 id="inputs">Inputs</h4>
+<table>
+<thead><tr><th>Name</th><th>Type</th><th>Unit role</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>stress and duration</td><td>scalar equivalent stress or symmetric 3x3 stress plus time interval</td><td>declared reference stress and time system</td><td>A piecewise-constant interval for the exact local K-R update.</td></tr>
+<tr><td>calibrated parameters</td><td>rate coefficients, stress exponents, damage power and failure criterion</td><td>normalized by reference stress and reference time</td><td>Material- and temperature-specific parameters require provenance.</td></tr>
+<tr><td>creep test curve</td><td>strictly increasing time and finite strain arrays</td><td>consistent time and strain</td><td>Data used by the modified-theta projection.</td></tr>
+</tbody>
+</table>
+<h4 id="outputs">Outputs</h4>
+<table>
+<thead><tr><th>Name</th><th>Type</th><th>Unit role</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>creep state</td><td>equivalent/tensor creep strain and scalar damage</td><td>strain and dimensionless damage</td><td>Accepted material-point state and increments.</td></tr>
+<tr><td>rupture screening time</td><td>scalar</td><td>time</td><td>Constant-stress time to the declared damage threshold.</td></tr>
+<tr><td>projected curve</td><td>strain and strain-rate functions</td><td>strain and strain per time</td><td>Modified-theta fit with recorded RMSE.</td></tr>
+</tbody>
+</table>
+<h4 id="assumptions">Assumptions</h4>
+<ul>
+<li>Small-strain associative Mises creep for tensor increments.</li>
+<li>Piecewise-constant stress over each exact K-R material interval.</li>
+<li>Scalar isotropic damage and a material-specific declared failure threshold.</li>
+</ul>
+<h4 id="conventions">Conventions</h4>
+<ul>
+<li>Damage is zero for intact material and approaches but never numerically reaches one.</li>
+<li>The first multiaxial implementation drives damage with von Mises stress.</li>
+<li>Modified theta is classified as a curve assessment, not an FE constitutive update.</li>
+</ul>
+<h4 id="applicability">Applicability</h4>
+<ul>
+<li>Material calibration checks and constant-stress creep screening.</li>
+<li>Sequential thermoelastic-to-creep hotspot workflows with explicit scope labels.</li>
+<li>Reference updates for a future global quadrature creep driver.</li>
+</ul>
+<h4 id="limitations">Limitations</h4>
+<ul>
+<li>No global creep equilibrium, adaptive time stepping, temperature field interpolation, or restartable quadrature state yet.</li>
+<li>Local softening/damage is not mesh regularized.</li>
+<li>No Liu-Murakami multiaxial damage law is claimed in this release.</li>
+</ul>
+<h3 id="minimal-example">Minimal example</h3>
+<pre><code>Create KachanovRabotnovCreep with traceable parameters, advance CreepDamageState over stress intervals, and store strain/damage histories in SimulationResult.</code></pre>
+<h3 id="verification">Verification</h3>
+<p><strong>Tests</strong></p>
+<ul>
+<li><code>tests/test_constitutive_models.py</code></li>
+</ul>
+<p><strong>Benchmarks</strong></p>
+<ul>
+<li><code>agentfem.benchmark.creep_damage_material_paths</code></li>
+</ul>
+<p><strong>Validation rules</strong></p>
+<ul>
+<li>Reject nonfinite parameters, invalid reference scales, and damage outside [0, 1).</li>
+<li>Clamp a failed update at the declared failure damage and report failed=True.</li>
+<li>Do not promote the capability beyond material-point maturity without a global state consumer.</li>
+</ul>
+<h3 id="references">References</h3>
+<ul>
+<li>Constitutive equations for creep rupture: <code>doi:10.1016/0001-6160(77)90135-3</code></li>
+<li>Damage localization of conventional creep damage models and proposition of a new model: <code>doi:10.1299/jsmea.41.57</code></li>
+<li>Modified theta projection equation for high-temperature creep curves: <code>https://pmc.ncbi.nlm.nih.gov/articles/PMC6838921/</code></li>
+</ul>
 <h2 id="global-small-strain-j2-plasticity">Global small-strain J2 plasticity</h2>
-<p><strong>Stable ID:</strong> <code>agentfem.material.j2_global_plasticity</code> <strong>Kind:</strong> <code>material</code> <strong>Status:</strong> <code>supported</code> <strong>Source card:</strong> <code>knowledge/cards/j2_global_plasticity.json</code></p>
+<p><strong>Stable ID:</strong> <code>agentfem.material.j2_global_plasticity</code>&lt;br&gt; <strong>Kind:</strong> <code>material</code>&lt;br&gt; <strong>Status:</strong> <code>supported</code>&lt;br&gt; <strong>Source card:</strong> <code>knowledge/cards/j2_global_plasticity.json</code></p>
 <p>Three-dimensional Mises plasticity with linear isotropic hardening, Basix quadrature state, analytical algorithmic tangent, incremental Newton equilibrium, rollback, cutback, and serial restart.</p>
 <h3 id="public-api">Public API</h3>
 <ul>
@@ -107,7 +196,7 @@
 <ul>
 <li>Small strain and three spatial dimensions.</li>
 <li>Rate independence, associative Mises flow, and linear isotropic hardening.</li>
-<li>Natural loading with homogeneous, time-invariant strong supports in the first global provider.</li>
+<li>Natural loads and nonzero engineering Dirichlet targets share one proportional step factor in the first global provider.</li>
 </ul>
 <h4 id="conventions">Conventions</h4>
 <ul>
@@ -122,7 +211,7 @@
 </ul>
 <h4 id="limitations">Limitations</h4>
 <ul>
-<li>The first global provider is serial-only and has no prescribed-displacement load path, plane-stress local constraint, finite-strain plasticity, or multi-region driver.</li>
+<li>The first global provider is serial-only and has no arbitrary cyclic global amplitude path, plane-stress local constraint, finite-strain plasticity, or multi-region driver.</li>
 <li>No external NAFEMS benchmark has yet promoted this path to benchmark-verified maturity.</li>
 </ul>
 <h3 id="minimal-example">Minimal example</h3>
@@ -149,7 +238,7 @@
 <li>MOOSE radial return stress update: <code>https://mooseframework.inl.gov/moose/source/materials/RadialReturnStressUpdate.html</code></li>
 </ul>
 <h2 id="solution-procedure-vocabulary">Solution procedure vocabulary</h2>
-<p><strong>Stable ID:</strong> <code>agentfem.workflow.solution_procedures</code> <strong>Kind:</strong> <code>analysis_step</code> <strong>Status:</strong> <code>supported</code> <strong>Source card:</strong> <code>knowledge/cards/solution_procedures.json</code></p>
+<p><strong>Stable ID:</strong> <code>agentfem.workflow.solution_procedures</code>&lt;br&gt; <strong>Kind:</strong> <code>analysis_step</code>&lt;br&gt; <strong>Status:</strong> <code>supported</code>&lt;br&gt; <strong>Source card:</strong> <code>knowledge/cards/solution_procedures.json</code></p>
 <p>Separates physical analysis intent from Standard/Explicit selection, equation order, integration algorithm, state policy, and global-solve requirements.</p>
 <h3 id="public-api">Public API</h3>
 <ul>
@@ -228,7 +317,7 @@
 <li>Chung and Hulbert generalized-alpha method: <code>https://deepblue.lib.umich.edu/bitstream/handle/2027.42/50422/1640100803_ftp.pdf?isAllowed=y&amp;sequence=1</code></li>
 </ul>
 <h2 id="sequential-thermoelastic-analysis">Sequential thermoelastic analysis</h2>
-<p><strong>Stable ID:</strong> <code>agentfem.workflow.thermoelastic_analysis</code> <strong>Kind:</strong> <code>workflow</code> <strong>Status:</strong> <code>supported</code> <strong>Source card:</strong> <code>knowledge/cards/thermoelastic_analysis.json</code></p>
+<p><strong>Stable ID:</strong> <code>agentfem.workflow.thermoelastic_analysis</code>&lt;br&gt; <strong>Kind:</strong> <code>workflow</code>&lt;br&gt; <strong>Status:</strong> <code>supported</code>&lt;br&gt; <strong>Source card:</strong> <code>knowledge/cards/thermoelastic_analysis.json</code></p>
 <p>One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve.</p>
 <h3 id="public-api">Public API</h3>
 <ul>

@@ -36,6 +36,7 @@
 <a class="" href="validation.html">Validation</a>
 <a class="" href="licensing.html">Licensing</a>
 <a class="" href="publishing.html">Publishing</a>
+<a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
 <a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
 <a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
@@ -65,13 +66,13 @@
 <tr><td>Thermoelasticity</td><td>FEM-integrated</td><td>implicit-Euler heat transfer and sequential isotropic thermal stress in 2D/3D</td><td>no property tables or monolithic two-way coupling</td></tr>
 <tr><td>Structural dynamics</td><td>FEM-integrated foundation</td><td>central difference, Newmark, and generalized-alpha through one procedure vocabulary</td><td>implicit route is linear; moving supports and common OutputPlan remain</td></tr>
 <tr><td>Compressible Neo-Hookean</td><td>FEM-integrated</td><td>nonlinear static solve; 3D and 2D plane strain forms</td><td>one-material convenience step; no 2D plane stress local solve</td></tr>
-<tr><td>J2 plasticity</td><td>FEM-integrated foundation</td><td>3D quadrature state, analytical tangent, global Newton, cutback, serial restart</td><td>no plane stress, multi-region driver, MPI-portable restart, or external benchmark</td></tr>
-<tr><td>Power-law creep</td><td>material-point verified</td><td>constant-stress, relaxation, tensor increments, exact stress paths, normalized Arrhenius temperature dependence</td><td>no global adaptive creep step</td></tr>
+<tr><td>J2 plasticity</td><td>FEM-integrated foundation</td><td>3D quadrature state, analytical tangent, proportional force/displacement control, global Newton, cutback, serial restart</td><td>no arbitrary cyclic global path, plane stress, multi-region driver, MPI-portable restart, or external benchmark</td></tr>
+<tr><td>Creep and creep damage</td><td>material-point/assessment verified</td><td>power-law and Arrhenius paths; exact K-R damage coupling; Sinh flow; modified-theta fitting; hot-wall sequential assessment</td><td>no global adaptive quadrature creep step or damage regularization</td></tr>
 <tr><td>Stress-life fatigue</td><td>postprocessor</td><td>Basquin/tabulated S-N, rainflow, Goodman, Miner assessment from named result histories</td><td>no multiaxial critical-plane method</td></tr>
 <tr><td>External CAE mesh</td><td>integrated Abaqus path + conversion interface</td><td>generic meshio conversion; Abaqus node labels; verified C3D10 import; linear equation parsing</td><td>full solver-deck sections/material cards are not imported</td></tr>
 <tr><td>Abaqus periodic equations</td><td>serial + two-rank FEM-integrated</td><td>exact chained affine elimination, distributed <code>dolfinx_mpc</code>, and 3D Neo-Hookean load path</td><td>AMG near-nullspace transfer, reactions, and scaling studies remain</td></tr>
 <tr><td>Abaqus user-material bridge</td><td>interface contract</td><td>solver-neutral material-point input/output and migration specification</td><td>no compiled adapter or quadrature-state global driver</td></tr>
-<tr><td>Result/data flow</td><td>integrated foundation</td><td>declarative field/history/diagnostic/presentation plans; compact deformed XDMF/HDF5; complete RVE tensor histories; campaign/dataset bridge; serial J2 checkpoint</td><td>reactions, general point/region probes, common transient manifest, and portable MPI restart remain</td></tr>
+<tr><td>Result/data flow</td><td>integrated foundation</td><td>declarative field/history/diagnostic/presentation plans; compact deformed XDMF/HDF5; common transient progress/time histories; typed checkpoint records; campaign/PyTorch dataset bridge</td><td>general point/region probes, transient energy/checkpoint writers, and portable MPI restart remain</td></tr>
 </tbody>
 </table>
 <p>The same table is queryable in code through <code>constitutive.capabilities()</code> and <code>benchmarks.list_benchmarks()</code>.</p>
@@ -101,14 +102,14 @@
 <li>finish Neo-Hookean load-controlled and multi-region verification;</li>
 <li>harden the implemented stateless periodic-cell automatic incrementation with<br>forced-cutback regression cases and homogenized tangent checks; the serial<br>affine and distributed <code>dolfinx_mpc</code> paths already share one public Newton<br>policy and output contract;</li>
 <li>extend the implemented quadrature-state transaction and 3D J2 analytical<br>tangent path to multi-region ownership, forced-cutback tests, reactions,<br>output projection, and portable MPI checkpoint identity;</li>
-<li>extend the current deformation-controlled automatic path to general<br>displacement/load control;</li>
+<li>extend the implemented proportional displacement/load control to arbitrary<br>reviewed amplitudes and cyclic global paths;</li>
 <li>add reaction, internal/external work, and energy-balance histories with<br>verified strong, weak, and affine-MPC definitions;</li>
 <li>then add tabulated hardening, kinematic hardening, and finite-strain<br>plasticity only when driven by real applications.</li>
 </ul>
 <p>For Abaqus material migration, implement UHYPER energy adaptation before the more general UMAT path. UMAT requires quadrature state, trial/commit/rollback, tensor and rotation conventions, compiler/ABI handling, and a consistent tangent. Advance compatibility one restricted subroutine class at a time, gated by material-point, one-element, and load-path comparisons. The public AgentFEM model language should consume a neutral material-point protocol rather than depend on Abaqus interfaces directly.</p>
 <h3 id="p2-time-dependent-materials-and-life">P2: time-dependent materials and life</h3>
 <ul>
-<li>make the implemented Arrhenius power-law local model consume the J2<br>quadrature transaction in a global implicit creep step with adaptive time<br>increments and restartable state;</li>
+<li>make the implemented Arrhenius, K-R, and Sinh local models consume the J2<br>quadrature transaction in a global implicit creep step with adaptive time<br>increments and restartable state;</li>
 <li>treat sequential temperature-to-creep as the first useful power-component<br>route; add monolithic coupling only for cases with material heat generation<br>or meaningful mechanical feedback;</li>
 <li>creep/relaxation single-element verification followed by NAFEMS cases;</li>
 <li>named result histories feed an auditable fatigue assessment now; add<br>automatic stress extraction at named regions/points and fatigue fields;</li>

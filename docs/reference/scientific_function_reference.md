@@ -10,6 +10,7 @@ the compact machine-readable `knowledge/catalog.json`.
 
 | Stable ID | Title | Kind | Status |
 | --- | --- | --- | --- |
+| [`agentfem.material.creep_damage_assessment`](#agentfem-material-creep_damage_assessment) | Creep damage and modified-theta assessment | material | supported |
 | [`agentfem.material.j2_global_plasticity`](#agentfem-material-j2_global_plasticity) | Global small-strain J2 plasticity | material | supported |
 | [`agentfem.workflow.solution_procedures`](#agentfem-workflow-solution_procedures) | Solution procedure vocabulary | analysis_step | supported |
 | [`agentfem.workflow.thermoelastic_analysis`](#agentfem-workflow-thermoelastic_analysis) | Sequential thermoelastic analysis | workflow | supported |
@@ -19,15 +20,128 @@ the compact machine-readable `knowledge/catalog.json`.
 | Stable ID | Title | Physics | Status |
 | --- | --- | --- | --- |
 | `agentfem.benchmark.campaign_surrogate_pipeline` | Static-elasticity campaign to guarded surrogate pipeline | parameterized small-strain isotropic linear elasticity | executable_integration |
-| `agentfem.benchmark.j2_global_restart` | Three-dimensional J2 patch and restart equivalence | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_regression |
+| `agentfem.benchmark.creep_damage_material_paths` | Creep-damage material paths and curve projection | Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection | automated_regression |
+| `agentfem.benchmark.j2_global_restart` | Three-dimensional J2 path, displacement control, and restart equivalence | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_regression |
 | `agentfem.benchmark.linear_static_cantilever` | Two-dimensional linear-static cantilever | small-strain isotropic linear elasticity in plane strain | executable_smoke |
 | `agentfem.benchmark.thermoelastic_free_expansion` | Plane-stress isotropic free thermal expansion | small-strain isotropic plane-stress thermoelasticity under uniform temperature change | automated_regression |
 
+## Creep damage and modified-theta assessment
+
+**Stable ID:** `agentfem.material.creep_damage_assessment`<br>
+**Kind:** `material`<br>
+**Status:** `supported`<br>
+**Source card:** `knowledge/cards/creep_damage_assessment.json`
+
+Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, with an explicit boundary before global finite-element creep.
+
+### Public API
+
+- `agentfem.constitutive.KachanovRabotnovCreep`
+- `agentfem.constitutive.CreepDamageState`
+- `agentfem.constitutive.SinhCreep`
+- `agentfem.constitutive.ModifiedThetaProjection`
+
+### Scientific contract
+
+K-R couples effective-stress creep flow to a scalar loss-of-integrity variable; the exact constant-stress update supplies a time-subdivision-independent reference, while modified theta represents a measured creep curve rather than a global equilibrium law.
+
+**K-R creep rate**
+
+$$
+epsilon_dot = A (q / sigma_ref)^n / (1 - omega)^n
+$$
+
+Damage accelerates the equivalent creep rate through effective stress.
+
+**K-R damage rate**
+
+$$
+omega_dot = B (q / sigma_ref)^m / (1 - omega)^phi
+$$
+
+The scalar damage state grows from zero toward a declared failure threshold.
+
+**modified theta projection**
+
+$$
+epsilon = epsilon_0 + A1(1-exp(-alpha t)) + B1(exp(alpha t)-1)
+$$
+
+Primary and tertiary terms project a creep strain-time curve.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| stress and duration | scalar equivalent stress or symmetric 3x3 stress plus time interval | declared reference stress and time system | A piecewise-constant interval for the exact local K-R update. |
+| calibrated parameters | rate coefficients, stress exponents, damage power and failure criterion | normalized by reference stress and reference time | Material- and temperature-specific parameters require provenance. |
+| creep test curve | strictly increasing time and finite strain arrays | consistent time and strain | Data used by the modified-theta projection. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| creep state | equivalent/tensor creep strain and scalar damage | strain and dimensionless damage | Accepted material-point state and increments. |
+| rupture screening time | scalar | time | Constant-stress time to the declared damage threshold. |
+| projected curve | strain and strain-rate functions | strain and strain per time | Modified-theta fit with recorded RMSE. |
+
+#### Assumptions
+
+- Small-strain associative Mises creep for tensor increments.
+- Piecewise-constant stress over each exact K-R material interval.
+- Scalar isotropic damage and a material-specific declared failure threshold.
+
+#### Conventions
+
+- Damage is zero for intact material and approaches but never numerically reaches one.
+- The first multiaxial implementation drives damage with von Mises stress.
+- Modified theta is classified as a curve assessment, not an FE constitutive update.
+
+#### Applicability
+
+- Material calibration checks and constant-stress creep screening.
+- Sequential thermoelastic-to-creep hotspot workflows with explicit scope labels.
+- Reference updates for a future global quadrature creep driver.
+
+#### Limitations
+
+- No global creep equilibrium, adaptive time stepping, temperature field interpolation, or restartable quadrature state yet.
+- Local softening/damage is not mesh regularized.
+- No Liu-Murakami multiaxial damage law is claimed in this release.
+
+### Minimal example
+
+```python
+Create KachanovRabotnovCreep with traceable parameters, advance CreepDamageState over stress intervals, and store strain/damage histories in SimulationResult.
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_constitutive_models.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.creep_damage_material_paths`
+
+**Validation rules**
+
+- Reject nonfinite parameters, invalid reference scales, and damage outside [0, 1).
+- Clamp a failed update at the declared failure damage and report failed=True.
+- Do not promote the capability beyond material-point maturity without a global state consumer.
+
+### References
+
+- Constitutive equations for creep rupture: `doi:10.1016/0001-6160(77)90135-3`
+- Damage localization of conventional creep damage models and proposition of a new model: `doi:10.1299/jsmea.41.57`
+- Modified theta projection equation for high-temperature creep curves: `https://pmc.ncbi.nlm.nih.gov/articles/PMC6838921/`
+
 ## Global small-strain J2 plasticity
 
-**Stable ID:** `agentfem.material.j2_global_plasticity`  
-**Kind:** `material`  
-**Status:** `supported`  
+**Stable ID:** `agentfem.material.j2_global_plasticity`<br>
+**Kind:** `material`<br>
+**Status:** `supported`<br>
 **Source card:** `knowledge/cards/j2_global_plasticity.json`
 
 Three-dimensional Mises plasticity with linear isotropic hardening, Basix quadrature state, analytical algorithmic tangent, incremental Newton equilibrium, rollback, cutback, and serial restart.
@@ -85,7 +199,7 @@ Newton iterations use trial state based on the last committed increment.
 
 - Small strain and three spatial dimensions.
 - Rate independence, associative Mises flow, and linear isotropic hardening.
-- Natural loading with homogeneous, time-invariant strong supports in the first global provider.
+- Natural loads and nonzero engineering Dirichlet targets share one proportional step factor in the first global provider.
 
 #### Conventions
 
@@ -100,7 +214,7 @@ Newton iterations use trial state based on the last committed increment.
 
 #### Limitations
 
-- The first global provider is serial-only and has no prescribed-displacement load path, plane-stress local constraint, finite-strain plasticity, or multi-region driver.
+- The first global provider is serial-only and has no arbitrary cyclic global amplitude path, plane-stress local constraint, finite-strain plasticity, or multi-region driver.
 - No external NAFEMS benchmark has yet promoted this path to benchmark-verified maturity.
 
 ### Minimal example
@@ -133,9 +247,9 @@ Register J2LinearIsotropicHardening in a 3D nonlinear_static Model, add supports
 
 ## Solution procedure vocabulary
 
-**Stable ID:** `agentfem.workflow.solution_procedures`  
-**Kind:** `analysis_step`  
-**Status:** `supported`  
+**Stable ID:** `agentfem.workflow.solution_procedures`<br>
+**Kind:** `analysis_step`<br>
+**Status:** `supported`<br>
 **Source card:** `knowledge/cards/solution_procedures.json`
 
 Separates physical analysis intent from Standard/Explicit selection, equation order, integration algorithm, state policy, and global-solve requirements.
@@ -233,9 +347,9 @@ Create studies.implicit_dynamics(..., method='generalized_alpha') and call model
 
 ## Sequential thermoelastic analysis
 
-**Stable ID:** `agentfem.workflow.thermoelastic_analysis`  
-**Kind:** `workflow`  
-**Status:** `supported`  
+**Stable ID:** `agentfem.workflow.thermoelastic_analysis`<br>
+**Kind:** `workflow`<br>
+**Status:** `supported`<br>
 **Source card:** `knowledge/cards/thermoelastic_analysis.json`
 
 One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve.

@@ -51,7 +51,13 @@ unless the example is intentionally advanced.
    implicit heat transfer and the equivalent thermal-expansion load of a
    plane-strain stress solve.
 
-10. `abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py`
+10. `creep_hot_wall_assessment.py`
+   Power-component screening route. Connects transient heat FEM, sequential
+   thermoelastic stress, exact Kachanov--Rabotnov damage integration, and a
+   modified-theta projection in one result manifest. Parameters are
+   illustrative and the example clearly does not claim a global creep field.
+
+11. `abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py`
    Advanced interoperability and finite-deformation reference. Imports a real
    Abaqus `C3D10` mesh, preserves node labels, eliminates 4,212 periodic
    `*EQUATION` constraints, solves a 3D Neo-Hookean load path, and writes
@@ -71,6 +77,7 @@ python examples/campaign_from_json.py
 python examples/material_models.py
 python examples/j2_plasticity_3d.py
 python examples/thermal_stress_wall_2d.py
+python examples/creep_hot_wall_assessment.py
 ```
 
 From the parent development directory:

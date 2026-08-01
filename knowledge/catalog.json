@@ -8,11 +8,18 @@
       "title": "Static-elasticity campaign to guarded surrogate pipeline"
     },
     {
+      "id": "agentfem.benchmark.creep_damage_material_paths",
+      "physics": "Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection",
+      "source": "knowledge/benchmarks/creep_damage_material_paths.json",
+      "status": "automated_regression",
+      "title": "Creep-damage material paths and curve projection"
+    },
+    {
       "id": "agentfem.benchmark.j2_global_restart",
       "physics": "three-dimensional small-strain Mises plasticity with linear isotropic hardening",
       "source": "knowledge/benchmarks/j2_global_restart.json",
       "status": "automated_regression",
-      "title": "Three-dimensional J2 patch and restart equivalence"
+      "title": "Three-dimensional J2 path, displacement control, and restart equivalence"
     },
     {
       "id": "agentfem.benchmark.linear_static_cantilever",
@@ -30,6 +37,24 @@
     }
   ],
   "cards": [
+    {
+      "id": "agentfem.material.creep_damage_assessment",
+      "kind": "material",
+      "public_api": [
+        "agentfem.constitutive.KachanovRabotnovCreep",
+        "agentfem.constitutive.CreepDamageState",
+        "agentfem.constitutive.SinhCreep",
+        "agentfem.constitutive.ModifiedThetaProjection"
+      ],
+      "related_cards": [
+        "agentfem.material.j2_global_plasticity",
+        "agentfem.workflow.thermoelastic_analysis"
+      ],
+      "source": "knowledge/cards/creep_damage_assessment.json",
+      "status": "supported",
+      "summary": "Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, with an explicit boundary before global finite-element creep.",
+      "title": "Creep damage and modified-theta assessment"
+    },
     {
       "id": "agentfem.material.j2_global_plasticity",
       "kind": "material",

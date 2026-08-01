@@ -154,6 +154,33 @@ class StandardRunReporter:
                 f"{event.target_factor:.16g} 0 {event.iteration} "
                 f"{_number(event.residual_norm)} FAILED {elapsed:.6f}"
             )
+        elif kind == "transient_started":
+            self._print(
+                f"[STEP {event.step_number}] {event.step_name} "
+                f"| {event.incrementation} | increments={event.total_increments}"
+            )
+            self._write_status(
+                "STEP INC TIME STATUS ELAPSED_S"
+            )
+        elif kind == "time_increment":
+            self._print(
+                f"  [INC {event.increment}/{event.total_increments}] "
+                f"t={event.time:.6g} | elapsed={elapsed:.1f}s"
+            )
+            self._write_status(
+                f"{event.step_number} {event.increment} {event.time:.16g} "
+                f"ACCEPTED {elapsed:.6f}"
+            )
+        elif kind == "transient_completed":
+            self._print(
+                f"[STEP {event.step_number}] COMPLETED "
+                f"| increments={event.increment} | t={event.time:.6g} "
+                f"| elapsed={elapsed:.1f}s"
+            )
+            self._write_status(
+                f"{event.step_number} {event.increment} {event.time:.16g} "
+                f"COMPLETED {elapsed:.6f}"
+            )
 
     def _print(self, message: str) -> None:
         print(message, flush=True)

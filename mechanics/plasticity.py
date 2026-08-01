@@ -62,16 +62,21 @@ class J2LoadPathInfo:
 
     @property
     def converged(self) -> bool:
-        return (
-            bool(self.increments)
-            and all(item.converged for item in self.increments)
-            and abs(self.increments[-1].load_factor - 1.0) <= 1.0e-12
+        return bool(self.increments) and all(
+            item.converged for item in self.increments
         )
+
+    @property
+    def completed_step(self) -> bool:
+        return self.converged and abs(
+            self.increments[-1].load_factor - 1.0
+        ) <= 1.0e-12
 
     def as_dict(self) -> dict[str, object]:
         return {
             "kind": "j2_nonlinear_load_path",
             "converged": self.converged,
+            "completed_step": self.completed_step,
             "accepted_increment_count": len(self.increments),
             "attempt_count": len(self.attempts),
             "incrementation": self.incrementation.summary(),
@@ -92,6 +97,7 @@ class J2PlasticityStep:
     tangent_form: object
     load_factor: object
     bcs: tuple[object, ...]
+    prescribed_values: tuple[tuple[object, np.ndarray], ...]
     incrementation: object
     solver_options: NewtonSolverOptions
     study: object | None = None
@@ -101,6 +107,7 @@ class J2PlasticityStep:
     procedure: object = field(default_factory=lambda: procedures.nonlinear_static(stateful=True))
     accepted_load_factor: float = field(default=0.0, init=False)
     last_solve_info: J2LoadPathInfo | None = field(default=None, init=False)
+    checkpoints: list[object] = field(default_factory=list, init=False)
 
     def solve(self, *, until: float = 1.0):
         """Advance the load path, optionally stopping at a checkpoint factor."""
@@ -130,6 +137,7 @@ class J2PlasticityStep:
             ),
         )
         self.load_factor.value = PETSc.ScalarType(accepted_factor)
+        self._set_prescribed_factor(accepted_factor)
         while accepted_factor < selected_until - 1.0e-12:
             increment = len(accepted) + 1
             if isinstance(self.incrementation, step_controls.AutomaticIncrementation):
@@ -165,6 +173,7 @@ class J2PlasticityStep:
             displacement_snapshot = self.solution.x.array.copy()
             state_snapshot = self.state.snapshot()
             self.load_factor.value = PETSc.ScalarType(target)
+            self._set_prescribed_factor(target)
             info = self._solve_increment(
                 increment=increment,
                 attempt=attempt,
@@ -207,6 +216,7 @@ class J2PlasticityStep:
             self.solution.x.array[:] = displacement_snapshot
             self.solution.x.scatter_forward()
             self.state.restore(state_snapshot)
+            self._set_prescribed_factor(accepted_factor)
             if not isinstance(
                 self.incrementation,
                 step_controls.AutomaticIncrementation,
@@ -279,6 +289,23 @@ class J2PlasticityStep:
             plastic_strain=state["plastic_strain"],
             equivalent_plastic_strain=state["equivalent_plastic_strain"],
         )
+        from ..results import CheckpointRecord
+
+        record = CheckpointRecord(
+            name=f"{self.name}_{self.accepted_load_factor:g}",
+            path=selected,
+            schema="agentfem.j2-step-checkpoint.v1",
+            step_name=self.name,
+            coordinate_name="load_factor",
+            coordinate_value=self.accepted_load_factor,
+            portable=False,
+            metadata={
+                "reason": "serial dof and quadrature layout checkpoint",
+                "state_variables": ("U", "PE", "PEEQ"),
+            },
+        )
+        record.write_manifest()
+        self.checkpoints.append(record)
         return selected
 
     def load_checkpoint(self, path) -> None:
@@ -308,12 +335,13 @@ class J2PlasticityStep:
             self.load_factor.value = PETSc.ScalarType(
                 self.accepted_load_factor
             )
+            self._set_prescribed_factor(self.accepted_load_factor)
 
     def solve_result(self):
         from ..results import from_solution
 
         solution = self.solve()
-        return from_solution(
+        result = from_solution(
             solution,
             name=self.name,
             metadata={
@@ -322,6 +350,9 @@ class J2PlasticityStep:
                 "state": self.state.summary(),
             },
         )
+        for checkpoint in self.checkpoints:
+            result.add_checkpoint(checkpoint)
+        return result
 
     def reaction_field(self, *, name: str = "RF"):
         """Return the converged full residual as a nodal reaction field."""
@@ -353,6 +384,11 @@ class J2PlasticityStep:
             "incrementation": self.incrementation.summary(),
             "solver": self.solver_options.summary(),
             "num_bcs": len(self.bcs),
+            "loading": {
+                "kind": "proportional",
+                "natural_loads": True,
+                "prescribed_values": len(self.prescribed_values),
+            },
             "last_solve": (
                 None
                 if self.last_solve_info is None
@@ -504,6 +540,24 @@ class J2PlasticityStep:
             return None
         return self.progress
 
+    def _set_prescribed_factor(self, factor: float) -> None:
+        """Scale nonzero engineering Dirichlet targets with the step factor.
+
+        DOLFINx boundary-condition objects retain references to their backing
+        constants, so updating those constants changes the constrained value
+        without rebuilding forms.  Homogeneous supports remain zero.  Raw
+        backend BC objects are accepted but cannot be amplitude-controlled;
+        model/constraint objects retain the required scientific intent.
+        """
+
+        for constant, target in self.prescribed_values:
+            selected = float(factor) * target
+            constant.value = (
+                PETSc.ScalarType(selected.item())
+                if selected.ndim == 0 or selected.size == 1
+                else np.asarray(selected, dtype=PETSc.ScalarType)
+            )
+
     @staticmethod
     def _emit(reporter, event) -> None:
         if reporter is None:
@@ -576,17 +630,28 @@ def j2_plasticity_step(
         tangent[i, j, k, l] * strain_trial[k, l],
         (i, j),
     )
-    residual = (
-        ufl.inner(stress, strain_test) * state.measure
-        - load_factor * external_force.expression
-    )
+    residual = ufl.inner(stress, strain_test) * state.measure
+    if external_force is not None:
+        residual -= load_factor * external_force.expression
     jacobian = ufl.inner(tangent_action, strain_test) * state.measure
     selected_bcs = []
+    prescribed_values = []
     for item in constraints or ():
         if hasattr(item, "bcs"):
             selected_bcs.extend(item.bcs)
+            for constraint in getattr(item, "dirichlet", ()):
+                value = getattr(constraint, "value", None)
+                if value is not None and hasattr(value, "value"):
+                    prescribed_values.append(
+                        (value, np.asarray(value.value, dtype=float).copy())
+                    )
         elif hasattr(item, "bc"):
             selected_bcs.append(item.bc)
+            value = getattr(item, "value", None)
+            if value is not None and hasattr(value, "value"):
+                prescribed_values.append(
+                    (value, np.asarray(value.value, dtype=float).copy())
+                )
         else:
             selected_bcs.append(item)
     return J2PlasticityStep(
@@ -598,6 +663,7 @@ def j2_plasticity_step(
         tangent_form=fem.form(jacobian),
         load_factor=load_factor,
         bcs=tuple(selected_bcs),
+        prescribed_values=tuple(prescribed_values),
         incrementation=step_controls.normalize(incrementation),
         solver_options=newton() if solver_options is None else solver_options,
         study=study,

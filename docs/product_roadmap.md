@@ -29,13 +29,13 @@ core, results, verification, and documentation have priority.
 | Thermoelasticity | FEM-integrated | implicit-Euler heat transfer and sequential isotropic thermal stress in 2D/3D | no property tables or monolithic two-way coupling |
 | Structural dynamics | FEM-integrated foundation | central difference, Newmark, and generalized-alpha through one procedure vocabulary | implicit route is linear; moving supports and common OutputPlan remain |
 | Compressible Neo-Hookean | FEM-integrated | nonlinear static solve; 3D and 2D plane strain forms | one-material convenience step; no 2D plane stress local solve |
-| J2 plasticity | FEM-integrated foundation | 3D quadrature state, analytical tangent, global Newton, cutback, serial restart | no plane stress, multi-region driver, MPI-portable restart, or external benchmark |
-| Power-law creep | material-point verified | constant-stress, relaxation, tensor increments, exact stress paths, normalized Arrhenius temperature dependence | no global adaptive creep step |
+| J2 plasticity | FEM-integrated foundation | 3D quadrature state, analytical tangent, proportional force/displacement control, global Newton, cutback, serial restart | no arbitrary cyclic global path, plane stress, multi-region driver, MPI-portable restart, or external benchmark |
+| Creep and creep damage | material-point/assessment verified | power-law and Arrhenius paths; exact K-R damage coupling; Sinh flow; modified-theta fitting; hot-wall sequential assessment | no global adaptive quadrature creep step or damage regularization |
 | Stress-life fatigue | postprocessor | Basquin/tabulated S-N, rainflow, Goodman, Miner assessment from named result histories | no multiaxial critical-plane method |
 | External CAE mesh | integrated Abaqus path + conversion interface | generic meshio conversion; Abaqus node labels; verified C3D10 import; linear equation parsing | full solver-deck sections/material cards are not imported |
 | Abaqus periodic equations | serial + two-rank FEM-integrated | exact chained affine elimination, distributed `dolfinx_mpc`, and 3D Neo-Hookean load path | AMG near-nullspace transfer, reactions, and scaling studies remain |
 | Abaqus user-material bridge | interface contract | solver-neutral material-point input/output and migration specification | no compiled adapter or quadrature-state global driver |
-| Result/data flow | integrated foundation | declarative field/history/diagnostic/presentation plans; compact deformed XDMF/HDF5; complete RVE tensor histories; campaign/dataset bridge; serial J2 checkpoint | reactions, general point/region probes, common transient manifest, and portable MPI restart remain |
+| Result/data flow | integrated foundation | declarative field/history/diagnostic/presentation plans; compact deformed XDMF/HDF5; common transient progress/time histories; typed checkpoint records; campaign/PyTorch dataset bridge | general point/region probes, transient energy/checkpoint writers, and portable MPI restart remain |
 
 The same table is queryable in code through
 `constitutive.capabilities()` and `benchmarks.list_benchmarks()`.
@@ -79,8 +79,8 @@ an agent, user, or README from confusing these levels.
 - extend the implemented quadrature-state transaction and 3D J2 analytical
   tangent path to multi-region ownership, forced-cutback tests, reactions,
   output projection, and portable MPI checkpoint identity;
-- extend the current deformation-controlled automatic path to general
-  displacement/load control;
+- extend the implemented proportional displacement/load control to arbitrary
+  reviewed amplitudes and cyclic global paths;
 - add reaction, internal/external work, and energy-balance histories with
   verified strong, weak, and affine-MPC definitions;
 - then add tabulated hardening, kinematic hardening, and finite-strain
@@ -96,7 +96,7 @@ than depend on Abaqus interfaces directly.
 
 ### P2: time-dependent materials and life
 
-- make the implemented Arrhenius power-law local model consume the J2
+- make the implemented Arrhenius, K-R, and Sinh local models consume the J2
   quadrature transaction in a global implicit creep step with adaptive time
   increments and restartable state;
 - treat sequential temperature-to-creep as the first useful power-component

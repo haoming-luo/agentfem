@@ -73,7 +73,7 @@
     "assumptions": [
       "Small strain and three spatial dimensions.",
       "Rate independence, associative Mises flow, and linear isotropic hardening.",
-      "Natural loading with homogeneous, time-invariant strong supports in the first global provider."
+      "Natural loads and nonzero engineering Dirichlet targets share one proportional step factor in the first global provider."
     ],
     "conventions": [
       "Committed history is immutable during a rejected Newton iterate.",
@@ -85,7 +85,7 @@
       "Laboratory-scale regression and research workflows requiring inspectable state."
     ],
     "limitations": [
-      "The first global provider is serial-only and has no prescribed-displacement load path, plane-stress local constraint, finite-strain plasticity, or multi-region driver.",
+      "The first global provider is serial-only and has no arbitrary cyclic global amplitude path, plane-stress local constraint, finite-strain plasticity, or multi-region driver.",
       "No external NAFEMS benchmark has yet promoted this path to benchmark-verified maturity."
     ]
   },

@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import sys
 
 import numpy as np
 from mpi4py import MPI
 
 SOURCE_PARENT = Path(__file__).resolve().parents[2]
-if str(SOURCE_PARENT) not in sys.path:
+if (
+    os.environ.get("AGENTFEM_INSTALLED_SMOKE") != "1"
+    and str(SOURCE_PARENT) not in sys.path
+):
     sys.path.insert(0, str(SOURCE_PARENT))
 
 from agentfem import constitutive
@@ -23,6 +27,7 @@ from agentfem.solvers import LinearSolverOptions
 
 def main() -> None:
     comm = MPI.COMM_WORLD
+    smoke = os.environ.get("AGENTFEM_RELEASE_SMOKE") == "1"
     study = studies.first_order_transient(
         physics="heat_transfer",
         dimension=2,
@@ -31,7 +36,7 @@ def main() -> None:
     domain = fem_mesh.rectangle(
         lower=(0.0, 0.0),
         upper=(1.0, 0.4),
-        cells=(60, 24),
+        cells=(8, 4) if smoke else (60, 24),
         comm=comm,
         cell_type="quadrilateral",
     )
@@ -65,9 +70,9 @@ def main() -> None:
     step = model.step(
         target=temperature,
         dt=10.0,
-        steps=1500,
-        save_every=10,
-        print_every=50,
+        steps=5 if smoke else 1500,
+        save_every=1 if smoke else 10,
+        print_every=1 if smoke else 50,
         solver_options=LinearSolverOptions(ksp_type="preonly", pc_type="lu"),
         name="heat_implicit_euler",
     )

@@ -174,6 +174,71 @@ class FieldResult:
         }
 
 
+@dataclass(frozen=True)
+class CheckpointRecord:
+    """One restart asset with an explicit portability boundary."""
+
+    name: str
+    path: str | Path
+    schema: str
+    step_name: str
+    coordinate_name: str
+    coordinate_value: float
+    portable: bool = False
+    metadata: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "name", _name(self.name))
+        object.__setattr__(self, "path", Path(self.path))
+        object.__setattr__(self, "schema", _name(self.schema, label="schema"))
+        object.__setattr__(self, "step_name", _name(self.step_name, label="step_name"))
+        object.__setattr__(
+            self,
+            "coordinate_name",
+            _name(self.coordinate_name, label="coordinate_name"),
+        )
+        value = float(self.coordinate_value)
+        if not isfinite(value):
+            raise ValueError("Checkpoint coordinate_value must be finite.")
+        object.__setattr__(self, "coordinate_value", value)
+
+    def as_dict(self, *, artifact_base: str | Path | None = None) -> dict[str, object]:
+        selected_path = str(self.path)
+        if artifact_base is not None:
+            selected_path = _portable_artifact_path(
+                self.path,
+                Path(artifact_base).resolve(),
+            )
+        return {
+            "name": self.name,
+            "path": selected_path,
+            "schema": self.schema,
+            "step_name": self.step_name,
+            "coordinate_name": self.coordinate_name,
+            "coordinate_value": self.coordinate_value,
+            "portable": bool(self.portable),
+            "metadata": _json_value(self.metadata),
+        }
+
+    def write_manifest(self, path: str | Path | None = None) -> Path:
+        output = (
+            self.path.with_suffix(self.path.suffix + ".checkpoint.json")
+            if path is None
+            else Path(path)
+        )
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(
+            json.dumps(
+                self.as_dict(artifact_base=output.parent),
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return output
+
+
 @dataclass
 class SimulationResult:
     """Scientific results and artifacts from one simulation."""
@@ -184,6 +249,7 @@ class SimulationResult:
     fields: dict[str, FieldResult] = field(default_factory=dict)
     histories: dict[str, HistoryResult] = field(default_factory=dict)
     artifacts: dict[str, Path] = field(default_factory=dict)
+    checkpoints: dict[str, CheckpointRecord] = field(default_factory=dict)
     metadata: dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -295,6 +361,13 @@ class SimulationResult:
         self.artifacts[_name(name)] = selected
         return selected
 
+    def add_checkpoint(self, checkpoint: CheckpointRecord) -> CheckpointRecord:
+        """Register restart state without confusing it with a result field."""
+
+        self.checkpoints[checkpoint.name] = checkpoint
+        self.add_artifact(f"checkpoint_{checkpoint.name}", checkpoint.path)
+        return checkpoint
+
     def add_dof_statistics(
         self,
         field,
@@ -379,6 +452,7 @@ class SimulationResult:
             "fields": tuple(self.fields),
             "histories": tuple(self.histories),
             "artifacts": {key: str(value) for key, value in self.artifacts.items()},
+            "checkpoints": tuple(self.checkpoints),
             "metadata": _json_value(self.metadata),
         }
 
@@ -423,6 +497,10 @@ class SimulationResult:
             "history_records": [
                 item.as_dict(include_values=include_histories)
                 for item in self.histories.values()
+            ],
+            "checkpoint_records": [
+                item.as_dict(artifact_base=artifact_base)
+                for item in self.checkpoints.values()
             ],
         }
         if artifact_base is not None:

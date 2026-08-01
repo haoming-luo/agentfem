@@ -84,6 +84,33 @@ _CAPABILITIES = {
             "no quadrature-field state storage",
         ),
     ),
+    "creep_damage": ConstitutiveCapability(
+        name="creep_damage",
+        model="Kachanov-Rabotnov damage coupling and hyperbolic-sine creep",
+        maturity="material_point_verified",
+        available_scope=(
+            "exact constant-stress K-R strain/damage update, rupture-time "
+            "screening, associative Mises tensor flow, and Sinh stress response"
+        ),
+        limitations=(
+            "von Mises is the only implemented multiaxial damage-stress measure",
+            "no global quadrature creep step or mesh-regularized damage",
+            "parameters require traceable material-specific calibration",
+        ),
+    ),
+    "modified_theta_projection": ConstitutiveCapability(
+        name="modified_theta_projection",
+        model="three-parameter modified theta creep-curve projection",
+        maturity="curve_projection_verified",
+        available_scope=(
+            "deterministic nonnegative curve fitting, strain/rate projection, "
+            "and time-to-strain assessment"
+        ),
+        limitations=(
+            "curve assessment only; not a global finite-element stress update",
+            "stress and temperature dependence across tests must be calibrated externally",
+        ),
+    ),
     "stress_life_fatigue": ConstitutiveCapability(
         name="stress_life_fatigue",
         model="S-N/Basquin fatigue with rainflow and Miner damage",

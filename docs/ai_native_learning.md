@@ -147,6 +147,22 @@ dataset.write("campaign_dataset")
 restored = datasets.ScientificDataset.read("campaign_dataset")
 ```
 
+When PyTorch is installed, the same reviewed dataset becomes an ordinary
+`TensorDataset`/`DataLoader` without losing its scientific column schema:
+
+```python
+bundle = datasets.to_torch(dataset)
+loader = bundle.loader(batch_size=64, seed=2026)
+```
+
+For field learning, `datasets.fem_field_sample(field, encoding)` exports owned
+nodal coefficients and coordinates under an explicit `FieldEncoding`. The
+first adapter is deliberately serial and `mesh_dofs` only. It rejects a
+distributed concatenation until global dof identities and a partition
+manifest exist; it also refuses to call unstructured dofs a structured FNO
+grid. PyTorch remains responsible for tensors, autodiff, optimization, and
+model architecture.
+
 ### Transparent baselines before neural complexity
 
 The first built-in models are:
@@ -270,13 +286,25 @@ They deliberately reject an elementary FNO specification when its fields are
 not represented on structured grids. This avoids attaching a fashionable
 architecture name to incompatible data.
 
-Actual trainers remain external in the first phase. Planned adapters should
+Production neural-operator trainers remain external. Planned adapters should
 consume the same dataset and write a model artifact with the same validation
 and applicability evidence.
 
 ## PINNs and Physics-Informed Learning
 
 PINNs do not serve the same role as ordinary surrogates.
+
+For selected equations, `TorchPINNAdapter` makes a reviewed `PINNSpec`
+executable without pretending to translate arbitrary UFL. Residual and
+condition callables use ordinary PyTorch/autograd; the adapter verifies that
+their names exactly match the scientific contract, applies declared weights,
+reports each loss contribution, and can run a minimal Adam loop. Network
+architecture, autodiff, and optimization remain PyTorch responsibilities.
+
+This changes the boundary from “PINN vocabulary only” to “one-stop execution
+for explicitly bound equations.” Automatic UFL-to-PINN translation,
+identifiability, collocation adequacy, and independent FEM validation remain
+separate evidence obligations.
 
 They are most attractive for:
 
@@ -294,10 +322,10 @@ correct strong-form PINN residual. Boundary terms, regularity, discontinuities,
 constitutive state, and integration-by-parts choices carry scientific meaning.
 
 `PhysicsResidual`, `PhysicsCondition`, and `PINNSpec` therefore require an
-explicit strong, weak, or discrete residual and explicit conditions. Their
-status is `contract_only`. Initial executable support should begin with a few
-reviewed residual families, followed later by weak-form or discrete
-physics-informed adapters.
+explicit strong, weak, or discrete residual and explicit conditions. A spec
+remains `contract_only` until every named term is bound to reviewed executable
+callables. `TorchPINNAdapter` provides that binding mechanism; reusable
+strong-, weak-, and discrete-residual libraries remain future work.
 
 ## What Is Not Yet Claimed
 
@@ -329,8 +357,8 @@ These omissions are public boundaries, not hidden placeholders.
 6. Add active-learning proposal records with human approval policy.
 7. Add field projection/encoding services before executable neural-operator
    adapters.
-8. Add selected, explicit physics residual libraries before executable PINN
-   adapters.
+8. Add selected, reviewed physics-residual libraries on top of the executable
+   PyTorch binding adapter.
 9. Expose campaign planning, status, diagnostics, comparison, and artifact
    retrieval through tool-service/MCP operations.
 

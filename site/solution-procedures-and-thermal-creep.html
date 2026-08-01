@@ -36,6 +36,7 @@
 <a class="" href="validation.html">Validation</a>
 <a class="" href="licensing.html">Licensing</a>
 <a class="" href="publishing.html">Publishing</a>
+<a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
 <a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
 <a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
@@ -89,10 +90,12 @@
 <li>sequential isotropic thermal expansion as a visible vector operator;</li>
 <li>normalized Arrhenius temperature dependence at material-point level;</li>
 <li>global 3D J2 quadrature state with analytical tangent and serial restart.</li>
+<li>exact material-point Kachanov-Rabotnov creep-damage updates, Sinh creep,<br>and modified-theta curve projection;</li>
+<li>a sequential hot-wall FEM-to-creep assessment example with explicit<br>calibration and maturity boundaries.</li>
 </ul>
 <p>Next gates:</p>
 <ol>
-<li>common <code>OutputPlan</code>, progress events, energy history, and manifest across<br>heat, implicit dynamics, and explicit dynamics;</li>
+<li>finish field/energy/checkpoint products on top of the now-common<br>structured progress events, accepted-increment histories, and result<br>manifest across heat, implicit dynamics, and explicit dynamics;</li>
 <li>portable MPI state identity based on global cells/material regions rather<br>than a rank-local array layout;</li>
 <li>stateful global creep using the common transaction and automatic time<br>increments;</li>
 <li>temperature-dependent property tables and interpolation policies;</li>

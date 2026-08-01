@@ -1,0 +1,31 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.creep_damage_material_paths",
+  "title": "Creep-damage material paths and curve projection",
+  "status": "automated_regression",
+  "purpose": "Verify the first release-level local building blocks for high-temperature creep assessment without presenting them as a global finite-element creep solution.",
+  "physics": "Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection",
+  "execution": {
+    "command": "python -m pytest -q tests/test_constitutive_models.py -k 'kachanov or theta or sinh'",
+    "example": "examples/creep_hot_wall_assessment.py",
+    "evidence": "Closed-form interval integration, tensor invariants, stress sensitivity, and synthetic-curve recovery are checked independently."
+  },
+  "observables": [
+    "One constant-stress K-R update equals ten subdivided updates.",
+    "Associative tensor creep strain is deviatoric and has the requested equivalent increment.",
+    "Rupture time decreases as equivalent stress increases.",
+    "Modified-theta fitting recovers a known synthetic primary-to-tertiary curve.",
+    "Sinh creep rate increases monotonically over the tested positive stress range."
+  ],
+  "acceptance": [
+    "Subdivision differences satisfy the automated floating-point tolerances.",
+    "Tensor trace and equivalent-strain identities satisfy the automated tolerances.",
+    "The fitted projection RMSE is below the declared synthetic-data threshold."
+  ],
+  "limitations": [
+    "These are material-point and curve benchmarks, not a global FE benchmark.",
+    "The hot-wall example uses illustrative parameters and is not a code-compliance assessment.",
+    "Mesh-dependent local damage needs regularization before structural rupture claims."
+  ]
+}

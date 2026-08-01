@@ -1,4 +1,4 @@
-<p align="center"><img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM logo" width="320"></p>
+
 
 # AgentFEM
 
@@ -29,10 +29,11 @@ Study -> Model -> Mesh/Regions -> Fields -> Materials -> Loads/Constraints
 The current executable core covers linear and thermoelasticity, implicit heat
 transfer, Newmark/generalized-alpha and central-difference dynamics,
 Neo-Hookean finite strain, and a 3D small-strain J2 path with quadrature state,
-analytical consistent tangent, cutback, and serial restart. Power-law and
-Arrhenius creep are currently verified material-point tools, while stress-life
-fatigue is a postprocessor. Those maturity levels remain deliberately
-distinct and queryable in code.
+analytical consistent tangent, proportional force/displacement control,
+cutback, and serial restart. Power-law, Arrhenius, Kachanov--Rabotnov, and Sinh
+creep relations are currently verified material-point tools; modified theta
+is a curve-projection tool; stress-life fatigue is a postprocessor. Those
+maturity levels remain deliberately distinct and queryable in code.
 
 ## Why AgentFEM
 
@@ -48,6 +49,9 @@ distinct and queryable in code.
 - Collection-level scientific workflows: deterministic campaign cases,
   resumable evidence, unit/shape-aware datasets, transparent surrogate
   baselines, independent validation, and explicit applicability domains.
+- Direct PyTorch handoff: validated campaign matrices and serial FEM fields
+  can become tensors without making AgentFEM a replacement for PyTorch,
+  neural-operator libraries, or PINN trainers.
 - One result path: solved fields, quantities, histories, visualization
   artifacts, batch outputs, and training data share `SimulationResult`.
 - CAE mesh interoperability: inspect and convert supported external meshes
@@ -217,6 +221,10 @@ thing a new model exposes.
   trusted Python evaluator.
 - `examples/material_models.py`: nonlinear-material maturity, J2 load path,
   creep history, rainflow counting, and Miner damage.
+- `examples/creep_hot_wall_assessment.py`: sequential heat/stress FEM feeding
+  an explicitly local Kachanov--Rabotnov and modified-theta assessment.
+- `examples/abaqus_c3d10_periodic_cell/`: imported quadratic tetrahedra,
+  periodic equations, Neo-Hookean large deformation, and homogenized output.
 
 ## Documentation
 
@@ -265,12 +273,9 @@ authors:
 date-released: 2026-07-24
 ```
 
-## Author / Maintainer
+## Author
 
-Haoming Luo is the initiator and maintainer of AgentFEM. His interests include
-computational mechanics, materials engineering, finite-element simulation, and
-AI-assisted scientific computing, with education and research experience
-associated with INSA Lyon and Ecole Polytechnique.
+Haoming Luo is the initiator and maintainer of AgentFEM. His interests include computational mechanics, materials engineering, finite-element simulation, and AI-assisted scientific computing, with education and research experience associated with NWPU, INSA Lyon and Ecole Polytechnique.
 
 The project is also motivated by engineering needs in materials evaluation,
 defect inspection, and simulation analysis for power-generation equipment.

@@ -87,11 +87,16 @@ Implemented now:
 - sequential isotropic thermal expansion as a visible vector operator;
 - normalized Arrhenius temperature dependence at material-point level;
 - global 3D J2 quadrature state with analytical tangent and serial restart.
+- exact material-point Kachanov-Rabotnov creep-damage updates, Sinh creep,
+  and modified-theta curve projection;
+- a sequential hot-wall FEM-to-creep assessment example with explicit
+  calibration and maturity boundaries.
 
 Next gates:
 
-1. common `OutputPlan`, progress events, energy history, and manifest across
-   heat, implicit dynamics, and explicit dynamics;
+1. finish field/energy/checkpoint products on top of the now-common
+   structured progress events, accepted-increment histories, and result
+   manifest across heat, implicit dynamics, and explicit dynamics;
 2. portable MPI state identity based on global cells/material regions rather
    than a rank-local array layout;
 3. stateful global creep using the common transaction and automatic time

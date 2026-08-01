@@ -22,12 +22,14 @@ without storing a long-lived PyPI API token in repository secrets.
 1. Update the version in `pyproject.toml`.
 2. Update `__version__` in `__init__.py`.
 3. Run the smoke examples in a FEniCSx environment.
-4. Build a local wheel:
+4. Run the same release gate used by CI:
 
    ```bash
    python -m pip install -e ".[dev]"
    python -m build
    python -m twine check dist/*
+   python release_gate.py --dist dist
+   python release_gate.py --smoke
    ```
 
 5. Commit the release changes.
@@ -38,8 +40,10 @@ without storing a long-lived PyPI API token in repository secrets.
    git push origin vX.Y.Z
    ```
 
-The GitHub Actions workflow `.github/workflows/publish-pypi.yml` publishes the
-tagged release to PyPI.
+The GitHub Actions workflow `.github/workflows/publish-pypi.yml` first repeats
+the serial and MPI FEniCSx verification, checks that the tag matches both
+version declarations, validates the actual wheel/sdist payload, and only then
+publishes the tagged release to PyPI.
 
 ## Install Command for Users
 

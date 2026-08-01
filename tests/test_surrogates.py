@@ -210,3 +210,66 @@ def test_fno_contract_rejects_unstructured_encoding():
             outputs=(output,),
             boundary_encoding="mask_and_values",
         )
+
+
+def test_torch_pinn_adapter_executes_explicit_autodiff_contract():
+    torch = pytest.importorskip("torch")
+    field = surrogates.FieldEncoding(
+        name="u",
+        role="output",
+        unit=None,
+        representation="point_samples",
+        mesh_policy="mesh_independent_coordinates",
+    )
+    spec = surrogates.PINNSpec(
+        fields=(field,),
+        residuals=(
+            surrogates.PhysicsResidual(
+                name="unit_gradient",
+                equation="du_dx - 1 = 0",
+                form="strong",
+                dependent_fields=("u",),
+                independent_variables=("x",),
+            ),
+        ),
+        conditions=(
+            surrogates.PhysicsCondition(
+                name="origin",
+                kind="boundary",
+                target="u",
+                location="x=0",
+                value=0.0,
+            ),
+        ),
+    )
+
+    class Exact(torch.nn.Module):
+        def forward(self, x):
+            return x
+
+    def residual(module, points):
+        values = module(points)
+        gradient = torch.autograd.grad(
+            values,
+            points,
+            grad_outputs=torch.ones_like(values),
+            create_graph=True,
+        )[0]
+        return gradient - 1.0
+
+    adapter = surrogates.TorchPINNAdapter(
+        spec,
+        residual_functions={"unit_gradient": residual},
+        condition_functions={"origin": lambda module, points: module(points)},
+    )
+    collocation = torch.linspace(0.0, 1.0, 8).reshape(-1, 1).requires_grad_(True)
+    boundary = torch.zeros((1, 1))
+    loss, diagnostics = adapter.loss(
+        Exact(),
+        residual_points={"unit_gradient": collocation},
+        condition_points={"origin": boundary},
+    )
+
+    assert float(loss) == pytest.approx(0.0)
+    assert diagnostics["total"] == pytest.approx(0.0)
+    assert adapter.summary()["automatic_ufl_translation"] is False

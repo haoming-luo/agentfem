@@ -11,8 +11,13 @@ from . import user_material
 from .catalog import ConstitutiveCapability, capabilities, capability
 from .creep import (
     ArrheniusPowerLawCreep,
+    CreepDamageState,
+    CreepDamageUpdate,
     CreepHistory,
+    KachanovRabotnovCreep,
+    ModifiedThetaProjection,
     PowerLawCreep,
+    SinhCreep,
     integrate_stress_history,
 )
 from .elasticity import (
@@ -85,6 +90,8 @@ __all__ = [
     "ConstitutiveCapability",
     "BasquinCurve",
     "CreepHistory",
+    "CreepDamageState",
+    "CreepDamageUpdate",
     "ElasticAnisotropic2DProperties",
     "ElasticIsotropicProperties",
     "ThermoElasticIsotropicProperties",
@@ -100,9 +107,12 @@ __all__ = [
     "NeoHookeanProperties",
     "MaterialPointInput",
     "MaterialPointOutput",
+    "KachanovRabotnovCreep",
+    "ModifiedThetaProjection",
     "PowerLawCreep",
     "QuadratureField",
     "TabulatedSNCurve",
+    "SinhCreep",
     "UniaxialPlasticState",
     "UserMaterial",
     "anisotropic_stress_2d",

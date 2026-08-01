@@ -6,6 +6,7 @@ permissions:
 on:
   push:
     branches: ["main"]
+    tags: ["v*"]
   pull_request:
 
 jobs:
@@ -16,7 +17,7 @@ jobs:
         shell: bash -el {0}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v6
 
       - name: Create FEniCSx environment
         uses: conda-incubator/setup-miniconda@v4
@@ -28,8 +29,16 @@ jobs:
           channels: conda-forge
           channel-priority: strict
 
-      - name: Install AgentFEM
-        run: python -m pip install -e . --no-deps
+      - name: Build and install the wheel users receive
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build
+          python -m twine check dist/*
+          python release_gate.py --dist dist
+          python -m pip install --no-deps --force-reinstall dist/*.whl
+
+      - name: Validate versioned scientific knowledge
+        run: python build_knowledge.py --check --check-imports
 
       - name: Run unit and interface tests
         run: python -m pytest
@@ -48,3 +57,13 @@ jobs:
 
       - name: Run campaign persistence with two MPI ranks
         run: AGENTFEM_CAMPAIGN_SAMPLES=4 AGENTFEM_CAMPAIGN_RUN_ID=ci-mpi mpirun -n 2 python examples/static_elasticity_surrogate_campaign.py
+
+      - name: Run release demo smoke suite
+        run: python release_gate.py --smoke
+
+      - name: Upload tested distributions
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: tested-python-package-distributions
+          path: dist/

@@ -62,6 +62,31 @@ def test_written_manifest_uses_portable_paths_for_local_artifacts(tmp_path):
     assert result.summary()["artifacts"]["fields"] == str(artifact)
 
 
+def test_checkpoint_is_a_typed_result_asset_with_portability_boundary(tmp_path):
+    state = tmp_path / "state.npz"
+    state.touch()
+    checkpoint = results.CheckpointRecord(
+        name="accepted_05",
+        path=state,
+        schema="agentfem.test-checkpoint.v1",
+        step_name="loading",
+        coordinate_name="load_factor",
+        coordinate_value=0.5,
+        portable=False,
+        metadata={"layout": "same mesh and dofs"},
+    )
+    sidecar = checkpoint.write_manifest()
+    result = results.SimulationResult("restartable")
+    result.add_checkpoint(checkpoint)
+    manifest = result.write_manifest(tmp_path / "result.json")
+    saved = json.loads(manifest.read_text(encoding="utf-8"))
+
+    assert sidecar.is_file()
+    assert saved["checkpoint_records"][0]["path"] == "state.npz"
+    assert saved["checkpoint_records"][0]["portable"] is False
+    assert saved["artifacts"]["checkpoint_accepted_05"] == "state.npz"
+
+
 def test_result_sample_builds_a_training_dataset_without_field_serialization():
     space = campaigns.ParameterSpace.create(
         campaigns.RealParameter("load", 1.0, 10.0, unit="N")

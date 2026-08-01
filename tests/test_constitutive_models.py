@@ -275,6 +275,109 @@ def test_creep_history_driver_uses_exact_interval_integrals():
     assert history.as_dict()["tensor_history"] is False
 
 
+def test_kachanov_rabotnov_exact_update_is_subdivision_invariant():
+    law = creep.KachanovRabotnovCreep(
+        creep_coefficient=2.0e-5,
+        creep_exponent=4.0,
+        damage_coefficient=1.0e-4,
+        damage_exponent=5.0,
+        damage_power=3.0,
+        reference_stress=100.0,
+        failure_damage=0.99,
+    )
+    one = law.update(80.0, 100.0)
+    split = creep.CreepDamageState()
+    for _ in range(10):
+        split = law.update(80.0, 10.0, split).state
+
+    np.testing.assert_allclose(split.damage, one.state.damage, rtol=2.0e-13)
+    np.testing.assert_allclose(
+        split.equivalent_creep_strain,
+        one.state.equivalent_creep_strain,
+        rtol=2.0e-13,
+    )
+    assert law.rupture_time(120.0) < law.rupture_time(80.0)
+    assert law.as_dict()["maturity"] == "material_point_verified"
+
+
+def test_kachanov_rabotnov_tensor_flow_is_deviatoric_and_damage_accumulates():
+    law = creep.KachanovRabotnovCreep(
+        creep_coefficient=1.0e-5,
+        creep_exponent=3.0,
+        damage_coefficient=2.0e-5,
+        damage_exponent=4.0,
+        damage_power=2.0,
+        reference_stress=100.0,
+    )
+    update = law.update(np.diag([120.0, 0.0, 0.0]), 20.0)
+
+    assert update.state.damage > 0.0
+    assert update.equivalent_increment > 0.0
+    np.testing.assert_allclose(np.trace(update.state.creep_strain), 0.0, atol=1.0e-16)
+    equivalent = np.sqrt(
+        2.0 / 3.0 * np.tensordot(update.state.creep_strain, update.state.creep_strain)
+    )
+    np.testing.assert_allclose(equivalent, update.state.equivalent_creep_strain)
+
+
+def test_modified_theta_projection_recovers_synthetic_creep_curve():
+    reference = creep.ModifiedThetaProjection(
+        initial_strain=0.001,
+        primary_strain=0.012,
+        tertiary_strain=0.0015,
+        rate=0.02,
+    )
+    times = np.linspace(0.0, 100.0, 41)
+    fitted = creep.ModifiedThetaProjection.fit(
+        times,
+        reference.strain(times),
+        rate_bounds=(0.019, 0.021),
+        candidates=401,
+    )
+
+    np.testing.assert_allclose(fitted.strain(times), reference.strain(times), rtol=2.0e-4)
+    assert fitted.fit_rmse < 1.0e-6
+    target = float(reference.strain(70.0))
+    assert reference.time_to_strain(target, maximum_time=100.0) == pytest.approx(70.0)
+    assert reference.as_dict()["maturity"] == "curve_projection_verified"
+
+
+def test_sinh_creep_has_associative_mises_tensor_increment():
+    law = creep.SinhCreep(
+        coefficient=2.0e-6,
+        stress_scale=80.0,
+        exponent=2.0,
+    )
+    stress = np.diag([120.0, 0.0, 0.0])
+    increment = law.tensor_increment(stress, 50.0)
+    equivalent = np.sqrt(2.0 / 3.0 * np.tensordot(increment, increment))
+
+    np.testing.assert_allclose(
+        equivalent,
+        law.equivalent_rate(plasticity.von_mises(stress)) * 50.0,
+    )
+    assert law.equivalent_rate(120.0) > law.equivalent_rate(80.0)
+
+
+def test_j2_uniaxial_complete_loading_unloading_reverse_path():
+    material = plasticity.J2LinearIsotropicHardening(
+        young=200.0e3,
+        poisson=0.3,
+        yield_stress=200.0,
+        hardening_modulus=2.0e3,
+    )
+    state = plasticity.UniaxialPlasticState()
+    stresses = []
+    for strain in (0.0, 0.0005, 0.003, 0.005, 0.002, 0.0, -0.003):
+        stress, state = plasticity.update_uniaxial(strain, material, state)
+        stresses.append(stress)
+
+    assert stresses[1] == pytest.approx(material.young * 0.0005)
+    assert state.equivalent_plastic_strain > 0.0
+    assert stresses[4] < stresses[3]
+    assert stresses[-1] < 0.0
+
+
 def test_basquin_and_miner_block_loading():
     curve = fatigue.BasquinCurve(
         fatigue_strength_coefficient=1000.0,

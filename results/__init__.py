@@ -1,6 +1,7 @@
 """Simulation results, quantities of interest, and dataset bridges."""
 
 from .core import (
+    CheckpointRecord,
     FieldResult,
     HistoryResult,
     ResultQuantity,
@@ -55,6 +56,7 @@ from .visualization import (
 )
 
 __all__ = [
+    "CheckpointRecord",
     "FieldResult",
     "FieldOutput",
     "FieldOutputArtifacts",

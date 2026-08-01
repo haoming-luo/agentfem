@@ -29,6 +29,7 @@ from .physics import (
     PINNSpec,
 )
 from .torch_adapter import TorchMLPSurrogate, TrainedTorchMLP
+from .pinn_torch import PINNTrainingRecord, TorchPINNAdapter
 
 __all__ = [
     "BoxApplicabilityDomain",
@@ -37,6 +38,7 @@ __all__ = [
     "NeuralOperatorSpec",
     "OutOfDomainError",
     "PINNSpec",
+    "PINNTrainingRecord",
     "PODRidgeSurrogate",
     "PhysicsCondition",
     "PhysicsResidual",
@@ -45,6 +47,7 @@ __all__ = [
     "RidgeSurrogate",
     "SurrogateValidationReport",
     "TorchMLPSurrogate",
+    "TorchPINNAdapter",
     "TrainedPODRidge",
     "TrainedRidge",
     "TrainedTorchMLP",

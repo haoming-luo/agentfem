@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import exp, isfinite
+from math import exp, isfinite, log, sinh
 
 import numpy as np
 
@@ -28,6 +28,402 @@ class CreepHistory:
             "time": self.time.tolist(),
             "equivalent_creep_strain": self.equivalent_creep_strain.tolist(),
             "tensor_history": self.creep_strain is not None,
+        }
+
+
+@dataclass(frozen=True)
+class CreepDamageState:
+    """Local creep strain and scalar continuum-damage state."""
+
+    equivalent_creep_strain: float = 0.0
+    damage: float = 0.0
+    creep_strain: np.ndarray | None = None
+
+    def __post_init__(self) -> None:
+        equivalent = float(self.equivalent_creep_strain)
+        damage = float(self.damage)
+        if not isfinite(equivalent) or equivalent < 0.0:
+            raise ValueError("equivalent_creep_strain must be finite and nonnegative.")
+        if not isfinite(damage) or not 0.0 <= damage < 1.0:
+            raise ValueError("creep damage must satisfy 0 <= damage < 1.")
+        tensor = self.creep_strain
+        if tensor is not None:
+            tensor = np.asarray(tensor, dtype=float)
+            if tensor.shape != (3, 3) or not np.all(np.isfinite(tensor)):
+                raise ValueError("creep_strain must be a finite 3x3 tensor.")
+            tensor = tensor.copy()
+        object.__setattr__(self, "equivalent_creep_strain", equivalent)
+        object.__setattr__(self, "damage", damage)
+        object.__setattr__(self, "creep_strain", tensor)
+
+
+@dataclass(frozen=True)
+class CreepDamageUpdate:
+    """Accepted material-point increment from a creep-damage law."""
+
+    state: CreepDamageState
+    equivalent_increment: float
+    damage_increment: float
+    failed: bool = False
+
+
+@dataclass(frozen=True)
+class KachanovRabotnovCreep:
+    """Classical scalar Kachanov--Rabotnov creep-damage coupling.
+
+    For normalized equivalent stress ``s = q / reference_stress``, the local
+    equations are
+
+    ``eps_dot = A s**n / (1 - omega)**n`` and
+    ``omega_dot = B s**m / (1 - omega)**phi``.
+
+    The constant-stress update integrates both equations analytically.  This
+    avoids time-step-dependent damage in material-point verification and gives
+    a reference update for a future global quadrature driver.  Multiaxial use
+    currently drives both equations with von Mises stress; alternative rupture
+    stress measures must be introduced explicitly rather than hidden.
+    """
+
+    creep_coefficient: float
+    creep_exponent: float
+    damage_coefficient: float
+    damage_exponent: float
+    damage_power: float
+    reference_stress: float = 1.0
+    reference_time: float = 1.0
+    failure_damage: float = 0.999
+    name: str = "Kachanov-Rabotnov creep damage"
+
+    def __post_init__(self) -> None:
+        values = (
+            self.creep_coefficient,
+            self.creep_exponent,
+            self.damage_coefficient,
+            self.damage_exponent,
+            self.damage_power,
+            self.reference_stress,
+            self.reference_time,
+            self.failure_damage,
+        )
+        if not all(isfinite(float(value)) for value in values):
+            raise ValueError("KachanovRabotnovCreep parameters must be finite.")
+        if self.creep_coefficient < 0.0 or self.damage_coefficient < 0.0:
+            raise ValueError("K-R rate coefficients must be nonnegative.")
+        if self.creep_exponent <= 0.0 or self.damage_exponent <= 0.0:
+            raise ValueError("K-R stress exponents must be positive.")
+        if self.damage_power < 0.0:
+            raise ValueError("damage_power must be nonnegative.")
+        if self.reference_stress <= 0.0 or self.reference_time <= 0.0:
+            raise ValueError("K-R reference scales must be positive.")
+        if not 0.0 < self.failure_damage < 1.0:
+            raise ValueError("failure_damage must lie strictly between zero and one.")
+
+    def update(
+        self,
+        stress,
+        duration: float,
+        state: CreepDamageState | None = None,
+    ) -> CreepDamageUpdate:
+        """Integrate one piecewise-constant stress interval exactly."""
+
+        dt = float(duration)
+        if not isfinite(dt) or dt < 0.0:
+            raise ValueError("duration must be finite and nonnegative.")
+        old = CreepDamageState() if state is None else state
+        selected = np.asarray(stress, dtype=float)
+        tensor_stress = selected.shape == (3, 3)
+        if tensor_stress:
+            q = von_mises(selected)
+            if old.creep_strain is None and old.equivalent_creep_strain > 0.0:
+                raise ValueError(
+                    "Cannot switch a scalar K-R history to tensor flow because "
+                    "its prior tensor direction is unavailable."
+                )
+        elif selected.ndim == 0:
+            q = abs(float(selected))
+            if old.creep_strain is not None:
+                raise ValueError(
+                    "Cannot switch a tensor K-R history to scalar stress."
+                )
+        else:
+            raise ValueError("stress must be a scalar or symmetric 3x3 tensor.")
+        normalized = q / self.reference_stress
+        old_integrity = 1.0 - old.damage
+        damage_scale = (
+            self.damage_coefficient
+            * normalized**self.damage_exponent
+            * dt
+            / self.reference_time
+        )
+        power = self.damage_power + 1.0
+        remaining = old_integrity**power - power * damage_scale
+        failed = remaining <= (1.0 - self.failure_damage) ** power
+        new_integrity = max(
+            1.0 - self.failure_damage,
+            max(0.0, remaining) ** (1.0 / power),
+        )
+        new_damage = 1.0 - new_integrity
+
+        equivalent_increment = self._creep_increment(
+            normalized,
+            old_integrity,
+            new_integrity,
+            dt,
+        )
+        tensor = old.creep_strain
+        if tensor_stress:
+            tensor = np.zeros((3, 3)) if tensor is None else tensor.copy()
+            if q > 0.0:
+                tensor += equivalent_increment * 1.5 * deviatoric(selected) / q
+        new_state = CreepDamageState(
+            old.equivalent_creep_strain + equivalent_increment,
+            new_damage,
+            tensor,
+        )
+        return CreepDamageUpdate(
+            state=new_state,
+            equivalent_increment=equivalent_increment,
+            damage_increment=new_damage - old.damage,
+            failed=failed,
+        )
+
+    def rupture_time(self, equivalent_stress: float) -> float:
+        """Return time to ``failure_damage`` under constant stress."""
+
+        normalized = abs(float(equivalent_stress)) / self.reference_stress
+        rate = self.damage_coefficient * normalized**self.damage_exponent
+        if rate == 0.0:
+            return float("inf")
+        integrity = 1.0 - self.failure_damage
+        return float(
+            self.reference_time
+            * (1.0 - integrity ** (self.damage_power + 1.0))
+            / ((self.damage_power + 1.0) * rate)
+        )
+
+    def _creep_increment(
+        self,
+        normalized_stress: float,
+        old_integrity: float,
+        new_integrity: float,
+        duration: float,
+    ) -> float:
+        if normalized_stress == 0.0 or self.creep_coefficient == 0.0:
+            return 0.0
+        if self.damage_coefficient == 0.0:
+            return float(
+                self.creep_coefficient
+                * normalized_stress**self.creep_exponent
+                * duration
+                / self.reference_time
+                / old_integrity**self.creep_exponent
+            )
+        exponent = self.damage_power - self.creep_exponent + 1.0
+        prefactor = (
+            self.creep_coefficient
+            / self.damage_coefficient
+            * normalized_stress
+            ** (self.creep_exponent - self.damage_exponent)
+        )
+        if abs(exponent) <= 1.0e-12:
+            integral = log(old_integrity / new_integrity)
+        else:
+            integral = (
+                old_integrity**exponent - new_integrity**exponent
+            ) / exponent
+        return float(prefactor * integral)
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "model": "kachanov_rabotnov_creep_damage",
+            "creep_coefficient": self.creep_coefficient,
+            "creep_exponent": self.creep_exponent,
+            "damage_coefficient": self.damage_coefficient,
+            "damage_exponent": self.damage_exponent,
+            "damage_power": self.damage_power,
+            "reference_stress": self.reference_stress,
+            "reference_time": self.reference_time,
+            "failure_damage": self.failure_damage,
+            "damage_stress_measure": "von_mises",
+            "maturity": "material_point_verified",
+            "fem_quadrature_driver": False,
+        }
+
+
+@dataclass(frozen=True)
+class SinhCreep:
+    """Stress-sensitive hyperbolic-sine Mises creep law."""
+
+    coefficient: float
+    stress_scale: float
+    exponent: float = 1.0
+    reference_time: float = 1.0
+    name: str = "hyperbolic-sine creep"
+
+    def __post_init__(self) -> None:
+        values = (self.coefficient, self.stress_scale, self.exponent, self.reference_time)
+        if not all(isfinite(float(value)) for value in values):
+            raise ValueError("SinhCreep parameters must be finite.")
+        if self.coefficient < 0.0:
+            raise ValueError("SinhCreep.coefficient must be nonnegative.")
+        if self.stress_scale <= 0.0 or self.exponent <= 0.0 or self.reference_time <= 0.0:
+            raise ValueError("SinhCreep scales and exponent must be positive.")
+
+    def equivalent_rate(self, equivalent_stress: float) -> float:
+        return float(
+            self.coefficient
+            * sinh(abs(float(equivalent_stress)) / self.stress_scale) ** self.exponent
+            / self.reference_time
+        )
+
+    def tensor_increment(self, stress, duration: float) -> np.ndarray:
+        selected = np.asarray(stress, dtype=float)
+        q = von_mises(selected)
+        if q == 0.0:
+            return np.zeros((3, 3))
+        equivalent = self.equivalent_rate(q) * float(duration)
+        return equivalent * 1.5 * deviatoric(selected) / q
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "model": "mises_hyperbolic_sine_creep",
+            "coefficient": self.coefficient,
+            "stress_scale": self.stress_scale,
+            "exponent": self.exponent,
+            "reference_time": self.reference_time,
+            "maturity": "material_point_verified",
+            "fem_quadrature_driver": False,
+        }
+
+
+@dataclass(frozen=True)
+class ModifiedThetaProjection:
+    """Three-parameter modified-theta representation of a creep curve.
+
+    ``epsilon(t) = epsilon_0 + A(1-exp(-alpha*t)) + B(exp(alpha*t)-1)``.
+    This object is deliberately a curve projection and life-assessment aid;
+    it is not advertised as a stress-update law for a global FE solve.
+    """
+
+    initial_strain: float
+    primary_strain: float
+    tertiary_strain: float
+    rate: float
+    fit_rmse: float | None = None
+    name: str = "modified theta projection"
+
+    def __post_init__(self) -> None:
+        values = (self.initial_strain, self.primary_strain, self.tertiary_strain, self.rate)
+        if not all(isfinite(float(value)) for value in values):
+            raise ValueError("ModifiedThetaProjection parameters must be finite.")
+        if self.primary_strain < 0.0 or self.tertiary_strain < 0.0 or self.rate <= 0.0:
+            raise ValueError("Modified-theta amplitudes must be nonnegative and rate positive.")
+        if self.fit_rmse is not None and (not isfinite(self.fit_rmse) or self.fit_rmse < 0.0):
+            raise ValueError("fit_rmse must be finite and nonnegative.")
+
+    def strain(self, time):
+        selected = np.asarray(time, dtype=float)
+        if np.any(~np.isfinite(selected)) or np.any(selected < 0.0):
+            raise ValueError("time must be finite and nonnegative.")
+        value = (
+            self.initial_strain
+            + self.primary_strain * (-np.expm1(-self.rate * selected))
+            + self.tertiary_strain * np.expm1(self.rate * selected)
+        )
+        return float(value) if value.ndim == 0 else value
+
+    def strain_rate(self, time):
+        selected = np.asarray(time, dtype=float)
+        if np.any(~np.isfinite(selected)) or np.any(selected < 0.0):
+            raise ValueError("time must be finite and nonnegative.")
+        value = self.rate * (
+            self.primary_strain * np.exp(-self.rate * selected)
+            + self.tertiary_strain * np.exp(self.rate * selected)
+        )
+        return float(value) if value.ndim == 0 else value
+
+    def time_to_strain(self, target: float, *, maximum_time: float) -> float:
+        """Bracket and bisect the first time reaching a strain criterion."""
+
+        selected_target = float(target)
+        upper = float(maximum_time)
+        if selected_target < self.initial_strain or upper <= 0.0:
+            raise ValueError("target and maximum_time do not bracket a future criterion.")
+        if self.strain(upper) < selected_target:
+            raise ValueError("target strain is not reached within maximum_time.")
+        lower = 0.0
+        for _ in range(80):
+            midpoint = 0.5 * (lower + upper)
+            if self.strain(midpoint) < selected_target:
+                lower = midpoint
+            else:
+                upper = midpoint
+        return upper
+
+    @classmethod
+    def fit(
+        cls,
+        times,
+        strains,
+        *,
+        initial_strain: float | None = None,
+        rate_bounds: tuple[float, float] | None = None,
+        candidates: int = 320,
+    ) -> "ModifiedThetaProjection":
+        """Fit a deterministic nonnegative projection without SciPy."""
+
+        selected_time = np.asarray(times, dtype=float)
+        selected_strain = np.asarray(strains, dtype=float)
+        if selected_time.ndim != 1 or selected_time.size < 4:
+            raise ValueError("modified-theta fitting requires at least four times.")
+        if selected_strain.shape != selected_time.shape:
+            raise ValueError("times and strains must have identical one-dimensional shapes.")
+        if np.any(~np.isfinite(selected_time)) or np.any(np.diff(selected_time) <= 0.0):
+            raise ValueError("times must be finite and strictly increasing.")
+        if np.any(~np.isfinite(selected_strain)):
+            raise ValueError("strains must be finite.")
+        epsilon0 = float(selected_strain[0] if initial_strain is None else initial_strain)
+        relative_time = selected_time - selected_time[0]
+        span = float(relative_time[-1])
+        bounds = rate_bounds or (1.0e-3 / span, 5.0 / span)
+        if bounds[0] <= 0.0 or bounds[1] <= bounds[0] or candidates < 8:
+            raise ValueError("rate_bounds and candidates do not define a valid search.")
+        best = None
+        for alpha in np.geomspace(bounds[0], bounds[1], int(candidates)):
+            basis = np.column_stack(
+                (
+                    -np.expm1(-alpha * relative_time),
+                    np.expm1(alpha * relative_time),
+                )
+            )
+            amplitudes, *_ = np.linalg.lstsq(
+                basis,
+                selected_strain - epsilon0,
+                rcond=None,
+            )
+            if np.any(amplitudes < 0.0):
+                continue
+            residual = basis @ amplitudes + epsilon0 - selected_strain
+            rmse = float(np.sqrt(np.mean(residual**2)))
+            if best is None or rmse < best[0]:
+                best = (rmse, float(alpha), amplitudes)
+        if best is None:
+            raise ValueError("data cannot be fit with nonnegative modified-theta amplitudes.")
+        return cls(epsilon0, float(best[2][0]), float(best[2][1]), best[1], best[0])
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "model": "modified_theta_projection",
+            "initial_strain": self.initial_strain,
+            "primary_strain": self.primary_strain,
+            "tertiary_strain": self.tertiary_strain,
+            "rate": self.rate,
+            "fit_rmse": self.fit_rmse,
+            "maturity": "curve_projection_verified",
+            "fem_quadrature_driver": False,
         }
 
 

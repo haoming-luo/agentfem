@@ -1,0 +1,137 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.material.creep_damage_assessment",
+  "title": "Creep damage and modified-theta assessment",
+  "kind": "material",
+  "status": "supported",
+  "summary": "Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, with an explicit boundary before global finite-element creep.",
+  "public_api": [
+    "agentfem.constitutive.KachanovRabotnovCreep",
+    "agentfem.constitutive.CreepDamageState",
+    "agentfem.constitutive.SinhCreep",
+    "agentfem.constitutive.ModifiedThetaProjection"
+  ],
+  "implementation": [
+    "constitutive/creep.py",
+    "constitutive/catalog.py"
+  ],
+  "science": {
+    "statement": "K-R couples effective-stress creep flow to a scalar loss-of-integrity variable; the exact constant-stress update supplies a time-subdivision-independent reference, while modified theta represents a measured creep curve rather than a global equilibrium law.",
+    "equations": [
+      {
+        "label": "K-R creep rate",
+        "expression": "epsilon_dot = A (q / sigma_ref)^n / (1 - omega)^n",
+        "description": "Damage accelerates the equivalent creep rate through effective stress."
+      },
+      {
+        "label": "K-R damage rate",
+        "expression": "omega_dot = B (q / sigma_ref)^m / (1 - omega)^phi",
+        "description": "The scalar damage state grows from zero toward a declared failure threshold."
+      },
+      {
+        "label": "modified theta projection",
+        "expression": "epsilon = epsilon_0 + A1(1-exp(-alpha t)) + B1(exp(alpha t)-1)",
+        "description": "Primary and tertiary terms project a creep strain-time curve."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "stress and duration",
+        "type": "scalar equivalent stress or symmetric 3x3 stress plus time interval",
+        "unit_role": "declared reference stress and time system",
+        "description": "A piecewise-constant interval for the exact local K-R update."
+      },
+      {
+        "name": "calibrated parameters",
+        "type": "rate coefficients, stress exponents, damage power and failure criterion",
+        "unit_role": "normalized by reference stress and reference time",
+        "description": "Material- and temperature-specific parameters require provenance."
+      },
+      {
+        "name": "creep test curve",
+        "type": "strictly increasing time and finite strain arrays",
+        "unit_role": "consistent time and strain",
+        "description": "Data used by the modified-theta projection."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "creep state",
+        "type": "equivalent/tensor creep strain and scalar damage",
+        "unit_role": "strain and dimensionless damage",
+        "description": "Accepted material-point state and increments."
+      },
+      {
+        "name": "rupture screening time",
+        "type": "scalar",
+        "unit_role": "time",
+        "description": "Constant-stress time to the declared damage threshold."
+      },
+      {
+        "name": "projected curve",
+        "type": "strain and strain-rate functions",
+        "unit_role": "strain and strain per time",
+        "description": "Modified-theta fit with recorded RMSE."
+      }
+    ],
+    "assumptions": [
+      "Small-strain associative Mises creep for tensor increments.",
+      "Piecewise-constant stress over each exact K-R material interval.",
+      "Scalar isotropic damage and a material-specific declared failure threshold."
+    ],
+    "conventions": [
+      "Damage is zero for intact material and approaches but never numerically reaches one.",
+      "The first multiaxial implementation drives damage with von Mises stress.",
+      "Modified theta is classified as a curve assessment, not an FE constitutive update."
+    ],
+    "applicability": [
+      "Material calibration checks and constant-stress creep screening.",
+      "Sequential thermoelastic-to-creep hotspot workflows with explicit scope labels.",
+      "Reference updates for a future global quadrature creep driver."
+    ],
+    "limitations": [
+      "No global creep equilibrium, adaptive time stepping, temperature field interpolation, or restartable quadrature state yet.",
+      "Local softening/damage is not mesh regularized.",
+      "No Liu-Murakami multiaxial damage law is claimed in this release."
+    ]
+  },
+  "usage": {
+    "minimal_example": "Create KachanovRabotnovCreep with traceable parameters, advance CreepDamageState over stress intervals, and store strain/damage histories in SimulationResult.",
+    "examples": [
+      "examples/creep_hot_wall_assessment.py",
+      "examples/material_models.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_constitutive_models.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.creep_damage_material_paths"
+    ],
+    "validation_rules": [
+      "Reject nonfinite parameters, invalid reference scales, and damage outside [0, 1).",
+      "Clamp a failed update at the declared failure damage and report failed=True.",
+      "Do not promote the capability beyond material-point maturity without a global state consumer."
+    ]
+  },
+  "references": [
+    {
+      "title": "Constitutive equations for creep rupture",
+      "locator": "doi:10.1016/0001-6160(77)90135-3"
+    },
+    {
+      "title": "Damage localization of conventional creep damage models and proposition of a new model",
+      "locator": "doi:10.1299/jsmea.41.57"
+    },
+    {
+      "title": "Modified theta projection equation for high-temperature creep curves",
+      "locator": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6838921/"
+    }
+  ],
+  "related_cards": [
+    "agentfem.material.j2_global_plasticity",
+    "agentfem.workflow.thermoelastic_analysis"
+  ]
+}

@@ -82,9 +82,12 @@ automatic cutback. A serial checkpoint contains displacement, accepted load
 factor, plastic strain, equivalent plastic strain, and a schema version.
 
 The current boundary is explicit: 3D small strain, one material region,
-natural-load incrementation, time-invariant strong supports, and serial
-execution/restart. Plane stress, distributed execution/restart, finite-strain
-plasticity, and a general UMAT path remain future work.
+proportional natural/displacement loading, and serial execution/restart.
+Nonzero engineering Dirichlet targets are scaled by the same accepted step
+factor as natural loads; cutback and restart restore their corresponding
+values. Arbitrary cyclic global amplitudes, plane stress, distributed
+execution/restart, finite-strain plasticity, and a general UMAT path remain
+future work.
 
 ## Power-Law Creep
 
@@ -109,6 +112,39 @@ The next creep milestone is to reuse the implemented J2 quadrature transaction
 and restart schema, add an implicit time-local update and error estimate, then
 pass relaxation, one-element, restart, and external high-temperature
 benchmarks. A new creep-law name alone is not that milestone.
+
+## Creep Damage, Sinh Flow, and Modified Theta
+
+`KachanovRabotnovCreep` couples effective-stress creep and scalar damage:
+
+```text
+epsilon_dot = A (q / sigma_ref)^n / (1 - omega)^n
+omega_dot   = B (q / sigma_ref)^m / (1 - omega)^phi
+```
+
+For a piecewise-constant stress interval, AgentFEM integrates both equations
+analytically. One interval and any subdivision therefore recover the same
+material-point state up to floating-point tolerance. `SinhCreep` provides the
+separate hyperbolic-sine Mises rate family used when a power law is too rigid
+over a wide stress range.
+
+`ModifiedThetaProjection` represents
+
+```text
+epsilon = epsilon_0 + A1 (1 - exp(-alpha t))
+                    + B1 (exp(alpha t) - 1)
+```
+
+and supplies deterministic nonnegative fitting, strain/rate projection, and a
+time-to-strain criterion without adding SciPy to the core. It is classified as
+a curve/life assessment, not a global FE stress update.
+
+The release demo `examples/creep_hot_wall_assessment.py` connects an implicit
+heat-transfer solve, sequential thermoelastic stress, the governing sampled
+equivalent stress, K-R damage history, and modified-theta projection through
+one `SimulationResult`. Its material constants are explicitly illustrative.
+It demonstrates the power-component workflow and data contract while the
+global quadrature creep step remains a visible next gate.
 
 ## Stress-Life Fatigue
 

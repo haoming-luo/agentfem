@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 
@@ -82,6 +83,8 @@ def test_global_j2_checkpoint_restart_matches_uninterrupted_path(tmp_path):
     partial, _ = _j2_patch()
     partial.solve(until=0.5)
     checkpoint = partial.save_checkpoint(tmp_path / "j2_restart.npz")
+    assert checkpoint.with_suffix(".npz.checkpoint.json").is_file()
+    assert partial.checkpoints[0].portable is False
 
     restarted, restarted_u = _j2_patch()
     restarted.load_checkpoint(checkpoint)
@@ -102,6 +105,20 @@ def test_global_j2_checkpoint_restart_matches_uninterrupted_path(tmp_path):
         rtol=2.0e-8,
         atol=2.0e-10,
     )
+
+
+def test_global_j2_proportionally_applies_prescribed_displacement():
+    step, displacement = _j2_displacement_patch()
+    step.solve(until=0.5)
+
+    assert step.last_solve_info.converged
+    assert step.summary()["loading"]["prescribed_values"] == 4
+    assert np.max(displacement.value.x.array) == pytest.approx(0.0025)
+    assert np.max(step.state.equivalent_plastic_strain.values) > 0.0
+
+    step.solve()
+    assert step.last_solve_info.converged
+    assert np.max(displacement.value.x.array) == pytest.approx(0.005)
 
 
 def test_implicit_dynamics_provider_runs_newmark_and_records_procedure():
@@ -319,6 +336,51 @@ def _j2_patch():
     )
     model.fix(displacement, on=left, value=0.0)
     model.traction((250.0, 0.0, 0.0), on=right)
+    step = model.step(
+        target=displacement,
+        material=material,
+        incrementation=steps.fixed(4),
+        solver_options=solvers.newton(
+            relative_tolerance=1.0e-8,
+            absolute_tolerance=1.0e-9,
+            maximum_iterations=20,
+            line_search="backtracking",
+        ),
+        progress=False,
+    )
+    return step, displacement
+
+
+def _j2_displacement_patch():
+    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    study = studies.nonlinear_static(
+        physics="solid_mechanics",
+        dimension=3,
+    )
+    model = models.create(study=study, mesh=domain, name="j2_displacement_patch")
+    displacement = model.field(fields.displacement(domain))
+    material = model.material(
+        constitutive.J2LinearIsotropicHardening(
+            young=200.0e3,
+            poisson=0.3,
+            yield_stress=200.0,
+            hardening_modulus=2.0e3,
+        )
+    )
+    left = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[0], 0.0),
+        name="left",
+        tag=1,
+    )
+    right = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[0], 1.0),
+        name="right",
+        tag=2,
+    )
+    model.fix(displacement, on=left, value=0.0)
+    model.fix(displacement, on=right, component=0, value=0.005)
     step = model.step(
         target=displacement,
         material=material,

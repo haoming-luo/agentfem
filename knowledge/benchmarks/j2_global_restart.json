@@ -2,7 +2,7 @@
   "schema": "agentfem.benchmark-card",
   "schema_version": "0.1.0",
   "id": "agentfem.benchmark.j2_global_restart",
-  "title": "Three-dimensional J2 patch and restart equivalence",
+  "title": "Three-dimensional J2 path, displacement control, and restart equivalence",
   "status": "automated_regression",
   "purpose": "Verify that the local radial return, analytical algorithmic tangent, quadrature state, global Newton path, commit policy, and checkpoint restoration operate as one path-dependent finite-element procedure.",
   "physics": "three-dimensional small-strain Mises plasticity with linear isotropic hardening",
@@ -15,7 +15,8 @@
     "The final load factor is one and every accepted increment converges.",
     "At least one quadrature point has positive equivalent plastic strain.",
     "Restarted displacement equals uninterrupted displacement within tolerance.",
-    "Restarted committed PEEQ equals uninterrupted committed PEEQ within tolerance."
+    "Restarted committed PEEQ equals uninterrupted committed PEEQ within tolerance.",
+    "A nonzero prescribed displacement is applied proportionally at partial and complete step factors."
   ],
   "acceptance": [
     "Relative and absolute restart differences satisfy the automated test tolerances.",

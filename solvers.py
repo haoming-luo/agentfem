@@ -389,6 +389,8 @@ class SolveEvent:
     next_increment: float | None = None
     incrementation: str = ""
     message: str = ""
+    time: float | None = None
+    total_increments: int = 0
 
 
 def create_ksp(comm, options: LinearSolverOptions | None = None):

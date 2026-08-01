@@ -92,6 +92,17 @@ _BENCHMARKS = (
         automated_test="tests/test_constitutive_models.py::test_power_law_creep_matches_constant_stress_and_relaxation_solutions",
     ),
     BenchmarkSpec(
+        identifier="creep_damage_material_paths",
+        capability="creep_damage",
+        level="material_point",
+        reference="knowledge/benchmarks/creep_damage_material_paths.json",
+        criterion=(
+            "K-R exact updates are subdivision invariant, tensor flow is "
+            "deviatoric, and modified-theta fitting recovers a synthetic curve"
+        ),
+        automated_test="tests/test_constitutive_models.py",
+    ),
+    BenchmarkSpec(
         identifier="rainflow_miner_history",
         capability="stress_life_fatigue",
         level="postprocess",

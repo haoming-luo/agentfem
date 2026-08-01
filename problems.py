@@ -19,6 +19,7 @@ from .solvers import (
     LinearSolverOptions,
     NewtonSolverOptions,
     NonlinearSolverOptions,
+    SolveEvent,
     solve_affine_nonlinear_path,
     solve_linear_problem,
     solve_nonlinear_problem,
@@ -487,6 +488,8 @@ class ExplicitDynamicsStep:
     save_every: int | None = None
     print_every: int | None = None
     procedure: object | None = None
+    progress: object = True
+    accepted_times: list[float] = field(default_factory=list, init=False)
 
     def run(
         self,
@@ -503,6 +506,9 @@ class ExplicitDynamicsStep:
         from .diagnostics import comm_of, print_on_root
 
         selected_comm = comm if comm is not None else comm_of(self.state.u)
+        selected_progress = self.progress if progress is None else progress
+        reporter = _transient_reporter(selected_progress, selected_comm)
+        self.accepted_times.clear()
         save_every = _save_interval(self.save_every, output=output, steps=self.steps)
         print_every = _print_interval(self.print_every, self.steps)
         stepper = time.TimeStepper(
@@ -513,13 +519,21 @@ class ExplicitDynamicsStep:
         )
         output_fields = tuple(fields)
 
+        _emit_transient_started(reporter, self)
+
         if output is None:
             for info in stepper:
                 self._advance_one(info.time)
-                if info.should_print and progress is not None:
-                    message = progress(info, self.state)
-                    if message:
-                        print_on_root(selected_comm, message)
+                self.accepted_times.append(float(info.time))
+                _report_transient_increment(
+                    reporter,
+                    selected_progress,
+                    info,
+                    self,
+                    self.state,
+                    selected_comm,
+                )
+            _emit_transient_completed(reporter, self)
             return self
 
         if domain is None:
@@ -528,13 +542,31 @@ class ExplicitDynamicsStep:
             xdmf.write_fields(0.0, *output_fields)
             for info in stepper:
                 self._advance_one(info.time)
+                self.accepted_times.append(float(info.time))
                 if info.should_save:
                     xdmf.write_fields(info.time, *output_fields)
-                if info.should_print and progress is not None:
-                    message = progress(info, self.state)
-                    if message:
-                        print_on_root(selected_comm, message)
+                _report_transient_increment(
+                    reporter,
+                    selected_progress,
+                    info,
+                    self,
+                    self.state,
+                    selected_comm,
+                )
+        _emit_transient_completed(reporter, self)
         return self
+
+    def solve(self):
+        self.run()
+        return self.state.u.value
+
+    def solve_result(self):
+        from .results import from_solution
+
+        solution = self.solve()
+        result = from_solution(solution, name=self.name, metadata={"step": self.summary()})
+        _add_transient_progress(result, self.accepted_times)
+        return result
 
     def _advance_one(self, t: float) -> None:
         self.integrator.step(
@@ -592,6 +624,7 @@ class ImplicitDynamicsStep:
     print_every: int | None = None
     procedure: object | None = None
     progress: object = True
+    accepted_times: list[float] = field(default_factory=list, init=False)
 
     def run(self, *, output=None, fields=(), progress=None, comm=None):
         """Advance the implicit dynamics step with standard progress output."""
@@ -601,6 +634,8 @@ class ImplicitDynamicsStep:
 
         selected_comm = comm if comm is not None else comm_of(self.state.u)
         selected_progress = self.progress if progress is None else progress
+        reporter = _transient_reporter(selected_progress, selected_comm)
+        self.accepted_times.clear()
         save_every = _save_interval(self.save_every, output=output, steps=self.steps)
         print_every = _print_interval(self.print_every, self.steps)
         stepper = time.TimeStepper(
@@ -614,29 +649,30 @@ class ImplicitDynamicsStep:
             self.state.v.value,
             self.state.a.value,
         )
+        _emit_transient_started(reporter, self)
         if output is None:
             for info in stepper:
                 self._advance_one(info.time)
-                if info.should_print and selected_progress:
-                    print_on_root(
-                        selected_comm,
-                        f"[{self.name}] increment {info.index}/{self.steps} "
-                        f"t={info.time:.6g}",
-                    )
+                self.accepted_times.append(float(info.time))
+                _report_transient_increment(
+                    reporter, selected_progress, info, self, self.state,
+                    selected_comm,
+                )
+            _emit_transient_completed(reporter, self)
             return self
         domain = self.state.u.function_space.mesh
         with io.XDMFTimeSeries(output, domain) as xdmf:
             xdmf.write_fields(0.0, *output_fields)
             for info in stepper:
                 self._advance_one(info.time)
+                self.accepted_times.append(float(info.time))
                 if info.should_save:
                     xdmf.write_fields(info.time, *output_fields)
-                if info.should_print and selected_progress:
-                    print_on_root(
-                        selected_comm,
-                        f"[{self.name}] increment {info.index}/{self.steps} "
-                        f"t={info.time:.6g}",
-                    )
+                _report_transient_increment(
+                    reporter, selected_progress, info, self, self.state,
+                    selected_comm,
+                )
+        _emit_transient_completed(reporter, self)
         return self
 
     def solve(self):
@@ -647,11 +683,13 @@ class ImplicitDynamicsStep:
         from .results import from_solution
 
         solution = self.solve()
-        return from_solution(
+        result = from_solution(
             solution,
             name=self.name,
             metadata={"step": self.summary()},
         )
+        _add_transient_progress(result, self.accepted_times)
+        return result
 
     def _advance_one(self, time_value: float) -> None:
         p = self.parameters
@@ -743,6 +781,7 @@ class FirstOrderTransientStep:
     print_every: int | None = None
     progress: object = True
     procedure: object | None = None
+    accepted_times: list[float] = field(default_factory=list, init=False)
 
     def run(self, *, output=None, fields=(), progress=None, comm=None):
         from . import io
@@ -750,6 +789,8 @@ class FirstOrderTransientStep:
 
         selected_comm = comm if comm is not None else comm_of(self.current)
         selected_progress = self.progress if progress is None else progress
+        reporter = _transient_reporter(selected_progress, selected_comm)
+        self.accepted_times.clear()
         stepper = time.TimeStepper(
             total_steps=self.steps,
             dt=self.dt,
@@ -762,22 +803,24 @@ class FirstOrderTransientStep:
         )
         selected_fields = tuple(fields) or (self.current,)
 
+        _emit_transient_started(reporter, self)
+
         def advance(info):
             if self.update_load is not None:
                 self.update_load(info.time)
             self.problem.solve()
             self.previous.x.array[:] = self.current.x.array
             self.previous.x.scatter_forward()
-            if info.should_print and selected_progress:
-                print_on_root(
-                    selected_comm,
-                    f"[{self.name}] increment {info.index}/{self.steps} "
-                    f"t={info.time:.6g}",
-                )
+            self.accepted_times.append(float(info.time))
+            _report_transient_increment(
+                reporter, selected_progress, info, self, self.current,
+                selected_comm,
+            )
 
         if output is None:
             for info in stepper:
                 advance(info)
+            _emit_transient_completed(reporter, self)
             return self
         domain = self.current.function_space.mesh
         with io.XDMFTimeSeries(output, domain) as xdmf:
@@ -786,6 +829,7 @@ class FirstOrderTransientStep:
                 advance(info)
                 if info.should_save:
                     xdmf.write_fields(info.time, *selected_fields)
+        _emit_transient_completed(reporter, self)
         return self
 
     def solve(self):
@@ -796,11 +840,13 @@ class FirstOrderTransientStep:
         from .results import from_solution
 
         solution = self.solve()
-        return from_solution(
+        result = from_solution(
             solution,
             name=self.name,
             metadata={"step": self.summary()},
         )
+        _add_transient_progress(result, self.accepted_times)
+        return result
 
     def summary(self) -> dict[str, object]:
         return {
@@ -816,6 +862,88 @@ class FirstOrderTransientStep:
             "print_every": _print_interval(self.print_every, self.steps),
             "problem": self.problem.summary(),
         }
+
+
+def _transient_reporter(progress, comm):
+    if progress is True:
+        from .diagnostics import StandardRunReporter
+
+        return StandardRunReporter(comm, show_iterations=False)
+    if hasattr(progress, "emit"):
+        return progress
+    return None
+
+
+def _emit_transient_started(reporter, step) -> None:
+    if reporter is None:
+        return
+    procedure = getattr(step, "procedure", None)
+    algorithm = getattr(procedure, "algorithm", "time_integration")
+    reporter.emit(
+        SolveEvent(
+            "transient_started",
+            step.name,
+            incrementation=algorithm,
+            total_increments=step.steps,
+        )
+    )
+
+
+def _report_transient_increment(
+    reporter,
+    selected_progress,
+    info,
+    step,
+    state,
+    comm,
+) -> None:
+    if not info.should_print:
+        return
+    if reporter is not None:
+        reporter.emit(
+            SolveEvent(
+                "time_increment",
+                step.name,
+                increment=info.index,
+                time=float(info.time),
+                total_increments=step.steps,
+            )
+        )
+        return
+    if callable(selected_progress):
+        from .diagnostics import print_on_root
+
+        message = selected_progress(info, state)
+        if message:
+            print_on_root(comm, message)
+
+
+def _emit_transient_completed(reporter, step) -> None:
+    if reporter is None:
+        return
+    times = getattr(step, "accepted_times", ())
+    reporter.emit(
+        SolveEvent(
+            "transient_completed",
+            step.name,
+            increment=len(times),
+            time=0.0 if not times else float(times[-1]),
+            total_increments=step.steps,
+        )
+    )
+
+
+def _add_transient_progress(result, accepted_times) -> None:
+    times = np.asarray(accepted_times, dtype=float)
+    if times.size:
+        result.add_history(
+            "accepted_increment",
+            times,
+            np.arange(1, times.size + 1, dtype=float),
+            abscissa_name="time",
+            abscissa_unit="s",
+            description="Accepted time-integration increments.",
+        )
 
 
 @dataclass

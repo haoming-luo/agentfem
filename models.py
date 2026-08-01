@@ -1087,7 +1087,9 @@ class Model:
         step = mechanics.j2_plasticity_step(
             displacement=target,
             material=material,
-            external_force=self.external_force(target),
+            external_force=(
+                self.external_force(target) if self.loads else None
+            ),
             constraints=(
                 self.constraints if constraints is None else constraints
             ),

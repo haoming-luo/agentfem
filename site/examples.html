@@ -36,6 +36,7 @@
 <a class="" href="validation.html">Validation</a>
 <a class="" href="licensing.html">Licensing</a>
 <a class="" href="publishing.html">Publishing</a>
+<a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
 <a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
 <a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
@@ -75,6 +76,9 @@
 <li><code>thermal_stress_wall_2d.py</code><br>Power-plant-oriented sequential coupling. One thermoelastic material feeds<br>implicit heat transfer and the equivalent thermal-expansion load of a<br>plane-strain stress solve.</li>
 </ol>
 <ol>
+<li><code>creep_hot_wall_assessment.py</code><br>Power-component screening route. Connects transient heat FEM, sequential<br>thermoelastic stress, exact Kachanov--Rabotnov damage integration, and a<br>modified-theta projection in one result manifest. Parameters are<br>illustrative and the example clearly does not claim a global creep field.</li>
+</ol>
+<ol>
 <li><code>abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py</code><br>Advanced interoperability and finite-deformation reference. Imports a real<br>Abaqus <code>C3D10</code> mesh, preserves node labels, eliminates 4,212 periodic<br><code>*EQUATION</code> constraints, solves a 3D Neo-Hookean load path, and writes<br>scale-one deformed VTU/PNG evidence. Read the folder README before treating<br>it as an Abaqus comparison: the unavailable user material and user MPC are<br>deliberately replaced by explicit AgentFEM semantics.</li>
 </ol>
 <h2 id="run">Run</h2>
@@ -85,7 +89,8 @@ python examples/static_elasticity_surrogate_campaign.py
 python examples/campaign_from_json.py
 python examples/material_models.py
 python examples/j2_plasticity_3d.py
-python examples/thermal_stress_wall_2d.py</code></pre>
+python examples/thermal_stress_wall_2d.py
+python examples/creep_hot_wall_assessment.py</code></pre>
 <p>From the parent development directory:</p>
 <pre><code>python agentfem/examples/static_elasticity_2d.py
 python agentfem/examples/transient_heat_2d.py</code></pre>
