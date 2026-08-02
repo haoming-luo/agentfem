@@ -63,6 +63,31 @@ def test_ridge_fit_validate_predict_and_artifact_round_trip(tmp_path):
     )
 
 
+def test_training_workflow_keeps_split_validation_and_guard_together():
+    dataset = _linear_dataset()
+    training = surrogates.train(
+        dataset,
+        estimator=surrogates.RidgeSurrogate(alpha=1.0e-12),
+        validation_fraction=0.2,
+        seed=2026,
+        thresholds={"max_relative_l2": 1.0e-8},
+    )
+    guarded = training.guard()
+
+    assert training.accepted is True
+    assert len(training.split.train.samples) == 24
+    assert len(training.split.validation.samples) == 6
+    assert training.summary()["split"]["seed"] == 2026
+    assert guarded.predict({"x": 0.0, "z": 0.5}).in_domain is True
+
+
+def test_training_workflow_rejects_too_little_independent_evidence():
+    dataset = _linear_dataset(count=2)
+
+    with pytest.raises(ValueError, match="at least three"):
+        surrogates.train(dataset)
+
+
 def test_pod_ridge_reconstructs_field_and_persists(tmp_path):
     dataset = _linear_dataset()
     trained = surrogates.PODRidgeSurrogate(

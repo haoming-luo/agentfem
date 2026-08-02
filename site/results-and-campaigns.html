@@ -24,9 +24,11 @@
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
 <a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
 <a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
+<a class="" href="operator-contracts.html">Scientific Operator Contracts</a>
 <a class="active" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="platform-support.html">Platform and Optional Dependencies</a>
 <a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
 <a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
 <a class="" href="module-map.html">Module Map</a>
@@ -109,6 +111,20 @@ solved.write_manifest(&quot;result.json&quot;)</code></pre>
 <p>In the last case AgentFEM extracts only the declared QoIs into the scientific dataset. Live DOLFINx fields are not serialized into table columns; their artifacts remain linked.</p>
 <p>Campaign configuration can be written as safe JSON for parameter definitions, sampling, output contracts, and execution policy. Python still supplies the trusted model builder/evaluator. The JSON file never imports or evaluates arbitrary code.</p>
 <p>The current runner is serial across cases and MPI-aware within each FEM case. Use deterministic plan shards for schedulers or separate MPI jobs rather than Python threads.</p>
+<p>Before training, require reviewed campaign evidence:</p>
+<pre><code>dataset = report.require_dataset(minimum_samples=4)
+training = surrogates.train(
+    dataset,
+    estimator=surrogates.RidgeSurrogate(),
+    validation_fraction=0.2,
+    seed=2026,
+)
+guarded = training.guard(fallback=run_high_fidelity_case)</code></pre>
+<p><code>require_dataset()</code> rejects a partial campaign by default. Failed simulations are not silently discarded before learning; the caller must review them and set <code>allow_partial=True</code> deliberately. That acceptance and the failed case IDs are retained in the returned dataset metadata. <code>surrogates.train(...)</code> keeps the reproducible split, trained estimator, independent validation, and applicability guard together. The same protocol accepts the built-in transparent baselines or the optional PyTorch MLP adapter.</p>
+<p>For direct PyTorch training without an AgentFEM trainer:</p>
+<pre><code>bundle = dataset.to_torch()
+loader = bundle.loader(batch_size=64, shuffle=True)</code></pre>
+<p>AgentFEM owns names, units, shapes, provenance, splitting evidence, validation, and applicability. PyTorch owns tensors, modules, automatic differentiation, optimizers, and training loops.</p>
 <h2 id="next-result-priorities">Next Result Priorities</h2>
 <ol>
 <li>reaction force/resultant extractors;</li>

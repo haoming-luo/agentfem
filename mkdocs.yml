@@ -27,9 +27,11 @@ nav:
       - Nonlinear Materials: nonlinear_materials.md
       - Procedures, Thermal Stress, and Creep: solution_procedures_and_thermal_creep.md
       - Scientific Function Reference: reference/scientific_function_reference.md
+      - Scientific Operator Contracts: operator_contracts.md
       - Results and Campaigns: results_and_campaigns.md
       - Stable Steps and Compact Output: step_and_output_architecture.md
       - Mesh Interoperability: mesh_interoperability.md
+      - Platform and Optional Dependencies: platform_support.md
       - Abaqus Periodic Cell: abaqus_periodic_cell.md
       - Abaqus User Materials: abaqus_user_material_bridge.md
       - Module Map: module_map.md

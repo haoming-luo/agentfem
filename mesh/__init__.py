@@ -10,8 +10,9 @@ import ufl
 from dolfinx import fem
 from dolfinx import io
 from dolfinx import mesh
-from dolfinx.io import gmsh as gmshio
 from mpi4py import MPI
+
+from agentfem import dependencies
 
 from . import formats
 from . import abaqus
@@ -154,6 +155,10 @@ def import_gmsh_model(
     are required downstream.
     """
 
+    # Keep the adapter import at the capability boundary. The AgentFEM mesh
+    # namespace and all structured/XDMF paths remain independent of Gmsh.
+    from dolfinx.io import gmsh as gmshio
+
     mesh_data = gmshio.model_to_mesh(model, comm, model_rank, gdim=gdim)
     return FEMMesh(mesh_data.mesh, mesh_data.cell_tags, mesh_data.facet_tags)
 
@@ -199,7 +204,7 @@ def read_gmsh_mesh(
 ) -> FEMMesh:
     """Read a ``.msh`` file with Gmsh and convert it to a DOLFINx mesh."""
 
-    import gmsh
+    gmsh = require_gmsh()
 
     path = Path(path)
     was_initialized = gmsh.isInitialized()
@@ -212,6 +217,33 @@ def read_gmsh_mesh(
     finally:
         if not was_initialized:
             gmsh.finalize()
+
+
+def require_gmsh():
+    """Return the optional Gmsh Python API used only for direct Gmsh import."""
+
+    return dependencies.require(
+        "gmsh",
+        extra="gmsh",
+        capability="Reading a Gmsh model or .msh file through the Gmsh API",
+    )
+
+
+def optional_mesh_capabilities() -> tuple[dependencies.DependencyStatus, ...]:
+    """Return availability of optional mesh-format integrations."""
+
+    return (
+        dependencies.status(
+            "meshio",
+            extra="mesh-formats",
+            capability="External CAE mesh conversion",
+        ),
+        dependencies.status(
+            "gmsh",
+            extra="gmsh",
+            capability="Gmsh model and .msh import",
+        ),
+    )
 
 
 def read_xdmf_mesh(

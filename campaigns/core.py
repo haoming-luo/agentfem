@@ -254,6 +254,59 @@ class CampaignReport:
             "records": [record.summary() for record in self.records],
         }
 
+    def require_dataset(
+        self,
+        *,
+        allow_partial: bool = False,
+        minimum_samples: int = 1,
+    ) -> ScientificDataset:
+        """Return training data only when campaign evidence is acceptable.
+
+        Failed simulations are valuable evidence, but silently training on the
+        remaining cases can bias a learned model. The default therefore
+        rejects partial campaigns. An explicit ``allow_partial=True`` marks
+        the returned dataset with the failed case identities so that this
+        review decision survives dataset serialization.
+        """
+
+        if minimum_samples < 1:
+            raise ValueError("minimum_samples must be at least one.")
+        if self.dataset is None:
+            raise RuntimeError(
+                f"Campaign {self.name!r} produced no successful dataset; "
+                f"{self.failed} case(s) failed."
+            )
+        failed_ids = tuple(
+            record.case.case_id for record in self.records if not record.successful
+        )
+        if failed_ids and not allow_partial:
+            raise RuntimeError(
+                f"Campaign {self.name!r} has {self.failed} failed case(s) "
+                f"{failed_ids}; review them or pass allow_partial=True explicitly."
+            )
+        if len(self.dataset.samples) < minimum_samples:
+            raise RuntimeError(
+                f"Campaign {self.name!r} produced {len(self.dataset.samples)} "
+                f"successful sample(s), fewer than required {minimum_samples}."
+            )
+        if not failed_ids:
+            return self.dataset
+        return ScientificDataset(
+            parameter_space=self.dataset.parameter_space,
+            quantities=self.dataset.quantities,
+            samples=self.dataset.samples,
+            name=self.dataset.name,
+            metadata={
+                **dict(self.dataset.metadata or {}),
+                "partial_campaign_acceptance": {
+                    "accepted": True,
+                    "failed_case_ids": failed_ids,
+                    "failed_case_count": len(failed_ids),
+                    "campaign": self.name,
+                },
+            },
+        )
+
 
 class Campaign:
     """Build and evaluate a collection of immutable scientific cases.

@@ -24,9 +24,11 @@
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
 <a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
 <a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
+<a class="" href="operator-contracts.html">Scientific Operator Contracts</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="platform-support.html">Platform and Optional Dependencies</a>
 <a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
 <a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
 <a class="" href="module-map.html">Module Map</a>
@@ -49,11 +51,16 @@
 <p>AgentFEM depends on the FEniCSx/DOLFINx stack. For the MVP release, use conda-forge unless you already maintain a compatible MPI/PETSc/DOLFINx build.</p>
 <h2 id="recommended-environment">Recommended Environment</h2>
 <pre><code>mamba create -n agentfem-env -c conda-forge \
-  python=3.11 fenics-dolfinx=0.11 dolfinx_mpc=0.11 gmsh mpi4py petsc4py \
-  meshio matplotlib jupyterlab ipykernel
+  python=3.11 fenics-dolfinx=0.11 mpich mpi4py petsc4py h5py
 mamba activate agentfem-env</code></pre>
-<p>Then install AgentFEM from the repository root:</p>
+<p>Install the released AgentFEM wheel from PyPI:</p>
+<pre><code>python -m pip install agentfem</code></pre>
+<p>For source development, install from the repository root:</p>
 <pre><code>python -m pip install -e .</code></pre>
+<p>AgentFEM is not currently packaged on conda-forge. Conda supplies the compiled FEniCSx/PETSc/MPI runtime; PyPI or the source tree supplies AgentFEM.</p>
+<h2 id="windows">Windows</h2>
+<p>The recommended first-release route is WSL2 with Ubuntu, Miniforge/Mambaforge, and the Linux environment above. This uses the same package family exercised by AgentFEM&#x27;s Linux CI.</p>
+<p>Native Windows is experimental, not a release-supported route. FEniCSx 0.11 has <code>win-64</code> packages, but AgentFEM currently uses PETSc-based solver APIs and the distributed Abaqus-equation example uses <code>dolfinx_mpc</code>; the corresponding complete conda-forge Windows stack is not available and AgentFEM has no native Windows CI gate. A hand-built expert environment may work for a subset, but it is not an installation promise.</p>
 <h2 id="smoke-test">Smoke Test</h2>
 <p>From the <code>agentfem</code> repository directory:</p>
 <pre><code>python examples/static_elasticity_2d.py</code></pre>
@@ -73,12 +80,16 @@ Static elasticity result: .../examples_output/static_elasticity_2d.xdmf</code></
 <p>The launcher and <code>mpi4py</code> must come from the same MPI implementation. On macOS, Homebrew Open MPI can appear before a conda MPICH launcher on <code>PATH</code>; check <code>which mpiexec</code> and use the environment&#x27;s <code>bin/mpiexec</code> when they differ.</p>
 <h2 id="optional-tools">Optional Tools</h2>
 <ul>
-<li><code>meshio</code>: external CAE mesh conversion, including Abaqus <code>.inp</code> and NASTRAN<br><code>.bdf/.nas</code> formats where supported by meshio.</li>
-<li><code>dolfinx_mpc</code>: distributed multi-point constraints for Abaqus <code>*EQUATION</code><br>and periodic-cell workflows.</li>
+<li><code>meshio</code>: <code>python -m pip install &#x27;agentfem[mesh-formats]&#x27;</code> for external CAE<br>mesh conversion, including Abaqus <code>.inp</code> and NASTRAN <code>.bdf/.nas</code> formats.</li>
+<li><code>gmsh</code>: <code>python -m pip install &#x27;agentfem[gmsh]&#x27;</code> only for direct Gmsh model<br>or <code>.msh</code> import. Gmsh is separately licensed under GPL-2.0-or-later with<br>its published exception; it is not bundled in the Apache-2.0 AgentFEM core.</li>
+<li><code>dolfinx_mpc</code>: <code>python -m pip install &#x27;agentfem[parallel-mpc]&#x27;</code> for<br>distributed multi-point constraints. Its minor version must match DOLFINx.</li>
 <li><code>mkdocs</code>, <code>mkdocs-material</code>, <code>pymdown-extensions</code>: documentation site.</li>
 <li><code>jupyterlab</code>, <code>ipykernel</code>: notebook workflows.</li>
 </ul>
 <p><code>requirements.txt</code> records the tested MVP stack, but direct pip installation of DOLFINx/PETSc/MPI packages may be fragile across platforms.</p>
+<p>Inspect the actual runtime before reporting an installation issue:</p>
+<pre><code>from agentfem import platforms
+print(platforms.runtime_report().format())</code></pre>
       </article>
     </main>
   </div>

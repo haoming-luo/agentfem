@@ -1,0 +1,74 @@
+name: Scientific or workflow feature
+description: Propose a finite-element capability or AI-native workflow extension
+title: "[Feature]: "
+labels: ["enhancement", "needs-design"]
+body:
+  - type: markdown
+    attributes:
+      value: AgentFEM grows from real problems, explicit contracts, and evidence.
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Real engineering or research use case
+      description: State who needs this, the problem, and why the current workflow is insufficient.
+    validations:
+      required: true
+  - type: textarea
+    id: formulation
+    attributes:
+      label: Scientific formulation
+      description: State the equations, assumptions, state variables, units, and validity limits.
+    validations:
+      required: true
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Primary layer
+      options:
+        - Public study, model, or step language
+        - Material or operator vocabulary
+        - Solver or solution procedure
+        - Mesh or interoperability adapter
+        - Result, checkpoint, or post-processing
+        - Campaign, dataset, surrogate, PINN, or neural operator bridge
+        - Documentation or developer infrastructure
+    validations:
+      required: true
+  - type: textarea
+    id: public_api
+    attributes:
+      label: Proposed user-facing workflow
+      description: Show the smallest top-level code a user or agent should write.
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Benchmark and evidence
+      description: Identify a public benchmark, reference solution, experiment, standard, or production-derived synthetic case.
+    validations:
+      required: true
+  - type: textarea
+    id: consumers
+    attributes:
+      label: Consumers and reuse
+      description: Which material, operator, procedure, output, dataset, or external integration will consume it?
+    validations:
+      required: true
+  - type: textarea
+    id: failures
+    attributes:
+      label: Invalid uses and failure modes
+      description: What must AgentFEM reject, warn about, or record explicitly?
+    validations:
+      required: true
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I checked the roadmap and existing issues.
+          required: true
+        - label: I can help validate the feature or provide a public synthetic case.
+          required: false

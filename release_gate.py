@@ -17,6 +17,7 @@ import os
 import subprocess
 import sys
 import tarfile
+import tomllib
 import zipfile
 
 
@@ -24,10 +25,13 @@ ROOT = Path(__file__).resolve().parent
 REQUIRED_WHEEL_MEMBERS = (
     "agentfem/__init__.py",
     "agentfem/models.py",
+    "agentfem/dependencies.py",
+    "agentfem/platforms.py",
     "agentfem/results/core.py",
     "agentfem/constitutive/creep.py",
     "agentfem/datasets/torch.py",
     "agentfem/surrogates/pinn_torch.py",
+    "agentfem/surrogates/training.py",
     "agentfem/knowledge/catalog.json",
     "agentfem/materials/data/steel_generic.json",
 )
@@ -72,6 +76,28 @@ def check_versions(*, tag: str | None = None) -> str:
                 f"Release tag {tag!r} does not match project version {project!r}."
             )
     return project
+
+
+def check_dependency_boundaries() -> None:
+    """Keep GPL Gmsh integration outside the Apache-2.0 core dependency set."""
+
+    record = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    project = record["project"]
+    required = {_requirement_name(item) for item in project.get("dependencies", ())}
+    if "gmsh" in required:
+        raise RuntimeError(
+            "Gmsh must remain an optional integration, not an AgentFEM core dependency."
+        )
+    optional = project.get("optional-dependencies", {})
+    gmsh_extra = {_requirement_name(item) for item in optional.get("gmsh", ())}
+    if "gmsh" not in gmsh_extra:
+        raise RuntimeError(
+            "The optional 'gmsh' extra must declare the separately licensed Gmsh package."
+        )
+
+
+def _requirement_name(requirement: str) -> str:
+    return re.split(r"[<>=!~;\s\[]", requirement.strip(), maxsplit=1)[0].lower()
 
 
 def _archive_members(path: Path) -> set[str]:
@@ -129,6 +155,7 @@ def main() -> None:
     parser.add_argument("--smoke", action="store_true")
     options = parser.parse_args()
     version = check_versions(tag=options.tag)
+    check_dependency_boundaries()
     if options.dist is not None:
         check_distributions(options.dist)
     if options.smoke:

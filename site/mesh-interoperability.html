@@ -24,9 +24,11 @@
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
 <a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
 <a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
+<a class="" href="operator-contracts.html">Scientific Operator Contracts</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="active" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="platform-support.html">Platform and Optional Dependencies</a>
 <a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
 <a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
 <a class="" href="module-map.html">Module Map</a>
@@ -49,6 +51,7 @@
 <h2 id="scope">Scope</h2>
 <p>AgentFEM uses the optional <code>meshio</code> dependency to inspect and convert common external mesh formats. The official <a href="https://github.com/nschloe/meshio">meshio format list</a> includes Abaqus <code>.inp</code>, ANSYS <code>.msh</code>, Nastran <code>.bdf/.fem/.nas</code>, Exodus, MED, Gmsh, VTK/VTU, and XDMF among others.</p>
 <p>This is mesh interoperability, not full solver-deck import. Material cards, contacts, element formulations, steps, amplitudes, coordinate systems, and solver controls require format-specific semantic adapters.</p>
+<p>Gmsh is a separate optional route. Direct in-memory Gmsh models and <code>mesh.read_gmsh_mesh(...)</code> require <code>agentfem[gmsh]</code>; structured DOLFINx meshes, XDMF, and the meshio conversion described on this page do not. This keeps both the runtime and the separately licensed Gmsh package outside the AgentFEM core.</p>
 <h2 id="inspect-before-converting">Inspect Before Converting</h2>
 <pre><code>from agentfem import mesh
 

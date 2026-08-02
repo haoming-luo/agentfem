@@ -55,6 +55,11 @@ PAGES = [
         SITE_DIR / "scientific-function-reference.html",
     ),
     Page(
+        "Scientific Operator Contracts",
+        ROOT / "docs" / "operator_contracts.md",
+        SITE_DIR / "operator-contracts.html",
+    ),
+    Page(
         "Results and Campaigns",
         ROOT / "docs" / "results_and_campaigns.md",
         SITE_DIR / "results-and-campaigns.html",
@@ -68,6 +73,11 @@ PAGES = [
         "Mesh Interoperability",
         ROOT / "docs" / "mesh_interoperability.md",
         SITE_DIR / "mesh-interoperability.html",
+    ),
+    Page(
+        "Platform and Optional Dependencies",
+        ROOT / "docs" / "platform_support.md",
+        SITE_DIR / "platform-support.html",
     ),
     Page(
         "Abaqus Periodic Cell",

@@ -18,8 +18,9 @@ for AI agents.
 - Use `test_function` and `trial_function` rather than single-letter names in
   public APIs.
 - Use `comm`, `model_rank`, and `gdim` explicitly for mesh import/read helpers.
-- Keep optional file-format dependencies lazy. Import packages such as `meshio`
-  inside conversion functions so core AgentFEM imports stay lightweight.
+- Keep optional file-format dependencies lazy. Import packages such as
+  `meshio` and Gmsh only at the capability boundary, and raise an actionable
+  `OptionalDependencyError` naming the relevant AgentFEM extra.
 
 ## Outputs
 
@@ -80,6 +81,10 @@ for AI agents.
 - Provide contribution-combination helpers such as `operators.combine(...)` for
   explicit operator algebra. The `+` operator may be convenient shorthand, but
   public examples should prefer `combine(...)` when names and summaries matter.
+- Give matrix, vector, residual, and scalar operators explicit roles and check
+  those roles against UFL form arity before assembly. Preserve the visible
+  relation `K_t = dR/du` when UFL automatic differentiation linearizes a
+  nonlinear residual.
 - Represent weak boundary-model residual terms with operator helpers such as
   `operators.boundary_model_vector(...)` instead of writing UFL forms in
   application examples.

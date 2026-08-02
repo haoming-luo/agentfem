@@ -24,9 +24,11 @@
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
 <a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
 <a class="active" href="scientific-function-reference.html">Scientific Function Reference</a>
+<a class="" href="operator-contracts.html">Scientific Operator Contracts</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="platform-support.html">Platform and Optional Dependencies</a>
 <a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
 <a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
 <a class="" href="module-map.html">Module Map</a>
@@ -54,6 +56,8 @@
 <tbody>
 <tr><td><a href="#agentfem-material-creep_damage_assessment"><code>agentfem.material.creep_damage_assessment</code></a></td><td>Creep damage and modified-theta assessment</td><td>material</td><td>supported</td></tr>
 <tr><td><a href="#agentfem-material-j2_global_plasticity"><code>agentfem.material.j2_global_plasticity</code></a></td><td>Global small-strain J2 plasticity</td><td>material</td><td>supported</td></tr>
+<tr><td><a href="#agentfem-operator-system_contracts"><code>agentfem.operator.system_contracts</code></a></td><td>Finite-element operator and system contracts</td><td>operator</td><td>supported</td></tr>
+<tr><td><a href="#agentfem-workflow-campaign_learning_pipeline"><code>agentfem.workflow.campaign_learning_pipeline</code></a></td><td>Simulation campaign to guarded learning workflow</td><td>workflow</td><td>supported</td></tr>
 <tr><td><a href="#agentfem-workflow-solution_procedures"><code>agentfem.workflow.solution_procedures</code></a></td><td>Solution procedure vocabulary</td><td>analysis_step</td><td>supported</td></tr>
 <tr><td><a href="#agentfem-workflow-thermoelastic_analysis"><code>agentfem.workflow.thermoelastic_analysis</code></a></td><td>Sequential thermoelastic analysis</td><td>workflow</td><td>supported</td></tr>
 </tbody>
@@ -66,6 +70,7 @@
 <tr><td><code>agentfem.benchmark.creep_damage_material_paths</code></td><td>Creep-damage material paths and curve projection</td><td>Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection</td><td>automated_regression</td></tr>
 <tr><td><code>agentfem.benchmark.j2_global_restart</code></td><td>Three-dimensional J2 path, displacement control, and restart equivalence</td><td>three-dimensional small-strain Mises plasticity with linear isotropic hardening</td><td>automated_regression</td></tr>
 <tr><td><code>agentfem.benchmark.linear_static_cantilever</code></td><td>Two-dimensional linear-static cantilever</td><td>small-strain isotropic linear elasticity in plane strain</td><td>executable_smoke</td></tr>
+<tr><td><code>agentfem.benchmark.operator_contracts</code></td><td>Operator role, system, and residual-linearization contracts</td><td>backend-facing finite-element operator algebra</td><td>automated</td></tr>
 <tr><td><code>agentfem.benchmark.thermoelastic_free_expansion</code></td><td>Plane-stress isotropic free thermal expansion</td><td>small-strain isotropic plane-stress thermoelasticity under uniform temperature change</td><td>automated_regression</td></tr>
 </tbody>
 </table>
@@ -236,6 +241,172 @@
 <ul>
 <li>Abaqus theory: classical metal plasticity: <code>https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-isoelastoplast.htm</code></li>
 <li>MOOSE radial return stress update: <code>https://mooseframework.inl.gov/moose/source/materials/RadialReturnStressUpdate.html</code></li>
+</ul>
+<h2 id="finite-element-operator-and-system-contracts">Finite-element operator and system contracts</h2>
+<p><strong>Stable ID:</strong> <code>agentfem.operator.system_contracts</code>&lt;br&gt; <strong>Kind:</strong> <code>operator</code>&lt;br&gt; <strong>Status:</strong> <code>supported</code>&lt;br&gt; <strong>Source card:</strong> <code>knowledge/cards/operator_system_contracts.json</code></p>
+<p>Names, composes, validates, and records matrix, vector, residual, scalar, and K/M/C/F system structure while delegating symbolic weak-form execution to UFL and DOLFINx.</p>
+<h3 id="public-api">Public API</h3>
+<ul>
+<li><code>agentfem.operators.OperatorForm</code></li>
+<li><code>agentfem.operators.first_order_system</code></li>
+<li><code>agentfem.operators.second_order_system</code></li>
+<li><code>agentfem.operators.residual_operator</code></li>
+<li><code>agentfem.operators.linearize</code></li>
+<li><code>agentfem.operators.robin_operator</code></li>
+<li><code>agentfem.operators.rayleigh_damping</code></li>
+</ul>
+<h3 id="scientific-contract">Scientific contract</h3>
+<p>The operator layer preserves familiar finite-element systems and the nonlinear residual/tangent relation as inspectable scientific objects, while UFL owns symbolic forms and automatic differentiation.</p>
+<p><strong>static system</strong></p>
+<p>$$ K x = F $$</p>
+<p>A matrix-like stiffness/operator and compatible external vector define the supported static linear structure.</p>
+<p><strong>first-order system</strong></p>
+<p>$$ C x_dot + K x = F $$</p>
+<p>Capacity/storage and diffusion/conduction operators define heat- and diffusion-like evolution.</p>
+<p><strong>second-order system</strong></p>
+<p>$$ M u_ddot + C u_dot + K u = F $$</p>
+<p>Mass, damping, stiffness, and force remain visible independently of the chosen implicit or explicit procedure.</p>
+<p><strong>nonlinear tangent</strong></p>
+<p>$$ R(u) = 0; K_t = dR/du $$</p>
+<p>A named weak residual is differentiated by UFL and recorded as the source of its consistent tangent.</p>
+<h4 id="inputs">Inputs</h4>
+<table>
+<thead><tr><th>Name</th><th>Type</th><th>Unit role</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>weak form</td><td>UFL form or backend expression</td><td>problem dependent</td><td>Executable bilinear, linear, residual, or functional expression.</td></tr>
+<tr><td>scientific identity</td><td>name, role, family, operation, metadata</td><td>none</td><td>Stable human- and agent-readable meaning layered over the backend expression.</td></tr>
+</tbody>
+</table>
+<h4 id="outputs">Outputs</h4>
+<table>
+<thead><tr><th>Name</th><th>Type</th><th>Unit role</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>OperatorForm</td><td>inspectable operator</td><td>inherits weak form</td><td>Supports composition, validation, assembly, summaries, and serializable scientific metadata.</td></tr>
+<tr><td>ValidationReport</td><td>addressable issues</td><td>none</td><td>Checks declared matrix/vector/residual/scalar role against weak-form argument count.</td></tr>
+</tbody>
+</table>
+<h4 id="assumptions">Assumptions</h4>
+<ul>
+<li>UFL form argument count identifies scalar, linear, and bilinear form structure.</li>
+<li>Operator compatibility includes role compatibility; complete dimensional/unit algebra is not yet automatic.</li>
+<li>System containers describe equations but do not select a solution procedure.</li>
+</ul>
+<h4 id="conventions">Conventions</h4>
+<ul>
+<li>K, M, C, and F retain conventional finite-element meanings.</li>
+<li>A residual has one test argument even when its dependence on the unknown is nonlinear.</li>
+<li>Derived sums, scales, and linearizations retain their operand provenance.</li>
+</ul>
+<h4 id="applicability">Applicability</h4>
+<ul>
+<li>Linear elasticity, heat transfer, structural dynamics, and custom nonlinear weak-form workflows on the FEniCSx backend.</li>
+</ul>
+<h4 id="limitations">Limitations</h4>
+<ul>
+<li>Automatic physical unit propagation is not implemented.</li>
+<li>Block/mixed-space domain and range compatibility is not yet checked.</li>
+<li>An opaque backend operator without UFL arguments can be named but its arity cannot be automatically verified.</li>
+</ul>
+<h3 id="minimal-example">Minimal example</h3>
+<pre><code>Create C = operators.capacity_operator(T, rho_c), K = operators.conduction_operator(T, k), then system = operators.first_order_system(C, K, Q) and call system.check().</code></pre>
+<h3 id="verification">Verification</h3>
+<p><strong>Tests</strong></p>
+<ul>
+<li><code>tests/test_operators.py</code></li>
+</ul>
+<p><strong>Benchmarks</strong></p>
+<ul>
+<li><code>agentfem.benchmark.operator_contracts</code></li>
+</ul>
+<p><strong>Validation rules</strong></p>
+<ul>
+<li>Reject unknown operator roles and derived operations without provenance.</li>
+<li>Reject matrix/vector/residual/scalar declarations whose UFL argument count is incompatible.</li>
+<li>Reject incompatible system component roles before numerical assembly.</li>
+</ul>
+<h3 id="references">References</h3>
+<ul>
+<li>Cast3M presentation and principles of development: <code>https://www-cast3m.cea.fr/html/ManuelCastemEnsta/ManuelCastemEnsta.html</code></li>
+<li>UFL automatic differentiation manual: <code>https://docs.fenicsproject.org/ufl/2026.1.0/manual/form_language.html</code></li>
+</ul>
+<h2 id="simulation-campaign-to-guarded-learning-workflow">Simulation campaign to guarded learning workflow</h2>
+<p><strong>Stable ID:</strong> <code>agentfem.workflow.campaign_learning_pipeline</code>&lt;br&gt; <strong>Kind:</strong> <code>workflow</code>&lt;br&gt; <strong>Status:</strong> <code>supported</code>&lt;br&gt; <strong>Source card:</strong> <code>knowledge/cards/campaign_learning_pipeline.json</code></p>
+<p>Turns deterministic simulations into scientific datasets, independent surrogate validation, optional PyTorch tensors, applicability decisions, and explicit high-fidelity fallback.</p>
+<h3 id="public-api">Public API</h3>
+<ul>
+<li><code>agentfem.campaigns.CampaignReport.require_dataset</code></li>
+<li><code>agentfem.datasets.ScientificDataset.to_torch</code></li>
+<li><code>agentfem.surrogates.train</code></li>
+<li><code>agentfem.surrogates.GuardedSurrogate</code></li>
+</ul>
+<h3 id="scientific-contract">Scientific contract</h3>
+<p>Learning begins only after cases, declared quantities, provenance, failures, and an independent validation split are materialized as evidence.</p>
+<p><strong>scientific dataset</strong></p>
+<p>$$ D = {(p_i, q_i, provenance_i)} for successful reviewed cases i $$</p>
+<p>Parameters and quantities retain names, bounds, units, shapes, case identity, and evidence.</p>
+<p><strong>guarded prediction</strong></p>
+<p>$$ q(p) = surrogate(p) in-domain; otherwise FEM fallback(p) or rejection $$</p>
+<p>A learned model never silently extrapolates beyond its declared domain.</p>
+<h4 id="inputs">Inputs</h4>
+<table>
+<thead><tr><th>Name</th><th>Type</th><th>Unit role</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>campaign</td><td>parameter space, sampling, builder, evaluator</td><td>declared per parameter and quantity</td><td>Defines reproducible simulations and output contracts before execution.</td></tr>
+<tr><td>estimator</td><td>fit/validate protocol</td><td>inherits dataset schema</td><td>Transparent baseline, PyTorch adapter, or compatible external trainer.</td></tr>
+</tbody>
+</table>
+<h4 id="outputs">Outputs</h4>
+<table>
+<thead><tr><th>Name</th><th>Type</th><th>Unit role</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>ScientificDataset</td><td>manifest plus numeric arrays</td><td>preserved per quantity</td><td>Successful reviewed cases linked to artifacts and provenance.</td></tr>
+<tr><td>SurrogateTrainingRun</td><td>model, split, validation report</td><td>preserved by named decoding</td><td>Keeps training and independent validation evidence together.</td></tr>
+</tbody>
+</table>
+<h4 id="assumptions">Assumptions</h4>
+<ul>
+<li>Each case uses a fresh or safely reset model.</li>
+<li>Output names, shapes, and units are declared before execution.</li>
+<li>At least three successful samples exist for split training.</li>
+</ul>
+<h4 id="conventions">Conventions</h4>
+<ul>
+<li>Failed cases block dataset consumption by default.</li>
+<li>Categorical parameters use one-hot encoding.</li>
+<li>PyTorch remains the optional tensor and training runtime.</li>
+</ul>
+<h4 id="applicability">Applicability</h4>
+<ul>
+<li>Parameter sweeps, surrogate baselines, reduced-order data, and guarded acceleration of supported FEM workflows.</li>
+</ul>
+<h4 id="limitations">Limitations</h4>
+<ul>
+<li>Case-level scheduler execution uses deterministic plan shards rather than Python threads.</li>
+<li>Residual-scale uncertainty is not calibrated epistemic uncertainty.</li>
+<li>Automatic arbitrary-mesh neural-operator training is not implemented.</li>
+</ul>
+<h3 id="minimal-example">Minimal example</h3>
+<pre><code>dataset = report.require_dataset(); training = surrogates.train(dataset); guarded = training.guard(fallback=run_fem).</code></pre>
+<h3 id="verification">Verification</h3>
+<p><strong>Tests</strong></p>
+<ul>
+<li><code>tests/test_campaigns.py</code></li>
+<li><code>tests/test_datasets.py</code></li>
+<li><code>tests/test_surrogates.py</code></li>
+</ul>
+<p><strong>Benchmarks</strong></p>
+<ul>
+<li><code>agentfem.benchmark.campaign_surrogate_pipeline</code></li>
+</ul>
+<p><strong>Validation rules</strong></p>
+<ul>
+<li>Reject missing, non-finite, or wrong-shaped outputs.</li>
+<li>Reject partial campaign data by default.</li>
+<li>Reject silent out-of-domain prediction without fallback.</li>
+</ul>
+<h3 id="references">References</h3>
+<ul>
+<li>AgentFEM results and campaigns contract: <code>docs/results_and_campaigns.md</code></li>
 </ul>
 <h2 id="solution-procedure-vocabulary">Solution procedure vocabulary</h2>
 <p><strong>Stable ID:</strong> <code>agentfem.workflow.solution_procedures</code>&lt;br&gt; <strong>Kind:</strong> <code>analysis_step</code>&lt;br&gt; <strong>Status:</strong> <code>supported</code>&lt;br&gt; <strong>Source card:</strong> <code>knowledge/cards/solution_procedures.json</code></p>

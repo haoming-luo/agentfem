@@ -1,0 +1,129 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.operator.system_contracts",
+  "title": "Finite-element operator and system contracts",
+  "kind": "operator",
+  "status": "supported",
+  "summary": "Names, composes, validates, and records matrix, vector, residual, scalar, and K/M/C/F system structure while delegating symbolic weak-form execution to UFL and DOLFINx.",
+  "public_api": [
+    "agentfem.operators.OperatorForm",
+    "agentfem.operators.first_order_system",
+    "agentfem.operators.second_order_system",
+    "agentfem.operators.residual_operator",
+    "agentfem.operators.linearize",
+    "agentfem.operators.robin_operator",
+    "agentfem.operators.rayleigh_damping"
+  ],
+  "implementation": [
+    "operators/core.py",
+    "operators/system.py",
+    "operators/elasticity.py"
+  ],
+  "science": {
+    "statement": "The operator layer preserves familiar finite-element systems and the nonlinear residual/tangent relation as inspectable scientific objects, while UFL owns symbolic forms and automatic differentiation.",
+    "equations": [
+      {
+        "label": "static system",
+        "expression": "K x = F",
+        "description": "A matrix-like stiffness/operator and compatible external vector define the supported static linear structure."
+      },
+      {
+        "label": "first-order system",
+        "expression": "C x_dot + K x = F",
+        "description": "Capacity/storage and diffusion/conduction operators define heat- and diffusion-like evolution."
+      },
+      {
+        "label": "second-order system",
+        "expression": "M u_ddot + C u_dot + K u = F",
+        "description": "Mass, damping, stiffness, and force remain visible independently of the chosen implicit or explicit procedure."
+      },
+      {
+        "label": "nonlinear tangent",
+        "expression": "R(u) = 0; K_t = dR/du",
+        "description": "A named weak residual is differentiated by UFL and recorded as the source of its consistent tangent."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "weak form",
+        "type": "UFL form or backend expression",
+        "unit_role": "problem dependent",
+        "description": "Executable bilinear, linear, residual, or functional expression."
+      },
+      {
+        "name": "scientific identity",
+        "type": "name, role, family, operation, metadata",
+        "unit_role": "none",
+        "description": "Stable human- and agent-readable meaning layered over the backend expression."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "OperatorForm",
+        "type": "inspectable operator",
+        "unit_role": "inherits weak form",
+        "description": "Supports composition, validation, assembly, summaries, and serializable scientific metadata."
+      },
+      {
+        "name": "ValidationReport",
+        "type": "addressable issues",
+        "unit_role": "none",
+        "description": "Checks declared matrix/vector/residual/scalar role against weak-form argument count."
+      }
+    ],
+    "assumptions": [
+      "UFL form argument count identifies scalar, linear, and bilinear form structure.",
+      "Operator compatibility includes role compatibility; complete dimensional/unit algebra is not yet automatic.",
+      "System containers describe equations but do not select a solution procedure."
+    ],
+    "conventions": [
+      "K, M, C, and F retain conventional finite-element meanings.",
+      "A residual has one test argument even when its dependence on the unknown is nonlinear.",
+      "Derived sums, scales, and linearizations retain their operand provenance."
+    ],
+    "applicability": [
+      "Linear elasticity, heat transfer, structural dynamics, and custom nonlinear weak-form workflows on the FEniCSx backend."
+    ],
+    "limitations": [
+      "Automatic physical unit propagation is not implemented.",
+      "Block/mixed-space domain and range compatibility is not yet checked.",
+      "An opaque backend operator without UFL arguments can be named but its arity cannot be automatically verified."
+    ]
+  },
+  "usage": {
+    "minimal_example": "Create C = operators.capacity_operator(T, rho_c), K = operators.conduction_operator(T, k), then system = operators.first_order_system(C, K, Q) and call system.check().",
+    "examples": [
+      "examples/static_elasticity_2d.py",
+      "examples/transient_heat_2d.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_operators.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.operator_contracts"
+    ],
+    "validation_rules": [
+      "Reject unknown operator roles and derived operations without provenance.",
+      "Reject matrix/vector/residual/scalar declarations whose UFL argument count is incompatible.",
+      "Reject incompatible system component roles before numerical assembly."
+    ]
+  },
+  "references": [
+    {
+      "title": "Cast3M presentation and principles of development",
+      "locator": "https://www-cast3m.cea.fr/html/ManuelCastemEnsta/ManuelCastemEnsta.html"
+    },
+    {
+      "title": "UFL automatic differentiation manual",
+      "locator": "https://docs.fenicsproject.org/ufl/2026.1.0/manual/form_language.html"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.solution_procedures",
+    "agentfem.workflow.thermoelastic_analysis",
+    "agentfem.material.j2_global_plasticity"
+  ]
+}

@@ -46,6 +46,7 @@ Documentation = "https://github.com/haoming-luo/agentfem#readme"
 
 [project.optional-dependencies]
 mesh-formats = ["meshio"]
+gmsh = ["gmsh>=4.11"]
 visualization = [
   "meshio",
   "pyvista",

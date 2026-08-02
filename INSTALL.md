@@ -7,16 +7,37 @@ conda-forge unless you already maintain a compatible MPI/PETSc/DOLFINx build.
 
 ```bash
 mamba create -n agentfem-env -c conda-forge \
-  python=3.11 fenics-dolfinx=0.11 dolfinx_mpc=0.11 gmsh mpi4py petsc4py \
-  meshio matplotlib jupyterlab ipykernel
+  python=3.11 fenics-dolfinx=0.11 mpich mpi4py petsc4py h5py
 mamba activate agentfem-env
 ```
 
-Then install AgentFEM from the repository root:
+Install the released AgentFEM wheel from PyPI:
+
+```bash
+python -m pip install agentfem
+```
+
+For source development, install from the repository root:
 
 ```bash
 python -m pip install -e .
 ```
+
+AgentFEM is not currently packaged on conda-forge. Conda supplies the compiled
+FEniCSx/PETSc/MPI runtime; PyPI or the source tree supplies AgentFEM.
+
+## Windows
+
+The recommended first-release route is WSL2 with Ubuntu, Miniforge/Mambaforge,
+and the Linux environment above. This uses the same package family exercised
+by AgentFEM's Linux CI.
+
+Native Windows is experimental, not a release-supported route. FEniCSx 0.11
+has `win-64` packages, but AgentFEM currently uses PETSc-based solver APIs and
+the distributed Abaqus-equation example uses `dolfinx_mpc`; the corresponding
+complete conda-forge Windows stack is not available and AgentFEM has no native
+Windows CI gate. A hand-built expert environment may work for a subset, but it
+is not an installation promise.
 
 ## Smoke Test
 
@@ -62,12 +83,22 @@ Homebrew Open MPI can appear before a conda MPICH launcher on `PATH`; check
 
 ## Optional Tools
 
-- `meshio`: external CAE mesh conversion, including Abaqus `.inp` and NASTRAN
-  `.bdf/.nas` formats where supported by meshio.
-- `dolfinx_mpc`: distributed multi-point constraints for Abaqus `*EQUATION`
-  and periodic-cell workflows.
+- `meshio`: `python -m pip install 'agentfem[mesh-formats]'` for external CAE
+  mesh conversion, including Abaqus `.inp` and NASTRAN `.bdf/.nas` formats.
+- `gmsh`: `python -m pip install 'agentfem[gmsh]'` only for direct Gmsh model
+  or `.msh` import. Gmsh is separately licensed under GPL-2.0-or-later with
+  its published exception; it is not bundled in the Apache-2.0 AgentFEM core.
+- `dolfinx_mpc`: `python -m pip install 'agentfem[parallel-mpc]'` for
+  distributed multi-point constraints. Its minor version must match DOLFINx.
 - `mkdocs`, `mkdocs-material`, `pymdown-extensions`: documentation site.
 - `jupyterlab`, `ipykernel`: notebook workflows.
 
 `requirements.txt` records the tested MVP stack, but direct pip installation of
 DOLFINx/PETSc/MPI packages may be fragile across platforms.
+
+Inspect the actual runtime before reporting an installation issue:
+
+```python
+from agentfem import platforms
+print(platforms.runtime_report().format())
+```

@@ -121,6 +121,38 @@ The current runner is serial across cases and MPI-aware within each FEM case.
 Use deterministic plan shards for schedulers or separate MPI jobs rather than
 Python threads.
 
+Before training, require reviewed campaign evidence:
+
+```python
+dataset = report.require_dataset(minimum_samples=4)
+training = surrogates.train(
+    dataset,
+    estimator=surrogates.RidgeSurrogate(),
+    validation_fraction=0.2,
+    seed=2026,
+)
+guarded = training.guard(fallback=run_high_fidelity_case)
+```
+
+`require_dataset()` rejects a partial campaign by default. Failed simulations
+are not silently discarded before learning; the caller must review them and
+set `allow_partial=True` deliberately. That acceptance and the failed case IDs
+are retained in the returned dataset metadata. `surrogates.train(...)` keeps the
+reproducible split, trained estimator, independent validation, and
+applicability guard together. The same protocol accepts the built-in
+transparent baselines or the optional PyTorch MLP adapter.
+
+For direct PyTorch training without an AgentFEM trainer:
+
+```python
+bundle = dataset.to_torch()
+loader = bundle.loader(batch_size=64, shuffle=True)
+```
+
+AgentFEM owns names, units, shapes, provenance, splitting evidence, validation,
+and applicability. PyTorch owns tensors, modules, automatic differentiation,
+optimizers, and training loops.
+
 ## Next Result Priorities
 
 1. reaction force/resultant extractors;

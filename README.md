@@ -43,12 +43,16 @@ maturity levels remain deliberately distinct and queryable in code.
 - One procedure vocabulary: `Study` states the physical problem;
   `SolutionProcedure` records Standard/Explicit, equation order, integration
   algorithm, statefulness, and global-solve requirements.
+- Checked operator vocabulary: static `Kx=F`, first-order `C x_dot+Kx=F`,
+  second-order `Ma+Cv+Ku=F`, and nonlinear `R(u)=0` / `K_t=dR/du` retain
+  inspectable composition and weak-form role checks.
 - Inspectable objects for agents: `study.summary()`, `model.manifest()`,
   `model.to_ir()`, structured validation reports, `operator.summary()`, and
   step summaries.
 - Collection-level scientific workflows: deterministic campaign cases,
   resumable evidence, unit/shape-aware datasets, transparent surrogate
-  baselines, independent validation, and explicit applicability domains.
+  baselines, independent validation, and explicit applicability domains;
+  failed simulations cannot silently become training data.
 - Direct PyTorch handoff: validated campaign matrices and serial FEM fields
   can become tensors without making AgentFEM a replacement for PyTorch,
   neural-operator libraries, or PINN trainers.
@@ -83,27 +87,44 @@ AgentFEM depends on the FEniCSx/DOLFINx scientific computing stack. The
 recommended route is conda-forge, because it can resolve DOLFINx, PETSc, MPI,
 and HDF5 together.
 
-### Recommended: conda-forge
+### Recommended: conda-forge runtime + PyPI AgentFEM
 
-Create a fresh environment:
+Create the numerical environment first, then install AgentFEM into it:
 
 ```bash
-mamba create -n agentfem-env -c conda-forge python=3.11 agentfem
+mamba create -n agentfem-env -c conda-forge \
+  python=3.11 fenics-dolfinx=0.11 mpich mpi4py petsc4py h5py
 mamba activate agentfem-env
-```
-
-Or install into an existing conda environment:
-
-```bash
-mamba install -c conda-forge agentfem
-```
-
-### PyPI
-
-If you already have a working FEniCSx/DOLFINx environment:
-
-```bash
 python -m pip install agentfem
+```
+
+AgentFEM is published on PyPI. It is not yet published as a conda-forge
+package, so `mamba install agentfem` is not currently a valid installation
+route.
+
+### Optional integrations
+
+```bash
+python -m pip install 'agentfem[mesh-formats]'  # Abaqus/NASTRAN/etc. via meshio
+python -m pip install 'agentfem[gmsh]'          # direct Gmsh model/.msh import
+python -m pip install 'agentfem[visualization]'
+python -m pip install 'agentfem[ml]'            # PyTorch adapters
+```
+
+Gmsh is a separately distributed GPL-licensed optional package. It is not
+bundled in AgentFEM and is not needed for structured meshes, XDMF meshes, or
+meshio-based Abaqus/NASTRAN conversion.
+
+### Windows
+
+Windows users should currently run AgentFEM through WSL2 and the same Linux
+environment above. Native FEniCSx 0.11 Windows packages exist, but AgentFEM's
+PETSc solver path and `dolfinx_mpc` workflow do not yet have a complete tested
+native-Windows stack. Check the active environment with:
+
+```python
+from agentfem import platforms
+print(platforms.runtime_report().format())
 ```
 
 ### Local development

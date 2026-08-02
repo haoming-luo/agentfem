@@ -25,6 +25,7 @@ core, results, verification, and documentation have priority.
 
 | Capability | Maturity | What is usable now | Important limit |
 | --- | --- | --- | --- |
+| Scientific operator layer | FEM-integrated foundation | K/M/C/F, static/first-/second-order systems, R/K_t linearization, composition and UFL role/arity validation | no mixed/block domain-range typing or physical-unit algebra |
 | Linear elasticity | FEM-integrated | 2D isotropic/selected anisotropic, static/dynamics building blocks, strong-BC reaction field, M/K energy diagnostic | broader 3D verification and affine/weak reactions remain |
 | Thermoelasticity | FEM-integrated | implicit-Euler heat transfer and sequential isotropic thermal stress in 2D/3D | no property tables or monolithic two-way coupling |
 | Structural dynamics | FEM-integrated foundation | central difference, Newmark, and generalized-alpha through one procedure vocabulary | implicit route is linear; moving supports and common OutputPlan remain |
@@ -36,6 +37,8 @@ core, results, verification, and documentation have priority.
 | Abaqus periodic equations | serial + two-rank FEM-integrated | exact chained affine elimination, distributed `dolfinx_mpc`, and 3D Neo-Hookean load path | AMG near-nullspace transfer, reactions, and scaling studies remain |
 | Abaqus user-material bridge | interface contract | solver-neutral material-point input/output and migration specification | no compiled adapter or quadrature-state global driver |
 | Result/data flow | integrated foundation | declarative field/history/diagnostic/presentation plans; compact deformed XDMF/HDF5; common transient progress/time histories; typed checkpoint records; campaign/PyTorch dataset bridge | general point/region probes, transient energy/checkpoint writers, and portable MPI restart remain |
+| Campaign-to-learning flow | workflow integrated | deterministic cases, resumable evidence, failure-aware dataset gate, reproducible train/validation workflow, ridge/POD/PyTorch adapters, applicability guard and FEM fallback | no scheduler executor, active-learning governance, or calibrated epistemic uncertainty |
+| Platform/install boundary | release foundation | Linux CI, macOS developer verification, WSL2 recommended for Windows, runtime dependency report, Gmsh/meshio optional adapters | native Windows remains experimental; AgentFEM is not yet a conda-forge package |
 
 The same table is queryable in code through
 `constitutive.capabilities()` and `benchmarks.list_benchmarks()`.
@@ -66,6 +69,13 @@ an agent, user, or README from confusing these levels.
 - JSON-configured and Python-configured campaigns producing the same dataset;
 - serial, MPI, docs, package, and example release gates;
 - clear solver convergence/failure evidence.
+
+First-release closure additionally requires truthful installation commands,
+an inspectable runtime/platform report, optional-dependency license boundaries,
+operator/system contract checks, and a failure-aware campaign-to-learning
+gate. Native Windows is not promoted until a compatible solver route passes an
+installed-wheel Windows CI matrix; WSL2 is the recommended Windows route for
+the first release.
 
 ### P1: nonlinear solid mechanics
 
@@ -117,6 +127,8 @@ than depend on Abaqus interfaces directly.
   node/element-set semantics where meshio loses information;
 - treat ANSYS CDB and full solver decks as separate adapters, not generic mesh
   conversion.
+- keep Gmsh a separately installed adapter for direct model/`.msh` workflows;
+  do not make it a prerequisite for structured, XDMF, Abaqus, or NASTRAN paths.
 
 ### P4: AI-native operation
 

@@ -90,6 +90,15 @@ def test_campaign_records_failures_and_resumes_completed_cases(tmp_path):
     report = json.loads((tmp_path / "report.json").read_text(encoding="utf-8"))
     assert report["failed"] == 1
 
+    with pytest.raises(RuntimeError, match="failed case"):
+        second.require_dataset()
+    accepted = second.require_dataset(allow_partial=True)
+    assert len(accepted.samples) == 2
+    decision = accepted.metadata["partial_campaign_acceptance"]
+    assert decision["accepted"] is True
+    assert decision["failed_case_count"] == 1
+    assert len(decision["failed_case_ids"]) == 1
+
 
 def test_campaign_captures_model_ir_from_built_case():
     class Case:

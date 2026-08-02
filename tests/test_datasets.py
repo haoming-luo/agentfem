@@ -156,7 +156,7 @@ def test_fem_field_sample_preserves_coordinates_values_and_encoding(tmp_path):
 
 def test_scientific_dataset_has_optional_pytorch_bridge():
     torch = pytest.importorskip("torch")
-    bundle = datasets.to_torch(_dataset())
+    bundle = _dataset().to_torch()
     features, targets = next(iter(bundle.loader(batch_size=2, shuffle=False)))
 
     assert isinstance(features, torch.Tensor)

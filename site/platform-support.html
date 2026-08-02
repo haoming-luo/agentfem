@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Platform and Optional Dependencies - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
+      <div class="tagline">AI-assisted finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
+<a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
+<a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
+<a class="" href="operator-contracts.html">Scientific Operator Contracts</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="active" href="platform-support.html">Platform and Optional Dependencies</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="licensing.html">Licensing</a>
+<a class="" href="publishing.html">Publishing</a>
+<a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="platform-and-optional-dependency-support">Platform and Optional-Dependency Support</h1>
+<h2 id="first-release-support-policy">First-release support policy</h2>
+<p>AgentFEM reports platforms by executable evidence, not by whether Python can theoretically import one package.</p>
+<table>
+<thead><tr><th>Route</th><th>26 August 2026 level</th><th>Evidence and boundary</th></tr></thead>
+<tbody>
+<tr><td>Native Linux</td><td>CI verified</td><td>Full tests, two-rank MPI, wheel and release Demo gates run on Ubuntu.</td></tr>
+<tr><td>Native macOS</td><td>Developer verified</td><td>Maintainer development and release verification run on Apple Silicon; the MPI launcher must match <code>mpi4py</code>.</td></tr>
+<tr><td>Windows through WSL2</td><td>Recommended Windows route</td><td>Uses the Linux FEniCSx/PETSc/MPI stack exercised by CI. Host GUI and filesystem integration remain local setup concerns.</td></tr>
+<tr><td>Native Windows</td><td>Experimental</td><td>FEniCSx 0.11 has <code>win-64</code> builds, but AgentFEM&#x27;s PETSc route and <code>dolfinx_mpc</code> 0.11 do not form a complete conda-forge native-Windows stack, and AgentFEM has no native-Windows CI gate.</td></tr>
+</tbody>
+</table>
+<p>The current machine can produce a compact issue-report record:</p>
+<pre><code>from agentfem import platforms
+
+print(platforms.runtime_report().format())</code></pre>
+<p>This reports the operating-system route, Python and core-package versions, and the availability of meshio, Gmsh, PyVista, PyTorch, and <code>dolfinx_mpc</code>.</p>
+<h2 id="windows-recommendation">Windows recommendation</h2>
+<p>Install WSL2 with Ubuntu, install Miniforge inside WSL, and follow <code>INSTALL.md</code>. Keep the project inside the WSL Linux filesystem for compilation and I/O performance. ParaView may run either inside WSLg or on Windows while opening output copied or exposed from the WSL filesystem.</p>
+<p>Native Windows should become supported only after all of the following exist:</p>
+<ol>
+<li>a supported linear/nonlinear algebra provider for AgentFEM&#x27;s public steps;</li>
+<li>serial solve, XDMF/HDF5, JIT-form, and result tests on <code>windows-latest</code>;</li>
+<li>a documented MPI story;</li>
+<li>an explicit limitation or replacement for workflows requiring<br><code>dolfinx_mpc</code>;</li>
+<li>an installed-wheel Demo gate.</li>
+</ol>
+<h2 id="gmsh-is-an-optional-adapter">Gmsh is an optional adapter</h2>
+<p>AgentFEM has three independent mesh routes:</p>
+<ol>
+<li>DOLFINx structured meshes such as <code>mesh.rectangle(...)</code> require no Gmsh.</li>
+<li>XDMF meshes and meshio-based Abaqus/NASTRAN conversion require no Gmsh.</li>
+<li><code>mesh.read_gmsh_mesh(...)</code> and in-memory Gmsh models require the optional<br>Gmsh Python API.</li>
+</ol>
+<p>Install only the route required by the model:</p>
+<pre><code>python -m pip install &#x27;agentfem[mesh-formats]&#x27;
+python -m pip install &#x27;agentfem[gmsh]&#x27;</code></pre>
+<p>The Gmsh project distributes its software under GPL-2.0-or-later with a published exception. AgentFEM does not vendor or bundle Gmsh, does not list it as a core dependency, and loads it only at the direct-Gmsh capability boundary. Distributors assembling a combined product remain responsible for reviewing the licenses of every component they distribute.</p>
+<p>Primary references:</p>
+<ul>
+<li><a href="https://fenicsproject.org/download/">FEniCSx download and installation</a></li>
+<li><a href="https://docs.fenicsproject.org/dolfinx/main/python/installation.html">DOLFINx installation dependencies</a></li>
+<li><a href="https://gmsh.info/#Licensing">Gmsh licensing</a></li>
+<li><a href="https://gmsh.info/LICENSE.txt">Gmsh license text</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,115 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.campaign_learning_pipeline",
+  "title": "Simulation campaign to guarded learning workflow",
+  "kind": "workflow",
+  "status": "supported",
+  "summary": "Turns deterministic simulations into scientific datasets, independent surrogate validation, optional PyTorch tensors, applicability decisions, and explicit high-fidelity fallback.",
+  "public_api": [
+    "agentfem.campaigns.CampaignReport.require_dataset",
+    "agentfem.datasets.ScientificDataset.to_torch",
+    "agentfem.surrogates.train",
+    "agentfem.surrogates.GuardedSurrogate"
+  ],
+  "implementation": [
+    "campaigns/core.py",
+    "datasets/core.py",
+    "datasets/torch.py",
+    "surrogates/training.py",
+    "surrogates/domain.py"
+  ],
+  "science": {
+    "statement": "Learning begins only after cases, declared quantities, provenance, failures, and an independent validation split are materialized as evidence.",
+    "equations": [
+      {
+        "label": "scientific dataset",
+        "expression": "D = {(p_i, q_i, provenance_i)} for successful reviewed cases i",
+        "description": "Parameters and quantities retain names, bounds, units, shapes, case identity, and evidence."
+      },
+      {
+        "label": "guarded prediction",
+        "expression": "q(p) = surrogate(p) in-domain; otherwise FEM fallback(p) or rejection",
+        "description": "A learned model never silently extrapolates beyond its declared domain."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "campaign",
+        "type": "parameter space, sampling, builder, evaluator",
+        "unit_role": "declared per parameter and quantity",
+        "description": "Defines reproducible simulations and output contracts before execution."
+      },
+      {
+        "name": "estimator",
+        "type": "fit/validate protocol",
+        "unit_role": "inherits dataset schema",
+        "description": "Transparent baseline, PyTorch adapter, or compatible external trainer."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "ScientificDataset",
+        "type": "manifest plus numeric arrays",
+        "unit_role": "preserved per quantity",
+        "description": "Successful reviewed cases linked to artifacts and provenance."
+      },
+      {
+        "name": "SurrogateTrainingRun",
+        "type": "model, split, validation report",
+        "unit_role": "preserved by named decoding",
+        "description": "Keeps training and independent validation evidence together."
+      }
+    ],
+    "assumptions": [
+      "Each case uses a fresh or safely reset model.",
+      "Output names, shapes, and units are declared before execution.",
+      "At least three successful samples exist for split training."
+    ],
+    "conventions": [
+      "Failed cases block dataset consumption by default.",
+      "Categorical parameters use one-hot encoding.",
+      "PyTorch remains the optional tensor and training runtime."
+    ],
+    "applicability": [
+      "Parameter sweeps, surrogate baselines, reduced-order data, and guarded acceleration of supported FEM workflows."
+    ],
+    "limitations": [
+      "Case-level scheduler execution uses deterministic plan shards rather than Python threads.",
+      "Residual-scale uncertainty is not calibrated epistemic uncertainty.",
+      "Automatic arbitrary-mesh neural-operator training is not implemented."
+    ]
+  },
+  "usage": {
+    "minimal_example": "dataset = report.require_dataset(); training = surrogates.train(dataset); guarded = training.guard(fallback=run_fem).",
+    "examples": [
+      "examples/static_elasticity_surrogate_campaign.py",
+      "examples/campaign_from_json.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_campaigns.py",
+      "tests/test_datasets.py",
+      "tests/test_surrogates.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.campaign_surrogate_pipeline"
+    ],
+    "validation_rules": [
+      "Reject missing, non-finite, or wrong-shaped outputs.",
+      "Reject partial campaign data by default.",
+      "Reject silent out-of-domain prediction without fallback."
+    ]
+  },
+  "references": [
+    {
+      "title": "AgentFEM results and campaigns contract",
+      "locator": "docs/results_and_campaigns.md"
+    }
+  ],
+  "related_cards": [
+    "agentfem.operator.system_contracts",
+    "agentfem.workflow.solution_procedures"
+  ]
+}

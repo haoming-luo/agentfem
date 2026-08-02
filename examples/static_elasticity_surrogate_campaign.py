@@ -148,22 +148,20 @@ def main() -> None:
         output_directory=output / "campaign",
         comm=MPI.COMM_WORLD,
     )
-    if report.dataset is None:
-        raise RuntimeError("The campaign produced no successful training samples.")
-
-    split = report.dataset.split(validation_fraction=0.2, seed=2026)
-    trained = surrogates.RidgeSurrogate(alpha=1.0e-10).fit(split.train)
-    validation = trained.validate(split.validation)
+    dataset = report.require_dataset(minimum_samples=4)
+    training = surrogates.train(
+        dataset,
+        estimator=surrogates.RidgeSurrogate(alpha=1.0e-10),
+        validation_fraction=0.2,
+        seed=2026,
+    )
+    trained = training.model
+    validation = training.validation
     if MPI.COMM_WORLD.rank == 0:
         trained.write(output / "surrogate")
     MPI.COMM_WORLD.barrier()
 
-    domain = surrogates.BoxApplicabilityDomain.from_dataset(split.train)
-    guarded = surrogates.GuardedSurrogate(
-        trained,
-        domain,
-        fallback=high_fidelity_fallback,
-    )
+    guarded = training.guard(fallback=high_fidelity_fallback)
     prediction = guarded.predict({"young": 210.0e9})
 
     print_on_root(MPI.COMM_WORLD, validation.format())

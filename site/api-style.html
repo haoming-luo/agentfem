@@ -24,9 +24,11 @@
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
 <a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
 <a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
+<a class="" href="operator-contracts.html">Scientific Operator Contracts</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="platform-support.html">Platform and Optional Dependencies</a>
 <a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
 <a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
 <a class="" href="module-map.html">Module Map</a>
@@ -59,7 +61,7 @@
 <li>Use <code>measure</code> for UFL integration measures.</li>
 <li>Use <code>test_function</code> and <code>trial_function</code> rather than single-letter names in<br>public APIs.</li>
 <li>Use <code>comm</code>, <code>model_rank</code>, and <code>gdim</code> explicitly for mesh import/read helpers.</li>
-<li>Keep optional file-format dependencies lazy. Import packages such as <code>meshio</code><br>inside conversion functions so core AgentFEM imports stay lightweight.</li>
+<li>Keep optional file-format dependencies lazy. Import packages such as<br><code>meshio</code> and Gmsh only at the capability boundary, and raise an actionable<br><code>OptionalDependencyError</code> naming the relevant AgentFEM extra.</li>
 </ul>
 <h2 id="outputs">Outputs</h2>
 <ul>
@@ -86,6 +88,7 @@
 <li>Prefer model-owned step helpers such as <code>model.linear_static_step(...)</code> for<br>beginner workflows. The step should expose its K/F system through summaries<br>so it remains auditable rather than becoming a black box.</li>
 <li>Provide operator-level constructors for engineering FEM notation, such as<br><code>operators.stiffness(...)</code>, <code>operators.capacity_operator(...)</code>,<br><code>operators.conduction_operator(...)</code>, and <code>operators.load_vector(...)</code>.</li>
 <li>Provide contribution-combination helpers such as <code>operators.combine(...)</code> for<br>explicit operator algebra. The <code>+</code> operator may be convenient shorthand, but<br>public examples should prefer <code>combine(...)</code> when names and summaries matter.</li>
+<li>Give matrix, vector, residual, and scalar operators explicit roles and check<br>those roles against UFL form arity before assembly. Preserve the visible<br>relation <code>K_t = dR/du</code> when UFL automatic differentiation linearizes a<br>nonlinear residual.</li>
 <li>Represent weak boundary-model residual terms with operator helpers such as<br><code>operators.boundary_model_vector(...)</code> instead of writing UFL forms in<br>application examples.</li>
 <li>Keep explicit family constructors such as <code>operators.elastic_stiffness(...)</code><br>available when ambiguity would be harmful.</li>
 <li>Prefer problem-level constructors such as<br><code>problems.linear_static(K, F, study=..., unknown=..., constraints=...)</code> and<br><code>problems.first_order_transient(capacity=C, stiffness=K, history=..., dt=...)</code><br>when an example is intentionally teaching explicit operator notation.</li>

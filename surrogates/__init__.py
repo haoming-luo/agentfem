@@ -30,6 +30,7 @@ from .physics import (
 )
 from .torch_adapter import TorchMLPSurrogate, TrainedTorchMLP
 from .pinn_torch import PINNTrainingRecord, TorchPINNAdapter
+from .training import SurrogateTrainingRun, train
 
 __all__ = [
     "BoxApplicabilityDomain",
@@ -46,10 +47,12 @@ __all__ = [
     "QuantityMetrics",
     "RidgeSurrogate",
     "SurrogateValidationReport",
+    "SurrogateTrainingRun",
     "TorchMLPSurrogate",
     "TorchPINNAdapter",
     "TrainedPODRidge",
     "TrainedRidge",
     "TrainedTorchMLP",
     "validate_predictions",
+    "train",
 ]

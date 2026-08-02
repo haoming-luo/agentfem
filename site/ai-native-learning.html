@@ -24,9 +24,11 @@
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
 <a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
 <a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
+<a class="" href="operator-contracts.html">Scientific Operator Contracts</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="platform-support.html">Platform and Optional Dependencies</a>
 <a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
 <a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
 <a class="" href="module-map.html">Module Map</a>
@@ -120,7 +122,7 @@ report = campaign.run(
 )</code></pre>
 <p>The first runner is intentionally serial across cases. When an MPI communicator is provided, all ranks cooperate on each FEniCSx solve while rank zero alone writes evidence. This is <strong>within-case parallelism</strong>. Case completion is agreed across ranks: a failure reported by any rank becomes a failed campaign record rather than being hidden by rank zero&#x27;s outcome.</p>
 <p>For <strong>case-level parallelism</strong>, <code>CampaignPlan.shard(index, count)</code> creates deterministic disjoint plans for separate MPI jobs, scheduler allocations, or services. AgentFEM does not use Python threads as an implicit FEM executor. MPI communicators, PETSc state, JIT compilation, and filesystem output make that shortcut unsafe.</p>
-<p>Completed case records are resumed by deterministic ID. Failed cases remain explicit records with error type and message; they are not silently omitted from the campaign report. Successful cases alone enter the learning dataset.</p>
+<p>Completed case records are resumed by deterministic ID. Failed cases remain explicit records with error type and message. Although successful cases can be materialized as a partial dataset, <code>report.require_dataset()</code> refuses to feed that dataset downstream by default until failures are reviewed and <code>allow_partial=True</code> is chosen explicitly. The returned dataset records that acceptance and the failed case IDs in its metadata.</p>
 <h3 id="scientific-datasets">Scientific datasets</h3>
 <p><code>agentfem.datasets</code> retains:</p>
 <ul>
@@ -134,12 +136,12 @@ report = campaign.run(
 <li>deterministic train/validation splits.</li>
 </ul>
 <p>Numeric arrays are stored in compressed NPZ form. A JSON manifest preserves their scientific interpretation. Continuous and integer inputs use normalized parameter coordinates; categorical inputs use explicit one-hot features rather than an invented ordinal distance. The manifest records the feature names and encoding so every value round-trips to its declared parameter.</p>
-<pre><code>dataset = report.dataset
+<pre><code>dataset = report.require_dataset(minimum_samples=4)
 split = dataset.split(validation_fraction=0.2, seed=2026)
 dataset.write(&quot;campaign_dataset&quot;)
 restored = datasets.ScientificDataset.read(&quot;campaign_dataset&quot;)</code></pre>
 <p>When PyTorch is installed, the same reviewed dataset becomes an ordinary <code>TensorDataset</code>/<code>DataLoader</code> without losing its scientific column schema:</p>
-<pre><code>bundle = datasets.to_torch(dataset)
+<pre><code>bundle = dataset.to_torch()
 loader = bundle.loader(batch_size=64, seed=2026)</code></pre>
 <p>For field learning, <code>datasets.fem_field_sample(field, encoding)</code> exports owned nodal coefficients and coordinates under an explicit <code>FieldEncoding</code>. The first adapter is deliberately serial and <code>mesh_dofs</code> only. It rejects a distributed concatenation until global dof identities and a partition manifest exist; it also refuses to call unstructured dofs a structured FNO grid. PyTorch remains responsible for tensors, autodiff, optimization, and model architecture.</p>
 <h3 id="transparent-baselines-before-neural-complexity">Transparent baselines before neural complexity</h3>
@@ -174,6 +176,15 @@ guarded = surrogates.GuardedSurrogate(
 prediction = guarded.predict(candidate)
 print(prediction.source, prediction.in_domain)</code></pre>
 <p>The box is only a first guard. It does not detect holes, sparse corners, geometry changes, phase changes, bifurcations, or unrepresented boundary conditions. Future domains should combine distance/density models, categorical compatibility, physics diagnostics, and uncertainty. The public API already makes the decision visible. Categorical inputs are stricter than padded numeric bounds: a category absent from training is out of domain even when numeric padding is requested.</p>
+<p>For the common split-fit-validate-guard sequence, a small convenience workflow keeps the evidence together without taking training ownership away from the estimator:</p>
+<pre><code>training = surrogates.train(
+    dataset,
+    estimator=surrogates.RidgeSurrogate(),
+    validation_fraction=0.2,
+    seed=2026,
+)
+guarded = training.guard(fallback=run_one_fenicsx_case)
+print(training.validation.format())</code></pre>
 <h2 id="three-roles-for-learned-models">Three Roles for Learned Models</h2>
 <h3 id="1-substitute-within-a-declared-domain">1. Substitute within a declared domain</h3>
 <p>The learned model replaces repeated FEM solves only for a declared mapping and applicability domain. This is the common use in optimization, uncertainty quantification, real-time estimation, and interactive design.</p>

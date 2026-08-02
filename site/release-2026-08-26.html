@@ -24,9 +24,11 @@
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
 <a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
 <a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
+<a class="" href="operator-contracts.html">Scientific Operator Contracts</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="platform-support.html">Platform and Optional Dependencies</a>
 <a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
 <a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
 <a class="" href="module-map.html">Module Map</a>
@@ -69,6 +71,11 @@
 <li>The installed wheel, rather than only an editable checkout, runs release<br>smoke examples.</li>
 <li>Generated scientific cards/catalogs are current and their API references<br>import in the FEniCSx environment.</li>
 <li>Every advertised nonlinear/time-dependent material reports its actual<br>maturity and limitations through <code>constitutive.capabilities()</code>.</li>
+<li>README installation commands must resolve a real FEniCSx environment and<br>released PyPI wheel; they must not advertise a nonexistent conda package.</li>
+<li><code>platforms.runtime_report()</code> records the platform tier and dependency<br>versions needed for a reproducible issue report.</li>
+<li>Gmsh remains absent from core dependencies and release contents; the<br>separately licensed package is requested only by the optional <code>gmsh</code> extra.</li>
+<li>Matrix/vector/residual/scalar operator roles and K/M/C/F system components<br>pass their weak-form contract tests.</li>
+<li>A campaign with failed cases cannot silently feed training data; partial<br>data requires explicit review and acceptance.</li>
 </ul>
 <h2 id="explicitly-not-release-claims">Explicitly not release claims</h2>
 <ul>
@@ -78,6 +85,7 @@
 <li>General UMAT/UHYPER binary compatibility.</li>
 <li>Arbitrary-mesh automatic FNO/PINN training.</li>
 <li>Industrial code compliance or validated material constants in the hot-wall<br>demonstration.</li>
+<li>Out-of-the-box native Windows execution. WSL2 is the recommended Windows<br>route until solver and <code>dolfinx_mpc</code> gaps have native-Windows CI evidence.</li>
 </ul>
 <p>These exclusions protect the credibility of what is implemented. They are the evidence plan for the next release, not fine print hidden from users.</p>
       </article>

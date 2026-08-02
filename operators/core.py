@@ -14,6 +14,11 @@ from agentfem import forms
 from agentfem.kernel import dofs
 
 
+_OPERATOR_ROLES = {"matrix", "vector", "residual", "scalar", "operator"}
+_OPERATOR_OPERATIONS = {"primitive", "sum", "scale", "linearize"}
+_ROLE_ARITY = {"matrix": 2, "vector": 1, "residual": 1, "scalar": 0}
+
+
 @dataclass(frozen=True)
 class OperatorForm:
     """Named scientific operator with a current backend expression.
@@ -33,6 +38,31 @@ class OperatorForm:
     operation: str = "primitive"
     metadata: dict[str, object] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        for attribute in ("name", "kind", "family"):
+            value = str(getattr(self, attribute)).strip()
+            if not value:
+                raise ValueError(f"OperatorForm.{attribute} must not be empty.")
+            object.__setattr__(self, attribute, value)
+        role = str(self.role).strip().lower()
+        if role not in _OPERATOR_ROLES:
+            raise ValueError(
+                f"Unknown operator role {self.role!r}; "
+                f"expected one of {sorted(_OPERATOR_ROLES)}."
+            )
+        operation = str(self.operation).strip().lower()
+        if operation not in _OPERATOR_OPERATIONS:
+            raise ValueError(
+                f"Unknown operator operation {self.operation!r}; "
+                f"expected one of {sorted(_OPERATOR_OPERATIONS)}."
+            )
+        if self.expression is None:
+            raise ValueError("OperatorForm.expression must not be None.")
+        object.__setattr__(self, "role", role)
+        object.__setattr__(self, "operation", operation)
+        object.__setattr__(self, "parts", tuple(self.parts))
+        object.__setattr__(self, "metadata", dict(self.metadata))
+
     def __add__(self, other):
         """Combine compatible operator forms by adding their expressions."""
 
@@ -42,6 +72,23 @@ class OperatorForm:
         """Scale an operator form by a scalar coefficient."""
 
         return scale(self, factor)
+
+    def __sub__(self, other):
+        """Subtract compatible operator forms with visible composition."""
+
+        return combine(self, scale(other, -1.0), name=f"{self.name}_minus")
+
+    def __neg__(self):
+        """Return the sign-reversed operator with provenance."""
+
+        return scale(self, -1.0, name=f"minus_{self.name}")
+
+    def __radd__(self, other):
+        """Allow ``sum(operators)`` without treating zero as an operator."""
+
+        if isinstance(other, (int, float)) and other == 0:
+            return self
+        return combine(other, self)
 
     def __rmul__(self, factor):
         """Scale an operator form by a scalar coefficient."""
@@ -86,6 +133,7 @@ class OperatorForm:
             "role": self.role,
             "family": self.family,
             "operation": self.operation,
+            "form_arity": form_arity(self.expression),
             "parts": self.parts,
             "metadata": dict(self.metadata),
         }
@@ -94,6 +142,44 @@ class OperatorForm:
         """Return the serializable scientific portion of this operator."""
 
         return self.summary()
+
+    def validate(self):
+        """Check semantic role against the current weak-form arity."""
+
+        from agentfem.validation import ValidationReport, issue
+
+        issues = []
+        actual = form_arity(self.expression)
+        expected = _ROLE_ARITY.get(self.role)
+        if actual is not None and expected is not None and actual != expected:
+            issues.append(
+                issue(
+                    "AFM-OP-001",
+                    f"operator.{self.name}.expression",
+                    f"role={self.role!r} expects form arity {expected}, got {actual}.",
+                    hint="Use matrix for bilinear forms, vector/residual for linear forms, and scalar for functional forms.",
+                    expected_arity=expected,
+                    actual_arity=actual,
+                )
+            )
+        if self.operation != "primitive" and not self.parts:
+            issues.append(
+                issue(
+                    "AFM-OP-002",
+                    f"operator.{self.name}.parts",
+                    f"operation={self.operation!r} has no recorded operands.",
+                    hint="Construct derived operators with combine(), scale(), or linearize().",
+                )
+            )
+        return ValidationReport.from_issues(
+            issues,
+            scope=f"operator:{self.name}",
+        )
+
+    def check(self) -> None:
+        """Raise an addressable validation error when the operator is invalid."""
+
+        self.validate().raise_if_errors()
 
     def renamed(
         self,
@@ -184,6 +270,87 @@ def scale(operator, factor, *, name: str | None = None, kind: str | None = None)
         operation="scale",
         metadata={"factor": _coefficient_description(factor)},
     )
+
+
+def residual_operator(
+    expression,
+    *,
+    name: str = "R",
+    family: str = "nonlinear",
+    metadata: dict[str, object] | None = None,
+) -> OperatorForm:
+    """Wrap a nonlinear weak residual ``R(u; v)`` as a public operator."""
+
+    return OperatorForm(
+        name=name,
+        expression=expression,
+        kind="residual_operator",
+        role="residual",
+        family=family,
+        metadata=dict(metadata or {}),
+    )
+
+
+def linearize(
+    residual,
+    unknown,
+    direction=None,
+    *,
+    name: str = "K_t",
+) -> OperatorForm:
+    """Differentiate a residual to obtain its consistent tangent operator.
+
+    This is an explicit bridge to UFL automatic differentiation.  AgentFEM
+    records the scientific relationship ``K_t = dR/du`` while UFL performs the
+    backend symbolic differentiation.
+    """
+
+    source = residual if isinstance(residual, OperatorForm) else residual_operator(residual)
+    if source.role != "residual":
+        raise ValueError(
+            f"linearize expects role='residual', got {source.role!r}."
+        )
+    value = unknown.value if hasattr(unknown, "value") else unknown
+    if direction is None:
+        if hasattr(unknown, "trial"):
+            direction = unknown.trial
+        elif hasattr(value, "function_space"):
+            direction = ufl.TrialFunction(value.function_space)
+        else:
+            raise ValueError(
+                "linearize requires direction unless unknown exposes trial or function_space."
+            )
+    tangent = ufl.derivative(source.expression, value, direction)
+    return OperatorForm(
+        name=name,
+        expression=tangent,
+        kind="consistent_tangent_operator",
+        role="matrix",
+        family=source.family,
+        parts=(
+            {
+                "relation": "derivative_of",
+                "operator": source.summary(),
+                "with_respect_to": getattr(unknown, "name", type(value).__name__),
+            },
+        ),
+        operation="linearize",
+        metadata={"equation": "K_t = dR/du", "source_name": source.name},
+    )
+
+
+def form_arity(expression) -> int | None:
+    """Return the number of UFL arguments, or ``None`` for opaque backends."""
+
+    if isinstance(expression, OperatorForm):
+        expression = expression.expression
+    arguments = getattr(expression, "arguments", None)
+    if not callable(arguments):
+        return None
+    try:
+        return len(arguments())
+    except (TypeError, AttributeError):
+        return None
 
 
 def compile_form(operator: OperatorForm, *, backend=None):
@@ -447,6 +614,136 @@ def heat_source_vector(source, temperature, *, measure=ufl.dx) -> OperatorForm:
         role="vector",
         family="heat_source",
         expression=operator.expression,
+    )
+
+
+def inertial_force_vector(
+    acceleration,
+    target,
+    density=1.0,
+    *,
+    measure=ufl.dx,
+) -> OperatorForm:
+    """Create the inertial virtual-work vector ``F_inertia = M a``."""
+
+    known = acceleration.value if hasattr(acceleration, "value") else acceleration
+    test = _test(target)
+    return OperatorForm(
+        name="F_inertia",
+        kind="inertial_force_vector",
+        role="vector",
+        family="inertia",
+        expression=forms.inertial_form(density, known, test, measure=measure),
+    )
+
+
+def flux_vector(
+    flux,
+    target,
+    *,
+    measure=None,
+    location=None,
+) -> OperatorForm:
+    """Create a prescribed scalar boundary-flux vector."""
+
+    selected_measure = measure if measure is not None else getattr(location, "measure", None)
+    if selected_measure is None:
+        raise ValueError("flux_vector requires measure or location.")
+    return OperatorForm(
+        name="Q_flux",
+        kind="boundary_flux_vector",
+        role="vector",
+        family="boundary_flux",
+        expression=forms.scalar_flux_form(flux, _test(target), selected_measure),
+    )
+
+
+def robin_operator(
+    target,
+    coefficient,
+    *,
+    measure=None,
+    location=None,
+) -> OperatorForm:
+    """Create the boundary matrix ``K_R = integral(h trial test)``."""
+
+    selected_measure = measure if measure is not None else getattr(location, "measure", None)
+    if selected_measure is None:
+        raise ValueError("robin_operator requires measure or location.")
+    trial, test = _trial_test(target)
+    return OperatorForm(
+        name="K_robin",
+        kind="robin_boundary_operator",
+        role="matrix",
+        family="robin_boundary",
+        expression=forms.robin_form(
+            coefficient,
+            trial,
+            test,
+            selected_measure,
+        ),
+    )
+
+
+def robin_source_vector(
+    target,
+    coefficient,
+    reference_value,
+    *,
+    measure=None,
+    location=None,
+) -> OperatorForm:
+    """Create the Robin environment vector ``F_R = integral(h x_ref test)``."""
+
+    selected_measure = measure if measure is not None else getattr(location, "measure", None)
+    if selected_measure is None:
+        raise ValueError("robin_source_vector requires measure or location.")
+    return OperatorForm(
+        name="F_robin",
+        kind="robin_boundary_source_vector",
+        role="vector",
+        family="robin_boundary",
+        expression=forms.scalar_flux_form(
+            coefficient * reference_value,
+            _test(target),
+            selected_measure,
+        ),
+    )
+
+
+def rayleigh_damping(
+    mass,
+    stiffness,
+    *,
+    mass_coefficient=0.0,
+    stiffness_coefficient=0.0,
+) -> OperatorForm:
+    """Create proportional damping ``C = alpha M + beta K``."""
+
+    for name, value in (
+        ("mass_coefficient", mass_coefficient),
+        ("stiffness_coefficient", stiffness_coefficient),
+    ):
+        if isinstance(value, (int, float)) and value < 0.0:
+            raise ValueError(f"{name} must be non-negative.")
+    if (
+        isinstance(mass_coefficient, (int, float))
+        and isinstance(stiffness_coefficient, (int, float))
+        and mass_coefficient == 0.0
+        and stiffness_coefficient == 0.0
+    ):
+        raise ValueError("Rayleigh damping requires a non-zero coefficient.")
+    combined = combine(
+        scale(mass, mass_coefficient, name="alpha_M"),
+        scale(stiffness, stiffness_coefficient, name="beta_K"),
+        name="C",
+        kind="rayleigh_damping_operator",
+    )
+    return combined.renamed(
+        "C",
+        kind="rayleigh_damping_operator",
+        role="matrix",
+        family="rayleigh_damping",
     )
 
 

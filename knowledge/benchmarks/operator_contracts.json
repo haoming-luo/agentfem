@@ -1,0 +1,30 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.operator_contracts",
+  "title": "Operator role, system, and residual-linearization contracts",
+  "status": "automated",
+  "purpose": "Prevent the readable K/M/C/F and R/K_t layer from drifting away from executable UFL weak-form structure.",
+  "physics": "backend-facing finite-element operator algebra",
+  "execution": {
+    "command": "python -m pytest tests/test_operators.py",
+    "example": "tests/test_operators.py",
+    "test": "tests/test_operators.py",
+    "evidence": "Pure composition tests and a DOLFINx/UFL residual linearization test run in the release FEniCSx environment."
+  },
+  "observables": [
+    "Operator sums and scales retain operand provenance.",
+    "Matrix, vector, residual, and scalar roles agree with UFL argument count.",
+    "First-order systems expose C x_dot + K x = F and reject incompatible component roles.",
+    "UFL linearization produces a bilinear tangent recorded as K_t = dR/du."
+  ],
+  "acceptance": [
+    "All operator contract tests pass without assembling a mislabeled weak form.",
+    "The residual has form arity one and its differentiated tangent has arity two.",
+    "Validation failures carry stable AFM-OP or AFM-SYS issue codes."
+  ],
+  "limitations": [
+    "The benchmark does not yet verify mixed/block operator domain compatibility or unit algebra.",
+    "Numerical tangent quality for a constitutive model remains the responsibility of that model's own benchmark."
+  ]
+}

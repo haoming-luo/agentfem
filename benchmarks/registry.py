@@ -36,6 +36,17 @@ class BenchmarkSpec:
 
 _BENCHMARKS = (
     BenchmarkSpec(
+        identifier="operator_contracts",
+        capability="operator_systems",
+        level="interface",
+        reference="knowledge/benchmarks/operator_contracts.json",
+        criterion=(
+            "operator roles match UFL arity, first-order systems reject role "
+            "mismatch, and residual linearization records K_t = dR/du"
+        ),
+        automated_test="tests/test_operators.py",
+    ),
+    BenchmarkSpec(
         identifier="neo_hookean_energy_gradient",
         capability="neo_hookean",
         level="material_point",

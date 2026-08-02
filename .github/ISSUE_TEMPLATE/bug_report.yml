@@ -1,0 +1,66 @@
+name: Bug report
+description: Report a reproducible software, solver, or scientific-validity defect
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: Remove confidential data and reduce the issue to a synthetic reproducer when possible.
+  - type: dropdown
+    id: defect_kind
+    attributes:
+      label: Defect category
+      options:
+        - Installation or platform
+        - Public API or validation
+        - Mesh or boundary conditions
+        - Material or operator
+        - Solver, convergence, or MPI
+        - Results, post-processing, or restart
+        - Campaign, dataset, or ML bridge
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: engineering_problem
+    attributes:
+      label: Engineering problem and expected behavior
+      description: State the governing problem, assumptions, units, and expected physical or numerical behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+      description: Include the complete exception or smallest relevant progress and solver log.
+    validations:
+      required: true
+  - type: textarea
+    id: reproducer
+    attributes:
+      label: Minimal reproducer
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: runtime
+    attributes:
+      label: Runtime report
+      description: Paste `agentfem.platforms.runtime_report().format()` and state MPI rank count and installation method.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Validation evidence
+      description: For a scientific defect, provide an analytical result, benchmark, mesh-convergence result, or comparison source.
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and the roadmap.
+          required: true
+        - label: I removed secrets, licenses, and confidential engineering data.
+          required: true

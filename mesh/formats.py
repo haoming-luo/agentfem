@@ -14,6 +14,8 @@ from typing import Any
 
 import numpy as np
 
+from agentfem import dependencies
+
 
 SUPPORTED_EXTERNAL_FORMATS = {
     ".inp": "Abaqus input",
@@ -90,14 +92,11 @@ class ExternalMeshSummary:
 def require_meshio():
     """Import meshio or raise an actionable optional-dependency error."""
 
-    try:
-        import meshio
-    except ImportError as exc:
-        raise ImportError(
-            "External CAE mesh conversion requires the optional dependency "
-            "`meshio`. Install it with `pip install meshio` or conda-forge."
-        ) from exc
-    return meshio
+    return dependencies.require(
+        "meshio",
+        extra="mesh-formats",
+        capability="External CAE mesh conversion",
+    )
 
 
 def describe_supported_external_formats() -> dict[str, str]:

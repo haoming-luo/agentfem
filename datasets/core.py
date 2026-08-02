@@ -127,6 +127,13 @@ class ScientificDataset:
             )
         return np.asarray(rows, dtype=float)
 
+    def to_torch(self, **kwargs):
+        """Create the optional PyTorch tensor bundle for this dataset."""
+
+        from .torch import to_torch
+
+        return to_torch(self, **kwargs)
+
     def decode_outputs(self, row: Sequence[float]) -> dict[str, object]:
         """Restore one flattened prediction to named scalar/array quantities."""
 

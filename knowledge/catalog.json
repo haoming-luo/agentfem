@@ -29,6 +29,13 @@
       "title": "Two-dimensional linear-static cantilever"
     },
     {
+      "id": "agentfem.benchmark.operator_contracts",
+      "physics": "backend-facing finite-element operator algebra",
+      "source": "knowledge/benchmarks/operator_contracts.json",
+      "status": "automated",
+      "title": "Operator role, system, and residual-linearization contracts"
+    },
+    {
       "id": "agentfem.benchmark.thermoelastic_free_expansion",
       "physics": "small-strain isotropic plane-stress thermoelasticity under uniform temperature change",
       "source": "knowledge/benchmarks/thermoelastic_free_expansion.json",
@@ -70,6 +77,46 @@
       "status": "supported",
       "summary": "Three-dimensional Mises plasticity with linear isotropic hardening, Basix quadrature state, analytical algorithmic tangent, incremental Newton equilibrium, rollback, cutback, and serial restart.",
       "title": "Global small-strain J2 plasticity"
+    },
+    {
+      "id": "agentfem.operator.system_contracts",
+      "kind": "operator",
+      "public_api": [
+        "agentfem.operators.OperatorForm",
+        "agentfem.operators.first_order_system",
+        "agentfem.operators.second_order_system",
+        "agentfem.operators.residual_operator",
+        "agentfem.operators.linearize",
+        "agentfem.operators.robin_operator",
+        "agentfem.operators.rayleigh_damping"
+      ],
+      "related_cards": [
+        "agentfem.workflow.solution_procedures",
+        "agentfem.workflow.thermoelastic_analysis",
+        "agentfem.material.j2_global_plasticity"
+      ],
+      "source": "knowledge/cards/operator_system_contracts.json",
+      "status": "supported",
+      "summary": "Names, composes, validates, and records matrix, vector, residual, scalar, and K/M/C/F system structure while delegating symbolic weak-form execution to UFL and DOLFINx.",
+      "title": "Finite-element operator and system contracts"
+    },
+    {
+      "id": "agentfem.workflow.campaign_learning_pipeline",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.campaigns.CampaignReport.require_dataset",
+        "agentfem.datasets.ScientificDataset.to_torch",
+        "agentfem.surrogates.train",
+        "agentfem.surrogates.GuardedSurrogate"
+      ],
+      "related_cards": [
+        "agentfem.operator.system_contracts",
+        "agentfem.workflow.solution_procedures"
+      ],
+      "source": "knowledge/cards/campaign_learning_pipeline.json",
+      "status": "supported",
+      "summary": "Turns deterministic simulations into scientific datasets, independent surrogate validation, optional PyTorch tensors, applicability decisions, and explicit high-fidelity fallback.",
+      "title": "Simulation campaign to guarded learning workflow"
     },
     {
       "id": "agentfem.workflow.solution_procedures",

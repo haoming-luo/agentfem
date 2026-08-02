@@ -11,9 +11,13 @@ Start with:
   public API, state contract, verification ladder, and explicit non-goals;
 - [results and campaigns](results_and_campaigns.md) for simulation-to-data
   workflows;
+- [scientific operator contracts](operator_contracts.md) for K/M/C/F,
+  residual/tangent structure, composition, and validation;
 - [stable steps and compact output](step_and_output_architecture.md) for the
   provider and unified XDMF/HDF5 decisions;
 - [mesh interoperability](mesh_interoperability.md) for external CAE meshes;
+- [platform and optional dependencies](platform_support.md) for Windows/WSL2,
+  Gmsh, and runtime evidence;
 - the [module map](module_map.md) for code routing.
 
 The repository root also contains the installation guide, full workflow,

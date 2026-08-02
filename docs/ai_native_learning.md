@@ -118,8 +118,11 @@ MPI communicators, PETSc state, JIT compilation, and filesystem output make
 that shortcut unsafe.
 
 Completed case records are resumed by deterministic ID. Failed cases remain
-explicit records with error type and message; they are not silently omitted
-from the campaign report. Successful cases alone enter the learning dataset.
+explicit records with error type and message. Although successful cases can be
+materialized as a partial dataset, `report.require_dataset()` refuses to feed
+that dataset downstream by default until failures are reviewed and
+`allow_partial=True` is chosen explicitly. The returned dataset records that
+acceptance and the failed case IDs in its metadata.
 
 ### Scientific datasets
 
@@ -141,7 +144,7 @@ than an invented ordinal distance. The manifest records the feature names and
 encoding so every value round-trips to its declared parameter.
 
 ```python
-dataset = report.dataset
+dataset = report.require_dataset(minimum_samples=4)
 split = dataset.split(validation_fraction=0.2, seed=2026)
 dataset.write("campaign_dataset")
 restored = datasets.ScientificDataset.read("campaign_dataset")
@@ -151,7 +154,7 @@ When PyTorch is installed, the same reviewed dataset becomes an ordinary
 `TensorDataset`/`DataLoader` without losing its scientific column schema:
 
 ```python
-bundle = datasets.to_torch(dataset)
+bundle = dataset.to_torch()
 loader = bundle.loader(batch_size=64, seed=2026)
 ```
 
@@ -226,6 +229,21 @@ compatibility, physics diagnostics, and uncertainty. The public API already
 makes the decision visible. Categorical inputs are stricter than padded numeric
 bounds: a category absent from training is out of domain even when numeric
 padding is requested.
+
+For the common split-fit-validate-guard sequence, a small convenience workflow
+keeps the evidence together without taking training ownership away from the
+estimator:
+
+```python
+training = surrogates.train(
+    dataset,
+    estimator=surrogates.RidgeSurrogate(),
+    validation_fraction=0.2,
+    seed=2026,
+)
+guarded = training.guard(fallback=run_one_fenicsx_case)
+print(training.validation.format())
+```
 
 ## Three Roles for Learned Models
 

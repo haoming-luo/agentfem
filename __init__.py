@@ -11,6 +11,7 @@ from . import campaigns
 from . import constraints
 from . import constitutive
 from . import datasets
+from . import dependencies
 from . import diagnostics
 from . import fields
 from . import elements
@@ -23,6 +24,7 @@ from . import mechanics
 from . import mesh
 from . import models
 from . import operators
+from . import platforms
 from . import problems
 from . import procedures
 from . import results
@@ -47,6 +49,7 @@ PUBLIC_WORKFLOW_MODULES = (
     "loads",
     "operators",
     "problems",
+    "platforms",
     "procedures",
     "results",
     "solvers",
@@ -80,6 +83,7 @@ __all__ = [
     "constraints",
     "constitutive",
     "datasets",
+    "dependencies",
     "diagnostics",
     "fields",
     "elements",
@@ -92,6 +96,7 @@ __all__ = [
     "mesh",
     "models",
     "operators",
+    "platforms",
     "problems",
     "procedures",
     "results",

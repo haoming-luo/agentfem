@@ -51,3 +51,22 @@ integrals, or mass-weighted products, and those meanings should stay visible.
 
 Low-level weak forms remain available in `agentfem.forms`, and assembly remains
 available in `agentfem.assembly`.
+
+## System and residual contracts
+
+The same layer distinguishes static, first-order, second-order, and nonlinear
+systems without coupling them to one solution algorithm:
+
+```python
+static = operators.linear_system(K, F)                 # K x = F
+thermal = operators.first_order_system(C, K, Q)        # C x_dot + K x = Q
+dynamic = operators.second_order_system(M, K, C, F)    # M a + C v + K u = F
+
+R = operators.residual_operator(residual_form, family="hyperelasticity")
+Kt = operators.linearize(R, displacement)              # K_t = dR/du
+```
+
+`validate()` checks matrix/vector/residual/scalar roles against UFL form arity,
+and `check()` raises an addressable validation report before assembly. Opaque
+backend operators remain possible, but only the structure visible to AgentFEM
+can be automatically checked.

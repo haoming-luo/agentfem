@@ -12,6 +12,11 @@ This is mesh interoperability, not full solver-deck import. Material cards,
 contacts, element formulations, steps, amplitudes, coordinate systems, and
 solver controls require format-specific semantic adapters.
 
+Gmsh is a separate optional route. Direct in-memory Gmsh models and
+`mesh.read_gmsh_mesh(...)` require `agentfem[gmsh]`; structured DOLFINx meshes,
+XDMF, and the meshio conversion described on this page do not. This keeps both
+the runtime and the separately licensed Gmsh package outside the AgentFEM core.
+
 ## Inspect Before Converting
 
 ```python

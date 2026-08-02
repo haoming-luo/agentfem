@@ -24,9 +24,11 @@
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
 <a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
 <a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
+<a class="" href="operator-contracts.html">Scientific Operator Contracts</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="platform-support.html">Platform and Optional Dependencies</a>
 <a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
 <a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
 <a class="" href="module-map.html">Module Map</a>
@@ -62,6 +64,7 @@
 <table>
 <thead><tr><th>Capability</th><th>Maturity</th><th>What is usable now</th><th>Important limit</th></tr></thead>
 <tbody>
+<tr><td>Scientific operator layer</td><td>FEM-integrated foundation</td><td>K/M/C/F, static/first-/second-order systems, R/K_t linearization, composition and UFL role/arity validation</td><td>no mixed/block domain-range typing or physical-unit algebra</td></tr>
 <tr><td>Linear elasticity</td><td>FEM-integrated</td><td>2D isotropic/selected anisotropic, static/dynamics building blocks, strong-BC reaction field, M/K energy diagnostic</td><td>broader 3D verification and affine/weak reactions remain</td></tr>
 <tr><td>Thermoelasticity</td><td>FEM-integrated</td><td>implicit-Euler heat transfer and sequential isotropic thermal stress in 2D/3D</td><td>no property tables or monolithic two-way coupling</td></tr>
 <tr><td>Structural dynamics</td><td>FEM-integrated foundation</td><td>central difference, Newmark, and generalized-alpha through one procedure vocabulary</td><td>implicit route is linear; moving supports and common OutputPlan remain</td></tr>
@@ -73,6 +76,8 @@
 <tr><td>Abaqus periodic equations</td><td>serial + two-rank FEM-integrated</td><td>exact chained affine elimination, distributed <code>dolfinx_mpc</code>, and 3D Neo-Hookean load path</td><td>AMG near-nullspace transfer, reactions, and scaling studies remain</td></tr>
 <tr><td>Abaqus user-material bridge</td><td>interface contract</td><td>solver-neutral material-point input/output and migration specification</td><td>no compiled adapter or quadrature-state global driver</td></tr>
 <tr><td>Result/data flow</td><td>integrated foundation</td><td>declarative field/history/diagnostic/presentation plans; compact deformed XDMF/HDF5; common transient progress/time histories; typed checkpoint records; campaign/PyTorch dataset bridge</td><td>general point/region probes, transient energy/checkpoint writers, and portable MPI restart remain</td></tr>
+<tr><td>Campaign-to-learning flow</td><td>workflow integrated</td><td>deterministic cases, resumable evidence, failure-aware dataset gate, reproducible train/validation workflow, ridge/POD/PyTorch adapters, applicability guard and FEM fallback</td><td>no scheduler executor, active-learning governance, or calibrated epistemic uncertainty</td></tr>
+<tr><td>Platform/install boundary</td><td>release foundation</td><td>Linux CI, macOS developer verification, WSL2 recommended for Windows, runtime dependency report, Gmsh/meshio optional adapters</td><td>native Windows remains experimental; AgentFEM is not yet a conda-forge package</td></tr>
 </tbody>
 </table>
 <p>The same table is queryable in code through <code>constitutive.capabilities()</code> and <code>benchmarks.list_benchmarks()</code>.</p>
@@ -96,6 +101,7 @@
 <li>serial, MPI, docs, package, and example release gates;</li>
 <li>clear solver convergence/failure evidence.</li>
 </ul>
+<p>First-release closure additionally requires truthful installation commands, an inspectable runtime/platform report, optional-dependency license boundaries, operator/system contract checks, and a failure-aware campaign-to-learning gate. Native Windows is not promoted until a compatible solver route passes an installed-wheel Windows CI matrix; WSL2 is the recommended Windows route for the first release.</p>
 <h3 id="p1-nonlinear-solid-mechanics">P1: nonlinear solid mechanics</h3>
 <ul>
 <li>harden the new <code>SolutionProcedure</code> separation and make Standard/Explicit<br>transient steps share result, progress, energy, and checkpoint manifests;</li>
@@ -122,6 +128,7 @@
 <li>preserve source identities, checksums, conversion choices, and warnings;</li>
 <li>extend the now-preserved Abaqus node labels and linear equations to common<br>node/element-set semantics where meshio loses information;</li>
 <li>treat ANSYS CDB and full solver decks as separate adapters, not generic mesh<br>conversion.</li>
+<li>keep Gmsh a separately installed adapter for direct model/<code>.msh</code> workflows;<br>do not make it a prerequisite for structured, XDMF, Abaqus, or NASTRAN paths.</li>
 </ul>
 <h3 id="p4-ai-native-operation">P4: AI-native operation</h3>
 <ul>

@@ -24,9 +24,11 @@
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
 <a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
 <a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
+<a class="" href="operator-contracts.html">Scientific Operator Contracts</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="platform-support.html">Platform and Optional Dependencies</a>
 <a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
 <a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
 <a class="" href="module-map.html">Module Map</a>
@@ -45,6 +47,7 @@
     </aside>
     <main>
       <article>
+<p align="center"><img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM logo" width="320"></p>
 <h1 id="agentfem">AgentFEM</h1>
 <p>AgentFEM is an open-source platform for AI-assisted finite-element simulation, agent-readable CAE workflows, reusable operators, and human-agent collaborative scientific computing. Its first collection-level interfaces connect typed parameter studies and traceable FEniCSx runs to scientific datasets, surrogates, reduced-order models, and guarded high-fidelity fallback.</p>
 <p>AgentFEM was initiated by Haoming Luo and open-sourced on GitHub in July 2026. It is an early open-source practice toward making finite-element simulation workflows readable, structured, reproducible, and usable by both researchers and AI agents.</p>
@@ -57,8 +60,9 @@
 <ul>
 <li>Finite-element language for humans: <code>model.linear_static_step(...)</code>,<br><code>model.tree()</code>, <code>operators.xtmx(...)</code>, and field algebra such as<br><code>u_next = u + dt * v + 0.5 * dt**2 * a</code>.</li>
 <li>One procedure vocabulary: <code>Study</code> states the physical problem;<br><code>SolutionProcedure</code> records Standard/Explicit, equation order, integration<br>algorithm, statefulness, and global-solve requirements.</li>
+<li>Checked operator vocabulary: static <code>Kx=F</code>, first-order <code>C x_dot+Kx=F</code>,<br>second-order <code>Ma+Cv+Ku=F</code>, and nonlinear <code>R(u)=0</code> / <code>K_t=dR/du</code> retain<br>inspectable composition and weak-form role checks.</li>
 <li>Inspectable objects for agents: <code>study.summary()</code>, <code>model.manifest()</code>,<br><code>model.to_ir()</code>, structured validation reports, <code>operator.summary()</code>, and<br>step summaries.</li>
-<li>Collection-level scientific workflows: deterministic campaign cases,<br>resumable evidence, unit/shape-aware datasets, transparent surrogate<br>baselines, independent validation, and explicit applicability domains.</li>
+<li>Collection-level scientific workflows: deterministic campaign cases,<br>resumable evidence, unit/shape-aware datasets, transparent surrogate<br>baselines, independent validation, and explicit applicability domains;<br>failed simulations cannot silently become training data.</li>
 <li>Direct PyTorch handoff: validated campaign matrices and serial FEM fields<br>can become tensors without making AgentFEM a replacement for PyTorch,<br>neural-operator libraries, or PINN trainers.</li>
 <li>One result path: solved fields, quantities, histories, visualization<br>artifacts, batch outputs, and training data share <code>SimulationResult</code>.</li>
 <li>CAE mesh interoperability: inspect and convert supported external meshes<br>while retaining named volume/boundary memberships in a conversion manifest.</li>
@@ -74,15 +78,23 @@
 <p>The current implementation is intentionally FEniCSx-first. Experimental AF-IR records preserve the supported scientific structure separately from live backend objects, and a narrow backend adapter makes compilation boundaries explicit. This is a progressive architecture, not a claim of complete backend-neutral execution.</p>
 <h2 id="install">Install</h2>
 <p>AgentFEM depends on the FEniCSx/DOLFINx scientific computing stack. The recommended route is conda-forge, because it can resolve DOLFINx, PETSc, MPI, and HDF5 together.</p>
-<h3 id="recommended-conda-forge">Recommended: conda-forge</h3>
-<p>Create a fresh environment:</p>
-<pre><code>mamba create -n agentfem-env -c conda-forge python=3.11 agentfem
-mamba activate agentfem-env</code></pre>
-<p>Or install into an existing conda environment:</p>
-<pre><code>mamba install -c conda-forge agentfem</code></pre>
-<h3 id="pypi">PyPI</h3>
-<p>If you already have a working FEniCSx/DOLFINx environment:</p>
-<pre><code>python -m pip install agentfem</code></pre>
+<h3 id="recommended-conda-forge-runtime-pypi-agentfem">Recommended: conda-forge runtime + PyPI AgentFEM</h3>
+<p>Create the numerical environment first, then install AgentFEM into it:</p>
+<pre><code>mamba create -n agentfem-env -c conda-forge \
+  python=3.11 fenics-dolfinx=0.11 mpich mpi4py petsc4py h5py
+mamba activate agentfem-env
+python -m pip install agentfem</code></pre>
+<p>AgentFEM is published on PyPI. It is not yet published as a conda-forge package, so <code>mamba install agentfem</code> is not currently a valid installation route.</p>
+<h3 id="optional-integrations">Optional integrations</h3>
+<pre><code>python -m pip install &#x27;agentfem[mesh-formats]&#x27;  # Abaqus/NASTRAN/etc. via meshio
+python -m pip install &#x27;agentfem[gmsh]&#x27;          # direct Gmsh model/.msh import
+python -m pip install &#x27;agentfem[visualization]&#x27;
+python -m pip install &#x27;agentfem[ml]&#x27;            # PyTorch adapters</code></pre>
+<p>Gmsh is a separately distributed GPL-licensed optional package. It is not bundled in AgentFEM and is not needed for structured meshes, XDMF meshes, or meshio-based Abaqus/NASTRAN conversion.</p>
+<h3 id="windows">Windows</h3>
+<p>Windows users should currently run AgentFEM through WSL2 and the same Linux environment above. Native FEniCSx 0.11 Windows packages exist, but AgentFEM&#x27;s PETSc solver path and <code>dolfinx_mpc</code> workflow do not yet have a complete tested native-Windows stack. Check the active environment with:</p>
+<pre><code>from agentfem import platforms
+print(platforms.runtime_report().format())</code></pre>
 <h3 id="local-development">Local development</h3>
 <pre><code>git clone https://github.com/haoming-luo/agentfem.git
 cd agentfem

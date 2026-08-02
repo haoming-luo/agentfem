@@ -29,8 +29,8 @@ unless the example is intentionally advanced.
    AI-native collection workflow. Demonstrates typed parameters, a
    reproducible design of experiments, fresh FEniCSx model construction per
    case, resumable execution records, a unit-aware scientific dataset, a
-   transparent surrogate baseline, independent validation, and guarded
-   high-fidelity fallback.
+   failure-aware dataset gate, a transparent surrogate baseline, independent
+   validation, and guarded high-fidelity fallback.
 
 6. `campaign_from_json.py`
    Small declarative sweep. Parameters, sampling, outputs, and execution policy
