@@ -1,4 +1,4 @@
-
+<p align="center"><img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM logo" width="320"></p>
 
 # AgentFEM
 
