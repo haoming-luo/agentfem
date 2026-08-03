@@ -22,6 +22,13 @@
       "title": "Creep-damage material paths and curve projection"
     },
     {
+      "id": "agentfem.benchmark.creep_hot_wall_release",
+      "physics": "sequential transient heat conduction, plane-strain thermoelasticity, and local creep-damage assessment",
+      "source": "knowledge/benchmarks/creep_hot_wall_release.json",
+      "status": "automated_regression",
+      "title": "Sequential hot-wall creep assessment release contract"
+    },
+    {
       "id": "agentfem.benchmark.j2_global_restart",
       "physics": "three-dimensional small-strain Mises plasticity with linear isotropic hardening",
       "source": "knowledge/benchmarks/j2_global_restart.json",
@@ -144,7 +151,7 @@
       ],
       "source": "knowledge/cards/campaign_learning_pipeline.json",
       "status": "supported",
-      "summary": "Turns deterministic simulations into scientific datasets, independent surrogate validation, optional PyTorch tensors, applicability decisions, and explicit high-fidelity fallback.",
+      "summary": "Turns quality-gated deterministic simulations into scientific datasets, independent surrogate validation, optional PyTorch tensors, applicability decisions, and explicit high-fidelity fallback.",
       "title": "Simulation campaign to guarded learning workflow"
     },
     {
@@ -153,7 +160,10 @@
       "public_api": [
         "agentfem.verification.VerificationClaim",
         "agentfem.verification.VerificationReport",
+        "agentfem.verification.QualityPolicy",
+        "agentfem.verification.assess",
         "agentfem.verification.ConvergenceStudy",
+        "agentfem.results.SimulationResult.verify",
         "agentfem.results.SimulationResult.add_verification",
         "agentfem.campaigns.CampaignReport.require_dataset"
       ],
@@ -163,7 +173,7 @@
       ],
       "source": "knowledge/cards/scientific_verification.json",
       "status": "supported",
-      "summary": "Separates computed, converged, verified, and validated results through explicit claims, discretization evidence, applicability domains, and campaign learning gates.",
+      "summary": "Separates computed, converged, verified, and validated results while providing exploratory, engineering, and release policies for automatic runtime checks and campaign learning gates.",
       "title": "Scientific trust and verification workflow"
     },
     {

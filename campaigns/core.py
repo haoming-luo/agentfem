@@ -260,6 +260,7 @@ class CampaignReport:
         allow_partial: bool = False,
         minimum_samples: int = 1,
         minimum_trust_level: str | None = None,
+        quality: str | None = None,
     ) -> ScientificDataset:
         """Return training data only when campaign evidence is acceptable.
 
@@ -269,11 +270,18 @@ class CampaignReport:
         the returned dataset with the failed case identities so that this
         review decision survives dataset serialization. When
         ``minimum_trust_level`` is supplied, successful simulations whose
-        verification evidence is below that level are rejected as well.
+        verification evidence is below that level are rejected as well. A
+        named ``quality`` preset is stricter: every sample must have passed an
+        assessment at the requested policy level, and the acceptance decision
+        is copied into the returned dataset metadata.
         """
 
         if minimum_samples < 1:
             raise ValueError("minimum_samples must be at least one.")
+        if quality is not None and minimum_trust_level is not None:
+            raise ValueError(
+                "Choose either a quality preset or minimum_trust_level, not both."
+            )
         if self.dataset is None:
             raise RuntimeError(
                 f"Campaign {self.name!r} produced no successful dataset; "
@@ -292,6 +300,51 @@ class CampaignReport:
                 f"Campaign {self.name!r} produced {len(self.dataset.samples)} "
                 f"successful sample(s), fewer than required {minimum_samples}."
             )
+        quality_decision = None
+        if quality is not None:
+            from ..verification import quality_policy, trust_rank
+
+            selected_policy = quality_policy(quality)
+            minimum_trust_level = selected_policy.minimum_trust_level
+            unassessed = []
+            for sample in self.dataset.samples:
+                summary = sample.provenance.get("simulation_result", {})
+                evidence = (
+                    summary.get("verification")
+                    if isinstance(summary, Mapping)
+                    else None
+                )
+                assessed_policy = (
+                    evidence.get("quality_policy")
+                    if isinstance(evidence, Mapping)
+                    else None
+                )
+                acceptable = bool(
+                    isinstance(evidence, Mapping)
+                    and evidence.get("acceptable")
+                )
+                if assessed_policy is None:
+                    unassessed.append((sample.case_id, None))
+                    continue
+                assessed = quality_policy(assessed_policy)
+                if (
+                    trust_rank(assessed.minimum_trust_level)
+                    < trust_rank(selected_policy.minimum_trust_level)
+                    or not acceptable
+                ):
+                    unassessed.append((sample.case_id, assessed_policy))
+            if unassessed:
+                raise RuntimeError(
+                    f"Campaign {self.name!r} contains samples that did not "
+                    f"pass quality policy {selected_policy.name!r}: "
+                    f"{tuple(unassessed)}."
+                )
+            quality_decision = {
+                "accepted": True,
+                "policy": selected_policy.name,
+                "minimum_trust_level": selected_policy.minimum_trust_level,
+                "sample_count": len(self.dataset.samples),
+            }
         if minimum_trust_level is not None:
             from ..verification import trust_rank
 
@@ -311,7 +364,7 @@ class CampaignReport:
                     f"Campaign {self.name!r} contains samples below required "
                     f"trust level {minimum_trust_level!r}: {tuple(below)}."
                 )
-        if not failed_ids:
+        if not failed_ids and quality_decision is None:
             return self.dataset
         return ScientificDataset(
             parameter_space=self.dataset.parameter_space,
@@ -320,12 +373,23 @@ class CampaignReport:
             name=self.dataset.name,
             metadata={
                 **dict(self.dataset.metadata or {}),
-                "partial_campaign_acceptance": {
-                    "accepted": True,
-                    "failed_case_ids": failed_ids,
-                    "failed_case_count": len(failed_ids),
-                    "campaign": self.name,
-                },
+                **(
+                    {}
+                    if not failed_ids
+                    else {
+                        "partial_campaign_acceptance": {
+                            "accepted": True,
+                            "failed_case_ids": failed_ids,
+                            "failed_case_count": len(failed_ids),
+                            "campaign": self.name,
+                        }
+                    }
+                ),
+                **(
+                    {}
+                    if quality_decision is None
+                    else {"quality_acceptance": quality_decision}
+                ),
             },
         )
 

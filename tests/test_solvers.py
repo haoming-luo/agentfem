@@ -33,6 +33,7 @@ def test_solver_options_are_inspectable():
         "atol": None,
         "max_it": 500,
         "factor_solver_type": None,
+        "error_if_not_converged": True,
     }
 
 

@@ -97,15 +97,12 @@ def main() -> dict[str, float]:
             "purpose": "executable AF-IR record before solve",
         },
     )
-    step.solve()
+    simulation = step.solve_result()
     observables = {
         "maximum_displacement": max_magnitude(displacement.value),
     }
     golden = benchmarks.golden_benchmark(
         "agentfem.benchmark.linear_static_cantilever"
-    )
-    golden.quantity("maximum_displacement").assert_accepts(
-        observables["maximum_displacement"]
     )
 
     # 8. Output: write displacement to XDMF for ParaView.
@@ -113,6 +110,25 @@ def main() -> dict[str, float]:
     output_displacement = fem_io.interpolate_for_xdmf(displacement.value, degree=1)
     with fem_io.XDMFTimeSeries(out, domain) as xdmf:
         xdmf.write_fields(0.0, output_displacement)
+    simulation.add_quantity(
+        "maximum_displacement",
+        observables["maximum_displacement"],
+        unit="m",
+    )
+    simulation.add_artifact("afir", ir_out)
+    simulation.add_artifact("displacement", out)
+    quality = simulation.verify(
+        "release",
+        claims=golden.claims(observables),
+        required_quantities=("maximum_displacement",),
+        required_artifacts=("afir", "displacement"),
+    )
+    quality.require()
+    if comm.rank == 0:
+        simulation.write_manifest(
+            out.with_suffix(".result.json"),
+            include_histories=True,
+        )
 
     print_on_root(comm, model.tree())
     print_on_root(comm, f"AF-IR record: {ir_out}")
@@ -121,6 +137,7 @@ def main() -> dict[str, float]:
         comm,
         f"Static golden observable: max|U|={observables['maximum_displacement']:.16e}",
     )
+    print_on_root(comm, simulation.format())
     return observables
 
 

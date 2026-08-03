@@ -61,6 +61,31 @@
 </tbody>
 </table>
 <p>A completed solver call does not automatically advance a result beyond <code>computed</code>. An empty verification report can establish <code>converged</code>, but it cannot establish <code>verified</code>. Failed and inconclusive claims both prevent that promotion; they remain distinct so an inapplicable reference theory is not misreported as a numerical failure.</p>
+<h2 id="quality-presets-the-ordinary-user-path">Quality presets: the ordinary user path</h2>
+<p>Most users should not assemble every runtime claim manually. A solved result can apply one of three stable policies:</p>
+<table>
+<thead><tr><th>Preset</th><th>Minimum evidence</th><th>Intended use</th></tr></thead>
+<tbody>
+<tr><td><code>exploratory</code></td><td>computed result plus finite payload checks</td><td>model development and screening</td></tr>
+<tr><td><code>engineering</code></td><td>explicit solver/time-procedure convergence plus runtime checks</td><td>parameter campaigns and engineering post-processing</td></tr>
+<tr><td><code>release</code></td><td>engineering evidence plus a passed scientific reference claim</td><td>published demos and release contracts</td></tr>
+</tbody>
+</table>
+<pre><code>result = step.solve_result()
+result.add_quantity(&quot;tip_displacement&quot;, tip_u, unit=&quot;m&quot;)
+result.verify(
+    &quot;engineering&quot;,
+    required_quantities=(&quot;tip_displacement&quot;,),
+).require()</code></pre>
+<p>The automatic checks cover execution status, registered payload, finite live field coefficients, required quantities/histories/artifacts, materialized artifact paths, and structured execution-trace completeness when available. They are recorded as <code>kind=&quot;runtime&quot;</code>. Passing them can establish an accepted engineering workflow, but cannot by itself promote a result to <code>verified</code>.</p>
+<p>For a release Golden:</p>
+<pre><code>golden = benchmarks.golden_benchmark(&quot;agentfem.benchmark.example&quot;)
+result.verify(
+    &quot;release&quot;,
+    claims=golden.claims(observables),
+    required_artifacts=(&quot;fields&quot;,),
+).require()</code></pre>
+<p><code>GoldenBenchmark.claims(...)</code> retains the benchmark identifier, reference version, tolerance, unit, expected value, and validity statement in the result manifest. A Golden remains regression evidence, not experimental validation.</p>
 <pre><code>claim = verification.VerificationClaim.compare(
     name=&quot;beam_reference&quot;,
     observable=&quot;tip_displacement&quot;,
@@ -107,9 +132,9 @@ claim = study.verify(
 <h2 id="simulation-to-learning-gate">Simulation-to-learning gate</h2>
 <pre><code>dataset = campaign_report.require_dataset(
     minimum_samples=20,
-    minimum_trust_level=&quot;verified&quot;,
+    quality=&quot;engineering&quot;,
 )</code></pre>
-<p>This rejects samples that merely ran successfully. The result summary and claim evidence remain in each dataset sample&#x27;s provenance so later training cannot erase why a simulation was admitted.</p>
+<p>This requires every evaluator to return a <code>SimulationResult</code> that passed the named policy. The accepted dataset records the policy decision in its metadata. Advanced workflows can still use <code>minimum_trust_level=&quot;verified&quot;</code> directly, but the preset is safer because it also rejects failed runtime checks rather than looking only at an ordered trust label.</p>
 <h2 id="what-verification-does-not-mean">What verification does not mean</h2>
 <ul>
 <li>A fixed-value Golden is a regression contract, not mesh convergence.</li>

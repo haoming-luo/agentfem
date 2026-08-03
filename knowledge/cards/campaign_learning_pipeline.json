@@ -5,7 +5,7 @@
   "title": "Simulation campaign to guarded learning workflow",
   "kind": "workflow",
   "status": "supported",
-  "summary": "Turns deterministic simulations into scientific datasets, independent surrogate validation, optional PyTorch tensors, applicability decisions, and explicit high-fidelity fallback.",
+  "summary": "Turns quality-gated deterministic simulations into scientific datasets, independent surrogate validation, optional PyTorch tensors, applicability decisions, and explicit high-fidelity fallback.",
   "public_api": [
     "agentfem.campaigns.CampaignReport.require_dataset",
     "agentfem.datasets.ScientificDataset.to_torch",
@@ -68,6 +68,7 @@
     ],
     "conventions": [
       "Failed cases block dataset consumption by default.",
+      "Named result quality policies can gate every sample before dataset admission.",
       "Categorical parameters use one-hot encoding.",
       "PyTorch remains the optional tensor and training runtime."
     ],
@@ -81,7 +82,7 @@
     ]
   },
   "usage": {
-    "minimal_example": "dataset = report.require_dataset(); training = surrogates.train(dataset); guarded = training.guard(fallback=run_fem).",
+    "minimal_example": "dataset = report.require_dataset(quality='engineering'); training = surrogates.train(dataset); guarded = training.guard(fallback=run_fem).",
     "examples": [
       "examples/static_elasticity_surrogate_campaign.py",
       "examples/campaign_from_json.py"
@@ -99,6 +100,7 @@
     "validation_rules": [
       "Reject missing, non-finite, or wrong-shaped outputs.",
       "Reject partial campaign data by default.",
+      "Reject samples that did not pass the requested quality policy.",
       "Reject silent out-of-domain prediction without fallback."
     ]
   },

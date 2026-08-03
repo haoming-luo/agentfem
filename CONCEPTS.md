@@ -305,6 +305,10 @@ The ordered result trust levels are `not_computed`, `computed`, `converged`,
 `verified`, and `validated`. A result advances only when the required evidence
 passes; an inapplicable theory remains inconclusive.
 
+Routine users apply `exploratory`, `engineering`, or `release` with
+`SimulationResult.verify(...)`. Automatic runtime checks remain distinct from
+scientific claims, so convenience cannot turn finite output into validation.
+
 `validated` is reserved for explicitly labeled physical or experimental
 validation claims. A fixed-mesh Golden or cross-code comparison is verification
 evidence, not experimental validation.

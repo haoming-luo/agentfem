@@ -24,6 +24,7 @@ class LinearSolverOptions:
     atol: float | None = None
     max_it: int | None = None
     factor_solver_type: str | None = None
+    error_if_not_converged: bool = True
 
     def __post_init__(self) -> None:
         if self.rtol is not None and self.rtol <= 0.0:
@@ -53,6 +54,7 @@ class LinearSolverOptions:
             "atol": self.atol,
             "max_it": self.max_it,
             "factor_solver_type": self.factor_solver_type,
+            "error_if_not_converged": self.error_if_not_converged,
         }
 
 
@@ -469,13 +471,56 @@ def create_ksp(comm, options: LinearSolverOptions | None = None):
     return ksp
 
 
-def solve_matrix_system(A, b, x, options: LinearSolverOptions | None = None) -> None:
-    """Solve ``A x = b`` into a PETSc vector."""
+@dataclass(frozen=True)
+class LinearSolveInfo:
+    """PETSc KSP convergence evidence for one linear system solve."""
 
-    ksp = create_ksp(A.comm, options)
+    converged_reason: int
+    iterations: int
+    residual_norm: float
+
+    @property
+    def converged(self) -> bool:
+        return self.converged_reason > 0
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "linear_solve_info",
+            "converged": self.converged,
+            "converged_reason": self.converged_reason,
+            "iterations": self.iterations,
+            "residual_norm": self.residual_norm,
+        }
+
+
+def solve_matrix_system(
+    A,
+    b,
+    x,
+    options: LinearSolverOptions | None = None,
+    *,
+    raise_on_failure: bool | None = None,
+) -> LinearSolveInfo:
+    """Solve ``A x = b`` and return explicit PETSc convergence evidence."""
+
+    selected = options or LinearSolverOptions()
+    ksp = create_ksp(A.comm, selected)
     ksp.setOperators(A)
     ksp.solve(b, x)
+    info = LinearSolveInfo(
+        converged_reason=int(ksp.getConvergedReason()),
+        iterations=int(ksp.getIterationNumber()),
+        residual_norm=float(ksp.getResidualNorm()),
+    )
     ksp.destroy()
+    should_raise = (
+        selected.error_if_not_converged
+        if raise_on_failure is None
+        else bool(raise_on_failure)
+    )
+    if not info.converged and should_raise:
+        _raise_linear_failure(info)
+    return info
 
 
 def solve_linear_problem(
@@ -485,6 +530,7 @@ def solve_linear_problem(
     *,
     bcs=None,
     options: LinearSolverOptions | None = None,
+    return_info: bool = False,
 ):
     """Assemble and solve a standard linear variational problem.
 
@@ -510,12 +556,29 @@ def solve_linear_problem(
     b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
     fem_petsc.set_bc(b, bcs)
 
-    solve_matrix_system(A, b, solution.x.petsc_vec, options)
+    selected = options or LinearSolverOptions()
+    info = solve_matrix_system(
+        A,
+        b,
+        solution.x.petsc_vec,
+        selected,
+        raise_on_failure=False,
+    )
     solution.x.scatter_forward()
 
     b.destroy()
     A.destroy()
-    return solution
+    if not info.converged and selected.error_if_not_converged:
+        _raise_linear_failure(info)
+    return (solution, info) if return_info else solution
+
+
+def _raise_linear_failure(info: LinearSolveInfo) -> None:
+    raise RuntimeError(
+        "PETSc KSP did not converge: "
+        f"reason={info.converged_reason}, iterations={info.iterations}, "
+        f"residual_norm={info.residual_norm:.6g}."
+    )
 
 
 def solve_nonlinear_problem(
@@ -714,19 +777,42 @@ def solve_affine_nonlinear_path(
             right_hand_side.scale(-1.0)
             increment = reduced_residual.duplicate()
             increment.set(0.0)
-            solve_matrix_system(
+            linear_info = solve_matrix_system(
                 reduced_tangent,
                 right_hand_side,
                 increment,
                 selected.linear_options,
+                raise_on_failure=False,
             )
-            direction = increment.array_r.copy()
+            direction = increment.array_r.copy() if linear_info.converged else None
 
             full_residual.destroy()
             full_tangent.destroy()
             reduced_residual.destroy()
             right_hand_side.destroy()
             increment.destroy()
+
+            if direction is None:
+                _emit(
+                    reporter,
+                    SolveEvent(
+                        "iteration",
+                        step_name,
+                        step_number=step_number,
+                        increment=increment_number,
+                        attempt=attempt_number,
+                        start_factor=accepted_factor,
+                        target_factor=factor,
+                        iteration=iteration,
+                        residual_norm=current_norm,
+                        step_length=0.0,
+                        message=(
+                            "linear correction failed: "
+                            f"KSP reason {linear_info.converged_reason}"
+                        ),
+                    ),
+                )
+                break
 
             alpha = 1.0
             accepted = False
@@ -1024,7 +1110,7 @@ def _solve_distributed_affine_nonlinear_path(
             if not np.isfinite(current_norm):
                 break
             iteration += 1
-            direction = _distributed_newton_direction(
+            direction, linear_info = _distributed_newton_direction(
                 residual,
                 jacobian,
                 correction,
@@ -1032,6 +1118,27 @@ def _solve_distributed_affine_nonlinear_path(
                 dolfinx_mpc,
                 options,
             )
+            if direction is None:
+                _emit(
+                    reporter,
+                    SolveEvent(
+                        "iteration",
+                        step_name,
+                        step_number=step_number,
+                        increment=increment_number,
+                        attempt=attempt_number,
+                        start_factor=accepted_factor,
+                        target_factor=factor,
+                        iteration=iteration,
+                        residual_norm=current_norm,
+                        step_length=0.0,
+                        message=(
+                            "linear correction failed: "
+                            f"KSP reason {linear_info.converged_reason}"
+                        ),
+                    ),
+                )
+                break
             base = function.x.array.copy()
             alpha = 1.0
             accepted = False
@@ -1244,7 +1351,7 @@ def _distributed_newton_direction(
     reduction,
     dolfinx_mpc,
     options,
-) -> np.ndarray:
+) -> tuple[np.ndarray | None, LinearSolveInfo]:
     full_residual = dolfinx_mpc.assemble_vector(residual, reduction.mpc)
     full_residual.ghostUpdate(
         addv=PETSc.InsertMode.ADD,
@@ -1261,24 +1368,27 @@ def _distributed_newton_direction(
     right_hand_side = full_residual.copy()
     right_hand_side.scale(-1.0)
     correction.x.array[:] = 0.0
-    solve_matrix_system(
+    info = solve_matrix_system(
         tangent,
         right_hand_side,
         correction.x.petsc_vec,
         options.linear_options,
+        raise_on_failure=False,
     )
-    correction.x.scatter_forward()
-    reduction.mpc.homogenize(correction)
-    reduction.mpc.backsubstitution(correction)
-    local_size = reduction.original_space.dofmap.index_map.size_local
-    ghost_count = reduction.original_space.dofmap.index_map.num_ghosts
-    block_size = int(reduction.original_space.dofmap.index_map_bs)
-    original_array_size = int((local_size + ghost_count) * block_size)
-    direction = correction.x.array[:original_array_size].copy()
+    direction = None
+    if info.converged:
+        correction.x.scatter_forward()
+        reduction.mpc.homogenize(correction)
+        reduction.mpc.backsubstitution(correction)
+        local_size = reduction.original_space.dofmap.index_map.size_local
+        ghost_count = reduction.original_space.dofmap.index_map.num_ghosts
+        block_size = int(reduction.original_space.dofmap.index_map_bs)
+        original_array_size = int((local_size + ghost_count) * block_size)
+        direction = correction.x.array[:original_array_size].copy()
     full_residual.destroy()
     right_hand_side.destroy()
     tangent.destroy()
-    return direction
+    return direction, info
 
 
 def _homogenize_mpc_vector(vector, mpc) -> None:

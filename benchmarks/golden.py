@@ -40,6 +40,33 @@ class GoldenQuantity:
             err_msg=f"Golden quantity {self.name!r} is outside its contract.",
         )
 
+    def claim(
+        self,
+        actual,
+        *,
+        benchmark: str,
+        reference_version: str,
+    ):
+        """Return this Golden comparison as scientific verification evidence."""
+
+        from ..verification import VerificationClaim
+
+        return VerificationClaim.compare(
+            name=f"{benchmark}.{self.name}",
+            observable=self.name,
+            actual=actual,
+            expected=self.expected,
+            reference=f"{benchmark} Golden {reference_version}",
+            relative_tolerance=self.relative_tolerance,
+            absolute_tolerance=self.absolute_tolerance,
+            validity_domain=self.description or "versioned release configuration",
+            evidence={
+                "benchmark": benchmark,
+                "reference_version": reference_version,
+                "unit": self.unit,
+            },
+        )
+
 
 @dataclass(frozen=True)
 class GoldenBenchmark:
@@ -63,6 +90,18 @@ class GoldenBenchmark:
             item.name: item.accepts(actual[item.name])
             for item in self.quantities
         }
+
+    def claims(self, actual: Mapping[str, object]) -> tuple[object, ...]:
+        """Create explicit claims for every quantity in this Golden contract."""
+
+        return tuple(
+            item.claim(
+                actual[item.name],
+                benchmark=self.identifier,
+                reference_version=self.reference_version,
+            )
+            for item in self.quantities
+        )
 
 
 def golden_benchmark(identifier: str) -> GoldenBenchmark:
@@ -92,4 +131,3 @@ def golden_benchmark(identifier: str) -> GoldenBenchmark:
             ),
         )
     raise KeyError(f"Unknown benchmark card {identifier!r}.")
-

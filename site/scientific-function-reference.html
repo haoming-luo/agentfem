@@ -71,6 +71,7 @@
 <tr><td><code>agentfem.benchmark.cae_reliability_cliffs</code></td><td>CAE reliability cliffs: orientation, discretization, and reference applicability</td><td>cross-cutting finite-element verification</td><td>partial_automated_suite</td></tr>
 <tr><td><code>agentfem.benchmark.campaign_surrogate_pipeline</code></td><td>Static-elasticity campaign to guarded surrogate pipeline</td><td>parameterized small-strain isotropic linear elasticity</td><td>executable_integration</td></tr>
 <tr><td><code>agentfem.benchmark.creep_damage_material_paths</code></td><td>Creep-damage material paths and curve projection</td><td>Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection</td><td>automated_regression</td></tr>
+<tr><td><code>agentfem.benchmark.creep_hot_wall_release</code></td><td>Sequential hot-wall creep assessment release contract</td><td>sequential transient heat conduction, plane-strain thermoelasticity, and local creep-damage assessment</td><td>automated_regression</td></tr>
 <tr><td><code>agentfem.benchmark.j2_global_restart</code></td><td>Three-dimensional J2 path, physical cutback, cyclic amplitude, energy, and restart equivalence</td><td>three-dimensional small-strain Mises plasticity with linear isotropic hardening</td><td>automated_regression</td></tr>
 <tr><td><code>agentfem.benchmark.linear_static_cantilever</code></td><td>Two-dimensional linear-static cantilever</td><td>small-strain isotropic linear elasticity in plane strain</td><td>numerical_regression</td></tr>
 <tr><td><code>agentfem.benchmark.neo_hookean_release</code></td><td>Compressible Neo-Hookean finite-strain release contract</td><td>compressible Neo-Hookean hyperelasticity</td><td>automated_regression</td></tr>
@@ -342,7 +343,7 @@
 </ul>
 <h2 id="simulation-campaign-to-guarded-learning-workflow">Simulation campaign to guarded learning workflow</h2>
 <p><strong>Stable ID:</strong> <code>agentfem.workflow.campaign_learning_pipeline</code>&lt;br&gt; <strong>Kind:</strong> <code>workflow</code>&lt;br&gt; <strong>Status:</strong> <code>supported</code>&lt;br&gt; <strong>Source card:</strong> <code>knowledge/cards/campaign_learning_pipeline.json</code></p>
-<p>Turns deterministic simulations into scientific datasets, independent surrogate validation, optional PyTorch tensors, applicability decisions, and explicit high-fidelity fallback.</p>
+<p>Turns quality-gated deterministic simulations into scientific datasets, independent surrogate validation, optional PyTorch tensors, applicability decisions, and explicit high-fidelity fallback.</p>
 <h3 id="public-api">Public API</h3>
 <ul>
 <li><code>agentfem.campaigns.CampaignReport.require_dataset</code></li>
@@ -383,6 +384,7 @@
 <h4 id="conventions">Conventions</h4>
 <ul>
 <li>Failed cases block dataset consumption by default.</li>
+<li>Named result quality policies can gate every sample before dataset admission.</li>
 <li>Categorical parameters use one-hot encoding.</li>
 <li>PyTorch remains the optional tensor and training runtime.</li>
 </ul>
@@ -397,7 +399,7 @@
 <li>Automatic arbitrary-mesh neural-operator training is not implemented.</li>
 </ul>
 <h3 id="minimal-example">Minimal example</h3>
-<pre><code>dataset = report.require_dataset(); training = surrogates.train(dataset); guarded = training.guard(fallback=run_fem).</code></pre>
+<pre><code>dataset = report.require_dataset(quality=&#x27;engineering&#x27;); training = surrogates.train(dataset); guarded = training.guard(fallback=run_fem).</code></pre>
 <h3 id="verification">Verification</h3>
 <p><strong>Tests</strong></p>
 <ul>
@@ -413,6 +415,7 @@
 <ul>
 <li>Reject missing, non-finite, or wrong-shaped outputs.</li>
 <li>Reject partial campaign data by default.</li>
+<li>Reject samples that did not pass the requested quality policy.</li>
 <li>Reject silent out-of-domain prediction without fallback.</li>
 </ul>
 <h3 id="references">References</h3>
@@ -421,12 +424,15 @@
 </ul>
 <h2 id="scientific-trust-and-verification-workflow">Scientific trust and verification workflow</h2>
 <p><strong>Stable ID:</strong> <code>agentfem.workflow.scientific_verification</code>&lt;br&gt; <strong>Kind:</strong> <code>workflow</code>&lt;br&gt; <strong>Status:</strong> <code>supported</code>&lt;br&gt; <strong>Source card:</strong> <code>knowledge/cards/scientific_verification.json</code></p>
-<p>Separates computed, converged, verified, and validated results through explicit claims, discretization evidence, applicability domains, and campaign learning gates.</p>
+<p>Separates computed, converged, verified, and validated results while providing exploratory, engineering, and release policies for automatic runtime checks and campaign learning gates.</p>
 <h3 id="public-api">Public API</h3>
 <ul>
 <li><code>agentfem.verification.VerificationClaim</code></li>
 <li><code>agentfem.verification.VerificationReport</code></li>
+<li><code>agentfem.verification.QualityPolicy</code></li>
+<li><code>agentfem.verification.assess</code></li>
 <li><code>agentfem.verification.ConvergenceStudy</code></li>
+<li><code>agentfem.results.SimulationResult.verify</code></li>
 <li><code>agentfem.results.SimulationResult.add_verification</code></li>
 <li><code>agentfem.campaigns.CampaignReport.require_dataset</code></li>
 </ul>
@@ -478,7 +484,7 @@
 <li>Trust evidence can be wrong if a user supplies an inappropriate reference; deterministic structure does not replace expert review.</li>
 </ul>
 <h3 id="minimal-example">Minimal example</h3>
-<pre><code>result.add_verification(verification.report(claim)); dataset = report.require_dataset(minimum_trust_level=&#x27;verified&#x27;).</code></pre>
+<pre><code>result.verify(&#x27;engineering&#x27;, required_quantities=(&#x27;response&#x27;,)).require(); dataset = report.require_dataset(quality=&#x27;engineering&#x27;).</code></pre>
 <h3 id="verification">Verification</h3>
 <p><strong>Tests</strong></p>
 <ul>
@@ -490,12 +496,14 @@
 <p><strong>Benchmarks</strong></p>
 <ul>
 <li><code>agentfem.benchmark.cae_reliability_cliffs</code></li>
+<li><code>agentfem.benchmark.creep_hot_wall_release</code></li>
 </ul>
 <p><strong>Validation rules</strong></p>
 <ul>
 <li>Reject unknown trust levels and negative tolerances.</li>
 <li>Reject unordered or shape-incompatible convergence samples.</li>
-<li>Do not admit merely computed samples when verified evidence is required.</li>
+<li>Runtime claims cannot promote a result to verified.</li>
+<li>Do not admit samples that lack an accepted requested quality policy.</li>
 </ul>
 <h3 id="references">References</h3>
 <ul>

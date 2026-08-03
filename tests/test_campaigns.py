@@ -278,3 +278,53 @@ def test_learning_dataset_can_require_verified_simulation_evidence():
     with pytest.raises(RuntimeError, match="below required trust level"):
         report.require_dataset(minimum_trust_level="verified")
     assert report.require_dataset(minimum_trust_level="computed") is report.dataset
+
+
+def test_campaign_quality_preset_requires_assessment_and_records_the_decision():
+    space = campaigns.ParameterSpace.create(
+        campaigns.RealParameter("load", 1.0, 2.0)
+    )
+
+    def evaluated(values):
+        result = results.SimulationResult(
+            "beam",
+            metadata={"solve": {"converged": True}},
+        )
+        result.add_quantity("response", values["load"])
+        result.verify(
+            "engineering",
+            required_quantities=("response",),
+        )
+        return result
+
+    accepted_campaign = campaigns.create(
+        name="quality_gate",
+        parameter_space=space,
+        outputs=(datasets.Quantity("response"),),
+        evaluate=evaluated,
+    )
+    accepted_report = accepted_campaign.run(
+        campaigns.explicit(space, ({"load": 1.25}, {"load": 1.75}))
+    )
+    dataset = accepted_report.require_dataset(quality="engineering")
+
+    assert dataset.metadata["quality_acceptance"] == {
+        "accepted": True,
+        "policy": "engineering",
+        "minimum_trust_level": "converged",
+        "sample_count": 2,
+    }
+    with pytest.raises(RuntimeError, match="quality policy 'release'"):
+        accepted_report.require_dataset(quality="release")
+
+    unassessed_campaign = campaigns.create(
+        name="unassessed",
+        parameter_space=space,
+        outputs=(datasets.Quantity("response"),),
+        evaluate=lambda values: {"response": values["load"]},
+    )
+    unassessed = unassessed_campaign.run(
+        campaigns.explicit(space, ({"load": 1.5},))
+    )
+    with pytest.raises(RuntimeError, match="did not pass quality policy"):
+        unassessed.require_dataset(quality="exploratory")

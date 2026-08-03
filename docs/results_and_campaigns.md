@@ -23,6 +23,19 @@ Linear problems, engineering `AnalysisStep` objects, and nonlinear problems
 provide `solve_result()` while preserving the older `solve()` field-return
 contract.
 
+Linear `solve_result()` records PETSc KSP reason, iteration count, and residual
+norm. It no longer infers convergence merely because the Python call returned.
+The result can consume that evidence through a low-ceremony policy:
+
+```python
+solved = step.solve_result()
+solved.add_quantity("maximum_displacement", max_u, unit="m")
+solved.verify(
+    "engineering",
+    required_quantities=("maximum_displacement",),
+).require()
+```
+
 ## One execution evidence stream
 
 Standard nonlinear, explicit, implicit-dynamic, first-order transient, and J2
@@ -142,7 +155,7 @@ Before training, require reviewed campaign evidence:
 ```python
 dataset = report.require_dataset(
     minimum_samples=4,
-    minimum_trust_level="verified",
+    quality="engineering",
 )
 training = surrogates.train(
     dataset,
@@ -153,9 +166,10 @@ training = surrogates.train(
 guarded = training.guard(fallback=run_high_fidelity_case)
 ```
 
-`require_dataset()` rejects a partial campaign by default. It can additionally
-reject successful but merely computed/converged samples through
-`minimum_trust_level`. Failed simulations
+`require_dataset()` rejects a partial campaign by default. A quality preset
+requires each sample to carry an accepted result assessment and records the
+dataset admission decision. The lower-level `minimum_trust_level` remains
+available when a project deliberately supplies its own evidence policy. Failed simulations
 are not silently discarded before learning; the caller must review them and
 set `allow_partial=True` deliberately. That acceptance and the failed case IDs
 are retained in the returned dataset metadata. `surrogates.train(...)` keeps the

@@ -385,6 +385,35 @@ class SimulationResult:
         self.verification = report
         return report
 
+    def verify(
+        self,
+        quality="engineering",
+        *,
+        claims=(),
+        converged: bool | None = None,
+        required_quantities=(),
+        required_histories=(),
+        required_artifacts=(),
+    ):
+        """Apply a named quality preset and attach its evidence report.
+
+        The default engineering preset runs deterministic payload checks and
+        requires solver-convergence evidence. The release preset additionally
+        requires an explicit scientific verification claim.
+        """
+
+        from ..verification import assess
+
+        return assess(
+            self,
+            quality,
+            claims=claims,
+            converged=converged,
+            required_quantities=required_quantities,
+            required_histories=required_histories,
+            required_artifacts=required_artifacts,
+        )
+
     @property
     def trust_level(self) -> str:
         if self.verification is not None:
@@ -501,6 +530,12 @@ class SimulationResult:
             f"  histories: {len(self.histories)}",
             f"  artifacts: {len(self.artifacts)}",
         ]
+        if self.verification is not None and self.verification.quality_policy:
+            lines.insert(
+                3,
+                f"  quality: {self.verification.quality_policy} "
+                f"({'accepted' if self.verification.acceptable else 'not accepted'})",
+            )
         if self.artifacts:
             lines.append(
                 "  files: " + ", ".join(sorted(self.artifacts))

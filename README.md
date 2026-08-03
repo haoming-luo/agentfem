@@ -62,7 +62,9 @@ maturity levels remain deliberately distinct and queryable in code.
   `SimulationResult`.
 - Scientific trust is explicit: `computed`, `converged`, `verified`, and
   `validated` are distinct; convergence studies and theory applicability are
-  machine-readable, and campaigns can exclude unverified training cases.
+  machine-readable. Low-ceremony `exploratory`, `engineering`, and `release`
+  policies check results and gate campaign data without making every user
+  assemble verification objects manually.
 - CAE mesh interoperability: inspect and convert supported external meshes
   while retaining named volume/boundary memberships in a conversion manifest.
 - Transparent layers: daily workflows use `models`, `fields`, `loads`,

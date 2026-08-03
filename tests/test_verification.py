@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from agentfem import verification
+from agentfem import results, verification
 
 
 def test_reference_claim_does_not_confuse_inapplicable_theory_with_failure():
@@ -107,3 +107,74 @@ def test_verification_report_requires_every_claim_before_trust_advances():
     assert rejected.trust_level == "converged"
     with pytest.raises(RuntimeError, match="mesh_independence"):
         rejected.require("verified")
+
+
+def test_engineering_quality_is_easy_but_does_not_claim_scientific_verification():
+    result = results.SimulationResult(
+        "linear_case",
+        metadata={
+            "solve": {
+                "kind": "linear_solve_info",
+                "converged": True,
+                "converged_reason": 2,
+            }
+        },
+    )
+    result.add_quantity("maximum_displacement", 1.2e-3, unit="m")
+
+    report = result.verify(
+        "engineering",
+        required_quantities=("maximum_displacement",),
+    )
+
+    assert report.acceptable
+    assert report.trust_level == "converged"
+    assert report.quality_policy == "engineering"
+    assert all(item.kind == "runtime" for item in report.claims)
+    report.require()
+
+
+def test_release_quality_requires_real_scientific_evidence():
+    result = results.SimulationResult(
+        "release_case",
+        metadata={"solve": {"converged": True}},
+    )
+    result.add_quantity("response", 2.0)
+
+    incomplete = result.verify("release")
+    assert incomplete.trust_level == "converged"
+    assert not incomplete.acceptable
+    with pytest.raises(RuntimeError, match="below required"):
+        incomplete.require()
+
+    golden = verification.VerificationClaim.compare(
+        name="versioned_response",
+        observable="response",
+        actual=2.0,
+        expected=2.0,
+        reference="release Golden v1",
+    )
+    accepted = result.verify("release", claims=(golden,))
+
+    assert accepted.trust_level == "verified"
+    assert accepted.acceptable
+    accepted.require()
+
+
+def test_quality_contract_reports_missing_outputs_without_hiding_them():
+    result = results.SimulationResult(
+        "incomplete_output",
+        metadata={"solve": {"converged": True}},
+    )
+    result.add_quantity("available", 1.0)
+
+    report = result.verify(
+        "engineering",
+        required_quantities=("required",),
+    )
+
+    failed = {item.name: item for item in report.claims if item.status == "failed"}
+    assert "required_outputs_present" in failed
+    assert not report.acceptable
+    with pytest.raises(RuntimeError, match="required_outputs_present"):
+        report.require()

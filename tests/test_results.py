@@ -11,7 +11,8 @@ import h5py
 from mpi4py import MPI
 import pytest
 
-from agentfem import campaigns, datasets, mesh, results, verification
+from agentfem import campaigns, datasets, fields, mesh, models, results, studies, verification
+from agentfem.constitutive import elasticity
 from agentfem.solvers import SolveEvent
 from agentfem.results.finite_strain import HomogenizedFrame
 
@@ -71,6 +72,56 @@ def test_result_manifest_keeps_execution_status_separate_from_scientific_trust(
     assert result.trust_level == "verified"
     assert saved["trust_level"] == "verified"
     assert saved["verification"]["claims"][0]["status"] == "passed"
+
+
+def test_linear_step_result_carries_ksp_evidence_consumed_by_engineering_quality():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    model = models.create(
+        study=studies.linear_static(
+            physics="solid_mechanics",
+            dimension=2,
+            assumption="plane_strain",
+        ),
+        mesh=domain,
+        name="quality_linear_patch",
+    )
+    displacement = model.field(fields.displacement(domain))
+    model.material(
+        elasticity.isotropic_elastic(
+            young=1000.0,
+            poisson=0.3,
+            density=1.0,
+        )
+    )
+    left = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[0], 0.0),
+        name="left",
+        tag=1,
+    )
+    right = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[0], 1.0),
+        name="right",
+        tag=2,
+    )
+    model.fix(displacement, on=left, value=0.0)
+    model.traction((0.0, -1.0), on=right)
+
+    simulation = model.step(target=displacement).solve_result()
+    quality = simulation.verify("engineering")
+
+    solve = simulation.metadata["step"]["problem"]["last_solve"]
+    assert solve["kind"] == "linear_solve_info"
+    assert solve["converged"] is True
+    assert quality.trust_level == "converged"
+    assert quality.acceptable
 
 
 def test_written_manifest_uses_portable_paths_for_local_artifacts(tmp_path):

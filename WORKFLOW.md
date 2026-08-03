@@ -40,8 +40,10 @@ this sequence visible unless there is a strong reason to encapsulate it.
 18. Evaluate physical QoIs, diagnostics, and histories. Keep coefficient
     statistics distinct from assembled physical integrals.
 19. Write visualization/output artifacts and attach them to the result.
-20. Attach reference, invariant, discretization, or validation claims when the
-    result will be described as more than computed/converged.
+20. Apply `result.verify("exploratory" | "engineering" | "release")` and
+    declare required quantities, histories, and artifacts. Add reference,
+    invariant, discretization, or validation claims when the result will be
+    described as verified or validated.
 
 For a collection of related cases, continue with:
 
@@ -50,8 +52,8 @@ For a collection of related cases, continue with:
 22. Create a deterministic design of experiments and fresh model variants.
 23. Run or resume the campaign and extract declared `datasets.Quantity`
     outputs.
-24. Require the intended scientific trust level before admitting cases to a
-    learning dataset.
+24. Require a named quality policy before admitting cases to a learning
+    dataset; use a raw minimum trust level only for a project-specific policy.
 25. Split the resulting `ScientificDataset` independently before training.
 26. Validate a surrogate or reduced-order model, declare its applicability
     domain, and retain a high-fidelity FEM fallback where extrapolation would

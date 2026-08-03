@@ -1,0 +1,60 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.creep_hot_wall_release",
+  "title": "Sequential hot-wall creep assessment release contract",
+  "status": "automated_regression",
+  "purpose": "Verify the reduced heat-transfer, thermoelastic-stress, governing-stress extraction, Kachanov--Rabotnov material-point assessment, and result-history path used by the first-release power-component demonstration.",
+  "physics": "sequential transient heat conduction, plane-strain thermoelasticity, and local creep-damage assessment",
+  "execution": {
+    "command": "AGENTFEM_RELEASE_SMOKE=1 python examples/creep_hot_wall_assessment.py",
+    "example": "examples/creep_hot_wall_assessment.py",
+    "evidence": "Four heat increments, one thermoelastic solve, and forty exact K-R material-point updates must complete and produce the versioned governing stress, rupture estimate, and end damage."
+  },
+  "observables": [
+    "Maximum sampled thermoelastic von Mises stress driving the local assessment.",
+    "K-R rupture-time estimate for the declared illustrative parameters.",
+    "Damage at ninety percent of the analytical rupture time.",
+    "Material-point strain, damage, and modified-theta histories plus FEM field artifacts."
+  ],
+  "acceptance": [
+    "Heat and thermoelastic component results pass the engineering quality policy.",
+    "Every versioned observable satisfies its Golden tolerance.",
+    "The release result passes the release quality policy and materializes all declared artifacts.",
+    "The manifest continues to state that creep is a governing-point assessment rather than a global creep field solve."
+  ],
+  "golden": {
+    "reference_version": "q1-6x10-heat4-kr40-1",
+    "quantities": [
+      {
+        "name": "governing_von_mises_stress",
+        "expected": 331321497.13443035,
+        "relative_tolerance": 2e-7,
+        "absolute_tolerance": 5.0,
+        "unit": "Pa",
+        "description": "Maximum quadrature-sampled plane-strain thermoelastic von Mises stress on the reduced release mesh."
+      },
+      {
+        "name": "predicted_rupture_time",
+        "expected": 31308.280996458638,
+        "relative_tolerance": 1e-6,
+        "absolute_tolerance": 0.01,
+        "unit": "h",
+        "description": "Analytical K-R rupture-time estimate under the versioned governing stress and illustrative parameters."
+      },
+      {
+        "name": "assessment_end_damage",
+        "expected": 0.43765076705156813,
+        "relative_tolerance": 1e-6,
+        "absolute_tolerance": 1e-9,
+        "unit": null,
+        "description": "Damage after forty material-point updates ending at ninety percent of the analytical rupture time."
+      }
+    ]
+  },
+  "limitations": [
+    "This is a versioned implementation regression, not material calibration or experimental validation.",
+    "Creep and damage are evaluated at one governing sampled stress; no global stress redistribution is solved.",
+    "The parameters are illustrative and must not be used for component-life decisions."
+  ]
+}

@@ -25,8 +25,9 @@ AgentFEM workflow:
 15. Structured validation and optional AF-IR record
 16. Assembly, solve, or time integration
 17. `SimulationResult`, physical QoIs, diagnostics, and histories
-18. Explicit reference, invariant, convergence, or validation claims when the
-    result is described as more than computed/converged
+18. `result.verify("exploratory" | "engineering" | "release")`, required
+    outputs, and explicit scientific claims when the result is described as
+    verified/validated
 19. A declarative `results.output_plan(...)` for reusable field, history,
     diagnostic, and optional presentation requests
 20. Compact unified XDMF/HDF5 artifacts attached to the result; use PVD/VTU
@@ -38,7 +39,7 @@ For related-case collections:
     safe JSON
 22. Fresh model construction per case
 23. Resumable campaign execution; evaluators may return `SimulationResult`
-24. Required scientific trust level before dataset admission
+24. Named quality policy before dataset admission
 25. Scientific dataset plus independent train/validation split
 26. Surrogate/ROM validation, applicability guard, and explicit FEM fallback
 

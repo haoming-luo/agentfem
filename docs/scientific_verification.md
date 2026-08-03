@@ -17,6 +17,47 @@ cannot establish `verified`. Failed and inconclusive claims both prevent that
 promotion; they remain distinct so an inapplicable reference theory is not
 misreported as a numerical failure.
 
+## Quality presets: the ordinary user path
+
+Most users should not assemble every runtime claim manually. A solved result
+can apply one of three stable policies:
+
+| Preset | Minimum evidence | Intended use |
+| --- | --- | --- |
+| `exploratory` | computed result plus finite payload checks | model development and screening |
+| `engineering` | explicit solver/time-procedure convergence plus runtime checks | parameter campaigns and engineering post-processing |
+| `release` | engineering evidence plus a passed scientific reference claim | published demos and release contracts |
+
+```python
+result = step.solve_result()
+result.add_quantity("tip_displacement", tip_u, unit="m")
+result.verify(
+    "engineering",
+    required_quantities=("tip_displacement",),
+).require()
+```
+
+The automatic checks cover execution status, registered payload, finite live
+field coefficients, required quantities/histories/artifacts, materialized
+artifact paths, and structured execution-trace completeness when available.
+They are recorded as `kind="runtime"`. Passing them can establish an accepted
+engineering workflow, but cannot by itself promote a result to `verified`.
+
+For a release Golden:
+
+```python
+golden = benchmarks.golden_benchmark("agentfem.benchmark.example")
+result.verify(
+    "release",
+    claims=golden.claims(observables),
+    required_artifacts=("fields",),
+).require()
+```
+
+`GoldenBenchmark.claims(...)` retains the benchmark identifier, reference
+version, tolerance, unit, expected value, and validity statement in the result
+manifest. A Golden remains regression evidence, not experimental validation.
+
 ```python
 claim = verification.VerificationClaim.compare(
     name="beam_reference",
@@ -86,13 +127,15 @@ The next suite families are deliberately not claimed complete:
 ```python
 dataset = campaign_report.require_dataset(
     minimum_samples=20,
-    minimum_trust_level="verified",
+    quality="engineering",
 )
 ```
 
-This rejects samples that merely ran successfully. The result summary and
-claim evidence remain in each dataset sample's provenance so later training
-cannot erase why a simulation was admitted.
+This requires every evaluator to return a `SimulationResult` that passed the
+named policy. The accepted dataset records the policy decision in its metadata.
+Advanced workflows can still use `minimum_trust_level="verified"` directly,
+but the preset is safer because it also rejects failed runtime checks rather
+than looking only at an ordered trust label.
 
 ## What verification does not mean
 

@@ -5,11 +5,14 @@
   "title": "Scientific trust and verification workflow",
   "kind": "workflow",
   "status": "supported",
-  "summary": "Separates computed, converged, verified, and validated results through explicit claims, discretization evidence, applicability domains, and campaign learning gates.",
+  "summary": "Separates computed, converged, verified, and validated results while providing exploratory, engineering, and release policies for automatic runtime checks and campaign learning gates.",
   "public_api": [
     "agentfem.verification.VerificationClaim",
     "agentfem.verification.VerificationReport",
+    "agentfem.verification.QualityPolicy",
+    "agentfem.verification.assess",
     "agentfem.verification.ConvergenceStudy",
+    "agentfem.results.SimulationResult.verify",
     "agentfem.results.SimulationResult.add_verification",
     "agentfem.campaigns.CampaignReport.require_dataset"
   ],
@@ -73,7 +76,7 @@
     ]
   },
   "usage": {
-    "minimal_example": "result.add_verification(verification.report(claim)); dataset = report.require_dataset(minimum_trust_level='verified').",
+    "minimal_example": "result.verify('engineering', required_quantities=('response',)).require(); dataset = report.require_dataset(quality='engineering').",
     "examples": [
       "tests/test_verification.py",
       "tests/test_release_goldens.py"
@@ -87,12 +90,14 @@
       "tests/test_release_goldens.py"
     ],
     "benchmarks": [
-      "agentfem.benchmark.cae_reliability_cliffs"
+      "agentfem.benchmark.cae_reliability_cliffs",
+      "agentfem.benchmark.creep_hot_wall_release"
     ],
     "validation_rules": [
       "Reject unknown trust levels and negative tolerances.",
       "Reject unordered or shape-incompatible convergence samples.",
-      "Do not admit merely computed samples when verified evidence is required."
+      "Runtime claims cannot promote a result to verified.",
+      "Do not admit samples that lack an accepted requested quality policy."
     ]
   },
   "references": [

@@ -76,7 +76,8 @@ For external mesh-format support:
 - Verify `SimulationResult -> declared QoIs -> ScientificDataset` without
   serializing live fields.
 - Failed cases block dataset use by default.
-- Use `minimum_trust_level="verified"` for release or learned-model datasets;
-  a successful solve alone is not sufficient admission evidence.
+- Use a named quality policy for release or learned-model datasets; a
+  successful solve alone is not sufficient admission evidence. A raw minimum
+  trust level remains available for a deliberately custom policy.
 - Keep failed and inconclusive verification claims in provenance so a later
   training step cannot erase why data was rejected.

@@ -82,6 +82,7 @@ def main() -> dict[str, float]:
 
     out = Path(__file__).resolve().parents[1] / "examples_output" / "transient_heat_2d.xdmf"
     step.run(output=out)
+    simulation = step.solve_result()
     observables = {
         "final_mean_temperature": results.average(
             temperature.value,
@@ -89,10 +90,26 @@ def main() -> dict[str, float]:
         ),
     }
     if smoke:
-        benchmarks.golden_benchmark(
+        golden = benchmarks.golden_benchmark(
             "agentfem.benchmark.transient_heat_release"
-        ).quantity("final_mean_temperature").assert_accepts(
-            observables["final_mean_temperature"]
+        )
+    simulation.add_quantity(
+        "final_mean_temperature",
+        observables["final_mean_temperature"],
+        unit="K",
+    )
+    simulation.add_artifact("temperature", out)
+    quality = simulation.verify(
+        "release" if smoke else "engineering",
+        claims=golden.claims(observables) if smoke else (),
+        required_quantities=("final_mean_temperature",),
+        required_artifacts=("temperature",),
+    )
+    quality.require()
+    if comm.rank == 0:
+        simulation.write_manifest(
+            out.with_suffix(".result.json"),
+            include_histories=True,
         )
 
     print_on_root(
@@ -104,6 +121,7 @@ def main() -> dict[str, float]:
         "Transient heat observable: "
         f"meanT={observables['final_mean_temperature']:.16e}",
     )
+    print_on_root(comm, simulation.format())
     return observables
 
 

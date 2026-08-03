@@ -102,7 +102,7 @@
 <ul>
 <li>Verify <code>SimulationResult -&gt; declared QoIs -&gt; ScientificDataset</code> without<br>serializing live fields.</li>
 <li>Failed cases block dataset use by default.</li>
-<li>Use <code>minimum_trust_level=&quot;verified&quot;</code> for release or learned-model datasets;<br>a successful solve alone is not sufficient admission evidence.</li>
+<li>Use a named quality policy for release or learned-model datasets; a<br>successful solve alone is not sufficient admission evidence. A raw minimum<br>trust level remains available for a deliberately custom policy.</li>
 <li>Keep failed and inconclusive verification claims in provenance so a later<br>training step cannot erase why data was rejected.</li>
 </ul>
       </article>

@@ -170,6 +170,26 @@ def test_wave_release_patch_matches_versioned_golden():
     assert actual["maximum_periodic_mismatch"] < 1.0e-12
 
 
+def test_golden_contracts_become_explicit_release_claims():
+    golden = benchmarks.golden_benchmark(
+        "agentfem.benchmark.creep_hot_wall_release"
+    )
+    actual = {
+        item.name: item.expected
+        for item in golden.quantities
+    }
+
+    claims = golden.claims(actual)
+
+    assert len(claims) == 3
+    assert all(item.status == "passed" for item in claims)
+    assert all(item.kind == "verification" for item in claims)
+    assert all(
+        item.evidence["reference_version"] == "q1-6x10-heat4-kr40-1"
+        for item in claims
+    )
+
+
 def _oriented_cantilever(*, rotated: bool) -> tuple[object, float]:
     if rotated:
         lower, upper, cells = (-0.2, 0.0), (0.0, 1.0), (4, 20)

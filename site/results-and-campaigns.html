@@ -61,6 +61,13 @@
 </ul>
 <p>XDMF, CSV, and NumPy files are artifacts, not the result abstraction itself. This distinction lets one solve feed visualization, a campaign, a report, or a training dataset without each consumer reverse-engineering output files. <code>write_manifest(...)</code> records artifacts inside the manifest directory with relative paths by default, so moving one complete result directory does not break its links.</p>
 <p>Linear problems, engineering <code>AnalysisStep</code> objects, and nonlinear problems provide <code>solve_result()</code> while preserving the older <code>solve()</code> field-return contract.</p>
+<p>Linear <code>solve_result()</code> records PETSc KSP reason, iteration count, and residual norm. It no longer infers convergence merely because the Python call returned. The result can consume that evidence through a low-ceremony policy:</p>
+<pre><code>solved = step.solve_result()
+solved.add_quantity(&quot;maximum_displacement&quot;, max_u, unit=&quot;m&quot;)
+solved.verify(
+    &quot;engineering&quot;,
+    required_quantities=(&quot;maximum_displacement&quot;,),
+).require()</code></pre>
 <h2 id="one-execution-evidence-stream">One execution evidence stream</h2>
 <p>Standard nonlinear, explicit, implicit-dynamic, first-order transient, and J2 steps emit the same JSON-safe <code>SolveEvent</code> contract. The terminal, optional <code>.sta</code> status file, result histories, and complete manifest trace are views of that one stream. <code>print_every</code> changes only human display cadence: every accepted time increment remains in <code>result.metadata[&quot;execution&quot;]</code>, while cutbacks and failed attempts remain auditable rather than being filtered out.</p>
 <p>This is important for both reproducibility and AI operation. An agent does not infer convergence by scraping prose, and a human does not receive a simplified story that differs from the machine record. Checkpoint state is still owned by each procedure; <code>CheckpointRecord</code> makes its schema and portability boundary visible without pretending every checkpoint is MPI-portable.</p>
@@ -119,7 +126,7 @@ solved.write_manifest(&quot;result.json&quot;)</code></pre>
 <p>Before training, require reviewed campaign evidence:</p>
 <pre><code>dataset = report.require_dataset(
     minimum_samples=4,
-    minimum_trust_level=&quot;verified&quot;,
+    quality=&quot;engineering&quot;,
 )
 training = surrogates.train(
     dataset,
@@ -128,7 +135,7 @@ training = surrogates.train(
     seed=2026,
 )
 guarded = training.guard(fallback=run_high_fidelity_case)</code></pre>
-<p><code>require_dataset()</code> rejects a partial campaign by default. It can additionally reject successful but merely computed/converged samples through <code>minimum_trust_level</code>. Failed simulations are not silently discarded before learning; the caller must review them and set <code>allow_partial=True</code> deliberately. That acceptance and the failed case IDs are retained in the returned dataset metadata. <code>surrogates.train(...)</code> keeps the reproducible split, trained estimator, independent validation, and applicability guard together. The same protocol accepts the built-in transparent baselines or the optional PyTorch MLP adapter.</p>
+<p><code>require_dataset()</code> rejects a partial campaign by default. A quality preset requires each sample to carry an accepted result assessment and records the dataset admission decision. The lower-level <code>minimum_trust_level</code> remains available when a project deliberately supplies its own evidence policy. Failed simulations are not silently discarded before learning; the caller must review them and set <code>allow_partial=True</code> deliberately. That acceptance and the failed case IDs are retained in the returned dataset metadata. <code>surrogates.train(...)</code> keeps the reproducible split, trained estimator, independent validation, and applicability guard together. The same protocol accepts the built-in transparent baselines or the optional PyTorch MLP adapter.</p>
 <p>For direct PyTorch training without an AgentFEM trainer:</p>
 <pre><code>bundle = dataset.to_torch()
 loader = bundle.loader(batch_size=64, shuffle=True)</code></pre>

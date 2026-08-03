@@ -177,6 +177,21 @@ _BENCHMARKS = (
         automated_test="tests/test_constitutive_models.py",
     ),
     BenchmarkSpec(
+        identifier="creep_hot_wall_release",
+        capability="creep_damage",
+        level="workflow",
+        reference="knowledge/benchmarks/creep_hot_wall_release.json",
+        criterion=(
+            "the reduced sequential FEM-to-material-point assessment "
+            "reproduces versioned stress, rupture-time, and damage observables"
+        ),
+        automated_test=(
+            "AGENTFEM_RELEASE_SMOKE=1 python "
+            "examples/creep_hot_wall_assessment.py"
+        ),
+        status="release_regression",
+    ),
+    BenchmarkSpec(
         identifier="rainflow_miner_history",
         capability="stress_life_fatigue",
         level="postprocess",

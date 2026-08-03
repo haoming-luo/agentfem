@@ -10,8 +10,9 @@ Minimum validation after code changes:
 5. Run a small serial case when the change affects execution.
 6. Run a small MPI case when the change affects parallel behavior.
 7. Report untested assumptions and unsupported backend capabilities.
-8. Keep computed/converged/verified/validated claims distinct. Use
-   `verification.VerificationClaim` and record the reference validity domain.
+8. Keep computed/converged/verified/validated claims distinct. Use named
+   quality presets for routine checks; use `verification.VerificationClaim`
+   and record the reference validity domain for scientific promotion.
 9. For mesh/time accuracy, require an ordered coarse-to-fine
    `verification.ConvergenceStudy`; one converged solve is not convergence.
 
@@ -43,5 +44,6 @@ trial/commit/rollback, tensor conventions, compiler ABI, and consistent-tangent
 comparisons are executable. A callable shared library alone is not FEM
 compatibility.
 For campaigns, verify `SimulationResult -> declared QoIs -> ScientificDataset`
-without serializing live fields. Use `minimum_trust_level="verified"` when
-release or learning data must exclude merely successful simulations.
+without serializing live fields. Use `quality="engineering"` for ordinary
+simulation-to-learning admission and `quality="release"` only when every
+sample carries release-grade scientific evidence.

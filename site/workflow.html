@@ -71,14 +71,14 @@
 <li>Solve to a <code>results.SimulationResult</code> when the result will feed more than<br>one consumer.</li>
 <li>Evaluate physical QoIs, diagnostics, and histories. Keep coefficient<br>statistics distinct from assembled physical integrals.</li>
 <li>Write visualization/output artifacts and attach them to the result.</li>
-<li>Attach reference, invariant, discretization, or validation claims when the<br>result will be described as more than computed/converged.</li>
+<li>Apply <code>result.verify(&quot;exploratory&quot; | &quot;engineering&quot; | &quot;release&quot;)</code> and<br>declare required quantities, histories, and artifacts. Add reference,<br>invariant, discretization, or validation claims when the result will be<br>described as verified or validated.</li>
 </ol>
 <p>For a collection of related cases, continue with:</p>
 <ol>
 <li>Define a typed <code>campaigns.ParameterSpace</code> with bounds and units, directly<br>or through a safe JSON campaign specification.</li>
 <li>Create a deterministic design of experiments and fresh model variants.</li>
 <li>Run or resume the campaign and extract declared <code>datasets.Quantity</code><br>outputs.</li>
-<li>Require the intended scientific trust level before admitting cases to a<br>learning dataset.</li>
+<li>Require a named quality policy before admitting cases to a learning<br>dataset; use a raw minimum trust level only for a project-specific policy.</li>
 <li>Split the resulting <code>ScientificDataset</code> independently before training.</li>
 <li>Validate a surrogate or reduced-order model, declare its applicability<br>domain, and retain a high-fidelity FEM fallback where extrapolation would<br>be unsafe.</li>
 </ol>

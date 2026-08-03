@@ -25,6 +25,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | `agentfem.benchmark.cae_reliability_cliffs` | CAE reliability cliffs: orientation, discretization, and reference applicability | cross-cutting finite-element verification | partial_automated_suite |
 | `agentfem.benchmark.campaign_surrogate_pipeline` | Static-elasticity campaign to guarded surrogate pipeline | parameterized small-strain isotropic linear elasticity | executable_integration |
 | `agentfem.benchmark.creep_damage_material_paths` | Creep-damage material paths and curve projection | Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection | automated_regression |
+| `agentfem.benchmark.creep_hot_wall_release` | Sequential hot-wall creep assessment release contract | sequential transient heat conduction, plane-strain thermoelasticity, and local creep-damage assessment | automated_regression |
 | `agentfem.benchmark.j2_global_restart` | Three-dimensional J2 path, physical cutback, cyclic amplitude, energy, and restart equivalence | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_regression |
 | `agentfem.benchmark.linear_static_cantilever` | Two-dimensional linear-static cantilever | small-strain isotropic linear elasticity in plane strain | numerical_regression |
 | `agentfem.benchmark.neo_hookean_release` | Compressible Neo-Hookean finite-strain release contract | compressible Neo-Hookean hyperelasticity | automated_regression |
@@ -383,7 +384,7 @@ Create C = operators.capacity_operator(T, rho_c), K = operators.conduction_opera
 **Status:** `supported`<br>
 **Source card:** `knowledge/cards/campaign_learning_pipeline.json`
 
-Turns deterministic simulations into scientific datasets, independent surrogate validation, optional PyTorch tensors, applicability decisions, and explicit high-fidelity fallback.
+Turns quality-gated deterministic simulations into scientific datasets, independent surrogate validation, optional PyTorch tensors, applicability decisions, and explicit high-fidelity fallback.
 
 ### Public API
 
@@ -435,6 +436,7 @@ A learned model never silently extrapolates beyond its declared domain.
 #### Conventions
 
 - Failed cases block dataset consumption by default.
+- Named result quality policies can gate every sample before dataset admission.
 - Categorical parameters use one-hot encoding.
 - PyTorch remains the optional tensor and training runtime.
 
@@ -451,7 +453,7 @@ A learned model never silently extrapolates beyond its declared domain.
 ### Minimal example
 
 ```python
-dataset = report.require_dataset(); training = surrogates.train(dataset); guarded = training.guard(fallback=run_fem).
+dataset = report.require_dataset(quality='engineering'); training = surrogates.train(dataset); guarded = training.guard(fallback=run_fem).
 ```
 
 ### Verification
@@ -470,6 +472,7 @@ dataset = report.require_dataset(); training = surrogates.train(dataset); guarde
 
 - Reject missing, non-finite, or wrong-shaped outputs.
 - Reject partial campaign data by default.
+- Reject samples that did not pass the requested quality policy.
 - Reject silent out-of-domain prediction without fallback.
 
 ### References
@@ -483,13 +486,16 @@ dataset = report.require_dataset(); training = surrogates.train(dataset); guarde
 **Status:** `supported`<br>
 **Source card:** `knowledge/cards/scientific_verification.json`
 
-Separates computed, converged, verified, and validated results through explicit claims, discretization evidence, applicability domains, and campaign learning gates.
+Separates computed, converged, verified, and validated results while providing exploratory, engineering, and release policies for automatic runtime checks and campaign learning gates.
 
 ### Public API
 
 - `agentfem.verification.VerificationClaim`
 - `agentfem.verification.VerificationReport`
+- `agentfem.verification.QualityPolicy`
+- `agentfem.verification.assess`
 - `agentfem.verification.ConvergenceStudy`
+- `agentfem.results.SimulationResult.verify`
 - `agentfem.results.SimulationResult.add_verification`
 - `agentfem.campaigns.CampaignReport.require_dataset`
 
@@ -549,7 +555,7 @@ A first convergence diagnostic; it is not silently presented as a full uncertain
 ### Minimal example
 
 ```python
-result.add_verification(verification.report(claim)); dataset = report.require_dataset(minimum_trust_level='verified').
+result.verify('engineering', required_quantities=('response',)).require(); dataset = report.require_dataset(quality='engineering').
 ```
 
 ### Verification
@@ -564,12 +570,14 @@ result.add_verification(verification.report(claim)); dataset = report.require_da
 **Benchmarks**
 
 - `agentfem.benchmark.cae_reliability_cliffs`
+- `agentfem.benchmark.creep_hot_wall_release`
 
 **Validation rules**
 
 - Reject unknown trust levels and negative tolerances.
 - Reject unordered or shape-incompatible convergence samples.
-- Do not admit merely computed samples when verified evidence is required.
+- Runtime claims cannot promote a result to verified.
+- Do not admit samples that lack an accepted requested quality policy.
 
 ### References
 

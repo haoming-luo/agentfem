@@ -85,14 +85,23 @@ def build_case(parameters) -> StaticCase:
 def evaluate_case(case: StaticCase):
     """Solve and extract a declared scalar quantity of interest."""
 
-    case.step.solve()
-    return campaigns.CaseOutcome(
-        outputs={"max_abs_displacement": case.displacement.max_abs()},
-        provenance={
+    simulation = case.step.solve_result()
+    simulation.add_quantity(
+        "max_abs_displacement",
+        case.displacement.max_abs(),
+        unit="m",
+    )
+    simulation.metadata.update(
+        {
             "backend": "fenicsx",
             "quantity_definition": "global maximum absolute displacement dof",
-        },
+        }
     )
+    simulation.verify(
+        "engineering",
+        required_quantities=("max_abs_displacement",),
+    ).require()
+    return simulation
 
 
 def high_fidelity_fallback(parameters):
@@ -148,12 +157,19 @@ def main() -> None:
         output_directory=output / "campaign",
         comm=MPI.COMM_WORLD,
     )
-    dataset = report.require_dataset(minimum_samples=4)
+    dataset = report.require_dataset(
+        minimum_samples=4,
+        quality="engineering",
+    )
+    if MPI.COMM_WORLD.rank == 0:
+        dataset.write(output / "trusted_dataset")
+    MPI.COMM_WORLD.barrier()
     training = surrogates.train(
         dataset,
         estimator=surrogates.RidgeSurrogate(alpha=1.0e-10),
         validation_fraction=0.2,
         seed=2026,
+        thresholds={"max_relative_l2": 0.05},
     )
     trained = training.model
     validation = training.validation
@@ -163,6 +179,9 @@ def main() -> None:
 
     guarded = training.guard(fallback=high_fidelity_fallback)
     prediction = guarded.predict({"young": 210.0e9})
+
+    if not training.accepted:
+        raise RuntimeError("Release surrogate validation contract was not accepted.")
 
     print_on_root(MPI.COMM_WORLD, validation.format())
     print_on_root(

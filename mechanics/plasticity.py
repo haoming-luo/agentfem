@@ -774,14 +774,37 @@ class J2PlasticityStep:
             tangent.assemble()
             correction = rhs.duplicate()
             correction.set(0.0)
-            solve_matrix_system(
+            linear_info = solve_matrix_system(
                 tangent,
                 rhs,
                 correction,
                 self.solver_options.linear_solver,
+                raise_on_failure=False,
             )
             tangent.destroy()
             rhs.destroy()
+            if not linear_info.converged:
+                correction.destroy()
+                self._emit(
+                    reporter,
+                    SolveEvent(
+                        "iteration",
+                        self.name,
+                        step_number=self.step_number,
+                        increment=increment,
+                        attempt=attempt,
+                        start_factor=start_factor,
+                        target_factor=target_factor,
+                        iteration=iteration + 1,
+                        residual_norm=norm,
+                        step_length=0.0,
+                        message=(
+                            "linear correction failed: "
+                            f"KSP reason {linear_info.converged_reason}"
+                        ),
+                    ),
+                )
+                break
             base = self.solution.x.array.copy()
             direction = correction.array_r.copy()
             correction.destroy()

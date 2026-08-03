@@ -66,8 +66,8 @@ finite-element simulation with AgentFEM.
 - Results: read `docs/results_and_campaigns.md`; use `solve_result()`,
   `results.SimulationResult`, assembled QoIs in `results`, then attach XDMF/CSV
   artifacts from `io`. Distinguish execution status from
-  `result.trust_level`, and attach explicit claims before describing a result
-  as verified.
+  `result.trust_level`, apply a named quality policy for routine checks, and
+  attach explicit scientific claims before describing a result as verified.
 - AF-IR and repair: inspect `ir/` and `validation.py`. Treat AF-IR 0.1 as an
   experimental record, not as proof of backend-neutral executability.
 - Backend work: inspect `backends/` and
@@ -78,8 +78,9 @@ finite-element simulation with AgentFEM.
   `surrogates/`. Build a fresh model per case; retain units, output shapes,
   case IDs, validation data, and applicability behavior. Do not present a
   training residual or successful prediction call as independent scientific
-  validation. For release or learning data, use
-  `require_dataset(minimum_trust_level="verified")` when appropriate.
+  validation. Use `require_dataset(quality="engineering")` for ordinary
+  learning data and a release policy when every sample carries a scientific
+  release contract.
 - External meshes: inventory with `mesh.inspect_external_mesh(...)` before
   choosing cell/facet types. Preserve conversion manifests and never describe
   mesh conversion as full Abaqus/ANSYS deck import.

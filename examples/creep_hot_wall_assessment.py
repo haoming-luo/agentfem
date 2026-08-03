@@ -16,7 +16,7 @@ import numpy as np
 import ufl
 from mpi4py import MPI
 
-from agentfem import constitutive, fields, io, mesh, models, results, studies
+from agentfem import benchmarks, constitutive, fields, io, mesh, models, results, studies
 
 
 def main() -> None:
@@ -52,14 +52,19 @@ def main() -> None:
     heat.material(steel)
     heat.fix(temperature, on=hot, value=823.15)
     heat.fix(temperature, on=cold, value=573.15)
-    heat.step(
+    heat_step = heat.step(
         target=temperature,
         dt=120.0,
         steps=4 if smoke else 30,
         save_every=1 if smoke else 5,
-    ).run(
-        output=output / "temperature.xdmf"
     )
+    heat_step.run(output=output / "temperature.xdmf")
+    heat_result = heat_step.solve_result()
+    heat_result.add_artifact("temperature", output / "temperature.xdmf")
+    heat_result.verify(
+        "engineering",
+        required_artifacts=("temperature",),
+    ).require()
 
     mechanics = models.create(
         study=studies.linear_static(
@@ -74,11 +79,13 @@ def main() -> None:
     mechanics.material(steel)
     mechanics.fix(displacement, on=bottom, component=1, value=0.0)
     mechanics.fix(displacement, on=cold, component=0, value=0.0)
-    mechanics.step(
+    mechanics_step = mechanics.step(
         target=displacement,
         K=mechanics.stiffness(displacement),
         F=mechanics.thermal_expansion(displacement, temperature),
-    ).solve()
+    )
+    mechanics_result = mechanics_step.solve_result()
+    mechanics_result.verify("engineering").require()
 
     stress = constitutive.thermoelastic_stress(
         displacement,
@@ -124,14 +131,19 @@ def main() -> None:
             "calibration": "illustrative parameters; replace with traceable material data",
             "material": creep.as_dict(),
             "theta_projection": theta.as_dict(),
+            "component_quality": {
+                "heat": heat_result.verification.as_dict(),
+                "thermoelasticity": mechanics_result.verification.as_dict(),
+            },
         },
     )
+    observables = {
+        "governing_von_mises_stress": governing_stress,
+        "predicted_rupture_time": rupture_seconds / 3600.0,
+        "assessment_end_damage": damage[-1],
+    }
     simulation.add_quantities(
-        {
-            "governing_von_mises_stress": governing_stress,
-            "predicted_rupture_time": rupture_seconds / 3600.0,
-            "assessment_end_damage": damage[-1],
-        },
+        observables,
         units={
             "governing_von_mises_stress": "Pa",
             "predicted_rupture_time": "h",
@@ -158,7 +170,28 @@ def main() -> None:
             header="time_h,equivalent_creep_strain,damage,modified_theta_strain",
             comments="",
         )
-        simulation.add_artifact("creep_history", output / "creep_history.csv")
+    domain.comm.barrier()
+    simulation.add_artifact("creep_history", output / "creep_history.csv")
+    golden = (
+        benchmarks.golden_benchmark(
+            "agentfem.benchmark.creep_hot_wall_release"
+        )
+        if smoke
+        else None
+    )
+    simulation.verify(
+        "release" if smoke else "engineering",
+        claims=() if golden is None else golden.claims(observables),
+        converged=True,
+        required_quantities=tuple(observables),
+        required_histories=("equivalent_creep_strain", "creep_damage"),
+        required_artifacts=(
+            "temperature",
+            "thermoelastic_state",
+            "creep_history",
+        ),
+    ).require()
+    if domain.comm.rank == 0:
         simulation.write_manifest(output / "result.json", include_histories=True)
         print(simulation)
 

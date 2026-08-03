@@ -70,17 +70,21 @@ class LinearVariationalProblem:
     solution: object
     bcs: list = field(default_factory=list)
     solver_options: LinearSolverOptions | None = None
+    last_solve_info: object | None = field(default=None, init=False)
 
     def solve(self):
         """Assemble and solve the problem into ``solution``."""
 
-        return solve_linear_problem(
+        solution, info = solve_linear_problem(
             self.bilinear_form,
             self.linear_form,
             self.solution,
             bcs=self.bcs,
             options=self.solver_options,
+            return_info=True,
         )
+        self.last_solve_info = info
+        return solution
 
     def solve_result(self, *, name: str = "linear_variational_result"):
         """Solve and wrap the solution in a scientific result object."""
@@ -88,7 +92,11 @@ class LinearVariationalProblem:
         from .results import from_solution
 
         solution = self.solve()
-        return from_solution(solution, name=name)
+        return from_solution(
+            solution,
+            name=name,
+            metadata={"solve": self.last_solve_info.as_dict()},
+        )
 
 
 @dataclass
@@ -100,6 +108,7 @@ class LinearSystemProblem:
     unknown: object | None = None
     bcs: list = field(default_factory=list)
     solver_options: LinearSolverOptions | None = None
+    last_solve_info: object | None = field(default=None, init=False)
 
     @classmethod
     def from_operators(
@@ -130,13 +139,16 @@ class LinearSystemProblem:
         """Compile the system operators and solve into ``solution``."""
 
         solution = self._solution()
-        return solve_linear_problem(
+        solution, info = solve_linear_problem(
             fem.form(self.system.lhs_form()),
             fem.form(self.system.rhs_form()),
             solution,
             bcs=self.bcs,
             options=self.solver_options,
+            return_info=True,
         )
+        self.last_solve_info = info
+        return solution
 
     def solve_result(self, *, name: str | None = None):
         """Solve and return a :class:`SimulationResult`."""
@@ -162,6 +174,11 @@ class LinearSystemProblem:
                 self.solver_options.summary()
                 if self.solver_options is not None
                 else LinearSolverOptions().summary()
+            ),
+            "last_solve": (
+                None
+                if self.last_solve_info is None
+                else self.last_solve_info.as_dict()
             ),
         }
 
