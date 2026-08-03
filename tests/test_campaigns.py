@@ -5,7 +5,7 @@ import json
 import numpy as np
 import pytest
 
-from agentfem import campaigns, datasets, results
+from agentfem import campaigns, datasets, results, verification
 
 
 def _space():
@@ -244,3 +244,37 @@ def test_campaign_accepts_simulation_result_without_serializing_live_fields(tmp_
     assert sample.outputs["tip_displacement"] == pytest.approx(0.15)
     assert sample.artifacts == {"fields": "beam.xdmf"}
     assert sample.provenance["simulation_result"]["fields"] == ("displacement",)
+
+
+def test_learning_dataset_can_require_verified_simulation_evidence():
+    space = campaigns.ParameterSpace.create(
+        campaigns.RealParameter("load", 1.0, 2.0)
+    )
+
+    def evaluate(values):
+        result = results.SimulationResult("beam")
+        result.add_quantity("response", values["load"])
+        if values["load"] < 1.5:
+            claim = verification.VerificationClaim.compare(
+                name="reference",
+                observable="response",
+                actual=values["load"],
+                expected=values["load"],
+                reference="analytical",
+            )
+            result.add_verification(verification.report(claim))
+        return result
+
+    campaign = campaigns.create(
+        name="trust_gate",
+        parameter_space=space,
+        outputs=(datasets.Quantity("response"),),
+        evaluate=evaluate,
+    )
+    report = campaign.run(
+        campaigns.explicit(space, ({"load": 1.25}, {"load": 1.75}))
+    )
+
+    with pytest.raises(RuntimeError, match="below required trust level"):
+        report.require_dataset(minimum_trust_level="verified")
+    assert report.require_dataset(minimum_trust_level="computed") is report.dataset

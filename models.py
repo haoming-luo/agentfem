@@ -1059,6 +1059,7 @@ class Model:
         quadrature_degree: int = 2,
         progress=True,
         status_file=None,
+        amplitude=None,
         name: str = "j2_plasticity",
     ):
         """Create a global 3D small-strain J2 plasticity step."""
@@ -1101,6 +1102,7 @@ class Model:
             quadrature_degree=quadrature_degree,
             progress=progress,
             status_file=status_file,
+            amplitude=amplitude,
             name=name,
         )
         return self.add_step(step)

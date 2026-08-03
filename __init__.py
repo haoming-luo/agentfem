@@ -35,6 +35,7 @@ from . import studies
 from . import surrogates
 from . import time
 from . import validation
+from . import verification
 
 PUBLIC_WORKFLOW_MODULES = (
     "studies",
@@ -62,6 +63,7 @@ PUBLIC_WORKFLOW_MODULES = (
     "datasets",
     "surrogates",
     "validation",
+    "verification",
 )
 
 
@@ -107,5 +109,6 @@ __all__ = [
     "surrogates",
     "time",
     "validation",
+    "verification",
     "public_api",
 ]

@@ -36,6 +36,7 @@
 <a class="" href="extension-rules.html">Extension Rules</a>
 <a class="" href="tutorial-design.html">Tutorial Design</a>
 <a class="active" href="validation.html">Validation</a>
+<a class="" href="scientific-verification.html">Scientific Trust and Verification</a>
 <a class="" href="licensing.html">Licensing</a>
 <a class="" href="publishing.html">Publishing</a>
 <a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
@@ -49,6 +50,7 @@
       <article>
 <h1 id="agentfem-validation-guide">AgentFEM Validation Guide</h1>
 <p>Every nontrivial change should be checked at three levels.</p>
+<p>Model validation, solver convergence, and scientific verification are different operations. <code>model.validate()</code> checks structural/model contracts; <code>SimulationResult.status</code> describes execution; <code>verification.VerificationReport</code> records reference, convergence, invariant, cross-solver, or physical evidence. See <a href="scientific_verification.md">Scientific Trust and Verification</a>.</p>
 <p>Public model validation should use <code>model.validate()</code> when callers need a complete structured report, or <code>model.check()</code> when execution must stop on errors. New issues should define a stable <code>AFM-*</code> code, a scientific-object path, a severity, and a repair hint where a local repair is meaningful.</p>
 <h2 id="structural-checks">Structural Checks</h2>
 <ul>
@@ -68,6 +70,8 @@
 <li>For MPI-aware code, run at least one small parallel smoke test when possible.</li>
 <li>For workflow examples, run the example and check that XDMF/HDF5 output is<br>produced.</li>
 <li>For transient examples, verify that time-series fields are written at more<br>than one time value.</li>
+<li>Never promote a fixed-mesh Golden into mesh-convergence evidence.</li>
+<li>Record an analytical reference&#x27;s validity domain; mark an out-of-domain<br>comparison inconclusive.</li>
 </ul>
 <h2 id="modeling-checks">Modeling Checks</h2>
 <ul>
@@ -93,6 +97,13 @@
 <li>Optional dependency check: call <code>mesh.formats.require_meshio()</code> only when<br>conversion is requested.</li>
 <li>Conversion smoke test: convert a tiny <code>.inp</code>, <code>.msh</code>, <code>.vtk</code>, or <code>.bdf</code> file<br>to XDMF and then read it with <code>mesh.read_xdmf_mesh(...)</code>.</li>
 <li>Tag check: verify that expected cell or facet labels survived conversion.</li>
+</ul>
+<h2 id="campaign-and-learning-checks">Campaign and Learning Checks</h2>
+<ul>
+<li>Verify <code>SimulationResult -&gt; declared QoIs -&gt; ScientificDataset</code> without<br>serializing live fields.</li>
+<li>Failed cases block dataset use by default.</li>
+<li>Use <code>minimum_trust_level=&quot;verified&quot;</code> for release or learned-model datasets;<br>a successful solve alone is not sufficient admission evidence.</li>
+<li>Keep failed and inconclusive verification claims in provenance so a later<br>training step cannot erase why data was rejected.</li>
 </ul>
       </article>
     </main>

@@ -36,6 +36,21 @@ class BenchmarkSpec:
 
 _BENCHMARKS = (
     BenchmarkSpec(
+        identifier="cae_reliability_cliffs",
+        capability="scientific_verification",
+        level="workflow",
+        reference="knowledge/benchmarks/cae_reliability_cliffs.json",
+        criterion=(
+            "orientation covariance, discretization convergence, theory "
+            "applicability, and dataset trust gates remain explicit"
+        ),
+        automated_test=(
+            "tests/test_verification.py tests/test_release_goldens.py "
+            "tests/test_campaigns.py"
+        ),
+        status="partial_automated_suite",
+    ),
+    BenchmarkSpec(
         identifier="linear_static_cantilever",
         capability="linear_elasticity",
         level="finite_element",
@@ -70,6 +85,18 @@ _BENCHMARKS = (
         reference="displacement-controlled homogeneous patch",
         criterion="PETSc SNES converges and prescribed displacement is recovered",
         automated_test="tests/test_constitutive_models.py::test_neo_hookean_model_step_solves_a_displacement_controlled_patch",
+    ),
+    BenchmarkSpec(
+        identifier="neo_hookean_release",
+        capability="neo_hookean",
+        level="finite_element",
+        reference="knowledge/benchmarks/neo_hookean_release.json",
+        criterion=(
+            "versioned energy, first-Piola stress, positive J, and a "
+            "displacement-controlled FEM patch remain consistent"
+        ),
+        automated_test="tests/test_constitutive_models.py -k neo_hookean",
+        status="release_regression",
     ),
     BenchmarkSpec(
         identifier="j2_radial_return",
@@ -113,6 +140,21 @@ _BENCHMARKS = (
         reference="knowledge/benchmarks/transient_heat_release.json",
         criterion="five implicit-Euler increments reproduce the versioned mean temperature",
         automated_test="AGENTFEM_RELEASE_SMOKE=1 python examples/transient_heat_2d.py",
+        status="release_regression",
+    ),
+    BenchmarkSpec(
+        identifier="wave_release",
+        capability="structural_dynamics",
+        level="finite_element",
+        reference="knowledge/benchmarks/wave_release.json",
+        criterion=(
+            "a reduced two-material explicit workflow reproduces wave speeds, "
+            "Courant number, receiver response, and periodic compatibility"
+        ),
+        automated_test=(
+            "tests/test_release_goldens.py::"
+            "test_wave_release_patch_matches_versioned_golden"
+        ),
         status="release_regression",
     ),
     BenchmarkSpec(

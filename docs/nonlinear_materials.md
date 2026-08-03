@@ -78,16 +78,19 @@ For a three-dimensional `nonlinear_static` study, `model.step(...)` now lowers
 this material to a global DOLFINx path. `PE` and `PEEQ` are committed at Basix
 quadrature points; `S` and `DDSDDE` are trial fields updated during Newton.
 Failed attempts restore displacement and committed material state before
-automatic cutback. A serial checkpoint contains displacement, accepted load
-factor, plastic strain, equivalent plastic strain, and a schema version.
+automatic cutback. An otherwise converged attempt is also rejected when its
+equivalent plastic-strain increment exceeds
+`maximum_inelastic_increment`. A serial checkpoint contains displacement,
+accepted step coordinate, the adaptive next-increment proposal, plastic
+state, energy/work history, amplitude identity, and schema version.
 
 The current boundary is explicit: 3D small strain, one material region,
-proportional natural/displacement loading, and serial execution/restart.
-Nonzero engineering Dirichlet targets are scaled by the same accepted step
-factor as natural loads; cutback and restart restore their corresponding
-values. Arbitrary cyclic global amplitudes, plane stress, distributed
-execution/restart, finite-strain plasticity, and a general UMAT path remain
-future work.
+natural or strong-displacement loading, and serial execution/restart. A named
+tabular amplitude may load, unload, and reverse while the internal step
+coordinate remains monotone. Strong prescribed-displacement paths record
+generalized reaction, external work, internal energy, and balance histories.
+Plane stress, kinematic hardening, distributed execution/restart,
+finite-strain plasticity, and a general UMAT path remain future work.
 
 ## Power-Law Creep
 

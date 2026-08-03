@@ -69,8 +69,15 @@ result requests.
 - `SolutionProcedure` separates physical analysis from Standard/Explicit and
   Newmark/generalized-alpha/central-difference algorithm selection.
 - `J2QuadratureState` owns committed/trial `PE`, `PEEQ`, `S`, and `DDSDDE`;
-  the 3D global J2 provider uses its analytical algorithmic tangent, state
-  transaction, automatic cutback, and serial checkpoint.
+  the 3D global J2 provider consumes the reusable `QuadratureTransaction`,
+  analytical algorithmic tangent, automatic cutback, non-monotone load
+  amplitude, and serial checkpoint.
+- `steps.automatic(maximum_inelastic_increment=...)` can reject an otherwise
+  converged J2 attempt when its equivalent plastic-strain increment is too
+  large. Rejection restores displacement and every trial state field.
+- accepted J2 increments retain elastic energy, hardening energy, plastic
+  dissipation, total internal energy, and, for nonzero strong prescribed
+  displacements, generalized reaction, external work, and balance error.
 - isotropic thermoelastic properties feed both implicit heat transfer and the
   equivalent thermal-expansion operator in sequential thermal-stress studies.
 
@@ -112,9 +119,11 @@ This mirrors the old/current state distinction required by mature stateful
 material systems; see the
 [MOOSE stateful material property contract](https://mooseframework.inl.gov/releases/moose/2022-06-10/syntax/Materials/index.html).
 
-This contract is the common infrastructure for small-strain J2 plasticity,
-creep, damage, and restricted UMAT-style adapters. It is more important than
-adding another catalog of local material formulas.
+`constitutive.QuadratureTransaction` now implements the common atomic
+`begin/commit/rollback/snapshot/restore` mechanism and J2 is its first global
+consumer. The transaction intentionally does not own a constitutive formula:
+creep, damage, and restricted UMAT-style adapters must supply their own local
+update, algorithmic tangent, error estimate, and state schema.
 
 ## Nonlinear control layers
 
@@ -164,9 +173,11 @@ histories as frequent output from selected regions.
 Dirichlet linear, nonlinear, and J2 problems. This is the correct first
 building block, but it is not yet a universal reaction contract. Weak,
 affine-MPC, and future contact constraints require their own verified
-definitions. `diagnostics.mechanical_energy(...)` evaluates the visible
-\(M/K\) quadratic energies; internal/external work and complete energy-balance
-histories remain gates.
+definitions. `diagnostics.mechanical_energy(...)` evaluates visible \(M/K\)
+quadratic energies. J2 now integrates strong prescribed-displacement reaction
+work and stores its balance against internal energy; natural loads, weak
+constraints, affine MPCs, and transient procedures still need their own
+verified work definitions.
 
 ## Verification ladder
 
@@ -182,10 +193,12 @@ Each new nonlinear family advances only with evidence:
 8. a readable public example and documented unsupported cases.
 
 The first integrated stateful path is now small-strain 3D J2 isotropic
-hardening under natural loading and homogeneous supports. A prescribed-
-displacement load path still needs amplitude-aware constraint scaling. Global
-implicit creep should reuse the same transaction and restart machinery rather
-than create a second state store.
+hardening under natural or strong displacement loading. A tabular amplitude
+can load, unload, and reverse while the step coordinate remains monotone.
+Forced cutback, cyclic state growth, work/energy histories, and restart of the
+adaptive increment proposal are automated. Global implicit creep must reuse
+this transaction and restart machinery rather than create a second state
+store.
 
 ## Explicit non-goals for P1
 

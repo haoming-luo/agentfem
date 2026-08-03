@@ -36,6 +36,7 @@
 <a class="" href="extension-rules.html">Extension Rules</a>
 <a class="" href="tutorial-design.html">Tutorial Design</a>
 <a class="" href="validation.html">Validation</a>
+<a class="" href="scientific-verification.html">Scientific Trust and Verification</a>
 <a class="" href="licensing.html">Licensing</a>
 <a class="" href="publishing.html">Publishing</a>
 <a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
@@ -56,9 +57,13 @@
 <li>time/load/iteration histories;</li>
 <li>solver and model metadata;</li>
 <li>visualization, checkpoint, and report artifacts.</li>
+<li>a scientific verification report and explicit trust level.</li>
 </ul>
 <p>XDMF, CSV, and NumPy files are artifacts, not the result abstraction itself. This distinction lets one solve feed visualization, a campaign, a report, or a training dataset without each consumer reverse-engineering output files. <code>write_manifest(...)</code> records artifacts inside the manifest directory with relative paths by default, so moving one complete result directory does not break its links.</p>
 <p>Linear problems, engineering <code>AnalysisStep</code> objects, and nonlinear problems provide <code>solve_result()</code> while preserving the older <code>solve()</code> field-return contract.</p>
+<h2 id="one-execution-evidence-stream">One execution evidence stream</h2>
+<p>Standard nonlinear, explicit, implicit-dynamic, first-order transient, and J2 steps emit the same JSON-safe <code>SolveEvent</code> contract. The terminal, optional <code>.sta</code> status file, result histories, and complete manifest trace are views of that one stream. <code>print_every</code> changes only human display cadence: every accepted time increment remains in <code>result.metadata[&quot;execution&quot;]</code>, while cutbacks and failed attempts remain auditable rather than being filtered out.</p>
+<p>This is important for both reproducibility and AI operation. An agent does not infer convergence by scraping prose, and a human does not receive a simplified story that differs from the machine record. Checkpoint state is still owned by each procedure; <code>CheckpointRecord</code> makes its schema and portability boundary visible without pretending every checkpoint is MPI-portable.</p>
 <h2 id="field-output-versus-history-output">Field output versus history output</h2>
 <p>AgentFEM follows the established finite-element distinction:</p>
 <ul>
@@ -112,7 +117,10 @@ solved.write_manifest(&quot;result.json&quot;)</code></pre>
 <p>Campaign configuration can be written as safe JSON for parameter definitions, sampling, output contracts, and execution policy. Python still supplies the trusted model builder/evaluator. The JSON file never imports or evaluates arbitrary code.</p>
 <p>The current runner is serial across cases and MPI-aware within each FEM case. Use deterministic plan shards for schedulers or separate MPI jobs rather than Python threads.</p>
 <p>Before training, require reviewed campaign evidence:</p>
-<pre><code>dataset = report.require_dataset(minimum_samples=4)
+<pre><code>dataset = report.require_dataset(
+    minimum_samples=4,
+    minimum_trust_level=&quot;verified&quot;,
+)
 training = surrogates.train(
     dataset,
     estimator=surrogates.RidgeSurrogate(),
@@ -120,18 +128,18 @@ training = surrogates.train(
     seed=2026,
 )
 guarded = training.guard(fallback=run_high_fidelity_case)</code></pre>
-<p><code>require_dataset()</code> rejects a partial campaign by default. Failed simulations are not silently discarded before learning; the caller must review them and set <code>allow_partial=True</code> deliberately. That acceptance and the failed case IDs are retained in the returned dataset metadata. <code>surrogates.train(...)</code> keeps the reproducible split, trained estimator, independent validation, and applicability guard together. The same protocol accepts the built-in transparent baselines or the optional PyTorch MLP adapter.</p>
+<p><code>require_dataset()</code> rejects a partial campaign by default. It can additionally reject successful but merely computed/converged samples through <code>minimum_trust_level</code>. Failed simulations are not silently discarded before learning; the caller must review them and set <code>allow_partial=True</code> deliberately. That acceptance and the failed case IDs are retained in the returned dataset metadata. <code>surrogates.train(...)</code> keeps the reproducible split, trained estimator, independent validation, and applicability guard together. The same protocol accepts the built-in transparent baselines or the optional PyTorch MLP adapter.</p>
 <p>For direct PyTorch training without an AgentFEM trainer:</p>
 <pre><code>bundle = dataset.to_torch()
 loader = bundle.loader(batch_size=64, shuffle=True)</code></pre>
 <p>AgentFEM owns names, units, shapes, provenance, splitting evidence, validation, and applicability. PyTorch owns tensors, modules, automatic differentiation, optimizers, and training loops.</p>
 <h2 id="next-result-priorities">Next Result Priorities</h2>
 <ol>
-<li>reaction force/resultant extractors;</li>
+<li>named reaction force/resultant extractors beyond the current strong-BC and<br>J2 residual fields;</li>
 <li>named point and path probes;</li>
 <li>stress/strain projection for visualization;</li>
-<li>energy and balance diagnostics;</li>
-<li>checkpoint/restart manifests;</li>
+<li>natural-load, weak-constraint, affine-MPC, and transient work/energy<br>histories beyond the current strong-displacement J2 history;</li>
+<li>transient checkpoint writers and MPI-portable restart identity;</li>
 <li>mesh-independent field sampling for neural operators;</li>
 <li>scheduler executors that preserve identical case records.</li>
 </ol>

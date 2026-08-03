@@ -6,6 +6,7 @@ from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 
 from agentfem import (
+    amplitudes,
     benchmarks,
     constitutive,
     diagnostics,
@@ -87,6 +88,7 @@ def test_global_j2_checkpoint_restart_matches_uninterrupted_path(tmp_path):
     checkpoint = partial.save_checkpoint(tmp_path / "j2_restart.npz")
     assert checkpoint.with_suffix(".npz.checkpoint.json").is_file()
     assert partial.checkpoints[0].portable is False
+    assert partial.checkpoints[0].schema == "agentfem.j2-step-checkpoint.v3"
     assert partial.execution_events[-1].kind == "step_paused"
 
     restarted, restarted_u = _j2_patch()
@@ -112,6 +114,12 @@ def test_global_j2_checkpoint_restart_matches_uninterrupted_path(tmp_path):
         item.load_factor for item in restarted.last_solve_info.increments
     ] == pytest.approx([0.25, 0.5, 0.75, 1.0])
 
+    incompatible, _ = _j2_uniaxial_patch(
+        amplitude=amplitudes.tabular((0.0, 1.0), (0.0, 0.5))
+    )
+    with pytest.raises(ValueError, match="amplitude differs"):
+        incompatible.load_checkpoint(checkpoint)
+
 
 def test_global_j2_uniaxial_path_matches_versioned_analytical_golden():
     step, _ = _j2_uniaxial_patch()
@@ -135,6 +143,16 @@ def test_global_j2_uniaxial_path_matches_versioned_analytical_golden():
     assert simulation.quantity("plastic_dissipation") > 0.0
     assert {"S", "PE", "PEEQ", "RF"} <= set(simulation.fields)
     assert len(simulation.histories["newton_iterations"].values) == 4
+    assert {
+        "internal_energy",
+        "external_work",
+        "energy_balance_error",
+        "generalized_reaction",
+    } <= set(simulation.histories)
+    final_internal = simulation.histories["internal_energy"].latest
+    final_balance = simulation.histories["energy_balance_error"].latest
+    assert abs(final_balance) / final_internal < 0.03
+    assert np.all(np.diff(simulation.histories["plastic_dissipation"].values) >= 0.0)
     assert simulation.metadata["execution"]["event_count"] > 4
 
 
@@ -150,6 +168,77 @@ def test_global_j2_proportionally_applies_prescribed_displacement():
     step.solve()
     assert step.last_solve_info.converged
     assert np.max(displacement.value.x.array) == pytest.approx(0.005)
+
+
+def test_global_j2_real_state_limit_forces_cutback_and_restart_equivalence(tmp_path):
+    control = steps.automatic(
+        initial=1.0,
+        minimum=1.0e-3,
+        maximum=1.0,
+        max_cutbacks=8,
+        cutback_factor=0.5,
+        maximum_inelastic_increment=5.0e-4,
+    )
+    reference, _ = _j2_uniaxial_patch(incrementation=control)
+    reference.solve(until=0.5)
+    reference.solve()
+    expected_u = reference.solution.x.array.copy()
+    expected_peeq = reference.state.equivalent_plastic_strain.values.copy()
+
+    partial, _ = _j2_uniaxial_patch(incrementation=control)
+    partial.solve(until=0.5)
+    checkpoint = partial.save_checkpoint(tmp_path / "j2_cutback_restart.npz")
+    restarted, _ = _j2_uniaxial_patch(incrementation=control)
+    restarted.load_checkpoint(checkpoint)
+    restarted.solve()
+
+    rejected = [
+        item
+        for item in reference.last_solve_info.attempts
+        if item.rejection_reason is not None
+    ]
+    assert reference.last_solve_info.completed_step
+    assert restarted.last_solve_info.completed_step
+    assert rejected
+    assert all(not item.converged for item in rejected)
+    assert any(
+        event.kind == "increment_cutback"
+        and event.message
+        for event in reference.execution_events
+    )
+    np.testing.assert_allclose(restarted.solution.x.array, expected_u)
+    np.testing.assert_allclose(
+        restarted.state.equivalent_plastic_strain.values,
+        expected_peeq,
+    )
+    np.testing.assert_allclose(
+        [item.external_work for item in restarted.energy_history],
+        [item.external_work for item in reference.energy_history],
+    )
+
+
+def test_global_j2_consumes_a_nonmonotone_cyclic_amplitude():
+    history = amplitudes.tabular(
+        (0.0, 0.25, 0.5, 0.75, 1.0),
+        (0.0, 1.0, 0.0, -1.0, 0.0),
+        name="fully_reversed_displacement",
+    )
+    step, _ = _j2_uniaxial_patch(
+        amplitude=history,
+        incrementation=steps.fixed(4),
+    )
+    result = step.solve_result()
+
+    np.testing.assert_allclose(
+        result.histories["load_amplitude"].values,
+        [1.0, 0.0, -1.0, 0.0],
+    )
+    assert step.last_solve_info.completed_step
+    assert np.max(step.state.equivalent_plastic_strain.values) > 0.005
+    assert np.all(step.state.equivalent_plastic_strain.values >= 0.0)
+    assert step.summary()["loading"]["amplitude"]["name"] == (
+        "fully_reversed_displacement"
+    )
 
 
 def test_implicit_dynamics_provider_runs_newmark_and_records_procedure(tmp_path):
@@ -437,7 +526,7 @@ def _j2_displacement_patch():
     return step, displacement
 
 
-def _j2_uniaxial_patch():
+def _j2_uniaxial_patch(*, amplitude=None, incrementation=None):
     """Homogeneous bar with free Poisson contraction and removed rigid modes."""
 
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
@@ -486,7 +575,8 @@ def _j2_uniaxial_patch():
     step = model.step(
         target=displacement,
         material=material,
-        incrementation=steps.fixed(4),
+        incrementation=(steps.fixed(4) if incrementation is None else incrementation),
+        amplitude=amplitude,
         solver_options=solvers.newton(
             relative_tolerance=1.0e-9,
             absolute_tolerance=1.0e-10,

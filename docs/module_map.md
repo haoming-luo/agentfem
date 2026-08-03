@@ -42,6 +42,7 @@ This map links FEM concepts to the current Python modules.
 | Runnable workflows | `examples/` |
 | Versioned AF-IR scientific records | `ir/` |
 | Structured validation issues and reports | `validation.py` |
+| Scientific trust, claims, and convergence evidence | `verification.py` |
 | Backend descriptors, registry, and lowering adapters | `backends/` |
 | Typed/JSON parameters, sampling, campaign plans, resumable case execution | `campaigns/` |
 | Scientific dataset schemas, arrays, provenance, and splits | `datasets/` |

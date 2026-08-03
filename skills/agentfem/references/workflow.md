@@ -25,19 +25,22 @@ AgentFEM workflow:
 15. Structured validation and optional AF-IR record
 16. Assembly, solve, or time integration
 17. `SimulationResult`, physical QoIs, diagnostics, and histories
-18. A declarative `results.output_plan(...)` for reusable field, history,
+18. Explicit reference, invariant, convergence, or validation claims when the
+    result is described as more than computed/converged
+19. A declarative `results.output_plan(...)` for reusable field, history,
     diagnostic, and optional presentation requests
-19. Compact unified XDMF/HDF5 artifacts attached to the result; use PVD/VTU
+20. Compact unified XDMF/HDF5 artifacts attached to the result; use PVD/VTU
     only when specifically required
 
 For related-case collections:
 
-20. Typed parameter space and deterministic sampling plan, optionally from
+21. Typed parameter space and deterministic sampling plan, optionally from
     safe JSON
-21. Fresh model construction per case
-22. Resumable campaign execution; evaluators may return `SimulationResult`
-23. Scientific dataset plus independent train/validation split
-24. Surrogate/ROM validation, applicability guard, and explicit FEM fallback
+22. Fresh model construction per case
+23. Resumable campaign execution; evaluators may return `SimulationResult`
+24. Required scientific trust level before dataset admission
+25. Scientific dataset plus independent train/validation split
+26. Surrogate/ROM validation, applicability guard, and explicit FEM fallback
 
 Do not collapse these steps so aggressively that a reviewer cannot see the
 finite-element model.

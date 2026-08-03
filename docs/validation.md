@@ -2,6 +2,13 @@
 
 Every nontrivial change should be checked at three levels.
 
+Model validation, solver convergence, and scientific verification are
+different operations. `model.validate()` checks structural/model contracts;
+`SimulationResult.status` describes execution;
+`verification.VerificationReport` records reference, convergence, invariant,
+cross-solver, or physical evidence. See
+[Scientific Trust and Verification](scientific_verification.md).
+
 Public model validation should use `model.validate()` when callers need a
 complete structured report, or `model.check()` when execution must stop on
 errors. New issues should define a stable `AFM-*` code, a scientific-object
@@ -31,6 +38,9 @@ path, a severity, and a repair hint where a local repair is meaningful.
   produced.
 - For transient examples, verify that time-series fields are written at more
   than one time value.
+- Never promote a fixed-mesh Golden into mesh-convergence evidence.
+- Record an analytical reference's validity domain; mark an out-of-domain
+  comparison inconclusive.
 
 ## Modeling Checks
 
@@ -60,3 +70,13 @@ For external mesh-format support:
 - Conversion smoke test: convert a tiny `.inp`, `.msh`, `.vtk`, or `.bdf` file
   to XDMF and then read it with `mesh.read_xdmf_mesh(...)`.
 - Tag check: verify that expected cell or facet labels survived conversion.
+
+## Campaign and Learning Checks
+
+- Verify `SimulationResult -> declared QoIs -> ScientificDataset` without
+  serializing live fields.
+- Failed cases block dataset use by default.
+- Use `minimum_trust_level="verified"` for release or learned-model datasets;
+  a successful solve alone is not sufficient admission evidence.
+- Keep failed and inconclusive verification claims in provenance so a later
+  training step cannot erase why data was rejected.

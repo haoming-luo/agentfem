@@ -36,6 +36,7 @@
 <a class="" href="extension-rules.html">Extension Rules</a>
 <a class="" href="tutorial-design.html">Tutorial Design</a>
 <a class="" href="validation.html">Validation</a>
+<a class="" href="scientific-verification.html">Scientific Trust and Verification</a>
 <a class="" href="licensing.html">Licensing</a>
 <a class="" href="publishing.html">Publishing</a>
 <a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
@@ -156,8 +157,9 @@ Diagnostics and XDMF output</code></pre>
 <p>The K/M/C/F language is the clearest bridge between engineering review and backend computation. Operator composition now retains sum/scale history, but primitive operators still need explicit dependencies on fields, materials, regions, coefficients, and measures. <code>OperatorSpec</code> should grow from these common families while <code>OperatorForm.expression</code> remains the efficient UFL runtime path.</p>
 <h3 id="problemspy-time-and-solverspy"><code>problems.py</code>, <code>time/</code>, and <code>solvers.py</code></h3>
 <p>The separation among systems, steps, states, and time integrators is sound. Solver options are now inspectable and validated. The next missing interface is an execution plan that records when compilation, constraint application, state updates, diagnostics, and output occur. Numerical execution still calls DOLFINx/PETSc directly in several places, which is appropriate until the plan interface has real use.</p>
-<h3 id="diagnosticspy-and-iopy"><code>diagnostics.py</code> and <code>io.py</code></h3>
-<p>These modules execute useful operations but do not yet form an evidence system. Diagnostics need units, acceptance criteria, time/step identity, and benchmark comparison. Output needs field/source identity, checksums, parallel/restart metadata, and a run manifest.</p>
+<h3 id="diagnosticspy-results-and-iopy"><code>diagnostics.py</code>, <code>results/</code>, and <code>io.py</code></h3>
+<p>These modules now form the beginning of an execution evidence system. <code>SolveEvent</code> is shared by terminal progress, status files, complete result traces, and accepted-increment histories across Standard, Explicit, heat, and J2 paths. Versioned Golden quantities add numerical acceptance criteria for selected release workflows. Remaining work includes field/source checksums, named regional reactions, external-work balances, transient checkpoints, and MPI-portable state identity.</p>
+<p>This clarifies an important architectural point: the proposed AIR layer is not one JSON document. In the working product it is the coordinated public language, validation contracts, structured execution evidence, scientific results, benchmark cards, knowledge assets, and adapters. AF-IR is one durable representation within that layer and should grow only with real consumers.</p>
 <h3 id="documentation-skill-and-examples">Documentation skill and examples</h3>
 <p>The skill already gives agents a progressive reading order and important concept boundaries. The next gain will come from pairing those instructions with structured validation codes and small repair examples. Examples should remain readable teaching artifacts; separate benchmarks must carry numerical expected values and tolerances.</p>
 <h3 id="packaging-and-ci">Packaging and CI</h3>

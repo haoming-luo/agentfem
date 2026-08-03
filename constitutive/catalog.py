@@ -49,12 +49,15 @@ _CAPABILITIES = {
         model="small-strain J2 plasticity with linear isotropic hardening",
         maturity="fem_integrated",
         available_scope=(
-            "3D small-strain global Newton path with quadrature state, "
-            "analytical consistent tangent, cutback, and serial restart"
+            "3D small-strain global Newton path with shared quadrature "
+            "transaction, analytical consistent tangent, cyclic tabular "
+            "amplitude, physical-increment cutback, work/energy history, "
+            "and serial restart"
         ),
         limitations=(
             "3D only; plane stress needs a constrained local return map",
             "the first global provider and its checkpoint are serial-only",
+            "no multi-region or kinematic-hardening global driver",
             "finite-strain plasticity is not implemented",
         ),
     ),

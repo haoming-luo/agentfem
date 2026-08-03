@@ -228,11 +228,12 @@ multiaxial damage model.
    into named point/region histories; define affine/weak reactions separately.
 3. Extend the implemented cumulative J2 serial checkpoint and event history
    to portable MPI cell identity and multi-region state.
-4. Extend the implemented analytical J2 Golden path, S/PE/PEEQ/RF fields, and
-   internal-energy diagnostic with forced-cutback, projected visualization,
-   mesh-convergence, external-work balance, and an external benchmark.
-5. Build global implicit creep by consuming the same state and rollback
-   machinery.
+4. Extend the implemented analytical J2 Golden path, physical forced cutback,
+   cyclic amplitude, S/PE/PEEQ/RF fields, and strong-displacement work/energy
+   history with projected visualization, mesh convergence, natural/affine work
+   definitions, and an external benchmark.
+5. Build global implicit creep by consuming the shared
+   `QuadratureTransaction`, adaptive controller state, and rollback machinery.
 6. Let fatigue consume verified extracted histories; add a fatigue field only
    after hotspot/element mapping and provenance are defined.
 7. Add load-controlled finite-strain examples for dead and follower pressure,

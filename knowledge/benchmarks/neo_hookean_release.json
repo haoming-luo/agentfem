@@ -1,0 +1,58 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.neo_hookean_release",
+  "title": "Compressible Neo-Hookean finite-strain release contract",
+  "status": "automated_regression",
+  "purpose": "Freeze the constitutive energy, nominal stress, Jacobian, and displacement-controlled finite-element patch that underlie the porous-cell release workflow.",
+  "physics": "compressible Neo-Hookean hyperelasticity",
+  "execution": {
+    "command": "python -m pytest -q tests/test_constitutive_models.py -k neo_hookean",
+    "example": "examples/abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py",
+    "evidence": "The material-point energy gradient and a homogeneous finite-element patch are checked independently; the full porous-cell workflow remains a manual release regression."
+  },
+  "observables": [
+    "Principal first-Piola stresses for a versioned triaxial stretch state.",
+    "Strain-energy density and positive deformation Jacobian.",
+    "Convergence and imposed displacement in a homogeneous finite-element patch."
+  ],
+  "acceptance": [
+    "The analytical nominal stress equals a centered derivative of stored energy.",
+    "Every versioned observable satisfies the Golden tolerances.",
+    "The finite-element patch converges without a non-positive Jacobian."
+  ],
+  "golden": {
+    "reference_version": "compressible-neo-hookean-principal-1",
+    "quantities": [
+      {
+        "name": "principal_nominal_stress",
+        "expected": [402965.9025374, -1173.66841167, 213279.71278999],
+        "relative_tolerance": 2e-11,
+        "absolute_tolerance": 1e-6,
+        "unit": "Pa",
+        "description": "First-Piola principal stresses for stretches [1.2, 0.9, 1.05], E=2 MPa, and nu=0.3."
+      },
+      {
+        "name": "strain_energy_density",
+        "expected": 47968.32224714652,
+        "relative_tolerance": 2e-12,
+        "absolute_tolerance": 1e-8,
+        "unit": "J/m^3",
+        "description": "Compressible Neo-Hookean stored energy for the versioned stretch state."
+      },
+      {
+        "name": "deformation_jacobian",
+        "expected": 1.134,
+        "relative_tolerance": 1e-14,
+        "absolute_tolerance": 1e-14,
+        "unit": null,
+        "description": "Positive volume ratio for the versioned stretch state."
+      }
+    ]
+  },
+  "limitations": [
+    "This is an implementation and release contract, not external experimental validation.",
+    "The two-dimensional convenience path is plane strain; plane stress requires a local thickness solve.",
+    "The full imported periodic-cell mesh remains a manual regression because of runtime and external-data size."
+  ]
+}

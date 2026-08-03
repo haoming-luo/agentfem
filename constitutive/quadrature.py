@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Mapping
 
 import basix
 import basix.ufl
@@ -12,6 +13,110 @@ import ufl
 from dolfinx import fem
 
 from .plasticity import J2LinearIsotropicHardening, J2PlasticState
+
+
+@dataclass
+class QuadratureTransaction:
+    """Shared trial/commit/rollback contract for integration-point state.
+
+    The transaction owns state transitions only. A material consumer remains
+    responsible for local integration, stress, consistent tangent, and error
+    estimates. J2, creep, viscoplasticity, and damage can therefore share one
+    failure-safe state mechanism without sharing a constitutive algorithm.
+    """
+
+    committed: Mapping[str, object]
+    trial: Mapping[str, object]
+    schema: str
+    schema_version: str = "0.1.0"
+    metadata: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        committed = dict(self.committed)
+        trial = dict(self.trial)
+        if not committed:
+            raise ValueError("QuadratureTransaction requires committed state.")
+        if set(committed) != set(trial):
+            raise ValueError(
+                "Committed and trial quadrature state names must match."
+            )
+        if not str(self.schema).strip():
+            raise ValueError("QuadratureTransaction.schema must not be empty.")
+        for name, selected in committed.items():
+            candidate = trial[name]
+            for label, field_value in (
+                ("Committed", selected),
+                ("Trial", candidate),
+            ):
+                if not hasattr(field_value, "values") or not hasattr(
+                    field_value, "assign"
+                ):
+                    raise TypeError(
+                        f"{label} state {name!r} must provide values and assign()."
+                    )
+            if np.asarray(selected.values).shape != np.asarray(candidate.values).shape:
+                raise ValueError(
+                    f"Committed/trial state {name!r} shapes do not match."
+                )
+        self.committed = committed
+        self.trial = trial
+        self.metadata = dict(self.metadata)
+
+    @property
+    def names(self) -> tuple[str, ...]:
+        return tuple(self.committed)
+
+    def begin(self) -> None:
+        """Start an attempt from the last committed state."""
+
+        self.rollback()
+
+    def commit(self) -> None:
+        """Atomically accept every trial state variable."""
+
+        snapshots = {
+            name: np.asarray(selected.values).copy()
+            for name, selected in self.trial.items()
+        }
+        for name, selected in self.committed.items():
+            selected.assign(snapshots[name])
+
+    def rollback(self) -> None:
+        """Discard all trial variables and restore the committed state."""
+
+        snapshots = {
+            name: np.asarray(selected.values).copy()
+            for name, selected in self.committed.items()
+        }
+        for name, selected in self.trial.items():
+            selected.assign(snapshots[name])
+
+    def snapshot(self) -> dict[str, np.ndarray]:
+        """Return a restart-safe copy of committed state values."""
+
+        return {
+            name: np.asarray(selected.values).copy()
+            for name, selected in self.committed.items()
+        }
+
+    def restore(self, snapshot: Mapping[str, object]) -> None:
+        if set(snapshot) != set(self.committed):
+            raise ValueError(
+                "Quadrature snapshot variables differ from this transaction; "
+                f"expected={self.names}, received={tuple(snapshot)}."
+            )
+        for name, selected in self.committed.items():
+            selected.assign(snapshot[name])
+        self.rollback()
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "quadrature_transaction",
+            "schema": self.schema,
+            "schema_version": self.schema_version,
+            "state_variables": self.names,
+            "metadata": dict(self.metadata),
+        }
 
 
 @dataclass
@@ -153,6 +258,26 @@ class J2QuadratureState:
     tangent: QuadratureField
     degree: int
     scheme: str = "default"
+    transaction: QuadratureTransaction = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.transaction = QuadratureTransaction(
+            committed={
+                "plastic_strain": self.plastic_strain,
+                "equivalent_plastic_strain": self.equivalent_plastic_strain,
+            },
+            trial={
+                "plastic_strain": self.trial_plastic_strain,
+                "equivalent_plastic_strain": (
+                    self.trial_equivalent_plastic_strain
+                ),
+            },
+            schema="agentfem.j2-small-strain-state",
+            metadata={
+                "integration": "radial_return",
+                "tangent": "algorithmic_consistent",
+            },
+        )
 
     @classmethod
     def create(cls, domain, *, degree: int = 2, scheme: str = "default"):
@@ -257,31 +382,16 @@ class J2QuadratureState:
         }
 
     def commit(self) -> None:
-        self.plastic_strain.assign(self.trial_plastic_strain.values)
-        self.equivalent_plastic_strain.assign(
-            self.trial_equivalent_plastic_strain.values
-        )
+        self.transaction.commit()
 
     def rollback(self) -> None:
-        self.trial_plastic_strain.assign(self.plastic_strain.values)
-        self.trial_equivalent_plastic_strain.assign(
-            self.equivalent_plastic_strain.values
-        )
+        self.transaction.rollback()
 
     def snapshot(self) -> dict[str, np.ndarray]:
-        return {
-            "plastic_strain": self.plastic_strain.values.copy(),
-            "equivalent_plastic_strain": (
-                self.equivalent_plastic_strain.values.copy()
-            ),
-        }
+        return self.transaction.snapshot()
 
     def restore(self, snapshot: dict[str, np.ndarray]) -> None:
-        self.plastic_strain.assign(snapshot["plastic_strain"])
-        self.equivalent_plastic_strain.assign(
-            snapshot["equivalent_plastic_strain"]
-        )
-        self.rollback()
+        self.transaction.restore(snapshot)
 
     def save(self, path) -> Path:
         """Write a serial checkpoint; distributed checkpointing stays explicit."""
@@ -331,6 +441,7 @@ class J2QuadratureState:
             "points_local": int(len(self.equivalent_plastic_strain.values)),
             "state_variables": ("plastic_strain", "equivalent_plastic_strain"),
             "trial_fields": ("stress", "algorithmic_tangent"),
+            "transaction": self.transaction.summary(),
         }
 
     def output_fields(self) -> tuple[object, ...]:
@@ -343,4 +454,4 @@ class J2QuadratureState:
         )
 
 
-__all__ = ["J2QuadratureState", "QuadratureField"]
+__all__ = ["J2QuadratureState", "QuadratureField", "QuadratureTransaction"]

@@ -48,6 +48,7 @@
 - `benchmarks/`: test-linked verification registry
 - `ir/`: experimental versioned AF-IR scientific records
 - `validation.py`: structured issue codes, paths, hints, and reports
+- `verification.py`: scientific claims, trust levels, and convergence evidence
 - `backends/`: backend descriptors and advanced lowering adapters
 - `campaigns/`: typed parameters, deterministic sampling, case plans,
   resumable execution, and MPI-aware persistence

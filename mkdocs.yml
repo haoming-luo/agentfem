@@ -39,6 +39,7 @@ nav:
       - Extension Rules: extension_rules.md
       - Tutorial Design: tutorial_design.md
       - Validation: validation.md
+      - Scientific Trust and Verification: scientific_verification.md
       - Architecture Review: architecture_review.md
       - AIR Architecture Roadmap: air_architecture_roadmap.md
       - AI-Native Campaigns and Learning: ai_native_learning.md

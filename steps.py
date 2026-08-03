@@ -31,6 +31,7 @@ class AutomaticIncrementation:
     growth_factor: float = 1.5
     fast_iterations: int = 4
     slow_iterations: int = 10
+    maximum_inelastic_increment: float | None = None
 
     def __post_init__(self) -> None:
         sizes = (self.initial, self.minimum, self.maximum)
@@ -56,6 +57,13 @@ class AutomaticIncrementation:
             raise ValueError("fast_iterations must be positive.")
         if self.slow_iterations <= self.fast_iterations:
             raise ValueError("slow_iterations must exceed fast_iterations.")
+        if self.maximum_inelastic_increment is not None and (
+            not isfinite(self.maximum_inelastic_increment)
+            or self.maximum_inelastic_increment <= 0.0
+        ):
+            raise ValueError(
+                "maximum_inelastic_increment must be finite and positive."
+            )
 
     @property
     def automatic(self) -> bool:
@@ -88,6 +96,7 @@ class AutomaticIncrementation:
             "growth_factor": self.growth_factor,
             "fast_iterations": self.fast_iterations,
             "slow_iterations": self.slow_iterations,
+            "maximum_inelastic_increment": self.maximum_inelastic_increment,
         }
 
 
@@ -134,6 +143,7 @@ def automatic(
     growth_factor: float = 1.5,
     fast_iterations: int = 4,
     slow_iterations: int = 10,
+    maximum_inelastic_increment: float | None = None,
 ) -> AutomaticIncrementation:
     """Create inspectable Abaqus-style automatic incrementation."""
 
@@ -147,6 +157,7 @@ def automatic(
         growth_factor=growth_factor,
         fast_iterations=fast_iterations,
         slow_iterations=slow_iterations,
+        maximum_inelastic_increment=maximum_inelastic_increment,
     )
 
 

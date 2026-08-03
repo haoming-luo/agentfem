@@ -1,0 +1,31 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.cae_reliability_cliffs",
+  "title": "CAE reliability cliffs: orientation, discretization, and reference applicability",
+  "status": "partial_automated_suite",
+  "purpose": "Turn common AI-to-CAE silent failures into deterministic verification obligations instead of treating successful execution as scientific acceptance.",
+  "physics": "cross-cutting finite-element verification",
+  "execution": {
+    "command": "python -m pytest -q tests/test_verification.py tests/test_release_goldens.py -k 'rotation or convergence or inapplicable'",
+    "example": "tests/test_release_goldens.py",
+    "evidence": "A cantilever and its exactly rotated model must give the same response; convergence evidence requires an ordered discretization sequence; an inapplicable analytical theory produces an inconclusive claim rather than a false pass/fail."
+  },
+  "observables": [
+    "Maximum displacement before and after a 90-degree geometry/load/support rotation.",
+    "Finest-grid relative change and observed order from coarse-to-fine values.",
+    "Explicit applicability status for analytical or reduced-theory references.",
+    "Result trust state retained in campaign-to-learning provenance."
+  ],
+  "acceptance": [
+    "The rotated isotropic cantilever satisfies the declared metamorphic tolerance.",
+    "A convergence claim cannot pass when required order evidence is unavailable.",
+    "An out-of-domain reference is inconclusive rather than accepted.",
+    "A training dataset can require verified evidence and reject merely computed cases."
+  ],
+  "limitations": [
+    "Version 0.1 covers the section/load-axis failure class with a clean-room metamorphic case; it does not reproduce an unpublished third-party CalculiX deck.",
+    "The perforated-plate local-stress mesh-convergence family is a release-critical next item and needs an open mesh generator or versioned external fixture.",
+    "The T-stiffener theory-selection family requires explicit beam, shell, and 3D reference models before it can be advertised."
+  ]
+}

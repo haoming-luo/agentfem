@@ -40,16 +40,20 @@ this sequence visible unless there is a strong reason to encapsulate it.
 18. Evaluate physical QoIs, diagnostics, and histories. Keep coefficient
     statistics distinct from assembled physical integrals.
 19. Write visualization/output artifacts and attach them to the result.
+20. Attach reference, invariant, discretization, or validation claims when the
+    result will be described as more than computed/converged.
 
 For a collection of related cases, continue with:
 
-20. Define a typed `campaigns.ParameterSpace` with bounds and units, directly
+21. Define a typed `campaigns.ParameterSpace` with bounds and units, directly
     or through a safe JSON campaign specification.
-21. Create a deterministic design of experiments and fresh model variants.
-22. Run or resume the campaign and extract declared `datasets.Quantity`
+22. Create a deterministic design of experiments and fresh model variants.
+23. Run or resume the campaign and extract declared `datasets.Quantity`
     outputs.
-23. Split the resulting `ScientificDataset` independently before training.
-24. Validate a surrogate or reduced-order model, declare its applicability
+24. Require the intended scientific trust level before admitting cases to a
+    learning dataset.
+25. Split the resulting `ScientificDataset` independently before training.
+26. Validate a surrogate or reduced-order model, declare its applicability
     domain, and retain a high-fidelity FEM fallback where extrapolation would
     be unsafe.
 
@@ -86,6 +90,8 @@ For a collection of related cases, continue with:
 - Verification benchmarks: `benchmarks/`
 - Versioned scientific records: `ir/`
 - Structured validation reports and issue codes: `validation.py`
+- Scientific claims, trust levels, and mesh/time convergence evidence:
+  `verification.py`
 - Backend capabilities and compilation adapters: `backends/`
 - Parameter spaces, sampling, case identity, and resumable execution:
   `campaigns/`

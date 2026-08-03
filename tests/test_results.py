@@ -11,7 +11,7 @@ import h5py
 from mpi4py import MPI
 import pytest
 
-from agentfem import campaigns, datasets, mesh, results
+from agentfem import campaigns, datasets, mesh, results, verification
 from agentfem.solvers import SolveEvent
 from agentfem.results.finite_strain import HomogenizedFrame
 
@@ -48,6 +48,29 @@ def test_result_collects_qois_histories_artifacts_and_dataset_sample(tmp_path):
     assert saved["schema"] == "agentfem.simulation-result"
     assert saved["history_records"][0]["sample_count"] == 3
     assert saved["field_records"][0]["live"] is False
+
+
+def test_result_manifest_keeps_execution_status_separate_from_scientific_trust(
+    tmp_path,
+):
+    result = results.SimulationResult("trustworthy")
+    claim = verification.VerificationClaim.compare(
+        name="reference_response",
+        observable="maximum_displacement",
+        actual=0.1,
+        expected=0.1,
+        reference="versioned analytical solution",
+        relative_tolerance=1.0e-8,
+    )
+    result.add_verification(verification.report(claim))
+    saved = json.loads(
+        result.write_manifest(tmp_path / "trusted.json").read_text(encoding="utf-8")
+    )
+
+    assert result.status == "completed"
+    assert result.trust_level == "verified"
+    assert saved["trust_level"] == "verified"
+    assert saved["verification"]["claims"][0]["status"] == "passed"
 
 
 def test_written_manifest_uses_portable_paths_for_local_artifacts(tmp_path):

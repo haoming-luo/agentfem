@@ -2,9 +2,9 @@
   "schema": "agentfem.benchmark-card",
   "schema_version": "0.1.0",
   "id": "agentfem.benchmark.j2_global_restart",
-  "title": "Three-dimensional J2 uniaxial path, displacement control, and restart equivalence",
+  "title": "Three-dimensional J2 path, physical cutback, cyclic amplitude, energy, and restart equivalence",
   "status": "automated_regression",
-  "purpose": "Verify that the local radial return, analytical algorithmic tangent, quadrature state, global Newton path, commit policy, and checkpoint restoration operate as one path-dependent finite-element procedure.",
+  "purpose": "Verify that the local radial return, analytical algorithmic tangent, shared quadrature transaction, global Newton path, physical-increment rejection, cyclic amplitude, energy history, and checkpoint restoration operate as one path-dependent finite-element procedure.",
   "physics": "three-dimensional small-strain Mises plasticity with linear isotropic hardening",
   "execution": {
     "command": "python -m pytest -q tests/test_p1_platform.py -k 'global_j2'",
@@ -17,11 +17,15 @@
     "Restarted displacement equals uninterrupted displacement within tolerance.",
     "Restarted committed PEEQ equals uninterrupted committed PEEQ within tolerance.",
     "A nonzero prescribed displacement is applied proportionally at partial and complete step factors."
+    ,"An otherwise converged increment exceeding the declared plastic-increment limit is rolled back and cut back."
+    ,"A fully reversed tabular displacement amplitude is consumed without decreasing the monotone step coordinate."
+    ,"Prescribed-displacement reaction work and internal-energy histories are retained across restart."
   ],
   "acceptance": [
     "Relative and absolute restart differences satisfy the automated test tolerances.",
     "The analytical tangent independently matches a centered derivative of the local return map.",
     "Committed state changes only after a converged global increment."
+    ,"Checkpoint restart preserves the adaptive next-increment proposal and accepted energy/work history."
   ],
   "golden": {
     "reference_version": "uniaxial-linear-hardening-1",
@@ -47,6 +51,7 @@
   "limitations": [
     "This patch is a regression benchmark, not an external NAFEMS validation.",
     "The checkpoint is portable only for a serial run with the same mesh and dof layout.",
+    "The current cyclic path uses isotropic hardening and does not demonstrate Bauschinger behavior.",
     "Plane stress and finite-strain plasticity are outside this benchmark."
   ]
 }

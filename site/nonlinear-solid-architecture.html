@@ -36,6 +36,7 @@
 <a class="" href="extension-rules.html">Extension Rules</a>
 <a class="" href="tutorial-design.html">Tutorial Design</a>
 <a class="" href="validation.html">Validation</a>
+<a class="" href="scientific-verification.html">Scientific Trust and Verification</a>
 <a class="" href="licensing.html">Licensing</a>
 <a class="" href="publishing.html">Publishing</a>
 <a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
@@ -94,7 +95,9 @@ result = output.finalize(
 <li>periodic-cell history requests integrate complete macro stress and strain<br>tensors over every saved state; they are not hard-coded to one component.</li>
 <li>finite-strain checks report average <code>F</code>, average and quadrature bounds of<br><code>J</code>, maximum displacement, and optional periodic-equation mismatch.</li>
 <li><code>SolutionProcedure</code> separates physical analysis from Standard/Explicit and<br>Newmark/generalized-alpha/central-difference algorithm selection.</li>
-<li><code>J2QuadratureState</code> owns committed/trial <code>PE</code>, <code>PEEQ</code>, <code>S</code>, and <code>DDSDDE</code>;<br>the 3D global J2 provider uses its analytical algorithmic tangent, state<br>transaction, automatic cutback, and serial checkpoint.</li>
+<li><code>J2QuadratureState</code> owns committed/trial <code>PE</code>, <code>PEEQ</code>, <code>S</code>, and <code>DDSDDE</code>;<br>the 3D global J2 provider consumes the reusable <code>QuadratureTransaction</code>,<br>analytical algorithmic tangent, automatic cutback, non-monotone load<br>amplitude, and serial checkpoint.</li>
+<li><code>steps.automatic(maximum_inelastic_increment=...)</code> can reject an otherwise<br>converged J2 attempt when its equivalent plastic-strain increment is too<br>large. Rejection restores displacement and every trial state field.</li>
+<li>accepted J2 increments retain elastic energy, hardening energy, plastic<br>dissipation, total internal energy, and, for nonzero strong prescribed<br>displacements, generalized reaction, external work, and balance error.</li>
 <li>isotropic thermoelastic properties feed both implicit heat transfer and the<br>equivalent thermal-expansion operator in sequential thermal-stress studies.</li>
 </ul>
 <p>The current Neo-Hookean path is stateless. Rolling back its displacement is therefore sufficient. That fact must not be generalized to plasticity or creep.</p>
@@ -118,7 +121,7 @@ StateTransaction
   rollback()    after failed Newton attempt or cutback</code></pre>
 <p>The state is owned per integration point and material region, not as one Python object per cell and not as a global material singleton. A global step must never mutate committed state during a rejected Newton iterate. Checkpoint and restart serialize the <code>StateLayout</code>, committed arrays, mesh/material identity, step time/load, and schema version together.</p>
 <p>This mirrors the old/current state distinction required by mature stateful material systems; see the <a href="https://mooseframework.inl.gov/releases/moose/2022-06-10/syntax/Materials/index.html">MOOSE stateful material property contract</a>.</p>
-<p>This contract is the common infrastructure for small-strain J2 plasticity, creep, damage, and restricted UMAT-style adapters. It is more important than adding another catalog of local material formulas.</p>
+<p><code>constitutive.QuadratureTransaction</code> now implements the common atomic <code>begin/commit/rollback/snapshot/restore</code> mechanism and J2 is its first global consumer. The transaction intentionally does not own a constitutive formula: creep, damage, and restricted UMAT-style adapters must supply their own local update, algorithmic tangent, error estimate, and state schema.</p>
 <h2 id="nonlinear-control-layers">Nonlinear control layers</h2>
 <p>Three control levels remain distinct:</p>
 <ol>
@@ -139,7 +142,7 @@ StateTransaction
 </ul>
 <p><code>E</code> follows the finite-strain convention and resolves to logarithmic strain <code>LE</code>; <code>GREEN</code> requests Green--Lagrange strain explicitly. Visualization fields may be cell samples. Authoritative RVE histories use variational integration from the governing expressions and full-cell normalization.</p>
 <p>The field/history distinction follows established CAE result semantics: <a href="https://docs.software.vt.edu/abaqusv2025/English/SIMACAECAERefMap/simacae-c-simconcfieldhistory.htm">Abaqus field and history output</a> describes fields as spatial distributions saved at relatively few states and histories as frequent output from selected regions.</p>
-<p><code>reaction_field()</code> now exposes the unconstrained residual for ordinary strong Dirichlet linear, nonlinear, and J2 problems. This is the correct first building block, but it is not yet a universal reaction contract. Weak, affine-MPC, and future contact constraints require their own verified definitions. <code>diagnostics.mechanical_energy(...)</code> evaluates the visible \(M/K\) quadratic energies; internal/external work and complete energy-balance histories remain gates.</p>
+<p><code>reaction_field()</code> now exposes the unconstrained residual for ordinary strong Dirichlet linear, nonlinear, and J2 problems. This is the correct first building block, but it is not yet a universal reaction contract. Weak, affine-MPC, and future contact constraints require their own verified definitions. <code>diagnostics.mechanical_energy(...)</code> evaluates visible \(M/K\) quadratic energies. J2 now integrates strong prescribed-displacement reaction work and stores its balance against internal energy; natural loads, weak constraints, affine MPCs, and transient procedures still need their own verified work definitions.</p>
 <h2 id="verification-ladder">Verification ladder</h2>
 <p>Each new nonlinear family advances only with evidence:</p>
 <ol>
@@ -152,7 +155,7 @@ StateTransaction
 <li>serial/MPI agreement and result-schema checks;</li>
 <li>a readable public example and documented unsupported cases.</li>
 </ol>
-<p>The first integrated stateful path is now small-strain 3D J2 isotropic hardening under natural loading and homogeneous supports. A prescribed- displacement load path still needs amplitude-aware constraint scaling. Global implicit creep should reuse the same transaction and restart machinery rather than create a second state store.</p>
+<p>The first integrated stateful path is now small-strain 3D J2 isotropic hardening under natural or strong displacement loading. A tabular amplitude can load, unload, and reverse while the step coordinate remains monotone. Forced cutback, cyclic state growth, work/energy histories, and restart of the adaptive increment proposal are automated. Global implicit creep must reuse this transaction and restart machinery rather than create a second state store.</p>
 <h2 id="explicit-non-goals-for-p1">Explicit non-goals for P1</h2>
 <ul>
 <li>no claim of general contact, arbitrary multi-physics, or finite-strain<br>plasticity;</li>

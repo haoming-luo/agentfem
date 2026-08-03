@@ -36,6 +36,7 @@
 <a class="" href="extension-rules.html">Extension Rules</a>
 <a class="" href="tutorial-design.html">Tutorial Design</a>
 <a class="" href="validation.html">Validation</a>
+<a class="" href="scientific-verification.html">Scientific Trust and Verification</a>
 <a class="" href="licensing.html">Licensing</a>
 <a class="" href="publishing.html">Publishing</a>
 <a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
@@ -70,12 +71,14 @@
 <li>Solve to a <code>results.SimulationResult</code> when the result will feed more than<br>one consumer.</li>
 <li>Evaluate physical QoIs, diagnostics, and histories. Keep coefficient<br>statistics distinct from assembled physical integrals.</li>
 <li>Write visualization/output artifacts and attach them to the result.</li>
+<li>Attach reference, invariant, discretization, or validation claims when the<br>result will be described as more than computed/converged.</li>
 </ol>
 <p>For a collection of related cases, continue with:</p>
 <ol>
 <li>Define a typed <code>campaigns.ParameterSpace</code> with bounds and units, directly<br>or through a safe JSON campaign specification.</li>
 <li>Create a deterministic design of experiments and fresh model variants.</li>
 <li>Run or resume the campaign and extract declared <code>datasets.Quantity</code><br>outputs.</li>
+<li>Require the intended scientific trust level before admitting cases to a<br>learning dataset.</li>
 <li>Split the resulting <code>ScientificDataset</code> independently before training.</li>
 <li>Validate a surrogate or reduced-order model, declare its applicability<br>domain, and retain a high-fidelity FEM fallback where extrapolation would<br>be unsafe.</li>
 </ol>
@@ -110,6 +113,7 @@
 <li>Verification benchmarks: <code>benchmarks/</code></li>
 <li>Versioned scientific records: <code>ir/</code></li>
 <li>Structured validation reports and issue codes: <code>validation.py</code></li>
+<li>Scientific claims, trust levels, and mesh/time convergence evidence:<br><code>verification.py</code></li>
 <li>Backend capabilities and compilation adapters: <code>backends/</code></li>
 <li>Parameter spaces, sampling, case identity, and resumable execution:<br><code>campaigns/</code></li>
 <li>Unit/shape-aware learning data and simulation provenance: <code>datasets/</code></li>

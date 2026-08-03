@@ -1,6 +1,13 @@
 {
   "benchmarks": [
     {
+      "id": "agentfem.benchmark.cae_reliability_cliffs",
+      "physics": "cross-cutting finite-element verification",
+      "source": "knowledge/benchmarks/cae_reliability_cliffs.json",
+      "status": "partial_automated_suite",
+      "title": "CAE reliability cliffs: orientation, discretization, and reference applicability"
+    },
+    {
       "id": "agentfem.benchmark.campaign_surrogate_pipeline",
       "physics": "parameterized small-strain isotropic linear elasticity",
       "source": "knowledge/benchmarks/campaign_surrogate_pipeline.json",
@@ -19,7 +26,7 @@
       "physics": "three-dimensional small-strain Mises plasticity with linear isotropic hardening",
       "source": "knowledge/benchmarks/j2_global_restart.json",
       "status": "automated_regression",
-      "title": "Three-dimensional J2 uniaxial path, displacement control, and restart equivalence"
+      "title": "Three-dimensional J2 path, physical cutback, cyclic amplitude, energy, and restart equivalence"
     },
     {
       "id": "agentfem.benchmark.linear_static_cantilever",
@@ -27,6 +34,13 @@
       "source": "knowledge/benchmarks/linear_static_cantilever.json",
       "status": "numerical_regression",
       "title": "Two-dimensional linear-static cantilever"
+    },
+    {
+      "id": "agentfem.benchmark.neo_hookean_release",
+      "physics": "compressible Neo-Hookean hyperelasticity",
+      "source": "knowledge/benchmarks/neo_hookean_release.json",
+      "status": "automated_regression",
+      "title": "Compressible Neo-Hookean finite-strain release contract"
     },
     {
       "id": "agentfem.benchmark.operator_contracts",
@@ -48,6 +62,13 @@
       "source": "knowledge/benchmarks/transient_heat_release.json",
       "status": "numerical_regression",
       "title": "Implicit-Euler transient heat release regression"
+    },
+    {
+      "id": "agentfem.benchmark.wave_release",
+      "physics": "two-dimensional plane-strain linear elastodynamics",
+      "source": "knowledge/benchmarks/wave_release.json",
+      "status": "automated_regression",
+      "title": "Explicit elastic-wave inclusion release contract"
     }
   ],
   "cards": [
@@ -75,6 +96,7 @@
       "public_api": [
         "agentfem.constitutive.J2LinearIsotropicHardening",
         "agentfem.constitutive.J2QuadratureState",
+        "agentfem.constitutive.QuadratureTransaction",
         "agentfem.models.Model.step"
       ],
       "related_cards": [
@@ -82,7 +104,7 @@
       ],
       "source": "knowledge/cards/j2_global_plasticity.json",
       "status": "supported",
-      "summary": "Three-dimensional Mises plasticity with linear isotropic hardening, Basix quadrature state, analytical algorithmic tangent, incremental Newton equilibrium, rollback, cutback, cumulative serial restart, standard result fields, and energy diagnostics.",
+      "summary": "Three-dimensional Mises plasticity with linear isotropic hardening, a shared quadrature transaction, analytical algorithmic tangent, cyclic amplitude paths, physical-increment cutback, cumulative serial restart, standard fields, and work/energy histories.",
       "title": "Global small-strain J2 plasticity"
     },
     {
@@ -124,6 +146,25 @@
       "status": "supported",
       "summary": "Turns deterministic simulations into scientific datasets, independent surrogate validation, optional PyTorch tensors, applicability decisions, and explicit high-fidelity fallback.",
       "title": "Simulation campaign to guarded learning workflow"
+    },
+    {
+      "id": "agentfem.workflow.scientific_verification",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.verification.VerificationClaim",
+        "agentfem.verification.VerificationReport",
+        "agentfem.verification.ConvergenceStudy",
+        "agentfem.results.SimulationResult.add_verification",
+        "agentfem.campaigns.CampaignReport.require_dataset"
+      ],
+      "related_cards": [
+        "agentfem.workflow.campaign_learning_pipeline",
+        "agentfem.material.j2_global_plasticity"
+      ],
+      "source": "knowledge/cards/scientific_verification.json",
+      "status": "supported",
+      "summary": "Separates computed, converged, verified, and validated results through explicit claims, discretization evidence, applicability domains, and campaign learning gates.",
+      "title": "Scientific trust and verification workflow"
     },
     {
       "id": "agentfem.workflow.solution_procedures",

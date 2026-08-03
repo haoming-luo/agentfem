@@ -10,6 +10,7 @@ hold:
 - time/load/iteration histories;
 - solver and model metadata;
 - visualization, checkpoint, and report artifacts.
+- a scientific verification report and explicit trust level.
 
 XDMF, CSV, and NumPy files are artifacts, not the result abstraction itself.
 This distinction lets one solve feed visualization, a campaign, a report, or a
@@ -139,7 +140,10 @@ Python threads.
 Before training, require reviewed campaign evidence:
 
 ```python
-dataset = report.require_dataset(minimum_samples=4)
+dataset = report.require_dataset(
+    minimum_samples=4,
+    minimum_trust_level="verified",
+)
 training = surrogates.train(
     dataset,
     estimator=surrogates.RidgeSurrogate(),
@@ -149,7 +153,9 @@ training = surrogates.train(
 guarded = training.guard(fallback=run_high_fidelity_case)
 ```
 
-`require_dataset()` rejects a partial campaign by default. Failed simulations
+`require_dataset()` rejects a partial campaign by default. It can additionally
+reject successful but merely computed/converged samples through
+`minimum_trust_level`. Failed simulations
 are not silently discarded before learning; the caller must review them and
 set `allow_partial=True` deliberately. That acceptance and the failed case IDs
 are retained in the returned dataset metadata. `surrogates.train(...)` keeps the
@@ -174,8 +180,8 @@ optimizers, and training loops.
    J2 residual fields;
 2. named point and path probes;
 3. stress/strain projection for visualization;
-4. external-work and energy-balance histories beyond the current linear and J2
-   internal-energy diagnostics;
+4. natural-load, weak-constraint, affine-MPC, and transient work/energy
+   histories beyond the current strong-displacement J2 history;
 5. transient checkpoint writers and MPI-portable restart identity;
 6. mesh-independent field sampling for neural operators;
 7. scheduler executors that preserve identical case records.

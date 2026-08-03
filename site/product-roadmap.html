@@ -36,6 +36,7 @@
 <a class="" href="extension-rules.html">Extension Rules</a>
 <a class="" href="tutorial-design.html">Tutorial Design</a>
 <a class="" href="validation.html">Validation</a>
+<a class="" href="scientific-verification.html">Scientific Trust and Verification</a>
 <a class="" href="licensing.html">Licensing</a>
 <a class="" href="publishing.html">Publishing</a>
 <a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
@@ -69,13 +70,14 @@
 <tr><td>Thermoelasticity</td><td>FEM-integrated</td><td>implicit-Euler heat transfer and sequential isotropic thermal stress in 2D/3D</td><td>no property tables or monolithic two-way coupling</td></tr>
 <tr><td>Structural dynamics</td><td>FEM-integrated foundation</td><td>central difference, Newmark, and generalized-alpha through one procedure vocabulary</td><td>implicit route is linear; moving supports and common OutputPlan remain</td></tr>
 <tr><td>Compressible Neo-Hookean</td><td>FEM-integrated</td><td>nonlinear static solve; 3D and 2D plane strain forms</td><td>one-material convenience step; no 2D plane stress local solve</td></tr>
-<tr><td>J2 plasticity</td><td>FEM-integrated foundation</td><td>3D quadrature state, analytical tangent, proportional force/displacement control, global Newton, cutback, serial restart</td><td>no arbitrary cyclic global path, plane stress, multi-region driver, MPI-portable restart, or external benchmark</td></tr>
+<tr><td>J2 plasticity</td><td>FEM-integrated foundation</td><td>3D shared quadrature transaction, analytical tangent, natural/displacement loading, non-monotone tabular amplitude, global Newton, physical-increment cutback, cumulative serial restart including adaptive state, S/PE/PEEQ/RF results, prescribed-work/energy histories, analytical uniaxial Golden path</td><td>no plane stress, kinematic hardening, multi-region driver, MPI-portable restart, or external benchmark</td></tr>
 <tr><td>Creep and creep damage</td><td>material-point/assessment verified</td><td>power-law and Arrhenius paths; exact K-R damage coupling; Sinh flow; modified-theta fitting; hot-wall sequential assessment</td><td>no global adaptive quadrature creep step or damage regularization</td></tr>
 <tr><td>Stress-life fatigue</td><td>postprocessor</td><td>Basquin/tabulated S-N, rainflow, Goodman, Miner assessment from named result histories</td><td>no multiaxial critical-plane method</td></tr>
 <tr><td>External CAE mesh</td><td>integrated Abaqus path + conversion interface</td><td>generic meshio conversion; Abaqus node labels; verified C3D10 import; linear equation parsing</td><td>full solver-deck sections/material cards are not imported</td></tr>
 <tr><td>Abaqus periodic equations</td><td>serial + two-rank FEM-integrated</td><td>exact chained affine elimination, distributed <code>dolfinx_mpc</code>, and 3D Neo-Hookean load path</td><td>AMG near-nullspace transfer, reactions, and scaling studies remain</td></tr>
 <tr><td>Abaqus user-material bridge</td><td>interface contract</td><td>solver-neutral material-point input/output and migration specification</td><td>no compiled adapter or quadrature-state global driver</td></tr>
-<tr><td>Result/data flow</td><td>integrated foundation</td><td>declarative field/history/diagnostic/presentation plans; compact deformed XDMF/HDF5; common transient progress/time histories; typed checkpoint records; campaign/PyTorch dataset bridge</td><td>general point/region probes, transient energy/checkpoint writers, and portable MPI restart remain</td></tr>
+<tr><td>Result/data flow</td><td>integrated foundation</td><td>declarative field/history/diagnostic/presentation plans; compact deformed XDMF/HDF5; one structured Standard/Explicit/thermal/J2 event trace; typed checkpoint records; verification reports and trust-gated campaign/PyTorch bridge</td><td>general point/region probes, transient energy/checkpoint writers, and portable MPI restart remain</td></tr>
+<tr><td>Scientific trust</td><td>integrated foundation</td><td>computed/converged/verified/validated vocabulary; explicit claims and applicability domains; coarse-to-fine convergence evidence; result manifests and learning-data trust gates; orientation metamorphic regression</td><td>hole-stress and T-stiffener cliff families, GCI, and external-deck reproductions remain</td></tr>
 <tr><td>Campaign-to-learning flow</td><td>workflow integrated</td><td>deterministic cases, resumable evidence, failure-aware dataset gate, reproducible train/validation workflow, ridge/POD/PyTorch adapters, applicability guard and FEM fallback</td><td>no scheduler executor, active-learning governance, or calibrated epistemic uncertainty</td></tr>
 <tr><td>Platform/install boundary</td><td>release foundation</td><td>Linux CI, macOS developer verification, WSL2 recommended for Windows, runtime dependency report, Gmsh/meshio optional adapters</td><td>native Windows remains experimental; AgentFEM is not yet a conda-forge package</td></tr>
 </tbody>
@@ -94,12 +96,14 @@
 <h2 id="delivery-sequence">Delivery Sequence</h2>
 <h3 id="p0-harden-the-usable-core">P0: harden the usable core</h3>
 <ul>
-<li>one <code>SimulationResult</code> contract for linear, nonlinear, and transient steps;</li>
+<li>one <code>SimulationResult</code> contract and one structured execution-event stream<br>for linear, nonlinear, and transient steps;</li>
 <li>standard QoIs: integrals, averages, norms, extrema, reactions, energies, and<br>histories;</li>
 <li>compact unified XDMF/HDF5 visualization and output manifests;</li>
 <li>JSON-configured and Python-configured campaigns producing the same dataset;</li>
 <li>serial, MPI, docs, package, and example release gates;</li>
 <li>clear solver convergence/failure evidence.</li>
+<li>keep execution status distinct from scientific trust; release and training<br>data may require explicit verification claims rather than successful exit;</li>
+<li>expand the <code>CAE Reliability Cliff Suite</code> from the automated orientation<br>case to a perforated-plate resolution sweep and a beam/shell/solid<br>theory-applicability family.</li>
 </ul>
 <p>First-release closure additionally requires truthful installation commands, an inspectable runtime/platform report, optional-dependency license boundaries, operator/system contract checks, and a failure-aware campaign-to-learning gate. Native Windows is not promoted until a compatible solver route passes an installed-wheel Windows CI matrix; WSL2 is the recommended Windows route for the first release.</p>
 <h3 id="p1-nonlinear-solid-mechanics">P1: nonlinear solid mechanics</h3>
@@ -107,8 +111,7 @@
 <li>harden the new <code>SolutionProcedure</code> separation and make Standard/Explicit<br>transient steps share result, progress, energy, and checkpoint manifests;</li>
 <li>finish Neo-Hookean load-controlled and multi-region verification;</li>
 <li>harden the implemented stateless periodic-cell automatic incrementation with<br>forced-cutback regression cases and homogenized tangent checks; the serial<br>affine and distributed <code>dolfinx_mpc</code> paths already share one public Newton<br>policy and output contract;</li>
-<li>extend the implemented quadrature-state transaction and 3D J2 analytical<br>tangent path to multi-region ownership, forced-cutback tests, reactions,<br>output projection, and portable MPI checkpoint identity;</li>
-<li>extend the implemented proportional displacement/load control to arbitrary<br>reviewed amplitudes and cyclic global paths;</li>
+<li>extend the implemented quadrature-state transaction, 3D J2 analytical<br>tangent, analytical uniaxial Golden path, physical-increment forced cutback,<br>cyclic tabular amplitude, reaction/work/energy history, and cumulative serial<br>restart to multi-region ownership, projected visualization fields, and<br>portable MPI checkpoint identity;</li>
 <li>add reaction, internal/external work, and energy-balance histories with<br>verified strong, weak, and affine-MPC definitions;</li>
 <li>then add tabulated hardening, kinematic hardening, and finite-strain<br>plasticity only when driven by real applications.</li>
 </ul>
@@ -121,6 +124,25 @@
 <li>named result histories feed an auditable fatigue assessment now; add<br>automatic stress extraction at named regions/points and fatigue fields;</li>
 <li>multiaxial fatigue only after a chosen engineering criterion and reference<br>dataset are explicit.</li>
 </ul>
+<p>The first global creep promotion has non-negotiable acceptance gates:</p>
+<ol>
+<li>the public step consumes <code>QuadratureTransaction</code>; no second private state<br>store or copy-only rollback is accepted;</li>
+<li>a backward-Euler local update returns stress, state, convergence evidence,<br>an algorithmic consistent tangent, and a local error/step recommendation;</li>
+<li>global Newton failure, local failure, excessive equivalent creep increment,<br>or excessive damage increment causes atomic rollback and deterministic<br>cutback;</li>
+<li>checkpoint/restart retains physical time, next proposed increment,<br>temperature, displacement, committed material state, energy/dissipation,<br>event cursor, and schema version;</li>
+<li>constant-stress creep, stress relaxation, one-element paths, time-step<br>convergence, forced cutback, and restart equivalence pass before a<br>multi-element hot-wall example is advertised;</li>
+<li>start with isothermal Sinh/power-law flow, add Arrhenius temperature<br>dependence second, and K-R/Liu--Murakami damage only after near-failure<br>step control and mesh-dependence limitations are explicit.</li>
+</ol>
+<h3 id="shared-transient-and-mpi-state-identity">Shared transient and MPI state identity</h3>
+<p>The transient checkpoint envelope and portable quadrature identity are common infrastructure, not J2 or creep features. A portable state is keyed by source mesh fingerprint, stable global cell identity, quadrature-rule identity, point number, material-region identity, state-layout schema, and physical step coordinate. Acceptance requires:</p>
+<ul>
+<li>restart with a different MPI partition/process count reproduces global<br>fields and material histories within declared tolerances;</li>
+<li>owned and ghost quadrature points are neither duplicated nor lost;</li>
+<li>incompatible mesh, quadrature, material, amplitude, or schema fingerprints<br>fail before state is applied;</li>
+<li>Standard dynamics, Explicit dynamics, and heat use one checkpoint manifest<br>envelope while retaining procedure-specific integrator history;</li>
+<li>energy components remain typed by procedure instead of being collapsed into<br>one ambiguous scalar.</li>
+</ul>
+<p>This work is urgent after the first release but must not be advertised from a rank-local array serialization prototype.</p>
 <h3 id="p3-mesh-and-model-interoperability">P3: mesh and model interoperability</h3>
 <ul>
 <li>verify Abaqus <code>.inp</code>, Nastran bulk-data, Gmsh, Exodus, and MED meshes;</li>

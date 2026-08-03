@@ -225,6 +225,9 @@ Automatic incrementation chooses accepted Increment sizes from convergence
 behavior. Its `max_increments` value is a termination limit, not a requested
 count. A fixed subdivision is a separate, explicit policy. Newton `max_it`
 limits Iterations in one Attempt and therefore has different semantics.
+For stateful materials, a converged global Attempt may still be rejected when
+a declared inelastic-state increment is excessive; that is a physical/numerical
+acceptance control, not a Newton tolerance.
 
 ## Output Interval and Frame
 
@@ -249,6 +252,17 @@ states.
 For explicit second-order dynamics, the state may also store a mid-step
 velocity such as `v_mid`, because central-difference boundary damping and
 absorbing boundaries often use half-step velocity data.
+
+## Quadrature Transaction
+
+The atomic committed/trial state mechanism used by integration-point material
+models. A transaction begins from committed state, allows repeated trial
+updates during global iterations, commits all state variables only after an
+accepted increment, and rolls every trial variable back after rejection.
+
+The transaction does not define stress or a material law. J2, creep, damage,
+and user-material adapters supply distinct updates and consistent tangents
+while sharing state-transition and restart semantics.
 
 ## Time Integrator
 
@@ -280,7 +294,20 @@ The scientific view of one completed analysis: named quantities of interest,
 fields, histories, solver/model metadata, and artifact links. XDMF, CSV, and
 NumPy files are result artifacts rather than the result abstraction itself.
 A simulation result can supply declared campaign outputs without serializing
-live finite-element fields into a tabular dataset.
+live finite-element fields into a tabular dataset. Execution status and
+scientific trust are separate attributes.
+
+## Verification Claim and Trust Level
+
+A verification claim binds an observable to a reference, criterion,
+applicability domain, evidence record, and passed/failed/inconclusive decision.
+The ordered result trust levels are `not_computed`, `computed`, `converged`,
+`verified`, and `validated`. A result advances only when the required evidence
+passes; an inapplicable theory remains inconclusive.
+
+`validated` is reserved for explicitly labeled physical or experimental
+validation claims. A fixed-mesh Golden or cross-code comparison is verification
+evidence, not experimental validation.
 
 ## Benchmark
 

@@ -259,6 +259,7 @@ class CampaignReport:
         *,
         allow_partial: bool = False,
         minimum_samples: int = 1,
+        minimum_trust_level: str | None = None,
     ) -> ScientificDataset:
         """Return training data only when campaign evidence is acceptable.
 
@@ -266,7 +267,9 @@ class CampaignReport:
         remaining cases can bias a learned model. The default therefore
         rejects partial campaigns. An explicit ``allow_partial=True`` marks
         the returned dataset with the failed case identities so that this
-        review decision survives dataset serialization.
+        review decision survives dataset serialization. When
+        ``minimum_trust_level`` is supplied, successful simulations whose
+        verification evidence is below that level are rejected as well.
         """
 
         if minimum_samples < 1:
@@ -289,6 +292,25 @@ class CampaignReport:
                 f"Campaign {self.name!r} produced {len(self.dataset.samples)} "
                 f"successful sample(s), fewer than required {minimum_samples}."
             )
+        if minimum_trust_level is not None:
+            from ..verification import trust_rank
+
+            required_rank = trust_rank(minimum_trust_level)
+            below = []
+            for sample in self.dataset.samples:
+                summary = sample.provenance.get("simulation_result", {})
+                level = (
+                    summary.get("trust_level", "not_computed")
+                    if isinstance(summary, Mapping)
+                    else "not_computed"
+                )
+                if trust_rank(level) < required_rank:
+                    below.append((sample.case_id, level))
+            if below:
+                raise RuntimeError(
+                    f"Campaign {self.name!r} contains samples below required "
+                    f"trust level {minimum_trust_level!r}: {tuple(below)}."
+                )
         if not failed_ids:
             return self.dataset
         return ScientificDataset(

@@ -88,7 +88,8 @@ Implemented now:
 - normalized Arrhenius temperature dependence at material-point level;
 - global 3D J2 quadrature state with analytical tangent and serial restart.
 - cumulative J2 restart history, analytical uniaxial Golden verification,
-  S/PE/PEEQ/RF result fields, and internal-energy decomposition;
+  S/PE/PEEQ/RF result fields, cyclic amplitude, physical-increment cutback,
+  prescribed work, and internal-energy decomposition;
 - exact material-point Kachanov-Rabotnov creep-damage updates, Sinh creep,
   and modified-theta curve projection;
 - a sequential hot-wall FEM-to-creep assessment example with explicit

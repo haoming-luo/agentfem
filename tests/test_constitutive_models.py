@@ -12,6 +12,44 @@ from agentfem.materials.properties import (
 )
 
 
+def test_shared_quadrature_transaction_commits_and_rolls_back_atomically():
+    class State:
+        def __init__(self, values):
+            self._values = np.asarray(values, dtype=float)
+
+        @property
+        def values(self):
+            return self._values.copy()
+
+        def assign(self, values):
+            self._values[:] = values
+
+    committed_a = State([0.0, 0.0])
+    committed_b = State([1.0])
+    trial_a = State([2.0, 3.0])
+    trial_b = State([4.0])
+    transaction = constitutive.QuadratureTransaction(
+        committed={"a": committed_a, "b": committed_b},
+        trial={"a": trial_a, "b": trial_b},
+        schema="agentfem.test-state",
+    )
+
+    transaction.rollback()
+    np.testing.assert_allclose(trial_a.values, [0.0, 0.0])
+    np.testing.assert_allclose(trial_b.values, [1.0])
+    trial_a.assign([5.0, 6.0])
+    trial_b.assign([7.0])
+    transaction.commit()
+    snapshot = transaction.snapshot()
+
+    np.testing.assert_allclose(committed_a.values, [5.0, 6.0])
+    np.testing.assert_allclose(committed_b.values, [7.0])
+    committed_a.assign([99.0, 99.0])
+    transaction.restore(snapshot)
+    np.testing.assert_allclose(committed_a.values, [5.0, 6.0])
+    np.testing.assert_allclose(trial_a.values, [5.0, 6.0])
+
+
 def test_linear_materials_reject_nonphysical_parameters():
     with pytest.raises(ValueError, match="young"):
         ElasticIsotropicProperties("bad", 0.0, 1.0, 0.3)
@@ -46,6 +84,18 @@ def test_neo_hookean_nominal_stress_is_energy_derivative():
         0.0,
         atol=1.0e-12,
     )
+    golden = benchmarks.golden_benchmark(
+        "agentfem.benchmark.neo_hookean_release"
+    )
+    actual = {
+        "principal_nominal_stress": analytical,
+        "strain_energy_density": hyperelasticity.principal_energy_density(
+            stretches,
+            material,
+        ),
+        "deformation_jacobian": float(np.prod(stretches)),
+    }
+    assert all(golden.verify(actual).values())
     assert material.as_dict()["maturity"] == "fem_form_available"
 
 

@@ -5,10 +5,11 @@
   "title": "Global small-strain J2 plasticity",
   "kind": "material",
   "status": "supported",
-  "summary": "Three-dimensional Mises plasticity with linear isotropic hardening, Basix quadrature state, analytical algorithmic tangent, incremental Newton equilibrium, rollback, cutback, cumulative serial restart, standard result fields, and energy diagnostics.",
+  "summary": "Three-dimensional Mises plasticity with linear isotropic hardening, a shared quadrature transaction, analytical algorithmic tangent, cyclic amplitude paths, physical-increment cutback, cumulative serial restart, standard fields, and work/energy histories.",
   "public_api": [
     "agentfem.constitutive.J2LinearIsotropicHardening",
     "agentfem.constitutive.J2QuadratureState",
+    "agentfem.constitutive.QuadratureTransaction",
     "agentfem.models.Model.step"
   ],
   "implementation": [
@@ -73,25 +74,27 @@
         "name": "RF and internal-energy diagnostics",
         "type": "nodal residual field and scalar result quantities",
         "unit_role": "force and energy",
-        "description": "Full nodal residual plus elastic, hardening, dissipated, and total internal-energy terms."
+        "description": "Full nodal residual plus elastic, hardening, plastic-dissipation, internal-energy, prescribed-work, and balance histories."
       }
     ],
     "assumptions": [
       "Small strain and three spatial dimensions.",
       "Rate independence, associative Mises flow, and linear isotropic hardening.",
-      "Natural loads and nonzero engineering Dirichlet targets share one proportional step factor in the first global provider."
+      "Natural loads and nonzero engineering Dirichlet targets share one named amplitude; the step coordinate remains monotone while amplitude values may reverse."
     ],
     "conventions": [
       "Committed history is immutable during a rejected Newton iterate.",
       "Tensor storage is full symmetric 3x3 form rather than engineering Voigt.",
-      "The normalized load factor runs from zero to one."
+      "The normalized step coordinate runs from zero to one; load amplitude may be non-monotone.",
+      "maximum_inelastic_increment limits the equivalent plastic-strain increment and triggers rollback/cutback after an otherwise converged Newton attempt."
     ],
     "applicability": [
-      "Monotone proportional small-strain 3D solid loading within the implemented hardening law.",
+      "Monotone or reviewed tabular cyclic small-strain 3D solid loading within the implemented isotropic-hardening law.",
       "Laboratory-scale regression and research workflows requiring inspectable state."
     ],
     "limitations": [
-      "The first global provider is serial-only and has no arbitrary cyclic global amplitude path, plane-stress local constraint, finite-strain plasticity, or multi-region driver.",
+      "The first global provider is serial-only and has no plane-stress local constraint, finite-strain plasticity, kinematic hardening, or multi-region driver.",
+      "External-work histories are currently available for nonzero strong prescribed displacements; natural, weak, and affine-MPC work require separate verified definitions.",
       "No external NAFEMS benchmark has yet promoted this path to benchmark-verified maturity."
     ]
   },
@@ -112,7 +115,8 @@
     "validation_rules": [
       "Reject non-3D and multi-rank global use.",
       "Reject nonphysical material parameters.",
-      "Commit state only after convergence and restore field, constitutive state, accepted/attempt histories, and execution events after restart."
+      "Commit shared transaction state only after global and constitutive-increment acceptance.",
+      "Restore field, constitutive state, adaptive next-increment state, energy history, accepted/attempt histories, and execution events after restart."
     ]
   },
   "references": [

@@ -36,6 +36,7 @@
 <a class="" href="extension-rules.html">Extension Rules</a>
 <a class="" href="tutorial-design.html">Tutorial Design</a>
 <a class="" href="validation.html">Validation</a>
+<a class="" href="scientific-verification.html">Scientific Trust and Verification</a>
 <a class="" href="licensing.html">Licensing</a>
 <a class="" href="publishing.html">Publishing</a>
 <a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
@@ -111,7 +112,7 @@
 <p>The step should not hide the finite-element meaning. It is the place where visible operators become a solveable algebraic problem.</p>
 <h2 id="increment-attempt-and-iteration">Increment, Attempt, and Iteration</h2>
 <p>An Increment advances load or time within one analysis Step. An Attempt is one try at that Increment; a failed nonlinear attempt may be rolled back and retried after a cutback. An Iteration is one Newton correction inside an Attempt.</p>
-<p>Automatic incrementation chooses accepted Increment sizes from convergence behavior. Its <code>max_increments</code> value is a termination limit, not a requested count. A fixed subdivision is a separate, explicit policy. Newton <code>max_it</code> limits Iterations in one Attempt and therefore has different semantics.</p>
+<p>Automatic incrementation chooses accepted Increment sizes from convergence behavior. Its <code>max_increments</code> value is a termination limit, not a requested count. A fixed subdivision is a separate, explicit policy. Newton <code>max_it</code> limits Iterations in one Attempt and therefore has different semantics. For stateful materials, a converged global Attempt may still be rejected when a declared inelastic-state increment is excessive; that is a physical/numerical acceptance control, not a Newton tolerance.</p>
 <h2 id="output-interval-and-frame">Output Interval and Frame</h2>
 <p>An output interval or time point requests when fields should be persisted. A Frame is the saved result state produced at one such point or accepted Increment. Frames do not drive the nonlinear algorithm. Exact output marks may require the solver to land at those values, while cutbacks may introduce additional internal Increments.</p>
 <h2 id="element-policy">Element Policy</h2>
@@ -119,6 +120,9 @@
 <h2 id="state">State</h2>
 <p>A collection of fields used by a solver or time integrator. Examples include first-order transient states and second-order displacement/velocity/acceleration states.</p>
 <p>For explicit second-order dynamics, the state may also store a mid-step velocity such as <code>v_mid</code>, because central-difference boundary damping and absorbing boundaries often use half-step velocity data.</p>
+<h2 id="quadrature-transaction">Quadrature Transaction</h2>
+<p>The atomic committed/trial state mechanism used by integration-point material models. A transaction begins from committed state, allows repeated trial updates during global iterations, commits all state variables only after an accepted increment, and rolls every trial variable back after rejection.</p>
+<p>The transaction does not define stress or a material law. J2, creep, damage, and user-material adapters supply distinct updates and consistent tangents while sharing state-transition and restart semantics.</p>
 <h2 id="time-integrator">Time Integrator</h2>
 <p>A time integrator advances a transient state according to a named numerical method. AgentFEM provides implicit Newmark and generalized-alpha descriptions for linear structural dynamics and <code>time.explicit.central_difference(...)</code> for explicit central difference, i.e. the Newmark family with <code>beta=0</code> and <code>gamma=1/2</code>.</p>
 <p>Integrator names should describe the analysis route first, such as explicit dynamics, and expose method parameters through <code>summary()</code> rather than forcing beginner workflows to start from algorithm parameters.</p>
@@ -127,7 +131,10 @@
 <h2 id="diagnostic">Diagnostic</h2>
 <p>A scalar or field quantity used to inspect correctness, convergence, stability, or physical behavior.</p>
 <h2 id="simulation-result">Simulation Result</h2>
-<p>The scientific view of one completed analysis: named quantities of interest, fields, histories, solver/model metadata, and artifact links. XDMF, CSV, and NumPy files are result artifacts rather than the result abstraction itself. A simulation result can supply declared campaign outputs without serializing live finite-element fields into a tabular dataset.</p>
+<p>The scientific view of one completed analysis: named quantities of interest, fields, histories, solver/model metadata, and artifact links. XDMF, CSV, and NumPy files are result artifacts rather than the result abstraction itself. A simulation result can supply declared campaign outputs without serializing live finite-element fields into a tabular dataset. Execution status and scientific trust are separate attributes.</p>
+<h2 id="verification-claim-and-trust-level">Verification Claim and Trust Level</h2>
+<p>A verification claim binds an observable to a reference, criterion, applicability domain, evidence record, and passed/failed/inconclusive decision. The ordered result trust levels are <code>not_computed</code>, <code>computed</code>, <code>converged</code>, <code>verified</code>, and <code>validated</code>. A result advances only when the required evidence passes; an inapplicable theory remains inconclusive.</p>
+<p><code>validated</code> is reserved for explicitly labeled physical or experimental validation claims. A fixed-mesh Golden or cross-code comparison is verification evidence, not experimental validation.</p>
 <h2 id="benchmark">Benchmark</h2>
 <p>A standard verification problem with expected quantities and tolerances. Benchmarks validate platform capabilities; examples teach workflows. The benchmark registry links a stable identifier, criterion, reference, automated test, and capability maturity.</p>
 <h2 id="af-ir-document">AF-IR Document</h2>

@@ -251,6 +251,7 @@ class SimulationResult:
     artifacts: dict[str, Path] = field(default_factory=dict)
     checkpoints: dict[str, CheckpointRecord] = field(default_factory=dict)
     metadata: dict[str, object] = field(default_factory=dict)
+    verification: object | None = None
 
     def __post_init__(self) -> None:
         self.name = _name(self.name)
@@ -368,6 +369,28 @@ class SimulationResult:
         self.add_artifact(f"checkpoint_{checkpoint.name}", checkpoint.path)
         return checkpoint
 
+    def add_verification(self, report):
+        """Attach scientific trust evidence without changing solver status.
+
+        ``status='completed'`` describes execution.  The verification report
+        separately distinguishes computed, converged, verified, and validated
+        results so a successful solver call cannot silently imply scientific
+        acceptance.
+        """
+
+        from ..verification import VerificationReport
+
+        if not isinstance(report, VerificationReport):
+            raise TypeError("add_verification requires a VerificationReport.")
+        self.verification = report
+        return report
+
+    @property
+    def trust_level(self) -> str:
+        if self.verification is not None:
+            return self.verification.trust_level
+        return "computed" if self.status == "completed" else "not_computed"
+
     def add_dof_statistics(
         self,
         field,
@@ -448,12 +471,18 @@ class SimulationResult:
             "kind": "simulation_result",
             "name": self.name,
             "status": self.status,
+            "trust_level": self.trust_level,
             "quantities": tuple(self.quantities),
             "fields": tuple(self.fields),
             "histories": tuple(self.histories),
             "artifacts": {key: str(value) for key, value in self.artifacts.items()},
             "checkpoints": tuple(self.checkpoints),
             "metadata": _json_value(self.metadata),
+            "verification": (
+                None
+                if self.verification is None
+                else self.verification.as_dict()
+            ),
         }
 
     def format(self) -> str:
@@ -466,6 +495,7 @@ class SimulationResult:
         lines = [
             f"Result: {self.name}",
             f"  status: {self.status}",
+            f"  trust: {self.trust_level}",
             f"  quantities: {len(self.quantities)}",
             f"  fields: {len(self.fields)}",
             f"  histories: {len(self.histories)}",

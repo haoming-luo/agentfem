@@ -67,7 +67,7 @@ from .plasticity import (
     update_uniaxial,
     von_mises,
 )
-from .quadrature import J2QuadratureState, QuadratureField
+from .quadrature import J2QuadratureState, QuadratureField, QuadratureTransaction
 from .user_material import (
     AbaqusUserMaterialBridge,
     MaterialPointInput,
@@ -111,6 +111,7 @@ __all__ = [
     "ModifiedThetaProjection",
     "PowerLawCreep",
     "QuadratureField",
+    "QuadratureTransaction",
     "TabulatedSNCurve",
     "SinhCreep",
     "UniaxialPlasticState",

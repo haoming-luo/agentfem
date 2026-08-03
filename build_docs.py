@@ -102,6 +102,11 @@ PAGES = [
         SITE_DIR / "tutorial-design.html",
     ),
     Page("Validation", ROOT / "docs" / "validation.md", SITE_DIR / "validation.html"),
+    Page(
+        "Scientific Trust and Verification",
+        ROOT / "docs" / "scientific_verification.md",
+        SITE_DIR / "scientific-verification.html",
+    ),
     Page("Licensing", ROOT / "docs" / "licensing.md", SITE_DIR / "licensing.html"),
     Page("Publishing", ROOT / "docs" / "publishing.md", SITE_DIR / "publishing.html"),
     Page(

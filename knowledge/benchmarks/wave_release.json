@@ -1,0 +1,99 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.wave_release",
+  "title": "Explicit elastic-wave inclusion release contract",
+  "status": "automated_regression",
+  "purpose": "Verify the material-region, source-amplitude, periodic-projection, absorbing-boundary, lumped-mass, and central-difference path used by the public wave-inclusion demo.",
+  "physics": "two-dimensional plane-strain linear elastodynamics",
+  "execution": {
+    "command": "python -m pytest -q tests/test_release_goldens.py::test_wave_release_patch_matches_versioned_golden",
+    "example": "examples/wave_packet_inclusion_2d.py",
+    "evidence": "A reduced serial counterpart of the release demo propagates a pulse through a two-material mesh while recording receiver arrival, peak response, Courant number, and periodic mismatch."
+  },
+  "observables": [
+    "Matrix pressure and shear wave speeds and inclusion pressure-wave speed.",
+    "Explicit Courant number from the declared mesh, time step, and fastest material.",
+    "Peak global and receiver displacement and receiver threshold-arrival time.",
+    "Maximum top-bottom periodic projection mismatch over all increments."
+  ],
+  "acceptance": [
+    "Every versioned observable satisfies its Golden tolerance.",
+    "The periodic mismatch remains below 1e-12.",
+    "The receiver detects a nonzero transmitted pulse before the end of the run."
+  ],
+  "golden": {
+    "reference_version": "wave-inclusion-reduced-1",
+    "quantities": [
+      {
+        "name": "matrix_pressure_wave_speed",
+        "expected": 10.954451150103322,
+        "relative_tolerance": 1e-12,
+        "absolute_tolerance": 1e-12,
+        "unit": "consistent length/time",
+        "description": "Plane-strain pressure-wave speed for E=100, nu=0.25, and density=1."
+      },
+      {
+        "name": "matrix_shear_wave_speed",
+        "expected": 6.324555320336759,
+        "relative_tolerance": 1e-12,
+        "absolute_tolerance": 1e-12,
+        "unit": "consistent length/time",
+        "description": "Matrix shear-wave speed."
+      },
+      {
+        "name": "inclusion_pressure_wave_speed",
+        "expected": 15.491933384829668,
+        "relative_tolerance": 1e-12,
+        "absolute_tolerance": 1e-12,
+        "unit": "consistent length/time",
+        "description": "Pressure-wave speed for the inclusion with twice the matrix Young modulus."
+      },
+      {
+        "name": "courant_number",
+        "expected": 0.35,
+        "relative_tolerance": 1e-13,
+        "absolute_tolerance": 1e-13,
+        "unit": null,
+        "description": "Time step times fastest wave speed divided by the minimum cell length."
+      },
+      {
+        "name": "maximum_displacement",
+        "expected": 0.0004925897893597992,
+        "relative_tolerance": 2e-5,
+        "absolute_tolerance": 1e-10,
+        "unit": "consistent length",
+        "description": "Peak displacement magnitude during the reduced release workflow."
+      },
+      {
+        "name": "receiver_peak_displacement",
+        "expected": 0.0004362519152744718,
+        "relative_tolerance": 2e-5,
+        "absolute_tolerance": 1e-10,
+        "unit": "consistent length",
+        "description": "Peak displacement in the receiver band after inclusion interaction."
+      },
+      {
+        "name": "receiver_arrival_time",
+        "expected": 0.028805313637417656,
+        "relative_tolerance": 1e-10,
+        "absolute_tolerance": 1e-12,
+        "unit": "consistent time",
+        "description": "First sampled time when receiver displacement reaches 1e-6."
+      },
+      {
+        "name": "maximum_periodic_mismatch",
+        "expected": 0.0,
+        "relative_tolerance": 0.0,
+        "absolute_tolerance": 1e-13,
+        "unit": "consistent length",
+        "description": "Maximum projected top-bottom periodic mismatch."
+      }
+    ]
+  },
+  "limitations": [
+    "This is a reduced release regression, not a mesh/time-converged external validation.",
+    "Receiver arrival is threshold- and time-step-dependent and is versioned accordingly.",
+    "The absorbing-boundary reflection coefficient still needs a dedicated convergence benchmark."
+  ]
+}

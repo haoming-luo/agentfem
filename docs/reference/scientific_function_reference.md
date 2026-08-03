@@ -14,6 +14,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | [`agentfem.material.j2_global_plasticity`](#agentfem-material-j2_global_plasticity) | Global small-strain J2 plasticity | material | supported |
 | [`agentfem.operator.system_contracts`](#agentfem-operator-system_contracts) | Finite-element operator and system contracts | operator | supported |
 | [`agentfem.workflow.campaign_learning_pipeline`](#agentfem-workflow-campaign_learning_pipeline) | Simulation campaign to guarded learning workflow | workflow | supported |
+| [`agentfem.workflow.scientific_verification`](#agentfem-workflow-scientific_verification) | Scientific trust and verification workflow | workflow | supported |
 | [`agentfem.workflow.solution_procedures`](#agentfem-workflow-solution_procedures) | Solution procedure vocabulary | analysis_step | supported |
 | [`agentfem.workflow.thermoelastic_analysis`](#agentfem-workflow-thermoelastic_analysis) | Sequential thermoelastic analysis | workflow | supported |
 
@@ -21,13 +22,16 @@ the compact machine-readable `knowledge/catalog.json`.
 
 | Stable ID | Title | Physics | Status |
 | --- | --- | --- | --- |
+| `agentfem.benchmark.cae_reliability_cliffs` | CAE reliability cliffs: orientation, discretization, and reference applicability | cross-cutting finite-element verification | partial_automated_suite |
 | `agentfem.benchmark.campaign_surrogate_pipeline` | Static-elasticity campaign to guarded surrogate pipeline | parameterized small-strain isotropic linear elasticity | executable_integration |
 | `agentfem.benchmark.creep_damage_material_paths` | Creep-damage material paths and curve projection | Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection | automated_regression |
-| `agentfem.benchmark.j2_global_restart` | Three-dimensional J2 uniaxial path, displacement control, and restart equivalence | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_regression |
+| `agentfem.benchmark.j2_global_restart` | Three-dimensional J2 path, physical cutback, cyclic amplitude, energy, and restart equivalence | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_regression |
 | `agentfem.benchmark.linear_static_cantilever` | Two-dimensional linear-static cantilever | small-strain isotropic linear elasticity in plane strain | numerical_regression |
+| `agentfem.benchmark.neo_hookean_release` | Compressible Neo-Hookean finite-strain release contract | compressible Neo-Hookean hyperelasticity | automated_regression |
 | `agentfem.benchmark.operator_contracts` | Operator role, system, and residual-linearization contracts | backend-facing finite-element operator algebra | automated |
 | `agentfem.benchmark.thermoelastic_free_expansion` | Plane-stress isotropic free thermal expansion | small-strain isotropic plane-stress thermoelasticity under uniform temperature change | automated_regression |
 | `agentfem.benchmark.transient_heat_release` | Implicit-Euler transient heat release regression | two-dimensional transient heat conduction with constant isotropic properties | numerical_regression |
+| `agentfem.benchmark.wave_release` | Explicit elastic-wave inclusion release contract | two-dimensional plane-strain linear elastodynamics | automated_regression |
 
 ## Creep damage and modified-theta assessment
 
@@ -148,12 +152,13 @@ Create KachanovRabotnovCreep with traceable parameters, advance CreepDamageState
 **Status:** `supported`<br>
 **Source card:** `knowledge/cards/j2_global_plasticity.json`
 
-Three-dimensional Mises plasticity with linear isotropic hardening, Basix quadrature state, analytical algorithmic tangent, incremental Newton equilibrium, rollback, cutback, cumulative serial restart, standard result fields, and energy diagnostics.
+Three-dimensional Mises plasticity with linear isotropic hardening, a shared quadrature transaction, analytical algorithmic tangent, cyclic amplitude paths, physical-increment cutback, cumulative serial restart, standard fields, and work/energy histories.
 
 ### Public API
 
 - `agentfem.constitutive.J2LinearIsotropicHardening`
 - `agentfem.constitutive.J2QuadratureState`
+- `agentfem.constitutive.QuadratureTransaction`
 - `agentfem.models.Model.step`
 
 ### Scientific contract
@@ -198,28 +203,30 @@ Newton iterations use trial state based on the last committed increment.
 | S | quadrature tensor field | stress | Trial Cauchy stress used in the residual. |
 | PE and PEEQ | committed quadrature state | strain | Plastic strain tensor and equivalent plastic strain. |
 | DDSDDE | fourth-order quadrature tensor field | stress per strain | Analytical algorithmic consistent tangent. |
-| RF and internal-energy diagnostics | nodal residual field and scalar result quantities | force and energy | Full nodal residual plus elastic, hardening, dissipated, and total internal-energy terms. |
+| RF and internal-energy diagnostics | nodal residual field and scalar result quantities | force and energy | Full nodal residual plus elastic, hardening, plastic-dissipation, internal-energy, prescribed-work, and balance histories. |
 
 #### Assumptions
 
 - Small strain and three spatial dimensions.
 - Rate independence, associative Mises flow, and linear isotropic hardening.
-- Natural loads and nonzero engineering Dirichlet targets share one proportional step factor in the first global provider.
+- Natural loads and nonzero engineering Dirichlet targets share one named amplitude; the step coordinate remains monotone while amplitude values may reverse.
 
 #### Conventions
 
 - Committed history is immutable during a rejected Newton iterate.
 - Tensor storage is full symmetric 3x3 form rather than engineering Voigt.
-- The normalized load factor runs from zero to one.
+- The normalized step coordinate runs from zero to one; load amplitude may be non-monotone.
+- maximum_inelastic_increment limits the equivalent plastic-strain increment and triggers rollback/cutback after an otherwise converged Newton attempt.
 
 #### Applicability
 
-- Monotone proportional small-strain 3D solid loading within the implemented hardening law.
+- Monotone or reviewed tabular cyclic small-strain 3D solid loading within the implemented isotropic-hardening law.
 - Laboratory-scale regression and research workflows requiring inspectable state.
 
 #### Limitations
 
-- The first global provider is serial-only and has no arbitrary cyclic global amplitude path, plane-stress local constraint, finite-strain plasticity, or multi-region driver.
+- The first global provider is serial-only and has no plane-stress local constraint, finite-strain plasticity, kinematic hardening, or multi-region driver.
+- External-work histories are currently available for nonzero strong prescribed displacements; natural, weak, and affine-MPC work require separate verified definitions.
 - No external NAFEMS benchmark has yet promoted this path to benchmark-verified maturity.
 
 ### Minimal example
@@ -243,7 +250,8 @@ Register J2LinearIsotropicHardening in a 3D nonlinear_static Model, add supports
 
 - Reject non-3D and multi-rank global use.
 - Reject nonphysical material parameters.
-- Commit state only after convergence and restore field, constitutive state, accepted/attempt histories, and execution events after restart.
+- Commit shared transaction state only after global and constitutive-increment acceptance.
+- Restore field, constitutive state, adaptive next-increment state, energy history, accepted/attempt histories, and execution events after restart.
 
 ### References
 
@@ -467,6 +475,105 @@ dataset = report.require_dataset(); training = surrogates.train(dataset); guarde
 ### References
 
 - AgentFEM results and campaigns contract: `docs/results_and_campaigns.md`
+
+## Scientific trust and verification workflow
+
+**Stable ID:** `agentfem.workflow.scientific_verification`<br>
+**Kind:** `workflow`<br>
+**Status:** `supported`<br>
+**Source card:** `knowledge/cards/scientific_verification.json`
+
+Separates computed, converged, verified, and validated results through explicit claims, discretization evidence, applicability domains, and campaign learning gates.
+
+### Public API
+
+- `agentfem.verification.VerificationClaim`
+- `agentfem.verification.VerificationReport`
+- `agentfem.verification.ConvergenceStudy`
+- `agentfem.results.SimulationResult.add_verification`
+- `agentfem.campaigns.CampaignReport.require_dataset`
+
+### Scientific contract
+
+A numerical result is accepted only through declared evidence; solver completion, discretization adequacy, reference applicability, implementation verification, and physical validation are separate claims.
+
+**reference contract**
+
+$$
+|q_h - q_ref| <= atol + rtol |q_ref|
+$$
+
+The reference, tolerance, and validity domain are stored with the decision.
+
+**successive refinement**
+
+$$
+eta_h = ||q_h - q_h/2|| / max(||q_h/2||, tiny)
+$$
+
+A first convergence diagnostic; it is not silently presented as a full uncertainty estimate.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| observable and reference | scalar or fixed-shape numerical values | must be consistent | The actual value, expected value, and source of the expectation. |
+| evidence policy | tolerances, validity domain, refinement sequence, claim kind | declared by each claim | Defines acceptance before a result is promoted. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| VerificationReport | JSON-safe claim collection and trust level | retains observable metadata | Passed, failed, and inconclusive claims plus the derived trust state. |
+
+#### Assumptions
+
+- Reference values and tolerances are selected independently of the result under test.
+- Convergence samples represent the same modeled quantity and are ordered coarse to fine.
+
+#### Conventions
+
+- An inapplicable theory is inconclusive, not failed or passed.
+- A Golden value is a regression contract unless separate convergence evidence is supplied.
+- Validation claims require physical or experimental evidence and are labeled explicitly.
+
+#### Applicability
+
+- Release regression, analytical checks, metamorphic tests, mesh/time convergence, cross-solver comparisons, and simulation-to-learning admission.
+
+#### Limitations
+
+- The initial ConvergenceStudy does not yet calculate generalized GCI for arbitrary refinement ratios.
+- Trust evidence can be wrong if a user supplies an inappropriate reference; deterministic structure does not replace expert review.
+
+### Minimal example
+
+```python
+result.add_verification(verification.report(claim)); dataset = report.require_dataset(minimum_trust_level='verified').
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_verification.py`
+- `tests/test_results.py`
+- `tests/test_campaigns.py`
+- `tests/test_release_goldens.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.cae_reliability_cliffs`
+
+**Validation rules**
+
+- Reject unknown trust levels and negative tolerances.
+- Reject unordered or shape-incompatible convergence samples.
+- Do not admit merely computed samples when verified evidence is required.
+
+### References
+
+- AgentFEM scientific trust guide: `docs/scientific_verification.md`
 
 ## Solution procedure vocabulary
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import json
 from pathlib import Path
 
@@ -13,6 +13,7 @@ import dolfinx.fem.petsc as fem_petsc
 from petsc4py import PETSc
 
 from .. import procedures
+from .. import amplitudes
 from .. import steps as step_controls
 from ..constitutive import elasticity
 from ..constitutive.plasticity import J2LinearIsotropicHardening
@@ -43,6 +44,7 @@ class J2IncrementInfo:
     residual_norm: float
     plastic_points: int
     maximum_plastic_increment: float
+    rejection_reason: str | None = None
 
     def as_dict(self) -> dict[str, object]:
         def finite_or_none(value):
@@ -63,6 +65,7 @@ class J2IncrementInfo:
             "maximum_plastic_increment": finite_or_none(
                 self.maximum_plastic_increment
             ),
+            "rejection_reason": self.rejection_reason,
         }
 
     @classmethod
@@ -92,6 +95,7 @@ class J2IncrementInfo:
                 if record["maximum_plastic_increment"] is None
                 else float(record["maximum_plastic_increment"])
             ),
+            rejection_reason=record.get("rejection_reason"),
         )
 
 
@@ -103,8 +107,11 @@ class J2LoadPathInfo:
 
     @property
     def converged(self) -> bool:
-        return bool(self.increments) and all(
-            item.converged for item in self.increments
+        return (
+            bool(self.increments)
+            and all(item.converged for item in self.increments)
+            and bool(self.attempts)
+            and self.attempts[-1].converged
         )
 
     @property
@@ -126,6 +133,40 @@ class J2LoadPathInfo:
         }
 
 
+@dataclass(frozen=True)
+class J2EnergyFrame:
+    """Accepted energy/work evidence for one path coordinate."""
+
+    step_coordinate: float
+    load_amplitude: float
+    elastic_strain_energy: float
+    isotropic_hardening_energy: float
+    plastic_dissipation: float
+    internal_energy: float
+    generalized_reaction: float | None
+    external_work: float | None
+    energy_balance_error: float | None
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            field: getattr(self, field)
+            for field in self.__dataclass_fields__
+        }
+
+    @classmethod
+    def from_dict(cls, record: dict[str, object]) -> "J2EnergyFrame":
+        return cls(
+            **{
+                field: (
+                    None
+                    if record[field] is None
+                    else float(record[field])
+                )
+                for field in cls.__dataclass_fields__
+            }
+        )
+
+
 @dataclass
 class J2PlasticityStep:
     """Incremental global equilibrium for 3D small-strain J2 plasticity."""
@@ -137,8 +178,9 @@ class J2PlasticityStep:
     residual_form: object
     tangent_form: object
     load_factor: object
+    amplitude: amplitudes.Amplitude
     bcs: tuple[object, ...]
-    prescribed_values: tuple[tuple[object, np.ndarray], ...]
+    prescribed_values: tuple[tuple[object, np.ndarray, object], ...]
     incrementation: object
     solver_options: NewtonSolverOptions
     study: object | None = None
@@ -152,6 +194,8 @@ class J2PlasticityStep:
     accepted_increments: list[J2IncrementInfo] = field(default_factory=list, init=False)
     attempted_increments: list[J2IncrementInfo] = field(default_factory=list, init=False)
     execution_events: list[object] = field(default_factory=list, init=False)
+    energy_history: list[J2EnergyFrame] = field(default_factory=list, init=False)
+    next_increment_size: float | None = field(default=None, init=False)
 
     def solve(self, *, until: float = 1.0):
         """Advance the load path, optionally stopping at a checkpoint factor."""
@@ -166,7 +210,11 @@ class J2PlasticityStep:
         attempts: list[J2IncrementInfo] = []
         accepted_factor = self.accepted_load_factor
         proposed_size = (
-            self.incrementation.initial
+            (
+                self.incrementation.initial
+                if self.next_increment_size is None
+                else self.next_increment_size
+            )
             if isinstance(self.incrementation, step_controls.AutomaticIncrementation)
             else self.incrementation.load_factors[0]
         )
@@ -180,8 +228,7 @@ class J2PlasticityStep:
                 incrementation=self.incrementation.summary()["kind"],
             ),
         )
-        self.load_factor.value = PETSc.ScalarType(accepted_factor)
-        self._set_prescribed_factor(accepted_factor)
+        self._apply_loading(accepted_factor)
         while accepted_factor < selected_until - 1.0e-12:
             increment = len(self.accepted_increments) + len(accepted) + 1
             if isinstance(self.incrementation, step_controls.AutomaticIncrementation):
@@ -219,8 +266,7 @@ class J2PlasticityStep:
             )
             displacement_snapshot = self.solution.x.array.copy()
             state_snapshot = self.state.snapshot()
-            self.load_factor.value = PETSc.ScalarType(target)
-            self._set_prescribed_factor(target)
+            self._apply_loading(target)
             info = self._solve_increment(
                 increment=increment,
                 attempt=attempt,
@@ -228,6 +274,25 @@ class J2PlasticityStep:
                 target_factor=target,
                 reporter=reporter,
             )
+            if (
+                info.converged
+                and isinstance(
+                    self.incrementation,
+                    step_controls.AutomaticIncrementation,
+                )
+                and self.incrementation.maximum_inelastic_increment is not None
+                and info.maximum_plastic_increment
+                > self.incrementation.maximum_inelastic_increment
+            ):
+                info = replace(
+                    info,
+                    converged=False,
+                    rejection_reason=(
+                        "maximum equivalent plastic-strain increment "
+                        f"{info.maximum_plastic_increment:.6g} exceeds "
+                        f"{self.incrementation.maximum_inelastic_increment:.6g}"
+                    ),
+                )
             attempts.append(info)
             if info.converged:
                 self.state.commit()
@@ -235,6 +300,7 @@ class J2PlasticityStep:
                 accepted_size = target - accepted_factor
                 accepted_factor = target
                 self.accepted_load_factor = target
+                self._record_energy(target)
                 consecutive_cutbacks = 0
                 if isinstance(
                     self.incrementation,
@@ -244,6 +310,7 @@ class J2PlasticityStep:
                         accepted_size,
                         info.iterations,
                     )
+                    self.next_increment_size = proposed_size
                 self._emit(
                     reporter,
                     SolveEvent(
@@ -263,8 +330,7 @@ class J2PlasticityStep:
             self.solution.x.array[:] = displacement_snapshot
             self.solution.x.scatter_forward()
             self.state.restore(state_snapshot)
-            self.load_factor.value = PETSc.ScalarType(accepted_factor)
-            self._set_prescribed_factor(accepted_factor)
+            self._apply_loading(accepted_factor)
             self.state.update(
                 self.state.evaluate_strain(elasticity.strain(self.solution)),
                 self.material,
@@ -281,6 +347,7 @@ class J2PlasticityStep:
             proposed_size = self.incrementation.after_failure(
                 target - accepted_factor
             )
+            self.next_increment_size = proposed_size
             if (
                 consecutive_cutbacks > self.incrementation.max_cutbacks
                 or proposed_size < self.incrementation.minimum
@@ -306,6 +373,7 @@ class J2PlasticityStep:
                     iteration=info.iterations,
                     residual_norm=info.residual_norm,
                     next_increment=proposed_size,
+                    message=info.rejection_reason,
                 ),
             )
 
@@ -348,9 +416,10 @@ class J2PlasticityStep:
         state = self.state.snapshot()
         np.savez(
             selected,
-            schema="agentfem.j2-step-checkpoint.v2",
+            schema="agentfem.j2-step-checkpoint.v3",
             displacement=self.solution.x.array,
             accepted_load_factor=self.accepted_load_factor,
+            amplitude_summary=json.dumps(self.amplitude.summary()),
             plastic_strain=state["plastic_strain"],
             equivalent_plastic_strain=state["equivalent_plastic_strain"],
             accepted_increments=json.dumps(
@@ -362,13 +431,21 @@ class J2PlasticityStep:
             execution_events=json.dumps(
                 [event.as_dict() for event in self.execution_events]
             ),
+            energy_history=json.dumps(
+                [frame.as_dict() for frame in self.energy_history]
+            ),
+            next_increment_size=(
+                np.nan
+                if self.next_increment_size is None
+                else self.next_increment_size
+            ),
         )
         from ..results import CheckpointRecord
 
         record = CheckpointRecord(
             name=f"{self.name}_{self.accepted_load_factor:g}",
             path=selected,
-            schema="agentfem.j2-step-checkpoint.v2",
+            schema="agentfem.j2-step-checkpoint.v3",
             step_name=self.name,
             coordinate_name="load_factor",
             coordinate_value=self.accepted_load_factor,
@@ -376,6 +453,7 @@ class J2PlasticityStep:
             metadata={
                 "reason": "serial dof and quadrature layout checkpoint",
                 "state_variables": ("U", "PE", "PEEQ"),
+                "amplitude": self.amplitude.summary(),
             },
         )
         record.write_manifest()
@@ -394,6 +472,7 @@ class J2PlasticityStep:
             if schema not in {
                 "agentfem.j2-step-checkpoint.v1",
                 "agentfem.j2-step-checkpoint.v2",
+                "agentfem.j2-step-checkpoint.v3",
             }:
                 raise ValueError("Unsupported J2 step checkpoint schema.")
             displacement = np.asarray(data["displacement"])
@@ -410,14 +489,22 @@ class J2PlasticityStep:
                 }
             )
             self.accepted_load_factor = float(data["accepted_load_factor"])
-            self.load_factor.value = PETSc.ScalarType(
-                self.accepted_load_factor
-            )
-            self._set_prescribed_factor(self.accepted_load_factor)
+            if "amplitude_summary" in data:
+                restored_amplitude = json.loads(str(data["amplitude_summary"]))
+                if restored_amplitude != self.amplitude.summary():
+                    raise ValueError(
+                        "Checkpoint load amplitude differs from the current step."
+                    )
+            self._apply_loading(self.accepted_load_factor)
             self.accepted_increments.clear()
             self.attempted_increments.clear()
             self.execution_events.clear()
-            if schema == "agentfem.j2-step-checkpoint.v2":
+            self.energy_history.clear()
+            self.next_increment_size = None
+            if schema in {
+                "agentfem.j2-step-checkpoint.v2",
+                "agentfem.j2-step-checkpoint.v3",
+            }:
                 self.accepted_increments.extend(
                     J2IncrementInfo.from_dict(item)
                     for item in json.loads(str(data["accepted_increments"]))
@@ -430,6 +517,16 @@ class J2PlasticityStep:
                     SolveEvent.from_dict(item)
                     for item in json.loads(str(data["execution_events"]))
                 )
+                if "energy_history" in data:
+                    self.energy_history.extend(
+                        J2EnergyFrame.from_dict(item)
+                        for item in json.loads(str(data["energy_history"]))
+                    )
+                if "next_increment_size" in data:
+                    selected_size = float(data["next_increment_size"])
+                    self.next_increment_size = (
+                        selected_size if np.isfinite(selected_size) else None
+                    )
             self.last_solve_info = J2LoadPathInfo(
                 tuple(self.accepted_increments),
                 tuple(self.attempted_increments),
@@ -492,6 +589,66 @@ class J2PlasticityStep:
             },
             kind="diagnostic",
         )
+        accepted = self.last_solve_info.increments
+        if accepted:
+            coordinates = np.asarray(
+                [item.load_factor for item in accepted], dtype=float
+            )
+            result.add_history(
+                "load_amplitude",
+                coordinates,
+                np.asarray([self.amplitude(value) for value in coordinates]),
+                abscissa_name="step_coordinate",
+                abscissa_unit=None,
+                description=(
+                    "Applied load/Dirichlet scale, which may be non-monotone "
+                    "for cyclic paths."
+                ),
+            )
+        if self.energy_history:
+            coordinates = np.asarray(
+                [item.step_coordinate for item in self.energy_history],
+                dtype=float,
+            )
+            result.add_histories(
+                coordinates,
+                {
+                    "elastic_strain_energy": [
+                        item.elastic_strain_energy for item in self.energy_history
+                    ],
+                    "isotropic_hardening_energy": [
+                        item.isotropic_hardening_energy
+                        for item in self.energy_history
+                    ],
+                    "plastic_dissipation": [
+                        item.plastic_dissipation for item in self.energy_history
+                    ],
+                    "internal_energy": [
+                        item.internal_energy for item in self.energy_history
+                    ],
+                },
+                abscissa_name="step_coordinate",
+                abscissa_unit=None,
+            )
+            if all(item.external_work is not None for item in self.energy_history):
+                result.add_histories(
+                    coordinates,
+                    {
+                        "external_work": [
+                            item.external_work for item in self.energy_history
+                        ],
+                        "energy_balance_error": [
+                            item.energy_balance_error
+                            for item in self.energy_history
+                        ],
+                        "generalized_reaction": [
+                            item.generalized_reaction
+                            for item in self.energy_history
+                        ],
+                    },
+                    abscissa_name="step_coordinate",
+                    abscissa_unit=None,
+                )
         for checkpoint in self.checkpoints:
             result.add_checkpoint(checkpoint)
         return result
@@ -562,7 +719,8 @@ class J2PlasticityStep:
             "solver": self.solver_options.summary(),
             "num_bcs": len(self.bcs),
             "loading": {
-                "kind": "proportional",
+                "kind": self.amplitude.kind,
+                "amplitude": self.amplitude.summary(),
                 "natural_loads": True,
                 "prescribed_values": len(self.prescribed_values),
             },
@@ -572,6 +730,8 @@ class J2PlasticityStep:
                 else self.last_solve_info.as_dict()
             ),
             "accepted_load_factor": self.accepted_load_factor,
+            "energy_frame_count": len(self.energy_history),
+            "next_increment_size": self.next_increment_size,
         }
 
     def _solve_increment(
@@ -731,13 +891,66 @@ class J2PlasticityStep:
         model/constraint objects retain the required scientific intent.
         """
 
-        for constant, target in self.prescribed_values:
+        for constant, target, _bc in self.prescribed_values:
             selected = float(factor) * target
             constant.value = (
                 PETSc.ScalarType(selected.item())
                 if selected.ndim == 0 or selected.size == 1
                 else np.asarray(selected, dtype=PETSc.ScalarType)
             )
+
+    def _apply_loading(self, step_coordinate: float) -> None:
+        value = self.amplitude(step_coordinate)
+        self.load_factor.value = PETSc.ScalarType(value)
+        self._set_prescribed_factor(value)
+
+    def _record_energy(self, step_coordinate: float) -> None:
+        energies = self.internal_energy()
+        load_amplitude = self.amplitude(step_coordinate)
+        generalized = self._generalized_reaction()
+        if generalized is None:
+            external_work = None
+            balance = None
+        else:
+            previous_amplitude = 0.0
+            previous_generalized = 0.0
+            previous_work = 0.0
+            if self.energy_history:
+                previous = self.energy_history[-1]
+                previous_amplitude = previous.load_amplitude
+                previous_generalized = float(previous.generalized_reaction)
+                previous_work = float(previous.external_work)
+            external_work = previous_work + 0.5 * (
+                previous_generalized + generalized
+            ) * (load_amplitude - previous_amplitude)
+            balance = external_work - energies["internal_energy"]
+        self.energy_history.append(
+            J2EnergyFrame(
+                step_coordinate=float(step_coordinate),
+                load_amplitude=float(load_amplitude),
+                generalized_reaction=generalized,
+                external_work=external_work,
+                energy_balance_error=balance,
+                **energies,
+            )
+        )
+
+    def _generalized_reaction(self) -> float | None:
+        active = [
+            (target, bc)
+            for _constant, target, bc in self.prescribed_values
+            if np.any(np.abs(target) > 0.0)
+        ]
+        if not active:
+            return None
+        reaction = self.reaction_field().x.array
+        generalized = 0.0
+        for target, bc in active:
+            dofs, owned = bc.dof_indices()
+            selected = np.asarray(dofs[:owned], dtype=np.int32)
+            scale = float(np.asarray(target).reshape(-1)[0])
+            generalized += float(np.sum(reaction[selected])) * scale
+        return float(self.state.domain.comm.allreduce(generalized))
 
     @staticmethod
     def _emit(reporter, event) -> None:
@@ -782,6 +995,7 @@ def j2_plasticity_step(
     quadrature_degree: int = 2,
     progress=True,
     status_file=None,
+    amplitude=None,
     name: str = "j2_plasticity",
 ) -> J2PlasticityStep:
     """Build a global 3D J2 step from a displacement and load operator."""
@@ -801,6 +1015,12 @@ def j2_plasticity_step(
             "before MPI execution is advertised."
         )
     state = J2QuadratureState.create(domain, degree=quadrature_degree)
+    selected_amplitude = amplitudes.ramp() if amplitude is None else amplitudes.as_amplitude(
+        amplitude,
+        name="j2_load_amplitude",
+    )
+    if not np.isclose(selected_amplitude(0.0), 0.0):
+        raise ValueError("A J2 load amplitude must start at zero.")
     load_factor = fem.Constant(domain, PETSc.ScalarType(0.0))
     strain_test = elasticity.strain(displacement.test)
     strain_trial = elasticity.strain(displacement.trial)
@@ -824,14 +1044,22 @@ def j2_plasticity_step(
                 value = getattr(constraint, "value", None)
                 if value is not None and hasattr(value, "value"):
                     prescribed_values.append(
-                        (value, np.asarray(value.value, dtype=float).copy())
+                        (
+                            value,
+                            np.asarray(value.value, dtype=float).copy(),
+                            constraint.bc,
+                        )
                     )
         elif hasattr(item, "bc"):
             selected_bcs.append(item.bc)
             value = getattr(item, "value", None)
             if value is not None and hasattr(value, "value"):
                 prescribed_values.append(
-                    (value, np.asarray(value.value, dtype=float).copy())
+                    (
+                        value,
+                        np.asarray(value.value, dtype=float).copy(),
+                        item.bc,
+                    )
                 )
         else:
             selected_bcs.append(item)
@@ -843,6 +1071,7 @@ def j2_plasticity_step(
         residual_form=fem.form(residual),
         tangent_form=fem.form(jacobian),
         load_factor=load_factor,
+        amplitude=selected_amplitude,
         bcs=tuple(selected_bcs),
         prescribed_values=tuple(prescribed_values),
         incrementation=step_controls.normalize(incrementation),

@@ -65,7 +65,9 @@ finite-element simulation with AgentFEM.
   broader structured audit record.
 - Results: read `docs/results_and_campaigns.md`; use `solve_result()`,
   `results.SimulationResult`, assembled QoIs in `results`, then attach XDMF/CSV
-  artifacts from `io`.
+  artifacts from `io`. Distinguish execution status from
+  `result.trust_level`, and attach explicit claims before describing a result
+  as verified.
 - AF-IR and repair: inspect `ir/` and `validation.py`. Treat AF-IR 0.1 as an
   experimental record, not as proof of backend-neutral executability.
 - Backend work: inspect `backends/` and
@@ -76,7 +78,8 @@ finite-element simulation with AgentFEM.
   `surrogates/`. Build a fresh model per case; retain units, output shapes,
   case IDs, validation data, and applicability behavior. Do not present a
   training residual or successful prediction call as independent scientific
-  validation.
+  validation. For release or learning data, use
+  `require_dataset(minimum_trust_level="verified")` when appropriate.
 - External meshes: inventory with `mesh.inspect_external_mesh(...)` before
   choosing cell/facet types. Preserve conversion manifests and never describe
   mesh conversion as full Abaqus/ANSYS deck import.
@@ -102,6 +105,9 @@ finite-element simulation with AgentFEM.
   states.
 - State whether a nonlinear capability is FEM-integrated, material-point
   verified, or a postprocessor. Use the benchmark registry as evidence.
+- Never call one converged mesh a convergence study. Use coarse-to-fine
+  `verification.ConvergenceStudy` evidence and record a reference theory's
+  applicability domain.
 - Do not silently extrapolate a learned model. Reject the request or invoke an
   explicit high-fidelity fallback and report which source produced the result.
 

@@ -36,6 +36,7 @@
 <a class="" href="extension-rules.html">Extension Rules</a>
 <a class="" href="tutorial-design.html">Tutorial Design</a>
 <a class="" href="validation.html">Validation</a>
+<a class="" href="scientific-verification.html">Scientific Trust and Verification</a>
 <a class="" href="licensing.html">Licensing</a>
 <a class="" href="publishing.html">Publishing</a>
 <a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
@@ -115,6 +116,7 @@ step = model.step(..., output=output)</code></pre>
     ITER 01 | residual=...
   [INC 1] CONVERGED | iterations=...</code></pre>
 <p>Passing <code>status_file=&quot;job.sta&quot;</code> adds a flushed, line-oriented status record. <code>progress=False</code> remains available for managed campaigns, but silence is not the interactive default.</p>
+<p>The same event is delivered to a complete in-memory trace before display filtering. Consequently <code>print_every=50</code> reduces terminal traffic but does not erase the other 49 accepted increments from the result manifest. Heat, explicit dynamics, implicit dynamics, and J2 use this same evidence contract.</p>
 <h2 id="one-logical-field-dataset">One logical field dataset</h2>
 <p>The default finite-strain result consists of:</p>
 <pre><code>results.xdmf   small temporal/field description
@@ -162,9 +164,9 @@ results.h5     compressed numerical payload</code></pre>
 <ol>
 <li>Extend collective MPI output from reference-configuration scientific fields<br>to an ownership-safe directly deformed geometry product.</li>
 <li>Promote the implemented strong-BC reaction field and M/K energy diagnostic<br>into named point/region histories; define affine/weak reactions separately.</li>
-<li>Extend the implemented J2 quadrature transaction from serial layout-bound<br>checkpoints to portable MPI cell identity and multi-region state.</li>
-<li>Add forced-cutback, reaction/energy, field-output, mesh-convergence, and<br>external J2 benchmark gates.</li>
-<li>Build global implicit creep by consuming the same state and rollback<br>machinery.</li>
+<li>Extend the implemented cumulative J2 serial checkpoint and event history<br>to portable MPI cell identity and multi-region state.</li>
+<li>Extend the implemented analytical J2 Golden path, physical forced cutback,<br>cyclic amplitude, S/PE/PEEQ/RF fields, and strong-displacement work/energy<br>history with projected visualization, mesh convergence, natural/affine work<br>definitions, and an external benchmark.</li>
+<li>Build global implicit creep by consuming the shared<br><code>QuadratureTransaction</code>, adaptive controller state, and rollback machinery.</li>
 <li>Let fatigue consume verified extracted histories; add a fatigue field only<br>after hotspot/element mapping and provenance are defined.</li>
 <li>Add load-controlled finite-strain examples for dead and follower pressure,<br>including tangent and sign checks.</li>
 </ol>

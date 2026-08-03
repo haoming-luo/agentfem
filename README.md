@@ -29,8 +29,9 @@ Study -> Model -> Mesh/Regions -> Fields -> Materials -> Loads/Constraints
 The current executable core covers linear and thermoelasticity, implicit heat
 transfer, Newmark/generalized-alpha and central-difference dynamics,
 Neo-Hookean finite strain, and a 3D small-strain J2 path with quadrature state,
-analytical consistent tangent, proportional force/displacement control,
-cutback, and serial restart. Power-law, Arrhenius, Kachanov--Rabotnov, and Sinh
+analytical consistent tangent, cyclic amplitude, physical-increment cutback,
+work/energy histories, and serial restart. Power-law, Arrhenius,
+Kachanov--Rabotnov, and Sinh
 creep relations are currently verified material-point tools; modified theta
 is a curve-projection tool; stress-life fatigue is a postprocessor. Those
 maturity levels remain deliberately distinct and queryable in code.
@@ -57,7 +58,11 @@ maturity levels remain deliberately distinct and queryable in code.
   can become tensors without making AgentFEM a replacement for PyTorch,
   neural-operator libraries, or PINN trainers.
 - One result path: solved fields, quantities, histories, visualization
-  artifacts, batch outputs, and training data share `SimulationResult`.
+  artifacts, batch outputs, verification claims, and training data share
+  `SimulationResult`.
+- Scientific trust is explicit: `computed`, `converged`, `verified`, and
+  `validated` are distinct; convergence studies and theory applicability are
+  machine-readable, and campaigns can exclude unverified training cases.
 - CAE mesh interoperability: inspect and convert supported external meshes
   while retaining named volume/boundary memberships in a conversion manifest.
 - Transparent layers: daily workflows use `models`, `fields`, `loads`,
@@ -222,7 +227,7 @@ Beginner and agent-generated workflows should prefer:
 from agentfem import studies, mesh, models, fields, materials, constitutive
 from agentfem import amplitudes, constraints, loads, operators, problems
 from agentfem import solvers, time, io, diagnostics
-from agentfem import campaigns, datasets, results, surrogates
+from agentfem import campaigns, datasets, results, surrogates, verification
 ```
 
 Lower-level modules such as `forms`, `assembly`, `spaces`, and `kernel` remain
