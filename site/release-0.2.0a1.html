@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AgentFEM 0.2.0a1 - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
+      <div class="tagline">AI-assisted finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
+<a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
+<a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
+<a class="" href="operator-contracts.html">Scientific Operator Contracts</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="platform-support.html">Platform and Optional Dependencies</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="scientific-verification.html">Scientific Trust and Verification</a>
+<a class="" href="licensing.html">Licensing</a>
+<a class="" href="publishing.html">Publishing</a>
+<a class="active" href="release-0.2.0a1.html">AgentFEM 0.2.0a1</a>
+<a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="agentfem-020a1">AgentFEM 0.2.0a1</h1>
+<p><strong>Released:</strong> 3 August 2026 <strong>Status:</strong> public alpha preview</p>
+<p>AgentFEM was initiated by Haoming Luo and open-sourced on GitHub in July 2026.</p>
+<p>Version 0.2.0a1 is the first public preview of AgentFEM as an AI-native finite-element platform rather than a collection of isolated helpers. It is a deliberately early release for researchers, engineers, and AI/CAE developers who want to test the workflow, inspect its design, and help shape the 0.2 series.</p>
+<h2 id="highlights">Highlights</h2>
+<ul>
+<li>A readable <code>Study -&gt; Model -&gt; Step -&gt; Result</code> FEM workflow for humans and<br>agents.</li>
+<li>Linear, nonlinear, thermal, implicit-dynamic, and explicit-dynamic<br>procedures on the current FEniCSx/PETSc/MPI kernel.</li>
+<li>Neo-Hookean finite strain and a global small-strain J2 path with quadrature<br>state, consistent tangent, physical cutback controls, cyclic loading,<br>energy histories, and serial restart.</li>
+<li>Abaqus C3D10 and equation import, external mesh conversion, and distributed<br>periodic workflows.</li>
+<li>Unified result, progress, checkpoint, Golden-benchmark, and quality-policy<br>evidence.</li>
+<li>Reproducible campaigns, scientific datasets, PyTorch adapters, surrogate<br>validation, applicability guards, and high-fidelity fallback.</li>
+<li>Versioned scientific knowledge cards, benchmark contracts, and explicit<br>capability maturity boundaries.</li>
+</ul>
+<h2 id="install">Install</h2>
+<p>Create the FEniCSx numerical environment first, then opt into the preview:</p>
+<pre><code>mamba create -n agentfem-env -c conda-forge \
+  python=3.11 fenics-dolfinx=0.11 mpich mpi4py petsc4py h5py
+mamba activate agentfem-env
+python -m pip install --pre agentfem</code></pre>
+<h2 id="release-evidence">Release Evidence</h2>
+<p>The tagged source is accepted only after:</p>
+<ul>
+<li>the source version, package version, and Git tag agree;</li>
+<li>the wheel and source distribution pass metadata and payload checks;</li>
+<li>the installed wheel passes serial and distributed FEniCSx tests;</li>
+<li>the two-rank MPI regression passes;</li>
+<li>the static, heat, creep, wave, and nonlinear release contracts pass; and</li>
+<li>a separate environment installs the official CPU-only PyTorch wheel and<br>verifies the optional simulation-to-learning interfaces.</li>
+</ul>
+<h2 id="honest-boundaries">Honest Boundaries</h2>
+<p>This alpha is not a universal CAE replacement. It does not claim global adaptive creep/damage, portable MPI restart for quadrature state, general UMAT/UHYPER binary compatibility, industrial code compliance, automatic arbitrary-mesh neural-operator training, or a complete native-Windows solver stack. WSL2 is the recommended Windows route.</p>
+<p>The 0.2 series will deepen the implemented workflows and their external benchmarks before expanding the public vocabulary indiscriminately.</p>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

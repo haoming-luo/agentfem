@@ -1,5 +1,5 @@
 site_name: AgentFEM
-site_description: AI-assisted finite-element simulation and agent-readable CAE workflows.
+site_description: AI-native finite-element workflows for humans and agents.
 repo_name: AgentFEM
 docs_dir: docs
 site_dir: site
@@ -46,4 +46,5 @@ nav:
       - Documentation Site: documentation_site.md
       - Licensing: licensing.md
       - Publishing: publishing.md
+      - AgentFEM 0.2.0a1: release_0.2.0a1.md
       - 26 August 2026 Release Gate: release_2026_08_26.md

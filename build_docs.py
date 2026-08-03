@@ -110,6 +110,11 @@ PAGES = [
     Page("Licensing", ROOT / "docs" / "licensing.md", SITE_DIR / "licensing.html"),
     Page("Publishing", ROOT / "docs" / "publishing.md", SITE_DIR / "publishing.html"),
     Page(
+        "AgentFEM 0.2.0a1",
+        ROOT / "docs" / "release_0.2.0a1.md",
+        SITE_DIR / "release-0.2.0a1.html",
+    ),
+    Page(
         "26 August 2026 Release Gate",
         ROOT / "docs" / "release_2026_08_26.md",
         SITE_DIR / "release-2026-08-26.html",
