@@ -71,6 +71,12 @@ jobs:
   ml-optional:
     name: Optional PyTorch bridge
     runs-on: ubuntu-latest
+    # Azure-hosted runners expose a MANA verbs device that UCX can select even
+    # though it cannot create the required UD queue pair.  The ML bridge only
+    # needs local/TCP MPI transports; pinning them also makes both library
+    # import orders deterministic on the hosted runner.
+    env:
+      UCX_TLS: tcp,sm,self
     defaults:
       run:
         shell: bash -el {0}
@@ -98,4 +104,5 @@ jobs:
       - name: Verify simulation-to-learning optional contracts
         run: |
           python -c "import torch, agentfem; print(torch.__version__, agentfem.__version__)"
+          python -c "import agentfem, torch; print(agentfem.__version__, torch.__version__)"
           python -m pytest tests/test_datasets.py tests/test_surrogates.py
