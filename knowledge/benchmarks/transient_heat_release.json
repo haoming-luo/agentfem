@@ -1,0 +1,41 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.transient_heat_release",
+  "title": "Implicit-Euler transient heat release regression",
+  "status": "numerical_regression",
+  "purpose": "Verify the first-order transient procedure, essential temperature constraints, complete execution trace, and deterministic release-smoke temperature response.",
+  "physics": "two-dimensional transient heat conduction with constant isotropic properties",
+  "execution": {
+    "command": "AGENTFEM_RELEASE_SMOKE=1 python examples/transient_heat_2d.py",
+    "example": "examples/transient_heat_2d.py",
+    "evidence": "Five implicit-Euler increments of ten seconds must complete and reproduce the versioned domain-average final temperature."
+  },
+  "observables": [
+    "All five time increments are present in the structured execution trace.",
+    "The essential hot and cold boundary temperatures remain prescribed.",
+    "The final domain-average temperature is finite and exceeds the initial value."
+  ],
+  "acceptance": [
+    "The example exits successfully in the tested FEniCSx environment.",
+    "The final domain-average temperature satisfies the versioned numerical tolerance.",
+    "The XDMF time series contains the requested saved frames."
+  ],
+  "golden": {
+    "reference_version": "q1-8x4-implicit-euler-5x10s-1",
+    "quantities": [
+      {
+        "name": "final_mean_temperature",
+        "expected": 304.3597110550187,
+        "relative_tolerance": 2e-9,
+        "absolute_tolerance": 1e-9,
+        "unit": "K",
+        "description": "Domain-average temperature after five 10-second implicit-Euler increments on the fixed 8-by-4 release mesh."
+      }
+    ]
+  },
+  "limitations": [
+    "This is a fixed-discretization regression, not a time-step or mesh-convergence study.",
+    "Temperature-dependent properties and convection/radiation are outside this benchmark."
+  ]
+}

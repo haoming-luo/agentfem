@@ -28,6 +28,8 @@ REQUIRED_WHEEL_MEMBERS = (
     "agentfem/dependencies.py",
     "agentfem/platforms.py",
     "agentfem/results/core.py",
+    "agentfem/results/execution.py",
+    "agentfem/benchmarks/golden.py",
     "agentfem/constitutive/creep.py",
     "agentfem/datasets/torch.py",
     "agentfem/surrogates/pinn_torch.py",

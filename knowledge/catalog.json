@@ -19,13 +19,13 @@
       "physics": "three-dimensional small-strain Mises plasticity with linear isotropic hardening",
       "source": "knowledge/benchmarks/j2_global_restart.json",
       "status": "automated_regression",
-      "title": "Three-dimensional J2 path, displacement control, and restart equivalence"
+      "title": "Three-dimensional J2 uniaxial path, displacement control, and restart equivalence"
     },
     {
       "id": "agentfem.benchmark.linear_static_cantilever",
       "physics": "small-strain isotropic linear elasticity in plane strain",
       "source": "knowledge/benchmarks/linear_static_cantilever.json",
-      "status": "executable_smoke",
+      "status": "numerical_regression",
       "title": "Two-dimensional linear-static cantilever"
     },
     {
@@ -41,6 +41,13 @@
       "source": "knowledge/benchmarks/thermoelastic_free_expansion.json",
       "status": "automated_regression",
       "title": "Plane-stress isotropic free thermal expansion"
+    },
+    {
+      "id": "agentfem.benchmark.transient_heat_release",
+      "physics": "two-dimensional transient heat conduction with constant isotropic properties",
+      "source": "knowledge/benchmarks/transient_heat_release.json",
+      "status": "numerical_regression",
+      "title": "Implicit-Euler transient heat release regression"
     }
   ],
   "cards": [
@@ -75,7 +82,7 @@
       ],
       "source": "knowledge/cards/j2_global_plasticity.json",
       "status": "supported",
-      "summary": "Three-dimensional Mises plasticity with linear isotropic hardening, Basix quadrature state, analytical algorithmic tangent, incremental Newton equilibrium, rollback, cutback, and serial restart.",
+      "summary": "Three-dimensional Mises plasticity with linear isotropic hardening, Basix quadrature state, analytical algorithmic tangent, incremental Newton equilibrium, rollback, cutback, cumulative serial restart, standard result fields, and energy diagnostics.",
       "title": "Global small-strain J2 plasticity"
     },
     {
@@ -126,6 +133,7 @@
         "agentfem.time.newmark",
         "agentfem.time.generalized_alpha",
         "agentfem.problems.LinearSystemProblem.reaction_field",
+        "agentfem.diagnostics.SolveEventRecorder",
         "agentfem.diagnostics.mechanical_energy",
         "agentfem.models.Model.step"
       ],

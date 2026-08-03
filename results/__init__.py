@@ -10,6 +10,7 @@ from .core import (
     from_solution,
 )
 from .quantities import average, integral, l2_norm, quadrature_extrema
+from .execution import add_execution_trace, execution_records
 from .finite_strain import (
     HomogenizedFrame,
     finite_strain_diagnostics,
@@ -72,6 +73,8 @@ __all__ = [
     "SolverHistoryRequest",
     "SourceNodeHistoryRequest",
     "dof_statistics",
+    "add_execution_trace",
+    "execution_records",
     "from_solution",
     "average",
     "integral",

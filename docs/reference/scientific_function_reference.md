@@ -23,10 +23,11 @@ the compact machine-readable `knowledge/catalog.json`.
 | --- | --- | --- | --- |
 | `agentfem.benchmark.campaign_surrogate_pipeline` | Static-elasticity campaign to guarded surrogate pipeline | parameterized small-strain isotropic linear elasticity | executable_integration |
 | `agentfem.benchmark.creep_damage_material_paths` | Creep-damage material paths and curve projection | Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection | automated_regression |
-| `agentfem.benchmark.j2_global_restart` | Three-dimensional J2 path, displacement control, and restart equivalence | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_regression |
-| `agentfem.benchmark.linear_static_cantilever` | Two-dimensional linear-static cantilever | small-strain isotropic linear elasticity in plane strain | executable_smoke |
+| `agentfem.benchmark.j2_global_restart` | Three-dimensional J2 uniaxial path, displacement control, and restart equivalence | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_regression |
+| `agentfem.benchmark.linear_static_cantilever` | Two-dimensional linear-static cantilever | small-strain isotropic linear elasticity in plane strain | numerical_regression |
 | `agentfem.benchmark.operator_contracts` | Operator role, system, and residual-linearization contracts | backend-facing finite-element operator algebra | automated |
 | `agentfem.benchmark.thermoelastic_free_expansion` | Plane-stress isotropic free thermal expansion | small-strain isotropic plane-stress thermoelasticity under uniform temperature change | automated_regression |
+| `agentfem.benchmark.transient_heat_release` | Implicit-Euler transient heat release regression | two-dimensional transient heat conduction with constant isotropic properties | numerical_regression |
 
 ## Creep damage and modified-theta assessment
 
@@ -147,7 +148,7 @@ Create KachanovRabotnovCreep with traceable parameters, advance CreepDamageState
 **Status:** `supported`<br>
 **Source card:** `knowledge/cards/j2_global_plasticity.json`
 
-Three-dimensional Mises plasticity with linear isotropic hardening, Basix quadrature state, analytical algorithmic tangent, incremental Newton equilibrium, rollback, cutback, and serial restart.
+Three-dimensional Mises plasticity with linear isotropic hardening, Basix quadrature state, analytical algorithmic tangent, incremental Newton equilibrium, rollback, cutback, cumulative serial restart, standard result fields, and energy diagnostics.
 
 ### Public API
 
@@ -197,6 +198,7 @@ Newton iterations use trial state based on the last committed increment.
 | S | quadrature tensor field | stress | Trial Cauchy stress used in the residual. |
 | PE and PEEQ | committed quadrature state | strain | Plastic strain tensor and equivalent plastic strain. |
 | DDSDDE | fourth-order quadrature tensor field | stress per strain | Analytical algorithmic consistent tangent. |
+| RF and internal-energy diagnostics | nodal residual field and scalar result quantities | force and energy | Full nodal residual plus elastic, hardening, dissipated, and total internal-energy terms. |
 
 #### Assumptions
 
@@ -212,7 +214,7 @@ Newton iterations use trial state based on the last committed increment.
 
 #### Applicability
 
-- Monotone or cyclic small-strain 3D solid loading within the implemented hardening law.
+- Monotone proportional small-strain 3D solid loading within the implemented hardening law.
 - Laboratory-scale regression and research workflows requiring inspectable state.
 
 #### Limitations
@@ -241,7 +243,7 @@ Register J2LinearIsotropicHardening in a 3D nonlinear_static Model, add supports
 
 - Reject non-3D and multi-rank global use.
 - Reject nonphysical material parameters.
-- Commit state only after convergence and restore both field and history after failure.
+- Commit state only after convergence and restore field, constitutive state, accepted/attempt histories, and execution events after restart.
 
 ### References
 
@@ -481,6 +483,7 @@ Separates physical analysis intent from Standard/Explicit selection, equation or
 - `agentfem.time.newmark`
 - `agentfem.time.generalized_alpha`
 - `agentfem.problems.LinearSystemProblem.reaction_field`
+- `agentfem.diagnostics.SolveEventRecorder`
 - `agentfem.diagnostics.mechanical_energy`
 - `agentfem.models.Model.step`
 
@@ -518,6 +521,7 @@ Algorithmic parameters control stability, accuracy, and high-frequency dissipati
 | step summary | structured procedure record | none | Records family, order, algorithm, control, statefulness, and solve requirements. |
 | advanced state | field state and convergence evidence | problem dependent | Accepted displacement, velocity, acceleration, temperature, or material state. |
 | reaction and mechanical energy diagnostics | nodal residual field and scalar energy record | force and energy | Strong-constraint reactions and visible M/K quadratic energies for supported systems. |
+| execution trace | ordered JSON-safe SolveEvent records | problem dependent | One source for progress, status files, result histories, failures, and agent monitoring. |
 
 #### Assumptions
 
@@ -530,6 +534,7 @@ Algorithmic parameters control stability, accuracy, and high-frequency dissipati
 - Standard means a global implicit/assembled solution route, not an Abaqus compatibility claim.
 - Explicit means no global linear solve at each time increment.
 - Step, increment, iteration, attempt, and output frame remain distinct.
+- Display cadence never removes an accepted or failed event from the execution trace.
 
 #### Applicability
 
@@ -539,7 +544,7 @@ Algorithmic parameters control stability, accuracy, and high-frequency dissipati
 
 - Nonlinear implicit structural dynamics is not implemented.
 - Moving-support kinematics for implicit dynamics are not implemented.
-- Explicit and implicit transient steps do not yet share the complete OutputPlan manifest.
+- Explicit and implicit transient steps share execution/result evidence but not yet the complete field/energy/checkpoint OutputPlan.
 
 ### Minimal example
 

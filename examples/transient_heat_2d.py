@@ -7,6 +7,7 @@ import os
 import sys
 
 import numpy as np
+import ufl
 from mpi4py import MPI
 
 SOURCE_PARENT = Path(__file__).resolve().parents[2]
@@ -16,16 +17,18 @@ if (
 ):
     sys.path.insert(0, str(SOURCE_PARENT))
 
+from agentfem import benchmarks
 from agentfem import constitutive
 from agentfem import fields
 from agentfem import mesh as fem_mesh
 from agentfem import models
+from agentfem import results
 from agentfem import studies
 from agentfem.diagnostics import print_on_root
 from agentfem.solvers import LinearSolverOptions
 
 
-def main() -> None:
+def main() -> dict[str, float]:
     comm = MPI.COMM_WORLD
     smoke = os.environ.get("AGENTFEM_RELEASE_SMOKE") == "1"
     study = studies.first_order_transient(
@@ -79,11 +82,29 @@ def main() -> None:
 
     out = Path(__file__).resolve().parents[1] / "examples_output" / "transient_heat_2d.xdmf"
     step.run(output=out)
+    observables = {
+        "final_mean_temperature": results.average(
+            temperature.value,
+            measure=ufl.Measure("dx", domain=domain),
+        ),
+    }
+    if smoke:
+        benchmarks.golden_benchmark(
+            "agentfem.benchmark.transient_heat_release"
+        ).quantity("final_mean_temperature").assert_accepts(
+            observables["final_mean_temperature"]
+        )
 
     print_on_root(
         comm,
         f"Transient heat result: {out}; maxT={temperature.max_value():.3f}",
     )
+    print_on_root(
+        comm,
+        "Transient heat observable: "
+        f"meanT={observables['final_mean_temperature']:.16e}",
+    )
+    return observables
 
 
 if __name__ == "__main__":

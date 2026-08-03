@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
 from pathlib import Path
 
 import numpy as np
@@ -16,7 +17,12 @@ from .. import steps as step_controls
 from ..constitutive import elasticity
 from ..constitutive.plasticity import J2LinearIsotropicHardening
 from ..constitutive.quadrature import J2QuadratureState
-from ..diagnostics import StandardRunReporter, comm_of
+from ..diagnostics import (
+    SolveEventRecorder,
+    StandardRunReporter,
+    comm_of,
+    compose_reporters,
+)
 from ..solvers import (
     NewtonSolverOptions,
     SolveEvent,
@@ -39,6 +45,10 @@ class J2IncrementInfo:
     maximum_plastic_increment: float
 
     def as_dict(self) -> dict[str, object]:
+        def finite_or_none(value):
+            selected = float(value)
+            return selected if np.isfinite(selected) else None
+
         return {
             "increment": self.increment,
             "attempt": self.attempt,
@@ -47,11 +57,42 @@ class J2IncrementInfo:
             "increment_size": self.load_factor - self.start_load_factor,
             "converged": self.converged,
             "iterations": self.iterations,
-            "initial_residual_norm": self.initial_residual_norm,
-            "residual_norm": self.residual_norm,
+            "initial_residual_norm": finite_or_none(self.initial_residual_norm),
+            "residual_norm": finite_or_none(self.residual_norm),
             "plastic_points": self.plastic_points,
-            "maximum_plastic_increment": self.maximum_plastic_increment,
+            "maximum_plastic_increment": finite_or_none(
+                self.maximum_plastic_increment
+            ),
         }
+
+    @classmethod
+    def from_dict(cls, record: dict[str, object]) -> "J2IncrementInfo":
+        """Restore one increment record from a portable checkpoint."""
+
+        return cls(
+            increment=int(record["increment"]),
+            attempt=int(record["attempt"]),
+            start_load_factor=float(record["start_load_factor"]),
+            load_factor=float(record["load_factor"]),
+            converged=bool(record["converged"]),
+            iterations=int(record["iterations"]),
+            initial_residual_norm=(
+                float("inf")
+                if record["initial_residual_norm"] is None
+                else float(record["initial_residual_norm"])
+            ),
+            residual_norm=(
+                float("inf")
+                if record["residual_norm"] is None
+                else float(record["residual_norm"])
+            ),
+            plastic_points=int(record["plastic_points"]),
+            maximum_plastic_increment=(
+                float("inf")
+                if record["maximum_plastic_increment"] is None
+                else float(record["maximum_plastic_increment"])
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -108,6 +149,9 @@ class J2PlasticityStep:
     accepted_load_factor: float = field(default=0.0, init=False)
     last_solve_info: J2LoadPathInfo | None = field(default=None, init=False)
     checkpoints: list[object] = field(default_factory=list, init=False)
+    accepted_increments: list[J2IncrementInfo] = field(default_factory=list, init=False)
+    attempted_increments: list[J2IncrementInfo] = field(default_factory=list, init=False)
+    execution_events: list[object] = field(default_factory=list, init=False)
 
     def solve(self, *, until: float = 1.0):
         """Advance the load path, optionally stopping at a checkpoint factor."""
@@ -139,9 +183,12 @@ class J2PlasticityStep:
         self.load_factor.value = PETSc.ScalarType(accepted_factor)
         self._set_prescribed_factor(accepted_factor)
         while accepted_factor < selected_until - 1.0e-12:
-            increment = len(accepted) + 1
+            increment = len(self.accepted_increments) + len(accepted) + 1
             if isinstance(self.incrementation, step_controls.AutomaticIncrementation):
-                if len(accepted) >= self.incrementation.max_increments:
+                if (
+                    len(self.accepted_increments) + len(accepted)
+                    >= self.incrementation.max_increments
+                ):
                     raise RuntimeError(
                         "J2 load path reached max_increments before load factor 1."
                     )
@@ -216,11 +263,18 @@ class J2PlasticityStep:
             self.solution.x.array[:] = displacement_snapshot
             self.solution.x.scatter_forward()
             self.state.restore(state_snapshot)
+            self.load_factor.value = PETSc.ScalarType(accepted_factor)
             self._set_prescribed_factor(accepted_factor)
+            self.state.update(
+                self.state.evaluate_strain(elasticity.strain(self.solution)),
+                self.material,
+            )
             if not isinstance(
                 self.incrementation,
                 step_controls.AutomaticIncrementation,
             ):
+                self.accepted_increments.extend(accepted)
+                self.attempted_increments.extend(attempts)
                 self._fail(reporter, info, "fixed increment did not converge")
                 return self.solution
             consecutive_cutbacks += 1
@@ -231,6 +285,8 @@ class J2PlasticityStep:
                 consecutive_cutbacks > self.incrementation.max_cutbacks
                 or proposed_size < self.incrementation.minimum
             ):
+                self.accepted_increments.extend(accepted)
+                self.attempted_increments.extend(attempts)
                 self._fail(
                     reporter,
                     info,
@@ -253,19 +309,26 @@ class J2PlasticityStep:
                 ),
             )
 
+        self.accepted_increments.extend(accepted)
+        self.attempted_increments.extend(attempts)
         self.last_solve_info = J2LoadPathInfo(
-            tuple(accepted),
-            tuple(attempts),
+            tuple(self.accepted_increments),
+            tuple(self.attempted_increments),
             self.incrementation,
         )
         self._emit(
             reporter,
             SolveEvent(
-                "step_completed",
+                (
+                    "step_completed"
+                    if accepted_factor >= 1.0 - 1.0e-12
+                    else "step_paused"
+                ),
                 self.name,
                 step_number=self.step_number,
-                increment=len(accepted),
-                attempt=len(attempts),
+                increment=len(self.accepted_increments),
+                attempt=len(self.attempted_increments),
+                target_factor=accepted_factor,
             ),
         )
         return self.solution
@@ -279,22 +342,33 @@ class J2PlasticityStep:
                 "dof identities and are not implemented yet."
             )
         selected = Path(path)
+        if selected.suffix != ".npz":
+            selected = selected.with_suffix(".npz")
         selected.parent.mkdir(parents=True, exist_ok=True)
         state = self.state.snapshot()
         np.savez(
             selected,
-            schema="agentfem.j2-step-checkpoint.v1",
+            schema="agentfem.j2-step-checkpoint.v2",
             displacement=self.solution.x.array,
             accepted_load_factor=self.accepted_load_factor,
             plastic_strain=state["plastic_strain"],
             equivalent_plastic_strain=state["equivalent_plastic_strain"],
+            accepted_increments=json.dumps(
+                [item.as_dict() for item in self.accepted_increments]
+            ),
+            attempted_increments=json.dumps(
+                [item.as_dict() for item in self.attempted_increments]
+            ),
+            execution_events=json.dumps(
+                [event.as_dict() for event in self.execution_events]
+            ),
         )
         from ..results import CheckpointRecord
 
         record = CheckpointRecord(
             name=f"{self.name}_{self.accepted_load_factor:g}",
             path=selected,
-            schema="agentfem.j2-step-checkpoint.v1",
+            schema="agentfem.j2-step-checkpoint.v2",
             step_name=self.name,
             coordinate_name="load_factor",
             coordinate_value=self.accepted_load_factor,
@@ -316,7 +390,11 @@ class J2PlasticityStep:
                 "Portable distributed J2 checkpoints are not implemented yet."
             )
         with np.load(path, allow_pickle=False) as data:
-            if str(data["schema"]) != "agentfem.j2-step-checkpoint.v1":
+            schema = str(data["schema"])
+            if schema not in {
+                "agentfem.j2-step-checkpoint.v1",
+                "agentfem.j2-step-checkpoint.v2",
+            }:
                 raise ValueError("Unsupported J2 step checkpoint schema.")
             displacement = np.asarray(data["displacement"])
             if displacement.size != self.solution.x.array.size:
@@ -336,11 +414,40 @@ class J2PlasticityStep:
                 self.accepted_load_factor
             )
             self._set_prescribed_factor(self.accepted_load_factor)
+            self.accepted_increments.clear()
+            self.attempted_increments.clear()
+            self.execution_events.clear()
+            if schema == "agentfem.j2-step-checkpoint.v2":
+                self.accepted_increments.extend(
+                    J2IncrementInfo.from_dict(item)
+                    for item in json.loads(str(data["accepted_increments"]))
+                )
+                self.attempted_increments.extend(
+                    J2IncrementInfo.from_dict(item)
+                    for item in json.loads(str(data["attempted_increments"]))
+                )
+                self.execution_events.extend(
+                    SolveEvent.from_dict(item)
+                    for item in json.loads(str(data["execution_events"]))
+                )
+            self.last_solve_info = J2LoadPathInfo(
+                tuple(self.accepted_increments),
+                tuple(self.attempted_increments),
+                self.incrementation,
+            )
+            self.state.update(
+                self.state.evaluate_strain(elasticity.strain(self.solution)),
+                self.material,
+            )
 
     def solve_result(self):
-        from ..results import from_solution
+        from ..results import add_execution_trace, from_solution
 
-        solution = self.solve()
+        solution = (
+            self.solve()
+            if self.accepted_load_factor < 1.0 - 1.0e-12
+            else self.solution
+        )
         result = from_solution(
             solution,
             name=self.name,
@@ -350,9 +457,79 @@ class J2PlasticityStep:
                 "state": self.state.summary(),
             },
         )
+        add_execution_trace(result, self.execution_events)
+        result.add_field(
+            "S",
+            self.state.stress.function,
+            location="quadrature_points",
+            description="Cauchy stress at constitutive integration points.",
+        )
+        result.add_field(
+            "PE",
+            self.state.plastic_strain.function,
+            location="quadrature_points",
+            description="Plastic strain at constitutive integration points.",
+        )
+        result.add_field(
+            "PEEQ",
+            self.state.equivalent_plastic_strain.function,
+            location="quadrature_points",
+            description="Equivalent plastic strain at integration points.",
+        )
+        reaction = self.reaction_field()
+        result.add_field(
+            "RF",
+            reaction,
+            description="Full nodal residual for reaction extraction.",
+        )
+        peeq = self.state.equivalent_plastic_strain.values.reshape(-1)
+        result.add_quantities(
+            {
+                "maximum_equivalent_plastic_strain": float(np.max(peeq)),
+                "plastic_integration_points": int(np.count_nonzero(peeq > 1.0e-14)),
+                "reaction_l2_norm": float(np.linalg.norm(reaction.x.array)),
+                **self.internal_energy(),
+            },
+            kind="diagnostic",
+        )
         for checkpoint in self.checkpoints:
             result.add_checkpoint(checkpoint)
         return result
+
+    def internal_energy(self) -> dict[str, float]:
+        """Return elastic, hardening, dissipated, and total internal energy.
+
+        For linear isotropic hardening the hardening contribution is treated
+        as stored energy and ``yield_stress * PEEQ`` as rate-independent
+        plastic dissipation.  This is a state diagnostic, not an external-work
+        balance for a non-proportional loading history.
+        """
+
+        strain = elasticity.strain(self.solution)
+        plastic_strain = self.state.plastic_strain.function
+        peeq = self.state.equivalent_plastic_strain.function
+        stress = self.state.stress.function
+        elastic_density = 0.5 * ufl.inner(
+            stress,
+            strain - plastic_strain,
+        )
+        hardening_density = 0.5 * self.material.hardening_modulus * peeq**2
+        dissipation_density = self.material.yield_stress * peeq
+        values = []
+        for density in (
+            elastic_density,
+            hardening_density,
+            dissipation_density,
+        ):
+            local = fem.assemble_scalar(fem.form(density * self.state.measure))
+            values.append(float(self.state.domain.comm.allreduce(local)))
+        elastic, hardening, dissipation = values
+        return {
+            "elastic_strain_energy": elastic,
+            "isotropic_hardening_energy": hardening,
+            "plastic_dissipation": dissipation,
+            "internal_energy": elastic + hardening + dissipation,
+        }
 
     def reaction_field(self, *, name: str = "RF"):
         """Return the converged full residual as a nodal reaction field."""
@@ -531,14 +708,18 @@ class J2PlasticityStep:
         return residual, float(residual.norm())
 
     def _reporter(self):
+        recorder = SolveEventRecorder(self.execution_events)
         if self.progress is True:
-            return StandardRunReporter(
-                comm_of(self.solution),
-                status_file=self.status_file,
+            return compose_reporters(
+                recorder,
+                StandardRunReporter(
+                    comm_of(self.solution),
+                    status_file=self.status_file,
+                ),
             )
         if self.progress in (False, None):
-            return None
-        return self.progress
+            return recorder
+        return compose_reporters(recorder, self.progress)
 
     def _set_prescribed_factor(self, factor: float) -> None:
         """Scale nonzero engineering Dirichlet targets with the step factor.
@@ -581,8 +762,8 @@ class J2PlasticityStep:
             ),
         )
         self.last_solve_info = J2LoadPathInfo(
-            (),
-            (info,),
+            tuple(self.accepted_increments),
+            tuple(self.attempted_increments),
             self.incrementation,
         )
         if self.solver_options.error_if_not_converged:

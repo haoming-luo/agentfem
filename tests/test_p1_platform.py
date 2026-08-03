@@ -6,12 +6,14 @@ from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 
 from agentfem import (
+    benchmarks,
     constitutive,
     diagnostics,
     fields,
     mesh,
     models,
     procedures,
+    results,
     solvers,
     steps,
     studies,
@@ -85,6 +87,7 @@ def test_global_j2_checkpoint_restart_matches_uninterrupted_path(tmp_path):
     checkpoint = partial.save_checkpoint(tmp_path / "j2_restart.npz")
     assert checkpoint.with_suffix(".npz.checkpoint.json").is_file()
     assert partial.checkpoints[0].portable is False
+    assert partial.execution_events[-1].kind == "step_paused"
 
     restarted, restarted_u = _j2_patch()
     restarted.load_checkpoint(checkpoint)
@@ -105,6 +108,34 @@ def test_global_j2_checkpoint_restart_matches_uninterrupted_path(tmp_path):
         rtol=2.0e-8,
         atol=2.0e-10,
     )
+    assert [
+        item.load_factor for item in restarted.last_solve_info.increments
+    ] == pytest.approx([0.25, 0.5, 0.75, 1.0])
+
+
+def test_global_j2_uniaxial_path_matches_versioned_analytical_golden():
+    step, _ = _j2_uniaxial_patch()
+    simulation = step.solve_result()
+    golden = benchmarks.golden_benchmark(
+        "agentfem.benchmark.j2_global_restart"
+    )
+    actual = {
+        "mean_axial_stress": results.average(
+            step.state.stress.function[0, 0],
+            measure=step.state.measure,
+        ),
+        "mean_equivalent_plastic_strain": results.average(
+            step.state.equivalent_plastic_strain.function,
+            measure=step.state.measure,
+        ),
+    }
+
+    assert all(golden.verify(actual).values())
+    assert simulation.quantity("internal_energy") > 0.0
+    assert simulation.quantity("plastic_dissipation") > 0.0
+    assert {"S", "PE", "PEEQ", "RF"} <= set(simulation.fields)
+    assert len(simulation.histories["newton_iterations"].values) == 4
+    assert simulation.metadata["execution"]["event_count"] > 4
 
 
 def test_global_j2_proportionally_applies_prescribed_displacement():
@@ -121,7 +152,7 @@ def test_global_j2_proportionally_applies_prescribed_displacement():
     assert np.max(displacement.value.x.array) == pytest.approx(0.005)
 
 
-def test_implicit_dynamics_provider_runs_newmark_and_records_procedure():
+def test_implicit_dynamics_provider_runs_newmark_and_records_procedure(tmp_path):
     domain = mesh.rectangle(
         (0.0, 0.0),
         (1.0, 0.2),
@@ -164,11 +195,21 @@ def test_implicit_dynamics_provider_runs_newmark_and_records_procedure():
         dt=1.0e-3,
         steps=3,
         progress=False,
+        status_file=tmp_path / "implicit.sta",
     )
     step.run()
 
     assert step.procedure.algorithm == "newmark"
     assert np.max(np.abs(step.state.u.value.x.array)) > 0.0
+    simulation = step.solve_result()
+    time_events = [
+        event for event in step.execution_events
+        if event.kind == "time_increment"
+    ]
+    assert len(time_events) == 3
+    assert simulation.histories["accepted_increment"].latest == 3.0
+    assert simulation.metadata["execution"]["event_count"] == 5
+    assert not (tmp_path / "implicit.sta").exists()
 
 
 def test_thermoelastic_material_arrhenius_creep_and_free_expansion():
@@ -388,6 +429,67 @@ def _j2_displacement_patch():
         solver_options=solvers.newton(
             relative_tolerance=1.0e-8,
             absolute_tolerance=1.0e-9,
+            maximum_iterations=20,
+            line_search="backtracking",
+        ),
+        progress=False,
+    )
+    return step, displacement
+
+
+def _j2_uniaxial_patch():
+    """Homogeneous bar with free Poisson contraction and removed rigid modes."""
+
+    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    study = studies.nonlinear_static(
+        physics="solid_mechanics",
+        dimension=3,
+    )
+    model = models.create(study=study, mesh=domain, name="j2_uniaxial_golden")
+    displacement = model.field(fields.displacement(domain))
+    material = model.material(
+        constitutive.J2LinearIsotropicHardening(
+            young=200.0e3,
+            poisson=0.3,
+            yield_stress=200.0,
+            hardening_modulus=2.0e3,
+        )
+    )
+    left = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[0], 0.0),
+        name="left",
+        tag=1,
+    )
+    right = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[0], 1.0),
+        name="right",
+        tag=2,
+    )
+    y_symmetry = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[1], 0.0),
+        name="y_symmetry",
+        tag=3,
+    )
+    z_symmetry = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[2], 0.0),
+        name="z_symmetry",
+        tag=4,
+    )
+    model.fix(displacement, on=left, component=0, value=0.0)
+    model.fix(displacement, on=y_symmetry, component=1, value=0.0)
+    model.fix(displacement, on=z_symmetry, component=2, value=0.0)
+    model.fix(displacement, on=right, component=0, value=0.005)
+    step = model.step(
+        target=displacement,
+        material=material,
+        incrementation=steps.fixed(4),
+        solver_options=solvers.newton(
+            relative_tolerance=1.0e-9,
+            absolute_tolerance=1.0e-10,
             maximum_iterations=20,
             line_search="backtracking",
         ),

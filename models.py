@@ -835,6 +835,7 @@ class Model:
         save_every: int | None = None,
         print_every: int | None = None,
         progress=True,
+        status_file=None,
         name: str = "transient_heat",
     ):
         """Create an implicit-Euler transient heat-transfer step."""
@@ -900,6 +901,7 @@ class Model:
             save_every=save_every,
             print_every=print_every,
             progress=progress,
+            status_file=status_file,
             name=name,
         )
         return self.add_step(step)
@@ -1116,6 +1118,8 @@ class Model:
         constraints=None,
         save_every: int | None = None,
         print_every: int | None = None,
+        progress=True,
+        status_file=None,
         name: str = "explicit_dynamics",
     ):
         """Create and register a second-order explicit dynamics step."""
@@ -1143,6 +1147,8 @@ class Model:
             steps=steps,
             save_every=save_every,
             print_every=print_every,
+            progress=progress,
+            status_file=status_file,
             name=name,
         )
         return self.add_step(step)
@@ -1164,6 +1170,7 @@ class Model:
         solver_options=None,
         update_load=None,
         progress=True,
+        status_file=None,
         save_every: int | None = None,
         print_every: int | None = None,
         name: str = "implicit_dynamics",
@@ -1204,6 +1211,7 @@ class Model:
             solver_options=solver_options,
             update_load=update_load,
             progress=progress,
+            status_file=status_file,
             save_every=save_every,
             print_every=print_every,
             name=name,

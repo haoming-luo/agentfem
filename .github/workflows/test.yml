@@ -67,3 +67,35 @@ jobs:
         with:
           name: tested-python-package-distributions
           path: dist/
+
+  ml-optional:
+    name: Optional PyTorch bridge
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Create FEniCSx environment
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          activate-environment: agentfem-ml
+          environment-file: environment.yml
+          miniforge-version: latest
+          use-mamba: true
+          channels: conda-forge
+          channel-priority: strict
+
+      - name: Install the wheel and official CPU-only PyTorch build
+        run: |
+          python -m pip install --upgrade build
+          python -m build --wheel
+          python -m pip install --no-deps --force-reinstall dist/*.whl
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Verify simulation-to-learning optional contracts
+        run: |
+          python -c "import torch, agentfem; print(torch.__version__, agentfem.__version__)"
+          python -m pytest tests/test_datasets.py tests/test_surrogates.py

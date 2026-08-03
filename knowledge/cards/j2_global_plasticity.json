@@ -5,7 +5,7 @@
   "title": "Global small-strain J2 plasticity",
   "kind": "material",
   "status": "supported",
-  "summary": "Three-dimensional Mises plasticity with linear isotropic hardening, Basix quadrature state, analytical algorithmic tangent, incremental Newton equilibrium, rollback, cutback, and serial restart.",
+  "summary": "Three-dimensional Mises plasticity with linear isotropic hardening, Basix quadrature state, analytical algorithmic tangent, incremental Newton equilibrium, rollback, cutback, cumulative serial restart, standard result fields, and energy diagnostics.",
   "public_api": [
     "agentfem.constitutive.J2LinearIsotropicHardening",
     "agentfem.constitutive.J2QuadratureState",
@@ -68,6 +68,12 @@
         "type": "fourth-order quadrature tensor field",
         "unit_role": "stress per strain",
         "description": "Analytical algorithmic consistent tangent."
+      },
+      {
+        "name": "RF and internal-energy diagnostics",
+        "type": "nodal residual field and scalar result quantities",
+        "unit_role": "force and energy",
+        "description": "Full nodal residual plus elastic, hardening, dissipated, and total internal-energy terms."
       }
     ],
     "assumptions": [
@@ -81,7 +87,7 @@
       "The normalized load factor runs from zero to one."
     ],
     "applicability": [
-      "Monotone or cyclic small-strain 3D solid loading within the implemented hardening law.",
+      "Monotone proportional small-strain 3D solid loading within the implemented hardening law.",
       "Laboratory-scale regression and research workflows requiring inspectable state."
     ],
     "limitations": [
@@ -106,7 +112,7 @@
     "validation_rules": [
       "Reject non-3D and multi-rank global use.",
       "Reject nonphysical material parameters.",
-      "Commit state only after convergence and restore both field and history after failure."
+      "Commit state only after convergence and restore field, constitutive state, accepted/attempt histories, and execution events after restart."
     ]
   },
   "references": [

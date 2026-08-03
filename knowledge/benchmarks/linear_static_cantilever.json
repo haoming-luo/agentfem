@@ -3,13 +3,13 @@
   "schema_version": "0.1.0",
   "id": "agentfem.benchmark.linear_static_cantilever",
   "title": "Two-dimensional linear-static cantilever",
-  "status": "executable_smoke",
+  "status": "numerical_regression",
   "purpose": "Exercise the model-first linear elasticity path, strong support, boundary traction, K/F system construction, PETSc solve, AF-IR export, and XDMF output.",
   "physics": "small-strain isotropic linear elasticity in plane strain",
   "execution": {
     "command": "python examples/static_elasticity_2d.py",
     "example": "examples/static_elasticity_2d.py",
-    "evidence": "The example must solve without validation errors and write finite displacement results plus an AF-IR record."
+    "evidence": "The example must solve without validation errors, reproduce the versioned maximum-displacement Golden value, and write finite displacement results plus an AF-IR record."
   },
   "observables": [
     "All displacement degrees of freedom are finite.",
@@ -20,10 +20,24 @@
   "acceptance": [
     "The example exits successfully in the tested FEniCSx environment.",
     "Model validation contains no errors before solve.",
-    "The output can be opened as an XDMF finite-element field."
+    "The output can be opened as an XDMF finite-element field.",
+    "The global maximum displacement satisfies the versioned absolute and relative tolerances."
   ],
+  "golden": {
+    "reference_version": "q2-40x8-plane-strain-1",
+    "quantities": [
+      {
+        "name": "maximum_displacement",
+        "expected": 0.0006792487164468967,
+        "relative_tolerance": 2e-9,
+        "absolute_tolerance": 1e-12,
+        "unit": "m",
+        "description": "Global maximum displacement magnitude for the fixed Q2 40-by-8 plane-strain release mesh and traction definition."
+      }
+    ]
+  },
   "limitations": [
-    "This is currently an executable integration smoke test, not a mesh-convergence or analytical-error benchmark.",
-    "A future benchmark revision should compare tip displacement and reaction against beam theory and a converged two-dimensional reference."
+    "The Golden value is a numerical regression for a fixed discretization, not a mesh-convergence or analytical-error benchmark.",
+    "A future benchmark revision should also compare reaction equilibrium and a converged two-dimensional reference."
   ]
 }

@@ -205,12 +205,21 @@ state updates, diagnostics, and output occur. Numerical execution still calls
 DOLFINx/PETSc directly in several places, which is appropriate until the plan
 interface has real use.
 
-### `diagnostics.py` and `io.py`
+### `diagnostics.py`, `results/`, and `io.py`
 
-These modules execute useful operations but do not yet form an evidence system.
-Diagnostics need units, acceptance criteria, time/step identity, and benchmark
-comparison. Output needs field/source identity, checksums, parallel/restart
-metadata, and a run manifest.
+These modules now form the beginning of an execution evidence system.
+`SolveEvent` is shared by terminal progress, status files, complete result
+traces, and accepted-increment histories across Standard, Explicit, heat, and
+J2 paths. Versioned Golden quantities add numerical acceptance criteria for
+selected release workflows. Remaining work includes field/source checksums,
+named regional reactions, external-work balances, transient checkpoints, and
+MPI-portable state identity.
+
+This clarifies an important architectural point: the proposed AIR layer is not
+one JSON document. In the working product it is the coordinated public
+language, validation contracts, structured execution evidence, scientific
+results, benchmark cards, knowledge assets, and adapters. AF-IR is one durable
+representation within that layer and should grow only with real consumers.
 
 ### Documentation skill and examples
 

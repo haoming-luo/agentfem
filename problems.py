@@ -489,7 +489,9 @@ class ExplicitDynamicsStep:
     print_every: int | None = None
     procedure: object | None = None
     progress: object = True
+    status_file: object | None = None
     accepted_times: list[float] = field(default_factory=list, init=False)
+    execution_events: list[object] = field(default_factory=list, init=False)
 
     def run(
         self,
@@ -507,7 +509,13 @@ class ExplicitDynamicsStep:
 
         selected_comm = comm if comm is not None else comm_of(self.state.u)
         selected_progress = self.progress if progress is None else progress
-        reporter = _transient_reporter(selected_progress, selected_comm)
+        self.execution_events.clear()
+        reporter = _transient_reporter(
+            selected_progress,
+            selected_comm,
+            self.execution_events,
+            self.status_file,
+        )
         self.accepted_times.clear()
         save_every = _save_interval(self.save_every, output=output, steps=self.steps)
         print_every = _print_interval(self.print_every, self.steps)
@@ -561,11 +569,15 @@ class ExplicitDynamicsStep:
         return self.state.u.value
 
     def solve_result(self):
-        from .results import from_solution
+        from .results import add_execution_trace, from_solution
 
-        solution = self.solve()
+        solution = (
+            self.state.u.value
+            if len(self.accepted_times) == self.steps
+            else self.solve()
+        )
         result = from_solution(solution, name=self.name, metadata={"step": self.summary()})
-        _add_transient_progress(result, self.accepted_times)
+        add_execution_trace(result, self.execution_events)
         return result
 
     def _advance_one(self, t: float) -> None:
@@ -624,7 +636,9 @@ class ImplicitDynamicsStep:
     print_every: int | None = None
     procedure: object | None = None
     progress: object = True
+    status_file: object | None = None
     accepted_times: list[float] = field(default_factory=list, init=False)
+    execution_events: list[object] = field(default_factory=list, init=False)
 
     def run(self, *, output=None, fields=(), progress=None, comm=None):
         """Advance the implicit dynamics step with standard progress output."""
@@ -634,7 +648,13 @@ class ImplicitDynamicsStep:
 
         selected_comm = comm if comm is not None else comm_of(self.state.u)
         selected_progress = self.progress if progress is None else progress
-        reporter = _transient_reporter(selected_progress, selected_comm)
+        self.execution_events.clear()
+        reporter = _transient_reporter(
+            selected_progress,
+            selected_comm,
+            self.execution_events,
+            self.status_file,
+        )
         self.accepted_times.clear()
         save_every = _save_interval(self.save_every, output=output, steps=self.steps)
         print_every = _print_interval(self.print_every, self.steps)
@@ -680,15 +700,19 @@ class ImplicitDynamicsStep:
         return self.state.u.value
 
     def solve_result(self):
-        from .results import from_solution
+        from .results import add_execution_trace, from_solution
 
-        solution = self.solve()
+        solution = (
+            self.state.u.value
+            if len(self.accepted_times) == self.steps
+            else self.solve()
+        )
         result = from_solution(
             solution,
             name=self.name,
             metadata={"step": self.summary()},
         )
-        _add_transient_progress(result, self.accepted_times)
+        add_execution_trace(result, self.execution_events)
         return result
 
     def _advance_one(self, time_value: float) -> None:
@@ -781,7 +805,9 @@ class FirstOrderTransientStep:
     print_every: int | None = None
     progress: object = True
     procedure: object | None = None
+    status_file: object | None = None
     accepted_times: list[float] = field(default_factory=list, init=False)
+    execution_events: list[object] = field(default_factory=list, init=False)
 
     def run(self, *, output=None, fields=(), progress=None, comm=None):
         from . import io
@@ -789,7 +815,13 @@ class FirstOrderTransientStep:
 
         selected_comm = comm if comm is not None else comm_of(self.current)
         selected_progress = self.progress if progress is None else progress
-        reporter = _transient_reporter(selected_progress, selected_comm)
+        self.execution_events.clear()
+        reporter = _transient_reporter(
+            selected_progress,
+            selected_comm,
+            self.execution_events,
+            self.status_file,
+        )
         self.accepted_times.clear()
         stepper = time.TimeStepper(
             total_steps=self.steps,
@@ -837,15 +869,19 @@ class FirstOrderTransientStep:
         return self.current
 
     def solve_result(self):
-        from .results import from_solution
+        from .results import add_execution_trace, from_solution
 
-        solution = self.solve()
+        solution = (
+            self.current
+            if len(self.accepted_times) == self.steps
+            else self.solve()
+        )
         result = from_solution(
             solution,
             name=self.name,
             metadata={"step": self.summary()},
         )
-        _add_transient_progress(result, self.accepted_times)
+        add_execution_trace(result, self.execution_events)
         return result
 
     def summary(self) -> dict[str, object]:
@@ -864,14 +900,24 @@ class FirstOrderTransientStep:
         }
 
 
-def _transient_reporter(progress, comm):
+def _transient_reporter(progress, comm, events, status_file=None):
+    from .diagnostics import SolveEventRecorder, compose_reporters
+
+    recorder = SolveEventRecorder(events)
     if progress is True:
         from .diagnostics import StandardRunReporter
 
-        return StandardRunReporter(comm, show_iterations=False)
+        return compose_reporters(
+            recorder,
+            StandardRunReporter(
+                comm,
+                status_file=status_file,
+                show_iterations=False,
+            ),
+        )
     if hasattr(progress, "emit"):
-        return progress
-    return None
+        return compose_reporters(recorder, progress)
+    return recorder
 
 
 def _emit_transient_started(reporter, step) -> None:
@@ -897,8 +943,6 @@ def _report_transient_increment(
     state,
     comm,
 ) -> None:
-    if not info.should_print:
-        return
     if reporter is not None:
         reporter.emit(
             SolveEvent(
@@ -907,10 +951,10 @@ def _report_transient_increment(
                 increment=info.index,
                 time=float(info.time),
                 total_increments=step.steps,
+                display=bool(info.should_print),
             )
         )
-        return
-    if callable(selected_progress):
+    if info.should_print and callable(selected_progress):
         from .diagnostics import print_on_root
 
         message = selected_progress(info, state)
@@ -931,19 +975,6 @@ def _emit_transient_completed(reporter, step) -> None:
             total_increments=step.steps,
         )
     )
-
-
-def _add_transient_progress(result, accepted_times) -> None:
-    times = np.asarray(accepted_times, dtype=float)
-    if times.size:
-        result.add_history(
-            "accepted_increment",
-            times,
-            np.arange(1, times.size + 1, dtype=float),
-            abscissa_name="time",
-            abscissa_unit="s",
-            description="Accepted time-integration increments.",
-        )
 
 
 @dataclass
@@ -1362,6 +1393,7 @@ def first_order_transient_run(
     save_every: int | None = None,
     print_every: int | None = None,
     progress=True,
+    status_file=None,
     name: str = "first_order_transient",
 ) -> FirstOrderTransientStep:
     """Create an executable implicit-Euler time step and loop."""
@@ -1395,6 +1427,7 @@ def first_order_transient_run(
         save_every=save_every,
         print_every=print_every,
         progress=progress,
+        status_file=status_file,
         procedure=procedures.implicit_euler(),
     )
 
@@ -1411,6 +1444,8 @@ def explicit_dynamics(
     constraints=(),
     save_every: int | None = None,
     print_every: int | None = None,
+    progress=True,
+    status_file=None,
     name: str = "explicit_dynamics",
 ) -> ExplicitDynamicsStep:
     """Create a second-order explicit dynamics step."""
@@ -1434,6 +1469,8 @@ def explicit_dynamics(
         steps=int(steps),
         save_every=None if save_every is None else int(save_every),
         print_every=None if print_every is None else int(print_every),
+        progress=progress,
+        status_file=status_file,
         procedure=procedures.central_difference(),
     )
 
@@ -1454,6 +1491,7 @@ def implicit_dynamics(
     solver_options: LinearSolverOptions | None = None,
     update_load=None,
     progress=True,
+    status_file=None,
     save_every: int | None = None,
     print_every: int | None = None,
     name: str = "implicit_dynamics",
@@ -1521,6 +1559,7 @@ def implicit_dynamics(
         save_every=save_every,
         print_every=print_every,
         progress=progress,
+        status_file=status_file,
         procedure=(
             procedures.newmark()
             if selected.method == "newmark"

@@ -132,6 +132,11 @@ Passing `status_file="job.sta"` adds a flushed, line-oriented status record.
 `progress=False` remains available for managed campaigns, but silence is not
 the interactive default.
 
+The same event is delivered to a complete in-memory trace before display
+filtering. Consequently `print_every=50` reduces terminal traffic but does not
+erase the other 49 accepted increments from the result manifest. Heat,
+explicit dynamics, implicit dynamics, and J2 use this same evidence contract.
+
 ## One logical field dataset
 
 The default finite-strain result consists of:
@@ -221,10 +226,11 @@ multiaxial damage model.
    to an ownership-safe directly deformed geometry product.
 2. Promote the implemented strong-BC reaction field and M/K energy diagnostic
    into named point/region histories; define affine/weak reactions separately.
-3. Extend the implemented J2 quadrature transaction from serial layout-bound
-   checkpoints to portable MPI cell identity and multi-region state.
-4. Add forced-cutback, reaction/energy, field-output, mesh-convergence, and
-   external J2 benchmark gates.
+3. Extend the implemented cumulative J2 serial checkpoint and event history
+   to portable MPI cell identity and multi-region state.
+4. Extend the implemented analytical J2 Golden path, S/PE/PEEQ/RF fields, and
+   internal-energy diagnostic with forced-cutback, projected visualization,
+   mesh-convergence, external-work balance, and an external benchmark.
 5. Build global implicit creep by consuming the same state and rollback
    machinery.
 6. Let fatigue consume verified extracted histories; add a fatigue field only

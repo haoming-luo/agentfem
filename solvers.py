@@ -374,7 +374,12 @@ class AffineLoadPathInfo:
 
 @dataclass(frozen=True)
 class SolveEvent:
-    """One structured event emitted by a nonlinear analysis step."""
+    """One structured event emitted by an analysis procedure.
+
+    Events are the common evidence stream for console progress, status files,
+    result manifests, and agent monitoring.  ``display`` controls only the
+    human progress view; recorders must retain the event regardless.
+    """
 
     kind: str
     step_name: str
@@ -391,6 +396,58 @@ class SolveEvent:
     message: str = ""
     time: float | None = None
     total_increments: int = 0
+    display: bool = True
+
+    def as_dict(self) -> dict[str, object]:
+        """Return a JSON-safe, stable execution-event record."""
+
+        def finite_or_none(value):
+            if value is None:
+                return None
+            selected = float(value)
+            return selected if isfinite(selected) else None
+
+        return {
+            "kind": self.kind,
+            "step_name": self.step_name,
+            "step_number": int(self.step_number),
+            "increment": int(self.increment),
+            "attempt": int(self.attempt),
+            "start_factor": float(self.start_factor),
+            "target_factor": float(self.target_factor),
+            "iteration": int(self.iteration),
+            "residual_norm": finite_or_none(self.residual_norm),
+            "step_length": finite_or_none(self.step_length),
+            "next_increment": finite_or_none(self.next_increment),
+            "incrementation": self.incrementation,
+            "message": self.message,
+            "time": finite_or_none(self.time),
+            "total_increments": int(self.total_increments),
+            "display": bool(self.display),
+        }
+
+    @classmethod
+    def from_dict(cls, record: dict[str, object]) -> "SolveEvent":
+        """Restore a recorded event from a result or checkpoint manifest."""
+
+        return cls(
+            kind=str(record["kind"]),
+            step_name=str(record["step_name"]),
+            step_number=int(record.get("step_number", 1)),
+            increment=int(record.get("increment", 0)),
+            attempt=int(record.get("attempt", 0)),
+            start_factor=float(record.get("start_factor", 0.0)),
+            target_factor=float(record.get("target_factor", 0.0)),
+            iteration=int(record.get("iteration", 0)),
+            residual_norm=record.get("residual_norm"),
+            step_length=record.get("step_length"),
+            next_increment=record.get("next_increment"),
+            incrementation=str(record.get("incrementation", "")),
+            message=str(record.get("message", "")),
+            time=record.get("time"),
+            total_increments=int(record.get("total_increments", 0)),
+            display=bool(record.get("display", True)),
+        )
 
 
 def create_ksp(comm, options: LinearSolverOptions | None = None):

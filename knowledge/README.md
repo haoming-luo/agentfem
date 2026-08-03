@@ -31,6 +31,11 @@ It should provide:
 8. validation and AF-IR/capability consequences;
 9. Skill routing when an agent must make a scientific choice.
 
+For analysis procedures, completion also requires structured execution
+evidence. Progress text, result histories, status files, and agent monitoring
+must consume the same event stream; an implementation must not hide failed
+attempts or silently omit increments that were not printed.
+
 Run:
 
 ```bash

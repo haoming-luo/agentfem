@@ -12,6 +12,7 @@ from mpi4py import MPI
 import pytest
 
 from agentfem import campaigns, datasets, mesh, results
+from agentfem.solvers import SolveEvent
 from agentfem.results.finite_strain import HomogenizedFrame
 
 
@@ -60,6 +61,40 @@ def test_written_manifest_uses_portable_paths_for_local_artifacts(tmp_path):
 
     assert saved["artifacts"] == {"fields": "fields.h5"}
     assert result.summary()["artifacts"]["fields"] == str(artifact)
+
+
+def test_execution_trace_preserves_hidden_and_failed_evidence_in_manifest(tmp_path):
+    simulation = results.SimulationResult("auditable")
+    events = (
+        SolveEvent("transient_started", "heat", total_increments=2),
+        SolveEvent(
+            "time_increment",
+            "heat",
+            increment=1,
+            time=0.1,
+            total_increments=2,
+            display=False,
+        ),
+        SolveEvent(
+            "step_failed",
+            "heat",
+            increment=2,
+            residual_norm=float("inf"),
+            message="synthetic failure",
+        ),
+    )
+
+    results.add_execution_trace(simulation, events)
+    manifest = simulation.write_manifest(
+        tmp_path / "result.json",
+        include_histories=True,
+    )
+    saved = json.loads(manifest.read_text(encoding="utf-8"))
+
+    assert saved["metadata"]["execution"]["event_count"] == 3
+    assert saved["metadata"]["execution"]["events"][1]["display"] is False
+    assert saved["metadata"]["execution"]["events"][2]["residual_norm"] is None
+    assert saved["history_records"][0]["sample_count"] == 1
 
 
 def test_checkpoint_is_a_typed_result_asset_with_portability_boundary(tmp_path):

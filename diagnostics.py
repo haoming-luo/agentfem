@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from time import monotonic
 from typing import Callable
@@ -79,7 +79,7 @@ class StandardRunReporter:
     def emit(self, event) -> None:
         """Report one solver event; non-root ranks remain silent."""
 
-        if self.comm.rank != 0:
+        if self.comm.rank != 0 or not getattr(event, "display", True):
             return
         elapsed = monotonic() - self._started
         kind = event.kind
@@ -145,6 +145,17 @@ class StandardRunReporter:
                 f"{event.step_number} {event.increment} {event.attempt} "
                 f"1 0 0 0 COMPLETED {elapsed:.6f}"
             )
+        elif kind == "step_paused":
+            self._print(
+                f"[STEP {event.step_number}] PAUSED "
+                f"| increments={event.increment} "
+                f"| load_factor={event.target_factor:.6g} "
+                f"| elapsed={elapsed:.1f}s"
+            )
+            self._write_status(
+                f"{event.step_number} {event.increment} {event.attempt} "
+                f"{event.target_factor:.16g} 0 0 0 PAUSED {elapsed:.6f}"
+            )
         elif kind == "step_failed":
             self._print(
                 f"[STEP {event.step_number}] FAILED | {event.message}"
@@ -194,6 +205,55 @@ class StandardRunReporter:
             stream.write(line + "\n")
             stream.flush()
         self._status_initialized = True
+
+
+@dataclass
+class SolveEventRecorder:
+    """In-memory structured execution trace shared by every procedure.
+
+    Unlike a progress printer, the recorder retains events whose ``display``
+    flag is false.  This distinction lets long jobs print sparsely without
+    discarding accepted increments or failure evidence.
+    """
+
+    events: list[object] = field(default_factory=list)
+
+    def emit(self, event) -> None:
+        self.events.append(event)
+
+    def clear(self) -> None:
+        self.events.clear()
+
+    def records(self) -> tuple[dict[str, object], ...]:
+        return tuple(
+            event.as_dict() if hasattr(event, "as_dict") else dict(event)
+            for event in self.events
+        )
+
+
+@dataclass(frozen=True)
+class ReporterGroup:
+    """Fan one solver event out to several independent consumers."""
+
+    reporters: tuple[object, ...]
+
+    def emit(self, event) -> None:
+        for reporter in self.reporters:
+            if hasattr(reporter, "emit"):
+                reporter.emit(event)
+            else:
+                reporter(event)
+
+
+def compose_reporters(*reporters) -> object | None:
+    """Compose progress, persistence, and agent observers without coupling."""
+
+    selected = tuple(reporter for reporter in reporters if reporter is not None)
+    if not selected:
+        return None
+    if len(selected) == 1:
+        return selected[0]
+    return ReporterGroup(selected)
 
 
 def _number(value) -> str:

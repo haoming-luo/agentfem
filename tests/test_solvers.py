@@ -3,7 +3,11 @@ from __future__ import annotations
 import pytest
 
 from agentfem import steps
-from agentfem.diagnostics import StandardRunReporter
+from agentfem.diagnostics import (
+    SolveEventRecorder,
+    StandardRunReporter,
+    compose_reporters,
+)
 from agentfem.solvers import (
     LinearSolverOptions,
     NewtonSolverOptions,
@@ -149,3 +153,31 @@ def test_standard_reporter_flushes_concise_status_and_iteration_text(
     assert "[INC 1 | ATT 1]" in console
     assert "ITER 01" in console
     assert "CONVERGED" in status.read_text(encoding="utf-8")
+
+
+def test_hidden_progress_event_is_recorded_but_not_printed(capsys):
+    comm = type("Comm", (), {"rank": 0})()
+    recorder = SolveEventRecorder()
+    reporter = compose_reporters(
+        recorder,
+        StandardRunReporter(comm, show_iterations=False),
+    )
+    event = SolveEvent(
+        "time_increment",
+        "heat",
+        increment=2,
+        time=0.2,
+        total_increments=4,
+        display=False,
+    )
+
+    reporter.emit(event)
+
+    assert capsys.readouterr().out == ""
+    assert recorder.records()[0]["time"] == 0.2
+    assert SolveEvent.from_dict(event.as_dict()) == event
+    assert SolveEvent(
+        "iteration",
+        "nonlinear",
+        residual_norm=float("inf"),
+    ).as_dict()["residual_norm"] is None

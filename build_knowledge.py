@@ -309,6 +309,44 @@ def _validate_benchmark(source: Path, benchmark: Mapping[str, object]) -> list[s
         errors,
         allow_empty=True,
     )
+    golden = benchmark.get("golden")
+    if golden is not None:
+        selected = _mapping(golden, f"{label}.golden", errors)
+        if selected is not None:
+            _nonempty_string(
+                selected.get("reference_version"),
+                f"{label}.golden.reference_version",
+                errors,
+            )
+            quantities = selected.get("quantities")
+            if not isinstance(quantities, list) or not quantities:
+                errors.append(f"{label}.golden.quantities must be a non-empty list")
+            else:
+                names: set[str] = set()
+                for index, quantity in enumerate(quantities):
+                    path = f"{label}.golden.quantities[{index}]"
+                    row = _mapping(quantity, path, errors)
+                    if row is None:
+                        continue
+                    _nonempty_string(row.get("name"), f"{path}.name", errors)
+                    _nonempty_string(
+                        row.get("description"), f"{path}.description", errors
+                    )
+                    name = row.get("name")
+                    if isinstance(name, str):
+                        if name in names:
+                            errors.append(f"{path}.name is duplicated")
+                        names.add(name)
+                    for tolerance in ("relative_tolerance", "absolute_tolerance"):
+                        value = row.get(tolerance)
+                        if not isinstance(value, (int, float)) or value < 0:
+                            errors.append(f"{path}.{tolerance} must be nonnegative")
+                    expected = row.get("expected")
+                    values = expected if isinstance(expected, list) else [expected]
+                    if not values or any(
+                        not isinstance(value, (int, float)) for value in values
+                    ):
+                        errors.append(f"{path}.expected must contain numeric values")
     return errors
 
 

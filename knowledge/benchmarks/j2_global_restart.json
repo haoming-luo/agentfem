@@ -2,14 +2,14 @@
   "schema": "agentfem.benchmark-card",
   "schema_version": "0.1.0",
   "id": "agentfem.benchmark.j2_global_restart",
-  "title": "Three-dimensional J2 path, displacement control, and restart equivalence",
+  "title": "Three-dimensional J2 uniaxial path, displacement control, and restart equivalence",
   "status": "automated_regression",
   "purpose": "Verify that the local radial return, analytical algorithmic tangent, quadrature state, global Newton path, commit policy, and checkpoint restoration operate as one path-dependent finite-element procedure.",
   "physics": "three-dimensional small-strain Mises plasticity with linear isotropic hardening",
   "execution": {
-    "command": "python -m pytest -q tests/test_p1_platform.py::test_global_j2_checkpoint_restart_matches_uninterrupted_path",
+    "command": "python -m pytest -q tests/test_p1_platform.py -k 'global_j2'",
     "example": "examples/j2_plasticity_3d.py",
-    "evidence": "An uninterrupted four-increment traction path and a path restarted after load factor 0.5 must recover the same displacement and PEEQ arrays."
+    "evidence": "An uninterrupted path and a path restarted after load factor 0.5 must recover the same displacement, PEEQ, and complete increment history; a homogeneous displacement-controlled bar must reproduce the analytical uniaxial linear-hardening solution."
   },
   "observables": [
     "The final load factor is one and every accepted increment converges.",
@@ -23,6 +23,27 @@
     "The analytical tangent independently matches a centered derivative of the local return map.",
     "Committed state changes only after a converged global increment."
   ],
+  "golden": {
+    "reference_version": "uniaxial-linear-hardening-1",
+    "quantities": [
+      {
+        "name": "mean_axial_stress",
+        "expected": 207.92079207920793,
+        "relative_tolerance": 5e-6,
+        "absolute_tolerance": 1e-6,
+        "unit": "consistent stress unit",
+        "description": "Analytical stress at axial strain 0.005 for E=200000, initial yield stress 200, and isotropic hardening modulus 2000."
+      },
+      {
+        "name": "mean_equivalent_plastic_strain",
+        "expected": 0.0039603960396039604,
+        "relative_tolerance": 5e-6,
+        "absolute_tolerance": 1e-9,
+        "unit": null,
+        "description": "Analytical accumulated plastic strain from the one-dimensional consistency relation."
+      }
+    ]
+  },
   "limitations": [
     "This patch is a regression benchmark, not an external NAFEMS validation.",
     "The checkpoint is portable only for a serial run with the same mesh and dof layout.",

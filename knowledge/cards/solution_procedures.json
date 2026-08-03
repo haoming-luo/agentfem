@@ -11,6 +11,7 @@
     "agentfem.time.newmark",
     "agentfem.time.generalized_alpha",
     "agentfem.problems.LinearSystemProblem.reaction_field",
+    "agentfem.diagnostics.SolveEventRecorder",
     "agentfem.diagnostics.mechanical_energy",
     "agentfem.models.Model.step"
   ],
@@ -67,6 +68,12 @@
         "type": "nodal residual field and scalar energy record",
         "unit_role": "force and energy",
         "description": "Strong-constraint reactions and visible M/K quadratic energies for supported systems."
+      },
+      {
+        "name": "execution trace",
+        "type": "ordered JSON-safe SolveEvent records",
+        "unit_role": "problem dependent",
+        "description": "One source for progress, status files, result histories, failures, and agent monitoring."
       }
     ],
     "assumptions": [
@@ -77,7 +84,8 @@
     "conventions": [
       "Standard means a global implicit/assembled solution route, not an Abaqus compatibility claim.",
       "Explicit means no global linear solve at each time increment.",
-      "Step, increment, iteration, attempt, and output frame remain distinct."
+      "Step, increment, iteration, attempt, and output frame remain distinct.",
+      "Display cadence never removes an accepted or failed event from the execution trace."
     ],
     "applicability": [
       "Selecting and inspecting current linear static, nonlinear static, heat-transfer, and structural-dynamics routes."
@@ -85,7 +93,7 @@
     "limitations": [
       "Nonlinear implicit structural dynamics is not implemented.",
       "Moving-support kinematics for implicit dynamics are not implemented.",
-      "Explicit and implicit transient steps do not yet share the complete OutputPlan manifest."
+      "Explicit and implicit transient steps share execution/result evidence but not yet the complete field/energy/checkpoint OutputPlan."
     ]
   },
   "usage": {

@@ -56,6 +56,42 @@
     },
     "limitations": {
       "type": "array"
+    },
+    "golden": {
+      "type": "object",
+      "required": ["reference_version", "quantities"],
+      "properties": {
+        "reference_version": {"type": "string", "minLength": 1},
+        "quantities": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "expected",
+              "relative_tolerance",
+              "absolute_tolerance",
+              "description"
+            ],
+            "properties": {
+              "name": {"type": "string", "minLength": 1},
+              "expected": {
+                "oneOf": [
+                  {"type": "number"},
+                  {"type": "array", "items": {"type": "number"}}
+                ]
+              },
+              "relative_tolerance": {"type": "number", "minimum": 0},
+              "absolute_tolerance": {"type": "number", "minimum": 0},
+              "unit": {"type": ["string", "null"]},
+              "description": {"type": "string", "minLength": 1}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

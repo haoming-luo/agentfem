@@ -16,6 +16,7 @@ if (
 ):
     sys.path.insert(0, str(SOURCE_PARENT))
 
+from agentfem import benchmarks
 from agentfem import fields
 from agentfem import io as fem_io
 from agentfem import mesh as fem_mesh
@@ -23,10 +24,11 @@ from agentfem import models
 from agentfem import studies
 from agentfem.constitutive import elasticity
 from agentfem.diagnostics import print_on_root
+from agentfem.diagnostics import max_magnitude
 from agentfem.solvers import LinearSolverOptions
 
 
-def main() -> None:
+def main() -> dict[str, float]:
     comm = MPI.COMM_WORLD
 
     # 1. Study: define the analysis type and mechanical assumption.
@@ -96,6 +98,15 @@ def main() -> None:
         },
     )
     step.solve()
+    observables = {
+        "maximum_displacement": max_magnitude(displacement.value),
+    }
+    golden = benchmarks.golden_benchmark(
+        "agentfem.benchmark.linear_static_cantilever"
+    )
+    golden.quantity("maximum_displacement").assert_accepts(
+        observables["maximum_displacement"]
+    )
 
     # 8. Output: write displacement to XDMF for ParaView.
     out = Path(__file__).resolve().parents[1] / "examples_output" / "static_elasticity_2d.xdmf"
@@ -106,6 +117,11 @@ def main() -> None:
     print_on_root(comm, model.tree())
     print_on_root(comm, f"AF-IR record: {ir_out}")
     print_on_root(comm, f"Static elasticity result: {out}")
+    print_on_root(
+        comm,
+        f"Static golden observable: max|U|={observables['maximum_displacement']:.16e}",
+    )
+    return observables
 
 
 if __name__ == "__main__":

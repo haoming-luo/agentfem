@@ -36,6 +36,15 @@ class BenchmarkSpec:
 
 _BENCHMARKS = (
     BenchmarkSpec(
+        identifier="linear_static_cantilever",
+        capability="linear_elasticity",
+        level="finite_element",
+        reference="knowledge/benchmarks/linear_static_cantilever.json",
+        criterion="fixed Q2 release mesh reproduces the versioned maximum displacement",
+        automated_test="python examples/static_elasticity_2d.py",
+        status="release_regression",
+    ),
+    BenchmarkSpec(
         identifier="operator_contracts",
         capability="operator_systems",
         level="interface",
@@ -83,8 +92,11 @@ _BENCHMARKS = (
         capability="j2_plasticity",
         level="finite_element",
         reference="knowledge/benchmarks/j2_global_restart.json",
-        criterion="uninterrupted and checkpoint/restarted paths recover U and PEEQ",
-        automated_test="tests/test_p1_platform.py::test_global_j2_checkpoint_restart_matches_uninterrupted_path",
+        criterion=(
+            "uninterrupted and checkpoint/restarted paths recover U, PEEQ, and "
+            "history; a uniaxial patch matches the analytical hardening path"
+        ),
+        automated_test="tests/test_p1_platform.py -k global_j2",
     ),
     BenchmarkSpec(
         identifier="thermoelastic_free_expansion",
@@ -93,6 +105,15 @@ _BENCHMARKS = (
         reference="knowledge/benchmarks/thermoelastic_free_expansion.json",
         criterion="free displacement equals alpha DeltaT L",
         automated_test="tests/test_p1_platform.py::test_thermoelastic_material_arrhenius_creep_and_free_expansion",
+    ),
+    BenchmarkSpec(
+        identifier="transient_heat_release",
+        capability="transient_heat",
+        level="finite_element",
+        reference="knowledge/benchmarks/transient_heat_release.json",
+        criterion="five implicit-Euler increments reproduce the versioned mean temperature",
+        automated_test="AGENTFEM_RELEASE_SMOKE=1 python examples/transient_heat_2d.py",
+        status="release_regression",
     ),
     BenchmarkSpec(
         identifier="creep_closed_forms",

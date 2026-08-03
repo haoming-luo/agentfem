@@ -22,6 +22,21 @@ Linear problems, engineering `AnalysisStep` objects, and nonlinear problems
 provide `solve_result()` while preserving the older `solve()` field-return
 contract.
 
+## One execution evidence stream
+
+Standard nonlinear, explicit, implicit-dynamic, first-order transient, and J2
+steps emit the same JSON-safe `SolveEvent` contract. The terminal, optional
+`.sta` status file, result histories, and complete manifest trace are views of
+that one stream. `print_every` changes only human display cadence: every
+accepted time increment remains in `result.metadata["execution"]`, while
+cutbacks and failed attempts remain auditable rather than being filtered out.
+
+This is important for both reproducibility and AI operation. An agent does not
+infer convergence by scraping prose, and a human does not receive a simplified
+story that differs from the machine record. Checkpoint state is still owned by
+each procedure; `CheckpointRecord` makes its schema and portability boundary
+visible without pretending every checkpoint is MPI-portable.
+
 ## Field output versus history output
 
 AgentFEM follows the established finite-element distinction:
@@ -155,10 +170,12 @@ optimizers, and training loops.
 
 ## Next Result Priorities
 
-1. reaction force/resultant extractors;
+1. named reaction force/resultant extractors beyond the current strong-BC and
+   J2 residual fields;
 2. named point and path probes;
 3. stress/strain projection for visualization;
-4. energy and balance diagnostics;
-5. checkpoint/restart manifests;
+4. external-work and energy-balance histories beyond the current linear and J2
+   internal-energy diagnostics;
+5. transient checkpoint writers and MPI-portable restart identity;
 6. mesh-independent field sampling for neural operators;
 7. scheduler executors that preserve identical case records.
