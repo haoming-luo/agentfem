@@ -7,17 +7,16 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 AgentFEM is an open-source platform for **AI-native finite-element computing**.
-It turns finite-element simulation from backend-oriented solver code into
-readable, reusable scientific workflows that humans and AI agents can build,
-inspect, run, and improve together.
+It explores how engineering simulation may evolve in the age of AI agents—from
+software designed primarily for human operation toward scientific workflows
+that humans and AI agents can jointly understand, construct, and improve.
 
 AgentFEM was initiated by Haoming Luo and open-sourced on GitHub in July 2026.
 
-Its immediate goal is practical: become a dependable and unusually usable
-open-source FEM tool for selected engineering analyses. Its longer-term
-proposition is that humans and increasingly capable AI agents will need a
-shared, inspectable way to build, check, communicate, and accumulate
-finite-element knowledge.
+Its immediate goal is practical: to become a dependable and unusually usable
+open-source FEM platform. Its longer-term vision is to turn finite-element
+simulation into an accessible, shared scientific workspace connecting
+engineering, computation, data, and AI.
 
 ## Why AgentFEM
 
@@ -49,10 +48,6 @@ finite-element knowledge.
 > structure will remain scarce. AgentFEM is being built so that finite-element
 > knowledge can be created, checked, communicated, and accumulated by humans
 > and AI agents together.
-
-AI-native does not mean replacing finite-element computation with AI. It means
-making the complete FEM workflow naturally operable by agents while keeping it
-clear, inspectable, and controllable for humans.
 
 ## What Works Today
 
