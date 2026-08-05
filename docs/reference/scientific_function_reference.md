@@ -914,7 +914,10 @@ Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell
 - `agentfem.results.project_piecewise`
 - `agentfem.results.small_strain_cell_fields`
 - `agentfem.results.small_strain_partition_fields`
+- `agentfem.results.field_extrema`
+- `agentfem.results.region_measure`
 - `agentfem.results.reaction_resultant`
+- `agentfem.mesh.tagged_boundary_region`
 - `agentfem.diagnostics.linear_static_energy`
 
 ### Scientific contract
@@ -956,7 +959,7 @@ The equality applies to a load ramped proportionally from zero when non-zero pre
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
-| standard fields | DG projected Functions named S, E, MISES, and optionally SENER | stress, strain, and energy density | Serial `solve_result(output=...)` stores these cell fields with nodal U on one Uniform Grid. |
+| standard fields | DG projected Functions named S, E, MISES, and optionally SENER | stress, strain, and energy density | Serial solve_result(output=...) stores these cell fields with nodal U on one Uniform Grid. |
 | resultant and energy closure | MPI-global scalar/vector and LinearStaticEnergy | force and energy | Compact engineering histories or verification quantities. |
 
 #### Assumptions
@@ -972,10 +975,8 @@ The equality applies to a load ramped proportionally from zero when non-zero pre
 - The engineering default is U/S/E/MISES; SENER is an explicit diagnostic request.
 - E means infinitesimal strain in a small-strain context.
 - Non-zero prescribed-displacement work is not silently included in proportional force work.
-- Imported physical boundaries use their facet tag for both strong topological
-  dof location and weak integration; an optional marker is audit evidence.
-- `field_extrema(..., location=True)` identifies its finite-element-dof
-  sampling, coordinate, rank, global dof, and DG0 cell where applicable.
+- Imported physical boundaries use their facet tag for both strong topological dof location and weak integration; an optional marker is audit evidence.
+- field_extrema(location=True) identifies its finite-element-dof sampling, coordinate, rank, global dof, and DG0 cell where applicable.
 
 #### Applicability
 

@@ -11,7 +11,10 @@
     "agentfem.results.project_piecewise",
     "agentfem.results.small_strain_cell_fields",
     "agentfem.results.small_strain_partition_fields",
+    "agentfem.results.field_extrema",
+    "agentfem.results.region_measure",
     "agentfem.results.reaction_resultant",
+    "agentfem.mesh.tagged_boundary_region",
     "agentfem.diagnostics.linear_static_energy"
   ],
   "implementation": [
@@ -57,7 +60,7 @@
         "name": "standard fields",
         "type": "DG projected Functions named S, E, MISES, and optionally SENER",
         "unit_role": "stress, strain, and energy density",
-        "description": "Fields can be written with the ordinary AgentFEM XDMF result writer."
+        "description": "Serial solve_result(output=...) stores these cell fields with nodal U on one Uniform Grid."
       },
       {
         "name": "resultant and energy closure",
@@ -76,7 +79,9 @@
       "DG0 result fields are discontinuous and are not extrapolated or averaged across neighboring cells or material boundaries.",
       "The engineering default is U/S/E/MISES; SENER is an explicit diagnostic request.",
       "E means infinitesimal strain in a small-strain context.",
-      "Non-zero prescribed-displacement work is not silently included in proportional force work."
+      "Non-zero prescribed-displacement work is not silently included in proportional force work.",
+      "Imported physical boundaries use their facet tag for both strong topological dof location and weak integration; an optional marker is audit evidence.",
+      "field_extrema(location=True) identifies its finite-element-dof sampling, coordinate, rank, global dof, and DG0 cell where applicable."
     ],
     "applicability": [
       "Linear small-strain solid mechanics, field visualization, reaction checks, and proportional load energy verification."
@@ -88,7 +93,7 @@
     ]
   },
   "usage": {
-    "minimal_example": "result = step.solve_result(output='solid.xdmf'); RF_x = results.reaction_resultant(step.problem, on=support, component=0)",
+    "minimal_example": "support = mesh.tagged_boundary_region(domain, facet_tags, tag=101, name='support')\nresult = step.solve_result(output='solid.xdmf')\nRF_x = results.reaction_resultant(step.problem, on=support, component=0)\npeak = results.field_extrema(result.fields['MISES'], location=True)",
     "examples": ["examples/static_elasticity_2d.py"]
   },
   "verification": {

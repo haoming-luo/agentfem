@@ -266,7 +266,10 @@
         "agentfem.results.project_piecewise",
         "agentfem.results.small_strain_cell_fields",
         "agentfem.results.small_strain_partition_fields",
+        "agentfem.results.field_extrema",
+        "agentfem.results.region_measure",
         "agentfem.results.reaction_resultant",
+        "agentfem.mesh.tagged_boundary_region",
         "agentfem.diagnostics.linear_static_energy"
       ],
       "related_cards": [

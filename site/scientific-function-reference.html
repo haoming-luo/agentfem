@@ -779,7 +779,10 @@
 <li><code>agentfem.results.project_piecewise</code></li>
 <li><code>agentfem.results.small_strain_cell_fields</code></li>
 <li><code>agentfem.results.small_strain_partition_fields</code></li>
+<li><code>agentfem.results.field_extrema</code></li>
+<li><code>agentfem.results.region_measure</code></li>
 <li><code>agentfem.results.reaction_resultant</code></li>
+<li><code>agentfem.mesh.tagged_boundary_region</code></li>
 <li><code>agentfem.diagnostics.linear_static_energy</code></li>
 </ul>
 <h3 id="scientific-contract">Scientific contract</h3>
@@ -805,7 +808,7 @@
 <table>
 <thead><tr><th>Name</th><th>Type</th><th>Unit role</th><th>Meaning</th></tr></thead>
 <tbody>
-<tr><td>standard fields</td><td>DG projected Functions named S, E, MISES, and optionally SENER</td><td>stress, strain, and energy density</td><td>Serial <code>solve_result(output=...)</code> stores these cell fields with nodal U on one Uniform Grid.</td></tr>
+<tr><td>standard fields</td><td>DG projected Functions named S, E, MISES, and optionally SENER</td><td>stress, strain, and energy density</td><td>Serial solve_result(output=...) stores these cell fields with nodal U on one Uniform Grid.</td></tr>
 <tr><td>resultant and energy closure</td><td>MPI-global scalar/vector and LinearStaticEnergy</td><td>force and energy</td><td>Compact engineering histories or verification quantities.</td></tr>
 </tbody>
 </table>
@@ -822,8 +825,8 @@
 <li>The engineering default is U/S/E/MISES; SENER is an explicit diagnostic request.</li>
 <li>E means infinitesimal strain in a small-strain context.</li>
 <li>Non-zero prescribed-displacement work is not silently included in proportional force work.</li>
-<li>Imported physical boundaries use their facet tag for both strong topological<br>dof location and weak integration; an optional marker is audit evidence.</li>
-<li><code>field_extrema(..., location=True)</code> identifies its finite-element-dof<br>sampling, coordinate, rank, global dof, and DG0 cell where applicable.</li>
+<li>Imported physical boundaries use their facet tag for both strong topological dof location and weak integration; an optional marker is audit evidence.</li>
+<li>field_extrema(location=True) identifies its finite-element-dof sampling, coordinate, rank, global dof, and DG0 cell where applicable.</li>
 </ul>
 <h4 id="applicability">Applicability</h4>
 <ul>
