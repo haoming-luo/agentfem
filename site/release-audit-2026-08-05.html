@@ -72,6 +72,7 @@
 <li>J2 checkpoint publication is atomic, while its serial and quadrature-state<br>portability boundary remains unchanged.</li>
 <li>Energy and thermal-content histories now carry definitions rather than only<br>short names.</li>
 <li>The release smoke installs the just-built wheel into an isolated temporary<br>target, checks representative source fingerprints, and runs both demos and<br>an empty-directory project from that target. A stale installation with the<br>same version number can no longer pass as the release candidate.</li>
+<li>Scalar, vector, and tensor fields now share deterministic MPI-safe point and<br>straight-path sampling. A path can attach directly to <code>SimulationResult</code> as<br>a distance history for reporting, campaigns, or learning data.</li>
 </ul>
 <h2 id="release-critical-execution-order">Release-critical execution order</h2>
 <h3 id="r1-freeze-five-demonstration-contracts">R1 — freeze five demonstration contracts</h3>
@@ -85,7 +86,7 @@
 </ul>
 <p>The wave and Neo-Hookean demos have the highest visual value and therefore the highest risk of being accepted by appearance alone. Their Golden contracts must cover physical quantities and time/load coordinates, not screenshots.</p>
 <h3 id="r2-finish-the-result-surface-users-expect">R2 — finish the result surface users expect</h3>
-<p>Implement named point/path probes and standard stress/strain projection before adding more result container types. Extend reaction, external work, heat-input, and balance histories using the existing <code>SimulationResult</code> and output-plan contracts. Add automatic checkpoint cadence as a policy on the current Step lifecycle, not as another runner.</p>
+<p>Build on the implemented named point/path probes with standard stress/strain projection. Extend reaction, external work, heat-input, and balance histories using the existing <code>SimulationResult</code> and output-plan contracts. Add automatic checkpoint cadence as a policy on the current Step lifecycle, not as another runner.</p>
 <p>Acceptance: direct Python, <code>agentfem run</code>, MPI, a future GUI, and an agent all observe the same names, units, artifacts, execution events, and trust state.</p>
 <h3 id="r3-deepen-nonlinear-solids-without-multiplying-public-apis">R3 — deepen nonlinear solids without multiplying public APIs</h3>
 <p>Promote the current J2 route through multi-region ownership, projected fields, forced cyclic/cutback cases, and an external deck reproduction. Keep <code>model.step(...)</code> as the public entry point and dispatch by Study, material capability, and SolutionProcedure. Do not create material-named Step methods.</p>

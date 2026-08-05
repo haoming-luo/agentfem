@@ -367,8 +367,9 @@ These omissions are public boundaries, not hidden placeholders.
    hosted runners write the same case record.
 2. Link each dataset sample to a content-addressed AF-IR document and run
    record rather than embedding large records.
-3. Add QoI extractors for point evaluation, integrals, reactions, energy,
-   curves, and mesh-independent field samples.
+3. Build on the implemented MPI-safe point/path probes and integral QoIs with
+   reactions, energy curves, reusable observation grids, and mesh-independent
+   field encodings.
 4. Add dataset merge/deduplication and explicit training/validation/test
    partitions.
 5. Add Gaussian-process and uncertainty-calibrated ensemble adapters.

@@ -14,6 +14,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | [`agentfem.material.j2_global_plasticity`](#agentfem-material-j2_global_plasticity) | Global small-strain J2 plasticity | material | supported |
 | [`agentfem.operator.system_contracts`](#agentfem-operator-system_contracts) | Finite-element operator and system contracts | operator | supported |
 | [`agentfem.workflow.campaign_learning_pipeline`](#agentfem-workflow-campaign_learning_pipeline) | Simulation campaign to guarded learning workflow | workflow | supported |
+| [`agentfem.workflow.result_field_sampling`](#agentfem-workflow-result_field_sampling) | MPI-safe point and path field sampling | workflow | supported |
 | [`agentfem.workflow.scientific_verification`](#agentfem-workflow-scientific_verification) | Scientific trust and verification workflow | workflow | supported |
 | [`agentfem.workflow.solution_procedures`](#agentfem-workflow-solution_procedures) | Solution procedure vocabulary | analysis_step | supported |
 | [`agentfem.workflow.thermoelastic_analysis`](#agentfem-workflow-thermoelastic_analysis) | Sequential thermoelastic analysis | workflow | supported |
@@ -479,6 +480,105 @@ dataset = report.require_dataset(quality='engineering'); training = surrogates.t
 ### References
 
 - AgentFEM results and campaigns contract: `docs/results_and_campaigns.md`
+
+## MPI-safe point and path field sampling
+
+**Stable ID:** `agentfem.workflow.result_field_sampling`<br>
+**Kind:** `workflow`<br>
+**Status:** `supported`<br>
+**Source card:** `knowledge/cards/result_field_sampling.json`
+
+Evaluates scalar, vector, or tensor finite-element fields at named physical points and straight paths with deterministic MPI ownership and standard result-history integration.
+
+### Public API
+
+- `agentfem.results.probe`
+- `agentfem.results.sample_points`
+- `agentfem.results.sample_path`
+- `agentfem.results.PathSample.add_to`
+
+### Scientific contract
+
+A finite-element field is evaluated inside a containing owned cell from its basis representation; distributed ownership changes where evaluation occurs, not the returned physical value order.
+
+**finite-element point evaluation**
+
+$$
+u_h(x_p) = sum_a N_a(x_p) u_a
+$$
+
+The containing cell supplies the local basis functions and coefficients for the requested physical point.
+
+**path coordinate**
+
+$$
+s_i = ||x_i - x_0||_2
+$$
+
+Straight-path samples use physical distance as the standard result-history abscissa.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| field | DOLFINx scalar, vector, or tensor Function | field dependent | The finite-element field whose coefficients and function space define the interpolation. |
+| physical coordinates | point array or path endpoints | length | Coordinates in the mesh geometric dimension, supplied identically on every MPI rank. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| point values | ordered NumPy scalar/vector/tensor values | same as field | Values are returned in request order and replicated consistently on every rank. |
+| path sample | PathSample coordinates, distance, and values | length and field units | Can be attached directly to SimulationResult as a named distance history. |
+
+#### Assumptions
+
+- Every MPI rank calls the sampler collectively with identical coordinates.
+- The requested point lies in the physical mesh unless missing='nan' is selected explicitly.
+- A one-sided discontinuous value is sampled inside the intended cell rather than exactly on its interface.
+
+#### Conventions
+
+- The lowest-rank owned-cell candidate evaluates a point; ties on one rank use the lowest local cell index.
+- Missing points raise by default instead of silently returning zero.
+- Path distance is measured from the first endpoint in physical coordinates.
+
+#### Applicability
+
+- Final-state quantities of interest, line plots, campaign outputs, sensor comparisons, and observation data for learned models.
+
+#### Limitations
+
+- Straight paths are built in; arbitrary curves should supply explicit coordinates to sample_points.
+- Interface traces of discontinuous fields require an explicit one-sided sampling location.
+- Reusable mesh-independent observation-grid and projection contracts remain future work.
+
+### Minimal example
+
+```python
+tip = results.probe(U, at=(L, H/2)); path = results.sample_path(U, start=(0, H/2), end=(L, H/2), count=101); path.add_to(result, name='centerline_U')
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_results.py`
+- `tests/test_parallel_results.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Reject negative geometric padding, unknown missing-point policies, and coordinates with the wrong geometric dimension.
+- Reject rank-inconsistent coordinate requests before field evaluation.
+- Reject missing points before returning a scientific quantity unless missing='nan' is explicit.
+
+### References
+
+- DOLFINx geometry and finite-element function evaluation: `https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.geometry.html`
 
 ## Scientific trust and verification workflow
 

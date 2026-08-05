@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 import sys
 
 import pytest
@@ -39,8 +40,20 @@ def test_optional_dependency_error_names_capability_and_install_extra(monkeypatc
 
 def test_mesh_namespace_keeps_external_gmsh_import_lazy():
     # This test is meaningful even in a development environment where Gmsh is
-    # installed: importing agentfem.mesh must not import the external API.
-    assert "gmsh" not in sys.modules
+    # installed.  Use a fresh interpreter so the assertion is independent of
+    # whether another mesh test has already exercised the optional backend.
+    probe = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; import agentfem.mesh; "
+            "raise SystemExit('gmsh' in sys.modules)",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert probe.returncode == 0, probe.stderr
     capabilities = {item.package: item for item in mesh.optional_mesh_capabilities()}
     assert capabilities["gmsh"].extra == "gmsh"
     assert capabilities["meshio"].extra == "mesh-formats"

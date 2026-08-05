@@ -286,6 +286,91 @@ def test_integral_average_l2_and_dataset_ready_field_statistics():
     assert extrema == {"minimum": 5.0, "maximum": 5.0, "magnitude": True}
 
 
+def test_point_probe_and_path_sampling_feed_standard_results():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (2.0, 1.0),
+        (4, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    V = fem.functionspace(domain, ("Lagrange", 1))
+    temperature = fem.Function(V, name="T")
+    temperature.interpolate(lambda x: x[0] + 2.0 * x[1])
+    temperature.x.scatter_forward()
+
+    assert results.probe(temperature, at=(0.25, 0.5)) == pytest.approx(1.25)
+    np.testing.assert_allclose(
+        results.sample_points(
+            temperature,
+            ((0.0, 0.0), (1.0, 0.5), (2.0, 1.0)),
+        ),
+        [0.0, 2.0, 4.0],
+        atol=1.0e-14,
+    )
+
+    path = results.sample_path(
+        temperature,
+        start=(0.0, 0.5),
+        end=(2.0, 0.5),
+        count=5,
+    )
+    np.testing.assert_allclose(path.distance, np.linspace(0.0, 2.0, 5))
+    np.testing.assert_allclose(
+        path.values,
+        np.linspace(1.0, 3.0, 5),
+        atol=1.0e-14,
+    )
+    simulation = results.SimulationResult("sampled_temperature")
+    history = path.add_to(
+        simulation,
+        name="temperature_along_centerline",
+        unit="K",
+        distance_unit="m",
+    )
+    assert history.abscissa_name == "distance"
+    assert history.value_shape == ()
+
+
+def test_vector_probe_and_missing_point_policy():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (2, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    V = fem.functionspace(domain, ("Lagrange", 1, (2,)))
+    displacement = fem.Function(V, name="U")
+    displacement.interpolate(lambda x: np.vstack((x[0], -2.0 * x[1])))
+    displacement.x.scatter_forward()
+
+    np.testing.assert_allclose(
+        results.probe(displacement, at=(0.25, 0.75)),
+        [0.25, -1.5],
+    )
+    with pytest.raises(ValueError, match="could not locate point indices"):
+        results.sample_points(displacement, ((2.0, 2.0),))
+    values = results.sample_points(
+        displacement,
+        ((0.5, 0.5), (2.0, 2.0)),
+        missing="nan",
+    )
+    np.testing.assert_allclose(values[0], [0.5, -1.0])
+    assert np.all(np.isnan(values[1]))
+    with pytest.raises(ValueError, match="geometric dimension"):
+        results.sample_points(displacement, ((0.25, 0.5, 0.75, 1.0),))
+    with pytest.raises(ValueError, match="non-negative"):
+        results.sample_points(displacement, ((0.25, 0.5),), padding=-1.0)
+    with pytest.raises(ValueError, match="at least two"):
+        results.sample_path(
+            displacement,
+            start=(0.0, 0.0),
+            end=(1.0, 1.0),
+            count=1,
+        )
+
+
 def test_homogenized_history_writes_exact_npz_and_human_csv(tmp_path):
     frame = HomogenizedFrame(
         load_factor=1.0,

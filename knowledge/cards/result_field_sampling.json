@@ -1,0 +1,109 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.result_field_sampling",
+  "title": "MPI-safe point and path field sampling",
+  "kind": "workflow",
+  "status": "supported",
+  "summary": "Evaluates scalar, vector, or tensor finite-element fields at named physical points and straight paths with deterministic MPI ownership and standard result-history integration.",
+  "public_api": [
+    "agentfem.results.probe",
+    "agentfem.results.sample_points",
+    "agentfem.results.sample_path",
+    "agentfem.results.PathSample.add_to"
+  ],
+  "implementation": [
+    "results/quantities.py",
+    "results/core.py"
+  ],
+  "science": {
+    "statement": "A finite-element field is evaluated inside a containing owned cell from its basis representation; distributed ownership changes where evaluation occurs, not the returned physical value order.",
+    "equations": [
+      {
+        "label": "finite-element point evaluation",
+        "expression": "u_h(x_p) = sum_a N_a(x_p) u_a",
+        "description": "The containing cell supplies the local basis functions and coefficients for the requested physical point."
+      },
+      {
+        "label": "path coordinate",
+        "expression": "s_i = ||x_i - x_0||_2",
+        "description": "Straight-path samples use physical distance as the standard result-history abscissa."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "field",
+        "type": "DOLFINx scalar, vector, or tensor Function",
+        "unit_role": "field dependent",
+        "description": "The finite-element field whose coefficients and function space define the interpolation."
+      },
+      {
+        "name": "physical coordinates",
+        "type": "point array or path endpoints",
+        "unit_role": "length",
+        "description": "Coordinates in the mesh geometric dimension, supplied identically on every MPI rank."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "point values",
+        "type": "ordered NumPy scalar/vector/tensor values",
+        "unit_role": "same as field",
+        "description": "Values are returned in request order and replicated consistently on every rank."
+      },
+      {
+        "name": "path sample",
+        "type": "PathSample coordinates, distance, and values",
+        "unit_role": "length and field units",
+        "description": "Can be attached directly to SimulationResult as a named distance history."
+      }
+    ],
+    "assumptions": [
+      "Every MPI rank calls the sampler collectively with identical coordinates.",
+      "The requested point lies in the physical mesh unless missing='nan' is selected explicitly.",
+      "A one-sided discontinuous value is sampled inside the intended cell rather than exactly on its interface."
+    ],
+    "conventions": [
+      "The lowest-rank owned-cell candidate evaluates a point; ties on one rank use the lowest local cell index.",
+      "Missing points raise by default instead of silently returning zero.",
+      "Path distance is measured from the first endpoint in physical coordinates."
+    ],
+    "applicability": [
+      "Final-state quantities of interest, line plots, campaign outputs, sensor comparisons, and observation data for learned models."
+    ],
+    "limitations": [
+      "Straight paths are built in; arbitrary curves should supply explicit coordinates to sample_points.",
+      "Interface traces of discontinuous fields require an explicit one-sided sampling location.",
+      "Reusable mesh-independent observation-grid and projection contracts remain future work."
+    ]
+  },
+  "usage": {
+    "minimal_example": "tip = results.probe(U, at=(L, H/2)); path = results.sample_path(U, start=(0, H/2), end=(L, H/2), count=101); path.add_to(result, name='centerline_U')",
+    "examples": [
+      "examples/static_elasticity_2d.py",
+      "examples/transient_heat_2d.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_results.py",
+      "tests/test_parallel_results.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Reject negative geometric padding, unknown missing-point policies, and coordinates with the wrong geometric dimension.",
+      "Reject rank-inconsistent coordinate requests before field evaluation.",
+      "Reject missing points before returning a scientific quantity unless missing='nan' is explicit."
+    ]
+  },
+  "references": [
+    {
+      "title": "DOLFINx geometry and finite-element function evaluation",
+      "locator": "https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.geometry.html"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.scientific_verification",
+    "agentfem.workflow.campaign_learning_pipeline"
+  ]
+}

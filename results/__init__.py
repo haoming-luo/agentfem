@@ -10,14 +10,18 @@ from .core import (
     from_solution,
 )
 from .quantities import (
+    PathSample,
     average,
     boundary_resultant,
     field_extrema,
     integral,
     l2_norm,
+    probe,
     quadrature_extrema,
     region_average,
     region_integral,
+    sample_path,
+    sample_points,
 )
 from .execution import add_execution_trace, execution_records
 from .finite_strain import (
@@ -75,6 +79,7 @@ __all__ = [
     "HistoryResult",
     "HomogenizedFrame",
     "OutputPlan",
+    "PathSample",
     "PeriodicCellHistoryRequest",
     "PresentationOutput",
     "ResultQuantity",
@@ -97,9 +102,12 @@ __all__ = [
     "homogenize_periodic_cell",
     "homogenize_periodic_path",
     "l2_norm",
+    "probe",
     "quadrature_extrema",
     "region_average",
     "region_integral",
+    "sample_path",
+    "sample_points",
     "preselected_fields",
     "output_plan",
     "periodic_cell_history",

@@ -169,6 +169,38 @@ solved.add_quantities({"mean_temperature": mean_T, "heat_flux": total_flux})
 solved.write_manifest("result.json")
 ```
 
+## Point and path probes
+
+Field values at physical coordinates use the same MPI-safe interface in serial
+and distributed runs:
+
+```python
+tip_u = results.probe(U, at=(length, height / 2))
+temperatures = results.sample_points(
+    T,
+    ((0.0, 0.0), (0.5, 0.0), (1.0, 0.0)),
+)
+centerline = results.sample_path(
+    T,
+    start=(0.0, height / 2),
+    end=(length, height / 2),
+    count=101,
+)
+centerline.add_to(
+    solved,
+    name="centerline_temperature",
+    unit="K",
+    distance_unit="m",
+)
+```
+
+AgentFEM locates owned cells, chooses one deterministic MPI owner for each
+point, and returns the same ordered values on every rank. All ranks must request
+identical coordinates. Missing points raise by default; `missing="nan"` is an
+explicit alternative for exploratory sampling. For a discontinuous field, a
+point exactly on an interelement boundary has a side ambiguity, so place the
+probe inside the intended cell when a one-sided value is required.
+
 ## Campaign to Dataset
 
 A campaign evaluator may return:
@@ -232,10 +264,9 @@ optimizers, and training loops.
 
 1. named reaction force/resultant extractors beyond the current strong-BC and
    J2 residual fields;
-2. named point and path probes;
-3. stress/strain projection for visualization;
-4. natural-load, weak-constraint, affine-MPC, and transient work/energy
+2. stress/strain projection for visualization;
+3. natural-load, weak-constraint, affine-MPC, and transient work/energy
    histories beyond the current strong-displacement J2 history;
-5. automatic checkpoint cadence and cross-partition MPI restart identity;
-6. mesh-independent field sampling for neural operators;
-7. scheduler executors that preserve identical case records.
+4. automatic checkpoint cadence and cross-partition MPI restart identity;
+5. reusable observation grids and field encodings for neural operators;
+6. scheduler executors that preserve identical case records.

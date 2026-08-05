@@ -94,6 +94,10 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
 - Use `results.region_integral`, `results.region_average`,
   `results.boundary_resultant`, and `results.field_extrema` for common
   MPI-safe quantities instead of rank-local array reductions.
+- Use `results.probe`, `results.sample_points`, and `results.sample_path` for
+  physical-coordinate field sampling. Every MPI rank must request identical
+  coordinates. Put discontinuous-field probes inside the intended cell rather
+  than relying on an interface-side convention.
 - In an installed project, run `agentfem doctor --json` and
   `agentfem check --json` before execution. Use `project.current_run()` and
   publish the result so terminal, GUI, and agent consumers receive the same

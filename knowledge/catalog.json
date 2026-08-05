@@ -162,6 +162,24 @@
       "title": "Simulation campaign to guarded learning workflow"
     },
     {
+      "id": "agentfem.workflow.result_field_sampling",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.results.probe",
+        "agentfem.results.sample_points",
+        "agentfem.results.sample_path",
+        "agentfem.results.PathSample.add_to"
+      ],
+      "related_cards": [
+        "agentfem.workflow.scientific_verification",
+        "agentfem.workflow.campaign_learning_pipeline"
+      ],
+      "source": "knowledge/cards/result_field_sampling.json",
+      "status": "supported",
+      "summary": "Evaluates scalar, vector, or tensor finite-element fields at named physical points and straight paths with deterministic MPI ownership and standard result-history integration.",
+      "title": "MPI-safe point and path field sampling"
+    },
+    {
       "id": "agentfem.workflow.scientific_verification",
       "kind": "workflow",
       "public_api": [

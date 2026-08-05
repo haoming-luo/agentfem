@@ -40,6 +40,9 @@ The first-release work is the intersection of all three.
   target, checks representative source fingerprints, and runs both demos and
   an empty-directory project from that target. A stale installation with the
   same version number can no longer pass as the release candidate.
+- Scalar, vector, and tensor fields now share deterministic MPI-safe point and
+  straight-path sampling. A path can attach directly to `SimulationResult` as
+  a distance history for reporting, campaigns, or learning data.
 
 ## Release-critical execution order
 
@@ -61,11 +64,11 @@ cover physical quantities and time/load coordinates, not screenshots.
 
 ### R2 — finish the result surface users expect
 
-Implement named point/path probes and standard stress/strain projection before
-adding more result container types. Extend reaction, external work, heat-input,
-and balance histories using the existing `SimulationResult` and output-plan
-contracts. Add automatic checkpoint cadence as a policy on the current Step
-lifecycle, not as another runner.
+Build on the implemented named point/path probes with standard stress/strain
+projection. Extend reaction, external work, heat-input, and balance histories
+using the existing `SimulationResult` and output-plan contracts. Add automatic
+checkpoint cadence as a policy on the current Step lifecycle, not as another
+runner.
 
 Acceptance: direct Python, `agentfem run`, MPI, a future GUI, and an agent all
 observe the same names, units, artifacts, execution events, and trust state.

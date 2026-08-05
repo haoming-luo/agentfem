@@ -80,8 +80,9 @@ finite-element simulation with AgentFEM.
 - Results: read `docs/results_and_campaigns.md`; use `solve_result()` or
   `solve_result(output="results.xdmf")` for the standard transient
   solve/output/result lifecycle. Use `results.SimulationResult`, MPI-safe
-  region integrals/averages, boundary resultants and field extrema in
-  `results`, then attach additional XDMF/CSV artifacts from `io`. Distinguish
+  point/path probes, region integrals/averages, boundary resultants and field
+  extrema in `results`, then attach additional XDMF/CSV artifacts from `io`.
+  Distinguish
   execution status from
   `result.trust_level`, apply a named quality policy for routine checks, and
   attach explicit scientific claims before describing a result as verified.

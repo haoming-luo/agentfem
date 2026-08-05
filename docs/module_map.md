@@ -31,7 +31,7 @@ This map links FEM concepts to the current Python modules.
 | Shared transient checkpoint envelope, integrity, and partition identity | `checkpointing.py` |
 | Automatic/fixed incrementation and cutback policy | `steps.py` |
 | Linear/nonlinear solvers and convergence evidence | `solvers.py` |
-| Scientific results, QoIs, histories, artifacts, and dataset bridge | `results/` |
+| Scientific results, MPI-safe point/path/integral QoIs, histories, artifacts, and dataset bridge | `results/` |
 | Finite-strain fields and periodic-cell homogenization | `results/finite_strain.py` |
 | Standard result variables and context-aware aliases | `results/field_catalog.py` |
 | Declarative field requests and unified XDMF/HDF5 time-series writer | `results/output.py` |

@@ -63,6 +63,7 @@
 <tr><td><a href="#agentfem-material-j2_global_plasticity"><code>agentfem.material.j2_global_plasticity</code></a></td><td>Global small-strain J2 plasticity</td><td>material</td><td>supported</td></tr>
 <tr><td><a href="#agentfem-operator-system_contracts"><code>agentfem.operator.system_contracts</code></a></td><td>Finite-element operator and system contracts</td><td>operator</td><td>supported</td></tr>
 <tr><td><a href="#agentfem-workflow-campaign_learning_pipeline"><code>agentfem.workflow.campaign_learning_pipeline</code></a></td><td>Simulation campaign to guarded learning workflow</td><td>workflow</td><td>supported</td></tr>
+<tr><td><a href="#agentfem-workflow-result_field_sampling"><code>agentfem.workflow.result_field_sampling</code></a></td><td>MPI-safe point and path field sampling</td><td>workflow</td><td>supported</td></tr>
 <tr><td><a href="#agentfem-workflow-scientific_verification"><code>agentfem.workflow.scientific_verification</code></a></td><td>Scientific trust and verification workflow</td><td>workflow</td><td>supported</td></tr>
 <tr><td><a href="#agentfem-workflow-solution_procedures"><code>agentfem.workflow.solution_procedures</code></a></td><td>Solution procedure vocabulary</td><td>analysis_step</td><td>supported</td></tr>
 <tr><td><a href="#agentfem-workflow-thermoelastic_analysis"><code>agentfem.workflow.thermoelastic_analysis</code></a></td><td>Sequential thermoelastic analysis</td><td>workflow</td><td>supported</td></tr>
@@ -426,6 +427,84 @@
 <h3 id="references">References</h3>
 <ul>
 <li>AgentFEM results and campaigns contract: <code>docs/results_and_campaigns.md</code></li>
+</ul>
+<h2 id="mpi-safe-point-and-path-field-sampling">MPI-safe point and path field sampling</h2>
+<p><strong>Stable ID:</strong> <code>agentfem.workflow.result_field_sampling</code>&lt;br&gt; <strong>Kind:</strong> <code>workflow</code>&lt;br&gt; <strong>Status:</strong> <code>supported</code>&lt;br&gt; <strong>Source card:</strong> <code>knowledge/cards/result_field_sampling.json</code></p>
+<p>Evaluates scalar, vector, or tensor finite-element fields at named physical points and straight paths with deterministic MPI ownership and standard result-history integration.</p>
+<h3 id="public-api">Public API</h3>
+<ul>
+<li><code>agentfem.results.probe</code></li>
+<li><code>agentfem.results.sample_points</code></li>
+<li><code>agentfem.results.sample_path</code></li>
+<li><code>agentfem.results.PathSample.add_to</code></li>
+</ul>
+<h3 id="scientific-contract">Scientific contract</h3>
+<p>A finite-element field is evaluated inside a containing owned cell from its basis representation; distributed ownership changes where evaluation occurs, not the returned physical value order.</p>
+<p><strong>finite-element point evaluation</strong></p>
+<p>$$ u_h(x_p) = sum_a N_a(x_p) u_a $$</p>
+<p>The containing cell supplies the local basis functions and coefficients for the requested physical point.</p>
+<p><strong>path coordinate</strong></p>
+<p>$$ s_i = ||x_i - x_0||_2 $$</p>
+<p>Straight-path samples use physical distance as the standard result-history abscissa.</p>
+<h4 id="inputs">Inputs</h4>
+<table>
+<thead><tr><th>Name</th><th>Type</th><th>Unit role</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>field</td><td>DOLFINx scalar, vector, or tensor Function</td><td>field dependent</td><td>The finite-element field whose coefficients and function space define the interpolation.</td></tr>
+<tr><td>physical coordinates</td><td>point array or path endpoints</td><td>length</td><td>Coordinates in the mesh geometric dimension, supplied identically on every MPI rank.</td></tr>
+</tbody>
+</table>
+<h4 id="outputs">Outputs</h4>
+<table>
+<thead><tr><th>Name</th><th>Type</th><th>Unit role</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>point values</td><td>ordered NumPy scalar/vector/tensor values</td><td>same as field</td><td>Values are returned in request order and replicated consistently on every rank.</td></tr>
+<tr><td>path sample</td><td>PathSample coordinates, distance, and values</td><td>length and field units</td><td>Can be attached directly to SimulationResult as a named distance history.</td></tr>
+</tbody>
+</table>
+<h4 id="assumptions">Assumptions</h4>
+<ul>
+<li>Every MPI rank calls the sampler collectively with identical coordinates.</li>
+<li>The requested point lies in the physical mesh unless missing=&#x27;nan&#x27; is selected explicitly.</li>
+<li>A one-sided discontinuous value is sampled inside the intended cell rather than exactly on its interface.</li>
+</ul>
+<h4 id="conventions">Conventions</h4>
+<ul>
+<li>The lowest-rank owned-cell candidate evaluates a point; ties on one rank use the lowest local cell index.</li>
+<li>Missing points raise by default instead of silently returning zero.</li>
+<li>Path distance is measured from the first endpoint in physical coordinates.</li>
+</ul>
+<h4 id="applicability">Applicability</h4>
+<ul>
+<li>Final-state quantities of interest, line plots, campaign outputs, sensor comparisons, and observation data for learned models.</li>
+</ul>
+<h4 id="limitations">Limitations</h4>
+<ul>
+<li>Straight paths are built in; arbitrary curves should supply explicit coordinates to sample_points.</li>
+<li>Interface traces of discontinuous fields require an explicit one-sided sampling location.</li>
+<li>Reusable mesh-independent observation-grid and projection contracts remain future work.</li>
+</ul>
+<h3 id="minimal-example">Minimal example</h3>
+<pre><code>tip = results.probe(U, at=(L, H/2)); path = results.sample_path(U, start=(0, H/2), end=(L, H/2), count=101); path.add_to(result, name=&#x27;centerline_U&#x27;)</code></pre>
+<h3 id="verification">Verification</h3>
+<p><strong>Tests</strong></p>
+<ul>
+<li><code>tests/test_results.py</code></li>
+<li><code>tests/test_parallel_results.py</code></li>
+</ul>
+<p><strong>Benchmarks</strong></p>
+<ul>
+<li>None declared.</li>
+</ul>
+<p><strong>Validation rules</strong></p>
+<ul>
+<li>Reject negative geometric padding, unknown missing-point policies, and coordinates with the wrong geometric dimension.</li>
+<li>Reject rank-inconsistent coordinate requests before field evaluation.</li>
+<li>Reject missing points before returning a scientific quantity unless missing=&#x27;nan&#x27; is explicit.</li>
+</ul>
+<h3 id="references">References</h3>
+<ul>
+<li>DOLFINx geometry and finite-element function evaluation: <code>https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.geometry.html</code></li>
 </ul>
 <h2 id="scientific-trust-and-verification-workflow">Scientific trust and verification workflow</h2>
 <p><strong>Stable ID:</strong> <code>agentfem.workflow.scientific_verification</code>&lt;br&gt; <strong>Kind:</strong> <code>workflow</code>&lt;br&gt; <strong>Status:</strong> <code>supported</code>&lt;br&gt; <strong>Source card:</strong> <code>knowledge/cards/scientific_verification.json</code></p>

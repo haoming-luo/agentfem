@@ -129,6 +129,26 @@ solved.add_quantity(
 )
 solved.add_quantities({&quot;mean_temperature&quot;: mean_T, &quot;heat_flux&quot;: total_flux})
 solved.write_manifest(&quot;result.json&quot;)</code></pre>
+<h2 id="point-and-path-probes">Point and path probes</h2>
+<p>Field values at physical coordinates use the same MPI-safe interface in serial and distributed runs:</p>
+<pre><code>tip_u = results.probe(U, at=(length, height / 2))
+temperatures = results.sample_points(
+    T,
+    ((0.0, 0.0), (0.5, 0.0), (1.0, 0.0)),
+)
+centerline = results.sample_path(
+    T,
+    start=(0.0, height / 2),
+    end=(length, height / 2),
+    count=101,
+)
+centerline.add_to(
+    solved,
+    name=&quot;centerline_temperature&quot;,
+    unit=&quot;K&quot;,
+    distance_unit=&quot;m&quot;,
+)</code></pre>
+<p>AgentFEM locates owned cells, chooses one deterministic MPI owner for each point, and returns the same ordered values on every rank. All ranks must request identical coordinates. Missing points raise by default; <code>missing=&quot;nan&quot;</code> is an explicit alternative for exploratory sampling. For a discontinuous field, a point exactly on an interelement boundary has a side ambiguity, so place the probe inside the intended cell when a one-sided value is required.</p>
 <h2 id="campaign-to-dataset">Campaign to Dataset</h2>
 <p>A campaign evaluator may return:</p>
 <ul>
@@ -159,11 +179,10 @@ loader = bundle.loader(batch_size=64, shuffle=True)</code></pre>
 <h2 id="next-result-priorities">Next Result Priorities</h2>
 <ol>
 <li>named reaction force/resultant extractors beyond the current strong-BC and<br>J2 residual fields;</li>
-<li>named point and path probes;</li>
 <li>stress/strain projection for visualization;</li>
 <li>natural-load, weak-constraint, affine-MPC, and transient work/energy<br>histories beyond the current strong-displacement J2 history;</li>
 <li>automatic checkpoint cadence and cross-partition MPI restart identity;</li>
-<li>mesh-independent field sampling for neural operators;</li>
+<li>reusable observation grids and field encodings for neural operators;</li>
 <li>scheduler executors that preserve identical case records.</li>
 </ol>
       </article>
