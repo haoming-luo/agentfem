@@ -9,6 +9,8 @@ jobs:
   verify:
     name: Verify release in FEniCSx
     runs-on: ubuntu-latest
+    env:
+      UCX_TLS: tcp,sm,self
     defaults:
       run:
         shell: bash -el {0}

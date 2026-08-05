@@ -12,6 +12,11 @@ on:
 jobs:
   fenicsx:
     runs-on: ubuntu-latest
+    # Azure-hosted runners may expose a MANA verbs device that UCX discovers
+    # but cannot initialize. The release path needs only local/shared-memory
+    # and TCP transports, including the two-rank regression jobs below.
+    env:
+      UCX_TLS: tcp,sm,self
     defaults:
       run:
         shell: bash -el {0}
