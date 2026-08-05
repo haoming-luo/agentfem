@@ -35,9 +35,11 @@ The `display` flag changes only terminal/status visibility. It never removes an
 event from the trace. Accepted increments are projected to monotone histories;
 failed attempts and iterations remain in the complete event record.
 
-Checkpoints remain procedure-specific state serializers registered through the
-common `CheckpointRecord`. A common record must not imply that arbitrary state
-is already portable across MPI partitions.
+Physical state serializers remain procedure-aware and are registered through
+the common `CheckpointRecord`. Heat, Standard dynamics, and Explicit dynamics
+share the envelope defined by ADR 0005; J2 additionally owns quadrature state
+and its constitutive transaction. A common record must not imply that arbitrary
+state is already portable across MPI partitions.
 
 ## Consequences
 
@@ -50,4 +52,3 @@ is already portable across MPI partitions.
 - This is one component of the AIR layer: public scientific language,
   validation, execution evidence, results, benchmarks, and knowledge assets.
   It is not equivalent to AF-IR alone.
-

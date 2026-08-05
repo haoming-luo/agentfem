@@ -44,6 +44,7 @@
 <a class="" href="release-0.2.0a1.html">AgentFEM 0.2.0a1</a>
 <a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="release-audit-2026-08-05.html">CTO Product Audit: 5 August 2026</a>
 <a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
 <a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
@@ -90,6 +91,7 @@
 <li>Treat positive <code>loads.pressure(...)</code> as inward. State whether it is a<br>reference dead load or current follower load.</li>
 <li>Validate small cases before reporting success.</li>
 <li>Use <code>solve_result()</code> and <code>results.SimulationResult</code> when outputs feed<br>visualization, reporting, campaigns, or datasets. Do not treat XDMF/CSV as<br>the scientific result itself.</li>
+<li>For heat, Standard dynamics, and Explicit dynamics, pause with<br><code>run(until_step=...)</code>, save with <code>save_checkpoint(...)</code>, rebuild the same<br>step, then <code>load_checkpoint(...)</code>. Resume through<br><code>solve_result(output=...)</code>; inspect <code>metadata[&quot;transient&quot;][&quot;output_scope&quot;]</code><br>before presenting the XDMF/HDF5 series as complete. Current transient<br>checkpoints require the same MPI size and mesh partition.</li>
 <li>Use <code>results.region_integral</code>, <code>results.region_average</code>,<br><code>results.boundary_resultant</code>, and <code>results.field_extrema</code> for common<br>MPI-safe quantities instead of rank-local array reductions.</li>
 <li>In an installed project, run <code>agentfem doctor --json</code> and<br><code>agentfem check --json</code> before execution. Use <code>project.current_run()</code> and<br>publish the result so terminal, GUI, and agent consumers receive the same<br>run identity, artifacts, and manifest.</li>
 <li>Treat <code>agentfem run --json</code> as the machine boundary. Read the versioned<br>execution and result records; do not infer success by matching console text.</li>

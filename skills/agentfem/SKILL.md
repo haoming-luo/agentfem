@@ -85,6 +85,12 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
 - Use `solve_result()` and `results.SimulationResult` when outputs feed
   visualization, reporting, campaigns, or datasets. Do not treat XDMF/CSV as
   the scientific result itself.
+- For heat, Standard dynamics, and Explicit dynamics, pause with
+  `run(until_step=...)`, save with `save_checkpoint(...)`, rebuild the same
+  step, then `load_checkpoint(...)`. Resume through
+  `solve_result(output=...)`; inspect `metadata["transient"]["output_scope"]`
+  before presenting the XDMF/HDF5 series as complete. Current transient
+  checkpoints require the same MPI size and mesh partition.
 - Use `results.region_integral`, `results.region_average`,
   `results.boundary_resultant`, and `results.field_extrema` for common
   MPI-safe quantities instead of rank-local array reductions.

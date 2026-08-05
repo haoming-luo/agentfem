@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from mpi4py import MPI
 
-from agentfem import constitutive, fields, mesh, models, studies
+from agentfem import checkpointing, constitutive, fields, mesh, models, studies
 
 
 def _left(x):
@@ -154,6 +154,89 @@ def test_heat_restart_matches_uninterrupted_state_and_thermal_history(tmp_path):
         [item["thermal_content"] for item in reference.history_records],
     )
     assert np.all(np.diff(result.histories["thermal_content"].values) <= 0.0)
+
+
+def test_restart_can_write_a_truthful_continuation_output_segment(tmp_path):
+    reference = _heat_step()
+    reference.run()
+
+    partial = _heat_step()
+    partial.run(until_step=2)
+    checkpoint = partial.save_checkpoint(tmp_path / "heat-output")
+    restarted = _heat_step()
+    restarted.load_checkpoint(checkpoint)
+    result = restarted.solve_result(output=tmp_path / "continued.xdmf")
+
+    np.testing.assert_allclose(restarted.current.x.array, reference.current.x.array)
+    np.testing.assert_allclose(
+        result.histories["thermal_content"].values,
+        [item["thermal_content"] for item in reference.history_records],
+    )
+    assert result.metadata["transient"] == {
+        "completed_steps": 4,
+        "total_steps": 4,
+        "output_start_time": 1.0,
+        "output_scope": "continuation_segment",
+    }
+    assert result.artifacts["fields_xdmf"].is_file()
+    assert result.artifacts["fields_hdf5"].is_file()
+    assert "starts at time 1" in next(iter(result.fields.values())).description
+    assert "not a complete heat-balance residual" in (
+        result.histories["thermal_content"].description
+    )
+
+
+def test_completed_transient_refuses_to_invent_prior_output_frames(tmp_path):
+    step = _heat_step()
+    step.run()
+
+    with pytest.raises(RuntimeError, match="cannot be reconstructed"):
+        step.solve_result(output=tmp_path / "invented.xdmf")
+
+
+def test_transient_checkpoint_detects_silent_shard_corruption(tmp_path):
+    partial = _heat_step()
+    partial.run(until_step=1)
+    checkpoint = partial.save_checkpoint(tmp_path / "integrity")
+    metadata = json.loads(checkpoint.read_text(encoding="utf-8"))
+    assert metadata["schema"] == "agentfem.transient-checkpoint.v2"
+    assert metadata["software"]["name"] == "AgentFEM"
+    assert metadata["shards"][0]["sha256"]
+    shard = checkpoint.parent / metadata["shards"][0]["path"]
+    with shard.open("ab") as stream:
+        stream.write(b"silent-corruption")
+
+    restarted = _heat_step()
+    with pytest.raises(RuntimeError, match="shard size does not match"):
+        restarted.load_checkpoint(checkpoint)
+
+
+def test_transient_checkpoint_v1_remains_loadable(tmp_path):
+    partial = _heat_step()
+    partial.run(until_step=1)
+    checkpoint = partial.save_checkpoint(tmp_path / "legacy")
+    metadata = json.loads(checkpoint.read_text(encoding="utf-8"))
+    metadata["schema"] = "agentfem.transient-checkpoint.v1"
+    metadata["shards"] = [metadata["shards"][0]["path"]]
+    metadata["state_identity_by_rank"] = [
+        {
+            "current": checkpointing._legacy_function_partition_identity(
+                partial.current
+            ),
+            "previous": checkpointing._legacy_function_partition_identity(
+                partial.previous
+            ),
+        }
+    ]
+    checkpoint.write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    restarted = _heat_step()
+    restarted.load_checkpoint(checkpoint)
+    assert restarted.completed_steps == 1
+    np.testing.assert_allclose(restarted.current.x.array, partial.current.x.array)
 
 
 def test_transient_checkpoint_rejects_a_different_time_contract(tmp_path):

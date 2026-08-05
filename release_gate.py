@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import argparse
 import ast
+from contextlib import contextmanager
+from hashlib import sha256
 from importlib import metadata
 import json
 from pathlib import Path
@@ -52,6 +54,12 @@ SMOKE_EXAMPLES = (
     "examples/static_elasticity_2d.py",
     "examples/transient_heat_2d.py",
     "examples/creep_hot_wall_assessment.py",
+)
+SMOKE_IDENTITY_FILES = (
+    "__init__.py",
+    "checkpointing.py",
+    "problems.py",
+    "results/core.py",
 )
 
 
@@ -125,7 +133,7 @@ def _archive_members(path: Path) -> set[str]:
         return members
 
 
-def check_distributions(directory: Path) -> None:
+def check_distributions(directory: Path) -> Path:
     wheels = sorted(directory.glob("agentfem-*.whl"))
     sdists = sorted(directory.glob("agentfem-*.tar.gz"))
     if len(wheels) != 1 or len(sdists) != 1:
@@ -140,29 +148,85 @@ def check_distributions(directory: Path) -> None:
     for required in ("README.md", "LICENSE", "NOTICE", "pyproject.toml"):
         if required not in sdist_members:
             raise RuntimeError(f"Source distribution omits {required}.")
+    return wheels[0]
 
 
-def run_smoke() -> None:
-    installed = metadata.version("agentfem")
-    expected = check_versions()
-    if installed != expected:
-        raise RuntimeError(
-            f"Imported distribution is {installed}, expected tested source {expected}."
-        )
-    for example in SMOKE_EXAMPLES:
-        environment = dict(os.environ)
+def run_smoke(*, wheel: Path | None = None) -> None:
+    """Exercise an installed distribution and reject same-version stale code."""
+
+    with _smoke_environment(wheel) as environment:
+        _check_installed_identity()
         environment["AGENTFEM_RELEASE_SMOKE"] = "1"
         environment["AGENTFEM_INSTALLED_SMOKE"] = "1"
+        for example in SMOKE_EXAMPLES:
+            subprocess.run(
+                [sys.executable, example],
+                cwd=ROOT,
+                check=True,
+                env=environment,
+            )
+        run_installed_project_smoke(environment=environment)
+
+
+@contextmanager
+def _smoke_environment(wheel: Path | None):
+    if wheel is None:
+        yield dict(os.environ)
+        return
+    with tempfile.TemporaryDirectory(prefix="agentfem-wheel-") as directory:
+        target = Path(directory) / "site-packages"
         subprocess.run(
-            [sys.executable, example],
-            cwd=ROOT,
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--no-deps",
+                "--target",
+                str(target),
+                str(wheel),
+            ],
             check=True,
-            env=environment,
         )
-    run_installed_project_smoke()
+        sys.path.insert(0, str(target))
+        environment = dict(os.environ)
+        existing = environment.get("PYTHONPATH")
+        environment["PYTHONPATH"] = (
+            str(target) if not existing else str(target) + os.pathsep + existing
+        )
+        try:
+            yield environment
+        finally:
+            sys.path.remove(str(target))
 
 
-def run_installed_project_smoke() -> None:
+def _check_installed_identity() -> None:
+    distribution = metadata.distribution("agentfem")
+    expected = check_versions()
+    if distribution.version != expected:
+        raise RuntimeError(
+            f"Imported distribution is {distribution.version}, "
+            f"expected tested source {expected}."
+        )
+    mismatches = []
+    for relative in SMOKE_IDENTITY_FILES:
+        source = ROOT / relative
+        installed = Path(distribution.locate_file(Path("agentfem") / relative))
+        if not installed.is_file() or _sha256(installed) != _sha256(source):
+            mismatches.append(relative)
+    if mismatches:
+        raise RuntimeError(
+            "Installed AgentFEM has the expected version number but different "
+            f"code in {mismatches}. Install the wheel being tested or combine "
+            "--dist with --smoke."
+        )
+
+
+def _sha256(path: Path) -> str:
+    return sha256(path.read_bytes()).hexdigest()
+
+
+def run_installed_project_smoke(*, environment=None) -> None:
     """Prove the wheel works without repository examples or source paths."""
 
     with tempfile.TemporaryDirectory(prefix="agentfem-installed-") as directory:
@@ -179,6 +243,7 @@ def run_installed_project_smoke() -> None:
             ],
             cwd=directory,
             check=True,
+            env=environment,
         )
         subprocess.run(
             [
@@ -192,6 +257,7 @@ def run_installed_project_smoke() -> None:
             ],
             cwd=directory,
             check=True,
+            env=environment,
         )
         subprocess.run(
             [
@@ -207,6 +273,7 @@ def run_installed_project_smoke() -> None:
             ],
             cwd=directory,
             check=True,
+            env=environment,
         )
         latest = project / "outputs" / "case" / "latest.json"
         if not latest.is_file():
@@ -229,10 +296,11 @@ def main() -> None:
     options = parser.parse_args()
     version = check_versions(tag=options.tag)
     check_dependency_boundaries()
+    wheel = None
     if options.dist is not None:
-        check_distributions(options.dist)
+        wheel = check_distributions(options.dist)
     if options.smoke:
-        run_smoke()
+        run_smoke(wheel=wheel)
     print(f"AgentFEM {version} release gate passed.")
 
 

@@ -155,6 +155,26 @@ before the step. The evidence layers are separate:
 A zero process exit code means the requested operation completed. It does not
 by itself promote a result from computed to verified.
 
+## Pause and resume transient work
+
+Heat transfer, Standard dynamics, and Explicit dynamics share one restart
+workflow:
+
+```python
+step.run(until_step=50)
+checkpoint = step.save_checkpoint("restart/step-50")
+
+resumed = build_the_same_step()
+resumed.load_checkpoint(checkpoint)
+result = resumed.solve_result(output="restart/continuation.xdmf")
+```
+
+The checkpoint detects incompatible procedures, time contracts, mesh/function
+layouts, missing shards, and corrupted shards before applying state. It is
+currently valid only for the same MPI size and mesh partition. The continued
+field artifact starts at the checkpoint time and is labeled as a continuation
+segment; full histories and execution evidence remain attached to the result.
+
 For common post-processing, prefer named, MPI-safe quantities over ad hoc local
 array inspection: `results.region_integral(...)`,
 `results.region_average(...)`, `results.boundary_resultant(...)`, and

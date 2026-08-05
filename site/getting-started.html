@@ -44,6 +44,7 @@
 <a class="" href="release-0.2.0a1.html">AgentFEM 0.2.0a1</a>
 <a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="release-audit-2026-08-05.html">CTO Product Audit: 5 August 2026</a>
 <a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
 <a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
@@ -130,6 +131,15 @@ agentfem run --mpi 4</code></pre>
 <li>scientific verification and validation evidence.</li>
 </ol>
 <p>A zero process exit code means the requested operation completed. It does not by itself promote a result from computed to verified.</p>
+<h2 id="pause-and-resume-transient-work">Pause and resume transient work</h2>
+<p>Heat transfer, Standard dynamics, and Explicit dynamics share one restart workflow:</p>
+<pre><code>step.run(until_step=50)
+checkpoint = step.save_checkpoint(&quot;restart/step-50&quot;)
+
+resumed = build_the_same_step()
+resumed.load_checkpoint(checkpoint)
+result = resumed.solve_result(output=&quot;restart/continuation.xdmf&quot;)</code></pre>
+<p>The checkpoint detects incompatible procedures, time contracts, mesh/function layouts, missing shards, and corrupted shards before applying state. It is currently valid only for the same MPI size and mesh partition. The continued field artifact starts at the checkpoint time and is labeled as a continuation segment; full histories and execution evidence remain attached to the result.</p>
 <p>For common post-processing, prefer named, MPI-safe quantities over ad hoc local array inspection: <code>results.region_integral(...)</code>, <code>results.region_average(...)</code>, <code>results.boundary_resultant(...)</code>, and <code>results.field_extrema(...)</code>.</p>
 <h2 id="continue-into-campaigns-and-learning">Continue into campaigns and learning</h2>
 <p>One case and a parameter campaign should use the same case builder and result contract. Campaigns consume declared inputs and <code>SimulationResult</code> outputs, then create a <code>ScientificDataset</code> only when the selected evidence policy is satisfied. The dataset can be exported to NumPy, passed to built-in ridge/POD/PyTorch surrogates, or used by an existing user model.</p>

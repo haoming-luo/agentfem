@@ -43,6 +43,7 @@ nav:
       - Validation: validation.md
       - Scientific Trust and Verification: scientific_verification.md
       - Architecture Review: architecture_review.md
+      - CTO Product Audit: release_audit_2026_08_05.md
       - AIR Architecture Roadmap: air_architecture_roadmap.md
       - AI-Native Campaigns and Learning: ai_native_learning.md
       - Documentation Site: documentation_site.md

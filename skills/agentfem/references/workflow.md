@@ -24,6 +24,10 @@ AgentFEM workflow:
     - output intervals are a separate result request, not solver increments.
 15. Structured validation and optional AF-IR record
 16. Assembly, solve, or time integration
+    - shared transient procedures may pause through `run(until_step=...)` and
+      resume from `save_checkpoint(...)` / `load_checkpoint(...)`;
+    - a resumed `solve_result(output=...)` produces an explicitly identified
+      continuation segment, not reconstructed earlier frames.
 17. `SimulationResult`, physical QoIs, diagnostics, and histories
 18. `result.verify("exploratory" | "engineering" | "release")`, required
     outputs, and explicit scientific claims when the result is described as

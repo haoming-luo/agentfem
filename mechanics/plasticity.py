@@ -415,7 +415,9 @@ class J2PlasticityStep:
         selected.parent.mkdir(parents=True, exist_ok=True)
         state = self.state.snapshot()
         identity = self._checkpoint_identity()
-        np.savez(
+        from ..checkpointing import atomic_savez
+
+        atomic_savez(
             selected,
             schema="agentfem.j2-step-checkpoint.v4",
             step_identity=json.dumps(identity, sort_keys=True),

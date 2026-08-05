@@ -28,8 +28,7 @@ without storing a long-lived PyPI API token in repository secrets.
    python -m pip install -e ".[dev]"
    python -m build
    python -m twine check dist/*
-   python release_gate.py --dist dist
-   python release_gate.py --smoke
+   python release_gate.py --dist dist --smoke
    ```
 
 5. Commit the release changes.

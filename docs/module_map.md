@@ -28,6 +28,7 @@ This map links FEM concepts to the current Python modules.
 | Engineering-level K/M/C/F operators | `operators/` |
 | Central difference, Newmark, generalized-alpha, and runtime cadence | `time/` |
 | Analysis steps, system problems, and state containers | `problems.py` |
+| Shared transient checkpoint envelope, integrity, and partition identity | `checkpointing.py` |
 | Automatic/fixed incrementation and cutback policy | `steps.py` |
 | Linear/nonlinear solvers and convergence evidence | `solvers.py` |
 | Scientific results, QoIs, histories, artifacts, and dataset bridge | `results/` |

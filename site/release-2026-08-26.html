@@ -44,6 +44,7 @@
 <a class="" href="release-0.2.0a1.html">AgentFEM 0.2.0a1</a>
 <a class="active" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="release-audit-2026-08-05.html">CTO Product Audit: 5 August 2026</a>
 <a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
 <a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
@@ -73,6 +74,7 @@
 <li><code>pyproject.toml</code>, <code>agentfem.__version__</code>, and the Git tag agree.</li>
 <li>Full serial tests and the distributed affine/MPC regression pass.</li>
 <li>The installed wheel, rather than only an editable checkout, runs release<br>smoke examples.</li>
+<li>Release smoke isolates the selected wheel and compares code fingerprints, so<br>a stale local installation with the same version cannot satisfy the gate.</li>
 <li>Generated scientific cards/catalogs are current and their API references<br>import in the FEniCSx environment.</li>
 <li>Every advertised nonlinear/time-dependent material reports its actual<br>maturity and limitations through <code>constitutive.capabilities()</code>.</li>
 <li>README installation commands must resolve a real FEniCSx environment and<br>released PyPI wheel; they must not advertise a nonexistent conda package.</li>
@@ -95,6 +97,7 @@
 <li>Ordinary Neo-Hookean loading has automatic/fixed increments, forced-cutback<br>rollback, positive-J acceptance, recoverable strain-energy evidence, and<br>accepted-increment histories in addition to the affine periodic-cell route.</li>
 <li>Common result queries provide MPI-safe region integrals/averages, boundary<br>resultants, and scalar/vector field extrema.</li>
 <li>Heat, Explicit dynamics, and Standard dynamics use one-call<br><code>solve_result(output=...)</code>, attach XDMF/HDF5 artifacts, default field sets,<br>and accepted time increments to one <code>SimulationResult</code>.</li>
+<li>Their shared checkpoint uses atomic publication, per-rank integrity checks,<br>topology-aware partition identity, collective failure, and an explicitly<br>labeled continuation-output boundary after restart.</li>
 <li>A failure on any MPI rank produces one collective failed execution record;<br>successful ranks do not wait forever at a completion barrier.</li>
 <li>A separate CI job installs the official CPU-only PyTorch wheel and executes<br>the optional dataset and PINN/ML adapter tests.</li>
 </ul>

@@ -7,16 +7,24 @@ explicitly instead of presenting partition-bound arrays as portable data.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
+import tempfile
+from uuid import uuid4
 
 import numpy as np
 
 from . import fields
 
 
-TRANSIENT_CHECKPOINT_SCHEMA = "agentfem.transient-checkpoint.v1"
+TRANSIENT_CHECKPOINT_SCHEMA = "agentfem.transient-checkpoint.v2"
+_LEGACY_TRANSIENT_CHECKPOINT_SCHEMAS = {
+    "agentfem.transient-checkpoint.v1",
+    TRANSIENT_CHECKPOINT_SCHEMA,
+}
 
 
 def save_transient_checkpoint(
@@ -41,24 +49,38 @@ def save_transient_checkpoint(
     comm = next(iter(functions.values())).function_space.mesh.comm
     manifest = _manifest_path(path)
     manifest.parent.mkdir(parents=True, exist_ok=True)
+    generation = comm.bcast(uuid4().hex[:16] if comm.rank == 0 else None, root=0)
     shard = manifest.with_name(
-        f"{manifest.name.removesuffix('.checkpoint.json')}.rank-{comm.rank:05d}.npz"
+        f"{manifest.name.removesuffix('.checkpoint.json')}.{generation}."
+        f"rank-{comm.rank:05d}.npz"
     )
     local_identity = None
+    local_shard = None
     local_error = None
     try:
-        np.savez(shard, **{name: value.x.array for name, value in functions.items()})
+        atomic_savez(
+            shard,
+            **{name: value.x.array for name, value in functions.items()},
+        )
         local_identity = {
             name: function_partition_identity(value)
             for name, value in functions.items()
+        }
+        local_shard = {
+            "path": shard.name,
+            "size": int(shard.stat().st_size),
+            "sha256": _file_sha256(shard),
         }
     except Exception as exc:  # pragma: no cover - injected in MPI regression
         local_error = f"{type(exc).__name__}: {exc}"
     _raise_collective_checkpoint_error(comm, "write state shard", local_error)
     identities = comm.gather(local_identity, root=0)
-    shard_names = comm.gather(shard.name, root=0)
+    shards = comm.gather(local_shard, root=0)
     metadata = {
         "schema": TRANSIENT_CHECKPOINT_SCHEMA,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "generation": generation,
+        "software": {"name": "AgentFEM", "version": _software_version()},
         "step_kind": str(step_kind),
         "step_name": str(step_name),
         "procedure": (
@@ -82,11 +104,11 @@ def save_transient_checkpoint(
     root_error = None
     if comm.rank == 0:
         try:
-            metadata["shards"] = list(shard_names)
+            metadata["shards"] = list(shards)
             metadata["state_identity_by_rank"] = list(identities)
-            manifest.write_text(
+            atomic_write_text(
+                manifest,
                 json.dumps(metadata, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
             )
         except Exception as exc:  # pragma: no cover - filesystem failure
             root_error = f"{type(exc).__name__}: {exc}"
@@ -129,7 +151,8 @@ def load_transient_checkpoint(
             f"Transient checkpoint manifest read failed: {payload['error']}"
         )
     metadata = payload["metadata"]
-    if metadata.get("schema") != TRANSIENT_CHECKPOINT_SCHEMA:
+    stored_schema = metadata.get("schema")
+    if stored_schema not in _LEGACY_TRANSIENT_CHECKPOINT_SCHEMAS:
         raise ValueError("Unsupported transient checkpoint schema.")
     expected_procedure = (
         procedure.summary() if hasattr(procedure, "summary") else procedure
@@ -154,7 +177,11 @@ def load_transient_checkpoint(
     try:
         stored_identity = metadata["state_identity_by_rank"][comm.rank]
         for name, function in functions.items():
-            current_identity = function_partition_identity(function)
+            current_identity = (
+                _legacy_function_partition_identity(function)
+                if stored_schema == "agentfem.transient-checkpoint.v1"
+                else function_partition_identity(function)
+            )
             if stored_identity[name] != current_identity:
                 raise ValueError(
                     f"state layout for {name!r} differs from the current "
@@ -167,10 +194,22 @@ def load_transient_checkpoint(
         "validate state identity",
         identity_error,
     )
-    shard = manifest.parent / metadata["shards"][comm.rank]
+    shard_record = metadata["shards"][comm.rank]
+    if isinstance(shard_record, str):
+        shard = manifest.parent / shard_record
+        expected_size = None
+        expected_digest = None
+    else:
+        shard = manifest.parent / shard_record["path"]
+        expected_size = int(shard_record["size"])
+        expected_digest = str(shard_record["sha256"])
     restored = None
     shard_error = None
     try:
+        if expected_size is not None and shard.stat().st_size != expected_size:
+            raise ValueError("checkpoint shard size does not match its manifest")
+        if expected_digest is not None and _file_sha256(shard) != expected_digest:
+            raise ValueError("checkpoint shard checksum does not match its manifest")
         with np.load(shard, allow_pickle=False) as data:
             restored = {}
             for name, function in functions.items():
@@ -209,9 +248,41 @@ def function_partition_identity(function) -> dict[str, object]:
     domain = V.mesh
     geometry = np.asarray(domain.geometry.x)
     geometry_map = np.asarray(domain.geometry.dofmaps[0])
+    topology = domain.topology
+    topology.create_connectivity(topology.dim, 0)
+    cell_vertices = topology.connectivity(topology.dim, 0)
     digest = sha256()
     digest.update(geometry.tobytes())
     digest.update(geometry_map.tobytes())
+    digest.update(np.asarray(cell_vertices.array).tobytes())
+    digest.update(np.asarray(cell_vertices.offsets).tobytes())
+    cell_type = str(topology.cell_name())
+    digest.update(cell_type.encode("utf-8"))
+    return {
+        "element": str(V.ufl_element()),
+        "value_shape": list(function.ufl_shape),
+        "block_size": int(V.dofmap.index_map_bs),
+        "owned_dofs": int(index_map.size_local),
+        "global_dofs": int(index_map.size_global),
+        "local_range": [int(value) for value in index_map.local_range],
+        "array_size": int(function.x.array.size),
+        "mesh_topology_dimension": int(domain.topology.dim),
+        "mesh_geometry_dimension": int(domain.geometry.dim),
+        "mesh_cell_type": cell_type,
+        "mesh_partition_hash": digest.hexdigest(),
+    }
+
+
+def _legacy_function_partition_identity(function) -> dict[str, object]:
+    """Reproduce the geometry-only identity written by checkpoint schema v1."""
+
+    function = fields.unwrap(function)
+    V = function.function_space
+    index_map = V.dofmap.index_map
+    domain = V.mesh
+    digest = sha256()
+    digest.update(np.asarray(domain.geometry.x).tobytes())
+    digest.update(np.asarray(domain.geometry.dofmaps[0]).tobytes())
     return {
         "element": str(V.ufl_element()),
         "value_shape": list(function.ufl_shape),
@@ -224,6 +295,72 @@ def function_partition_identity(function) -> dict[str, object]:
         "mesh_geometry_dimension": int(domain.geometry.dim),
         "mesh_partition_hash": digest.hexdigest(),
     }
+
+
+def atomic_savez(path, **arrays) -> Path:
+    """Atomically publish one NumPy archive in its destination directory."""
+
+    selected = Path(path)
+    selected.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            dir=selected.parent,
+            prefix=f".{selected.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as stream:
+            temporary = Path(stream.name)
+            np.savez(stream, **arrays)
+            stream.flush()
+            os.fsync(stream.fileno())
+        temporary.replace(selected)
+    except Exception:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+        raise
+    return selected
+
+
+def atomic_write_text(path, content: str) -> Path:
+    """Atomically publish UTF-8 text in its destination directory."""
+
+    selected = Path(path)
+    selected.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=selected.parent,
+            prefix=f".{selected.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as stream:
+            temporary = Path(stream.name)
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        temporary.replace(selected)
+    except Exception:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+        raise
+    return selected
+
+
+def _file_sha256(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _software_version() -> str:
+    from . import __version__
+
+    return str(__version__)
 
 
 def _raise_collective_checkpoint_error(comm, action: str, local_error) -> None:
@@ -241,6 +378,8 @@ def _raise_collective_checkpoint_error(comm, action: str, local_error) -> None:
 
 __all__ = [
     "TRANSIENT_CHECKPOINT_SCHEMA",
+    "atomic_savez",
+    "atomic_write_text",
     "function_partition_identity",
     "load_transient_checkpoint",
     "save_transient_checkpoint",

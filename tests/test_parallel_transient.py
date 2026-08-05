@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -65,7 +66,10 @@ def test_partition_bound_transient_checkpoint_restarts_collectively(tmp_path):
     assert len(restarted.history_records) == 4
     if MPI.COMM_WORLD.rank == 0:
         assert checkpoint.is_file()
-        assert len(tuple(Path(root).glob("distributed_heat.rank-*.npz"))) == 2
+        manifest = json.loads(checkpoint.read_text(encoding="utf-8"))
+        assert len(manifest["shards"]) == 2
+        assert all(item["sha256"] for item in manifest["shards"])
+        assert len(tuple(Path(root).glob("distributed_heat.*.rank-*.npz"))) == 2
 
 
 def test_transient_checkpoint_reports_one_missing_rank_shard_collectively(tmp_path):
@@ -78,7 +82,8 @@ def test_transient_checkpoint_reports_one_missing_rank_shard_collectively(tmp_pa
     partial.run(until_step=1)
     checkpoint = partial.save_checkpoint(Path(root) / "missing_shard")
     if MPI.COMM_WORLD.rank == 0:
-        (Path(root) / "missing_shard.rank-00001.npz").unlink()
+        manifest = json.loads(checkpoint.read_text(encoding="utf-8"))
+        (Path(root) / manifest["shards"][1]["path"]).unlink()
     MPI.COMM_WORLD.barrier()
 
     restarted = _distributed_heat_step()

@@ -135,6 +135,11 @@ PAGES = [
         SITE_DIR / "architecture-review.html",
     ),
     Page(
+        "CTO Product Audit: 5 August 2026",
+        ROOT / "docs" / "release_audit_2026_08_05.md",
+        SITE_DIR / "release-audit-2026-08-05.html",
+    ),
+    Page(
         "AIR Architecture Roadmap",
         ROOT / "docs" / "air_architecture_roadmap.md",
         SITE_DIR / "air-architecture-roadmap.html",

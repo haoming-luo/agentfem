@@ -22,11 +22,20 @@ history the state belongs to.
    mesh/function-space identity, prior evidence, and one state shard per MPI
    rank. An incompatible procedure, time increment, total step count, MPI size,
    mesh partition, or field layout is rejected before state mutation.
-4. Schema v1 is deliberately `portable=false`: it supports serial and
-   same-partition MPI restart. Cross-partition portability requires stable
+4. Schema v2 publishes generation-specific state shards before atomically
+   replacing the manifest. Every shard records its byte size and SHA-256
+   digest, so interruption leaves the previous manifest intact and silent
+   corruption is rejected collectively. The loader remains compatible with
+   schema v1.
+5. The checkpoint is deliberately `portable=false`: it supports serial and
+   same-partition MPI restart. Its identity includes local topology as well as
+   geometry and function layout. Cross-partition portability requires stable
    global mesh/dof/cell and quadrature identities and is a separate acceptance
    gate.
-5. Standard and Explicit dynamics sample mechanical energy from their visible
+6. A resumed step may write a truthful continuation XDMF/HDF5 segment through
+   `solve_result(output=...)`. Result metadata records the segment start time;
+   a completed step still refuses to fabricate unrecorded earlier frames.
+7. Standard and Explicit dynamics sample mechanical energy from their visible
    M/K operators. Transient heat samples `1^T C T` and calls it thermal content,
    avoiding a stronger conservation claim when flux/source work is not yet
    integrated.
@@ -39,6 +48,8 @@ history the state belongs to.
   than special-case each time integrator.
 - Same-partition MPI restart is useful now, while the manifest states exactly
   why it is not yet portable to another process count.
+- Interrupted writes and corrupted state shards fail explicitly rather than
+  silently mutating fields.
 - Full energy/work/heat balances and automatic checkpoint cadence remain
   extensions of this contract, not parallel implementations.
 
@@ -49,4 +60,6 @@ history the state belongs to.
 - uninterrupted versus restarted implicit-Euler heat transfer;
 - incompatible time-contract rejection;
 - two-rank same-partition heat restart with rank-sharded state;
-- collective failure evidence when one MPI state shard is missing.
+- collective failure evidence when one MPI state shard is missing;
+- checksum failure evidence when a state shard is modified;
+- resumed `solve_result(output=...)` with an explicit continuation boundary.

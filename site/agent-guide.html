@@ -44,6 +44,7 @@
 <a class="" href="release-0.2.0a1.html">AgentFEM 0.2.0a1</a>
 <a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="release-audit-2026-08-05.html">CTO Product Audit: 5 August 2026</a>
 <a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
 <a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
@@ -87,6 +88,7 @@
 <li>Analysis steps: prefer <code>model.step(...)</code> or <code>model.linear_static_step(...)</code><br>when a model owns fields, materials, loads, and constraints. Use<br><code>problems.linear_static</code> or <code>problems.first_order_transient</code> when a workflow<br>intentionally starts from explicit K/C/F operators without model ownership.</li>
 <li>Problem summaries: use <code>problems.FEMProblem</code> when a workflow needs a<br>broader structured audit record.</li>
 <li>Results: read <code>docs/results_and_campaigns.md</code>; use <code>solve_result()</code> or<br><code>solve_result(output=&quot;results.xdmf&quot;)</code> for the standard transient<br>solve/output/result lifecycle. Use <code>results.SimulationResult</code>, MPI-safe<br>region integrals/averages, boundary resultants and field extrema in<br><code>results</code>, then attach additional XDMF/CSV artifacts from <code>io</code>. Distinguish<br>execution status from<br><code>result.trust_level</code>, apply a named quality policy for routine checks, and<br>attach explicit scientific claims before describing a result as verified.</li>
+<li>Restart: heat, Standard dynamics, and Explicit dynamics share<br><code>run(until_step=...)</code>, <code>save_checkpoint(...)</code>, <code>load_checkpoint(...)</code>, and<br>resumed <code>solve_result(output=...)</code>. Treat <code>output_scope=&quot;continuation_segment&quot;</code><br>as a partial field series even though the result retains full accepted-time<br>and execution evidence. Do not change MPI size or mesh partition when loading<br>the current partition-bound checkpoint.</li>
 <li>Installed projects and external frontends: read <code>docs/getting_started.md</code><br>and <code>docs/agent_gui_integration.md</code>. Keep <code>case.py</code> as modeling truth, use<br><code>project.current_run()</code> for artifacts, publish a <code>SimulationResult</code>, and<br>consume versioned JSON instead of scraping terminal prose.</li>
 <li>AF-IR and repair: inspect <code>ir/</code> and <code>validation.py</code>. Treat AF-IR 0.1 as an<br>experimental record, not as proof of backend-neutral executability.</li>
 <li>Backend work: inspect <code>backends/</code> and<br><code>docs/air_architecture_roadmap.md</code>. Preserve the full FEniCSx path and do not<br>advertise a backend until its capabilities are independently tested.</li>

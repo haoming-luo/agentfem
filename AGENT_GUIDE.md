@@ -85,6 +85,12 @@ finite-element simulation with AgentFEM.
   execution status from
   `result.trust_level`, apply a named quality policy for routine checks, and
   attach explicit scientific claims before describing a result as verified.
+- Restart: heat, Standard dynamics, and Explicit dynamics share
+  `run(until_step=...)`, `save_checkpoint(...)`, `load_checkpoint(...)`, and
+  resumed `solve_result(output=...)`. Treat `output_scope="continuation_segment"`
+  as a partial field series even though the result retains full accepted-time
+  and execution evidence. Do not change MPI size or mesh partition when loading
+  the current partition-bound checkpoint.
 - Installed projects and external frontends: read `docs/getting_started.md`
   and `docs/agent_gui_integration.md`. Keep `case.py` as modeling truth, use
   `project.current_run()` for artifacts, publish a `SimulationResult`, and

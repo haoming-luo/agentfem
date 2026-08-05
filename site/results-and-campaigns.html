@@ -44,6 +44,7 @@
 <a class="" href="release-0.2.0a1.html">AgentFEM 0.2.0a1</a>
 <a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
 <a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="release-audit-2026-08-05.html">CTO Product Audit: 5 August 2026</a>
 <a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
 <a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
@@ -76,15 +77,15 @@ solved.verify(
 <p>This is important for both reproducibility and AI operation. An agent does not infer convergence by scraping prose, and a human does not receive a simplified story that differs from the machine record. Stateful J2 owns its quadrature state, while heat, Explicit dynamics, and Standard dynamics share one transient checkpoint envelope. <code>CheckpointRecord</code> makes every schema and portability boundary visible without pretending a partition-bound checkpoint is portable.</p>
 <p>Transient heat, Explicit dynamics, and Standard dynamics also share one-call field output:</p>
 <pre><code>result = step.solve_result(output=&quot;results.xdmf&quot;)</code></pre>
-<p>The returned result owns the accepted-time evidence and references both the XDMF index and HDF5 heavy data. Heat writes temperature by default; structural dynamics writes displacement, velocity, and acceleration. Supplying <code>fields=(...)</code> replaces that default catalog. Request output on the first solve; AgentFEM refuses to fabricate missing intermediate frames after a step has already completed.</p>
+<p>The returned result owns the accepted-time evidence and references both the XDMF index and HDF5 heavy data. Heat writes temperature by default; structural dynamics writes displacement, velocity, and acceleration. Supplying <code>fields=(...)</code> replaces that default catalog. Request output on the first solve or when resuming an incomplete checkpoint. A resumed output is marked <code>continuation_segment</code> with its physical start time. AgentFEM refuses to fabricate missing intermediate frames after a step has already completed.</p>
 <p>The three transient procedures can also pause and resume with the same public contract:</p>
 <pre><code>step.run(until_step=50)
 checkpoint = step.save_checkpoint(&quot;restart/step-50&quot;)
 
 resumed = build_the_same_step()
 resumed.load_checkpoint(checkpoint)
-result = resumed.solve_result()</code></pre>
-<p>The checkpoint records current fields, accepted time, algorithm identity, execution events, diagnostic histories, mesh/function layout, and one state shard per MPI rank. Version 1 intentionally requires the same mesh partition and MPI size. This is useful restart today and a precise boundary for the future global-cell identity needed by cross-partition restart.</p>
+result = resumed.solve_result(output=&quot;restart/continuation.xdmf&quot;)</code></pre>
+<p>The checkpoint records current fields, accepted time, algorithm identity, execution events, diagnostic histories, mesh/function layout, and one state shard per MPI rank. Version 2 uses atomic publication, generation-specific shards, and per-shard integrity checks. It intentionally requires the same mesh partition and MPI size. This is useful restart today and a precise boundary for the future global-cell identity needed by cross-partition restart.</p>
 <p>Dynamics results carry kinetic energy and, when the step exposes a linear stiffness operator, recoverable strain and total mechanical energy. Transient heat carries <code>thermal_content = 1^T C T</code>. These are sampled from the same engineering operators consumed by the solution procedure and survive restart.</p>
 <h2 id="field-output-versus-history-output">Field output versus history output</h2>
 <p>AgentFEM follows the established finite-element distinction:</p>
@@ -161,7 +162,7 @@ loader = bundle.loader(batch_size=64, shuffle=True)</code></pre>
 <li>named point and path probes;</li>
 <li>stress/strain projection for visualization;</li>
 <li>natural-load, weak-constraint, affine-MPC, and transient work/energy<br>histories beyond the current strong-displacement J2 history;</li>
-<li>transient checkpoint writers and MPI-portable restart identity;</li>
+<li>automatic checkpoint cadence and cross-partition MPI restart identity;</li>
 <li>mesh-independent field sampling for neural operators;</li>
 <li>scheduler executors that preserve identical case records.</li>
 </ol>

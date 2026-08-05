@@ -39,6 +39,8 @@ this sequence visible unless there is a strong reason to encapsulate it.
     one consumer. For transient heat or dynamics, prefer
     `step.solve_result(output="results.xdmf")`; it writes the time series and
     attaches the logical XDMF/HDF5 dataset to the same result.
+    A paused/restarted step may use the same call; the result identifies the
+    artifact as a continuation segment and records its physical start time.
 18. Evaluate physical QoIs, diagnostics, and histories. Keep coefficient
     statistics distinct from assembled physical integrals.
 19. Write visualization/output artifacts and attach them to the result. The
@@ -83,6 +85,7 @@ For a collection of related cases, continue with:
 - Assembly: `assembly.py`
 - Operator families: `operators/`
 - Time integration: `time/explicit.py`, `time/implicit.py`, and runtime cadence
+- Shared transient checkpoint envelope and partition identity: `checkpointing.py`
 - Model-owned analysis-step creation: `models.py`
 - Stateful nonlinear solid mechanics: `mechanics/`
 - Algebraic problems, reusable step containers, and state containers:

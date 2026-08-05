@@ -918,6 +918,7 @@ class ExplicitDynamicsStep:
     execution_events: list[object] = field(default_factory=list, init=False)
     last_output: Path | None = field(default=None, init=False)
     last_output_fields: tuple[object, ...] = field(default=(), init=False)
+    last_output_start_time: float | None = field(default=None, init=False)
     completed_steps: int = field(default=0, init=False)
     history_records: list[dict[str, float]] = field(default_factory=list, init=False)
     checkpoints: list[object] = field(default_factory=list, init=False)
@@ -969,6 +970,9 @@ class ExplicitDynamicsStep:
         )
         self.last_output = None if output is None else Path(output)
         self.last_output_fields = output_fields if output is not None else ()
+        self.last_output_start_time = (
+            None if output is None else float(self.completed_steps) * float(self.dt)
+        )
 
         _emit_transient_started(reporter, self)
         _record_transient_history(self, self.completed_steps * self.dt)
@@ -1019,9 +1023,10 @@ class ExplicitDynamicsStep:
     def solve_result(self, *, output=None, fields=(), progress=None, comm=None):
         from .results import add_execution_trace, from_solution
 
-        if output is not None and self.accepted_times:
+        if output is not None and self.completed_steps >= self.steps:
             raise RuntimeError(
-                "Transient field output must be requested before the step is run."
+                "Transient field output must be requested before completion; "
+                "completed steps cannot be reconstructed from final state alone."
             )
         if output is not None or self.completed_steps != self.steps:
             self.run(output=output, fields=fields, progress=progress, comm=comm)
@@ -1120,6 +1125,7 @@ class ImplicitDynamicsStep:
     execution_events: list[object] = field(default_factory=list, init=False)
     last_output: Path | None = field(default=None, init=False)
     last_output_fields: tuple[object, ...] = field(default=(), init=False)
+    last_output_start_time: float | None = field(default=None, init=False)
     completed_steps: int = field(default=0, init=False)
     history_records: list[dict[str, float]] = field(default_factory=list, init=False)
     checkpoints: list[object] = field(default_factory=list, init=False)
@@ -1170,6 +1176,9 @@ class ImplicitDynamicsStep:
         )
         self.last_output = None if output is None else Path(output)
         self.last_output_fields = output_fields if output is not None else ()
+        self.last_output_start_time = (
+            None if output is None else float(self.completed_steps) * float(self.dt)
+        )
         _emit_transient_started(reporter, self)
         _record_transient_history(self, self.completed_steps * self.dt)
         if output is None:
@@ -1208,9 +1217,10 @@ class ImplicitDynamicsStep:
     def solve_result(self, *, output=None, fields=(), progress=None, comm=None):
         from .results import add_execution_trace, from_solution
 
-        if output is not None and self.accepted_times:
+        if output is not None and self.completed_steps >= self.steps:
             raise RuntimeError(
-                "Transient field output must be requested before the step is run."
+                "Transient field output must be requested before completion; "
+                "completed steps cannot be reconstructed from final state alone."
             )
         if output is not None or self.completed_steps != self.steps:
             self.run(output=output, fields=fields, progress=progress, comm=comm)
@@ -1345,6 +1355,7 @@ class FirstOrderTransientStep:
     execution_events: list[object] = field(default_factory=list, init=False)
     last_output: Path | None = field(default=None, init=False)
     last_output_fields: tuple[object, ...] = field(default=(), init=False)
+    last_output_start_time: float | None = field(default=None, init=False)
     completed_steps: int = field(default=0, init=False)
     history_records: list[dict[str, float]] = field(default_factory=list, init=False)
     checkpoints: list[object] = field(default_factory=list, init=False)
@@ -1391,6 +1402,9 @@ class FirstOrderTransientStep:
         selected_fields = tuple(fields) or (self.current,)
         self.last_output = None if output is None else Path(output)
         self.last_output_fields = selected_fields if output is not None else ()
+        self.last_output_start_time = (
+            None if output is None else float(self.completed_steps) * float(self.dt)
+        )
 
         _emit_transient_started(reporter, self)
         _record_transient_history(self, self.completed_steps * self.dt)
@@ -1431,9 +1445,10 @@ class FirstOrderTransientStep:
     def solve_result(self, *, output=None, fields=(), progress=None, comm=None):
         from .results import add_execution_trace, from_solution
 
-        if output is not None and self.accepted_times:
+        if output is not None and self.completed_steps >= self.steps:
             raise RuntimeError(
-                "Transient field output must be requested before the step is run."
+                "Transient field output must be requested before completion; "
+                "completed steps cannot be reconstructed from final state alone."
             )
         if output is not None or self.completed_steps != self.steps:
             self.run(output=output, fields=fields, progress=progress, comm=comm)
@@ -1490,6 +1505,19 @@ def _attach_transient_output(result, step, output_fields) -> None:
     """Attach the accepted time axis and one logical XDMF/HDF5 dataset."""
 
     result.metadata["accepted_times"] = tuple(float(item) for item in step.accepted_times)
+    output_start = step.last_output_start_time
+    result.metadata["transient"] = {
+        "completed_steps": int(step.completed_steps),
+        "total_steps": int(step.steps),
+        "output_start_time": output_start,
+        "output_scope": (
+            None
+            if step.last_output is None
+            else "complete"
+            if output_start == 0.0
+            else "continuation_segment"
+        ),
+    }
     if step.history_records:
         coordinates = [item["time"] for item in step.history_records]
         names = tuple(
@@ -1505,6 +1533,10 @@ def _attach_transient_output(result, step, output_fields) -> None:
             },
             abscissa_name="time",
             abscissa_unit="s",
+            descriptions={
+                name: _TRANSIENT_HISTORY_DESCRIPTIONS.get(name, "")
+                for name in names
+            },
         )
     for checkpoint in step.checkpoints:
         result.add_checkpoint(checkpoint)
@@ -1522,8 +1554,22 @@ def _attach_transient_output(result, step, output_fields) -> None:
             name,
             function,
             artifact=path,
-            description="Transient field in the shared XDMF/HDF5 series.",
+            description=(
+                "Transient field in the shared XDMF/HDF5 series; "
+                f"this output segment starts at time {output_start:g}."
+            ),
         )
+
+
+_TRANSIENT_HISTORY_DESCRIPTIONS = {
+    "kinetic_energy": "Discrete kinetic energy, one half v-transpose M v.",
+    "strain_energy": "Recoverable linear strain energy, one half u-transpose K u.",
+    "total_mechanical_energy": "Sum of discrete kinetic and recoverable strain energy.",
+    "thermal_content": (
+        "Discrete thermal content, one-transpose C T, relative to the model's "
+        "temperature zero; not a complete heat-balance residual."
+    ),
+}
 
 
 def _transient_reporter(progress, comm, events, status_file=None):
