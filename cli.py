@@ -98,10 +98,39 @@ def _run_context(project: ProjectConfig, run_id: str | None, output: str | None)
     comm = MPI.COMM_WORLD
     selected_id = comm.bcast(run_id or (new_run_id() if comm.rank == 0 else None), root=0)
     context = RunContext.create(project, run_id=selected_id, output_directory=output)
+    prepare_error = None
     if comm.rank == 0:
-        context.prepare()
-    comm.barrier()
+        try:
+            context.prepare()
+        except Exception as exc:
+            prepare_error = {
+                "type": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                "message": str(exc),
+            }
+    prepare_error = comm.bcast(prepare_error, root=0)
+    if prepare_error is not None:
+        raise RuntimeError(
+            "Could not prepare the shared run directory: "
+            f"{prepare_error['type']}: {prepare_error['message']}"
+        )
     return context
+
+
+def _rank_error(exc: Exception | None, *, rank: int) -> dict[str, object] | None:
+    if exc is None:
+        return None
+    return {
+        "rank": int(rank),
+        "type": f"{type(exc).__module__}.{type(exc).__qualname__}",
+        "message": str(exc),
+        "traceback": traceback.format_exc(),
+    }
+
+
+def _collect_rank_errors(comm, local_error) -> tuple[dict[str, object], ...]:
+    """Collect per-rank failures before any rank can report completion."""
+
+    return tuple(item for item in comm.allgather(local_error) if item is not None)
 
 
 def _launch_mpi(args) -> int:
@@ -146,6 +175,7 @@ def _command_run(args) -> int:
     previous_environment = {key: os.environ.get(key) for key in context.environment()}
     os.environ.update(context.environment())
     previous_directory = Path.cwd()
+    local_error = None
     try:
         os.chdir(project.root)
         if MPI.COMM_WORLD.rank == 0 and not args.json:
@@ -166,37 +196,8 @@ def _command_run(args) -> int:
                 stack.enter_context(redirect_stdout(stdout_log))
                 stack.enter_context(redirect_stderr(stderr_log))
             runpy.run_path(str(project.entrypoint), run_name="__main__")
-        MPI.COMM_WORLD.barrier()
-        if MPI.COMM_WORLD.rank == 0 and not context.execution_path.is_file():
-            context.write_execution(
-                "completed",
-                structured_result=context.manifest_path.is_file(),
-            )
-        record = json.loads(context.execution_path.read_text(encoding="utf-8")) if MPI.COMM_WORLD.rank == 0 else {}
-        _emit(
-            record,
-            as_json=args.json,
-            human=(
-                f"Run completed: {context.run_id}\n"
-                f"  result: {context.manifest_path if context.manifest_path.is_file() else 'script completed without a published SimulationResult'}\n"
-                f"  execution: {context.execution_path}"
-            ),
-        )
-        return 0
     except Exception as exc:
-        error = {
-            "type": f"{type(exc).__module__}.{type(exc).__qualname__}",
-            "message": str(exc),
-            "traceback": traceback.format_exc(),
-        }
-        if MPI.COMM_WORLD.rank == 0:
-            context.write_execution("failed", error=error, structured_result=False)
-        _emit(
-            {**context.summary(), "status": "failed", "error": error},
-            as_json=args.json,
-            human=f"Run failed: {type(exc).__name__}: {exc}\n  execution: {context.execution_path}",
-        )
-        return 1
+        local_error = _rank_error(exc, rank=MPI.COMM_WORLD.rank)
     finally:
         os.chdir(previous_directory)
         for key, value in previous_environment.items():
@@ -204,6 +205,49 @@ def _command_run(args) -> int:
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = value
+
+    rank_errors = _collect_rank_errors(MPI.COMM_WORLD, local_error)
+    if rank_errors:
+        primary = rank_errors[0]
+        error = {
+            "type": primary["type"],
+            "message": primary["message"],
+            "rank": primary["rank"],
+            "rank_errors": rank_errors,
+        }
+        if MPI.COMM_WORLD.rank == 0:
+            context.write_execution("failed", error=error, structured_result=False)
+        _emit(
+            {**context.summary(), "status": "failed", "error": error},
+            as_json=args.json,
+            human=(
+                f"Run failed on MPI rank {primary['rank']}: "
+                f"{primary['type']}: {primary['message']}\n"
+                f"  execution: {context.execution_path}"
+            ),
+        )
+        return 1
+
+    if MPI.COMM_WORLD.rank == 0 and not context.execution_path.is_file():
+        context.write_execution(
+            "completed",
+            structured_result=context.manifest_path.is_file(),
+        )
+    record = (
+        json.loads(context.execution_path.read_text(encoding="utf-8"))
+        if MPI.COMM_WORLD.rank == 0
+        else {}
+    )
+    _emit(
+        record,
+        as_json=args.json,
+        human=(
+            f"Run completed: {context.run_id}\n"
+            f"  result: {context.manifest_path if context.manifest_path.is_file() else 'script completed without a published SimulationResult'}\n"
+            f"  execution: {context.execution_path}"
+        ),
+    )
+    return 0
 
 
 def _command_inspect(args) -> int:

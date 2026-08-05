@@ -51,6 +51,20 @@ story that differs from the machine record. Checkpoint state is still owned by
 each procedure; `CheckpointRecord` makes its schema and portability boundary
 visible without pretending every checkpoint is MPI-portable.
 
+Transient heat, Explicit dynamics, and Standard dynamics also share one-call
+field output:
+
+```python
+result = step.solve_result(output="results.xdmf")
+```
+
+The returned result owns the accepted-time evidence and references both the
+XDMF index and HDF5 heavy data. Heat writes temperature by default; structural
+dynamics writes displacement, velocity, and acceleration. Supplying
+`fields=(...)` replaces that default catalog. Request output on the first solve;
+AgentFEM refuses to fabricate missing intermediate frames after a step has
+already completed.
+
 ## Field output versus history output
 
 AgentFEM follows the established finite-element distinction:

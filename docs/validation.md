@@ -14,6 +14,15 @@ complete structured report, or `model.check()` when execution must stop on
 errors. New issues should define a stable `AFM-*` code, a scientific-object
 path, a severity, and a repair hint where a local repair is meaningful.
 
+Validation is capability-based rather than a registry-presence check. It must
+find a target field compatible with the Study and verify that registered or
+explicit materials implement the protocol consumed by the selected provider.
+For example, steady heat requires a scalar temperature target and
+conductivity; transient heat additionally requires volumetric heat capacity;
+default structural dynamics requires elastic response and density. A complete
+expert-supplied algebraic system may deliberately replace those model-owned
+material operators.
+
 ## Structural Checks
 
 - Imports use the current package layout.

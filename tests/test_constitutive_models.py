@@ -5,6 +5,7 @@ import pytest
 from mpi4py import MPI
 
 from agentfem import (
+    amplitudes,
     benchmarks,
     constitutive,
     fields,
@@ -263,6 +264,56 @@ def test_neo_hookean_standard_path_scales_natural_loads_by_increment():
         pytest.approx(2.0 / 3.0),
         pytest.approx(1.0),
     ]
+    assert float(np.max(displacement.value.x.array)) > 0.0
+
+
+def test_neo_hookean_natural_load_amplitude_follows_normalized_step_time():
+    visited = []
+    history = amplitudes.Amplitude(
+        name="traction_ramp",
+        kind="test_ramp",
+        value=lambda factor: visited.append(float(factor)) or float(factor),
+    )
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (4, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    model = models.create(
+        study=studies.static_solid(
+            dimension=2,
+            assumption="plane_strain",
+            nonlinear=True,
+        ),
+        mesh=domain,
+        name="hyperelastic_amplitude_path",
+    )
+    displacement = model.field(fields.displacement(domain, degree=1))
+    material = model.material(
+        hyperelasticity.neo_hookean(young=2.0e6, poisson=0.3)
+    )
+    model.clamp(
+        displacement,
+        on=mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left"),
+    )
+    driven = model.traction(
+        (1.0e4, 0.0),
+        on=mesh.boundary(domain, lambda x: np.isclose(x[0], 1.0), name="right"),
+        amplitude=history,
+    )
+    step = model.step(
+        target=displacement,
+        material=material,
+        incrementation=steps.fixed(3),
+        progress=False,
+    )
+    step.solve()
+
+    assert step.last_solve_info.converged
+    assert visited[-4:] == pytest.approx([0.0, 1.0 / 3.0, 2.0 / 3.0, 1.0])
+    assert float(driven.scale.value) == pytest.approx(1.0)
     assert float(np.max(displacement.value.x.array)) > 0.0
 
 

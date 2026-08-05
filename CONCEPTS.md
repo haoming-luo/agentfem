@@ -128,6 +128,13 @@ model assets, but they are not finite-element fields: they do not own a
 function space or spatial degrees of freedom.
 
 Loads, constraints, sources, and prescribed data may reference amplitudes.
+Model-owned amplitudes can be registered once and referenced by name. Their
+independent coordinate follows the owning Step: a one-solve static analysis
+evaluates the step-end value at 1; nonlinear statics evaluate the normalized
+load coordinate from 0 to 1; transient procedures evaluate physical time.
+An amplitude-driven nonlinear natural load supplies the complete load scale
+and is not multiplied by a second hidden ramp. A natural load without an
+amplitude follows the Step's default proportional ramp.
 
 ## Constitutive Law
 
@@ -210,6 +217,12 @@ when relevant, visible operators, boundary conditions, and solver options.
 
 Examples include a linear static step solving `K U = F` and an implicit Euler
 heat-transfer step solving `(C / dt + K) T_next = C T_old / dt + Q`.
+
+Transient steps share one result lifecycle. Calling
+`step.solve_result(output="results.xdmf")` advances the procedure, writes its
+default primary/state fields to one XDMF/HDF5 series, records every accepted
+time increment, and attaches those artifacts to the returned
+`SimulationResult`.
 
 The step should not hide the finite-element meaning. It is the place where
 visible operators become a solveable algebraic problem.

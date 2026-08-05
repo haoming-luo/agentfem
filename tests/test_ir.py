@@ -67,6 +67,7 @@ def test_model_ir_records_scope_backend_and_validation(tmp_path):
         name="heat",
     )
     model.field(_Field(mesh))
+    model.material(SimpleNamespace(conductivity=1.0))
 
     record = model.to_ir(metadata={"case": "unit_test"})
     output = model.write_ir(tmp_path / "heat.afir.json")

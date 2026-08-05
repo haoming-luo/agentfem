@@ -36,10 +36,14 @@ this sequence visible unless there is a strong reason to encapsulate it.
     is an auditable artifact, write `model.write_ir(...)`.
 16. Compile, assemble, and solve the step, or advance in time.
 17. Solve to a `results.SimulationResult` when the result will feed more than
-    one consumer.
+    one consumer. For transient heat or dynamics, prefer
+    `step.solve_result(output="results.xdmf")`; it writes the time series and
+    attaches the logical XDMF/HDF5 dataset to the same result.
 18. Evaluate physical QoIs, diagnostics, and histories. Keep coefficient
     statistics distinct from assembled physical integrals.
-19. Write visualization/output artifacts and attach them to the result.
+19. Write visualization/output artifacts and attach them to the result. The
+    standard transient lifecycle performs this automatically; low-level
+    `run(output=...)` remains available for expert loops.
 20. Apply `result.verify("exploratory" | "engineering" | "release")` and
     declare required quantities, histories, and artifacts. Add reference,
     invariant, discretization, or validation claims when the result will be

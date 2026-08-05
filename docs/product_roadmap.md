@@ -78,6 +78,11 @@ an agent, user, or README from confusing these levels.
   registered executable provider can consume them;
 - share reusable time amplitudes across loads, prescribed data, and thermal
   boundary models, with automatic updates inside transient procedures.
+- define amplitude coordinates once across single-solve static, normalized
+  nonlinear static, and physical-time transient procedures; named histories
+  must resolve identically for loads and prescribed values;
+- make project execution fail collectively when any MPI rank fails, preserving
+  rank-addressable evidence rather than hanging at a completion barrier;
 - keep execution status distinct from scientific trust; release and training
   data may require explicit verification claims rather than successful exit;
 - expand the `CAE Reliability Cliff Suite` from the automated orientation
@@ -95,6 +100,9 @@ the first release.
 
 - harden the new `SolutionProcedure` separation and make Standard/Explicit
   transient steps share result, progress, energy, and checkpoint manifests;
+- build on the shared heat/Standard/Explicit `solve_result(output=...)`
+  lifecycle with energy histories and restartable procedure state; field
+  artifacts and accepted time increments are already unified;
 - extend the minimal verified Newmark starter to larger meshes, MPI, and a
   tested transient XDMF/HDF5 lifecycle; the current macOS product smoke remains
   deliberately small after exposing a native PETSc/MPI failure at a larger

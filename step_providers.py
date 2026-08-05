@@ -120,7 +120,13 @@ def step_providers() -> tuple[StepProvider, ...]:
     return _DEFAULT_REGISTRY.providers()
 
 
-def step_capability(model, *, target=None, analysis: str | None = None) -> dict[str, object]:
+def step_capability(
+    model,
+    *,
+    target=None,
+    analysis: str | None = None,
+    options: dict[str, object] | None = None,
+) -> dict[str, object]:
     """Describe whether the current model can be lowered without executing it.
 
     This is deliberately based on the same provider predicates used by
@@ -131,30 +137,39 @@ def step_capability(model, *, target=None, analysis: str | None = None) -> dict[
     selected_analysis = _normalize(
         analysis or getattr(getattr(model, "study", None), "analysis", "")
     )
-    selected_target = target
-    if selected_target is None:
-        fields = tuple(getattr(model, "fields", ()))
-        selected_target = fields[0] if fields else None
-    request = StepRequest(
-        analysis=selected_analysis,
-        target=selected_target,
-        options={},
+    selected_options = dict(options or {})
+    targets = (
+        (target,)
+        if target is not None
+        else tuple(getattr(model, "fields", ())) or (None,)
     )
     candidates = tuple(
         provider
         for provider in _DEFAULT_REGISTRY.providers()
         if selected_analysis in provider.analyses
     )
-    accepted = tuple(
-        provider for provider in candidates if provider.accepts(model, request)
-    )
-    provider = accepted[0] if accepted else None
+    provider = None
+    selected_target = targets[0]
+    for candidate_target in targets:
+        request = StepRequest(
+            analysis=selected_analysis,
+            target=candidate_target,
+            options=selected_options,
+        )
+        accepted = tuple(
+            item for item in candidates if item.accepts(model, request)
+        )
+        if accepted:
+            provider = accepted[0]
+            selected_target = candidate_target
+            break
     return {
         "analysis": selected_analysis,
         "physics": getattr(getattr(model, "study", None), "physics", None),
         "dimension": getattr(getattr(model, "study", None), "dimension", None),
         "assumption": getattr(getattr(model, "study", None), "assumption", None),
         "supported": provider is not None,
+        "target": _target_summary(selected_target),
         "provider": None if provider is None else provider.summary(),
         "candidate_providers": tuple(item.name for item in candidates),
     }
@@ -178,15 +193,108 @@ def _selected_material(model, request: StepRequest):
     return selected
 
 
+def _registered_materials(model, request: StepRequest) -> tuple[object, ...]:
+    selected = request.material
+    if selected is not None:
+        return (selected,)
+    return tuple(record.item for record in getattr(model, "materials", ()))
+
+
+def _target_summary(target) -> dict[str, object] | None:
+    if target is None:
+        return None
+    shape = _target_shape(target)
+    return {
+        "name": getattr(target, "name", type(target).__name__),
+        "kind": getattr(target, "kind", None),
+        "shape": shape,
+    }
+
+
+def _target_shape(target) -> tuple[int, ...] | None:
+    shape = getattr(target, "ufl_shape", None)
+    if shape is None:
+        value = getattr(target, "value", None)
+        shape = getattr(value, "ufl_shape", None)
+    if shape is None:
+        return None
+    return tuple(int(item) for item in shape)
+
+
+def _is_scalar_target(target) -> bool:
+    kind = getattr(target, "kind", None)
+    if kind in {"temperature", "scalar_unknown"}:
+        return True
+    if kind in {"displacement", "vector_unknown"}:
+        return False
+    shape = _target_shape(target)
+    return shape in {None, ()}
+
+
+def _is_vector_target(target) -> bool:
+    kind = getattr(target, "kind", None)
+    if kind in {"displacement", "vector_unknown"}:
+        return True
+    if kind in {"temperature", "scalar_unknown"}:
+        return False
+    shape = _target_shape(target)
+    return shape is None or len(shape) == 1
+
+
+def _has_complete_linear_system(request: StepRequest) -> bool:
+    return (
+        request.options.get("K") is not None
+        and request.options.get("F") is not None
+    )
+
+
+def _supports_elasticity(material) -> bool:
+    return (
+        hasattr(material, "stiffness_voigt")
+        or (hasattr(material, "young") and hasattr(material, "poisson"))
+    )
+
+
+def _supports_dynamics(material) -> bool:
+    return (
+        _supports_elasticity(material)
+        and getattr(material, "density", None) is not None
+    )
+
+
+def _supports_conduction(material) -> bool:
+    return hasattr(material, "conductivity")
+
+
+def _supports_heat_capacity(material) -> bool:
+    return hasattr(material, "volumetric_heat_capacity")
+
+
+def _all_materials_support(model, request: StepRequest, predicate) -> bool:
+    materials = _registered_materials(model, request)
+    return bool(materials) and all(predicate(item) for item in materials)
+
+
 def _accept_linear_static(model, request: StepRequest) -> bool:
     study = getattr(model, "study", None)
-    return request.target is not None and (
-        (
-            getattr(study, "physics", None) == "solid_mechanics"
-            and getattr(study, "assumption", None) != "axisymmetric"
+    if request.target is None:
+        return False
+    physics = getattr(study, "physics", None)
+    if physics == "solid_mechanics":
+        return (
+            getattr(study, "assumption", None) != "axisymmetric"
+            and _is_vector_target(request.target)
+            and (
+                _has_complete_linear_system(request)
+                or _all_materials_support(model, request, _supports_elasticity)
+            )
         )
-        or getattr(study, "physics", None) == "heat_transfer"
-    )
+    if physics == "heat_transfer":
+        return _is_scalar_target(request.target) and (
+            _has_complete_linear_system(request)
+            or _all_materials_support(model, request, _supports_conduction)
+        )
+    return False
 
 
 def _lower_linear_static(model, request: StepRequest):
@@ -203,8 +311,11 @@ def _lower_linear_static(model, request: StepRequest):
 def _accept_transient_heat(model, request: StepRequest) -> bool:
     return (
         request.target is not None
+        and _is_scalar_target(request.target)
         and getattr(getattr(model, "study", None), "physics", None)
         == "heat_transfer"
+        and _all_materials_support(model, request, _supports_conduction)
+        and _all_materials_support(model, request, _supports_heat_capacity)
     )
 
 
@@ -235,6 +346,7 @@ def _accept_neo_hookean(model, request: StepRequest) -> bool:
     )
     return (
         getattr(study, "physics", None) == "solid_mechanics"
+        and _is_vector_target(request.target)
         and supported_kinematics
         and isinstance(_selected_material(model, request), NeoHookeanProperties)
     )
@@ -246,6 +358,7 @@ def _accept_j2(model, request: StepRequest) -> bool:
     study = getattr(model, "study", None)
     return (
         getattr(study, "physics", None) == "solid_mechanics"
+        and _is_vector_target(request.target)
         and getattr(study, "dimension", None) == 3
         and isinstance(
             _selected_material(model, request),
@@ -292,8 +405,16 @@ def _accept_explicit_dynamics(model, request: StepRequest) -> bool:
     )
     return (
         request.target is not None
+        and _is_vector_target(request.target)
         and getattr(getattr(model, "study", None), "physics", None)
         == "solid_mechanics"
+        and (
+            (
+                request.options.get("mass") is not None
+                and request.options.get("residual") is not None
+            )
+            or _all_materials_support(model, request, _supports_dynamics)
+        )
         and (
         method is None
         or _normalize(method) in {"explicit_dynamics", "central_difference"}
@@ -324,8 +445,13 @@ def _accept_implicit_dynamics(model, request: StepRequest) -> bool:
     )
     return (
         request.target is not None
+        and _is_vector_target(request.target)
         and getattr(getattr(model, "study", None), "physics", None)
         == "solid_mechanics"
+        and (
+            all(request.options.get(item) is not None for item in ("M", "K", "F"))
+            or _all_materials_support(model, request, _supports_dynamics)
+        )
         and _normalize(method or "") in {"newmark", "generalized_alpha"}
     )
 

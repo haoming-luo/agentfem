@@ -286,17 +286,22 @@ def test_implicit_dynamics_provider_runs_newmark_and_records_procedure(tmp_path)
         progress=False,
         status_file=tmp_path / "implicit.sta",
     )
-    step.run()
+    simulation = step.solve_result(output=tmp_path / "implicit.xdmf")
 
     assert step.procedure.algorithm == "newmark"
     assert np.max(np.abs(step.state.u.value.x.array)) > 0.0
-    simulation = step.solve_result()
     time_events = [
         event for event in step.execution_events
         if event.kind == "time_increment"
     ]
     assert len(time_events) == 3
     assert simulation.histories["accepted_increment"].latest == 3.0
+    assert simulation.histories["time_increment"].latest == pytest.approx(1.0e-3)
+    assert simulation.artifacts["fields_xdmf"].is_file()
+    assert simulation.artifacts["fields_hdf5"].is_file()
+    assert {"Displacement", "Velocity", "Acceleration"}.issubset(
+        simulation.fields
+    )
     assert simulation.metadata["execution"]["event_count"] == 5
     assert not (tmp_path / "implicit.sta").exists()
 

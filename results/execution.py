@@ -50,6 +50,15 @@ def add_execution_trace(result, events: Iterable[object]) -> tuple[dict[str, obj
             abscissa_unit="s",
             description="All accepted time-integration increments.",
         )
+        result.add_history(
+            "time_increment",
+            times,
+            np.diff(np.concatenate(([0.0], times))),
+            unit="s",
+            abscissa_name="time",
+            abscissa_unit="s",
+            description="Accepted physical time increment at each step.",
+        )
 
     accepted = [item for item in records if item["kind"] == "increment_converged"]
     if accepted:
@@ -73,4 +82,3 @@ def add_execution_trace(result, events: Iterable[object]) -> tuple[dict[str, obj
             },
         )
     return records
-

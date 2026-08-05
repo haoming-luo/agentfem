@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 
 import numpy as np
 import ufl
@@ -370,6 +371,7 @@ class IncrementalNonlinearVariationalProblem:
     solution: object
     factor: object
     value_path: object
+    update_load: object | None = None
     acceptance_check: object | None = None
     bcs: list = field(default_factory=list)
     jacobian_form: object | None = None
@@ -623,6 +625,8 @@ class IncrementalNonlinearVariationalProblem:
     def _update_factor(self, factor: float) -> None:
         self.factor.value = PETSc.ScalarType(factor)
         self.value_path.update(factor)
+        if self.update_load is not None:
+            self.update_load(float(factor))
 
     def _fail(
         self,
@@ -911,6 +915,8 @@ class ExplicitDynamicsStep:
     status_file: object | None = None
     accepted_times: list[float] = field(default_factory=list, init=False)
     execution_events: list[object] = field(default_factory=list, init=False)
+    last_output: Path | None = field(default=None, init=False)
+    last_output_fields: tuple[object, ...] = field(default=(), init=False)
 
     def run(
         self,
@@ -944,7 +950,13 @@ class ExplicitDynamicsStep:
             save_every=save_every,
             print_every=print_every,
         )
-        output_fields = tuple(fields)
+        output_fields = tuple(fields) or (
+            self.state.u.value,
+            self.state.v.value,
+            self.state.a.value,
+        )
+        self.last_output = None if output is None else Path(output)
+        self.last_output_fields = output_fields if output is not None else ()
 
         _emit_transient_started(reporter, self)
 
@@ -965,7 +977,7 @@ class ExplicitDynamicsStep:
 
         if domain is None:
             domain = self.state.u.function_space.mesh
-        with io.XDMFTimeSeries(output, domain) as xdmf:
+        with io.XDMFTimeSeries(self.last_output, domain) as xdmf:
             xdmf.write_fields(0.0, *output_fields)
             for info in stepper:
                 self._advance_one(info.time)
@@ -987,16 +999,25 @@ class ExplicitDynamicsStep:
         self.run()
         return self.state.u.value
 
-    def solve_result(self):
+    def solve_result(self, *, output=None, fields=(), progress=None, comm=None):
         from .results import add_execution_trace, from_solution
 
-        solution = (
-            self.state.u.value
-            if len(self.accepted_times) == self.steps
-            else self.solve()
-        )
+        if output is not None and self.accepted_times:
+            raise RuntimeError(
+                "Transient field output must be requested before the step is run."
+            )
+        if output is not None or len(self.accepted_times) != self.steps:
+            self.run(output=output, fields=fields, progress=progress, comm=comm)
+        solution = self.state.u.value
         result = from_solution(solution, name=self.name, metadata={"step": self.summary()})
         add_execution_trace(result, self.execution_events)
+        _attach_transient_output(
+            result,
+            self,
+            tuple(fields)
+            or self.last_output_fields
+            or (self.state.u.value, self.state.v.value, self.state.a.value),
+        )
         return result
 
     def _advance_one(self, t: float) -> None:
@@ -1060,6 +1081,8 @@ class ImplicitDynamicsStep:
     status_file: object | None = None
     accepted_times: list[float] = field(default_factory=list, init=False)
     execution_events: list[object] = field(default_factory=list, init=False)
+    last_output: Path | None = field(default=None, init=False)
+    last_output_fields: tuple[object, ...] = field(default=(), init=False)
 
     def run(self, *, output=None, fields=(), progress=None, comm=None):
         """Advance the implicit dynamics step with standard progress output."""
@@ -1090,6 +1113,8 @@ class ImplicitDynamicsStep:
             self.state.v.value,
             self.state.a.value,
         )
+        self.last_output = None if output is None else Path(output)
+        self.last_output_fields = output_fields if output is not None else ()
         _emit_transient_started(reporter, self)
         if output is None:
             for info in stepper:
@@ -1102,7 +1127,7 @@ class ImplicitDynamicsStep:
             _emit_transient_completed(reporter, self)
             return self
         domain = self.state.u.function_space.mesh
-        with io.XDMFTimeSeries(output, domain) as xdmf:
+        with io.XDMFTimeSeries(self.last_output, domain) as xdmf:
             xdmf.write_fields(0.0, *output_fields)
             for info in stepper:
                 self._advance_one(info.time)
@@ -1120,20 +1145,29 @@ class ImplicitDynamicsStep:
         self.run()
         return self.state.u.value
 
-    def solve_result(self):
+    def solve_result(self, *, output=None, fields=(), progress=None, comm=None):
         from .results import add_execution_trace, from_solution
 
-        solution = (
-            self.state.u.value
-            if len(self.accepted_times) == self.steps
-            else self.solve()
-        )
+        if output is not None and self.accepted_times:
+            raise RuntimeError(
+                "Transient field output must be requested before the step is run."
+            )
+        if output is not None or len(self.accepted_times) != self.steps:
+            self.run(output=output, fields=fields, progress=progress, comm=comm)
+        solution = self.state.u.value
         result = from_solution(
             solution,
             name=self.name,
             metadata={"step": self.summary()},
         )
         add_execution_trace(result, self.execution_events)
+        _attach_transient_output(
+            result,
+            self,
+            tuple(fields)
+            or self.last_output_fields
+            or (self.state.u.value, self.state.v.value, self.state.a.value),
+        )
         return result
 
     def _advance_one(self, time_value: float) -> None:
@@ -1229,6 +1263,8 @@ class FirstOrderTransientStep:
     status_file: object | None = None
     accepted_times: list[float] = field(default_factory=list, init=False)
     execution_events: list[object] = field(default_factory=list, init=False)
+    last_output: Path | None = field(default=None, init=False)
+    last_output_fields: tuple[object, ...] = field(default=(), init=False)
 
     def run(self, *, output=None, fields=(), progress=None, comm=None):
         from . import io
@@ -1255,6 +1291,8 @@ class FirstOrderTransientStep:
             print_every=_print_interval(self.print_every, self.steps),
         )
         selected_fields = tuple(fields) or (self.current,)
+        self.last_output = None if output is None else Path(output)
+        self.last_output_fields = selected_fields if output is not None else ()
 
         _emit_transient_started(reporter, self)
 
@@ -1276,7 +1314,7 @@ class FirstOrderTransientStep:
             _emit_transient_completed(reporter, self)
             return self
         domain = self.current.function_space.mesh
-        with io.XDMFTimeSeries(output, domain) as xdmf:
+        with io.XDMFTimeSeries(self.last_output, domain) as xdmf:
             xdmf.write_fields(0.0, *selected_fields)
             for info in stepper:
                 advance(info)
@@ -1289,20 +1327,27 @@ class FirstOrderTransientStep:
         self.run()
         return self.current
 
-    def solve_result(self):
+    def solve_result(self, *, output=None, fields=(), progress=None, comm=None):
         from .results import add_execution_trace, from_solution
 
-        solution = (
-            self.current
-            if len(self.accepted_times) == self.steps
-            else self.solve()
-        )
+        if output is not None and self.accepted_times:
+            raise RuntimeError(
+                "Transient field output must be requested before the step is run."
+            )
+        if output is not None or len(self.accepted_times) != self.steps:
+            self.run(output=output, fields=fields, progress=progress, comm=comm)
+        solution = self.current
         result = from_solution(
             solution,
             name=self.name,
             metadata={"step": self.summary()},
         )
         add_execution_trace(result, self.execution_events)
+        _attach_transient_output(
+            result,
+            self,
+            tuple(fields) or self.last_output_fields or (self.current,),
+        )
         return result
 
     def summary(self) -> dict[str, object]:
@@ -1319,6 +1364,28 @@ class FirstOrderTransientStep:
             "print_every": _print_interval(self.print_every, self.steps),
             "problem": self.problem.summary(),
         }
+
+
+def _attach_transient_output(result, step, output_fields) -> None:
+    """Attach the accepted time axis and one logical XDMF/HDF5 dataset."""
+
+    result.metadata["accepted_times"] = tuple(float(item) for item in step.accepted_times)
+    path = step.last_output
+    if path is None:
+        return
+    result.add_artifact("fields_xdmf", path)
+    heavy_data = path.with_suffix(".h5")
+    if heavy_data.is_file():
+        result.add_artifact("fields_hdf5", heavy_data)
+    for item in output_fields:
+        function = getattr(item, "value", item)
+        name = getattr(function, "name", type(function).__name__)
+        result.add_field(
+            name,
+            function,
+            artifact=path,
+            description="Transient field in the shared XDMF/HDF5 series.",
+        )
 
 
 def _transient_reporter(progress, comm, events, status_file=None):
@@ -1646,6 +1713,7 @@ def incremental_nonlinear(
     *,
     factor,
     value_path,
+    update_load=None,
     acceptance_check=None,
     jacobian=None,
     incrementation=None,
@@ -1669,6 +1737,7 @@ def incremental_nonlinear(
         solution=solution,
         factor=factor,
         value_path=value_path,
+        update_load=update_load,
         acceptance_check=acceptance_check,
         bcs=_collect_bcs(constraints=constraints, bcs=bcs),
         incrementation=step_controls.normalize(incrementation),

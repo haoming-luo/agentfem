@@ -116,6 +116,12 @@ result frames. The nonlinear controller lands on those requested marks and may
 insert additional internal increments after cutbacks. `frames` is reserved for
 the states read back from a result dataset; it is not a solve-control argument.
 
+Amplitude coordinates follow the same separation. A natural load without an
+amplitude receives the nonlinear Step's proportional load factor. A load with
+an amplitude evaluates that history at normalized step time and is not scaled
+again. Linear static evaluates model histories at step end, while heat and
+dynamics evaluate them at physical time.
+
 ## Standard run feedback
 
 Nonlinear steps report progress on MPI rank zero without requiring routine CLI
@@ -238,3 +244,6 @@ multiaxial damage model.
    after hotspot/element mapping and provenance are defined.
 7. Add load-controlled finite-strain examples for dead and follower pressure,
    including tangent and sign checks.
+8. Extend the shared transient result lifecycle with procedure-specific energy
+   histories and one checkpoint envelope for heat, Standard dynamics, and
+   Explicit dynamics.

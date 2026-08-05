@@ -44,7 +44,7 @@ jobs:
         run: python -m pytest
 
       - name: Run distributed constraint and result tests
-        run: mpirun -n 2 python -m pytest tests/test_parallel_affine.py
+        run: mpirun -n 2 python -m pytest tests/test_parallel_affine.py tests/test_parallel_cli.py
 
       - name: Run static FEniCSx smoke test
         run: python examples/static_elasticity_2d.py

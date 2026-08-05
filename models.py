@@ -108,23 +108,33 @@ class Model:
             if components is not None:
                 raise ValueError("Pass either component=... or components=..., not both.")
             components = component
-        if _is_amplitude_like(value):
-            return self.add_constraint(
-                _time_dependent_fix(
-                    target,
-                    on=on,
-                    location=location,
-                    value=value,
-                    components=components,
-                    name=name,
-                )
+        selected_value = (
+            self._amplitude_by_name(value)
+            if isinstance(value, str)
+            else value
+        )
+        if _is_amplitude_like(selected_value):
+            created = _time_dependent_fix(
+                target,
+                on=on,
+                location=location,
+                value=selected_value,
+                components=components,
+                name=name,
             )
+            for item in constraint_api.dirichlet_constraints(created):
+                history = getattr(item, "amplitude", None)
+                if history is not None and not any(
+                    registered is history for registered in self.amplitudes
+                ):
+                    self.add_amplitude(history)
+            return self.add_constraint(created)
         return self.add_constraint(
             constraint_api.fixed(
                 target,
                 on=on,
                 location=location,
-                value=value,
+                value=selected_value,
                 components=components,
                 name=name,
             )
@@ -228,12 +238,21 @@ class Model:
     def _with_amplitude(self, load, amplitude):
         if amplitude is None:
             return load
-        return load_api.with_amplitude(
+        selected = (
+            self._amplitude_by_name(amplitude)
+            if isinstance(amplitude, str)
+            else amplitude
+        )
+        driven = load_api.with_amplitude(
             load,
-            amplitude,
+            selected,
             domain=_domain(self.mesh),
             name=getattr(load, "name", None),
         )
+        history = driven.amplitude
+        if not any(item is history for item in self.amplitudes):
+            self.add_amplitude(history)
+        return driven
 
     def load(self, load):
         """Register a natural load/source and return it."""
@@ -1034,7 +1053,13 @@ class Model:
         from . import operators
         from . import problems
 
-        self.check()
+        self.check(
+            target=target,
+            step_options={"K": K, "F": F},
+        )
+        update_at_step_end = self._time_update_callback()
+        if update_at_step_end is not None:
+            update_at_step_end(1.0)
         if getattr(self.study, "is_heat_transfer", False):
             boundary_stiffness, boundary_source = self._thermal_boundary_terms(target)
             if K is None:
@@ -1097,7 +1122,10 @@ class Model:
         from . import operators
         from . import problems
 
-        self.check()
+        self.check(
+            target=target,
+            step_options={"material": material, "K": K, "F": Q},
+        )
         if hasattr(self.study, "require"):
             self.study.require(
                 analysis="first_order_transient",
@@ -1250,7 +1278,10 @@ class Model:
         from . import problems
         from .constitutive import hyperelasticity
 
-        self.check()
+        self.check(
+            target=target,
+            step_options={"material": material},
+        )
         if hasattr(self.study, "require"):
             self.study.require(analysis="nonlinear_static", physics="solid_mechanics")
         if getattr(self.study, "dimension", None) == 2 and getattr(
@@ -1307,6 +1338,11 @@ class Model:
             load_factors=load_factors,
         )
         if affine_constraints:
+            if any(isinstance(item, load_api.AmplitudeLoad) for item in self.loads):
+                raise NotImplementedError(
+                    "Amplitude-driven natural loads are not yet supported by the "
+                    "affine nonlinear path. Prescribed affine loading remains supported."
+                )
             if len(affine_constraints) != 1 or len(selected_constraints) != 1:
                 raise ValueError(
                     "The affine hyperelastic path currently requires exactly one "
@@ -1345,7 +1381,26 @@ class Model:
             )
             residual = internal_residual
             if self.loads:
-                residual -= load_factor * self.external_force(target).expression
+                proportional_loads = tuple(
+                    item
+                    for item in self.loads
+                    if not isinstance(item, load_api.AmplitudeLoad)
+                )
+                amplitude_loads = tuple(
+                    item
+                    for item in self.loads
+                    if isinstance(item, load_api.AmplitudeLoad)
+                )
+                if proportional_loads:
+                    residual -= load_factor * self.external_force(
+                        target,
+                        loads=proportional_loads,
+                    ).expression
+                if amplitude_loads:
+                    residual -= self.external_force(
+                        target,
+                        loads=amplitude_loads,
+                    ).expression
             jacobian = hyperelasticity.tangent(
                 residual,
                 target.value,
@@ -1390,6 +1445,9 @@ class Model:
                 value_path=constraint_api.prescribed_value_path(
                     selected_constraints
                 ),
+                update_load=self._time_update_callback(
+                    include_constraints=False,
+                ),
                 acceptance_check=finite_strain_acceptance,
                 jacobian=jacobian,
                 incrementation=selected_incrementation,
@@ -1422,7 +1480,10 @@ class Model:
         from . import mechanics
         from .constitutive.plasticity import J2LinearIsotropicHardening
 
-        self.check()
+        self.check(
+            target=target,
+            step_options={"material": material},
+        )
         if hasattr(self.study, "require"):
             self.study.require(
                 analysis="nonlinear_static",
@@ -1442,11 +1503,50 @@ class Model:
                 "model.j2_plasticity_step requires "
                 "J2LinearIsotropicHardening."
             )
+        time_dependent_constraints = tuple(
+            item
+            for item in constraint_api.dirichlet_constraints(
+                self.constraints if constraints is None else constraints
+            )
+            if isinstance(item, constraint_api.TimeDependentDirichlet)
+        )
+        if time_dependent_constraints:
+            raise NotImplementedError(
+                "The J2 step does not accept absolute time-dependent Dirichlet "
+                "histories. Prescribe the end-of-step value and use the step "
+                "amplitude as its dimensionless load path."
+            )
+        selected_loads = tuple(self.loads)
+        amplitude_loads = tuple(
+            item
+            for item in selected_loads
+            if isinstance(item, load_api.AmplitudeLoad)
+        )
+        if amplitude_loads:
+            ordinary_loads = tuple(
+                item
+                for item in selected_loads
+                if not isinstance(item, load_api.AmplitudeLoad)
+            )
+            histories = {id(item.amplitude): item.amplitude for item in amplitude_loads}
+            if ordinary_loads or len(histories) != 1:
+                raise ValueError(
+                    "A J2 step requires one shared load path. Do not mix ordinary "
+                    "loads with amplitude-driven loads or use multiple amplitudes."
+                )
+            if amplitude is not None:
+                raise ValueError(
+                    "Pass a load amplitude or step amplitude to J2, not both."
+                )
+            amplitude = next(iter(histories.values()))
+            selected_loads = tuple(item.load for item in amplitude_loads)
         step = mechanics.j2_plasticity_step(
             displacement=target,
             material=material,
             external_force=(
-                self.external_force(target) if self.loads else None
+                self.external_force(target, loads=selected_loads)
+                if selected_loads
+                else None
             ),
             constraints=(
                 self.constraints if constraints is None else constraints
@@ -1485,7 +1585,10 @@ class Model:
         from . import problems
         from . import time as time_api
 
-        self.check()
+        self.check(
+            target=target,
+            step_options={"mass": mass, "residual": residual},
+        )
         selected_state = state if state is not None else problems.second_order_state(target)
         selected_mass = mass if mass is not None else self.lumped_mass(target)
         integrator = time_api.explicit.central_difference(
@@ -1552,7 +1655,10 @@ class Model:
         from . import problems
         from . import time as time_api
 
-        self.check()
+        self.check(
+            target=target,
+            step_options={"M": M, "K": K, "F": F},
+        )
         selected_state = (
             state if state is not None else problems.second_order_state(target)
         )
@@ -1635,7 +1741,7 @@ class Model:
                 result.append(constraint.bc)
         return result
 
-    def validate(self):
+    def validate(self, *, target=None, step_options=None):
         """Return structured, addressable model-validation results.
 
         This method does not assemble forms or solve a system.  It validates
@@ -1676,7 +1782,11 @@ class Model:
         if study is not None and self.fields:
             from .step_providers import step_capability
 
-            capability = step_capability(self, target=self.fields[0])
+            capability = step_capability(
+                self,
+                target=target,
+                options=step_options,
+            )
             if not capability["supported"]:
                 issues.append(
                     issue(
@@ -1752,16 +1862,33 @@ class Model:
                         )
                     )
 
+        selected_material = (
+            None if step_options is None else step_options.get("material")
+        )
+        explicit_linear_system = bool(
+            step_options
+            and step_options.get("K") is not None
+            and step_options.get("F") is not None
+        )
         if (
             study is not None
-            and getattr(study, "is_solid_mechanics", False)
+            and (
+                getattr(study, "is_solid_mechanics", False)
+                or getattr(study, "is_heat_transfer", False)
+            )
             and not self.materials
+            and selected_material is None
+            and not explicit_linear_system
         ):
+            physics = getattr(study, "physics", "finite-element")
             issues.append(
                 issue(
                     "AFM-MATERIAL-001",
                     "model.materials",
-                    "Solid-mechanics models require at least one material.",
+                    (
+                        f"{physics.replace('_', ' ').title()} models require "
+                        "at least one material."
+                    ),
                     hint="Register material properties with model.material(...).",
                 )
             )
@@ -1775,6 +1902,32 @@ class Model:
                             f"model.materials[{index}].region",
                             "Every material in a multi-material model needs a region.",
                             hint="Pass region=... when registering each material.",
+                        )
+                    )
+
+        if (
+            study is not None
+            and getattr(study, "analysis", None) == "second_order_dynamics"
+            and getattr(study, "preferred_procedure", None)
+            in {"newmark", "generalized_alpha"}
+        ):
+            for index, constraint in enumerate(
+                constraint_api.dirichlet_constraints(self.constraints)
+            ):
+                if isinstance(constraint, constraint_api.TimeDependentDirichlet):
+                    issues.append(
+                        issue(
+                            "AFM-CONSTRAINT-002",
+                            f"model.constraints[{index}]",
+                            (
+                                "Time-dependent prescribed supports are not yet "
+                                "implemented for implicit structural dynamics."
+                            ),
+                            hint=(
+                                "Use the Explicit procedure or prescribe consistent "
+                                "displacement, velocity, and acceleration histories "
+                                "through an expert formulation."
+                            ),
                         )
                     )
 
@@ -1815,10 +1968,10 @@ class Model:
 
         return ValidationReport.from_issues(issues, scope=f"model:{self.name}")
 
-    def check(self) -> None:
+    def check(self, *, target=None, step_options=None) -> None:
         """Raise one structured error report if model validation fails."""
 
-        self.validate().raise_if_errors()
+        self.validate(target=target, step_options=step_options).raise_if_errors()
 
     def _register_regions_from_asset(self, asset) -> None:
         for region in _regions_from_asset(asset):

@@ -142,12 +142,15 @@ def test_transient_heat_transfer_consumes_convection_boundary(tmp_path):
         steps=2,
         progress=False,
     )
-    step.run()
-    simulation = step.solve_result()
+    simulation = step.solve_result(output=tmp_path / "cooling.xdmf")
 
     assert simulation.status == "completed"
     assert float(np.mean(temperature.value.x.array)) < initial_mean
     assert float(convection.ambient_temperature.value) == 320.0
+    assert simulation.artifacts["fields_xdmf"].is_file()
+    assert simulation.artifacts["fields_hdf5"].is_file()
+    assert simulation.fields["Temperature"].artifact.name == "cooling.xdmf"
+    assert simulation.histories["time_increment"].values.tolist() == [1.0, 1.0]
 
 
 def test_multimaterial_heat_combines_region_conduction_capacity_and_history():
@@ -306,7 +309,44 @@ def test_transient_heat_automatically_updates_amplitude_driven_source():
     assert float(np.mean(temperature.value.x.array)) > initial_mean
 
 
-def test_explicit_dynamics_consumes_model_constraints_and_amplitude_loads():
+def test_named_amplitudes_are_shared_by_loads_and_prescribed_values():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    model = models.create(
+        study=studies.transient_heat_transfer(dimension=2),
+        mesh=domain,
+        name="named_amplitudes",
+    )
+    temperature = model.field(fields.temperature(domain, value=300.0))
+    source_history = model.amplitude(
+        "source_history",
+        amplitudes.ramp(0.0, 1.0),
+    )
+    temperature_history = model.amplitude(
+        "temperature_history",
+        amplitudes.ramp(300.0, 310.0),
+    )
+    source = model.heat_source(1.0e5, amplitude="source_history")
+    prescribed = model.prescribed_temperature(
+        temperature,
+        "temperature_history",
+        on=mesh.boundary(domain, _left, name="left", tag=1),
+    )
+
+    assert source.amplitude is source_history
+    assert prescribed.amplitude is temperature_history
+    assert tuple(item.name for item in model.amplitudes) == (
+        "source_history",
+        "temperature_history",
+    )
+
+
+def test_explicit_dynamics_consumes_model_constraints_and_amplitude_loads(tmp_path):
     domain = mesh.rectangle(
         (0.0, 0.0),
         (1.0, 0.2),
@@ -351,11 +391,16 @@ def test_explicit_dynamics_consumes_model_constraints_and_amplitude_loads():
         steps=2,
         progress=False,
     )
-    step.solve()
+    simulation = step.solve_result(output=tmp_path / "explicit.xdmf")
 
     assert float(traction.scale.value) == 1.0
     assert len(step.accepted_times) == 2
     assert float(np.max(displacement.value.x.array)) > 0.0
+    assert simulation.artifacts["fields_xdmf"].is_file()
+    assert simulation.artifacts["fields_hdf5"].is_file()
+    assert {"Displacement", "Velocity", "Acceleration"}.issubset(
+        simulation.fields
+    )
 
 
 def test_common_dynamic_study_factory_keeps_physics_and_procedure_distinct():
@@ -374,3 +419,41 @@ def test_common_dynamic_study_factory_keeps_physics_and_procedure_distinct():
     assert explicit.analysis == implicit.analysis == "second_order_dynamics"
     assert explicit.preferred_procedure == "central_difference"
     assert implicit.preferred_procedure == "generalized_alpha"
+
+
+def test_implicit_dynamics_rejects_time_dependent_supports_before_solve():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    model = models.create(
+        study=studies.dynamic_solid(
+            dimension=2,
+            assumption="plane_stress",
+            method="newmark",
+        ),
+        mesh=domain,
+        name="moving_implicit_support",
+    )
+    displacement = model.field(fields.displacement(domain))
+    model.material(
+        elasticity.isotropic_elastic(
+            young=1.0e6,
+            poisson=0.3,
+            density=1000.0,
+        )
+    )
+    model.prescribe(
+        displacement,
+        amplitudes.ramp(0.0, 0.01),
+        component=0,
+        on=mesh.boundary(domain, _left, name="left", tag=1),
+    )
+
+    report = model.validate()
+
+    assert not report.is_valid
+    assert "AFM-CONSTRAINT-002" in {item.code for item in report.errors}

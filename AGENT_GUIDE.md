@@ -40,8 +40,9 @@ finite-element simulation with AgentFEM.
   record is required.
 - Capability dispatch: inspect `models.step_capability(model)` or run
   `model.check()` before solve. It queries the same provider predicates as
-  `model.step(...)`; never work around `AFM-STUDY-002` by silently changing the
-  Study.
+  `model.step(...)`, including target-field shape and the material protocol
+  needed by the default lowering; never work around `AFM-STUDY-002` by
+  silently changing the Study.
 - Model registration: use `model.field(...)`, `model.material(...)`,
   `model.fix(...)`, and `model.traction(...)` in application workflows when the
   assets should stay visible and auditable.
@@ -58,10 +59,13 @@ finite-element simulation with AgentFEM.
 - Absorbing or Robin-like terms: use `boundary_models/`.
 - Assembly or lumped operators: inspect `assembly.py`.
 - Time stepping: inspect `time/` and `problems.py`.
-- Time histories: define reusable assets in `amplitudes.py` and attach them to
-  model loads, prescribed values, or supported boundary models. Transient
-  procedures update registered histories automatically; use callbacks only
-  for genuinely application-specific state.
+- Time histories: define reusable assets in `amplitudes.py`, register important
+  histories with `model.amplitude("name", history)`, and reference the name
+  from loads or prescribed data. Static single-solve, nonlinear normalized
+  step time, and transient physical time have distinct documented coordinates.
+  Attach histories to model loads, prescribed values, or supported boundary
+  models. Transient procedures update registered histories automatically; use
+  callbacks only for genuinely application-specific state.
 - Solves: inspect `solvers.py`.
 - Step incrementation: use `steps.automatic(...)` by default or
   `steps.fixed(...)` only when exact fixed subdivision is scientifically
@@ -73,10 +77,12 @@ finite-element simulation with AgentFEM.
   intentionally starts from explicit K/C/F operators without model ownership.
 - Problem summaries: use `problems.FEMProblem` when a workflow needs a
   broader structured audit record.
-- Results: read `docs/results_and_campaigns.md`; use `solve_result()`,
-  `results.SimulationResult`, MPI-safe region integrals/averages, boundary
-  resultants and field extrema in `results`, then attach XDMF/CSV
-  artifacts from `io`. Distinguish execution status from
+- Results: read `docs/results_and_campaigns.md`; use `solve_result()` or
+  `solve_result(output="results.xdmf")` for the standard transient
+  solve/output/result lifecycle. Use `results.SimulationResult`, MPI-safe
+  region integrals/averages, boundary resultants and field extrema in
+  `results`, then attach additional XDMF/CSV artifacts from `io`. Distinguish
+  execution status from
   `result.trust_level`, apply a named quality policy for routine checks, and
   attach explicit scientific claims before describing a result as verified.
 - Installed projects and external frontends: read `docs/getting_started.md`
