@@ -133,16 +133,41 @@ def region_average(expression, *, on):
     return average(expression, measure=_region_measure(on))
 
 
+def region_measure(*, on) -> float:
+    """Return the global length, area, or volume of a named region."""
+
+    measure = _region_measure(on)
+    comm = _comm_from_measure(measure)
+    return float(_assemble_component(ufl.as_ufl(1.0), measure, comm))
+
+
 def boundary_resultant(traction, *, on):
     """Integrate a traction/flux expression over a named boundary."""
 
     return integral(traction, measure=_region_measure(on))
 
 
-def field_extrema(field, *, magnitude: bool = False) -> dict[str, object]:
-    """Return MPI-global extrema of owned field dofs or nodal magnitudes."""
+def field_extrema(
+    field,
+    *,
+    magnitude: bool = False,
+    location: bool = False,
+) -> dict[str, object]:
+    """Return MPI-global field extrema, optionally with physical locations.
 
-    function = field_api.unwrap(field)
+    Values are sampled at finite-element dofs. For a scalar DG0 field these are
+    cell values and the reported location is the cell interpolation point. For
+    a vector field ``magnitude=True`` reports nodal vector norms. Tensor
+    component extrema retain the compact legacy result and do not claim one
+    unambiguous physical location.
+    """
+
+    selected_field = (
+        field.field
+        if hasattr(field, "field") and getattr(field, "field") is not None
+        else field
+    )
+    function = field_api.unwrap(selected_field)
     values = np.asarray(dofs.owned_array(function), dtype=float)
     shape = tuple(getattr(function, "ufl_shape", ()))
     if magnitude:
@@ -152,23 +177,115 @@ def field_extrema(field, *, magnitude: bool = False) -> dict[str, object]:
         if values.size % components:
             raise ValueError("Vector dof storage is incompatible with its value shape.")
         values = np.linalg.norm(values.reshape(-1, components), axis=1)
+    comm = function.function_space.mesh.comm
     local_min = float(np.min(values)) if values.size else np.inf
     local_max = float(np.max(values)) if values.size else -np.inf
-    comm = function.function_space.mesh.comm
-    return {
+    output = {
         "minimum": float(comm.allreduce(local_min, op=MPI.MIN)),
         "maximum": float(comm.allreduce(local_max, op=MPI.MAX)),
         "magnitude": bool(magnitude),
     }
+    if not location:
+        return output
+    if shape and not magnitude:
+        raise ValueError(
+            "field_extrema(location=True) requires a scalar field or "
+            "magnitude=True for a vector field."
+        )
+
+    space = function.function_space
+    coordinates = np.asarray(space.tabulate_dof_coordinates(), dtype=float)
+    owned_blocks = int(space.dofmap.index_map.size_local)
+    coordinates = coordinates[:owned_blocks, : space.mesh.geometry.dim]
+    if values.size != owned_blocks:
+        raise ValueError(
+            "Field storage cannot be mapped one-to-one to interpolation points."
+        )
+    global_ids = space.dofmap.index_map.local_to_global(
+        np.arange(owned_blocks, dtype=np.int32)
+    )
+    element = getattr(space.element, "basix_element", None)
+    is_cellwise = (
+        bool(getattr(element, "discontinuous", False))
+        and _space_degree(space) == 0
+        and not shape
+    )
+    global_cells = np.full(owned_blocks, -1, dtype=np.int64)
+    if is_cellwise:
+        cell_map = space.mesh.topology.index_map(space.mesh.topology.dim)
+        owned_cells = np.arange(cell_map.size_local, dtype=np.int32)
+        cell_ids = cell_map.local_to_global(owned_cells)
+        for local_cell, global_cell in zip(owned_cells, cell_ids):
+            cell_dofs = space.dofmap.cell_dofs(int(local_cell))
+            if len(cell_dofs) == 1 and int(cell_dofs[0]) < owned_blocks:
+                global_cells[int(cell_dofs[0])] = int(global_cell)
+
+    def candidate(index: int | None):
+        if index is None:
+            return None
+        return (
+            float(values[index]),
+            int(comm.rank),
+            int(global_ids[index]),
+            tuple(float(value) for value in coordinates[index]),
+            int(global_cells[index]) if is_cellwise else None,
+        )
+
+    local_minimum = candidate(int(np.argmin(values)) if values.size else None)
+    local_maximum = candidate(int(np.argmax(values)) if values.size else None)
+    minimum_candidates = [item for item in comm.allgather(local_minimum) if item]
+    maximum_candidates = [item for item in comm.allgather(local_maximum) if item]
+    minimum = min(minimum_candidates, key=lambda item: (item[0], item[1], item[2]))
+    maximum = max(maximum_candidates, key=lambda item: (item[0], -item[1], -item[2]))
+    output.update(
+        {
+            "sampling": "cell_values" if is_cellwise else "finite_element_dofs",
+            "field_representation": (
+                getattr(field, "processing", {}).get(
+                    "representation", "finite_element_dofs"
+                )
+                if getattr(field, "processing", {})
+                else "finite_element_dofs"
+            ),
+            "space_family": str(
+                getattr(
+                    element,
+                    "family",
+                    getattr(space.element, "family_name", "finite_element"),
+                )
+            ),
+            "space_degree": _space_degree(space),
+            "minimum_location": minimum[3],
+            "maximum_location": maximum[3],
+            "minimum_rank": minimum[1],
+            "maximum_rank": maximum[1],
+            "minimum_global_dof": minimum[2],
+            "maximum_global_dof": maximum[2],
+        }
+    )
+    if is_cellwise:
+        output["entity_kind"] = "cell"
+        output["minimum_global_cell"] = minimum[4]
+        output["maximum_global_cell"] = maximum[4]
+    return output
 
 
-def reaction_resultant(problem, *, name: str = "RF"):
-    """Return the MPI-global resultant of a strong-constraint reaction field.
+def reaction_resultant(
+    problem,
+    *,
+    on=None,
+    component: int | None = None,
+    name: str = "RF",
+):
+    """Return an MPI-global strong-constraint reaction resultant.
 
     The problem residual is zero on converged free degrees of freedom, so its
-    owned-dof sum gives the resultant associated with strong Dirichlet
-    constraints. Affine MPC, weak, and contact reactions require dedicated
-    definitions and are intentionally outside this helper.
+    owned-dof sum gives strong Dirichlet reactions.  ``on=boundary`` restricts
+    the sum to a named boundary; ``component=...`` returns one component. This
+    is essential for displacement-controlled tests where reactions on several
+    constrained boundaries would otherwise cancel globally. Affine MPC, weak,
+    and contact reactions require dedicated definitions and remain outside
+    this helper.
     """
 
     if not hasattr(problem, "reaction_field"):
@@ -177,13 +294,64 @@ def reaction_resultant(problem, *, name: str = "RF"):
     values = np.asarray(dofs.owned_array(reaction))
     shape = tuple(getattr(reaction, "ufl_shape", ()))
     comm = reaction.function_space.mesh.comm
+    marker = on
     if not shape:
-        local = float(np.sum(values))
+        selected = values
+        if marker is not None:
+            indices = np.asarray(
+                dofs.locate_dofs(reaction.function_space, marker),
+                dtype=np.int64,
+            )
+            indices = indices[indices < values.size]
+            selected = values[indices]
+        if component is not None:
+            raise ValueError("Scalar reaction fields do not accept component=....")
+        local = float(np.sum(selected))
         return float(comm.allreduce(local, op=MPI.SUM))
-    components = int(np.prod(shape, dtype=int))
+    if len(shape) != 1:
+        raise NotImplementedError(
+            "Reaction resultants currently require scalar or vector fields."
+        )
+    components = int(shape[0])
     if values.size % components:
         raise ValueError("Reaction dof storage is incompatible with its value shape.")
-    local = np.sum(values.reshape((-1, components)), axis=0)
+    if component is not None:
+        selected_component = int(component)
+        if not 0 <= selected_component < components:
+            raise ValueError(
+                f"Reaction component must lie in [0, {components - 1}]."
+            )
+        if marker is None:
+            local = float(
+                np.sum(values.reshape((-1, components))[:, selected_component])
+            )
+        else:
+            indices = np.asarray(
+                dofs.locate_component_dofs(
+                    reaction.function_space,
+                    selected_component,
+                    marker,
+                ),
+                dtype=np.int64,
+            )
+            indices = indices[indices < values.size]
+            local = float(np.sum(values[indices]))
+        return float(comm.allreduce(local, op=MPI.SUM))
+    if marker is None:
+        local = np.sum(values.reshape((-1, components)), axis=0)
+    else:
+        local = np.zeros(components, dtype=values.dtype)
+        for selected_component in range(components):
+            indices = np.asarray(
+                dofs.locate_component_dofs(
+                    reaction.function_space,
+                    selected_component,
+                    marker,
+                ),
+                dtype=np.int64,
+            )
+            indices = indices[indices < values.size]
+            local[selected_component] = np.sum(values[indices])
     global_values = np.empty_like(local)
     comm.Allreduce(local, global_values, op=MPI.SUM)
     return global_values.reshape(shape)
@@ -362,6 +530,17 @@ def _require_collective_points(points: np.ndarray, comm) -> None:
         raise ValueError(
             "sample_points requires identical coordinates on every MPI rank."
         )
+
+
+def _space_degree(space) -> int:
+    degree = getattr(space.element, "degree", None)
+    if degree is None:
+        degree = space.ufl_element().degree
+        if callable(degree):
+            degree = degree()
+    if isinstance(degree, tuple):
+        degree = max(degree)
+    return int(degree)
 
 
 def _comm_from_measure(measure):

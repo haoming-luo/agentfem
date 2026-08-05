@@ -56,7 +56,13 @@
         "name": "S",
         "type": "quadrature tensor field",
         "unit_role": "stress",
-        "description": "Trial Cauchy stress used in the residual."
+        "description": "Accepted Cauchy stress retained at the constitutive integration points after convergence."
+      },
+      {
+        "name": "MISES",
+        "type": "quadrature scalar field",
+        "unit_role": "stress",
+        "description": "Pointwise invariant of S; the visualization helper writes a separately identifiable DG0 cell average."
       },
       {
         "name": "PE and PEEQ",
@@ -110,7 +116,8 @@
       "tests/test_p1_platform.py"
     ],
     "benchmarks": [
-      "agentfem.benchmark.j2_global_restart"
+      "agentfem.benchmark.j2_global_restart",
+      "agentfem.benchmark.j2_multielement_patch"
     ],
     "validation_rules": [
       "Reject non-3D and multi-rank global use.",

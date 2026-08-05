@@ -30,7 +30,7 @@ class FieldOutputArtifacts:
 class FieldOutput:
     """What fields to save, how often, and in which configuration."""
 
-    variables: tuple[str, ...] = ("U", "S", "E")
+    variables: tuple[str, ...] = ("U", "S", "E", "MISES")
     every: int | str | None = None
     intervals: int | None = None
     configuration: str = "both"
@@ -190,7 +190,7 @@ def field_output(
     """Create a concise, inspectable field-output request."""
 
     return FieldOutput(
-        variables=tuple(variables) if variables else ("U", "S", "E"),
+        variables=tuple(variables) if variables else FieldOutput().variables,
         every=every,
         intervals=intervals,
         configuration=configuration,
@@ -250,6 +250,8 @@ def write_unified_xdmf_series(
     """
 
     selected = tuple(snapshots)
+    # ``cell_fields`` is retained as the positional API name for compatibility;
+    # frames may now contain both point and cell fields.
     fields_by_frame = tuple(cell_fields)
     if not selected or len(selected) != len(fields_by_frame):
         raise ValueError(
@@ -350,22 +352,22 @@ def write_unified_xdmf_series(
                 **h5_options,
             )
             cell_group = frame_group.create_group("Cell")
-            shaped_fields = []
+            shaped_point_fields = []
+            shaped_cell_fields = []
             for field in fields:
-                values = np.asarray(field.x.array)
-                if values.size % cell_count:
-                    raise ValueError(
-                        f"Cell field {field.name!r} does not align with cells."
-                    )
-                shaped = values.reshape(cell_count, -1)
-                if shaped.shape[1] == 1:
-                    shaped = shaped[:, 0]
-                cell_group.create_dataset(
-                    field.name,
-                    data=shaped,
-                    **h5_options,
+                name = str(getattr(field, "name", "Field"))
+                if name in {"U", "UMAG"}:
+                    continue
+                center, shaped = _unified_field_values(
+                    field,
+                    solution_space=solution.function_space,
+                    point_count=point_count,
+                    cell_count=cell_count,
                 )
-                shaped_fields.append((field.name, shaped))
+                group = point_group if center == "Node" else cell_group
+                group.create_dataset(name, data=shaped, **h5_options)
+                selected = shaped_point_fields if center == "Node" else shaped_cell_fields
+                selected.append((name, shaped))
 
             grid = ET.SubElement(
                 temporal,
@@ -412,7 +414,15 @@ def write_unified_xdmf_series(
                 magnitude,
                 f"{h5_path.name}:/Frames/{frame_name}/Point/UMAG",
             )
-            for field_name, shaped in shaped_fields:
+            for field_name, shaped in shaped_point_fields:
+                _attribute(
+                    grid,
+                    field_name,
+                    "Node",
+                    shaped,
+                    f"{h5_path.name}:/Frames/{frame_name}/Point/{field_name}",
+                )
+            for field_name, shaped in shaped_cell_fields:
                 _attribute(
                     grid,
                     field_name,
@@ -424,6 +434,69 @@ def write_unified_xdmf_series(
     ET.indent(tree, space="  ")
     tree.write(xdmf, encoding="utf-8", xml_declaration=True)
     return xdmf
+
+
+def _unified_field_values(
+    field,
+    *,
+    solution_space,
+    point_count: int,
+    cell_count: int,
+) -> tuple[str, np.ndarray]:
+    """Return XDMF center and values for one supported finite-element field."""
+
+    function = field.field if hasattr(field, "field") else field
+    element = function.function_space.element
+    basix_element = getattr(element, "basix_element", None)
+    discontinuous = getattr(basix_element, "discontinuous", None)
+    if discontinuous is None:
+        family = str(function.function_space.ufl_element().family()).lower()
+        discontinuous = "discontinuous" in family or family in {"dg", "dp"}
+    values = np.asarray(function.x.array)
+    value_shape = tuple(getattr(function, "ufl_shape", ()))
+    value_size = int(np.prod(value_shape)) if value_shape else 1
+
+    if discontinuous:
+        degree = _element_degree(function.function_space)
+        if degree != 0 or values.size != cell_count * value_size:
+            raise ValueError(
+                f"Discontinuous field {function.name!r} is degree {degree}; "
+                "single-grid XDMF currently accepts cellwise DG0 fields. "
+                "Project to DG0 for cell output or use a dedicated high-order "
+                "visualization backend."
+            )
+        shaped = values.reshape(cell_count, value_size)
+        return "Cell", shaped[:, 0] if value_size == 1 else shaped
+
+    if values.size != point_count * value_size:
+        degree = _element_degree(solution_space)
+        target_element = (
+            ("Lagrange", degree)
+            if not value_shape
+            else ("Lagrange", degree, value_shape)
+        )
+        target_space = fem.functionspace(solution_space.mesh, target_element)
+        interpolated = fem.Function(target_space, name=function.name)
+        interpolated.interpolate(function)
+        values = np.asarray(interpolated.x.array)
+    if values.size != point_count * value_size:
+        raise ValueError(
+            f"Point field {function.name!r} does not align with the output mesh "
+            f"({values.size} values for {point_count} points)."
+        )
+    shaped = values.reshape(point_count, value_size)
+    return "Node", shaped[:, 0] if value_size == 1 else shaped
+
+
+def _element_degree(space) -> int:
+    degree = getattr(space.element, "degree", None)
+    if degree is None:
+        degree = space.ufl_element().degree
+        if callable(degree):
+            degree = degree()
+    if isinstance(degree, tuple):
+        degree = max(degree)
+    return int(degree)
 
 
 def read_unified_xdmf_series(xdmf_path) -> tuple[object, ...]:

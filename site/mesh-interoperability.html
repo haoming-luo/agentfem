@@ -22,12 +22,15 @@
 <a class="" href="concepts.html">Concepts</a>
 <a class="" href="examples.html">Examples</a>
 <a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="fem-foundation-audit-2026-08-05.html">FEM Foundation Audit</a>
+<a class="" href="engineering-feedback-2026-08-05.html">Engineering Feedback Decisions</a>
 <a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
 <a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
 <a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
 <a class="" href="operator-contracts.html">Scientific Operator Contracts</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="result-field-semantics.html">Result-field Semantics</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="active" href="mesh-interoperability.html">Mesh Interoperability</a>
 <a class="" href="platform-support.html">Platform and Optional Dependencies</a>
@@ -75,6 +78,19 @@ print(summary.as_dict())</code></pre>
 converted_mesh = mesh.read_converted_xdmf(conversion)</code></pre>
 <p>The main XDMF contains <code>agentfem_region</code> tags for named volume/cell sets. The separate facet XDMF contains <code>agentfem_boundary</code> tags for named boundary sets. A JSON manifest records source blocks, numeric tag mapping, complete memberships, selected topologies, and warnings. <code>read_converted_xdmf(...)</code> also handles the meshio-XDMF distinction between grid names and tag attribute names.</p>
 <p>One DOLFINx <code>MeshTags</code> object stores one integer per entity. If source sets overlap, one deterministic tag is written and the complete overlapping membership remains in the manifest.</p>
+<h2 id="imported-boundaries-have-one-source-of-truth">Imported Boundaries Have One Source of Truth</h2>
+<p>Physical surface tags should define imported engineering boundaries:</p>
+<pre><code>support = mesh.tagged_boundary_region(
+    domain, facet_tags, tag=101, name=&quot;bolt_holes&quot;
+)
+pressure = mesh.tagged_boundary_region(
+    domain, facet_tags, tag=102, name=&quot;pressure_surface&quot;
+)
+
+model.clamp(U, on=support)
+model.pressure(16.0e6, on=pressure)
+evidence = model.audit_boundaries(strict=True)</code></pre>
+<p>Strong constraints use the tagged facets through topological dof location and weak terms use the same <code>ds(tag)</code>. An optional geometric marker creates a <code>hybrid</code> region: it is independent audit evidence, not an alternative hidden selection rule. The audit reports tagged/marker set differences, facet count, measure, midpoint bounds, and integrated normal.</p>
 <h2 id="abaqus-labels-custom-extensions-and-equations">Abaqus Labels, Custom Extensions, and Equations</h2>
 <p>Generic conversion is not enough when constraints refer to Abaqus node labels. <code>mesh.read_abaqus_mesh(...)</code> explicitly selects Abaqus syntax, so a keyword mesh may use <code>.dat</code> without relying on extension guessing. It returns the DOLFINx mesh together with the preserved source node table and conversion evidence.</p>
 <p><code>mesh.abaqus.read_equations(...)</code> parses homogeneous linear <code>*EQUATION</code> constraints, including continued term lines. For periodic finite-deformation cells, <code>constraints.abaqus_periodic_cell(...)</code> maps source labels to displacement dofs and constructs exact affine elimination. See <a href="abaqus_periodic_cell.md">Abaqus C3D10 Periodic Cell</a>.</p>

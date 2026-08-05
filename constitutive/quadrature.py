@@ -445,13 +445,31 @@ class J2QuadratureState:
         }
 
     def output_fields(self) -> tuple[object, ...]:
-        """Return cell-averaged stress, plastic strain, and PEEQ fields."""
+        """Return presentation-ready cell averages of committed J2 fields."""
 
         return (
             self.stress.cell_average(name="S"),
             self.plastic_strain.cell_average(name="PE"),
             self.equivalent_plastic_strain.cell_average(name="PEEQ"),
+            self.equivalent_stress().cell_average(name="MISES"),
         )
+
+    def equivalent_stress(self) -> QuadratureField:
+        """Return pointwise von Mises stress on the constitutive quadrature."""
+
+        stress = self.stress.values
+        trace = np.trace(stress, axis1=-2, axis2=-1)
+        identity = np.eye(3, dtype=stress.dtype)
+        deviator = stress - trace[:, None, None] * identity / 3.0
+        mises = np.sqrt(1.5 * np.sum(deviator * deviator, axis=(-2, -1)))
+        output = QuadratureField.create(
+            self.domain,
+            name="MISES",
+            degree=self.degree,
+            scheme=self.scheme,
+        )
+        output.assign(mises)
+        return output
 
 
 __all__ = ["J2QuadratureState", "QuadratureField", "QuadratureTransaction"]

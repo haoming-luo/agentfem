@@ -60,6 +60,22 @@ _BENCHMARKS = (
         status="release_regression",
     ),
     BenchmarkSpec(
+        identifier="elasticity_foundation",
+        capability="linear_elasticity",
+        level="finite_element",
+        reference="knowledge/benchmarks/elasticity_foundation.json",
+        criterion=(
+            "a displacement-controlled 3D patch reproduces constant strain and "
+            "stress, a two-material series bar preserves regional fields, and "
+            "named-boundary reactions close the applied load in serial and MPI"
+        ),
+        automated_test=(
+            "tests/test_results.py -k 'displacement_controlled_3d or "
+            "two_material_elastic_bar'; tests/test_parallel_results.py"
+        ),
+        status="release_regression",
+    ),
+    BenchmarkSpec(
         identifier="operator_contracts",
         capability="operator_systems",
         level="interface",
@@ -124,6 +140,20 @@ _BENCHMARKS = (
             "history; a uniaxial patch matches the analytical hardening path"
         ),
         automated_test="tests/test_p1_platform.py -k global_j2",
+    ),
+    BenchmarkSpec(
+        identifier="j2_multielement_patch",
+        capability="j2_plasticity",
+        level="finite_element",
+        reference="knowledge/benchmarks/j2_multielement_patch.json",
+        criterion=(
+            "a multi-element 3D displacement-controlled patch reproduces the "
+            "analytical isotropic-hardening path, uniform PEEQ, and work-energy closure"
+        ),
+        automated_test=(
+            "tests/test_p1_platform.py::"
+            "test_global_j2_multielement_patch_matches_the_uniaxial_golden"
+        ),
     ),
     BenchmarkSpec(
         identifier="thermoelastic_free_expansion",

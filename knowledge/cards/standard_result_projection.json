@@ -5,10 +5,12 @@
   "title": "Projected small-strain result fields and strong-constraint resultants",
   "kind": "workflow",
   "status": "supported",
-  "summary": "Produces cell-average S, E, MISES, and SENER fields by global L2 projection and extracts MPI-global resultants for converged strong-constraint residuals.",
+  "summary": "Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell-average fields, and extracts MPI-global resultants on named strong-constraint boundaries.",
   "public_api": [
     "agentfem.results.project",
+    "agentfem.results.project_piecewise",
     "agentfem.results.small_strain_cell_fields",
+    "agentfem.results.small_strain_partition_fields",
     "agentfem.results.reaction_resultant",
     "agentfem.diagnostics.linear_static_energy"
   ],
@@ -53,7 +55,7 @@
     "outputs": [
       {
         "name": "standard fields",
-        "type": "DG projected Functions named S, E, MISES, and SENER",
+        "type": "DG projected Functions named S, E, MISES, and optionally SENER",
         "unit_role": "stress, strain, and energy density",
         "description": "Fields can be written with the ordinary AgentFEM XDMF result writer."
       },
@@ -71,6 +73,8 @@
     ],
     "conventions": [
       "DG0 is the default output space and represents a cell average.",
+      "DG0 result fields are discontinuous and are not extrapolated or averaged across neighboring cells or material boundaries.",
+      "The engineering default is U/S/E/MISES; SENER is an explicit diagnostic request.",
       "E means infinitesimal strain in a small-strain context.",
       "Non-zero prescribed-displacement work is not silently included in proportional force work."
     ],
@@ -84,16 +88,20 @@
     ]
   },
   "usage": {
-    "minimal_example": "S, E, mises, sener = results.small_strain_cell_fields(U, material, study=study); RF = results.reaction_resultant(step.problem)",
+    "minimal_example": "result = step.solve_result(output='solid.xdmf'); RF_x = results.reaction_resultant(step.problem, on=support, component=0)",
     "examples": ["examples/static_elasticity_2d.py"]
   },
   "verification": {
     "tests": ["tests/test_results.py", "tests/test_p1_platform.py"],
-    "benchmarks": ["agentfem.benchmark.linear_static_cantilever"],
+    "benchmarks": [
+      "agentfem.benchmark.linear_static_cantilever",
+      "agentfem.benchmark.elasticity_foundation"
+    ],
     "validation_rules": [
       "Reject unknown field variables and negative projection degrees.",
       "Compare affine displacement projection with its analytical constant strain.",
-      "Check reaction equilibrium and proportional static energy closure."
+      "Check named-boundary reaction equilibrium and proportional static energy closure.",
+      "Verify a regional two-material series bar through one piecewise projection."
     ]
   },
   "references": [
@@ -104,6 +112,14 @@
     {
       "title": "Abaqus field and history output requests",
       "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAEOUTRefMap/simaout-c-output.htm"
+    },
+    {
+      "title": "Abaqus contour extrapolation and averaging",
+      "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAECAERefMap/simacae-c-conconceptlimits.htm"
+    },
+    {
+      "title": "COMSOL Gauss-point evaluation",
+      "locator": "https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_modeling.05.224.html"
     }
   ],
   "related_cards": [

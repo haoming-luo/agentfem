@@ -31,6 +31,7 @@ nav:
       - Scientific Function Reference: reference/scientific_function_reference.md
       - Scientific Operator Contracts: operator_contracts.md
       - Results and Campaigns: results_and_campaigns.md
+      - Engineering Feedback Decisions: engineering_feedback_2026_08_05.md
       - Stable Steps and Compact Output: step_and_output_architecture.md
       - Mesh Interoperability: mesh_interoperability.md
       - Platform and Optional Dependencies: platform_support.md

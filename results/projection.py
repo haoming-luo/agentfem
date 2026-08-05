@@ -35,19 +35,74 @@ def project(
         raise ValueError(
             "Could not infer a mesh from the expression; pass domain=... explicitly."
         )
-    shape = tuple(getattr(expression, "ufl_shape", ()))
-    element = (
-        (str(family), selected_degree)
-        if not shape
-        else (str(family), selected_degree, shape)
+    return _project_terms(
+        ((expression, ufl.dx(domain=selected_domain)),),
+        domain=selected_domain,
+        family=family,
+        degree=selected_degree,
+        name=name,
     )
-    space = fem.functionspace(selected_domain, element)
+
+
+def project_piecewise(
+    terms,
+    *,
+    domain=None,
+    family: str = "DG",
+    degree: int = 0,
+    name: str = "ProjectedField",
+):
+    """Project region-dependent expressions into one finite-element field.
+
+    Each term is ``(expression, measure)``.  This is the result-side analogue
+    of assembling a multi-material stiffness from regional contributions: one
+    mass problem is assembled over the same material partition, avoiding
+    singular per-region projection spaces or case-specific field stitching.
+    """
+
+    selected_terms = tuple(terms)
+    if not selected_terms:
+        raise ValueError("project_piecewise requires at least one regional term.")
+    selected_degree = int(degree)
+    if selected_degree < 0:
+        raise ValueError("Projection degree must be non-negative.")
+    selected_domain = domain or _expression_domain(selected_terms[0][0])
+    if selected_domain is None:
+        raise ValueError(
+            "Could not infer a mesh from the expressions; pass domain=... explicitly."
+        )
+    return _project_terms(
+        selected_terms,
+        domain=selected_domain,
+        family=family,
+        degree=selected_degree,
+        name=name,
+    )
+
+
+def _project_terms(terms, *, domain, family, degree, name):
+    shape = tuple(getattr(terms[0][0], "ufl_shape", ()))
+    element = (
+        (str(family), degree)
+        if not shape
+        else (str(family), degree, shape)
+    )
+    space = fem.functionspace(domain, element)
     trial = ufl.TrialFunction(space)
     test = ufl.TestFunction(space)
     output = fem.Function(space, name=str(name))
+    lhs = None
+    rhs = None
+    for expression, measure in terms:
+        if tuple(getattr(expression, "ufl_shape", ())) != shape:
+            raise ValueError("All piecewise projection expressions need one value shape.")
+        lhs_term = ufl.inner(trial, test) * measure
+        rhs_term = ufl.inner(expression, test) * measure
+        lhs = lhs_term if lhs is None else lhs + lhs_term
+        rhs = rhs_term if rhs is None else rhs + rhs_term
     problem = fem_petsc.LinearProblem(
-        ufl.inner(trial, test) * ufl.dx(domain=selected_domain),
-        ufl.inner(expression, test) * ufl.dx(domain=selected_domain),
+        lhs,
+        rhs,
         u=output,
         petsc_options_prefix="agentfem_result_projection_",
         petsc_options={
@@ -80,18 +135,15 @@ def small_strain_cell_fields(
 
     function = field_api.unwrap(displacement)
     domain = function.function_space.mesh
-    strain = elasticity.strain(function)
-    stress = elasticity.stress(function, properties, study=study)
-    energy = 0.5 * ufl.inner(stress, strain)
-    equivalent = _von_mises(stress, strain, properties, study=study)
-    expressions = {
-        "S": stress,
-        "E": strain,
-        "MISES": equivalent,
-        "SENER": energy,
-    }
+    requested = resolve_field_variables(variables, finite_strain=False)
+    expressions = _small_strain_expressions(
+        function,
+        properties,
+        study=study,
+        variables=tuple(item.key for item in requested),
+    )
     fields = []
-    for variable in resolve_field_variables(variables, finite_strain=False):
+    for variable in requested:
         if variable.key == "U":
             continue
         if variable.key not in expressions:
@@ -108,6 +160,105 @@ def small_strain_cell_fields(
             )
         )
     return tuple(fields)
+
+
+def small_strain_partition_fields(
+    displacement,
+    assignments,
+    *,
+    study=None,
+    variables=("S", "E", "MISES", "SENER"),
+    degree: int = 0,
+) -> tuple[object, ...]:
+    """Create standard fields for a complete regional material partition.
+
+    ``assignments`` accepts AgentFEM material records or ``(material, region)``
+    pairs.  Every assignment contributes its constitutive expression on its
+    own cell measure, producing one coherent output field over the mesh.
+    """
+
+    function = field_api.unwrap(displacement)
+    domain = function.function_space.mesh
+    normalized = tuple(_material_assignment(item) for item in assignments)
+    if not normalized:
+        raise ValueError("small_strain_partition_fields requires material assignments.")
+    if len(normalized) > 1 and any(measure is None for _, measure in normalized):
+        raise ValueError(
+            "Every material in a multi-material result needs a cell region."
+        )
+    requested = resolve_field_variables(variables, finite_strain=False)
+    regional = []
+    for properties, measure in normalized:
+        regional.append(
+            (
+                _small_strain_expressions(
+                    function,
+                    properties,
+                    study=study,
+                    variables=tuple(item.key for item in requested),
+                ),
+                ufl.dx(domain=domain) if measure is None else measure,
+            )
+        )
+    fields = []
+    for variable in requested:
+        if variable.key == "U":
+            continue
+        terms = []
+        for expressions, measure in regional:
+            if variable.key not in expressions:
+                raise NotImplementedError(
+                    f"Small-strain output does not provide {variable.key!r}."
+                )
+            terms.append((expressions[variable.key], measure))
+        fields.append(
+            project_piecewise(
+                terms,
+                domain=domain,
+                family="DG",
+                degree=degree,
+                name=variable.key,
+            )
+        )
+    return tuple(fields)
+
+
+def _small_strain_expressions(
+    function,
+    properties,
+    *,
+    study=None,
+    variables=("S", "E", "MISES", "SENER"),
+):
+    strain = elasticity.strain(function)
+    stress = elasticity.stress(function, properties, study=study)
+    expressions = {
+        "S": stress,
+        "E": strain,
+        "SENER": 0.5 * ufl.inner(stress, strain),
+    }
+    if "MISES" in variables:
+        expressions["MISES"] = _von_mises(
+            stress,
+            strain,
+            properties,
+            study=study,
+        )
+    return expressions
+
+
+def _material_assignment(assignment):
+    if hasattr(assignment, "item") and hasattr(assignment, "region"):
+        region = assignment.region
+        return assignment.item, None if region is None else region.measure
+    try:
+        properties, location = assignment
+    except (TypeError, ValueError) as exc:
+        raise TypeError(
+            "A material assignment must be an AgentFEM material record or "
+            "a (material, region) pair."
+        ) from exc
+    return properties, getattr(location, "measure", location)
 
 
 def _von_mises(stress, strain, properties, *, study=None):
@@ -144,4 +295,9 @@ def _expression_domain(expression):
     return domains[0].ufl_cargo()
 
 
-__all__ = ["project", "small_strain_cell_fields"]
+__all__ = [
+    "project",
+    "project_piecewise",
+    "small_strain_cell_fields",
+    "small_strain_partition_fields",
+]

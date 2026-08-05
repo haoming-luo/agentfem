@@ -5,17 +5,37 @@ from __future__ import annotations
 from dolfinx import fem
 
 
-def locate_dofs(V, marker):
-    """Locate dofs in a scalar function space by a geometrical marker."""
+def _tagged_location(location):
+    selection = getattr(location, "selection", None)
+    if selection not in {"tagged", "hybrid"}:
+        return None
+    domain = location.domain
+    return domain.topology.dim - 1, location.facets
 
-    return fem.locate_dofs_geometrical(V, marker)
+
+def locate_dofs(V, marker):
+    """Locate dofs from a geometric marker or a tagged boundary region."""
+
+    tagged = _tagged_location(marker)
+    if tagged is not None:
+        entity_dim, entities = tagged
+        return fem.locate_dofs_topological(V, entity_dim, entities)
+    geometric_marker = getattr(marker, "marker", marker)
+    return fem.locate_dofs_geometrical(V, geometric_marker)
 
 
 def locate_component_dofs(V, component: int, marker):
-    """Locate parent dofs for one component of a vector function space."""
+    """Locate parent dofs for one vector component on a marker or region."""
 
+    tagged = _tagged_location(marker)
+    if tagged is not None:
+        entity_dim, entities = tagged
+        return fem.locate_dofs_topological(V.sub(component), entity_dim, entities)
+    geometric_marker = getattr(marker, "marker", marker)
     Vc, _ = V.sub(component).collapse()
-    parent_dofs, _ = fem.locate_dofs_geometrical((V.sub(component), Vc), marker)
+    parent_dofs, _ = fem.locate_dofs_geometrical(
+        (V.sub(component), Vc), geometric_marker
+    )
     return parent_dofs
 
 

@@ -22,12 +22,15 @@
 <a class="" href="concepts.html">Concepts</a>
 <a class="" href="examples.html">Examples</a>
 <a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="fem-foundation-audit-2026-08-05.html">FEM Foundation Audit</a>
+<a class="" href="engineering-feedback-2026-08-05.html">Engineering Feedback Decisions</a>
 <a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
 <a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
 <a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
 <a class="" href="operator-contracts.html">Scientific Operator Contracts</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="result-field-semantics.html">Result-field Semantics</a>
 <a class="active" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
 <a class="" href="platform-support.html">Platform and Optional Dependencies</a>
@@ -186,7 +189,7 @@ step = model.step(
 <li>Extend collective MPI output from reference-configuration scientific fields<br>to an ownership-safe directly deformed geometry product.</li>
 <li>Extend the implemented MPI-global strong-BC resultant and proportional<br>linear-static energy closure into named region histories; define<br>affine/weak reactions and non-zero prescribed-displacement work separately.</li>
 <li>Extend the implemented cumulative J2 serial checkpoint and scientific<br>identity to portable MPI cell identity and multi-region state.</li>
-<li>Extend the implemented analytical J2 Golden path, physical forced cutback,<br>cyclic amplitude, S/PE/PEEQ/RF fields, and strong-displacement work/energy<br>history with projected visualization, mesh convergence, natural/affine work<br>definitions, mesh convergence, and full external-deck reproduction; the<br>published Abaqus homogeneous uniaxial constitutive state is now automated.</li>
+<li>Extend the implemented analytical J2 Golden path, physical forced cutback,<br>cyclic amplitude, quadrature S/PE/PEEQ/MISES and nodal RF fields, and strong-displacement work/energy<br>history with projected visualization, mesh convergence, natural/affine work<br>definitions, mesh convergence, and full external-deck reproduction; the<br>published Abaqus homogeneous uniaxial constitutive state is now automated.</li>
 <li>Build global implicit creep by consuming the shared<br><code>QuadratureTransaction</code>, adaptive controller state, and rollback machinery.</li>
 <li>Let fatigue consume verified extracted histories; add a fatigue field only<br>after hotspot/element mapping and provenance are defined.</li>
 <li>Add load-controlled finite-strain examples for dead and follower pressure,<br>including tangent and sign checks.</li>

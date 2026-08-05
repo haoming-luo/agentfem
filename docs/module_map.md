@@ -33,7 +33,7 @@ This map links FEM concepts to the current Python modules.
 | Linear/nonlinear solvers and convergence evidence | `solvers.py` |
 | Scientific results, MPI-safe point/path/integral QoIs, histories, artifacts, and dataset bridge | `results/` |
 | Finite-strain fields and periodic-cell homogenization | `results/finite_strain.py` |
-| Global L2 projection and standard small-strain `S`/`E`/`MISES`/`SENER` fields | `results/projection.py` |
+| Global and regional L2 projection; engineering-default `S`/`E`/`MISES`, opt-in `SENER`, and explicit processing metadata | `results/projection.py`, `results/core.py` |
 | Standard result variables and context-aware aliases | `results/field_catalog.py` |
 | Declarative field requests and unified XDMF/HDF5 time-series writer | `results/output.py` |
 | Combined field/history/diagnostic/presentation output contracts | `results/plan.py` |

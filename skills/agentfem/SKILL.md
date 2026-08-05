@@ -81,8 +81,14 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
 - Put Neumann, traction, flux, and body sources under `loads`.
 - Treat positive `loads.pressure(...)` as inward. State whether it is a
   reference dead load or current follower load.
+- For imported physical surfaces, create
+  `mesh.tagged_boundary_region(domain, facet_tags, tag=...)`. Use that same
+  region for strong constraints and weak loads; do not reconstruct a physical
+  group with a broad coordinate marker. If an independent marker is supplied,
+  run `model.audit_boundaries(strict=True)` before solving.
 - Validate small cases before reporting success.
-- Use `solve_result()` and `results.SimulationResult` when outputs feed
+- Use `solve_result()` and `solve_result(output="results.xdmf")` for static or
+  transient outputs that feed
   visualization, reporting, campaigns, or datasets. Do not treat XDMF/CSV as
   the scientific result itself.
 - For heat, Standard dynamics, and Explicit dynamics, pause with
@@ -92,14 +98,21 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   before presenting the XDMF/HDF5 series as complete. Current transient
   checkpoints require the same MPI size and mesh partition.
 - Use `results.region_integral`, `results.region_average`,
+  `results.region_measure`,
   `results.boundary_resultant`, and `results.field_extrema` for common
-  MPI-safe quantities instead of rank-local array reductions.
+  MPI-safe quantities instead of case-owned UFL for standard measures or
+  rank-local array reductions. Use `field_extrema(..., location=True)` when a
+  reported peak needs coordinates and DG0 cell identity.
 - Use `results.probe`, `results.sample_points`, and `results.sample_path` for
   physical-coordinate field sampling. Every MPI rank must request identical
   coordinates. Put discontinuous-field probes inside the intended cell rather
   than relying on an interface-side convention.
-- Use `results.small_strain_cell_fields` for projected standard small-strain
-  output. Use `results.reaction_resultant` only for strong Dirichlet reactions;
+- Model-generated static elasticity returns projected `S/E/MISES` fields
+  automatically; request `SENER` explicitly when needed. Use
+  `results.small_strain_partition_fields` for an
+  explicit regional material projection. Use
+  `results.reaction_resultant(..., on=..., component=...)` only for named
+  strong Dirichlet reactions;
   do not reuse that definition for affine MPC, weak, or contact constraints.
 - For FNO-style data, use one reviewed `surrogates.ObservationGrid` across the
   campaign and `datasets.fem_observation_sample(..., outside="mask")`. Keep the
@@ -124,10 +137,14 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   `det(F)` bounds, complete homogenized tensor histories, and deformed geometry
   at scale one. State explicitly when a user material or user MPC is
   unavailable and has been substituted.
-- Prefer the unified XDMF/HDF5 backend for finite-strain time series. Verify
+- Prefer `solve_result(output=...)` for serial multi-field static output and
+  the unified XDMF/HDF5 backend for finite-strain time series. Verify
   shared topology, retained reference coordinates, deformed geometry, time
-  values, and all point/cell attributes. Use PVD only for a consumer that
-  specifically requires it.
+  values, and all point/cell attributes. The low-level `io.XDMFTimeSeries`
+  follows DOLFINx and can expose one Grid per Function. Use PVD only for a
+  consumer that specifically requires it. Treat
+  `completed_with_output_errors` as a completed solve with failed optional
+  output, not as a lost numerical result.
 - Do not claim that experimental AF-IR records make arbitrary UFL workflows
   backend neutral.
 - For parameter collections, build a fresh case per sample, retain case/run

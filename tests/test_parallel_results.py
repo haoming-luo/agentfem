@@ -8,7 +8,16 @@ from mpi4py import MPI
 import pytest
 import ufl
 
-from agentfem import constitutive, datasets, fields, mesh, results, studies, surrogates
+from agentfem import (
+    constitutive,
+    datasets,
+    fields,
+    mesh,
+    models,
+    results,
+    studies,
+    surrogates,
+)
 
 
 def test_point_and_path_sampling_are_partition_independent():
@@ -143,3 +152,63 @@ def test_small_strain_projection_is_distributed_and_partition_safe():
         atol=1.0e-14,
     )
     assert stress.name == "S"
+
+
+def test_named_boundary_reaction_and_static_result_are_distributed():
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("distributed reaction extraction requires at least two MPI ranks")
+
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (8, 2),
+        comm=MPI.COMM_WORLD,
+        cell_type="triangle",
+    )
+    model = models.create(
+        study=studies.linear_static(
+            physics="solid_mechanics",
+            dimension=2,
+            assumption="plane_stress",
+        ),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    model.material(
+        constitutive.isotropic_elastic(
+            young=1.0e3,
+            poisson=0.0,
+            density=1.0,
+        )
+    )
+    left_geometry = mesh.face(domain, axis="x", value=0.0, name="left", tag=1)
+    bottom_geometry = mesh.face(domain, axis="y", value=0.0, name="bottom", tag=2)
+    right_geometry = mesh.face(domain, axis="x", value=1.0, name="right", tag=3)
+    left = mesh.tagged_boundary_region(
+        domain, left_geometry.facet_tags, tag=1, name="left"
+    )
+    bottom = mesh.tagged_boundary_region(
+        domain, bottom_geometry.facet_tags, tag=2, name="bottom"
+    )
+    right = mesh.tagged_boundary_region(
+        domain, right_geometry.facet_tags, tag=3, name="right"
+    )
+    model.fix(displacement, on=left, component=0, value=0.0)
+    model.fix(displacement, on=bottom, component=1, value=0.0)
+    model.traction((1.0, 0.0), on=right)
+
+    boundary_evidence = model.audit_boundaries(strict=True)
+    assert boundary_evidence["left"]["measure"] == pytest.approx(0.2)
+    assert boundary_evidence["right"]["measure"] == pytest.approx(0.2)
+    assert boundary_evidence["bottom"]["measure"] == pytest.approx(1.0)
+
+    step = model.step(target=displacement)
+    simulation = step.solve_result()
+
+    assert results.reaction_resultant(
+        step.problem,
+        on=left,
+        component=0,
+    ) == pytest.approx(-0.2)
+    assert {"S", "E", "MISES"} <= set(simulation.fields)
+    assert "SENER" not in simulation.fields

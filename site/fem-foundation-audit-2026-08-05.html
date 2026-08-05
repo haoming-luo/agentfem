@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FEM Foundation Audit - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
+      <div class="tagline">AI-assisted finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
+<a class="" href="getting-started.html">Getting Started</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="agent-gui-integration.html">Agent and GUI Integration</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="active" href="fem-foundation-audit-2026-08-05.html">FEM Foundation Audit</a>
+<a class="" href="engineering-feedback-2026-08-05.html">Engineering Feedback Decisions</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
+<a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
+<a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
+<a class="" href="operator-contracts.html">Scientific Operator Contracts</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="result-field-semantics.html">Result-field Semantics</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="platform-support.html">Platform and Optional Dependencies</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="scientific-verification.html">Scientific Trust and Verification</a>
+<a class="" href="licensing.html">Licensing</a>
+<a class="" href="publishing.html">Publishing</a>
+<a class="" href="release-0.2.0a1.html">AgentFEM 0.2.0a1</a>
+<a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="release-audit-2026-08-05.html">CTO Product Audit: 5 August 2026</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="digital-twin-direction.html">Digital-twin Direction</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="fem-foundation-audit-5-august-2026">FEM Foundation Audit: 5 August 2026</h1>
+<h2 id="cto-verdict">CTO verdict</h2>
+<p>AgentFEM now has a credible <strong>continuum-solid linear elasticity foundation</strong> for selected laboratory and research workflows. It also has a credible but deliberately bounded <strong>3D small-strain J2 plasticity procedure</strong>. These are not the same maturity claim:</p>
+<ul>
+<li>linear elasticity is a general model-first FEM path for 2D plane stress,<br>2D plane strain, and 3D solids, including regional materials and MPI;</li>
+<li>plasticity currently means one specific globally integrated procedure:<br>rate-independent 3D J2 plasticity with linear isotropic hardening, serial<br>quadrature state, consistent Newton tangent, adaptive cutback, and restart.</li>
+</ul>
+<p>The product should say exactly that. It should not market the existence of one J2 route as broad support for arbitrary plasticity.</p>
+<h2 id="evidence-based-maturity-matrix">Evidence-based maturity matrix</h2>
+<table>
+<thead><tr><th>Foundation</th><th>Current evidence</th><th>Decision</th><th>Important boundary</th></tr></thead>
+<tbody>
+<tr><td>Small-strain kinematics</td><td>automated 2D and 3D constant-strain fields</td><td>ready for supported continuum solids</td><td>axisymmetric, beams, shells, and mixed incompressible formulations are absent</td></tr>
+<tr><td>Linear constitutive response</td><td>isotropic plane stress/strain/3D; selected 2D anisotropy</td><td>usable</td><td>no temperature/field-dependent property tables or general 3D orthotropy workflow</td></tr>
+<tr><td>Regional materials</td><td>regional K/M and a two-material series-bar field test</td><td>usable</td><td>result projection assumes a complete nonoverlapping material partition</td></tr>
+<tr><td>Essential conditions</td><td>fixed, prescribed, component, clamp, symmetry, roller, and periodic routes</td><td>usable for stated geometry</td><td>arbitrary inclined symmetry, contact, and general constraint reactions remain</td></tr>
+<tr><td>Natural loads</td><td>traction, pressure, body force, gravity, and amplitudes</td><td>usable</td><td>concentrated nodal force/moment needs a deliberate discrete-load contract</td></tr>
+<tr><td>Linear solution</td><td>PETSc direct/iterative configuration and MPI</td><td>usable on current scales</td><td>scalable 3D elasticity still needs an automatic rigid-body near-nullspace preset</td></tr>
+<tr><td>Static results</td><td>one-call U/S/E/MISES XDMF/HDF5, opt-in SENER, named-boundary RF, energy helpers</td><td>usable</td><td>integration-point export, reviewed smoothing/recovery, weak/MPC/contact reaction and prescribed-motion work need separate definitions</td></tr>
+<tr><td>J2 material update</td><td>yield-surface, complete cyclic path, tangent derivative tests, traceable quadrature S/PE/PEEQ/MISES</td><td>verified material point</td><td>linear isotropic hardening only</td></tr>
+<tr><td>Global J2</td><td>one- and multi-element 3D patches, Abaqus state comparison, work/energy, cutback, restart</td><td>FEM-integrated foundation</td><td>serial, one material, small strain; no plane stress or finite-strain plasticity</td></tr>
+<tr><td>External verification</td><td>Abaqus homogeneous J2 state and fixed-mesh elastic release regression</td><td>partial</td><td>external structural geometry and mesh-convergence contracts remain urgent</td></tr>
+</tbody>
+</table>
+<p>This audit follows the verification hierarchy used by mature finite-element codes: constant-strain patch tests, exact load/reaction checks, material-point paths, multi-element consumption, and external reference problems are distinct obligations. Passing one does not substitute for the others.</p>
+<h2 id="closed-in-this-implementation-pass">Closed in this implementation pass</h2>
+<ol>
+<li>Linear static steps now accept pure displacement control without requiring<br>users to invent a zero load.</li>
+<li><code>AnalysisStep.solve_result(output=...)</code> writes the final static result in<br>the same one-call style as transient procedures.</li>
+<li>Model-generated isotropic elastic steps automatically expose <code>U</code>, <code>S</code>,<br><code>E</code>, and <code>MISES</code>; <code>SENER</code> is available as an explicit diagnostic request.</li>
+<li>Regional materials are projected through one piecewise global mass problem,<br>rather than singular per-region projections or ad hoc array stitching.</li>
+<li><code>results.reaction_resultant(..., on=..., component=...)</code> extracts a named<br>strong-boundary reaction in serial and MPI.</li>
+<li>Automated contracts now cover a displacement-controlled 3D patch, a<br>two-material series bar, distributed boundary reactions, and a<br>multi-element global J2 path.</li>
+</ol>
+<h2 id="next-execution-priorities">Next execution priorities</h2>
+<h3 id="release-critical-depth">Release-critical depth</h3>
+<ol>
+<li>Add a published linear-elastic structural benchmark, preferably NAFEMS<br>LE10, with a mesh-convergence sequence and the corrected target stress<br>location—not only a fixed-mesh displacement Golden.</li>
+<li>Add a 3D elasticity iterative-solver preset that constructs translational<br>and rotational near-nullspace modes for PETSc GAMG/Hypre-class workflows.</li>
+<li>Add explicit equilibrium histories by named support/load region and define<br>nonzero prescribed-displacement work for ordinary linear static steps.</li>
+<li>Exercise triangle, quadrilateral, tetrahedral, and hexahedral families in a<br>compact element/degree verification matrix, including distorted patches.</li>
+</ol>
+<h3 id="plasticity-promotion">Plasticity promotion</h3>
+<ol>
+<li>Add tabulated isotropic hardening before adding more yield surfaces; it is<br>the most common bridge from test data to engineering J2 analysis.</li>
+<li>Add kinematic/combined hardening for genuine cyclic response, with a<br>published hysteresis benchmark rather than only a class implementation.</li>
+<li>Generalize global state ownership to multiple material regions without<br>multiplying public Step types.</li>
+<li>Establish stable global cell/quadrature identities, then enable MPI J2 and<br>restart with a different process count.</li>
+<li>Add a nonuniform structural benchmark—such as a notched specimen or plate<br>with a hole—covering localization pattern, load-displacement response,<br>reaction work, mesh sensitivity, cutback, and restart equivalence.</li>
+</ol>
+<h3 id="important-but-not-before-those-gates">Important, but not before those gates</h3>
+<ul>
+<li>axisymmetric elasticity and plasticity;</li>
+<li>mixed displacement-pressure treatment near incompressibility;</li>
+<li>beam/shell libraries and rotations;</li>
+<li>contact and friction;</li>
+<li>finite-strain plasticity and general UMAT execution.</li>
+</ul>
+<p>The product principle remains depth before vocabulary: each promoted model must carry a readable top-level workflow, formula, field/state contract, failure path, benchmark, output semantics, and at least one independent consumer.</p>
+<h2 id="primary-references-used-for-this-audit">Primary references used for this audit</h2>
+<ul>
+<li><a href="https://docs.software.vt.edu/abaqusv2024/English/SIMACAEVERRefMap/simaver-c-basicelemover.htm">Abaqus element verification and patch-test rationale</a></li>
+<li><a href="https://docs.software.vt.edu/abaqusv2024/English/SIMACAEANLRefMap/simaanl-c-static.htm">Abaqus static stress analysis, loads, boundary conditions, and output</a></li>
+<li><a href="https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-plastoverview.htm">Abaqus plasticity-model foundations</a></li>
+<li><a href="https://docs.fenicsproject.org/dolfinx/main/python/demos/demo_elasticity.html">DOLFINx 3D elasticity and algebraic multigrid demo</a></li>
+<li><a href="https://www.nafems.org/publications/resource_center/p18/">NAFEMS standard benchmark collection</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

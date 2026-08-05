@@ -151,7 +151,18 @@ def test_global_j2_uniaxial_path_matches_versioned_analytical_golden():
     assert all(golden.verify(actual).values())
     assert simulation.quantity("internal_energy") > 0.0
     assert simulation.quantity("plastic_dissipation") > 0.0
-    assert {"S", "PE", "PEEQ", "RF"} <= set(simulation.fields)
+    assert {"S", "PE", "PEEQ", "MISES", "RF"} <= set(simulation.fields)
+    assert simulation.fields["S"].location == "quadrature_points"
+    assert simulation.fields["S"].processing["postprocessed"] is False
+    assert simulation.fields["MISES"].processing["derived_from"] == ("S",)
+    presentation_fields = step.state.output_fields()
+    assert tuple(item.name for item in presentation_fields) == (
+        "S",
+        "PE",
+        "PEEQ",
+        "MISES",
+    )
+    assert np.all(presentation_fields[-1].x.array >= 0.0)
     assert len(simulation.histories["newton_iterations"].values) == 4
     assert {
         "internal_energy",
@@ -186,6 +197,35 @@ def test_global_j2_matches_published_abaqus_rate_independent_plasticity_case():
     }
 
     assert all(golden.verify(actual).values())
+
+
+def test_global_j2_multielement_patch_matches_the_uniaxial_golden():
+    """Verify constitutive state and global assembly beyond one element."""
+
+    step, _ = _j2_uniaxial_patch(cells=(4, 2, 2))
+    simulation = step.solve_result()
+    golden = benchmarks.golden_benchmark(
+        "agentfem.benchmark.j2_global_restart"
+    )
+    actual = {
+        "mean_axial_stress": results.average(
+            step.state.stress.function[0, 0],
+            measure=step.state.measure,
+        ),
+        "mean_equivalent_plastic_strain": results.average(
+            step.state.equivalent_plastic_strain.function,
+            measure=step.state.measure,
+        ),
+    }
+
+    assert all(golden.verify(actual).values())
+    peeq = step.state.equivalent_plastic_strain.values.reshape(-1)
+    assert peeq.size > 10
+    assert np.max(peeq) - np.min(peeq) < 2.0e-10
+    assert simulation.quantity("plastic_integration_points") == peeq.size
+    final_internal = simulation.histories["internal_energy"].latest
+    final_balance = simulation.histories["energy_balance_error"].latest
+    assert abs(final_balance) / final_internal < 0.03
 
 
 def test_global_j2_proportionally_applies_prescribed_displacement():
@@ -390,11 +430,13 @@ def test_thermoelastic_material_arrhenius_creep_and_free_expansion():
     model.fix(displacement, on=left, component=0, value=0.0)
     model.fix(displacement, on=bottom, component=1, value=0.0)
     thermal_force = model.thermal_expansion(displacement, temperature)
-    model.step(
+    thermoelastic_step = model.step(
         target=displacement,
         K=model.stiffness(displacement),
         F=thermal_force,
-    ).solve()
+    )
+    thermoelastic_result = thermoelastic_step.solve_result()
+    assert "S" not in thermoelastic_result.fields
 
     coordinates = displacement.space.tabulate_dof_coordinates()
     values = displacement.value.x.array.reshape((-1, 2))
@@ -572,10 +614,10 @@ def _j2_displacement_patch():
     return step, displacement
 
 
-def _j2_uniaxial_patch(*, amplitude=None, incrementation=None):
+def _j2_uniaxial_patch(*, amplitude=None, incrementation=None, cells=(1, 1, 1)):
     """Homogeneous bar with free Poisson contraction and removed rigid modes."""
 
-    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, *cells)
     study = studies.nonlinear_static(
         physics="solid_mechanics",
         dimension=3,

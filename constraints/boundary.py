@@ -63,4 +63,8 @@ def _marker(marker, location):
     selected = location if location is not None else marker
     if selected is None:
         raise ValueError("A marker or location is required for a Dirichlet boundary.")
+    # Preserve BoundaryRegion selection semantics so imported physical tags can
+    # drive both strong constraints and weak loads.
+    if hasattr(selected, "selection"):
+        return selected
     return selected.marker if hasattr(selected, "marker") else selected

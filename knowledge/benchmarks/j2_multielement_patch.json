@@ -1,0 +1,31 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.j2_multielement_patch",
+  "title": "Multi-element global J2 plasticity patch",
+  "status": "automated",
+  "purpose": "Ensure that the verified radial-return map and consistent tangent remain correct when consumed by global multi-element equilibrium, regional quadrature state, prescribed-displacement work, and result assembly.",
+  "physics": "three-dimensional small-strain rate-independent J2 plasticity with linear isotropic hardening",
+  "reference": "Analytical homogeneous uniaxial hardening path and agentfem.benchmark.j2_global_restart Golden quantities",
+  "execution": {
+    "command": "python -m pytest -q tests/test_p1_platform.py::test_global_j2_multielement_patch_matches_the_uniaxial_golden",
+    "example": "examples/j2_plasticity_3d.py",
+    "evidence": "A multi-cell displacement-controlled cube must reproduce the versioned homogeneous uniaxial hardening response while retaining committed quadrature state and energy/work closure."
+  },
+  "observables": [
+    "Mean axial Cauchy stress over the constitutive quadrature.",
+    "Mean and range of committed equivalent plastic strain.",
+    "Accepted-increment reaction work and internal-energy components.",
+    "Quadrature-point S/PE/PEEQ/MISES result semantics."
+  ],
+  "acceptance": [
+    "Mean axial stress and equivalent plastic strain satisfy the versioned analytical Golden tolerances.",
+    "Equivalent plastic strain is uniform across more than ten quadrature points.",
+    "Every integration point enters the plastic state at the final prescribed displacement.",
+    "Generalized-reaction external work closes against elastic, hardening, and dissipated internal energy within the declared path tolerance."
+  ],
+  "limitations": [
+    "The current global J2 provider is serial, single-material, three-dimensional, small-strain, and isotropic-hardening only.",
+    "This patch is a necessary assembly test; a notched structural benchmark and portable distributed quadrature restart remain separate promotion gates."
+  ]
+}

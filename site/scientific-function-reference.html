@@ -22,12 +22,15 @@
 <a class="" href="concepts.html">Concepts</a>
 <a class="" href="examples.html">Examples</a>
 <a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="fem-foundation-audit-2026-08-05.html">FEM Foundation Audit</a>
+<a class="" href="engineering-feedback-2026-08-05.html">Engineering Feedback Decisions</a>
 <a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
 <a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
 <a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
 <a class="active" href="scientific-function-reference.html">Scientific Function Reference</a>
 <a class="" href="operator-contracts.html">Scientific Operator Contracts</a>
 <a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="result-field-semantics.html">Result-field Semantics</a>
 <a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
 <a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
 <a class="" href="platform-support.html">Platform and Optional Dependencies</a>
@@ -80,8 +83,10 @@
 <tr><td><code>agentfem.benchmark.campaign_surrogate_pipeline</code></td><td>Static-elasticity campaign to guarded surrogate pipeline</td><td>parameterized small-strain isotropic linear elasticity</td><td>executable_integration</td></tr>
 <tr><td><code>agentfem.benchmark.creep_damage_material_paths</code></td><td>Creep-damage material paths and curve projection</td><td>Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection</td><td>automated_regression</td></tr>
 <tr><td><code>agentfem.benchmark.creep_hot_wall_release</code></td><td>Sequential hot-wall creep assessment release contract</td><td>sequential transient heat conduction, plane-strain thermoelasticity, and local creep-damage assessment</td><td>automated_regression</td></tr>
+<tr><td><code>agentfem.benchmark.elasticity_foundation</code></td><td>Foundational small-strain elasticity verification</td><td>two- and three-dimensional small-strain linear elasticity</td><td>automated</td></tr>
 <tr><td><code>agentfem.benchmark.j2_abaqus_rate_independent</code></td><td>Published Abaqus rate-independent Mises plasticity uniaxial state</td><td>three-dimensional small-strain Mises plasticity with linear isotropic hardening</td><td>automated_external_verification</td></tr>
 <tr><td><code>agentfem.benchmark.j2_global_restart</code></td><td>Three-dimensional J2 path, physical cutback, cyclic amplitude, energy, and restart equivalence</td><td>three-dimensional small-strain Mises plasticity with linear isotropic hardening</td><td>automated_regression</td></tr>
+<tr><td><code>agentfem.benchmark.j2_multielement_patch</code></td><td>Multi-element global J2 plasticity patch</td><td>three-dimensional small-strain rate-independent J2 plasticity with linear isotropic hardening</td><td>automated</td></tr>
 <tr><td><code>agentfem.benchmark.linear_static_cantilever</code></td><td>Two-dimensional linear-static cantilever</td><td>small-strain isotropic linear elasticity in plane strain</td><td>numerical_regression</td></tr>
 <tr><td><code>agentfem.benchmark.neo_hookean_release</code></td><td>Compressible Neo-Hookean finite-strain release contract</td><td>compressible Neo-Hookean hyperelasticity</td><td>automated_regression</td></tr>
 <tr><td><code>agentfem.benchmark.operator_contracts</code></td><td>Operator role, system, and residual-linearization contracts</td><td>backend-facing finite-element operator algebra</td><td>automated</td></tr>
@@ -209,7 +214,8 @@
 <table>
 <thead><tr><th>Name</th><th>Type</th><th>Unit role</th><th>Meaning</th></tr></thead>
 <tbody>
-<tr><td>S</td><td>quadrature tensor field</td><td>stress</td><td>Trial Cauchy stress used in the residual.</td></tr>
+<tr><td>S</td><td>quadrature tensor field</td><td>stress</td><td>Accepted Cauchy stress retained at the constitutive integration points after convergence.</td></tr>
+<tr><td>MISES</td><td>quadrature scalar field</td><td>stress</td><td>Pointwise invariant of S; the visualization helper writes a separately identifiable DG0 cell average.</td></tr>
 <tr><td>PE and PEEQ</td><td>committed quadrature state</td><td>strain</td><td>Plastic strain tensor and equivalent plastic strain.</td></tr>
 <tr><td>DDSDDE</td><td>fourth-order quadrature tensor field</td><td>stress per strain</td><td>Analytical algorithmic consistent tangent.</td></tr>
 <tr><td>RF and internal-energy diagnostics</td><td>nodal residual field and scalar result quantities</td><td>force and energy</td><td>Full nodal residual plus elastic, hardening, plastic-dissipation, internal-energy, prescribed-work, and balance histories.</td></tr>
@@ -250,6 +256,7 @@
 <p><strong>Benchmarks</strong></p>
 <ul>
 <li><code>agentfem.benchmark.j2_global_restart</code></li>
+<li><code>agentfem.benchmark.j2_multielement_patch</code></li>
 </ul>
 <p><strong>Validation rules</strong></p>
 <ul>
@@ -765,11 +772,13 @@
 </ul>
 <h2 id="projected-small-strain-result-fields-and-strong-constraint-resultants">Projected small-strain result fields and strong-constraint resultants</h2>
 <p><strong>Stable ID:</strong> <code>agentfem.workflow.standard_result_projection</code>&lt;br&gt; <strong>Kind:</strong> <code>workflow</code>&lt;br&gt; <strong>Status:</strong> <code>supported</code>&lt;br&gt; <strong>Source card:</strong> <code>knowledge/cards/standard_result_projection.json</code></p>
-<p>Produces cell-average S, E, MISES, and SENER fields by global L2 projection and extracts MPI-global resultants for converged strong-constraint residuals.</p>
+<p>Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell-average fields, and extracts MPI-global resultants on named strong-constraint boundaries.</p>
 <h3 id="public-api">Public API</h3>
 <ul>
 <li><code>agentfem.results.project</code></li>
+<li><code>agentfem.results.project_piecewise</code></li>
 <li><code>agentfem.results.small_strain_cell_fields</code></li>
+<li><code>agentfem.results.small_strain_partition_fields</code></li>
 <li><code>agentfem.results.reaction_resultant</code></li>
 <li><code>agentfem.diagnostics.linear_static_energy</code></li>
 </ul>
@@ -796,7 +805,7 @@
 <table>
 <thead><tr><th>Name</th><th>Type</th><th>Unit role</th><th>Meaning</th></tr></thead>
 <tbody>
-<tr><td>standard fields</td><td>DG projected Functions named S, E, MISES, and SENER</td><td>stress, strain, and energy density</td><td>Fields can be written with the ordinary AgentFEM XDMF result writer.</td></tr>
+<tr><td>standard fields</td><td>DG projected Functions named S, E, MISES, and optionally SENER</td><td>stress, strain, and energy density</td><td>Serial <code>solve_result(output=...)</code> stores these cell fields with nodal U on one Uniform Grid.</td></tr>
 <tr><td>resultant and energy closure</td><td>MPI-global scalar/vector and LinearStaticEnergy</td><td>force and energy</td><td>Compact engineering histories or verification quantities.</td></tr>
 </tbody>
 </table>
@@ -809,8 +818,12 @@
 <h4 id="conventions">Conventions</h4>
 <ul>
 <li>DG0 is the default output space and represents a cell average.</li>
+<li>DG0 result fields are discontinuous and are not extrapolated or averaged across neighboring cells or material boundaries.</li>
+<li>The engineering default is U/S/E/MISES; SENER is an explicit diagnostic request.</li>
 <li>E means infinitesimal strain in a small-strain context.</li>
 <li>Non-zero prescribed-displacement work is not silently included in proportional force work.</li>
+<li>Imported physical boundaries use their facet tag for both strong topological<br>dof location and weak integration; an optional marker is audit evidence.</li>
+<li><code>field_extrema(..., location=True)</code> identifies its finite-element-dof<br>sampling, coordinate, rank, global dof, and DG0 cell where applicable.</li>
 </ul>
 <h4 id="applicability">Applicability</h4>
 <ul>
@@ -823,7 +836,10 @@
 <li>Thermoelastic output requires temperature-aware field construction in a later extension.</li>
 </ul>
 <h3 id="minimal-example">Minimal example</h3>
-<pre><code>S, E, mises, sener = results.small_strain_cell_fields(U, material, study=study); RF = results.reaction_resultant(step.problem)</code></pre>
+<pre><code>support = mesh.tagged_boundary_region(domain, facet_tags, tag=101, name=&#x27;support&#x27;)
+result = step.solve_result(output=&#x27;solid.xdmf&#x27;)
+RF_x = results.reaction_resultant(step.problem, on=support, component=0)
+peak = results.field_extrema(result.fields[&#x27;MISES&#x27;], location=True)</code></pre>
 <h3 id="verification">Verification</h3>
 <p><strong>Tests</strong></p>
 <ul>
@@ -833,17 +849,21 @@
 <p><strong>Benchmarks</strong></p>
 <ul>
 <li><code>agentfem.benchmark.linear_static_cantilever</code></li>
+<li><code>agentfem.benchmark.elasticity_foundation</code></li>
 </ul>
 <p><strong>Validation rules</strong></p>
 <ul>
 <li>Reject unknown field variables and negative projection degrees.</li>
 <li>Compare affine displacement projection with its analytical constant strain.</li>
-<li>Check reaction equilibrium and proportional static energy closure.</li>
+<li>Check named-boundary reaction equilibrium and proportional static energy closure.</li>
+<li>Verify a regional two-material series bar through one piecewise projection.</li>
 </ul>
 <h3 id="references">References</h3>
 <ul>
 <li>DOLFINx finite-element functions and variational assembly: <code>https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.html</code></li>
 <li>Abaqus field and history output requests: <code>https://docs.software.vt.edu/abaqusv2024/English/SIMACAEOUTRefMap/simaout-c-output.htm</code></li>
+<li>Abaqus contour extrapolation and averaging: <code>https://docs.software.vt.edu/abaqusv2024/English/SIMACAECAERefMap/simacae-c-conconceptlimits.htm</code></li>
+<li>COMSOL Gauss-point evaluation: <code>https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_modeling.05.224.html</code></li>
 </ul>
 <h2 id="sequential-thermoelastic-analysis">Sequential thermoelastic analysis</h2>
 <p><strong>Stable ID:</strong> <code>agentfem.workflow.thermoelastic_analysis</code>&lt;br&gt; <strong>Kind:</strong> <code>workflow</code>&lt;br&gt; <strong>Status:</strong> <code>supported</code>&lt;br&gt; <strong>Source card:</strong> <code>knowledge/cards/thermoelastic_analysis.json</code></p>

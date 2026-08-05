@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from types import SimpleNamespace
+import warnings
 
 import numpy as np
 import ufl
@@ -832,6 +834,7 @@ class AnalysisStep:
     method: str = "direct_linear_solve"
     dt: float | None = None
     procedure: object | None = None
+    result_field_factory: object | None = None
 
     @property
     def system(self):
@@ -850,18 +853,45 @@ class AnalysisStep:
 
         return self.problem.solve()
 
-    def solve_result(self):
+    def solve_result(
+        self,
+        *,
+        output=None,
+        fields=(),
+        field_variables=None,
+        strict_output: bool = False,
+    ):
         """Solve while retaining the existing ``solve()`` return contract.
 
         ``solve()`` continues to return the live DOLFINx solution field for
         backwards compatibility.  This method returns the higher-level result
-        container used by post-processing, campaigns, and datasets.
+        container used by post-processing, campaigns, and datasets.  Model-
+        generated static-solid steps add their standard derived fields after
+        convergence; ``output=...`` writes the final field set in one call.
+        ``field_variables`` overrides the engineering default without exposing
+        solver or projection plumbing in the top-level model.
         """
 
+        from . import io
         from .results import from_solution
 
         solution = self.problem.solve()
-        return from_solution(
+        if fields and field_variables is not None:
+            raise ValueError(
+                "Choose explicit live fields or field_variables, not both."
+            )
+        if field_variables is not None and self.result_field_factory is None:
+            raise ValueError(
+                "This analysis step does not provide declarative derived fields."
+            )
+        generated = ()
+        if not fields and self.result_field_factory is not None:
+            generated = tuple(self.result_field_factory(field_variables))
+        generated_ids = {id(item) for item in generated}
+        selected_fields = tuple(fields) if fields else (solution, *generated)
+        if not selected_fields:
+            selected_fields = (solution,)
+        result = from_solution(
             solution,
             name=self.name,
             metadata={
@@ -871,6 +901,95 @@ class AnalysisStep:
                 ),
             },
         )
+        for item in selected_fields:
+            function = _unwrap_result_field(item)
+            if function is solution:
+                continue
+            result.add_field(
+                getattr(function, "name", type(function).__name__),
+                function,
+                location=_field_location(function),
+                description=(
+                    "Constitutive result projected to a discontinuous finite-"
+                    "element space; no nodal extrapolation or interelement "
+                    "smoothing is applied."
+                    if id(item) in generated_ids
+                    else ""
+                ),
+                processing=(
+                    _projected_field_processing(function)
+                    if id(item) in generated_ids
+                    else None
+                ),
+            )
+        if output is not None:
+            path = Path(output)
+            domain = solution.function_space.mesh
+            try:
+                if domain.comm.size == 1:
+                    from .results.output import write_unified_xdmf_series
+
+                    auxiliary = tuple(
+                        _unwrap_result_field(item)
+                        for item in selected_fields
+                        if _unwrap_result_field(item) is not solution
+                    )
+                    write_unified_xdmf_series(
+                        path,
+                        (SimpleNamespace(solution=solution, load_factor=0.0),),
+                        (auxiliary,),
+                        deformation_scale=0.0,
+                    )
+                    layout = "single_uniform_grid"
+                    backend = "agentfem_unified_xdmf"
+                else:
+                    writable = []
+                    for item in selected_fields:
+                        function = _unwrap_result_field(item)
+                        if function is solution:
+                            coordinate_maps = getattr(domain.geometry, "cmaps", ())
+                            degree = int(
+                                getattr(coordinate_maps[0], "degree", 1)
+                                if coordinate_maps
+                                else 1
+                            )
+                            function = io.interpolate_for_xdmf(
+                                function,
+                                degree=degree,
+                                name=getattr(function, "name", "U"),
+                            )
+                        writable.append(function)
+                    with io.XDMFTimeSeries(path, domain) as writer:
+                        writer.write_fields(0.0, *writable)
+                    layout = "dolfinx_multigrid"
+                    backend = "dolfinx_xdmf_collective"
+                result.metadata["field_output"] = {
+                    "status": "completed",
+                    "backend": backend,
+                    "layout": layout,
+                    "geometry": "reference",
+                    "warp_field": "U",
+                }
+                result.add_artifact("fields_xdmf", path)
+                heavy = path.with_suffix(".h5")
+                if heavy.exists():
+                    result.add_artifact("fields_hdf5", heavy)
+            except Exception as exc:
+                result.status = "completed_with_output_errors"
+                result.metadata["field_output"] = {
+                    "status": "failed",
+                    "error_type": type(exc).__name__,
+                    "message": str(exc),
+                    "requested_path": str(path),
+                }
+                if strict_output:
+                    raise
+                warnings.warn(
+                    f"Simulation completed, but field output failed: {exc}",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+        return result
 
     def summary(self) -> dict[str, object]:
         """Return a compact, agent-readable step summary."""
@@ -1987,6 +2106,7 @@ def linear_static(
     constraints=None,
     bcs=None,
     solver_options: LinearSolverOptions | None = None,
+    result_field_factory=None,
     name: str = "linear_static",
 ) -> AnalysisStep:
     """Create a linear static analysis step in ``K x = F`` notation."""
@@ -2010,6 +2130,7 @@ def linear_static(
         problem=problem,
         method="linear_static",
         procedure=procedures.linear_static(),
+        result_field_factory=result_field_factory,
     )
 
 
@@ -2535,6 +2656,44 @@ def _as_list(value) -> list:
     if isinstance(value, tuple):
         return list(value)
     return [value]
+
+
+def _unwrap_result_field(field):
+    return fields.unwrap(field)
+
+
+def _field_location(field) -> str:
+    element = getattr(field.function_space, "element", None)
+    basix_element = getattr(element, "basix_element", None)
+    discontinuous = bool(
+        getattr(element, "discontinuous", False)
+        or getattr(basix_element, "discontinuous", False)
+    )
+    return "cells" if discontinuous else "nodes"
+
+
+def _projected_field_processing(field) -> dict[str, object]:
+    """Describe the post-processing contract of a projected result field."""
+
+    element = getattr(field.function_space, "element", None)
+    basix_element = getattr(element, "basix_element", None)
+    degree = getattr(basix_element, "degree", None)
+    family = getattr(basix_element, "family", None)
+    selected_degree = None if degree is None else int(degree)
+    return {
+        "source_position": "constitutive_expression",
+        "method": "global_l2_projection",
+        "representation": (
+            "cell_average" if selected_degree == 0 else "discontinuous_field"
+        ),
+        "space_family": (
+            None if family is None else str(getattr(family, "name", family))
+        ),
+        "space_degree": selected_degree,
+        "nodal_extrapolation": False,
+        "interelement_smoothing": False,
+        "material_boundary_averaging": False,
+    }
 
 
 def _describe_asset(asset) -> object:

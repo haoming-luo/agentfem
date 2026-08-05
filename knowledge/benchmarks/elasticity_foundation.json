@@ -1,0 +1,40 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.elasticity_foundation",
+  "title": "Foundational small-strain elasticity verification",
+  "status": "automated",
+  "purpose": "Verify basic solid-element kinematics, regional constitutive assembly, standard result projection, displacement control, and strong-boundary reactions rather than only a fixed-mesh displacement regression.",
+  "physics": "two- and three-dimensional small-strain linear elasticity",
+  "references": [
+    "Abaqus 2024 element verification: constant-strain patch tests",
+    "DOLFINx elasticity using algebraic multigrid demo"
+  ],
+  "execution": {
+    "command": "python -m pytest -q tests/test_results.py -k 'displacement_controlled_3d or two_material_elastic_bar'",
+    "example": "examples/static_elasticity_2d.py",
+    "evidence": "Analytical constant-strain, regional series-bar, and named-reaction checks run in serial, with partition-independent reaction and projection checks under two MPI ranks.",
+    "serial": "python -m pytest -q tests/test_results.py -k 'displacement_controlled_3d or two_material_elastic_bar'",
+    "mpi": "mpiexec -n 2 python -m pytest -q tests/test_parallel_results.py"
+  },
+  "observables": [
+    "Three-dimensional constant strain and stress on every cell.",
+    "Named-boundary reaction resultant under displacement control.",
+    "Regional axial stress and strain in a two-material series bar.",
+    "Engineering-default U/S/E/MISES field names and processing metadata."
+  ],
+  "acceptance": [
+    "A 3D displacement-only static step creates a valid zero external-force vector and exactly reproduces a constant diagonal strain patch.",
+    "Projected S and E fields reproduce the analytical isotropic constitutive response on every cell.",
+    "The named positive-face reaction equals analytical stress times area.",
+    "A two-region series bar retains continuous axial stress and the correct regional compliance.",
+    "The same named-boundary reaction contract is partition-independent under MPI.",
+    "One-call solve_result(output=...) writes engineering-default U, S, E, and MISES to one XDMF/HDF5 result; SENER is an explicit diagnostic request.",
+    "Projected field metadata states that DG0 values are cell averages without nodal extrapolation, interelement smoothing, or material-boundary averaging."
+  ],
+  "limitations": [
+    "This contract covers continuum Lagrange solid fields, not beams, shells, mixed incompressible elements, contact, or axisymmetric kinematics.",
+    "Affine MPC, weak, and contact reactions require separate force definitions.",
+    "The next external linear-elasticity benchmark should be NAFEMS LE10 or an equivalently published geometry and stress target."
+  ]
+}

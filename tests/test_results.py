@@ -3,16 +3,19 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from types import SimpleNamespace
+import xml.etree.ElementTree as ET
 
 import numpy as np
 import ufl
 from dolfinx import fem
+from dolfinx import mesh as dolfinx_mesh
 import h5py
 from mpi4py import MPI
 import pytest
 
-from agentfem import campaigns, datasets, fields, mesh, models, results, studies, verification
+from agentfem import campaigns, datasets, fields, mesh, models, problems, results, studies, verification
 from agentfem.constitutive import elasticity
+from agentfem.kernel import dofs as dof_api
 from agentfem.solvers import SolveEvent
 from agentfem.results.finite_strain import HomogenizedFrame
 
@@ -122,6 +125,185 @@ def test_linear_step_result_carries_ksp_evidence_consumed_by_engineering_quality
     assert solve["converged"] is True
     assert quality.trust_level == "converged"
     assert quality.acceptable
+
+
+def test_displacement_controlled_3d_elastic_patch_writes_standard_fields(tmp_path):
+    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 2, 2, 2)
+    material = elasticity.isotropic_elastic(
+        young=210.0e3,
+        poisson=0.3,
+        density=1.0,
+    )
+    model = models.create(
+        study=studies.linear_static(
+            physics="solid_mechanics",
+            dimension=3,
+        ),
+        mesh=domain,
+        name="three_dimensional_patch",
+    )
+    displacement = model.field(fields.displacement(domain))
+    model.material(material)
+    strains = (1.0e-3, -2.0e-4, 3.0e-4)
+    boundaries = (
+        ("x", 0, strains[0]),
+        ("y", 1, strains[1]),
+        ("z", 2, strains[2]),
+    )
+    positive_faces = {}
+    for axis, component, strain in boundaries:
+        negative = mesh.face(
+            domain,
+            axis=axis,
+            value=0.0,
+            name=f"{axis}_negative",
+            tag=2 * component + 1,
+        )
+        positive = mesh.face(
+            domain,
+            axis=axis,
+            value=1.0,
+            name=f"{axis}_positive",
+            tag=2 * component + 2,
+        )
+        positive_faces[axis] = positive
+        model.fix(displacement, on=negative, component=component, value=0.0)
+        model.fix(displacement, on=positive, component=component, value=strain)
+
+    step = model.step(target=displacement)
+    output = tmp_path / "elastic_patch.xdmf"
+    simulation = step.solve_result(output=output)
+
+    strain_field = simulation.fields["E"].field
+    stress_field = simulation.fields["S"].field
+    expected_strain = np.diag(strains)
+    np.testing.assert_allclose(
+        strain_field.x.array.reshape((-1, 3, 3)),
+        np.broadcast_to(
+            expected_strain,
+            strain_field.x.array.reshape((-1, 3, 3)).shape,
+        ),
+        rtol=2.0e-11,
+        atol=2.0e-12,
+    )
+    expected_stress = (
+        material.lambda_ * np.trace(expected_strain) * np.eye(3)
+        + 2.0 * material.mu * expected_strain
+    )
+    np.testing.assert_allclose(
+        stress_field.x.array.reshape((-1, 3, 3)),
+        np.broadcast_to(
+            expected_stress,
+            stress_field.x.array.reshape((-1, 3, 3)).shape,
+        ),
+        rtol=2.0e-11,
+        atol=2.0e-9,
+    )
+    assert results.reaction_resultant(
+        step.problem,
+        on=positive_faces["x"],
+        component=0,
+    ) == pytest.approx(expected_stress[0, 0], rel=2.0e-11, abs=2.0e-9)
+    assert {"Displacement", "S", "E", "MISES"} <= set(simulation.fields)
+    assert "SENER" not in simulation.fields
+    assert simulation.fields["S"].processing == {
+        "source_position": "constitutive_expression",
+        "method": "global_l2_projection",
+        "representation": "cell_average",
+        "space_family": "P",
+        "space_degree": 0,
+        "nodal_extrapolation": False,
+        "interelement_smoothing": False,
+        "material_boundary_averaging": False,
+    }
+    assert simulation.fields["Displacement"].processing == {
+        "method": "primary_finite_element_solution",
+        "representation": "finite_element_dofs",
+        "postprocessed": False,
+    }
+    assert simulation.artifacts["fields_xdmf"] == output
+    assert simulation.artifacts["fields_hdf5"].is_file()
+    assert simulation.metadata["field_output"] == {
+        "status": "completed",
+        "backend": "agentfem_unified_xdmf",
+        "layout": "single_uniform_grid",
+        "geometry": "reference",
+        "warp_field": "U",
+    }
+    grids = ET.parse(output).findall(".//Grid[@GridType='Uniform']")
+    assert len(grids) == 1
+    attributes = {
+        item.attrib["Name"]: item.attrib["Center"]
+        for item in grids[0].findall("Attribute")
+    }
+    assert attributes == {
+        "U": "Node",
+        "UMAG": "Node",
+        "S": "Cell",
+        "E": "Cell",
+        "MISES": "Cell",
+    }
+    manifest = simulation.write_manifest(tmp_path / "elastic_patch.result.json")
+    saved = json.loads(manifest.read_text(encoding="utf-8"))
+    field_records = {item["name"]: item for item in saved["field_records"]}
+    assert field_records["S"]["processing"]["representation"] == "cell_average"
+    assert field_records["S"]["processing"]["interelement_smoothing"] is False
+
+
+def test_two_material_elastic_bar_has_piecewise_fields_and_boundary_reaction():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (2.0, 0.2),
+        (8, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    model = models.create(
+        study=studies.linear_static(
+            physics="solid_mechanics",
+            dimension=2,
+            assumption="plane_stress",
+        ),
+        mesh=domain,
+        name="two_material_bar",
+    )
+    displacement = model.field(fields.displacement(domain))
+    regions = mesh.partition_cells(
+        domain,
+        soft=mesh.layer("x", upper=1.0),
+        stiff=mesh.layer("x", lower=1.0),
+    )
+    # nu=0 isolates the exact one-dimensional series-bar solution while still
+    # exercising the full two-dimensional regional assembly and projection.
+    soft = elasticity.isotropic_elastic(young=1.0e3, poisson=0.0, density=1.0)
+    stiff = elasticity.isotropic_elastic(young=2.0e3, poisson=0.0, density=1.0)
+    model.material(soft, region=regions.soft)
+    model.material(stiff, region=regions.stiff)
+    left = mesh.face(domain, axis="x", value=0.0, name="left", tag=1)
+    right = mesh.face(domain, axis="x", value=2.0, name="right", tag=2)
+    bottom = mesh.face(domain, axis="y", value=0.0, name="bottom", tag=3)
+    model.fix(displacement, on=left, component=0, value=0.0)
+    model.fix(displacement, on=bottom, component=1, value=0.0)
+    model.traction((10.0, 0.0), on=right)
+
+    step = model.step(target=displacement)
+    simulation = step.solve_result()
+    stress = simulation.fields["S"].field
+    strain = simulation.fields["E"].field
+
+    assert results.region_average(stress[0, 0], on=regions.soft) == pytest.approx(10.0)
+    assert results.region_average(stress[0, 0], on=regions.stiff) == pytest.approx(10.0)
+    assert results.region_average(strain[0, 0], on=regions.soft) == pytest.approx(0.01)
+    assert results.region_average(strain[0, 0], on=regions.stiff) == pytest.approx(0.005)
+    assert results.reaction_resultant(
+        step.problem,
+        on=left,
+        component=0,
+    ) == pytest.approx(-2.0)
+
+    energy_only = step.solve_result(field_variables=("SENER",))
+    assert {"Displacement", "SENER"} == set(energy_only.fields)
+    assert np.all(energy_only.fields["SENER"].field.x.array > 0.0)
 
 
 def test_written_manifest_uses_portable_paths_for_local_artifacts(tmp_path):
@@ -406,7 +588,10 @@ def test_standard_field_catalog_resolves_finite_strain_e_to_le():
     assert results.preselected_fields(
         physics="solid_mechanics",
         finite_strain=True,
-    ) == ("U", "S", "LE")
+    ) == ("U", "S", "LE", "MISES")
+    assert results.field_variable("MISES").derived_from == ("S",)
+    assert results.field_variable("SENER").derived_from == ("S", "E")
+    assert results.field_output().variables == ("U", "S", "E", "MISES")
 
 
 def test_small_strain_standard_fields_are_cell_average_projections():
@@ -617,6 +802,166 @@ def test_unified_xdmf_keeps_deformed_time_series_and_fields_in_one_h5(tmp_path):
         )
         assert set(h5["Frames/0001/Point"]) == {"U", "UMAG"}
         assert set(h5["Frames/0001/Cell"]) == {"MISES"}
+
+    uniform_grids = ET.parse(xdmf).findall(".//Grid[@GridType='Uniform']")
+    assert len(uniform_grids) == 2
+    for grid in uniform_grids:
+        names = {item.attrib["Name"] for item in grid.findall("Attribute")}
+        assert names == {"U", "UMAG", "MISES"}
+
+
+def test_unified_xdmf_places_continuous_auxiliary_field_on_same_p2_grid(tmp_path):
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    V = fem.functionspace(domain, ("Lagrange", 2, (2,)))
+    Q = fem.functionspace(domain, ("Lagrange", 1))
+    displacement = fem.Function(V, name="U")
+    temperature = fem.Function(Q, name="TEMP")
+    temperature.interpolate(lambda x: x[0] + 2.0 * x[1])
+
+    xdmf = results.write_unified_xdmf_series(
+        tmp_path / "mixed_point_cell.xdmf",
+        (SimpleNamespace(solution=displacement, load_factor=0.0),),
+        ((temperature,),),
+        deformation_scale=0.0,
+    )
+
+    with h5py.File(xdmf.with_suffix(".h5"), "r") as h5:
+        assert set(h5["Frames/0000/Point"]) == {"U", "UMAG", "TEMP"}
+        assert h5["Frames/0000/Point/TEMP"].shape[0] == h5.attrs["point_count"]
+        geometry = np.asarray(h5["Frames/0000/Geometry"])
+        np.testing.assert_allclose(
+            np.asarray(h5["Frames/0000/Point/TEMP"]),
+            geometry[:, 0] + 2.0 * geometry[:, 1],
+            atol=1.0e-14,
+        )
+    grids = ET.parse(xdmf).findall(".//Grid[@GridType='Uniform']")
+    assert len(grids) == 1
+    attributes = {
+        item.attrib["Name"]: item.attrib["Center"]
+        for item in grids[0].findall("Attribute")
+    }
+    assert attributes["TEMP"] == "Node"
+
+
+def test_analysis_output_failure_does_not_discard_converged_result(
+    tmp_path,
+    monkeypatch,
+):
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    V = fem.functionspace(domain, ("Lagrange", 1, (2,)))
+    displacement = fem.Function(V, name="U")
+
+    class DummyProblem:
+        system = None
+        bcs = ()
+
+        def solve(self):
+            return displacement
+
+        def summary(self):
+            return {"kind": "dummy_problem"}
+
+    step = problems.AnalysisStep("output_isolation", DummyProblem())
+
+    def fail_output(*args, **kwargs):
+        raise OSError("synthetic filesystem failure")
+
+    monkeypatch.setattr(
+        "agentfem.results.output.write_unified_xdmf_series",
+        fail_output,
+    )
+    with pytest.warns(RuntimeWarning, match="field output failed"):
+        simulation = step.solve_result(output=tmp_path / "result.xdmf")
+    assert simulation.status == "completed_with_output_errors"
+    assert simulation.metadata["field_output"]["error_type"] == "OSError"
+    assert "fields_xdmf" not in simulation.artifacts
+    with pytest.raises(OSError, match="synthetic filesystem failure"):
+        step.solve_result(
+            output=tmp_path / "strict.xdmf",
+            strict_output=True,
+        )
+
+
+def test_tagged_boundary_is_canonical_and_boundary_evidence_is_auditable():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (2, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    imported_right = mesh.face(domain, axis="x", value=1.0, tag=102)
+    tagged_right = mesh.tagged_boundary_region(
+        domain,
+        imported_right.facet_tags,
+        tag=102,
+        name="pressure_surface",
+    )
+    V = fem.functionspace(domain, ("Lagrange", 1, (2,)))
+    selected = dof_api.locate_component_dofs(V, 0, tagged_right)
+    expected = fem.locate_dofs_topological(
+        V.sub(0),
+        domain.topology.dim - 1,
+        imported_right.facets,
+    )
+    np.testing.assert_array_equal(selected, expected)
+
+    evidence = tagged_right.audit(strict=True)
+    assert evidence["global_tagged_facets"] == 2
+    assert evidence["measure"] == pytest.approx(1.0)
+    assert evidence["integrated_normal"] == pytest.approx((1.0, 0.0))
+    assert results.region_measure(on=tagged_right) == pytest.approx(1.0)
+
+    contradictory = mesh.tagged_boundary_region(
+        domain,
+        imported_right.facet_tags,
+        tag=102,
+        name="contradictory",
+        marker=mesh.plane("x", 0.0),
+    )
+    mismatch = contradictory.audit()
+    assert mismatch["consistent"] is False
+    assert mismatch["marker_only_facets"] == 2
+    assert mismatch["tag_only_facets"] == 2
+    with pytest.raises(ValueError, match="tag and marker disagree"):
+        contradictory.audit(strict=True)
+
+
+def test_field_extrema_can_report_dg0_cell_location():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    Q = fem.functionspace(domain, ("DG", 0))
+    field = fem.Function(Q, name="MISES")
+    field.x.array[:] = (3.0, 8.0)
+
+    record = results.SimulationResult("located_extrema")
+    field_record = record.add_field("MISES", field, location="cells")
+    extrema = results.field_extrema(field_record, location=True)
+
+    assert extrema["minimum"] == pytest.approx(3.0)
+    assert extrema["maximum"] == pytest.approx(8.0)
+    assert extrema["entity_kind"] == "cell"
+    assert extrema["sampling"] == "cell_values"
+    assert extrema["field_representation"] == "finite_element_dofs"
+    assert extrema["maximum_global_cell"] == 1
+    assert len(extrema["maximum_location"]) == 2
 
 
 def test_unified_xdmf_optional_pyvista_reader(tmp_path):

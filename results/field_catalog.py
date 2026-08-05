@@ -15,6 +15,7 @@ class FieldVariable:
     tensor_type: str
     description: str
     aliases: tuple[str, ...] = ()
+    derived_from: tuple[str, ...] = ()
 
 
 _VARIABLES = {
@@ -24,9 +25,33 @@ _VARIABLES = {
     "F": FieldVariable("F", "DeformationGradient", "cells", "tensor", "Deformation gradient"),
     "LE": FieldVariable("LE", "LogarithmicStrain", "cells", "symmetric_tensor", "Spatial logarithmic strain"),
     "GREEN": FieldVariable("GREEN", "GreenLagrangeStrain", "cells", "symmetric_tensor", "Green--Lagrange strain"),
-    "MISES": FieldVariable("MISES", "VonMisesStress", "cells", "scalar", "von Mises equivalent stress"),
+    "PE": FieldVariable(
+        "PE", "PlasticStrain", "cells", "symmetric_tensor", "Plastic strain"
+    ),
+    "PEEQ": FieldVariable(
+        "PEEQ",
+        "EquivalentPlasticStrain",
+        "cells",
+        "scalar",
+        "Equivalent plastic strain",
+    ),
+    "MISES": FieldVariable(
+        "MISES",
+        "VonMisesStress",
+        "cells",
+        "scalar",
+        "von Mises equivalent stress",
+        derived_from=("S",),
+    ),
     "J": FieldVariable("J", "DeformationJacobian", "cells", "scalar", "det(F)"),
-    "SENER": FieldVariable("SENER", "StrainEnergyDensity", "cells", "scalar", "Strain-energy density"),
+    "SENER": FieldVariable(
+        "SENER",
+        "StrainEnergyDensity",
+        "cells",
+        "scalar",
+        "Strain-energy density",
+        derived_from=("S", "E"),
+    ),
     "EVOL": FieldVariable("EVOL", "CurrentElementVolume", "cells", "scalar", "Current element volume"),
     "TEMP": FieldVariable("TEMP", "Temperature", "nodes", "scalar", "Temperature", ("NT",)),
     "RF": FieldVariable("RF", "ReactionForce", "nodes", "vector", "Reaction force"),
@@ -71,11 +96,17 @@ def resolve_field_variables(names, *, finite_strain: bool = False) -> tuple[Fiel
 
 
 def preselected_fields(*, physics: str, finite_strain: bool = False) -> tuple[str, ...]:
-    """Return a small, conventional default field set for one physics context."""
+    """Return the engineering-default field set for one physics context.
+
+    Preselected fields are intentionally smaller than the catalog of available
+    variables.  For solids, Mises stress is materialized for immediate plotting
+    even though it is an invariant of ``S``; strain-energy density remains an
+    opt-in diagnostic field.
+    """
 
     normalized = str(physics).lower().replace("-", "_")
     if normalized == "solid_mechanics":
-        return ("U", "S", "LE" if finite_strain else "E")
+        return ("U", "S", "LE" if finite_strain else "E", "MISES")
     if normalized in {"heat", "heat_transfer", "thermal"}:
         return ("TEMP",)
     raise KeyError(f"No preselected field set is registered for physics={physics!r}.")

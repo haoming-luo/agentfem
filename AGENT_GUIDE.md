@@ -78,12 +78,22 @@ finite-element simulation with AgentFEM.
 - Problem summaries: use `problems.FEMProblem` when a workflow needs a
   broader structured audit record.
 - Results: read `docs/results_and_campaigns.md`; use `solve_result()` or
-  `solve_result(output="results.xdmf")` for the standard transient
+  `solve_result(output="results.xdmf")` for the standard static/transient
   solve/output/result lifecycle. Use `results.SimulationResult`, MPI-safe
   point/path probes, region integrals/averages, boundary resultants and field
   extrema in `results`, then attach additional XDMF/CSV artifacts from `io`.
-  Use `results.small_strain_cell_fields` for standard projected `S/E/MISES/SENER`
-  output and `results.reaction_resultant` only for strong-constraint reactions.
+  Model-generated static elasticity produces projected `S/E/MISES`
+  automatically; `SENER` is opt-in through `field_variables`. Use
+  `results.small_strain_partition_fields` for reviewed
+  regional projections and `results.reaction_resultant(..., on=..., component=...)`
+  only for named strong-constraint reactions.
+  For imported physical surfaces use `mesh.tagged_boundary_region(...)` for
+  both strong and weak conditions, call `model.audit_boundaries(strict=True)`,
+  and use `results.region_measure(on=...)` rather than application-owned UFL.
+  Request `field_extrema(..., location=True)` when publishing a peak. Serial
+  `solve_result(output=...)` writes one Uniform Grid with mixed point/cell
+  attributes; low-level `io.XDMFTimeSeries` retains DOLFINx multi-Grid
+  semantics.
   For field-learning data, create a fixed `surrogates.ObservationGrid` and call
   `datasets.fem_observation_sample`; preserve its units, layout, and mask.
   Distinguish

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Engineering Feedback Decisions - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
+      <div class="tagline">AI-assisted finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
+<a class="" href="getting-started.html">Getting Started</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="agent-gui-integration.html">Agent and GUI Integration</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="fem-foundation-audit-2026-08-05.html">FEM Foundation Audit</a>
+<a class="active" href="engineering-feedback-2026-08-05.html">Engineering Feedback Decisions</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
+<a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
+<a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
+<a class="" href="operator-contracts.html">Scientific Operator Contracts</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="result-field-semantics.html">Result-field Semantics</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="platform-support.html">Platform and Optional Dependencies</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="scientific-verification.html">Scientific Trust and Verification</a>
+<a class="" href="licensing.html">Licensing</a>
+<a class="" href="publishing.html">Publishing</a>
+<a class="" href="release-0.2.0a1.html">AgentFEM 0.2.0a1</a>
+<a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="release-audit-2026-08-05.html">CTO Product Audit: 5 August 2026</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="digital-twin-direction.html">Digital-twin Direction</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="engineering-feedback-decision-record-3d-brake-caliper-study">Engineering feedback decision record: 3D brake-caliper study</h1>
+<p>This record turns one external engineering trial into reusable product decisions. The case used a quadratic tetrahedral mesh, a P2 displacement field, tagged pressure and clamp surfaces, and a three-dimensional linear-elastic solve. It is evidence about workflow reliability, not a request to copy case-specific code into the library.</p>
+<h2 id="decisions-made-now">Decisions made now</h2>
+<table>
+<thead><tr><th>Feedback</th><th>Decision</th><th>Product consequence</th></tr></thead>
+<tbody>
+<tr><td>a boundary carried both a marker and an imported physical tag</td><td>accepted as P0</td><td><code>BoundaryRegion.selection</code> names the source of truth; imported tagged and hybrid regions use facets topologically for strong constraints and <code>ds(tag)</code> for weak terms</td></tr>
+<tr><td>marker and tag could disagree silently</td><td>accepted as P0</td><td><code>BoundaryRegion.audit(strict=...)</code> and <code>Model.audit_boundaries(...)</code> report facet counts, measure, midpoint bounds, integrated normal, and set differences</td></tr>
+<tr><td>a pressure area required <code>ufl.as_ufl(1)</code> in the case</td><td>accepted</td><td><code>results.region_measure(on=region)</code> is the public application-level operation</td></tr>
+<tr><td>one DOLFINx XDMF grid was produced per field</td><td>accepted as P0 for serial product output</td><td>ordinary <code>AnalysisStep.solve_result(output=...)</code> uses AgentFEM&#x27;s one-grid XDMF/HDF5 layout; <code>U</code>, point fields, and DG0 cell fields are Attributes of the same Uniform Grid</td></tr>
+<tr><td>a CG1 result could not be written on P2 output geometry</td><td>accepted</td><td>continuous auxiliary fields are represented on the solution&#x27;s nodal output grid before unified XDMF storage; unsupported higher-order discontinuous fields fail with the field name and a remediation</td></tr>
+<tr><td>optional output failure erased the meaning of a successful solve</td><td>accepted as P0</td><td>output failure produces <code>completed_with_output_errors</code>, retains the live result, records the exception, and only raises with <code>strict_output=True</code></td></tr>
+<tr><td>extrema lacked a location</td><td>accepted as P1</td><td><code>field_extrema(..., location=True)</code> reports coordinates, rank, global dof, sampling method, and DG0 cell identity</td></tr>
+<tr><td>stress display meaning was unclear</td><td>already addressed and reinforced</td><td>default <code>S/E/MISES</code> fields remain explicitly documented DG0 cell-average projections without nodal extrapolation or smoothing</td></tr>
+</tbody>
+</table>
+<p>The intended application code is now:</p>
+<pre><code>pressure_surface = mesh.tagged_boundary_region(
+    domain, facet_tags, tag=102, name=&quot;pressure_surface&quot;
+)
+bolt_holes = mesh.tagged_boundary_region(
+    domain, facet_tags, tag=101, name=&quot;bolt_holes&quot;
+)
+
+model.pressure(16.0e6, on=pressure_surface)
+model.clamp(displacement, on=bolt_holes)
+
+boundary_evidence = model.audit_boundaries(strict=True)
+pressure_area = results.region_measure(on=pressure_surface)
+simulation = model.step(target=displacement).solve_result(
+    output=&quot;outputs/result.xdmf&quot;,
+    field_variables=(&quot;S&quot;, &quot;E&quot;, &quot;MISES&quot;, &quot;SENER&quot;),
+)
+peak = results.field_extrema(simulation.fields[&quot;MISES&quot;], location=True)</code></pre>
+<p>This removes the need for case-owned boundary-area UFL and ordinary XDMF plumbing. Expert UFL remains available for new physics and nonstandard quantities, but it is no longer required for this standard workflow.</p>
+<h2 id="deliberately-not-disguised-as-a-quick-fix">Deliberately not disguised as a quick fix</h2>
+<p>AgentFEM does not rename a global continuous projection as SPR or PPR. A smooth scalar <code>MISES</code> projection is useful for presentation, but it is not equivalent to recovering stress tensor components and then computing the invariant. Material-aware nodal recovery therefore remains a reviewed mechanics feature, with linear patch, bending, material-interface, and stress-concentration benchmarks required before it becomes a standard representation.</p>
+<p>The same discipline applies to broader NASTRAN CTETRA10/CTRIA6 support and a mesh-study object. Both are valuable, but they require preserved PID semantics, node-order and Jacobian evidence, and convergence measures beyond a single maximum. They are not allowed to displace boundary identity and output reliability work.</p>
+<h2 id="visualization-and-checkpoint-roles">Visualization and checkpoint roles</h2>
+<p>In serial, <code>solve_result(output=...)</code> writes one temporal Uniform Grid per frame. <code>U</code> and other continuous fields are point data; <code>S</code>, <code>E</code>, <code>MISES</code>, and other DG0 fields are cell data. The geometry is the reference configuration, so ParaView&#x27;s <strong>Warp By Vector</strong> uses <code>U</code> once and cannot reveal a second unwarped copy hidden inside the same reader.</p>
+<p>The low-level <code>io.XDMFTimeSeries</code> intentionally remains a thin DOLFINx writer. DOLFINx writes multiple Functions as separate XDMF Grids, so it is not the recommended ParaView product for a multi-field serial analysis. Existing files can be inspected with <strong>Extract Block</strong>, followed by <strong>Append Attributes</strong>, then <strong>Warp By Vector</strong>.</p>
+<p>Under MPI, AgentFEM continues to prefer DOLFINx&#x27;s collective XDMF/HDF5 path over gathering a large distributed mesh to rank zero. That path can still appear as multiple blocks in ParaView. A future collective single-grid writer must preserve mixed point/cell fields and high-order geometry. VTX/BP remains a candidate for high-order visualization, but one VTX writer requires its Functions to share an element type, so it is not by itself a complete answer for mixed P2 displacement and DG0 stress.</p>
+<p>Checkpoint/state output and visualization output are separate contracts: checkpoints preserve continuation state and identity; visualization products optimize field discovery and presentation. Neither may silently substitute for the other.</p>
+<h2 id="next-evidence-bearing-increments">Next evidence-bearing increments</h2>
+<ol>
+<li>Couple boundary geometry evidence with applied-load resultant, solved<br>reaction, and relative equilibrium error in <code>SimulationResult</code>.</li>
+<li>Define <code>nodal_l2</code> as an explicitly named presentation representation, then<br>implement tensor-first, material-aware recovery separately.</li>
+<li>Add CTETRA10/CTRIA6 NASTRAN fixtures that verify PID separation, node order,<br>positive Jacobians, area, and bounding boxes.</li>
+<li>Design a mesh-study result around displacement, energy, reaction, path and<br>regional measures, hotspot drift, and singularity warnings.</li>
+<li>Add a collective visualization backend only after mixed-field and MPI<br>ownership tests define what “one dataset” means in distributed output.</li>
+<li>Extend <code>agentfem doctor</code> from dependency versions to the exact Python<br>executable, imported package path, installed distribution path, and a clear<br>warning when a source checkout shadows another installation.</li>
+</ol>
+<h2 id="feedback-intake-rule">Feedback intake rule</h2>
+<p>A feedback item is promoted when it supplies a reproducible case, identifies a scientific or usability consequence, and can be guarded by a stable test. It is then classified as: correctness risk, evidence gap, workflow friction, new capability, or presentation preference. Correctness and silent-failure risks come first. A useful suggestion can still be deferred when its honest implementation needs benchmarks or a larger semantic design.</p>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

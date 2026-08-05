@@ -54,6 +54,29 @@ One DOLFINx `MeshTags` object stores one integer per entity. If source sets
 overlap, one deterministic tag is written and the complete overlapping
 membership remains in the manifest.
 
+## Imported Boundaries Have One Source of Truth
+
+Physical surface tags should define imported engineering boundaries:
+
+```python
+support = mesh.tagged_boundary_region(
+    domain, facet_tags, tag=101, name="bolt_holes"
+)
+pressure = mesh.tagged_boundary_region(
+    domain, facet_tags, tag=102, name="pressure_surface"
+)
+
+model.clamp(U, on=support)
+model.pressure(16.0e6, on=pressure)
+evidence = model.audit_boundaries(strict=True)
+```
+
+Strong constraints use the tagged facets through topological dof location and
+weak terms use the same `ds(tag)`. An optional geometric marker creates a
+`hybrid` region: it is independent audit evidence, not an alternative hidden
+selection rule. The audit reports tagged/marker set differences, facet count,
+measure, midpoint bounds, and integrated normal.
+
 ## Abaqus Labels, Custom Extensions, and Equations
 
 Generic conversion is not enough when constraints refer to Abaqus node

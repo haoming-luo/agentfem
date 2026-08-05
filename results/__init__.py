@@ -21,10 +21,16 @@ from .quantities import (
     reaction_resultant,
     region_average,
     region_integral,
+    region_measure,
     sample_path,
     sample_points,
 )
-from .projection import project, small_strain_cell_fields
+from .projection import (
+    project,
+    project_piecewise,
+    small_strain_cell_fields,
+    small_strain_partition_fields,
+)
 from .execution import add_execution_trace, execution_records
 from .finite_strain import (
     HomogenizedFrame,
@@ -109,10 +115,13 @@ __all__ = [
     "reaction_resultant",
     "region_average",
     "region_integral",
+    "region_measure",
     "sample_path",
     "sample_points",
     "project",
+    "project_piecewise",
     "small_strain_cell_fields",
+    "small_strain_partition_fields",
     "preselected_fields",
     "output_plan",
     "periodic_cell_history",

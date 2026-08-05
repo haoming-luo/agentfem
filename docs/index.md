@@ -24,6 +24,14 @@ Start with:
 - [mesh interoperability](mesh_interoperability.md) for external CAE meshes;
 - [platform and optional dependencies](platform_support.md) for Windows/WSL2,
   Gmsh, and runtime evidence;
+- the [FEM foundation audit](fem_foundation_audit_2026_08_05.md) for the
+  evidence-based elasticity/J2 maturity boundary and next solver priorities;
+- the [engineering feedback decision record](engineering_feedback_2026_08_05.md)
+  for accepted fixes, deferred mechanics work, and the evidence used to rank a
+  real quadratic-tetrahedron brake-caliper trial;
+- [result-field semantics](result_field_semantics.md) for the distinction
+  between integration-point evidence, discontinuous scientific fields, and
+  optional smoothed presentation contours;
 - the [module map](module_map.md) for code routing.
 
 The repository root also contains the installation guide, full workflow,

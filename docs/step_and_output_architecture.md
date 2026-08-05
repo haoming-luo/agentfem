@@ -263,7 +263,7 @@ retention pruning and cross-partition identities are separate future changes.
 3. Extend the implemented cumulative J2 serial checkpoint and scientific
    identity to portable MPI cell identity and multi-region state.
 4. Extend the implemented analytical J2 Golden path, physical forced cutback,
-   cyclic amplitude, S/PE/PEEQ/RF fields, and strong-displacement work/energy
+   cyclic amplitude, quadrature S/PE/PEEQ/MISES and nodal RF fields, and strong-displacement work/energy
    history with projected visualization, mesh convergence, natural/affine work
    definitions, mesh convergence, and full external-deck reproduction; the
    published Abaqus homogeneous uniaxial constitutive state is now automated.

@@ -45,6 +45,16 @@ PAGES = [
         SITE_DIR / "product-roadmap.html",
     ),
     Page(
+        "FEM Foundation Audit",
+        ROOT / "docs" / "fem_foundation_audit_2026_08_05.md",
+        SITE_DIR / "fem-foundation-audit-2026-08-05.html",
+    ),
+    Page(
+        "Engineering Feedback Decisions",
+        ROOT / "docs" / "engineering_feedback_2026_08_05.md",
+        SITE_DIR / "engineering-feedback-2026-08-05.html",
+    ),
+    Page(
         "Nonlinear Materials",
         ROOT / "docs" / "nonlinear_materials.md",
         SITE_DIR / "nonlinear-materials.html",
@@ -73,6 +83,11 @@ PAGES = [
         "Results and Campaigns",
         ROOT / "docs" / "results_and_campaigns.md",
         SITE_DIR / "results-and-campaigns.html",
+    ),
+    Page(
+        "Result-field Semantics",
+        ROOT / "docs" / "result_field_semantics.md",
+        SITE_DIR / "result-field-semantics.html",
     ),
     Page(
         "Stable Steps and Compact Output",

@@ -29,6 +29,13 @@
       "title": "Sequential hot-wall creep assessment release contract"
     },
     {
+      "id": "agentfem.benchmark.elasticity_foundation",
+      "physics": "two- and three-dimensional small-strain linear elasticity",
+      "source": "knowledge/benchmarks/elasticity_foundation.json",
+      "status": "automated",
+      "title": "Foundational small-strain elasticity verification"
+    },
+    {
       "id": "agentfem.benchmark.j2_abaqus_rate_independent",
       "physics": "three-dimensional small-strain Mises plasticity with linear isotropic hardening",
       "source": "knowledge/benchmarks/j2_abaqus_rate_independent.json",
@@ -41,6 +48,13 @@
       "source": "knowledge/benchmarks/j2_global_restart.json",
       "status": "automated_regression",
       "title": "Three-dimensional J2 path, physical cutback, cyclic amplitude, energy, and restart equivalence"
+    },
+    {
+      "id": "agentfem.benchmark.j2_multielement_patch",
+      "physics": "three-dimensional small-strain rate-independent J2 plasticity with linear isotropic hardening",
+      "source": "knowledge/benchmarks/j2_multielement_patch.json",
+      "status": "automated",
+      "title": "Multi-element global J2 plasticity patch"
     },
     {
       "id": "agentfem.benchmark.linear_static_cantilever",
@@ -249,7 +263,9 @@
       "kind": "workflow",
       "public_api": [
         "agentfem.results.project",
+        "agentfem.results.project_piecewise",
         "agentfem.results.small_strain_cell_fields",
+        "agentfem.results.small_strain_partition_fields",
         "agentfem.results.reaction_resultant",
         "agentfem.diagnostics.linear_static_energy"
       ],
@@ -259,7 +275,7 @@
       ],
       "source": "knowledge/cards/standard_result_projection.json",
       "status": "supported",
-      "summary": "Produces cell-average S, E, MISES, and SENER fields by global L2 projection and extracts MPI-global resultants for converged strong-constraint residuals.",
+      "summary": "Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell-average fields, and extracts MPI-global resultants on named strong-constraint boundaries.",
       "title": "Projected small-strain result fields and strong-constraint resultants"
     },
     {

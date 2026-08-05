@@ -18,7 +18,6 @@ if (
 
 from agentfem import benchmarks
 from agentfem import fields
-from agentfem import io as fem_io
 from agentfem import mesh as fem_mesh
 from agentfem import models
 from agentfem import studies
@@ -97,7 +96,12 @@ def main() -> dict[str, float]:
             "purpose": "executable AF-IR record before solve",
         },
     )
-    simulation = step.solve_result()
+    out = (
+        Path(__file__).resolve().parents[1]
+        / "examples_output"
+        / "static_elasticity_2d.xdmf"
+    )
+    simulation = step.solve_result(output=out)
     observables = {
         "maximum_displacement": max_magnitude(displacement.value),
     }
@@ -105,11 +109,7 @@ def main() -> dict[str, float]:
         "agentfem.benchmark.linear_static_cantilever"
     )
 
-    # 8. Output: write displacement to XDMF for ParaView.
-    out = Path(__file__).resolve().parents[1] / "examples_output" / "static_elasticity_2d.xdmf"
-    output_displacement = fem_io.interpolate_for_xdmf(displacement.value, degree=1)
-    with fem_io.XDMFTimeSeries(out, domain) as xdmf:
-        xdmf.write_fields(0.0, output_displacement)
+    # 8. Output: engineering-default U/S/E/MISES share one XDMF/HDF5 result.
     simulation.add_quantity(
         "maximum_displacement",
         observables["maximum_displacement"],

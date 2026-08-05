@@ -128,8 +128,9 @@ to silently change tensor meaning.
 
 ## One compact scientific and presentation series
 
-AgentFEM's default finite-strain backend writes one temporal `.xdmf` index and
-one compressed `.h5` heavy-data store. Topology is stored once. Each frame
+AgentFEM's serial static-solid and finite-strain result paths write one temporal
+`.xdmf` index and one compressed `.h5` heavy-data store. Topology is stored
+once. Each frame
 contains:
 
 - its load/time value;
@@ -143,6 +144,18 @@ multi-block selection. The HDF5 store also retains the reference coordinates,
 so the directly viewable result does not discard finite-element provenance.
 `deformation_scale=1` is the physical configuration; another value is
 explicitly a presentation scale.
+
+Ordinary static output retains reference coordinates and exposes `U` as point
+data, so **Warp By Vector** produces one deformed geometry with every cell and
+point attribute attached. Finite-strain presentation output can instead store
+`x + scale*u` directly when requested. `SimulationResult.metadata.field_output`
+records the backend, layout, and geometry convention.
+
+The low-level `io.XDMFTimeSeries` mirrors DOLFINx and may expose one XDMF Grid
+per Function. Prefer `step.solve_result(output=...)` for a serial multi-field
+ParaView product. The collective MPI fallback remains DOLFINx XDMF/HDF5 and can
+appear as multiple blocks; use **Extract Block**, **Append Attributes**, and
+**Warp By Vector** when a combined presentation is required.
 
 XDMF is the small XML description and HDF5 is the compact numerical payload.
 Inlining millions of values into XML would produce a much larger and slower
@@ -203,29 +216,55 @@ probe inside the intended cell when a one-sided value is required.
 
 ## Standard stress and strain fields
 
-Small-strain elasticity now uses one reusable projection path:
+Model-generated static elasticity now provides its standard fields in one call:
 
 ```python
-stress, strain, mises, energy = results.small_strain_cell_fields(
-    U,
-    material,
-    study=study,
-)
+result = step.solve_result(output="solid.xdmf")
+# result.fields contains Displacement, S, E, and MISES
 
-with io.XDMFTimeSeries("solid.xdmf", domain) as writer:
-    writer.write_fields(0.0, U, stress, strain, mises, energy)
+# Opt in to a diagnostic field set when the analysis needs it.
+energy_result = step.solve_result(
+    output="solid_with_energy.xdmf",
+    field_variables=("S", "E", "MISES", "SENER"),
+)
 ```
 
-The standard names are `S`, `E`, `MISES`, and `SENER`. Their default `DG0`
-representation is the global L2 projection onto piecewise constants, hence a
-cell average rather than an arbitrary centroid value. In plane strain, Mises
-stress includes the constitutively implied out-of-plane stress. The lower-level
-`results.project(...)` remains available for reviewed UFL expressions and
-higher-order output spaces.
+Small-strain elasticity uses one reusable projection path. Application code
+normally requests it through the step so field creation and single-grid output
+remain one transaction:
 
-`results.reaction_resultant(problem)` reports the MPI-global residual
-resultant for strong Dirichlet constraints. Affine MPC, weak, and contact
-reactions deliberately require separate definitions. For proportional linear
+```python
+solid_result = step.solve_result(
+    output="solid.xdmf",
+    field_variables=("S", "E", "MISES", "SENER"),
+)
+```
+
+The available standard names are `S`, `E`, `MISES`, and `SENER`. The
+engineering default is `U/S/E/MISES`: `U` is the primary unknown, `S/E` are
+standard mechanics fields, and `MISES` is materialized for immediate plotting
+even though it is derived from `S`. `SENER` is opt-in because a per-cell energy
+density is primarily diagnostic; total strain energy and energy closure belong
+in compact histories or verification quantities.
+
+The default derived-field representation is a global L2 projection onto
+discontinuous `DG0`, hence a cell average rather than an arbitrary centroid
+value. It is not an integration-point dump, nodal extrapolation, or smoothed
+nodal field. No values are averaged across neighboring cells or material
+interfaces. Each `FieldResult.processing` record preserves this distinction.
+In plane strain, Mises stress includes the constitutively implied out-of-plane
+stress. The lower-level `results.project(...)` remains available for reviewed
+UFL expressions and higher-order discontinuous output spaces.
+
+For regional materials, `results.small_strain_partition_fields(...)` assembles
+one global projection from `(material, region)` contributions. It preserves a
+single field over the original mesh rather than writing one incomplete field
+per material.
+
+`results.reaction_resultant(problem, on=support, component=0)` reports the
+MPI-global residual resultant on one named strong-Dirichlet boundary. Omitting
+`on` retains the whole-field sum. Affine MPC, weak, and contact reactions
+deliberately require separate definitions. For proportional linear
 loading, `diagnostics.linear_static_energy(...)` reports strain energy,
 external work, and their closure; non-zero prescribed displacements require
 reaction work in a displacement-control-specific history.
@@ -318,8 +357,8 @@ optimizers, and training loops.
 
 ## Next Result Priorities
 
-1. named reaction force/resultant extractors beyond the current strong-BC and
-   J2 residual fields;
+1. affine-MPC, weak, and contact reaction force/resultant definitions beyond
+   the current named strong-boundary and J2 residual fields;
 2. nodal smoothing and higher-order stress recovery beyond implemented DG
    projection;
 3. natural-load, weak-constraint, affine-MPC, and broader transient work/energy

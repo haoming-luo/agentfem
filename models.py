@@ -1083,7 +1083,62 @@ class Model:
                 )
         else:
             K = K if K is not None else self.stiffness(target)
-            F = F if F is not None else self.external_force(target)
+            if F is None:
+                if self.loads:
+                    F = self.external_force(target)
+                else:
+                    value_shape = tuple(getattr(target.value, "ufl_shape", ()))
+                    zero = (
+                        0.0
+                        if not value_shape
+                        else tuple(0.0 for _ in range(value_shape[0]))
+                    )
+                    F = self.external_force(
+                        target,
+                        load=load_api.body_force(
+                            zero,
+                            target=target,
+                            name="zero_external_force",
+                        ),
+                    )
+        result_field_factory = None
+        if (
+            getattr(self.study, "is_solid_mechanics", False)
+            and self.materials
+            and all(
+                float(getattr(record.item, "thermal_expansion", 0.0) or 0.0)
+                == 0.0
+                for record in self.materials
+            )
+        ):
+            assignments = tuple(self.materials)
+
+            def result_field_factory(requested=None):
+                from . import results
+
+                isotropic = all(
+                    hasattr(record.item, "young")
+                    and hasattr(record.item, "poisson")
+                    for record in assignments
+                )
+                defaults = results.preselected_fields(
+                    physics="solid_mechanics",
+                    finite_strain=False,
+                )[1:]
+                variables = tuple(defaults if requested is None else requested)
+                if (
+                    not isotropic
+                    and requested is None
+                    and getattr(self.study, "assumption", None) == "plane_strain"
+                ):
+                    variables = tuple(item for item in variables if item != "MISES")
+                return results.small_strain_partition_fields(
+                    target,
+                    assignments,
+                    study=self.study,
+                    variables=variables,
+                )
+
         step = problems.linear_static(
             K,
             F,
@@ -1091,6 +1146,7 @@ class Model:
             unknown=target,
             constraints=self.constraints if constraints is None else constraints,
             solver_options=solver_options,
+            result_field_factory=result_field_factory,
             name=name,
         )
         return self.add_step(step)
@@ -1981,6 +2037,25 @@ class Model:
         """Raise one structured error report if model validation fails."""
 
         self.validate(target=target, step_options=step_options).raise_if_errors()
+
+    def audit_boundaries(self, *, strict: bool = False) -> dict[str, object]:
+        """Return physical evidence for every registered boundary region.
+
+        This is deliberately separate from lightweight model validation: it
+        assembles boundary measures and normals and, for hybrid imported
+        regions, compares the physical tag with its geometric audit marker.
+        """
+
+        records = {}
+        for region in self.regions:
+            audit = getattr(region, "audit", None)
+            if not callable(audit):
+                continue
+            name = str(getattr(region, "name", f"region_{len(records)}"))
+            if name in records:
+                name = f"{name}_{len(records)}"
+            records[name] = audit(strict=strict)
+        return records
 
     def _register_regions_from_asset(self, asset) -> None:
         for region in _regions_from_asset(asset):

@@ -85,22 +85,57 @@ class MeshSummary:
 class BoundaryRegion:
     """Named exterior boundary region on a mesh.
 
-    A boundary region stores both the geometric marker used for dof location and
-    the tagged boundary measure used for weak boundary terms.
+    ``selection`` makes the source of truth explicit. Geometric regions use a
+    marker; tagged regions use imported facet ids; hybrid legacy regions use
+    the facet tag for both weak terms and strong dof location and can be
+    audited against their marker.
     """
 
     name: str
     domain: object
-    marker: object
+    marker: object | None
     tag: int
     facet_tags: object
     ds: object
+    selection: str = "auto"
+
+    def __post_init__(self) -> None:
+        selected = str(self.selection).lower().replace("-", "_")
+        if selected == "auto":
+            if self.marker is None:
+                selected = "tagged"
+            elif self.facet_tags is None:
+                selected = "geometric"
+            else:
+                selected = "hybrid"
+        if selected not in {"geometric", "tagged", "hybrid"}:
+            raise ValueError(
+                "BoundaryRegion.selection must be geometric, tagged, or hybrid."
+            )
+        if selected == "geometric" and self.marker is None:
+            raise ValueError("A geometric BoundaryRegion requires marker=....")
+        if selected in {"tagged", "hybrid"} and self.facet_tags is None:
+            raise ValueError("A tagged BoundaryRegion requires facet_tags=....")
+        object.__setattr__(self, "selection", selected)
 
     @property
     def measure(self):
         """Boundary integration measure restricted to this region."""
 
         return self.ds(self.tag)
+
+    @property
+    def facets(self) -> np.ndarray:
+        """Return local facet entities selected by this region's tag."""
+
+        if self.facet_tags is None:
+            return np.empty(0, dtype=np.int32)
+        return np.asarray(self.facet_tags.find(self.tag), dtype=np.int32)
+
+    def audit(self, *, strict: bool = False) -> dict[str, object]:
+        """Return geometric/tag evidence and optionally require consistency."""
+
+        return audit_boundary_region(self, strict=strict)
 
     def summary(self) -> dict[str, object]:
         """Return a compact region summary."""
@@ -109,6 +144,8 @@ class BoundaryRegion:
             "name": self.name,
             "kind": "boundary_region",
             "tag": self.tag,
+            "selection": self.selection,
+            "local_facets": int(len(self.facets)),
         }
 
 
@@ -439,11 +476,27 @@ def summarize_mesh(domain, cell_tags=None, facet_tags=None) -> MeshSummary:
     )
 
 
-def require_tags(tags, required: int | tuple[int, ...] | list[int], *, name: str = "tags") -> None:
-    """Raise a modeling error if required integer tags are absent."""
+def require_tags(
+    tags,
+    required: int | tuple[int, ...] | list[int],
+    *,
+    name: str = "tags",
+    comm=None,
+) -> None:
+    """Raise if required tags are absent globally.
+
+    A valid distributed physical group may have no local entities on one MPI
+    rank, so callers that own a mesh should pass its communicator.
+    """
 
     required_tags = (required,) if isinstance(required, int) else tuple(required)
-    available = set() if tags is None else set(int(tag) for tag in np.unique(tags.values))
+    local_available = (
+        set() if tags is None else set(int(tag) for tag in np.unique(tags.values))
+    )
+    if comm is None:
+        available = local_available
+    else:
+        available = set().union(*comm.allgather(tuple(sorted(local_available))))
     missing = [tag for tag in required_tags if tag not in available]
     if missing:
         raise ValueError(
@@ -452,16 +505,26 @@ def require_tags(tags, required: int | tuple[int, ...] | list[int], *, name: str
         )
 
 
-def require_cell_tags(cell_tags, required: int | tuple[int, ...] | list[int]) -> None:
+def require_cell_tags(
+    cell_tags,
+    required: int | tuple[int, ...] | list[int],
+    *,
+    comm=None,
+) -> None:
     """Require cell/material region tags."""
 
-    require_tags(cell_tags, required, name="cell tags")
+    require_tags(cell_tags, required, name="cell tags", comm=comm)
 
 
-def require_facet_tags(facet_tags, required: int | tuple[int, ...] | list[int]) -> None:
+def require_facet_tags(
+    facet_tags,
+    required: int | tuple[int, ...] | list[int],
+    *,
+    comm=None,
+) -> None:
     """Require boundary/facet tags."""
 
-    require_tags(facet_tags, required, name="facet tags")
+    require_tags(facet_tags, required, name="facet tags", comm=comm)
 
 
 def boundary(domain, marker, *, name: str = "boundary", tag: int = 1) -> BoundaryRegion:
@@ -476,7 +539,138 @@ def boundary(domain, marker, *, name: str = "boundary", tag: int = 1) -> Boundar
         tag=tag,
         facet_tags=facet_tags,
         ds=ds,
+        selection="geometric",
     )
+
+
+def tagged_boundary_region(
+    domain,
+    facet_tags,
+    *,
+    tag: int,
+    name: str = "tagged_boundary",
+    marker=None,
+) -> BoundaryRegion:
+    """Create a boundary whose canonical selection is an imported facet tag.
+
+    ``marker`` is optional and, when supplied, is retained only as independent
+    audit evidence. Strong constraints and weak loads both consume ``tag``.
+    """
+
+    expected_dim = domain.topology.dim - 1
+    if int(facet_tags.dim) != expected_dim:
+        raise ValueError(
+            "tagged_boundary_region requires facet tags on topological "
+            f"dimension {expected_dim}, received dimension {facet_tags.dim}."
+        )
+    require_facet_tags(facet_tags, int(tag), comm=domain.comm)
+    return BoundaryRegion(
+        name=str(name),
+        domain=domain,
+        marker=marker,
+        tag=int(tag),
+        facet_tags=facet_tags,
+        ds=boundary_measure(domain, facet_tags),
+        selection="tagged" if marker is None else "hybrid",
+    )
+
+
+def audit_boundary_region(
+    region: BoundaryRegion,
+    *,
+    strict: bool = False,
+) -> dict[str, object]:
+    """Inspect a boundary's identity, size, orientation, and tag/marker agreement.
+
+    Imported physical tags are the canonical identity for tagged and hybrid
+    regions. A marker attached to a hybrid region is independent audit evidence,
+    never a second silently competing definition.
+    """
+
+    domain = region.domain
+    comm = domain.comm
+    fdim = domain.topology.dim - 1
+    domain.topology.create_entities(fdim)
+    facet_map = domain.topology.index_map(fdim)
+    owned_limit = facet_map.size_local
+
+    tagged = np.unique(region.facets)
+    tagged_owned = tagged[tagged < owned_limit]
+    geometric_owned = None
+    if region.marker is not None:
+        geometric = np.unique(
+            mesh.locate_entities_boundary(domain, fdim, region.marker)
+        )
+        geometric_owned = geometric[geometric < owned_limit]
+
+    local_tagged = int(tagged_owned.size)
+    global_tagged = int(comm.allreduce(local_tagged, op=MPI.SUM))
+    evidence: dict[str, object] = {
+        "name": region.name,
+        "tag": int(region.tag),
+        "selection": region.selection,
+        "local_tagged_facets": local_tagged,
+        "global_tagged_facets": global_tagged,
+    }
+
+    if geometric_owned is not None:
+        marker_only = np.setdiff1d(geometric_owned, tagged_owned, assume_unique=True)
+        tag_only = np.setdiff1d(tagged_owned, geometric_owned, assume_unique=True)
+        global_geometric = int(comm.allreduce(geometric_owned.size, op=MPI.SUM))
+        global_marker_only = int(comm.allreduce(marker_only.size, op=MPI.SUM))
+        global_tag_only = int(comm.allreduce(tag_only.size, op=MPI.SUM))
+        evidence.update(
+            {
+                "global_geometric_facets": global_geometric,
+                "marker_only_facets": global_marker_only,
+                "tag_only_facets": global_tag_only,
+                "consistent": global_marker_only == 0 and global_tag_only == 0,
+            }
+        )
+    else:
+        evidence["consistent"] = None
+
+    local_measure = fem.assemble_scalar(fem.form(1.0 * region.measure))
+    evidence["measure"] = float(comm.allreduce(local_measure, op=MPI.SUM))
+
+    normal = ufl.FacetNormal(domain)
+    normal_result = []
+    for component in range(domain.geometry.dim):
+        local = fem.assemble_scalar(fem.form(normal[component] * region.measure))
+        normal_result.append(float(comm.allreduce(local, op=MPI.SUM)))
+    evidence["integrated_normal"] = tuple(normal_result)
+
+    if tagged_owned.size:
+        midpoints = mesh.compute_midpoints(domain, fdim, tagged_owned)
+        local_min = np.min(midpoints[:, : domain.geometry.dim], axis=0)
+        local_max = np.max(midpoints[:, : domain.geometry.dim], axis=0)
+    else:
+        local_min = np.full(domain.geometry.dim, np.inf)
+        local_max = np.full(domain.geometry.dim, -np.inf)
+    global_min = np.empty_like(local_min)
+    global_max = np.empty_like(local_max)
+    comm.Allreduce(local_min, global_min, op=MPI.MIN)
+    comm.Allreduce(local_max, global_max, op=MPI.MAX)
+    evidence["midpoint_bounds"] = (
+        None
+        if not np.all(np.isfinite(global_min))
+        else (tuple(global_min.tolist()), tuple(global_max.tolist()))
+    )
+
+    problems = []
+    if global_tagged == 0:
+        problems.append("selects no facets")
+    if evidence.get("consistent") is False:
+        problems.append(
+            "tag and marker disagree "
+            f"(marker-only={evidence['marker_only_facets']}, "
+            f"tag-only={evidence['tag_only_facets']})"
+        )
+    evidence["valid"] = not problems
+    evidence["issues"] = tuple(problems)
+    if strict and problems:
+        raise ValueError(f"Boundary {region.name!r} failed audit: {'; '.join(problems)}.")
+    return evidence
 
 
 def face(
@@ -522,7 +716,7 @@ def cell_region(domain, cell_tags=None, *, tag: int, name: str = "cell_region", 
             raise ValueError("cell_region requires cell_tags or marker.")
         cell_tags = mark_cells(domain, locate_cells(domain, marker), tag)
     else:
-        require_cell_tags(cell_tags, tag)
+        require_cell_tags(cell_tags, tag, comm=domain.comm)
     return CellRegion(
         name=name,
         domain=domain,

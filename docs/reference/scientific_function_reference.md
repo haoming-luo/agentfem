@@ -29,8 +29,10 @@ the compact machine-readable `knowledge/catalog.json`.
 | `agentfem.benchmark.campaign_surrogate_pipeline` | Static-elasticity campaign to guarded surrogate pipeline | parameterized small-strain isotropic linear elasticity | executable_integration |
 | `agentfem.benchmark.creep_damage_material_paths` | Creep-damage material paths and curve projection | Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection | automated_regression |
 | `agentfem.benchmark.creep_hot_wall_release` | Sequential hot-wall creep assessment release contract | sequential transient heat conduction, plane-strain thermoelasticity, and local creep-damage assessment | automated_regression |
+| `agentfem.benchmark.elasticity_foundation` | Foundational small-strain elasticity verification | two- and three-dimensional small-strain linear elasticity | automated |
 | `agentfem.benchmark.j2_abaqus_rate_independent` | Published Abaqus rate-independent Mises plasticity uniaxial state | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_external_verification |
 | `agentfem.benchmark.j2_global_restart` | Three-dimensional J2 path, physical cutback, cyclic amplitude, energy, and restart equivalence | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_regression |
+| `agentfem.benchmark.j2_multielement_patch` | Multi-element global J2 plasticity patch | three-dimensional small-strain rate-independent J2 plasticity with linear isotropic hardening | automated |
 | `agentfem.benchmark.linear_static_cantilever` | Two-dimensional linear-static cantilever | small-strain isotropic linear elasticity in plane strain | numerical_regression |
 | `agentfem.benchmark.neo_hookean_release` | Compressible Neo-Hookean finite-strain release contract | compressible Neo-Hookean hyperelasticity | automated_regression |
 | `agentfem.benchmark.operator_contracts` | Operator role, system, and residual-linearization contracts | backend-facing finite-element operator algebra | automated |
@@ -205,7 +207,8 @@ Newton iterations use trial state based on the last committed increment.
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
-| S | quadrature tensor field | stress | Trial Cauchy stress used in the residual. |
+| S | quadrature tensor field | stress | Accepted Cauchy stress retained at the constitutive integration points after convergence. |
+| MISES | quadrature scalar field | stress | Pointwise invariant of S; the visualization helper writes a separately identifiable DG0 cell average. |
 | PE and PEEQ | committed quadrature state | strain | Plastic strain tensor and equivalent plastic strain. |
 | DDSDDE | fourth-order quadrature tensor field | stress per strain | Analytical algorithmic consistent tangent. |
 | RF and internal-energy diagnostics | nodal residual field and scalar result quantities | force and energy | Full nodal residual plus elastic, hardening, plastic-dissipation, internal-energy, prescribed-work, and balance histories. |
@@ -250,6 +253,7 @@ Register J2LinearIsotropicHardening in a 3D nonlinear_static Model, add supports
 **Benchmarks**
 
 - `agentfem.benchmark.j2_global_restart`
+- `agentfem.benchmark.j2_multielement_patch`
 
 **Validation rules**
 
@@ -902,12 +906,14 @@ Create studies.implicit_dynamics(..., method='generalized_alpha') and call model
 **Status:** `supported`<br>
 **Source card:** `knowledge/cards/standard_result_projection.json`
 
-Produces cell-average S, E, MISES, and SENER fields by global L2 projection and extracts MPI-global resultants for converged strong-constraint residuals.
+Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell-average fields, and extracts MPI-global resultants on named strong-constraint boundaries.
 
 ### Public API
 
 - `agentfem.results.project`
+- `agentfem.results.project_piecewise`
 - `agentfem.results.small_strain_cell_fields`
+- `agentfem.results.small_strain_partition_fields`
 - `agentfem.results.reaction_resultant`
 - `agentfem.diagnostics.linear_static_energy`
 
@@ -950,7 +956,7 @@ The equality applies to a load ramped proportionally from zero when non-zero pre
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
-| standard fields | DG projected Functions named S, E, MISES, and SENER | stress, strain, and energy density | Fields can be written with the ordinary AgentFEM XDMF result writer. |
+| standard fields | DG projected Functions named S, E, MISES, and optionally SENER | stress, strain, and energy density | Serial `solve_result(output=...)` stores these cell fields with nodal U on one Uniform Grid. |
 | resultant and energy closure | MPI-global scalar/vector and LinearStaticEnergy | force and energy | Compact engineering histories or verification quantities. |
 
 #### Assumptions
@@ -962,8 +968,14 @@ The equality applies to a load ramped proportionally from zero when non-zero pre
 #### Conventions
 
 - DG0 is the default output space and represents a cell average.
+- DG0 result fields are discontinuous and are not extrapolated or averaged across neighboring cells or material boundaries.
+- The engineering default is U/S/E/MISES; SENER is an explicit diagnostic request.
 - E means infinitesimal strain in a small-strain context.
 - Non-zero prescribed-displacement work is not silently included in proportional force work.
+- Imported physical boundaries use their facet tag for both strong topological
+  dof location and weak integration; an optional marker is audit evidence.
+- `field_extrema(..., location=True)` identifies its finite-element-dof
+  sampling, coordinate, rank, global dof, and DG0 cell where applicable.
 
 #### Applicability
 
@@ -978,7 +990,10 @@ The equality applies to a load ramped proportionally from zero when non-zero pre
 ### Minimal example
 
 ```python
-S, E, mises, sener = results.small_strain_cell_fields(U, material, study=study); RF = results.reaction_resultant(step.problem)
+support = mesh.tagged_boundary_region(domain, facet_tags, tag=101, name='support')
+result = step.solve_result(output='solid.xdmf')
+RF_x = results.reaction_resultant(step.problem, on=support, component=0)
+peak = results.field_extrema(result.fields['MISES'], location=True)
 ```
 
 ### Verification
@@ -991,17 +1006,21 @@ S, E, mises, sener = results.small_strain_cell_fields(U, material, study=study);
 **Benchmarks**
 
 - `agentfem.benchmark.linear_static_cantilever`
+- `agentfem.benchmark.elasticity_foundation`
 
 **Validation rules**
 
 - Reject unknown field variables and negative projection degrees.
 - Compare affine displacement projection with its analytical constant strain.
-- Check reaction equilibrium and proportional static energy closure.
+- Check named-boundary reaction equilibrium and proportional static energy closure.
+- Verify a regional two-material series bar through one piecewise projection.
 
 ### References
 
 - DOLFINx finite-element functions and variational assembly: `https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.html`
 - Abaqus field and history output requests: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEOUTRefMap/simaout-c-output.htm`
+- Abaqus contour extrapolation and averaging: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAECAERefMap/simacae-c-conconceptlimits.htm`
+- COMSOL Gauss-point evaluation: `https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_modeling.05.224.html`
 
 ## Sequential thermoelastic analysis
 

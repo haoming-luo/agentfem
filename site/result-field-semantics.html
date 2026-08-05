@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Result-field Semantics - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
+      <div class="tagline">AI-assisted finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
+<a class="" href="getting-started.html">Getting Started</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="agent-gui-integration.html">Agent and GUI Integration</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="fem-foundation-audit-2026-08-05.html">FEM Foundation Audit</a>
+<a class="" href="engineering-feedback-2026-08-05.html">Engineering Feedback Decisions</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
+<a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
+<a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
+<a class="" href="operator-contracts.html">Scientific Operator Contracts</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="active" href="result-field-semantics.html">Result-field Semantics</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="platform-support.html">Platform and Optional Dependencies</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="scientific-verification.html">Scientific Trust and Verification</a>
+<a class="" href="licensing.html">Licensing</a>
+<a class="" href="publishing.html">Publishing</a>
+<a class="" href="release-0.2.0a1.html">AgentFEM 0.2.0a1</a>
+<a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="release-audit-2026-08-05.html">CTO Product Audit: 5 August 2026</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="digital-twin-direction.html">Digital-twin Direction</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="result-field-semantics-raw-values-projection-and-smoothing">Result-field semantics: raw values, projection, and smoothing</h1>
+<p>Finite-element result names are incomplete without a location and a processing history. A stress tensor at integration points, a discontinuous cell average, an extrapolated element-nodal value, and a nodally averaged contour can share the label <code>S</code> while having different numerical values. AgentFEM therefore treats result processing as scientific metadata rather than a hidden viewer setting.</p>
+<h2 id="what-established-cae-systems-display">What established CAE systems display</h2>
+<p>Abaqus commonly stores element variables such as stress at integration points. For ordinary contour display, Abaqus/CAE can extrapolate element values to nodes and average contributions according to the current averaging criteria. The displayed extrema can consequently change with those criteria. Abaqus also distinguishes a stored stress tensor from invariants computed from it: the order of extrapolation, invariant calculation, and averaging can change the plotted Mises field. Its documentation explicitly notes that extrapolated nodal Mises values can exceed the integration-point yield stress.</p>
+<p>COMSOL likewise distinguishes Gauss-point evaluation from presentation. Its <code>gpeval</code> operator constructs an approximate smooth field from Gauss-point data by least-squares fitting. Result plots expose smoothing policies such as none, inside material domains, inside geometry domains, and everywhere; the usual material-domain policy avoids blending values across different materials.</p>
+<p>ANSYS Mechanical defaults to averaged contours for many element-nodal quantities but also exposes unaveraged contours, nodal differences, and nodal fractions. The discontinuity between neighboring element contributions is therefore available as mesh-quality evidence rather than being treated only as a visual defect.</p>
+<p>These systems demonstrate two useful principles:</p>
+<ol>
+<li>smooth contours are a presentation choice, not the constitutive truth;</li>
+<li>material boundaries and extrapolation order are part of result semantics.</li>
+</ol>
+<h2 id="agentfem-default">AgentFEM default</h2>
+<p>For small-strain elasticity, one-call static output uses the engineering field set <code>U/S/E/MISES</code>:</p>
+<table>
+<thead><tr><th>variable</th><th>role</th><th>default representation</th></tr></thead>
+<tbody>
+<tr><td><code>U</code></td><td>primary displacement unknown</td><td>continuous finite-element solution</td></tr>
+<tr><td><code>S</code></td><td>Cauchy stress</td><td>discontinuous cell-average L2 projection</td></tr>
+<tr><td><code>E</code></td><td>infinitesimal strain</td><td>discontinuous cell-average L2 projection</td></tr>
+<tr><td><code>MISES</code></td><td>immediately useful invariant of stress</td><td>invariant evaluated from the constitutive stress, then discontinuously projected</td></tr>
+<tr><td><code>SENER</code></td><td>strain-energy density</td><td>available but opt-in diagnostic field</td></tr>
+</tbody>
+</table>
+<p><code>MISES</code> is deliberately materialized even though it can be derived from <code>S</code>: it gives users an immediate deformed stress contour in ordinary visualization tools. <code>SENER</code> is not preselected because a full energy-density field is less universally useful than total strain energy and energy-balance histories.</p>
+<p>The default <code>DG0</code> result is a cell average. It is discontinuous, performs no nodal extrapolation, and does not average across elements or material interfaces. For first-order displacement elements in linear elasticity this also preserves the elementwise constant strain and stress exactly. For higher-order fields, <code>DG0</code> is a compact average rather than a complete record of within-element variation.</p>
+<p>Every generated <code>FieldResult</code> records a <code>processing</code> mapping containing the projection method, result space, and explicit false flags for nodal extrapolation, interelement smoothing, and material-boundary averaging. This metadata is retained in the result manifest.</p>
+<p>An analysis can request diagnostic fields without changing the global default:</p>
+<pre><code>result = step.solve_result(
+    output=&quot;solid_with_energy.xdmf&quot;,
+    field_variables=(&quot;S&quot;, &quot;E&quot;, &quot;MISES&quot;, &quot;SENER&quot;),
+)</code></pre>
+<h2 id="scientific-and-presentation-layers">Scientific and presentation layers</h2>
+<p>AgentFEM should ultimately expose three related but distinct products:</p>
+<ol>
+<li><strong>constitutive evidence</strong> — integration/quadrature-point state for<br>path-dependent materials and verification;</li>
+<li><strong>scientific fields</strong> — discontinuous fields with explicit projection or<br>recovery semantics, suitable for quantitative queries and learning data;</li>
+<li><strong>presentation fields</strong> — optional material-aware nodal recovery or<br>smoothing for readable contours, always labeled and never overwriting the<br>scientific field.</li>
+</ol>
+<p>The current release implements the second layer for elasticity. J2 results retain committed <code>S/PE/PEEQ</code> and pointwise <code>MISES</code> on the constitutive quadrature; its visualization helper produces separately identifiable DG0 cell averages. Direct general quadrature-file export and reviewed material-aware nodal recovery remain roadmap items. A naive global continuous projection is intentionally not presented as a standard smoothing method because it can erase real jumps at material interfaces and obscure singular or poorly converged regions.</p>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://docs.software.vt.edu/abaqusv2024/English/SIMACAECAERefMap/simacae-c-conconceptlimits.htm">Abaqus: understanding contour limits</a></li>
+<li><a href="https://docs.software.vt.edu/abaqusv2025/English/SIMACAECAERefMap/simacae-t-reportfieldsetuptabbtn.htm">Abaqus: selecting field output variables and output position</a></li>
+<li><a href="https://docs.software.vt.edu/abaqusv2024/English/SIMACAEOUTRefMap/simaout-c-std-elementintegrationpointvariables.htm">Abaqus: integration-point output variables and stress invariants</a></li>
+<li><a href="https://abaqus-docs.mit.edu/2017/English/SIMACAEGSARefMap/simagsa-c-matpostprocess2.htm">Abaqus: extrapolation, averaging, and Mises contours</a></li>
+<li><a href="https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_modeling.05.224.html">COMSOL: Gauss-point evaluation</a></li>
+<li><a href="https://www.comsol.com/blogs/how-to-evaluate-stresses-in-comsol-multiphysics/">COMSOL: stress evaluation and smoothing</a></li>
+<li><a href="https://ansyshelp.ansys.com/public/Views/Secured/corp/v251/en/wb_sim/ds_Unaveraged_Results.html">ANSYS Mechanical: averaged and unaveraged contour results</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

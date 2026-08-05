@@ -597,24 +597,64 @@ class J2PlasticityStep:
             self.state.stress.function,
             location="quadrature_points",
             description="Cauchy stress at constitutive integration points.",
+            processing={
+                "source_position": "quadrature_points",
+                "method": "constitutive_update",
+                "representation": "quadrature_values",
+                "postprocessed": False,
+                "accepted": True,
+            },
         )
         result.add_field(
             "PE",
             self.state.plastic_strain.function,
             location="quadrature_points",
             description="Plastic strain at constitutive integration points.",
+            processing={
+                "source_position": "quadrature_points",
+                "method": "constitutive_state",
+                "representation": "quadrature_values",
+                "postprocessed": False,
+                "committed": True,
+            },
         )
         result.add_field(
             "PEEQ",
             self.state.equivalent_plastic_strain.function,
             location="quadrature_points",
             description="Equivalent plastic strain at integration points.",
+            processing={
+                "source_position": "quadrature_points",
+                "method": "constitutive_state",
+                "representation": "quadrature_values",
+                "postprocessed": False,
+                "committed": True,
+            },
+        )
+        result.add_field(
+            "MISES",
+            self.state.equivalent_stress().function,
+            location="quadrature_points",
+            description="Pointwise von Mises invariant of quadrature stress.",
+            processing={
+                "source_position": "quadrature_points",
+                "method": "pointwise_invariant",
+                "representation": "quadrature_values",
+                "derived_from": ("S",),
+                "nodal_extrapolation": False,
+                "interelement_smoothing": False,
+            },
         )
         reaction = self.reaction_field()
         result.add_field(
             "RF",
             reaction,
             description="Full nodal residual for reaction extraction.",
+            processing={
+                "method": "assembled_equilibrium_residual",
+                "representation": "finite_element_dofs",
+                "postprocessed": False,
+            },
         )
         peeq = self.state.equivalent_plastic_strain.values.reshape(-1)
         result.add_quantities(

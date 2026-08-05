@@ -7,7 +7,7 @@ of one completed analysis and is the bridge to campaigns and datasets.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, field as dc_field
 import json
 from math import isfinite
 from pathlib import Path
@@ -153,9 +153,11 @@ class FieldResult:
     location: str = "nodes"
     artifact: str | Path | None = None
     description: str = ""
+    processing: Mapping[str, object] = dc_field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "name", _name(self.name))
+        object.__setattr__(self, "processing", dict(self.processing))
         if self.field is None and self.artifact is None:
             raise ValueError("FieldResult requires a live field or artifact.")
 
@@ -171,6 +173,7 @@ class FieldResult:
             "live": self.field is not None,
             "artifact": None if self.artifact is None else str(self.artifact),
             "description": self.description,
+            "processing": _json_value(self.processing),
         }
 
 
@@ -302,8 +305,17 @@ class SimulationResult:
         location: str = "nodes",
         artifact: str | Path | None = None,
         description: str = "",
+        processing: Mapping[str, object] | None = None,
     ) -> FieldResult:
-        item = FieldResult(name, value, unit, location, artifact, description)
+        item = FieldResult(
+            name,
+            value,
+            unit,
+            location,
+            artifact,
+            description,
+            {} if processing is None else processing,
+        )
         self.fields[item.name] = item
         return item
 
@@ -626,7 +638,16 @@ def from_solution(
         metadata={} if metadata is None else dict(metadata),
     )
     selected_name = field_name or getattr(solution, "name", "solution")
-    result.add_field(selected_name, solution, unit=unit)
+    result.add_field(
+        selected_name,
+        solution,
+        unit=unit,
+        processing={
+            "method": "primary_finite_element_solution",
+            "representation": "finite_element_dofs",
+            "postprocessed": False,
+        },
+    )
     return result
 
 
