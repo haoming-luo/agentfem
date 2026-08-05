@@ -47,6 +47,7 @@
 <a class="" href="release-audit-2026-08-05.html">CTO Product Audit: 5 August 2026</a>
 <a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
 <a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="digital-twin-direction.html">Digital-twin Direction</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
 <a class="" href="skill.html">AgentFEM Skill</a></nav>
     </aside>
@@ -81,15 +82,16 @@
 <tr><td>Engineering-level K/M/C/F operators</td><td><code>operators/</code></td></tr>
 <tr><td>Central difference, Newmark, generalized-alpha, and runtime cadence</td><td><code>time/</code></td></tr>
 <tr><td>Analysis steps, system problems, and state containers</td><td><code>problems.py</code></td></tr>
-<tr><td>Shared transient checkpoint envelope, integrity, and partition identity</td><td><code>checkpointing.py</code></td></tr>
+<tr><td>Shared transient checkpoint envelope, integrity, accepted-increment cadence, and partition identity</td><td><code>checkpointing.py</code></td></tr>
 <tr><td>Automatic/fixed incrementation and cutback policy</td><td><code>steps.py</code></td></tr>
 <tr><td>Linear/nonlinear solvers and convergence evidence</td><td><code>solvers.py</code></td></tr>
 <tr><td>Scientific results, MPI-safe point/path/integral QoIs, histories, artifacts, and dataset bridge</td><td><code>results/</code></td></tr>
 <tr><td>Finite-strain fields and periodic-cell homogenization</td><td><code>results/finite_strain.py</code></td></tr>
+<tr><td>Global L2 projection and standard small-strain <code>S</code>/<code>E</code>/<code>MISES</code>/<code>SENER</code> fields</td><td><code>results/projection.py</code></td></tr>
 <tr><td>Standard result variables and context-aware aliases</td><td><code>results/field_catalog.py</code></td></tr>
 <tr><td>Declarative field requests and unified XDMF/HDF5 time-series writer</td><td><code>results/output.py</code></td></tr>
 <tr><td>Combined field/history/diagnostic/presentation output contracts</td><td><code>results/plan.py</code></td></tr>
-<tr><td>Diagnostics</td><td><code>diagnostics.py</code></td></tr>
+<tr><td>Reactions, work/energy, thermal balance, progress, and distributed diagnostics</td><td><code>diagnostics.py</code>, <code>results/quantities.py</code></td></tr>
 <tr><td>Output writers and scalar logs</td><td><code>io.py</code></td></tr>
 <tr><td>Element and integration policies</td><td><code>elements/</code></td></tr>
 <tr><td>Test-linked verification obligations</td><td><code>benchmarks/</code></td></tr>
@@ -99,8 +101,8 @@
 <tr><td>Scientific trust, claims, and convergence evidence</td><td><code>verification.py</code></td></tr>
 <tr><td>Backend descriptors, registry, and lowering adapters</td><td><code>backends/</code></td></tr>
 <tr><td>Typed/JSON parameters, sampling, campaign plans, resumable case execution</td><td><code>campaigns/</code></td></tr>
-<tr><td>Scientific dataset schemas, arrays, provenance, and splits</td><td><code>datasets/</code></td></tr>
-<tr><td>Surrogate/ROM models, validation, applicability, neural-operator/PINN contracts</td><td><code>surrogates/</code></td></tr>
+<tr><td>Scientific dataset schemas, arrays, provenance, splits, and FEM-field export</td><td><code>datasets/</code></td></tr>
+<tr><td>Surrogate/ROM models, validation, applicability, observation grids, neural-operator/PINN contracts</td><td><code>surrogates/</code></td></tr>
 </tbody>
 </table>
 <p>Application geometry, case inputs, and problem-specific sources should stay in application packages or examples until they become reusable platform concepts.</p>

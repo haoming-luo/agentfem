@@ -24,9 +24,11 @@ from .linear import (
 from .physics import (
     FieldEncoding,
     NeuralOperatorSpec,
+    ObservationGrid,
     PhysicsCondition,
     PhysicsResidual,
     PINNSpec,
+    regular_grid,
 )
 from .torch_adapter import TorchMLPSurrogate, TrainedTorchMLP
 from .pinn_torch import PINNTrainingRecord, TorchPINNAdapter
@@ -37,6 +39,7 @@ __all__ = [
     "FieldEncoding",
     "GuardedSurrogate",
     "NeuralOperatorSpec",
+    "ObservationGrid",
     "OutOfDomainError",
     "PINNSpec",
     "PINNTrainingRecord",
@@ -54,5 +57,6 @@ __all__ = [
     "TrainedRidge",
     "TrainedTorchMLP",
     "validate_predictions",
+    "regular_grid",
     "train",
 ]

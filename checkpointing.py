@@ -7,6 +7,7 @@ explicitly instead of presenting partition-bound arrays as portable data.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
@@ -25,6 +26,60 @@ _LEGACY_TRANSIENT_CHECKPOINT_SCHEMAS = {
     "agentfem.transient-checkpoint.v1",
     TRANSIENT_CHECKPOINT_SCHEMA,
 }
+
+
+@dataclass(frozen=True)
+class CheckpointPolicy:
+    """Automatic accepted-increment checkpoint cadence for transient steps."""
+
+    every: int
+    directory: Path
+    final: bool = True
+    prefix: str | None = None
+
+    def __post_init__(self) -> None:
+        interval = int(self.every)
+        if interval <= 0:
+            raise ValueError("CheckpointPolicy.every must be positive.")
+        object.__setattr__(self, "every", interval)
+        object.__setattr__(self, "directory", Path(self.directory))
+        if self.prefix is not None and not str(self.prefix).strip():
+            raise ValueError("CheckpointPolicy.prefix must be non-empty when supplied.")
+
+    def due(self, increment: int, total: int) -> bool:
+        selected = int(increment)
+        return selected % self.every == 0 or (self.final and selected == int(total))
+
+    def path(self, *, step_name: str, increment: int) -> Path:
+        base = self.prefix or _safe_name(step_name)
+        return self.directory / f"{base}.inc-{int(increment):08d}"
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "checkpoint_policy",
+            "every": self.every,
+            "directory": str(self.directory),
+            "final": bool(self.final),
+            "prefix": self.prefix,
+            "retention": "all_scheduled_checkpoints",
+        }
+
+
+def every(
+    increments: int,
+    *,
+    directory="checkpoints",
+    final: bool = True,
+    prefix: str | None = None,
+) -> CheckpointPolicy:
+    """Create an automatic checkpoint policy for accepted time increments."""
+
+    return CheckpointPolicy(
+        every=increments,
+        directory=Path(directory),
+        final=final,
+        prefix=prefix,
+    )
 
 
 def save_transient_checkpoint(
@@ -363,6 +418,14 @@ def _software_version() -> str:
     return str(__version__)
 
 
+def _safe_name(value: str) -> str:
+    selected = "".join(
+        character if character.isalnum() or character in {"-", "_"} else "-"
+        for character in str(value).strip()
+    ).strip("-")
+    return selected or "step"
+
+
 def _raise_collective_checkpoint_error(comm, action: str, local_error) -> None:
     errors = comm.allgather(local_error)
     failures = [
@@ -377,10 +440,12 @@ def _raise_collective_checkpoint_error(comm, action: str, local_error) -> None:
 
 
 __all__ = [
+    "CheckpointPolicy",
     "TRANSIENT_CHECKPOINT_SCHEMA",
     "atomic_savez",
     "atomic_write_text",
     "function_partition_identity",
+    "every",
     "load_transient_checkpoint",
     "save_transient_checkpoint",
 ]

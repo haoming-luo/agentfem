@@ -150,6 +150,11 @@ PAGES = [
         SITE_DIR / "ai-native-learning.html",
     ),
     Page(
+        "Digital-twin Direction",
+        ROOT / "docs" / "digital_twin_direction.md",
+        SITE_DIR / "digital-twin-direction.html",
+    ),
+    Page(
         "Documentation Site",
         ROOT / "docs" / "documentation_site.md",
         SITE_DIR / "documentation-site.html",

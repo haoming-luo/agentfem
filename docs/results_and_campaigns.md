@@ -201,6 +201,62 @@ explicit alternative for exploratory sampling. For a discontinuous field, a
 point exactly on an interelement boundary has a side ambiguity, so place the
 probe inside the intended cell when a one-sided value is required.
 
+## Standard stress and strain fields
+
+Small-strain elasticity now uses one reusable projection path:
+
+```python
+stress, strain, mises, energy = results.small_strain_cell_fields(
+    U,
+    material,
+    study=study,
+)
+
+with io.XDMFTimeSeries("solid.xdmf", domain) as writer:
+    writer.write_fields(0.0, U, stress, strain, mises, energy)
+```
+
+The standard names are `S`, `E`, `MISES`, and `SENER`. Their default `DG0`
+representation is the global L2 projection onto piecewise constants, hence a
+cell average rather than an arbitrary centroid value. In plane strain, Mises
+stress includes the constitutively implied out-of-plane stress. The lower-level
+`results.project(...)` remains available for reviewed UFL expressions and
+higher-order output spaces.
+
+`results.reaction_resultant(problem)` reports the MPI-global residual
+resultant for strong Dirichlet constraints. Affine MPC, weak, and contact
+reactions deliberately require separate definitions. For proportional linear
+loading, `diagnostics.linear_static_energy(...)` reports strain energy,
+external work, and their closure; non-zero prescribed displacements require
+reaction work in a displacement-control-specific history.
+
+## Structured observation grids
+
+A common physical grid separates a learned field representation from the FEM
+mesh used by each case:
+
+```python
+grid = surrogates.regular_grid(
+    bounds=((0.0, length), (0.0, height)),
+    shape=(128, 64),
+)
+sample = datasets.fem_observation_sample(
+    U,
+    grid,
+    name="displacement",
+    unit="m",
+    components=("U1", "U2"),
+    outside="mask",
+)
+sample.write("displacement_grid.npz")
+```
+
+The export records physical axes, array order, component layout, units,
+mesh-independence policy, and an optional inside-geometry mask. It is MPI-safe
+and uses the same coordinates for every case. This is a real data-preparation
+path for structured-grid neural operators; model architecture and training
+remain external responsibilities.
+
 ## Campaign to Dataset
 
 A campaign evaluator may return:
@@ -264,9 +320,10 @@ optimizers, and training loops.
 
 1. named reaction force/resultant extractors beyond the current strong-BC and
    J2 residual fields;
-2. stress/strain projection for visualization;
-3. natural-load, weak-constraint, affine-MPC, and transient work/energy
+2. nodal smoothing and higher-order stress recovery beyond implemented DG
+   projection;
+3. natural-load, weak-constraint, affine-MPC, and broader transient work/energy
    histories beyond the current strong-displacement J2 history;
-4. automatic checkpoint cadence and cross-partition MPI restart identity;
-5. reusable observation grids and field encodings for neural operators;
+4. cross-partition MPI restart identity and checkpoint retention policies;
+5. graph and basis-coefficient field encodings for unstructured neural operators;
 6. scheduler executors that preserve identical case records.

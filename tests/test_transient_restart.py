@@ -17,7 +17,7 @@ def _right(x):
     return np.isclose(x[0], 1.0)
 
 
-def _dynamic_step(*, implicit: bool):
+def _dynamic_step(*, implicit: bool, checkpoint=None):
     domain = mesh.rectangle(
         (0.0, 0.0),
         (1.0, 0.2),
@@ -54,6 +54,7 @@ def _dynamic_step(*, implicit: bool):
         dt=1.0e-4,
         steps=4,
         progress=False,
+        checkpoint=checkpoint,
     )
 
 
@@ -99,7 +100,7 @@ def test_dynamics_restart_matches_uninterrupted_state_and_energy(tmp_path, impli
     assert next(iter(simulation.checkpoints.values())).portable is False
 
 
-def _heat_step():
+def _heat_step(*, checkpoint=None, steps: int = 4):
     domain = mesh.rectangle(
         (0.0, 0.0),
         (1.0, 0.2),
@@ -131,9 +132,39 @@ def _heat_step():
     return model.step(
         target=temperature,
         dt=0.5,
-        steps=4,
+        steps=steps,
         progress=False,
+        checkpoint=checkpoint,
     )
+
+
+@pytest.mark.parametrize("implicit", [False, True])
+def test_dynamics_checkpoint_policy_writes_accepted_cadence(tmp_path, implicit):
+    policy = checkpointing.every(2, directory=tmp_path / "dynamics")
+    step = _dynamic_step(implicit=implicit, checkpoint=policy)
+
+    result = step.solve_result()
+
+    assert [item.coordinate_value for item in result.checkpoints.values()] == [
+        pytest.approx(2.0e-4),
+        pytest.approx(4.0e-4),
+    ]
+    assert all(item.path.is_file() for item in result.checkpoints.values())
+
+
+def test_heat_checkpoint_policy_always_records_final_state(tmp_path):
+    policy = checkpointing.every(3, directory=tmp_path / "heat")
+    step = _heat_step(checkpoint=policy, steps=4)
+
+    step.run()
+
+    assert [item.coordinate_value for item in step.checkpoints] == [
+        pytest.approx(1.5),
+        pytest.approx(2.0),
+    ]
+    final = json.loads(step.checkpoints[-1].path.read_text(encoding="utf-8"))
+    assert final["completed_steps"] == 4
+    assert policy.summary()["retention"] == "all_scheduled_checkpoints"
 
 
 def test_heat_restart_matches_uninterrupted_state_and_thermal_history(tmp_path):
@@ -154,6 +185,8 @@ def test_heat_restart_matches_uninterrupted_state_and_thermal_history(tmp_path):
         [item["thermal_content"] for item in reference.history_records],
     )
     assert np.all(np.diff(result.histories["thermal_content"].values) <= 0.0)
+    assert np.max(np.abs(result.histories["heat_balance_residual"].values)) < 2.0e-8
+    assert result.histories["applied_heat_rate"].latest == pytest.approx(1500.0)
 
 
 def test_restart_can_write_a_truthful_continuation_output_segment(tmp_path):
@@ -181,8 +214,8 @@ def test_restart_can_write_a_truthful_continuation_output_segment(tmp_path):
     assert result.artifacts["fields_xdmf"].is_file()
     assert result.artifacts["fields_hdf5"].is_file()
     assert "starts at time 1" in next(iter(result.fields.values())).description
-    assert "not a complete heat-balance residual" in (
-        result.histories["thermal_content"].description
+    assert "Strong-temperature reactions" in (
+        result.histories["heat_balance_residual"].description
     )
 
 

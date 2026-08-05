@@ -47,6 +47,7 @@
 <a class="" href="release-audit-2026-08-05.html">CTO Product Audit: 5 August 2026</a>
 <a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
 <a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="digital-twin-direction.html">Digital-twin Direction</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
 <a class="" href="skill.html">AgentFEM Skill</a></nav>
     </aside>
@@ -165,16 +166,31 @@ results.h5     compressed numerical payload</code></pre>
 <li>auditable fatigue assessment from a named <code>SimulationResult</code> history.</li>
 </ul>
 <p>These additions are intentionally reusable. They do not turn material-point creep into a global creep solver or scalar S-N fatigue into a general multiaxial damage model.</p>
+<h2 id="accepted-increment-checkpoint-policy">Accepted-increment checkpoint policy</h2>
+<p>All three transient routes—central difference, Newmark/generalized-alpha, and implicit-Euler heat transfer—consume the same policy object:</p>
+<pre><code>from agentfem import checkpointing
+
+step = model.step(
+    target=field,
+    dt=dt,
+    steps=1000,
+    checkpoint=checkpointing.every(
+        100,
+        directory=&quot;checkpoints&quot;,
+        final=True,
+    ),
+)</code></pre>
+<p>A checkpoint is written only after an increment has been accepted, its state and scientific histories have been committed, and its execution event has been recorded. The final state is retained even when the total increment count is not divisible by the cadence. The current retention policy keeps every scheduled checkpoint and the restart remains bound to the same MPI partition; retention pruning and cross-partition identities are separate future changes.</p>
 <h2 id="next-gates">Next gates</h2>
 <ol>
 <li>Extend collective MPI output from reference-configuration scientific fields<br>to an ownership-safe directly deformed geometry product.</li>
-<li>Promote the implemented strong-BC reaction field and M/K energy diagnostic<br>into named point/region histories; define affine/weak reactions separately.</li>
+<li>Extend the implemented MPI-global strong-BC resultant and proportional<br>linear-static energy closure into named region histories; define<br>affine/weak reactions and non-zero prescribed-displacement work separately.</li>
 <li>Extend the implemented cumulative J2 serial checkpoint and scientific<br>identity to portable MPI cell identity and multi-region state.</li>
 <li>Extend the implemented analytical J2 Golden path, physical forced cutback,<br>cyclic amplitude, S/PE/PEEQ/RF fields, and strong-displacement work/energy<br>history with projected visualization, mesh convergence, natural/affine work<br>definitions, mesh convergence, and full external-deck reproduction; the<br>published Abaqus homogeneous uniaxial constitutive state is now automated.</li>
 <li>Build global implicit creep by consuming the shared<br><code>QuadratureTransaction</code>, adaptive controller state, and rollback machinery.</li>
 <li>Let fatigue consume verified extracted histories; add a fatigue field only<br>after hotspot/element mapping and provenance are defined.</li>
 <li>Add load-controlled finite-strain examples for dead and follower pressure,<br>including tangent and sign checks.</li>
-<li>Promote the implemented shared transient energy/checkpoint lifecycle from<br>same-partition restart to automatic checkpoint cadence, broader work/heat<br>balances, and cross-partition MPI portability.</li>
+<li>Build on the implemented shared transient energy/checkpoint lifecycle,<br>accepted-increment automatic cadence, and heat-balance history with broader<br>mechanical work terms, retention policy, and cross-partition MPI portability.</li>
 </ol>
       </article>
     </main>

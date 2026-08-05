@@ -409,6 +409,64 @@ def test_standard_field_catalog_resolves_finite_strain_e_to_le():
     ) == ("U", "S", "LE")
 
 
+def test_small_strain_standard_fields_are_cell_average_projections():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.5),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    displacement = fields.displacement(domain).value
+    displacement.interpolate(
+        lambda x: np.vstack((0.01 * x[0], -0.002 * x[1]))
+    )
+    material = elasticity.isotropic_elastic(
+        young=200.0e9,
+        poisson=0.3,
+        density=7800.0,
+    )
+    study = studies.linear_static(
+        physics="solid_mechanics",
+        dimension=2,
+        assumption="plane_stress",
+    )
+
+    stress, strain, mises, energy = results.small_strain_cell_fields(
+        displacement,
+        material,
+        study=study,
+    )
+
+    assert (stress.name, strain.name, mises.name, energy.name) == (
+        "S",
+        "E",
+        "MISES",
+        "SENER",
+    )
+    strain_values = strain.x.array.reshape((-1, 2, 2))
+    np.testing.assert_allclose(
+        strain_values,
+        np.broadcast_to(np.diag([0.01, -0.002]), strain_values.shape),
+        rtol=1.0e-12,
+        atol=1.0e-14,
+    )
+    stress_values = stress.x.array.reshape((-1, 2, 2))
+    expected_mises = np.sqrt(
+        stress_values[:, 0, 0] ** 2
+        - stress_values[:, 0, 0] * stress_values[:, 1, 1]
+        + stress_values[:, 1, 1] ** 2
+        + 3.0 * stress_values[:, 0, 1] ** 2
+    )
+    np.testing.assert_allclose(mises.x.array, expected_mises, rtol=1.0e-12)
+    assert np.all(energy.x.array > 0.0)
+
+
+def test_projection_requires_a_mesh_for_domain_free_expression():
+    with pytest.raises(ValueError, match="infer a mesh"):
+        results.project(ufl.as_ufl(2.0))
+
+
 def test_field_output_is_declarative_and_validated():
     request = results.field_output(
         "U",

@@ -47,6 +47,7 @@
 <a class="" href="release-audit-2026-08-05.html">CTO Product Audit: 5 August 2026</a>
 <a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
 <a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="digital-twin-direction.html">Digital-twin Direction</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
 <a class="" href="skill.html">AgentFEM Skill</a></nav>
     </aside>
@@ -63,9 +64,11 @@
 <tr><td><a href="#agentfem-material-j2_global_plasticity"><code>agentfem.material.j2_global_plasticity</code></a></td><td>Global small-strain J2 plasticity</td><td>material</td><td>supported</td></tr>
 <tr><td><a href="#agentfem-operator-system_contracts"><code>agentfem.operator.system_contracts</code></a></td><td>Finite-element operator and system contracts</td><td>operator</td><td>supported</td></tr>
 <tr><td><a href="#agentfem-workflow-campaign_learning_pipeline"><code>agentfem.workflow.campaign_learning_pipeline</code></a></td><td>Simulation campaign to guarded learning workflow</td><td>workflow</td><td>supported</td></tr>
+<tr><td><a href="#agentfem-workflow-observation_grid_learning"><code>agentfem.workflow.observation_grid_learning</code></a></td><td>Mesh-independent structured observation grids</td><td>workflow</td><td>supported</td></tr>
 <tr><td><a href="#agentfem-workflow-result_field_sampling"><code>agentfem.workflow.result_field_sampling</code></a></td><td>MPI-safe point and path field sampling</td><td>workflow</td><td>supported</td></tr>
 <tr><td><a href="#agentfem-workflow-scientific_verification"><code>agentfem.workflow.scientific_verification</code></a></td><td>Scientific trust and verification workflow</td><td>workflow</td><td>supported</td></tr>
 <tr><td><a href="#agentfem-workflow-solution_procedures"><code>agentfem.workflow.solution_procedures</code></a></td><td>Solution procedure vocabulary</td><td>analysis_step</td><td>supported</td></tr>
+<tr><td><a href="#agentfem-workflow-standard_result_projection"><code>agentfem.workflow.standard_result_projection</code></a></td><td>Projected small-strain result fields and strong-constraint resultants</td><td>workflow</td><td>supported</td></tr>
 <tr><td><a href="#agentfem-workflow-thermoelastic_analysis"><code>agentfem.workflow.thermoelastic_analysis</code></a></td><td>Sequential thermoelastic analysis</td><td>workflow</td><td>supported</td></tr>
 </tbody>
 </table>
@@ -428,6 +431,86 @@
 <ul>
 <li>AgentFEM results and campaigns contract: <code>docs/results_and_campaigns.md</code></li>
 </ul>
+<h2 id="mesh-independent-structured-observation-grids">Mesh-independent structured observation grids</h2>
+<p><strong>Stable ID:</strong> <code>agentfem.workflow.observation_grid_learning</code>&lt;br&gt; <strong>Kind:</strong> <code>workflow</code>&lt;br&gt; <strong>Status:</strong> <code>supported</code>&lt;br&gt; <strong>Source card:</strong> <code>knowledge/cards/observation_grid_learning.json</code></p>
+<p>Samples serial or distributed FEM fields on stable Cartesian coordinates and exports explicit axes, array layout, units, components, and optional geometry masks for external neural-operator and digital-twin workflows.</p>
+<h3 id="public-api">Public API</h3>
+<ul>
+<li><code>agentfem.surrogates.ObservationGrid</code></li>
+<li><code>agentfem.surrogates.regular_grid</code></li>
+<li><code>agentfem.datasets.fem_observation_sample</code></li>
+<li><code>agentfem.surrogates.FieldEncoding</code></li>
+<li><code>agentfem.surrogates.NeuralOperatorSpec</code></li>
+</ul>
+<h3 id="scientific-contract">Scientific contract</h3>
+<p>A fixed physical observation operator separates the mesh used to solve each FEM case from the tensor coordinates consumed by a learned operator or compared with sensors.</p>
+<p><strong>observation operator</strong></p>
+<p>$$ y_i = H_i[u_h] = u_h(x_i) $$</p>
+<p>The same ordered physical coordinates are evaluated for every simulation and MPI partition.</p>
+<p><strong>operator-learning map</strong></p>
+<p>$$ G_theta: a(x) -&gt; u(x) $$</p>
+<p>Input and output fields require explicit discretization, coordinate, component, and boundary encodings.</p>
+<h4 id="inputs">Inputs</h4>
+<table>
+<thead><tr><th>Name</th><th>Type</th><th>Unit role</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>observation grid</td><td>one to three strictly increasing Cartesian axes</td><td>physical coordinate units</td><td>Defines shape, order, coordinate system, and stable point identities.</td></tr>
+<tr><td>finite-element field</td><td>scalar, vector, or tensor DOLFINx Function</td><td>field dependent</td><td>May be distributed; ownership is resolved collectively.</td></tr>
+</tbody>
+</table>
+<h4 id="outputs">Outputs</h4>
+<table>
+<thead><tr><th>Name</th><th>Type</th><th>Unit role</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>FEMFieldSample</td><td>coordinates, structured values, scientific FieldEncoding, metadata, and optional mask</td><td>declared field and coordinate units</td><td>Portable NPZ or optional PyTorch tensors without prescribing a network architecture.</td></tr>
+</tbody>
+</table>
+<h4 id="assumptions">Assumptions</h4>
+<ul>
+<li>Every case uses the same declared observation grid when samples are combined.</li>
+<li>Coordinates and physical units are consistent across the campaign.</li>
+<li>Outside-geometry values use an explicit mask rather than being mistaken for physical zeros.</li>
+</ul>
+<h4 id="conventions">Conventions</h4>
+<ul>
+<li>Stored values use grid axes followed by field-component axes.</li>
+<li>C array order is the default and is recorded.</li>
+<li>A true mask entry denotes a point inside the finite-element mesh.</li>
+</ul>
+<h4 id="applicability">Applicability</h4>
+<ul>
+<li>FNO-style structured-grid datasets, sensor-aligned digital-twin data, field comparison, and mesh-family campaigns.</li>
+</ul>
+<h4 id="limitations">Limitations</h4>
+<ul>
+<li>Graph and reduced-basis encodings are not yet executable.</li>
+<li>No production neural-operator trainer is bundled.</li>
+<li>Online sensor ingestion, assimilation, and uncertainty updating remain external future services.</li>
+</ul>
+<h3 id="minimal-example">Minimal example</h3>
+<pre><code>grid = surrogates.regular_grid(bounds=((0,L),(0,H)), shape=(128,64)); sample = datasets.fem_observation_sample(U, grid, unit=&#x27;m&#x27;, outside=&#x27;mask&#x27;)</code></pre>
+<h3 id="verification">Verification</h3>
+<p><strong>Tests</strong></p>
+<ul>
+<li><code>tests/test_datasets.py</code></li>
+<li><code>tests/test_parallel_results.py</code></li>
+</ul>
+<p><strong>Benchmarks</strong></p>
+<ul>
+<li><code>agentfem.benchmark.campaign_surrogate_pipeline</code></li>
+</ul>
+<p><strong>Validation rules</strong></p>
+<ul>
+<li>Reject non-monotone axes, inconsistent bounds/shapes, and unknown outside policies.</li>
+<li>Compare analytical affine fields on serial and two-rank meshes.</li>
+<li>Preserve the same value bytes on every MPI rank.</li>
+</ul>
+<h3 id="references">References</h3>
+<ul>
+<li>NeuralOperator 2.0 API reference: <code>https://neuraloperator.github.io/dev/modules/api.html</code></li>
+<li>Fourier Neural Operator for Parametric Partial Differential Equations: <code>https://openreview.net/forum?id=c8P9NQVtmnO</code></li>
+<li>NIST human-centered framework to update digital twins: <code>https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=936651</code></li>
+</ul>
 <h2 id="mpi-safe-point-and-path-field-sampling">MPI-safe point and path field sampling</h2>
 <p><strong>Stable ID:</strong> <code>agentfem.workflow.result_field_sampling</code>&lt;br&gt; <strong>Kind:</strong> <code>workflow</code>&lt;br&gt; <strong>Status:</strong> <code>supported</code>&lt;br&gt; <strong>Source card:</strong> <code>knowledge/cards/result_field_sampling.json</code></p>
 <p>Evaluates scalar, vector, or tensor finite-element fields at named physical points and straight paths with deterministic MPI ownership and standard result-history integration.</p>
@@ -482,7 +565,7 @@
 <ul>
 <li>Straight paths are built in; arbitrary curves should supply explicit coordinates to sample_points.</li>
 <li>Interface traces of discontinuous fields require an explicit one-sided sampling location.</li>
-<li>Reusable mesh-independent observation-grid and projection contracts remain future work.</li>
+<li>Curved paths and one-sided discontinuous traces require explicit coordinates beyond the straight-path helper.</li>
 </ul>
 <h3 id="minimal-example">Minimal example</h3>
 <pre><code>tip = results.probe(U, at=(L, H/2)); path = results.sample_path(U, start=(0, H/2), end=(L, H/2), count=101); path.add_to(result, name=&#x27;centerline_U&#x27;)</code></pre>
@@ -604,6 +687,7 @@
 <li><code>agentfem.problems.LinearSystemProblem.reaction_field</code></li>
 <li><code>agentfem.diagnostics.SolveEventRecorder</code></li>
 <li><code>agentfem.diagnostics.mechanical_energy</code></li>
+<li><code>agentfem.checkpointing.every</code></li>
 <li><code>agentfem.models.Model.step</code></li>
 </ul>
 <h3 id="scientific-contract">Scientific contract</h3>
@@ -630,6 +714,7 @@
 <tr><td>advanced state</td><td>field state and convergence evidence</td><td>problem dependent</td><td>Accepted displacement, velocity, acceleration, temperature, or material state.</td></tr>
 <tr><td>reaction and mechanical energy diagnostics</td><td>nodal residual field and scalar energy record</td><td>force and energy</td><td>Strong-constraint reactions and visible M/K quadratic energies for supported systems.</td></tr>
 <tr><td>execution trace</td><td>ordered JSON-safe SolveEvent records</td><td>problem dependent</td><td>One source for progress, status files, result histories, failures, and agent monitoring.</td></tr>
+<tr><td>scheduled restart state</td><td>integrity-checked checkpoint manifest and rank shards</td><td>time</td><td>Written after accepted increments at one shared cadence across explicit, implicit-dynamics, and heat routes.</td></tr>
 </tbody>
 </table>
 <h4 id="assumptions">Assumptions</h4>
@@ -644,6 +729,7 @@
 <li>Explicit means no global linear solve at each time increment.</li>
 <li>Step, increment, iteration, attempt, and output frame remain distinct.</li>
 <li>Display cadence never removes an accepted or failed event from the execution trace.</li>
+<li>Automatic checkpoints are written only after state, history, and the accepted-increment event are committed.</li>
 </ul>
 <h4 id="applicability">Applicability</h4>
 <ul>
@@ -653,7 +739,7 @@
 <ul>
 <li>Nonlinear implicit structural dynamics is not implemented.</li>
 <li>Moving-support kinematics for implicit dynamics are not implemented.</li>
-<li>Explicit and implicit transient steps share execution/result evidence but not yet the complete field/energy/checkpoint OutputPlan.</li>
+<li>Checkpoint retention pruning and cross-partition MPI restart identities are not implemented.</li>
 </ul>
 <h3 id="minimal-example">Minimal example</h3>
 <pre><code>Create studies.implicit_dynamics(..., method=&#x27;generalized_alpha&#x27;) and call model.step(target=u, dt=..., steps=...).</code></pre>
@@ -661,6 +747,8 @@
 <p><strong>Tests</strong></p>
 <ul>
 <li><code>tests/test_p1_platform.py</code></li>
+<li><code>tests/test_transient_restart.py</code></li>
+<li><code>tests/test_parallel_transient.py</code></li>
 </ul>
 <p><strong>Benchmarks</strong></p>
 <ul>
@@ -674,6 +762,88 @@
 <h3 id="references">References</h3>
 <ul>
 <li>Chung and Hulbert generalized-alpha method: <code>https://deepblue.lib.umich.edu/bitstream/handle/2027.42/50422/1640100803_ftp.pdf?isAllowed=y&amp;sequence=1</code></li>
+</ul>
+<h2 id="projected-small-strain-result-fields-and-strong-constraint-resultants">Projected small-strain result fields and strong-constraint resultants</h2>
+<p><strong>Stable ID:</strong> <code>agentfem.workflow.standard_result_projection</code>&lt;br&gt; <strong>Kind:</strong> <code>workflow</code>&lt;br&gt; <strong>Status:</strong> <code>supported</code>&lt;br&gt; <strong>Source card:</strong> <code>knowledge/cards/standard_result_projection.json</code></p>
+<p>Produces cell-average S, E, MISES, and SENER fields by global L2 projection and extracts MPI-global resultants for converged strong-constraint residuals.</p>
+<h3 id="public-api">Public API</h3>
+<ul>
+<li><code>agentfem.results.project</code></li>
+<li><code>agentfem.results.small_strain_cell_fields</code></li>
+<li><code>agentfem.results.reaction_resultant</code></li>
+<li><code>agentfem.diagnostics.linear_static_energy</code></li>
+</ul>
+<h3 id="scientific-contract">Scientific contract</h3>
+<p>A projected result field is defined by an L2 variational problem, while a strong-constraint reaction is the unconstrained assembled residual retained on prescribed degrees of freedom.</p>
+<p><strong>L2 projection</strong></p>
+<p>$$ integral(Omega, q_h : v_h dx) = integral(Omega, q : v_h dx) for all v_h $$</p>
+<p>DG0 projection returns the cell average of a scalar, vector, or tensor expression.</p>
+<p><strong>strong-constraint reaction</strong></p>
+<p>$$ R = K u - F $$</p>
+<p>At converged free degrees of freedom R is zero to solver tolerance; prescribed degrees retain reaction entries.</p>
+<p><strong>proportional linear work</strong></p>
+<p>$$ W_ext = 0.5 u^T F, U = 0.5 u^T K u $$</p>
+<p>The equality applies to a load ramped proportionally from zero when non-zero prescribed-displacement work is absent.</p>
+<h4 id="inputs">Inputs</h4>
+<table>
+<thead><tr><th>Name</th><th>Type</th><th>Unit role</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>displacement and material</td><td>finite-element displacement field, elastic properties, and Study</td><td>consistent mechanics system</td><td>Defines infinitesimal strain, Cauchy stress, equivalent stress, and strain-energy density.</td></tr>
+<tr><td>converged problem</td><td>linear or nonlinear problem exposing reaction_field</td><td>force or conjugate residual</td><td>Supplies the assembled residual for the strong-constraint resultant.</td></tr>
+</tbody>
+</table>
+<h4 id="outputs">Outputs</h4>
+<table>
+<thead><tr><th>Name</th><th>Type</th><th>Unit role</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>standard fields</td><td>DG projected Functions named S, E, MISES, and SENER</td><td>stress, strain, and energy density</td><td>Fields can be written with the ordinary AgentFEM XDMF result writer.</td></tr>
+<tr><td>resultant and energy closure</td><td>MPI-global scalar/vector and LinearStaticEnergy</td><td>force and energy</td><td>Compact engineering histories or verification quantities.</td></tr>
+</tbody>
+</table>
+<h4 id="assumptions">Assumptions</h4>
+<ul>
+<li>Small-strain standard fields use the selected linear-elastic constitutive relation.</li>
+<li>Plane-strain isotropic Mises stress includes the constitutively implied out-of-plane stress.</li>
+<li>Reaction resultant semantics are limited to strong Dirichlet constraints.</li>
+</ul>
+<h4 id="conventions">Conventions</h4>
+<ul>
+<li>DG0 is the default output space and represents a cell average.</li>
+<li>E means infinitesimal strain in a small-strain context.</li>
+<li>Non-zero prescribed-displacement work is not silently included in proportional force work.</li>
+</ul>
+<h4 id="applicability">Applicability</h4>
+<ul>
+<li>Linear small-strain solid mechanics, field visualization, reaction checks, and proportional load energy verification.</li>
+</ul>
+<h4 id="limitations">Limitations</h4>
+<ul>
+<li>Nodal smoothing and superconvergent stress recovery are not implemented.</li>
+<li>Affine MPC, weak, and contact reactions need dedicated dual definitions.</li>
+<li>Thermoelastic output requires temperature-aware field construction in a later extension.</li>
+</ul>
+<h3 id="minimal-example">Minimal example</h3>
+<pre><code>S, E, mises, sener = results.small_strain_cell_fields(U, material, study=study); RF = results.reaction_resultant(step.problem)</code></pre>
+<h3 id="verification">Verification</h3>
+<p><strong>Tests</strong></p>
+<ul>
+<li><code>tests/test_results.py</code></li>
+<li><code>tests/test_p1_platform.py</code></li>
+</ul>
+<p><strong>Benchmarks</strong></p>
+<ul>
+<li><code>agentfem.benchmark.linear_static_cantilever</code></li>
+</ul>
+<p><strong>Validation rules</strong></p>
+<ul>
+<li>Reject unknown field variables and negative projection degrees.</li>
+<li>Compare affine displacement projection with its analytical constant strain.</li>
+<li>Check reaction equilibrium and proportional static energy closure.</li>
+</ul>
+<h3 id="references">References</h3>
+<ul>
+<li>DOLFINx finite-element functions and variational assembly: <code>https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.html</code></li>
+<li>Abaqus field and history output requests: <code>https://docs.software.vt.edu/abaqusv2024/English/SIMACAEOUTRefMap/simaout-c-output.htm</code></li>
 </ul>
 <h2 id="sequential-thermoelastic-analysis">Sequential thermoelastic analysis</h2>
 <p><strong>Stable ID:</strong> <code>agentfem.workflow.thermoelastic_analysis</code>&lt;br&gt; <strong>Kind:</strong> <code>workflow</code>&lt;br&gt; <strong>Status:</strong> <code>supported</code>&lt;br&gt; <strong>Source card:</strong> <code>knowledge/cards/thermoelastic_analysis.json</code></p>

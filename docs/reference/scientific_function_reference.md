@@ -14,9 +14,11 @@ the compact machine-readable `knowledge/catalog.json`.
 | [`agentfem.material.j2_global_plasticity`](#agentfem-material-j2_global_plasticity) | Global small-strain J2 plasticity | material | supported |
 | [`agentfem.operator.system_contracts`](#agentfem-operator-system_contracts) | Finite-element operator and system contracts | operator | supported |
 | [`agentfem.workflow.campaign_learning_pipeline`](#agentfem-workflow-campaign_learning_pipeline) | Simulation campaign to guarded learning workflow | workflow | supported |
+| [`agentfem.workflow.observation_grid_learning`](#agentfem-workflow-observation_grid_learning) | Mesh-independent structured observation grids | workflow | supported |
 | [`agentfem.workflow.result_field_sampling`](#agentfem-workflow-result_field_sampling) | MPI-safe point and path field sampling | workflow | supported |
 | [`agentfem.workflow.scientific_verification`](#agentfem-workflow-scientific_verification) | Scientific trust and verification workflow | workflow | supported |
 | [`agentfem.workflow.solution_procedures`](#agentfem-workflow-solution_procedures) | Solution procedure vocabulary | analysis_step | supported |
+| [`agentfem.workflow.standard_result_projection`](#agentfem-workflow-standard_result_projection) | Projected small-strain result fields and strong-constraint resultants | workflow | supported |
 | [`agentfem.workflow.thermoelastic_analysis`](#agentfem-workflow-thermoelastic_analysis) | Sequential thermoelastic analysis | workflow | supported |
 
 ## Benchmark index
@@ -481,6 +483,107 @@ dataset = report.require_dataset(quality='engineering'); training = surrogates.t
 
 - AgentFEM results and campaigns contract: `docs/results_and_campaigns.md`
 
+## Mesh-independent structured observation grids
+
+**Stable ID:** `agentfem.workflow.observation_grid_learning`<br>
+**Kind:** `workflow`<br>
+**Status:** `supported`<br>
+**Source card:** `knowledge/cards/observation_grid_learning.json`
+
+Samples serial or distributed FEM fields on stable Cartesian coordinates and exports explicit axes, array layout, units, components, and optional geometry masks for external neural-operator and digital-twin workflows.
+
+### Public API
+
+- `agentfem.surrogates.ObservationGrid`
+- `agentfem.surrogates.regular_grid`
+- `agentfem.datasets.fem_observation_sample`
+- `agentfem.surrogates.FieldEncoding`
+- `agentfem.surrogates.NeuralOperatorSpec`
+
+### Scientific contract
+
+A fixed physical observation operator separates the mesh used to solve each FEM case from the tensor coordinates consumed by a learned operator or compared with sensors.
+
+**observation operator**
+
+$$
+y_i = H_i[u_h] = u_h(x_i)
+$$
+
+The same ordered physical coordinates are evaluated for every simulation and MPI partition.
+
+**operator-learning map**
+
+$$
+G_theta: a(x) -> u(x)
+$$
+
+Input and output fields require explicit discretization, coordinate, component, and boundary encodings.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| observation grid | one to three strictly increasing Cartesian axes | physical coordinate units | Defines shape, order, coordinate system, and stable point identities. |
+| finite-element field | scalar, vector, or tensor DOLFINx Function | field dependent | May be distributed; ownership is resolved collectively. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| FEMFieldSample | coordinates, structured values, scientific FieldEncoding, metadata, and optional mask | declared field and coordinate units | Portable NPZ or optional PyTorch tensors without prescribing a network architecture. |
+
+#### Assumptions
+
+- Every case uses the same declared observation grid when samples are combined.
+- Coordinates and physical units are consistent across the campaign.
+- Outside-geometry values use an explicit mask rather than being mistaken for physical zeros.
+
+#### Conventions
+
+- Stored values use grid axes followed by field-component axes.
+- C array order is the default and is recorded.
+- A true mask entry denotes a point inside the finite-element mesh.
+
+#### Applicability
+
+- FNO-style structured-grid datasets, sensor-aligned digital-twin data, field comparison, and mesh-family campaigns.
+
+#### Limitations
+
+- Graph and reduced-basis encodings are not yet executable.
+- No production neural-operator trainer is bundled.
+- Online sensor ingestion, assimilation, and uncertainty updating remain external future services.
+
+### Minimal example
+
+```python
+grid = surrogates.regular_grid(bounds=((0,L),(0,H)), shape=(128,64)); sample = datasets.fem_observation_sample(U, grid, unit='m', outside='mask')
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_datasets.py`
+- `tests/test_parallel_results.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.campaign_surrogate_pipeline`
+
+**Validation rules**
+
+- Reject non-monotone axes, inconsistent bounds/shapes, and unknown outside policies.
+- Compare analytical affine fields on serial and two-rank meshes.
+- Preserve the same value bytes on every MPI rank.
+
+### References
+
+- NeuralOperator 2.0 API reference: `https://neuraloperator.github.io/dev/modules/api.html`
+- Fourier Neural Operator for Parametric Partial Differential Equations: `https://openreview.net/forum?id=c8P9NQVtmnO`
+- NIST human-centered framework to update digital twins: `https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=936651`
+
 ## MPI-safe point and path field sampling
 
 **Stable ID:** `agentfem.workflow.result_field_sampling`<br>
@@ -551,7 +654,7 @@ Straight-path samples use physical distance as the standard result-history absci
 
 - Straight paths are built in; arbitrary curves should supply explicit coordinates to sample_points.
 - Interface traces of discontinuous fields require an explicit one-sided sampling location.
-- Reusable mesh-independent observation-grid and projection contracts remain future work.
+- Curved paths and one-sided discontinuous traces require explicit coordinates beyond the straight-path helper.
 
 ### Minimal example
 
@@ -701,6 +804,7 @@ Separates physical analysis intent from Standard/Explicit selection, equation or
 - `agentfem.problems.LinearSystemProblem.reaction_field`
 - `agentfem.diagnostics.SolveEventRecorder`
 - `agentfem.diagnostics.mechanical_energy`
+- `agentfem.checkpointing.every`
 - `agentfem.models.Model.step`
 
 ### Scientific contract
@@ -738,6 +842,7 @@ Algorithmic parameters control stability, accuracy, and high-frequency dissipati
 | advanced state | field state and convergence evidence | problem dependent | Accepted displacement, velocity, acceleration, temperature, or material state. |
 | reaction and mechanical energy diagnostics | nodal residual field and scalar energy record | force and energy | Strong-constraint reactions and visible M/K quadratic energies for supported systems. |
 | execution trace | ordered JSON-safe SolveEvent records | problem dependent | One source for progress, status files, result histories, failures, and agent monitoring. |
+| scheduled restart state | integrity-checked checkpoint manifest and rank shards | time | Written after accepted increments at one shared cadence across explicit, implicit-dynamics, and heat routes. |
 
 #### Assumptions
 
@@ -751,6 +856,7 @@ Algorithmic parameters control stability, accuracy, and high-frequency dissipati
 - Explicit means no global linear solve at each time increment.
 - Step, increment, iteration, attempt, and output frame remain distinct.
 - Display cadence never removes an accepted or failed event from the execution trace.
+- Automatic checkpoints are written only after state, history, and the accepted-increment event are committed.
 
 #### Applicability
 
@@ -760,7 +866,7 @@ Algorithmic parameters control stability, accuracy, and high-frequency dissipati
 
 - Nonlinear implicit structural dynamics is not implemented.
 - Moving-support kinematics for implicit dynamics are not implemented.
-- Explicit and implicit transient steps share execution/result evidence but not yet the complete field/energy/checkpoint OutputPlan.
+- Checkpoint retention pruning and cross-partition MPI restart identities are not implemented.
 
 ### Minimal example
 
@@ -773,6 +879,8 @@ Create studies.implicit_dynamics(..., method='generalized_alpha') and call model
 **Tests**
 
 - `tests/test_p1_platform.py`
+- `tests/test_transient_restart.py`
+- `tests/test_parallel_transient.py`
 
 **Benchmarks**
 
@@ -786,6 +894,114 @@ Create studies.implicit_dynamics(..., method='generalized_alpha') and call model
 ### References
 
 - Chung and Hulbert generalized-alpha method: `https://deepblue.lib.umich.edu/bitstream/handle/2027.42/50422/1640100803_ftp.pdf?isAllowed=y&sequence=1`
+
+## Projected small-strain result fields and strong-constraint resultants
+
+**Stable ID:** `agentfem.workflow.standard_result_projection`<br>
+**Kind:** `workflow`<br>
+**Status:** `supported`<br>
+**Source card:** `knowledge/cards/standard_result_projection.json`
+
+Produces cell-average S, E, MISES, and SENER fields by global L2 projection and extracts MPI-global resultants for converged strong-constraint residuals.
+
+### Public API
+
+- `agentfem.results.project`
+- `agentfem.results.small_strain_cell_fields`
+- `agentfem.results.reaction_resultant`
+- `agentfem.diagnostics.linear_static_energy`
+
+### Scientific contract
+
+A projected result field is defined by an L2 variational problem, while a strong-constraint reaction is the unconstrained assembled residual retained on prescribed degrees of freedom.
+
+**L2 projection**
+
+$$
+integral(Omega, q_h : v_h dx) = integral(Omega, q : v_h dx) for all v_h
+$$
+
+DG0 projection returns the cell average of a scalar, vector, or tensor expression.
+
+**strong-constraint reaction**
+
+$$
+R = K u - F
+$$
+
+At converged free degrees of freedom R is zero to solver tolerance; prescribed degrees retain reaction entries.
+
+**proportional linear work**
+
+$$
+W_ext = 0.5 u^T F, U = 0.5 u^T K u
+$$
+
+The equality applies to a load ramped proportionally from zero when non-zero prescribed-displacement work is absent.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| displacement and material | finite-element displacement field, elastic properties, and Study | consistent mechanics system | Defines infinitesimal strain, Cauchy stress, equivalent stress, and strain-energy density. |
+| converged problem | linear or nonlinear problem exposing reaction_field | force or conjugate residual | Supplies the assembled residual for the strong-constraint resultant. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| standard fields | DG projected Functions named S, E, MISES, and SENER | stress, strain, and energy density | Fields can be written with the ordinary AgentFEM XDMF result writer. |
+| resultant and energy closure | MPI-global scalar/vector and LinearStaticEnergy | force and energy | Compact engineering histories or verification quantities. |
+
+#### Assumptions
+
+- Small-strain standard fields use the selected linear-elastic constitutive relation.
+- Plane-strain isotropic Mises stress includes the constitutively implied out-of-plane stress.
+- Reaction resultant semantics are limited to strong Dirichlet constraints.
+
+#### Conventions
+
+- DG0 is the default output space and represents a cell average.
+- E means infinitesimal strain in a small-strain context.
+- Non-zero prescribed-displacement work is not silently included in proportional force work.
+
+#### Applicability
+
+- Linear small-strain solid mechanics, field visualization, reaction checks, and proportional load energy verification.
+
+#### Limitations
+
+- Nodal smoothing and superconvergent stress recovery are not implemented.
+- Affine MPC, weak, and contact reactions need dedicated dual definitions.
+- Thermoelastic output requires temperature-aware field construction in a later extension.
+
+### Minimal example
+
+```python
+S, E, mises, sener = results.small_strain_cell_fields(U, material, study=study); RF = results.reaction_resultant(step.problem)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_results.py`
+- `tests/test_p1_platform.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.linear_static_cantilever`
+
+**Validation rules**
+
+- Reject unknown field variables and negative projection degrees.
+- Compare affine displacement projection with its analytical constant strain.
+- Check reaction equilibrium and proportional static energy closure.
+
+### References
+
+- DOLFINx finite-element functions and variational assembly: `https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.html`
+- Abaqus field and history output requests: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEOUTRefMap/simaout-c-output.htm`
 
 ## Sequential thermoelastic analysis
 

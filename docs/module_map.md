@@ -28,15 +28,16 @@ This map links FEM concepts to the current Python modules.
 | Engineering-level K/M/C/F operators | `operators/` |
 | Central difference, Newmark, generalized-alpha, and runtime cadence | `time/` |
 | Analysis steps, system problems, and state containers | `problems.py` |
-| Shared transient checkpoint envelope, integrity, and partition identity | `checkpointing.py` |
+| Shared transient checkpoint envelope, integrity, accepted-increment cadence, and partition identity | `checkpointing.py` |
 | Automatic/fixed incrementation and cutback policy | `steps.py` |
 | Linear/nonlinear solvers and convergence evidence | `solvers.py` |
 | Scientific results, MPI-safe point/path/integral QoIs, histories, artifacts, and dataset bridge | `results/` |
 | Finite-strain fields and periodic-cell homogenization | `results/finite_strain.py` |
+| Global L2 projection and standard small-strain `S`/`E`/`MISES`/`SENER` fields | `results/projection.py` |
 | Standard result variables and context-aware aliases | `results/field_catalog.py` |
 | Declarative field requests and unified XDMF/HDF5 time-series writer | `results/output.py` |
 | Combined field/history/diagnostic/presentation output contracts | `results/plan.py` |
-| Diagnostics | `diagnostics.py` |
+| Reactions, work/energy, thermal balance, progress, and distributed diagnostics | `diagnostics.py`, `results/quantities.py` |
 | Output writers and scalar logs | `io.py` |
 | Element and integration policies | `elements/` |
 | Test-linked verification obligations | `benchmarks/` |
@@ -46,8 +47,8 @@ This map links FEM concepts to the current Python modules.
 | Scientific trust, claims, and convergence evidence | `verification.py` |
 | Backend descriptors, registry, and lowering adapters | `backends/` |
 | Typed/JSON parameters, sampling, campaign plans, resumable case execution | `campaigns/` |
-| Scientific dataset schemas, arrays, provenance, and splits | `datasets/` |
-| Surrogate/ROM models, validation, applicability, neural-operator/PINN contracts | `surrogates/` |
+| Scientific dataset schemas, arrays, provenance, splits, and FEM-field export | `datasets/` |
+| Surrogate/ROM models, validation, applicability, observation grids, neural-operator/PINN contracts | `surrogates/` |
 
 Application geometry, case inputs, and problem-specific sources should stay in
 application packages or examples until they become reusable platform concepts.

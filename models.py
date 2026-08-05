@@ -1112,6 +1112,7 @@ class Model:
         print_every: int | None = None,
         progress=True,
         status_file=None,
+        checkpoint=None,
         name: str = "transient_heat",
     ):
         """Create an implicit-Euler transient heat-transfer step."""
@@ -1222,6 +1223,7 @@ class Model:
             print_every=print_every,
             progress=progress,
             status_file=status_file,
+            checkpoint_policy=checkpoint,
             name=name,
         )
         return self.add_step(step)
@@ -1578,6 +1580,7 @@ class Model:
         print_every: int | None = None,
         progress=True,
         status_file=None,
+        checkpoint=None,
         name: str = "explicit_dynamics",
     ):
         """Create and register a second-order explicit dynamics step."""
@@ -1627,6 +1630,7 @@ class Model:
             print_every=print_every,
             progress=progress,
             status_file=status_file,
+            checkpoint_policy=checkpoint,
             name=name,
         )
         return self.add_step(step)
@@ -1649,6 +1653,7 @@ class Model:
         update_load=None,
         progress=True,
         status_file=None,
+        checkpoint=None,
         save_every: int | None = None,
         print_every: int | None = None,
         name: str = "implicit_dynamics",
@@ -1693,6 +1698,7 @@ class Model:
             update_load=self._time_update_callback(update_load),
             progress=progress,
             status_file=status_file,
+            checkpoint_policy=checkpoint,
             save_every=save_every,
             print_every=print_every,
             name=name,

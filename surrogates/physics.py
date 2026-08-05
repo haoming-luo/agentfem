@@ -9,6 +9,108 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Mapping
 
+import numpy as np
+
+
+@dataclass(frozen=True)
+class ObservationGrid:
+    """Mesh-independent Cartesian coordinates for field learning and sensing."""
+
+    axes: tuple[np.ndarray, ...]
+    axis_names: tuple[str, ...]
+    coordinate_system: str = "cartesian"
+    order: str = "C"
+
+    def __post_init__(self) -> None:
+        axes = tuple(np.asarray(axis, dtype=float).reshape(-1) for axis in self.axes)
+        names = tuple(str(name).strip() for name in self.axis_names)
+        if not 1 <= len(axes) <= 3:
+            raise ValueError("ObservationGrid requires one, two, or three axes.")
+        if len(names) != len(axes) or any(not name for name in names):
+            raise ValueError("ObservationGrid requires one non-empty name per axis.")
+        if len(set(names)) != len(names):
+            raise ValueError("ObservationGrid axis names must be unique.")
+        for name, axis in zip(names, axes):
+            if axis.size < 2:
+                raise ValueError(f"ObservationGrid axis {name!r} needs at least two points.")
+            if not np.all(np.isfinite(axis)) or not np.all(np.diff(axis) > 0.0):
+                raise ValueError(
+                    f"ObservationGrid axis {name!r} must be finite and strictly increasing."
+                )
+        selected_order = str(self.order).upper()
+        if selected_order not in {"C", "F"}:
+            raise ValueError("ObservationGrid order must be 'C' or 'F'.")
+        object.__setattr__(self, "axes", axes)
+        object.__setattr__(self, "axis_names", names)
+        object.__setattr__(self, "coordinate_system", str(self.coordinate_system))
+        object.__setattr__(self, "order", selected_order)
+
+    @classmethod
+    def from_axes(cls, **axes):
+        """Create a grid from named coordinate arrays, for example ``x=..., y=...``."""
+
+        return cls(tuple(axes.values()), tuple(axes))
+
+    @property
+    def shape(self) -> tuple[int, ...]:
+        return tuple(int(axis.size) for axis in self.axes)
+
+    @property
+    def point_count(self) -> int:
+        return int(np.prod(self.shape, dtype=int))
+
+    def points(self) -> np.ndarray:
+        """Return flattened physical coordinates in the declared array order."""
+
+        coordinates = np.meshgrid(*self.axes, indexing="ij")
+        return np.column_stack(
+            [component.reshape(-1, order=self.order) for component in coordinates]
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "observation_grid",
+            "coordinate_system": self.coordinate_system,
+            "axis_names": self.axis_names,
+            "axes": {
+                name: axis.tolist()
+                for name, axis in zip(self.axis_names, self.axes)
+            },
+            "shape": self.shape,
+            "order": self.order,
+            "point_count": self.point_count,
+        }
+
+
+def regular_grid(
+    *,
+    bounds,
+    shape,
+    axis_names=None,
+    coordinate_system: str = "cartesian",
+    order: str = "C",
+) -> ObservationGrid:
+    """Create an evenly spaced observation grid from physical bounds."""
+
+    selected_bounds = tuple(tuple(float(value) for value in pair) for pair in bounds)
+    selected_shape = tuple(int(value) for value in shape)
+    if len(selected_bounds) != len(selected_shape):
+        raise ValueError("regular_grid bounds and shape must have the same dimension.")
+    names = tuple(axis_names or ("x", "y", "z")[: len(selected_shape)])
+    axes = []
+    for (lower, upper), count in zip(selected_bounds, selected_shape):
+        if not np.isfinite(lower) or not np.isfinite(upper) or upper <= lower:
+            raise ValueError("regular_grid bounds must be finite and increasing.")
+        if count < 2:
+            raise ValueError("regular_grid shape entries must be at least two.")
+        axes.append(np.linspace(lower, upper, count))
+    return ObservationGrid(
+        tuple(axes),
+        names,
+        coordinate_system=coordinate_system,
+        order=order,
+    )
+
 
 @dataclass(frozen=True)
 class FieldEncoding:
@@ -256,7 +358,9 @@ class PINNSpec:
 __all__ = [
     "FieldEncoding",
     "NeuralOperatorSpec",
+    "ObservationGrid",
     "PINNSpec",
     "PhysicsCondition",
     "PhysicsResidual",
+    "regular_grid",
 ]

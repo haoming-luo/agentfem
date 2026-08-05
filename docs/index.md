@@ -15,6 +15,8 @@ Start with:
   public API, state contract, verification ladder, and explicit non-goals;
 - [results and campaigns](results_and_campaigns.md) for simulation-to-data
   workflows;
+- the [digital-twin direction](digital_twin_direction.md) for observation,
+  state updating, learned prediction, FEM fallback, and system boundaries;
 - [scientific operator contracts](operator_contracts.md) for K/M/C/F,
   residual/tangent structure, composition, and validation;
 - [stable steps and compact output](step_and_output_architecture.md) for the

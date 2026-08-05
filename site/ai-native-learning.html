@@ -47,6 +47,7 @@
 <a class="" href="release-audit-2026-08-05.html">CTO Product Audit: 5 August 2026</a>
 <a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
 <a class="active" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="digital-twin-direction.html">Digital-twin Direction</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
 <a class="" href="skill.html">AgentFEM Skill</a></nav>
     </aside>
@@ -223,7 +224,7 @@ geometry encoding + coefficients -&gt; PDE solution field</code></pre>
 <li>boundary and conservation/balance errors;</li>
 <li>out-of-distribution behavior.</li>
 </ul>
-<p><code>FieldEncoding</code> and <code>NeuralOperatorSpec</code> implement this contract-only layer. They deliberately reject an elementary FNO specification when its fields are not represented on structured grids. This avoids attaching a fashionable architecture name to incompatible data.</p>
+<p><code>FieldEncoding</code> and <code>NeuralOperatorSpec</code> define the learning contract. <code>ObservationGrid</code> and <code>datasets.fem_observation_sample(...)</code> now make the structured-grid branch executable in serial and MPI, including coordinates, layout, units, and an optional geometry mask. An elementary FNO specification is rejected when its fields are not represented on structured grids. This avoids attaching a fashionable architecture name to incompatible data.</p>
 <p>Production neural-operator trainers remain external. Planned adapters should consume the same dataset and write a model artifact with the same validation and applicability evidence.</p>
 <h2 id="pinns-and-physics-informed-learning">PINNs and Physics-Informed Learning</h2>
 <p>PINNs do not serve the same role as ordinary surrogates.</p>
@@ -244,7 +245,7 @@ geometry encoding + coefficients -&gt; PDE solution field</code></pre>
 <ul>
 <li>asynchronous scheduling;</li>
 <li>Slurm/Kubernetes/cloud execution;</li>
-<li>automatic mesh-to-tensor projection;</li>
+<li>automatic graph construction or basis encoding for arbitrary meshes;</li>
 <li>a production neural-operator trainer;</li>
 <li>a general UFL-to-PINN compiler;</li>
 <li>calibrated epistemic uncertainty;</li>
@@ -257,11 +258,11 @@ geometry encoding + coefficients -&gt; PDE solution field</code></pre>
 <ol>
 <li>Add a formal execution-service protocol so local shards, Slurm jobs, and<br>hosted runners write the same case record.</li>
 <li>Link each dataset sample to a content-addressed AF-IR document and run<br>record rather than embedding large records.</li>
-<li>Build on the implemented MPI-safe point/path probes and integral QoIs with<br>reactions, energy curves, reusable observation grids, and mesh-independent<br>field encodings.</li>
+<li>Build on implemented probes, integrals, strong-constraint resultants,<br>projected fields, and structured observation grids with affine/weak<br>reactions, broader energy curves, graph encodings, and reduced bases.</li>
 <li>Add dataset merge/deduplication and explicit training/validation/test<br>partitions.</li>
 <li>Add Gaussian-process and uncertainty-calibrated ensemble adapters.</li>
 <li>Add active-learning proposal records with human approval policy.</li>
-<li>Add field projection/encoding services before executable neural-operator<br>adapters.</li>
+<li>Add graph/basis field encodings and reviewed NeuralOperator data-processor<br>adapters without taking ownership of external model architectures.</li>
 <li>Add selected, reviewed physics-residual libraries on top of the executable<br>PyTorch binding adapter.</li>
 <li>Expose campaign planning, status, diagnostics, comparison, and artifact<br>retrieval through tool-service/MCP operations.</li>
 </ol>

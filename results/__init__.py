@@ -18,11 +18,13 @@ from .quantities import (
     l2_norm,
     probe,
     quadrature_extrema,
+    reaction_resultant,
     region_average,
     region_integral,
     sample_path,
     sample_points,
 )
+from .projection import project, small_strain_cell_fields
 from .execution import add_execution_trace, execution_records
 from .finite_strain import (
     HomogenizedFrame,
@@ -104,10 +106,13 @@ __all__ = [
     "l2_norm",
     "probe",
     "quadrature_extrema",
+    "reaction_resultant",
     "region_average",
     "region_integral",
     "sample_path",
     "sample_points",
+    "project",
+    "small_strain_cell_fields",
     "preselected_fields",
     "output_plan",
     "periodic_cell_history",

@@ -1,0 +1,107 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.observation_grid_learning",
+  "title": "Mesh-independent structured observation grids",
+  "kind": "workflow",
+  "status": "supported",
+  "summary": "Samples serial or distributed FEM fields on stable Cartesian coordinates and exports explicit axes, array layout, units, components, and optional geometry masks for external neural-operator and digital-twin workflows.",
+  "public_api": [
+    "agentfem.surrogates.ObservationGrid",
+    "agentfem.surrogates.regular_grid",
+    "agentfem.datasets.fem_observation_sample",
+    "agentfem.surrogates.FieldEncoding",
+    "agentfem.surrogates.NeuralOperatorSpec"
+  ],
+  "implementation": [
+    "surrogates/physics.py",
+    "datasets/torch.py",
+    "results/quantities.py"
+  ],
+  "science": {
+    "statement": "A fixed physical observation operator separates the mesh used to solve each FEM case from the tensor coordinates consumed by a learned operator or compared with sensors.",
+    "equations": [
+      {
+        "label": "observation operator",
+        "expression": "y_i = H_i[u_h] = u_h(x_i)",
+        "description": "The same ordered physical coordinates are evaluated for every simulation and MPI partition."
+      },
+      {
+        "label": "operator-learning map",
+        "expression": "G_theta: a(x) -> u(x)",
+        "description": "Input and output fields require explicit discretization, coordinate, component, and boundary encodings."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "observation grid",
+        "type": "one to three strictly increasing Cartesian axes",
+        "unit_role": "physical coordinate units",
+        "description": "Defines shape, order, coordinate system, and stable point identities."
+      },
+      {
+        "name": "finite-element field",
+        "type": "scalar, vector, or tensor DOLFINx Function",
+        "unit_role": "field dependent",
+        "description": "May be distributed; ownership is resolved collectively."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "FEMFieldSample",
+        "type": "coordinates, structured values, scientific FieldEncoding, metadata, and optional mask",
+        "unit_role": "declared field and coordinate units",
+        "description": "Portable NPZ or optional PyTorch tensors without prescribing a network architecture."
+      }
+    ],
+    "assumptions": [
+      "Every case uses the same declared observation grid when samples are combined.",
+      "Coordinates and physical units are consistent across the campaign.",
+      "Outside-geometry values use an explicit mask rather than being mistaken for physical zeros."
+    ],
+    "conventions": [
+      "Stored values use grid axes followed by field-component axes.",
+      "C array order is the default and is recorded.",
+      "A true mask entry denotes a point inside the finite-element mesh."
+    ],
+    "applicability": [
+      "FNO-style structured-grid datasets, sensor-aligned digital-twin data, field comparison, and mesh-family campaigns."
+    ],
+    "limitations": [
+      "Graph and reduced-basis encodings are not yet executable.",
+      "No production neural-operator trainer is bundled.",
+      "Online sensor ingestion, assimilation, and uncertainty updating remain external future services."
+    ]
+  },
+  "usage": {
+    "minimal_example": "grid = surrogates.regular_grid(bounds=((0,L),(0,H)), shape=(128,64)); sample = datasets.fem_observation_sample(U, grid, unit='m', outside='mask')",
+    "examples": ["examples/static_elasticity_surrogate_campaign.py"]
+  },
+  "verification": {
+    "tests": ["tests/test_datasets.py", "tests/test_parallel_results.py"],
+    "benchmarks": ["agentfem.benchmark.campaign_surrogate_pipeline"],
+    "validation_rules": [
+      "Reject non-monotone axes, inconsistent bounds/shapes, and unknown outside policies.",
+      "Compare analytical affine fields on serial and two-rank meshes.",
+      "Preserve the same value bytes on every MPI rank."
+    ]
+  },
+  "references": [
+    {
+      "title": "NeuralOperator 2.0 API reference",
+      "locator": "https://neuraloperator.github.io/dev/modules/api.html"
+    },
+    {
+      "title": "Fourier Neural Operator for Parametric Partial Differential Equations",
+      "locator": "https://openreview.net/forum?id=c8P9NQVtmnO"
+    },
+    {
+      "title": "NIST human-centered framework to update digital twins",
+      "locator": "https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=936651"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.result_field_sampling",
+    "agentfem.workflow.campaign_learning_pipeline"
+  ]
+}

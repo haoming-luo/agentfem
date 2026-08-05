@@ -1,0 +1,113 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.standard_result_projection",
+  "title": "Projected small-strain result fields and strong-constraint resultants",
+  "kind": "workflow",
+  "status": "supported",
+  "summary": "Produces cell-average S, E, MISES, and SENER fields by global L2 projection and extracts MPI-global resultants for converged strong-constraint residuals.",
+  "public_api": [
+    "agentfem.results.project",
+    "agentfem.results.small_strain_cell_fields",
+    "agentfem.results.reaction_resultant",
+    "agentfem.diagnostics.linear_static_energy"
+  ],
+  "implementation": [
+    "results/projection.py",
+    "results/quantities.py",
+    "diagnostics.py"
+  ],
+  "science": {
+    "statement": "A projected result field is defined by an L2 variational problem, while a strong-constraint reaction is the unconstrained assembled residual retained on prescribed degrees of freedom.",
+    "equations": [
+      {
+        "label": "L2 projection",
+        "expression": "integral(Omega, q_h : v_h dx) = integral(Omega, q : v_h dx) for all v_h",
+        "description": "DG0 projection returns the cell average of a scalar, vector, or tensor expression."
+      },
+      {
+        "label": "strong-constraint reaction",
+        "expression": "R = K u - F",
+        "description": "At converged free degrees of freedom R is zero to solver tolerance; prescribed degrees retain reaction entries."
+      },
+      {
+        "label": "proportional linear work",
+        "expression": "W_ext = 0.5 u^T F, U = 0.5 u^T K u",
+        "description": "The equality applies to a load ramped proportionally from zero when non-zero prescribed-displacement work is absent."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "displacement and material",
+        "type": "finite-element displacement field, elastic properties, and Study",
+        "unit_role": "consistent mechanics system",
+        "description": "Defines infinitesimal strain, Cauchy stress, equivalent stress, and strain-energy density."
+      },
+      {
+        "name": "converged problem",
+        "type": "linear or nonlinear problem exposing reaction_field",
+        "unit_role": "force or conjugate residual",
+        "description": "Supplies the assembled residual for the strong-constraint resultant."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "standard fields",
+        "type": "DG projected Functions named S, E, MISES, and SENER",
+        "unit_role": "stress, strain, and energy density",
+        "description": "Fields can be written with the ordinary AgentFEM XDMF result writer."
+      },
+      {
+        "name": "resultant and energy closure",
+        "type": "MPI-global scalar/vector and LinearStaticEnergy",
+        "unit_role": "force and energy",
+        "description": "Compact engineering histories or verification quantities."
+      }
+    ],
+    "assumptions": [
+      "Small-strain standard fields use the selected linear-elastic constitutive relation.",
+      "Plane-strain isotropic Mises stress includes the constitutively implied out-of-plane stress.",
+      "Reaction resultant semantics are limited to strong Dirichlet constraints."
+    ],
+    "conventions": [
+      "DG0 is the default output space and represents a cell average.",
+      "E means infinitesimal strain in a small-strain context.",
+      "Non-zero prescribed-displacement work is not silently included in proportional force work."
+    ],
+    "applicability": [
+      "Linear small-strain solid mechanics, field visualization, reaction checks, and proportional load energy verification."
+    ],
+    "limitations": [
+      "Nodal smoothing and superconvergent stress recovery are not implemented.",
+      "Affine MPC, weak, and contact reactions need dedicated dual definitions.",
+      "Thermoelastic output requires temperature-aware field construction in a later extension."
+    ]
+  },
+  "usage": {
+    "minimal_example": "S, E, mises, sener = results.small_strain_cell_fields(U, material, study=study); RF = results.reaction_resultant(step.problem)",
+    "examples": ["examples/static_elasticity_2d.py"]
+  },
+  "verification": {
+    "tests": ["tests/test_results.py", "tests/test_p1_platform.py"],
+    "benchmarks": ["agentfem.benchmark.linear_static_cantilever"],
+    "validation_rules": [
+      "Reject unknown field variables and negative projection degrees.",
+      "Compare affine displacement projection with its analytical constant strain.",
+      "Check reaction equilibrium and proportional static energy closure."
+    ]
+  },
+  "references": [
+    {
+      "title": "DOLFINx finite-element functions and variational assembly",
+      "locator": "https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.html"
+    },
+    {
+      "title": "Abaqus field and history output requests",
+      "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAEOUTRefMap/simaout-c-output.htm"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.result_field_sampling",
+    "agentfem.operator.system_contracts"
+  ]
+}

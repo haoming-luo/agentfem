@@ -47,6 +47,7 @@
 <a class="" href="release-audit-2026-08-05.html">CTO Product Audit: 5 August 2026</a>
 <a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
 <a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="digital-twin-direction.html">Digital-twin Direction</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
 <a class="active" href="skill.html">AgentFEM Skill</a></nav>
     </aside>
@@ -94,6 +95,9 @@
 <li>For heat, Standard dynamics, and Explicit dynamics, pause with<br><code>run(until_step=...)</code>, save with <code>save_checkpoint(...)</code>, rebuild the same<br>step, then <code>load_checkpoint(...)</code>. Resume through<br><code>solve_result(output=...)</code>; inspect <code>metadata[&quot;transient&quot;][&quot;output_scope&quot;]</code><br>before presenting the XDMF/HDF5 series as complete. Current transient<br>checkpoints require the same MPI size and mesh partition.</li>
 <li>Use <code>results.region_integral</code>, <code>results.region_average</code>,<br><code>results.boundary_resultant</code>, and <code>results.field_extrema</code> for common<br>MPI-safe quantities instead of rank-local array reductions.</li>
 <li>Use <code>results.probe</code>, <code>results.sample_points</code>, and <code>results.sample_path</code> for<br>physical-coordinate field sampling. Every MPI rank must request identical<br>coordinates. Put discontinuous-field probes inside the intended cell rather<br>than relying on an interface-side convention.</li>
+<li>Use <code>results.small_strain_cell_fields</code> for projected standard small-strain<br>output. Use <code>results.reaction_resultant</code> only for strong Dirichlet reactions;<br>do not reuse that definition for affine MPC, weak, or contact constraints.</li>
+<li>For FNO-style data, use one reviewed <code>surrogates.ObservationGrid</code> across the<br>campaign and <code>datasets.fem_observation_sample(..., outside=&quot;mask&quot;)</code>. Keep the<br>exported axes, order, components, units, and mask with every sample.</li>
+<li>Use <code>checkpointing.every(...)</code> through the public Step for automatic<br>transient checkpoints. Cadence follows accepted increments, not output or<br>progress frames.</li>
 <li>In an installed project, run <code>agentfem doctor --json</code> and<br><code>agentfem check --json</code> before execution. Use <code>project.current_run()</code> and<br>publish the result so terminal, GUI, and agent consumers receive the same<br>run identity, artifacts, and manifest.</li>
 <li>Treat <code>agentfem run --json</code> as the machine boundary. Read the versioned<br>execution and result records; do not infer success by matching console text.</li>
 <li>Inspect external meshes before conversion, retain the conversion manifest,<br>and do not call mesh conversion a full Abaqus/ANSYS model import.</li>

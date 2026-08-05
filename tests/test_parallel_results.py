@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 from dolfinx import fem
 from mpi4py import MPI
 import pytest
+import ufl
 
-from agentfem import mesh, results
+from agentfem import constitutive, datasets, fields, mesh, results, studies, surrogates
 
 
 def test_point_and_path_sampling_are_partition_independent():
@@ -66,3 +69,77 @@ def test_point_sampling_rejects_rank_inconsistent_requests():
 
     with pytest.raises(ValueError, match="identical coordinates"):
         results.sample_points(field, point)
+
+
+def test_observation_grid_is_identical_across_mesh_partitions(tmp_path):
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("distributed observation sampling requires at least two MPI ranks")
+
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (6, 6),
+        comm=MPI.COMM_WORLD,
+        cell_type="triangle",
+    )
+    V = fem.functionspace(domain, ("Lagrange", 1))
+    field = fem.Function(V, name="temperature")
+    field.interpolate(lambda x: 300.0 + x[0] + 2.0 * x[1])
+    field.x.scatter_forward()
+    grid = surrogates.regular_grid(
+        bounds=((0.0, 1.0), (0.0, 1.0)),
+        shape=(5, 4),
+    )
+
+    sample = datasets.fem_observation_sample(field, grid, unit="K")
+
+    expected = 300.0 + grid.axes[0][:, None] + 2.0 * grid.axes[1][None, :]
+    np.testing.assert_allclose(sample.values, expected, atol=1.0e-13)
+    assert sample.mask is None
+    digests = MPI.COMM_WORLD.allgather(sample.values.tobytes())
+    assert all(item == digests[0] for item in digests)
+    root = str(tmp_path) if MPI.COMM_WORLD.rank == 0 else None
+    root = MPI.COMM_WORLD.bcast(root, root=0)
+    output = sample.write(Path(root) / "observation.npz")
+    if MPI.COMM_WORLD.rank == 0:
+        assert output.is_file()
+
+
+def test_small_strain_projection_is_distributed_and_partition_safe():
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("distributed projection requires at least two MPI ranks")
+
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.25),
+        (6, 2),
+        comm=MPI.COMM_WORLD,
+        cell_type="triangle",
+    )
+    displacement = fields.displacement(domain).value
+    displacement.interpolate(lambda x: np.vstack((0.01 * x[0], -0.002 * x[1])))
+    material = constitutive.isotropic_elastic(
+        young=200.0e9,
+        poisson=0.3,
+        density=7800.0,
+    )
+    study = studies.linear_static(
+        physics="solid_mechanics",
+        dimension=2,
+        assumption="plane_stress",
+    )
+
+    stress, strain = results.small_strain_cell_fields(
+        displacement,
+        material,
+        study=study,
+        variables=("S", "E"),
+    )
+
+    np.testing.assert_allclose(
+        results.average(strain, measure=ufl.dx(domain=domain)),
+        np.diag([0.01, -0.002]),
+        rtol=1.0e-12,
+        atol=1.0e-14,
+    )
+    assert stress.name == "S"

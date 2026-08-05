@@ -162,6 +162,33 @@ def field_extrema(field, *, magnitude: bool = False) -> dict[str, object]:
     }
 
 
+def reaction_resultant(problem, *, name: str = "RF"):
+    """Return the MPI-global resultant of a strong-constraint reaction field.
+
+    The problem residual is zero on converged free degrees of freedom, so its
+    owned-dof sum gives the resultant associated with strong Dirichlet
+    constraints. Affine MPC, weak, and contact reactions require dedicated
+    definitions and are intentionally outside this helper.
+    """
+
+    if not hasattr(problem, "reaction_field"):
+        raise TypeError("reaction_resultant requires a problem with reaction_field().")
+    reaction = problem.reaction_field(name=name)
+    values = np.asarray(dofs.owned_array(reaction))
+    shape = tuple(getattr(reaction, "ufl_shape", ()))
+    comm = reaction.function_space.mesh.comm
+    if not shape:
+        local = float(np.sum(values))
+        return float(comm.allreduce(local, op=MPI.SUM))
+    components = int(np.prod(shape, dtype=int))
+    if values.size % components:
+        raise ValueError("Reaction dof storage is incompatible with its value shape.")
+    local = np.sum(values.reshape((-1, components)), axis=0)
+    global_values = np.empty_like(local)
+    comm.Allreduce(local, global_values, op=MPI.SUM)
+    return global_values.reshape(shape)
+
+
 def probe(field, *, at, padding: float = 1.0e-10):
     """Return one scalar, vector, or tensor field value at a physical point."""
 

@@ -98,6 +98,15 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   physical-coordinate field sampling. Every MPI rank must request identical
   coordinates. Put discontinuous-field probes inside the intended cell rather
   than relying on an interface-side convention.
+- Use `results.small_strain_cell_fields` for projected standard small-strain
+  output. Use `results.reaction_resultant` only for strong Dirichlet reactions;
+  do not reuse that definition for affine MPC, weak, or contact constraints.
+- For FNO-style data, use one reviewed `surrogates.ObservationGrid` across the
+  campaign and `datasets.fem_observation_sample(..., outside="mask")`. Keep the
+  exported axes, order, components, units, and mask with every sample.
+- Use `checkpointing.every(...)` through the public Step for automatic
+  transient checkpoints. Cadence follows accepted increments, not output or
+  progress frames.
 - In an installed project, run `agentfem doctor --json` and
   `agentfem check --json` before execution. Use `project.current_run()` and
   publish the result so terminal, GUI, and agent consumers receive the same

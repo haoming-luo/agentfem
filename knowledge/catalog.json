@@ -162,6 +162,25 @@
       "title": "Simulation campaign to guarded learning workflow"
     },
     {
+      "id": "agentfem.workflow.observation_grid_learning",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.surrogates.ObservationGrid",
+        "agentfem.surrogates.regular_grid",
+        "agentfem.datasets.fem_observation_sample",
+        "agentfem.surrogates.FieldEncoding",
+        "agentfem.surrogates.NeuralOperatorSpec"
+      ],
+      "related_cards": [
+        "agentfem.workflow.result_field_sampling",
+        "agentfem.workflow.campaign_learning_pipeline"
+      ],
+      "source": "knowledge/cards/observation_grid_learning.json",
+      "status": "supported",
+      "summary": "Samples serial or distributed FEM fields on stable Cartesian coordinates and exports explicit axes, array layout, units, components, and optional geometry masks for external neural-operator and digital-twin workflows.",
+      "title": "Mesh-independent structured observation grids"
+    },
+    {
       "id": "agentfem.workflow.result_field_sampling",
       "kind": "workflow",
       "public_api": [
@@ -172,7 +191,9 @@
       ],
       "related_cards": [
         "agentfem.workflow.scientific_verification",
-        "agentfem.workflow.campaign_learning_pipeline"
+        "agentfem.workflow.campaign_learning_pipeline",
+        "agentfem.workflow.observation_grid_learning",
+        "agentfem.workflow.standard_result_projection"
       ],
       "source": "knowledge/cards/result_field_sampling.json",
       "status": "supported",
@@ -211,6 +232,7 @@
         "agentfem.problems.LinearSystemProblem.reaction_field",
         "agentfem.diagnostics.SolveEventRecorder",
         "agentfem.diagnostics.mechanical_energy",
+        "agentfem.checkpointing.every",
         "agentfem.models.Model.step"
       ],
       "related_cards": [
@@ -221,6 +243,24 @@
       "status": "supported",
       "summary": "Separates physical analysis intent from Standard/Explicit selection, equation order, integration algorithm, state policy, and global-solve requirements.",
       "title": "Solution procedure vocabulary"
+    },
+    {
+      "id": "agentfem.workflow.standard_result_projection",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.results.project",
+        "agentfem.results.small_strain_cell_fields",
+        "agentfem.results.reaction_resultant",
+        "agentfem.diagnostics.linear_static_energy"
+      ],
+      "related_cards": [
+        "agentfem.workflow.result_field_sampling",
+        "agentfem.operator.system_contracts"
+      ],
+      "source": "knowledge/cards/standard_result_projection.json",
+      "status": "supported",
+      "summary": "Produces cell-average S, E, MISES, and SENER fields by global L2 projection and extracts MPI-global resultants for converged strong-constraint residuals.",
+      "title": "Projected small-strain result fields and strong-constraint resultants"
     },
     {
       "id": "agentfem.workflow.thermoelastic_analysis",

@@ -439,6 +439,17 @@ def quadratic_form(operator, field) -> float:
     return bilinear_form(operator, field, field)
 
 
+def dual_product(vector_operator, field) -> float:
+    """Return the global discrete pairing ``field^T vector_operator``."""
+
+    vector = assemble_vector(vector_operator)
+    function = fields.unwrap(field)
+    try:
+        return float(np.real(function.x.petsc_vec.dot(vector)))
+    finally:
+        vector.destroy()
+
+
 def xtmy(left, operator, right) -> float:
     """Cast3M-style alias for ``left^T operator right``."""
 

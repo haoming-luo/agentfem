@@ -299,10 +299,12 @@ networks. It is specifying:
 - boundary and conservation/balance errors;
 - out-of-distribution behavior.
 
-`FieldEncoding` and `NeuralOperatorSpec` implement this contract-only layer.
-They deliberately reject an elementary FNO specification when its fields are
-not represented on structured grids. This avoids attaching a fashionable
-architecture name to incompatible data.
+`FieldEncoding` and `NeuralOperatorSpec` define the learning contract.
+`ObservationGrid` and `datasets.fem_observation_sample(...)` now make the
+structured-grid branch executable in serial and MPI, including coordinates,
+layout, units, and an optional geometry mask. An elementary FNO specification
+is rejected when its fields are not represented on structured grids. This
+avoids attaching a fashionable architecture name to incompatible data.
 
 Production neural-operator trainers remain external. Planned adapters should
 consume the same dataset and write a model artifact with the same validation
@@ -351,7 +353,7 @@ The first phase does not claim:
 
 - asynchronous scheduling;
 - Slurm/Kubernetes/cloud execution;
-- automatic mesh-to-tensor projection;
+- automatic graph construction or basis encoding for arbitrary meshes;
 - a production neural-operator trainer;
 - a general UFL-to-PINN compiler;
 - calibrated epistemic uncertainty;
@@ -367,15 +369,15 @@ These omissions are public boundaries, not hidden placeholders.
    hosted runners write the same case record.
 2. Link each dataset sample to a content-addressed AF-IR document and run
    record rather than embedding large records.
-3. Build on the implemented MPI-safe point/path probes and integral QoIs with
-   reactions, energy curves, reusable observation grids, and mesh-independent
-   field encodings.
+3. Build on implemented probes, integrals, strong-constraint resultants,
+   projected fields, and structured observation grids with affine/weak
+   reactions, broader energy curves, graph encodings, and reduced bases.
 4. Add dataset merge/deduplication and explicit training/validation/test
    partitions.
 5. Add Gaussian-process and uncertainty-calibrated ensemble adapters.
 6. Add active-learning proposal records with human approval policy.
-7. Add field projection/encoding services before executable neural-operator
-   adapters.
+7. Add graph/basis field encodings and reviewed NeuralOperator data-processor
+   adapters without taking ownership of external model architectures.
 8. Add selected, reviewed physics-residual libraries on top of the executable
    PyTorch binding adapter.
 9. Expose campaign planning, status, diagnostics, comparison, and artifact

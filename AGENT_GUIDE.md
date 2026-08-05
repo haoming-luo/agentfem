@@ -82,10 +82,16 @@ finite-element simulation with AgentFEM.
   solve/output/result lifecycle. Use `results.SimulationResult`, MPI-safe
   point/path probes, region integrals/averages, boundary resultants and field
   extrema in `results`, then attach additional XDMF/CSV artifacts from `io`.
+  Use `results.small_strain_cell_fields` for standard projected `S/E/MISES/SENER`
+  output and `results.reaction_resultant` only for strong-constraint reactions.
+  For field-learning data, create a fixed `surrogates.ObservationGrid` and call
+  `datasets.fem_observation_sample`; preserve its units, layout, and mask.
   Distinguish
   execution status from
   `result.trust_level`, apply a named quality policy for routine checks, and
   attach explicit scientific claims before describing a result as verified.
+- For long transient jobs, pass one `checkpointing.every(...)` policy through
+  `model.step(checkpoint=...)`; do not implement cadence in a case loop.
 - Restart: heat, Standard dynamics, and Explicit dynamics share
   `run(until_step=...)`, `save_checkpoint(...)`, `load_checkpoint(...)`, and
   resumed `solve_result(output=...)`. Treat `output_scope="continuation_segment"`

@@ -154,6 +154,54 @@ def test_fem_field_sample_preserves_coordinates_values_and_encoding(tmp_path):
         assert "temperature" in str(saved["encoding_json"])
 
 
+def test_structured_observation_grid_exports_fno_ready_field_and_mask(tmp_path):
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.5),
+        (4, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    temperature = fields.temperature(domain)
+    temperature.value.interpolate(lambda x: 300.0 + 10.0 * x[0] + 4.0 * x[1])
+    grid = surrogates.regular_grid(
+        bounds=((0.0, 1.2), (0.0, 0.5)),
+        shape=(4, 3),
+    )
+
+    sample = datasets.fem_observation_sample(
+        temperature,
+        grid,
+        unit="K",
+        outside="mask",
+    )
+    path = sample.write(tmp_path / "temperature_grid.npz")
+
+    assert sample.values.shape == (4, 3)
+    assert sample.mask.shape == (4, 3)
+    assert np.all(sample.mask[:3])
+    assert not np.any(sample.mask[3])
+    np.testing.assert_allclose(sample.values[0, 0], 300.0)
+    np.testing.assert_allclose(sample.values[2, 2], 310.0)
+    assert sample.encoding["representation"] == "structured_grid"
+    assert sample.encoding["mesh_policy"] == "mesh_independent_coordinates"
+    assert sample.encoding["metadata"]["layout"] == (
+        "grid_axes_then_value_components"
+    )
+    with np.load(path, allow_pickle=False) as saved:
+        np.testing.assert_array_equal(saved["mask"], sample.mask)
+
+
+def test_observation_grid_rejects_ambiguous_or_invalid_axes():
+    with pytest.raises(ValueError, match="strictly increasing"):
+        surrogates.ObservationGrid.from_axes(x=(0.0, 0.5, 0.5))
+    with pytest.raises(ValueError, match="same dimension"):
+        surrogates.regular_grid(
+            bounds=((0.0, 1.0),),
+            shape=(3, 4),
+        )
+
+
 def test_scientific_dataset_has_optional_pytorch_bridge():
     torch = pytest.importorskip("torch")
     bundle = _dataset().to_torch()

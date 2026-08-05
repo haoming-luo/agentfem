@@ -74,7 +74,7 @@
     "limitations": [
       "Straight paths are built in; arbitrary curves should supply explicit coordinates to sample_points.",
       "Interface traces of discontinuous fields require an explicit one-sided sampling location.",
-      "Reusable mesh-independent observation-grid and projection contracts remain future work."
+      "Curved paths and one-sided discontinuous traces require explicit coordinates beyond the straight-path helper."
     ]
   },
   "usage": {
@@ -104,6 +104,8 @@
   ],
   "related_cards": [
     "agentfem.workflow.scientific_verification",
-    "agentfem.workflow.campaign_learning_pipeline"
+    "agentfem.workflow.campaign_learning_pipeline",
+    "agentfem.workflow.observation_grid_learning",
+    "agentfem.workflow.standard_result_projection"
   ]
 }

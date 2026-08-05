@@ -459,6 +459,7 @@ def test_linear_reaction_field_and_operator_energy_balance():
     step.solve()
     reactions = step.problem.reaction_field()
     total_x = np.sum(reactions.x.array.reshape((-1, 2))[:, 0])
+    resultant = results.reaction_resultant(step.problem)
     velocity = fields.displacement(domain).value
     energy = diagnostics.mechanical_energy(
         mass=model.mass(displacement, material),
@@ -466,11 +467,19 @@ def test_linear_reaction_field_and_operator_energy_balance():
         displacement=displacement.value,
         velocity=velocity,
     )
+    static_energy = diagnostics.linear_static_energy(
+        stiffness=stiffness,
+        force=step.problem.system.F,
+        displacement=displacement.value,
+    )
 
     np.testing.assert_allclose(total_x, -2.0, rtol=1.0e-10, atol=1.0e-10)
+    np.testing.assert_allclose(resultant, [-2.0, 0.0], rtol=1.0e-10, atol=1.0e-10)
     assert energy.kinetic == 0.0
     assert energy.strain > 0.0
     assert energy.total == energy.strain
+    assert static_energy.external_work == pytest.approx(static_energy.strain_energy)
+    assert static_energy.balance_error == pytest.approx(0.0, abs=1.0e-13)
 
 
 def _j2_patch():

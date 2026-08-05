@@ -300,6 +300,40 @@ def mechanical_energy(*, mass, stiffness, displacement, velocity) -> MechanicalE
     )
 
 
+@dataclass(frozen=True)
+class LinearStaticEnergy:
+    """Energy closure for a proportional linear-static load path."""
+
+    strain_energy: float
+    external_work: float
+    balance_error: float
+
+    def summary(self) -> dict[str, float]:
+        return {
+            "strain_energy": self.strain_energy,
+            "external_work": self.external_work,
+            "energy_balance_error": self.balance_error,
+        }
+
+
+def linear_static_energy(*, stiffness, force, displacement) -> LinearStaticEnergy:
+    """Evaluate energy for loads ramped proportionally from zero to ``force``.
+
+    The external work is ``1/2 u^T F``. Non-zero prescribed displacements add
+    reaction work and therefore require a separate displacement-control path.
+    """
+
+    from . import operators
+
+    strain = 0.5 * operators.quadratic_form(stiffness, displacement)
+    external = 0.5 * operators.dual_product(force, displacement)
+    return LinearStaticEnergy(
+        strain_energy=float(strain),
+        external_work=float(external),
+        balance_error=float(external - strain),
+    )
+
+
 @dataclass
 class MechanicalEnergyMonitor:
     """Cache visible M/K operators and sample mechanical energy in time.
@@ -340,12 +374,17 @@ class MechanicalEnergyMonitor:
 
 
 @dataclass
-class ThermalContentMonitor:
-    """Sample ``1^T C T``, the discrete sensible-heat content."""
+class ThermalBalanceMonitor:
+    """Sample discrete heat content, applied rate, outflow, and closure."""
 
     capacity: object
+    stiffness: object
+    source: object | None
+    dt: float
     _compiled_capacity: object | None = field(default=None, init=False, repr=False)
+    _compiled_stiffness: object | None = field(default=None, init=False, repr=False)
     _unit_field: object | None = field(default=None, init=False, repr=False)
+    _previous_content: float | None = field(default=None, init=False, repr=False)
 
     def evaluate(self, temperature) -> dict[str, float]:
         """Return sensible thermal content relative to the model's zero."""
@@ -363,12 +402,74 @@ class ThermalContentMonitor:
             self._unit_field.interpolate(
                 lambda x: np.ones((1, x.shape[1]), dtype=float)
             )
-        content = operators.xtmy(
+        content = float(operators.xtmy(
             self._unit_field,
             self._compiled_capacity,
             selected,
+        ))
+        if self._compiled_stiffness is None:
+            self._compiled_stiffness = _energy_operator(self.stiffness)
+        outward_rate = float(
+            operators.xtmy(self._unit_field, self._compiled_stiffness, selected)
         )
-        return {"thermal_content": float(content)}
+        input_rate = (
+            0.0
+            if self.source is None
+            else float(operators.dual_product(self.source, self._unit_field))
+        )
+        residual = (
+            0.0
+            if self._previous_content is None
+            else content
+            - self._previous_content
+            + float(self.dt) * (outward_rate - input_rate)
+        )
+        self._previous_content = content
+        return {
+            "thermal_content": content,
+            "applied_heat_rate": input_rate,
+            "outward_heat_rate": outward_rate,
+            "heat_balance_residual": float(residual),
+        }
+
+    def restore(self, record) -> None:
+        """Restore monitor memory from a checkpointed history frame."""
+
+        if "thermal_content" in record:
+            self._previous_content = float(record["thermal_content"])
+
+
+@dataclass
+class ThermalContentMonitor:
+    """Backwards-compatible sensible-heat monitor without balance terms."""
+
+    capacity: object
+    _compiled_capacity: object | None = field(default=None, init=False, repr=False)
+    _unit_field: object | None = field(default=None, init=False, repr=False)
+
+    def evaluate(self, temperature) -> dict[str, float]:
+        from . import operators
+
+        selected = field_api.unwrap(temperature)
+        if self._compiled_capacity is None:
+            self._compiled_capacity = _energy_operator(self.capacity)
+        if self._unit_field is None:
+            self._unit_field = fem.Function(
+                selected.function_space,
+                name="UnitTemperatureWeight",
+            )
+            self._unit_field.interpolate(
+                lambda x: np.ones((1, x.shape[1]), dtype=float)
+            )
+        return {
+            "thermal_content": float(
+                operators.xtmy(
+                    self._unit_field,
+                    self._compiled_capacity,
+                    selected,
+                )
+            )
+        }
 
 
 def _energy_operator(operator):

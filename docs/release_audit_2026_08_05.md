@@ -43,6 +43,20 @@ The first-release work is the intersection of all three.
 - Scalar, vector, and tensor fields now share deterministic MPI-safe point and
   straight-path sampling. A path can attach directly to `SimulationResult` as
   a distance history for reporting, campaigns, or learning data.
+- Linear small-strain workflows now have one global L2 projection route for
+  standard `S`, `E`, `MISES`, and `SENER` cell fields, including the
+  plane-strain out-of-plane stress contribution to von Mises stress.
+- Strong-constraint reaction resultants and linear-static strain/external-work
+  diagnostics use distributed algebra rather than rank-local values.
+- Transient heat histories now report thermal content, applied heat rate,
+  outward heat rate, and the implicit-Euler balance residual with explicit
+  definitions.
+- Heat, Standard dynamics, and Explicit dynamics now share accepted-increment
+  checkpoint cadence and final-checkpoint policy through their existing Step
+  lifecycle.
+- Mesh-independent Cartesian observation grids now turn serial or distributed
+  FEM fields into one structured-grid encoding, including explicit outside-mesh
+  masks for voided or irregular domains.
 
 ## Release-critical execution order
 
@@ -64,11 +78,13 @@ cover physical quantities and time/load coordinates, not screenshots.
 
 ### R2 — finish the result surface users expect
 
-Build on the implemented named point/path probes with standard stress/strain
-projection. Extend reaction, external work, heat-input, and balance histories
-using the existing `SimulationResult` and output-plan contracts. Add automatic
-checkpoint cadence as a policy on the current Step lifecycle, not as another
-runner.
+The first shared baseline is now implemented: named point/path probes,
+small-strain projection, strong-constraint reactions, linear-static energy,
+heat-input/balance histories, observation grids, and automatic transient
+checkpoint cadence all reuse the current result and Step contracts. The next
+depth work is projected nonlinear/internal-variable fields, prescribed-motion
+work, weak/MPC/contact reactions, mechanical transient energy balance, and
+checkpoint retention/cross-partition identity.
 
 Acceptance: direct Python, `agentfem run`, MPI, a future GUI, and an agent all
 observe the same names, units, artifacts, execution events, and trust state.
@@ -99,12 +115,13 @@ models remain useful assessment components rather than a global FEM claim.
 
 ### R5 — protect the simulation-to-learning advantage
 
-Keep one case builder for a single solve and a parameter campaign. Add a
-scheduler executor and mesh-independent field sampling only after failed,
-resumed, and verified cases preserve identical provenance. User PyTorch models,
-built-in baselines, POD models, and later neural operators should consume the
-same `ScientificDataset`; AgentFEM should not become a competing deep-learning
-framework.
+Keep one case builder for a single solve and a parameter campaign.
+Mesh-independent structured-grid sampling is now executable in serial and MPI;
+its provenance must next be carried through failed, resumed, and verified
+campaign cases before a scheduler executor or automatic neural-operator trainer
+is promoted. User PyTorch models, built-in baselines, POD models, and later
+neural operators should consume the same `ScientificDataset`; AgentFEM should
+not become a competing deep-learning framework.
 
 ## Deliberately after the first testing release
 

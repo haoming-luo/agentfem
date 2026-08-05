@@ -8,6 +8,7 @@ from . import backends
 from . import boundary_models
 from . import benchmarks
 from . import campaigns
+from . import checkpointing
 from . import constraints
 from . import constitutive
 from . import datasets
@@ -62,6 +63,7 @@ PUBLIC_WORKFLOW_MODULES = (
     "diagnostics",
     "ir",
     "campaigns",
+    "checkpointing",
     "datasets",
     "surrogates",
     "validation",
@@ -84,6 +86,7 @@ __all__ = [
     "boundary_models",
     "benchmarks",
     "campaigns",
+    "checkpointing",
     "constraints",
     "constitutive",
     "datasets",

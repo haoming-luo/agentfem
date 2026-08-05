@@ -47,6 +47,7 @@
 <a class="" href="release-audit-2026-08-05.html">CTO Product Audit: 5 August 2026</a>
 <a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
 <a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="digital-twin-direction.html">Digital-twin Direction</a>
 <a class="" href="documentation-site.html">Documentation Site</a>
 <a class="" href="skill.html">AgentFEM Skill</a></nav>
     </aside>
@@ -149,6 +150,34 @@ centerline.add_to(
     distance_unit=&quot;m&quot;,
 )</code></pre>
 <p>AgentFEM locates owned cells, chooses one deterministic MPI owner for each point, and returns the same ordered values on every rank. All ranks must request identical coordinates. Missing points raise by default; <code>missing=&quot;nan&quot;</code> is an explicit alternative for exploratory sampling. For a discontinuous field, a point exactly on an interelement boundary has a side ambiguity, so place the probe inside the intended cell when a one-sided value is required.</p>
+<h2 id="standard-stress-and-strain-fields">Standard stress and strain fields</h2>
+<p>Small-strain elasticity now uses one reusable projection path:</p>
+<pre><code>stress, strain, mises, energy = results.small_strain_cell_fields(
+    U,
+    material,
+    study=study,
+)
+
+with io.XDMFTimeSeries(&quot;solid.xdmf&quot;, domain) as writer:
+    writer.write_fields(0.0, U, stress, strain, mises, energy)</code></pre>
+<p>The standard names are <code>S</code>, <code>E</code>, <code>MISES</code>, and <code>SENER</code>. Their default <code>DG0</code> representation is the global L2 projection onto piecewise constants, hence a cell average rather than an arbitrary centroid value. In plane strain, Mises stress includes the constitutively implied out-of-plane stress. The lower-level <code>results.project(...)</code> remains available for reviewed UFL expressions and higher-order output spaces.</p>
+<p><code>results.reaction_resultant(problem)</code> reports the MPI-global residual resultant for strong Dirichlet constraints. Affine MPC, weak, and contact reactions deliberately require separate definitions. For proportional linear loading, <code>diagnostics.linear_static_energy(...)</code> reports strain energy, external work, and their closure; non-zero prescribed displacements require reaction work in a displacement-control-specific history.</p>
+<h2 id="structured-observation-grids">Structured observation grids</h2>
+<p>A common physical grid separates a learned field representation from the FEM mesh used by each case:</p>
+<pre><code>grid = surrogates.regular_grid(
+    bounds=((0.0, length), (0.0, height)),
+    shape=(128, 64),
+)
+sample = datasets.fem_observation_sample(
+    U,
+    grid,
+    name=&quot;displacement&quot;,
+    unit=&quot;m&quot;,
+    components=(&quot;U1&quot;, &quot;U2&quot;),
+    outside=&quot;mask&quot;,
+)
+sample.write(&quot;displacement_grid.npz&quot;)</code></pre>
+<p>The export records physical axes, array order, component layout, units, mesh-independence policy, and an optional inside-geometry mask. It is MPI-safe and uses the same coordinates for every case. This is a real data-preparation path for structured-grid neural operators; model architecture and training remain external responsibilities.</p>
 <h2 id="campaign-to-dataset">Campaign to Dataset</h2>
 <p>A campaign evaluator may return:</p>
 <ul>
@@ -179,10 +208,10 @@ loader = bundle.loader(batch_size=64, shuffle=True)</code></pre>
 <h2 id="next-result-priorities">Next Result Priorities</h2>
 <ol>
 <li>named reaction force/resultant extractors beyond the current strong-BC and<br>J2 residual fields;</li>
-<li>stress/strain projection for visualization;</li>
-<li>natural-load, weak-constraint, affine-MPC, and transient work/energy<br>histories beyond the current strong-displacement J2 history;</li>
-<li>automatic checkpoint cadence and cross-partition MPI restart identity;</li>
-<li>reusable observation grids and field encodings for neural operators;</li>
+<li>nodal smoothing and higher-order stress recovery beyond implemented DG<br>projection;</li>
+<li>natural-load, weak-constraint, affine-MPC, and broader transient work/energy<br>histories beyond the current strong-displacement J2 history;</li>
+<li>cross-partition MPI restart identity and checkpoint retention policies;</li>
+<li>graph and basis-coefficient field encodings for unstructured neural operators;</li>
 <li>scheduler executors that preserve identical case records.</li>
 </ol>
       </article>

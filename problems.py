@@ -914,6 +914,7 @@ class ExplicitDynamicsStep:
     history_monitor: object | None = None
     progress: object = True
     status_file: object | None = None
+    checkpoint_policy: object | None = None
     accepted_times: list[float] = field(default_factory=list, init=False)
     execution_events: list[object] = field(default_factory=list, init=False)
     last_output: Path | None = field(default=None, init=False)
@@ -980,14 +981,11 @@ class ExplicitDynamicsStep:
         if output is None:
             for info in stepper:
                 self._advance_one(info.time)
-                self.completed_steps = int(info.index)
-                self.accepted_times.append(float(info.time))
-                _record_transient_history(self, info.time)
-                _report_transient_increment(
+                _accept_transient_increment(
+                    self,
+                    info,
                     reporter,
                     selected_progress,
-                    info,
-                    self,
                     self.state,
                     selected_comm,
                 )
@@ -1000,19 +998,16 @@ class ExplicitDynamicsStep:
             xdmf.write_fields(self.completed_steps * self.dt, *output_fields)
             for info in stepper:
                 self._advance_one(info.time)
-                self.completed_steps = int(info.index)
-                self.accepted_times.append(float(info.time))
-                _record_transient_history(self, info.time)
-                if info.should_save:
-                    xdmf.write_fields(info.time, *output_fields)
-                _report_transient_increment(
+                _accept_transient_increment(
+                    self,
+                    info,
                     reporter,
                     selected_progress,
-                    info,
-                    self,
                     self.state,
                     selected_comm,
                 )
+                if info.should_save:
+                    xdmf.write_fields(info.time, *output_fields)
         _emit_transient_completed(reporter, self)
         return self
 
@@ -1121,6 +1116,7 @@ class ImplicitDynamicsStep:
     history_monitor: object | None = None
     progress: object = True
     status_file: object | None = None
+    checkpoint_policy: object | None = None
     accepted_times: list[float] = field(default_factory=list, init=False)
     execution_events: list[object] = field(default_factory=list, init=False)
     last_output: Path | None = field(default=None, init=False)
@@ -1184,11 +1180,8 @@ class ImplicitDynamicsStep:
         if output is None:
             for info in stepper:
                 self._advance_one(info.time)
-                self.completed_steps = int(info.index)
-                self.accepted_times.append(float(info.time))
-                _record_transient_history(self, info.time)
-                _report_transient_increment(
-                    reporter, selected_progress, info, self, self.state,
+                _accept_transient_increment(
+                    self, info, reporter, selected_progress, self.state,
                     selected_comm,
                 )
             _emit_transient_completed(reporter, self)
@@ -1198,15 +1191,12 @@ class ImplicitDynamicsStep:
             xdmf.write_fields(self.completed_steps * self.dt, *output_fields)
             for info in stepper:
                 self._advance_one(info.time)
-                self.completed_steps = int(info.index)
-                self.accepted_times.append(float(info.time))
-                _record_transient_history(self, info.time)
-                if info.should_save:
-                    xdmf.write_fields(info.time, *output_fields)
-                _report_transient_increment(
-                    reporter, selected_progress, info, self, self.state,
+                _accept_transient_increment(
+                    self, info, reporter, selected_progress, self.state,
                     selected_comm,
                 )
+                if info.should_save:
+                    xdmf.write_fields(info.time, *output_fields)
         _emit_transient_completed(reporter, self)
         return self
 
@@ -1351,6 +1341,7 @@ class FirstOrderTransientStep:
     procedure: object | None = None
     history_monitor: object | None = None
     status_file: object | None = None
+    checkpoint_policy: object | None = None
     accepted_times: list[float] = field(default_factory=list, init=False)
     execution_events: list[object] = field(default_factory=list, init=False)
     last_output: Path | None = field(default=None, init=False)
@@ -1415,11 +1406,8 @@ class FirstOrderTransientStep:
             self.problem.solve()
             self.previous.x.array[:] = self.current.x.array
             self.previous.x.scatter_forward()
-            self.completed_steps = int(info.index)
-            self.accepted_times.append(float(info.time))
-            _record_transient_history(self, info.time)
-            _report_transient_increment(
-                reporter, selected_progress, info, self, self.current,
+            _accept_transient_increment(
+                self, info, reporter, selected_progress, self.current,
                 selected_comm,
             )
 
@@ -1567,7 +1555,14 @@ _TRANSIENT_HISTORY_DESCRIPTIONS = {
     "total_mechanical_energy": "Sum of discrete kinetic and recoverable strain energy.",
     "thermal_content": (
         "Discrete thermal content, one-transpose C T, relative to the model's "
-        "temperature zero; not a complete heat-balance residual."
+        "temperature zero."
+    ),
+    "applied_heat_rate": "Applied volumetric, flux, and Robin-source heat rate, one-transpose Q.",
+    "outward_heat_rate": "Net discrete conduction/Robin rate, one-transpose K T.",
+    "heat_balance_residual": (
+        "Implicit-Euler energy residual: delta thermal content plus dt times "
+        "outward rate minus applied rate. Strong-temperature reactions appear "
+        "in this residual until reported separately."
     ),
 }
 
@@ -1634,6 +1629,42 @@ def _report_transient_increment(
             print_on_root(comm, message)
 
 
+def _accept_transient_increment(
+    step,
+    info,
+    reporter,
+    selected_progress,
+    report_state,
+    comm,
+) -> None:
+    """Commit one accepted time increment through the shared lifecycle."""
+
+    step.completed_steps = int(info.index)
+    step.accepted_times.append(float(info.time))
+    _record_transient_history(step, info.time)
+    _report_transient_increment(
+        reporter,
+        selected_progress,
+        info,
+        step,
+        report_state,
+        comm,
+    )
+    _write_scheduled_checkpoint(step)
+
+
+def _write_scheduled_checkpoint(step) -> Path | None:
+    policy = getattr(step, "checkpoint_policy", None)
+    if policy is None or not policy.due(step.completed_steps, step.steps):
+        return None
+    return step.save_checkpoint(
+        policy.path(
+            step_name=step.name,
+            increment=step.completed_steps,
+        )
+    )
+
+
 def _emit_transient_completed(reporter, step) -> None:
     if reporter is None:
         return
@@ -1671,6 +1702,8 @@ def _record_transient_history(step, time_value: float) -> None:
         step.history_records[-1]["time"],
         selected_time,
     ):
+        if hasattr(monitor, "restore"):
+            monitor.restore(step.history_records[-1])
         return
     if isinstance(step, FirstOrderTransientStep):
         values = monitor.evaluate(step.current)
@@ -2233,12 +2266,13 @@ def first_order_transient_run(
     print_every: int | None = None,
     progress=True,
     status_file=None,
+    checkpoint_policy=None,
     name: str = "first_order_transient",
 ) -> FirstOrderTransientStep:
     """Create an executable implicit-Euler time step and loop."""
 
     from . import procedures
-    from .diagnostics import ThermalContentMonitor
+    from .diagnostics import ThermalBalanceMonitor
 
     if steps <= 0:
         raise ValueError("first_order_transient_run requires steps > 0.")
@@ -2268,8 +2302,14 @@ def first_order_transient_run(
         print_every=print_every,
         progress=progress,
         status_file=status_file,
+        checkpoint_policy=checkpoint_policy,
         procedure=procedures.implicit_euler(),
-        history_monitor=ThermalContentMonitor(capacity),
+        history_monitor=ThermalBalanceMonitor(
+            capacity=capacity,
+            stiffness=stiffness,
+            source=source,
+            dt=float(dt),
+        ),
     )
 
 
@@ -2289,6 +2329,7 @@ def explicit_dynamics(
     print_every: int | None = None,
     progress=True,
     status_file=None,
+    checkpoint_policy=None,
     name: str = "explicit_dynamics",
 ) -> ExplicitDynamicsStep:
     """Create a second-order explicit dynamics step."""
@@ -2320,6 +2361,7 @@ def explicit_dynamics(
         print_every=None if print_every is None else int(print_every),
         progress=progress,
         status_file=status_file,
+        checkpoint_policy=checkpoint_policy,
         procedure=procedures.central_difference(),
     )
 
@@ -2341,6 +2383,7 @@ def implicit_dynamics(
     update_load=None,
     progress=True,
     status_file=None,
+    checkpoint_policy=None,
     save_every: int | None = None,
     print_every: int | None = None,
     name: str = "implicit_dynamics",
@@ -2410,6 +2453,7 @@ def implicit_dynamics(
         print_every=print_every,
         progress=progress,
         status_file=status_file,
+        checkpoint_policy=checkpoint_policy,
         history_monitor=MechanicalEnergyMonitor(
             mass=mass,
             stiffness=stiffness,

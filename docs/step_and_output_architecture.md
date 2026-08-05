@@ -226,12 +226,40 @@ These additions are intentionally reusable. They do not turn material-point
 creep into a global creep solver or scalar S-N fatigue into a general
 multiaxial damage model.
 
+## Accepted-increment checkpoint policy
+
+All three transient routes—central difference, Newmark/generalized-alpha, and
+implicit-Euler heat transfer—consume the same policy object:
+
+```python
+from agentfem import checkpointing
+
+step = model.step(
+    target=field,
+    dt=dt,
+    steps=1000,
+    checkpoint=checkpointing.every(
+        100,
+        directory="checkpoints",
+        final=True,
+    ),
+)
+```
+
+A checkpoint is written only after an increment has been accepted, its state
+and scientific histories have been committed, and its execution event has been
+recorded. The final state is retained even when the total increment count is
+not divisible by the cadence. The current retention policy keeps every
+scheduled checkpoint and the restart remains bound to the same MPI partition;
+retention pruning and cross-partition identities are separate future changes.
+
 ## Next gates
 
 1. Extend collective MPI output from reference-configuration scientific fields
    to an ownership-safe directly deformed geometry product.
-2. Promote the implemented strong-BC reaction field and M/K energy diagnostic
-   into named point/region histories; define affine/weak reactions separately.
+2. Extend the implemented MPI-global strong-BC resultant and proportional
+   linear-static energy closure into named region histories; define
+   affine/weak reactions and non-zero prescribed-displacement work separately.
 3. Extend the implemented cumulative J2 serial checkpoint and scientific
    identity to portable MPI cell identity and multi-region state.
 4. Extend the implemented analytical J2 Golden path, physical forced cutback,
@@ -245,6 +273,6 @@ multiaxial damage model.
    after hotspot/element mapping and provenance are defined.
 7. Add load-controlled finite-strain examples for dead and follower pressure,
    including tangent and sign checks.
-8. Promote the implemented shared transient energy/checkpoint lifecycle from
-   same-partition restart to automatic checkpoint cadence, broader work/heat
-   balances, and cross-partition MPI portability.
+8. Build on the implemented shared transient energy/checkpoint lifecycle,
+   accepted-increment automatic cadence, and heat-balance history with broader
+   mechanical work terms, retention policy, and cross-partition MPI portability.
