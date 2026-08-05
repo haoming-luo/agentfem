@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent and GUI Integration - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
+      <div class="tagline">AI-assisted finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
+<a class="" href="getting-started.html">Getting Started</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="active" href="agent-gui-integration.html">Agent and GUI Integration</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
+<a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
+<a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
+<a class="" href="operator-contracts.html">Scientific Operator Contracts</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="platform-support.html">Platform and Optional Dependencies</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="scientific-verification.html">Scientific Trust and Verification</a>
+<a class="" href="licensing.html">Licensing</a>
+<a class="" href="publishing.html">Publishing</a>
+<a class="" href="release-0.2.0a1.html">AgentFEM 0.2.0a1</a>
+<a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="agent-and-gui-integration-contract">Agent and GUI Integration Contract</h1>
+<h2 id="one-solver-facing-contract">One solver-facing contract</h2>
+<p>AgentFEM does not need a separate finite-element implementation for a GUI or an AI assistant. All frontends should use the same public application path:</p>
+<pre><code>human script / IDE agent / visual GUI / remote service
+                    |
+       project + capability + run contracts
+                    |
+     AgentFEM Study -&gt; Model -&gt; Step -&gt; Result
+                    |
+             FEniCSx / PETSc / MPI</code></pre>
+<p>This boundary also supports a possible commercial GUI. The frontend may own interaction design, scene rendering, progress presentation, authentication, and reports; it should not reconstruct weak forms or inspect private DOLFINx solver objects.</p>
+<h2 id="a-practical-conversational-mvp">A practical conversational MVP</h2>
+<p>A demonstration application can accept a request such as:</p>
+<p>&gt; Create a two-dimensional steel plate, clamp the left side, apply a downward &gt; load on the right, solve it, and explain the largest displacement.</p>
+<p>The surrounding agent performs five visible stages:</p>
+<ol>
+<li><strong>Problem interpretation</strong> — extract geometry, assumptions, material,<br>constraints, loads, outputs, and missing decisions.</li>
+<li><strong>Case construction</strong> — create or edit a normal AgentFEM <code>case.py</code> from a<br>version-matched template.</li>
+<li><strong>Preflight</strong> — call <code>agentfem capabilities --json</code> and<br><code>agentfem check --json</code>; present unsupported assumptions instead of silently<br>replacing them.</li>
+<li><strong>Deterministic execution</strong> — call <code>agentfem run --json</code>, optionally with<br>MPI, and monitor the execution artifacts.</li>
+<li><strong>Result explanation</strong> — read <code>execution.json</code>, <code>result.json</code>, fields,<br>histories, images, and verification evidence; distinguish computed,<br>converged, verified, and validated claims.</li>
+</ol>
+<p>The language model is an author and orchestrator. AgentFEM remains the deterministic engineering tool and evidence producer. An API token belongs to the surrounding agent service; AgentFEM neither requires nor stores an LLM credential.</p>
+<h2 id="current-machine-interface">Current machine interface</h2>
+<p>The first stable boundary is intentionally process based:</p>
+<pre><code>agentfem doctor --json
+agentfem templates --json
+agentfem capabilities --json
+agentfem init --template static-solid ./case --json
+agentfem check --project ./case --json
+agentfem run --project ./case --json
+agentfem inspect ./case/outputs/case/latest.json --json</code></pre>
+<p>This can be called from Python, JavaScript, a desktop application, a web backend, Codex, or another coding agent. It also isolates a frontend process from PETSc/MPI lifetime and native-library failures.</p>
+<p>The contracts are versioned independently:</p>
+<ul>
+<li><code>agentfem.project</code> — operational case identity;</li>
+<li><code>agentfem.project-check</code> — preflight status and addressable errors;</li>
+<li><code>agentfem.run</code> — one execution identity and artifact root;</li>
+<li><code>agentfem.solve-events</code> — solver progress and increment evidence;</li>
+<li><code>agentfem.simulation-result</code> — scientific outputs and trust evidence;</li>
+<li><code>agentfem.capabilities</code> — queryable installed functionality.</li>
+</ul>
+<p>GUI code should switch on <code>schema</code> and <code>schema_version</code>, not on prose printed by an example.</p>
+<h2 id="process-and-service-evolution">Process and service evolution</h2>
+<p>The local CLI is the MVP boundary. A future asynchronous service can wrap the same contracts with:</p>
+<ul>
+<li><code>submit_run</code> returning a run ID;</li>
+<li><code>get_run_status</code> and structured event streaming;</li>
+<li><code>cancel_run</code> and <code>resume_run</code>;</li>
+<li>artifact and report retrieval;</li>
+<li>campaign submission and dataset status;</li>
+<li>scheduler adapters for workstations, clusters, and cloud jobs.</li>
+</ul>
+<p>An MCP adapter becomes useful after that job service exists, especially for remote or protected compute. It should expose a small tool set such as <code>list_capabilities</code>, <code>validate_case</code>, <code>submit_run</code>, <code>get_run_status</code>, and <code>get_result_summary</code>. It should not expose one tool per material or arbitrary shell execution.</p>
+<h2 id="security-and-control">Security and control</h2>
+<ul>
+<li>Treat generated Python as code: run it in a user-approved local environment,<br>container, or restricted service account.</li>
+<li>Keep API tokens outside case files, manifests, logs, and datasets.</li>
+<li>Restrict writable artifacts to the active <code>RunContext</code> directory.</li>
+<li>Require explicit user decisions for destructive changes, expensive job<br>submission, external communication, and unsupported physical substitutions.</li>
+<li>Keep numerical execution possible with no network and no AI provider.</li>
+</ul>
+<p>The next service milestones are structured event streaming, cooperative cancellation, background job status, versioned report bundles, and a portable artifact server. They build on the current CLI/run/result contract without changing the public finite-element language.</p>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

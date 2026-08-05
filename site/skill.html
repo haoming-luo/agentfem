@@ -15,7 +15,9 @@
       <div class="tagline">AI-assisted finite-element workflows</div>
       <nav><a class="" href="index.html">Home</a>
 <a class="" href="install.html">Install</a>
+<a class="" href="getting-started.html">Getting Started</a>
 <a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="agent-gui-integration.html">Agent and GUI Integration</a>
 <a class="" href="workflow.html">Workflow</a>
 <a class="" href="concepts.html">Concepts</a>
 <a class="" href="examples.html">Examples</a>
@@ -68,12 +70,14 @@
 <li>Prefer model registration helpers such as <code>model.field(...)</code>,<br><code>model.material(...)</code>, <code>model.fix(...)</code>, <code>model.symmetry(...)</code>,<br><code>model.traction(...)</code>, and <code>model.pressure(...)</code> for application examples.</li>
 <li>Use <code>FEMProblem.summary()</code> or equivalent structured summaries when auditing a<br>workflow.</li>
 <li>Use <code>model.validate()</code> for addressable issue reports, <code>model.check()</code> before<br>execution, and <code>model.write_ir(...)</code> when a persistent AF-IR record is part<br>of the task.</li>
+<li>Treat <code>model.check()</code> and <code>models.step_capability(model)</code> as the executable<br>Study/provider preflight. Do not advertise or lower a combination that no<br>registered provider accepts.</li>
 <li>Use AgentFEM modules before writing ad hoc DOLFINx/PETSc boilerplate.</li>
 <li>Prefer the stable public workflow modules first: <code>studies</code>, <code>mesh</code>, <code>models</code>, <code>fields</code>,<br><code>materials</code>, <code>constitutive</code>, <code>constraints</code>, <code>loads</code>, <code>operators</code>,<br><code>problems</code>, <code>procedures</code>, <code>results</code>, <code>solvers</code>, <code>steps</code>, <code>time</code>, <code>io</code>, <code>campaigns</code>, <code>datasets</code>, and<br><code>surrogates</code>.</li>
 <li>Treat <code>ir</code> and <code>validation</code> as public inspection/record interfaces. Treat<br><code>backends</code> as an advanced extension boundary. FEniCSx is the only production<br>backend in the current release.</li>
 <li>Prefer <code>step = model.step(target=u)</code> when a model has a Study and registered<br>materials, constraints, and loads. New analysis/material families belong in<br>a registered step provider; do not add one public model method per material.<br>Use <code>model.stiffness(...)</code>,<br><code>model.external_force(...)</code>, and <code>operators.combine(...)</code> when an example<br>must expose individual contributions.</li>
 <li>For nonlinear paths, use <code>steps.automatic(...)</code> as the normal step control.<br>Treat <code>max_increments</code> as an accepted-increment ceiling and solver<br><code>maximum_iterations</code> as the Newton-iteration ceiling for one attempt. Prefer<br><code>solvers.newton(...)</code> over backend-specific solver classes. Use<br><code>results.output_plan(...)</code> to combine field, history, diagnostic, and<br>presentation requests; do not use result frames as solve controls.</li>
 <li>Keep <code>Study</code> and <code>SolutionProcedure</code> distinct. A dynamics Study may lower to<br>Newmark, generalized-alpha, or central difference; do not encode the<br>algorithm by changing the physical problem name.</li>
+<li>Prefer <code>studies.static_solid</code>, <code>studies.steady_heat_transfer</code>,<br><code>studies.transient_heat_transfer</code>, and <code>studies.dynamic_solid</code> for common<br>cases. Attach <code>amplitudes</code> to loads, prescribed values, and supported<br>boundary models so procedures update them automatically.</li>
 <li>Keep operator notation such as <code>K = operators.stiffness(...)</code>,<br><code>F = operators.load_vector(...)</code>, and<br><code>step = problems.linear_static(K, F, study=..., ...)</code> available for<br>transparent research/debugging examples.</li>
 <li>Prefer <code>step = problems.first_order_transient(...)</code> for first-order transient<br>workflows instead of hand-combining effective matrices in tutorial code.</li>
 <li>Put local response relations under <code>constitutive/</code>.</li>
@@ -86,6 +90,9 @@
 <li>Treat positive <code>loads.pressure(...)</code> as inward. State whether it is a<br>reference dead load or current follower load.</li>
 <li>Validate small cases before reporting success.</li>
 <li>Use <code>solve_result()</code> and <code>results.SimulationResult</code> when outputs feed<br>visualization, reporting, campaigns, or datasets. Do not treat XDMF/CSV as<br>the scientific result itself.</li>
+<li>Use <code>results.region_integral</code>, <code>results.region_average</code>,<br><code>results.boundary_resultant</code>, and <code>results.field_extrema</code> for common<br>MPI-safe quantities instead of rank-local array reductions.</li>
+<li>In an installed project, run <code>agentfem doctor --json</code> and<br><code>agentfem check --json</code> before execution. Use <code>project.current_run()</code> and<br>publish the result so terminal, GUI, and agent consumers receive the same<br>run identity, artifacts, and manifest.</li>
+<li>Treat <code>agentfem run --json</code> as the machine boundary. Read the versioned<br>execution and result records; do not infer success by matching console text.</li>
 <li>Inspect external meshes before conversion, retain the conversion manifest,<br>and do not call mesh conversion a full Abaqus/ANSYS model import.</li>
 <li>When Abaqus constraints use node labels, preserve labels separately from<br>backend dof ordering. Treat <code>*EQUATION</code> as an auditable constraint graph;<br>reject duplicate slaves, cycles, missing node matches, and unsupported<br>parallel ownership rather than silently weakening periodicity.</li>
 <li>For finite-deformation periodic cells, report the macro deformation<br>gradient, every load increment&#x27;s convergence, equation mismatch, sampled<br><code>det(F)</code> bounds, complete homogenized tensor histories, and deformed geometry<br>at scale one. State explicitly when a user material or user MPC is<br>unavailable and has been substituted.</li>

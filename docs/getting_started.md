@@ -1,0 +1,169 @@
+# Installed Project Workflow
+
+AgentFEM is both a Python library and an installed finite-element application.
+The same case remains executable with `python case.py`; the `agentfem` command
+adds project discovery, checks, repeatable output locations, MPI launch, and
+machine-readable run evidence.
+
+## Prepare the numerical environment
+
+AgentFEM currently uses a compatible FEniCSx/PETSc/MPI environment. On Linux,
+macOS, and Windows through WSL2, create that stack with conda-forge and install
+the AgentFEM wheel into it. Then check the actual runtime:
+
+```bash
+agentfem doctor
+agentfem doctor --json
+```
+
+The JSON form is intended for issue reports, IDE integrations, and agents. It
+records the platform route, core versions, and optional mesh, visualization,
+machine-learning, and distributed-MPC integrations.
+
+## Create a project anywhere
+
+```bash
+agentfem templates
+mkdir beam
+cd beam
+agentfem init --template static-solid .
+agentfem check
+agentfem run
+agentfem inspect
+```
+
+Initial templates include `static-solid`, `steady-heat`, and
+`structural-dynamics`. The generated layout is intentionally small:
+
+```text
+beam/
+├── agentfem.toml
+├── case.py
+├── AGENTS.md
+├── README.md
+└── outputs/
+```
+
+`case.py` is the source of modeling truth. It contains the Study, mesh,
+regions, fields, materials, constraints, loads, steps, and result requests.
+`agentfem.toml` does not duplicate the physics; it only identifies the project
+name, Python entrypoint, and output root.
+
+Use the concise Study factories for common engineering work:
+
+```python
+study = studies.static_solid(dimension=3)
+study = studies.steady_heat_transfer(dimension=3)
+study = studies.transient_heat_transfer(dimension=3)
+study = studies.dynamic_solid(dimension=3, method="explicit")
+study = studies.dynamic_solid(dimension=3, method="newmark")
+```
+
+The Study states the physical problem; `method` selects the procedure without
+changing that problem's identity. `model.check()` uses the same provider rules
+as `model.step(...)`, so a declared but unsupported combination is rejected
+before numerical work begins.
+
+Time histories are reusable model assets rather than custom step callbacks:
+
+```python
+ramp = amplitudes.ramp(0.0, 1.0, start_time=0.0, end_time=0.1)
+model.traction((0.0, -1.0e6), on=loaded, amplitude=ramp)
+model.prescribed_temperature(T, temperature_history, on=heated)
+model.convection(
+    on=cooled,
+    coefficient=25.0,
+    ambient_temperature=ambient_history,
+)
+```
+
+Standard/Explicit dynamics and transient heat update registered histories at
+their physical step times. Manual callbacks remain available for advanced
+state not represented by a model asset.
+
+Resolve input files from the case directory rather than the shell's current
+directory:
+
+```python
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+mesh_path = HERE / "meshes" / "component.inp"
+```
+
+## Run directly or through the product shell
+
+Direct Python remains supported:
+
+```bash
+python case.py
+```
+
+The product shell adds a stable run identity and output contract:
+
+```bash
+agentfem run
+agentfem run --run-id baseline
+agentfem run --mpi 4
+```
+
+The equivalent explicit MPI spelling remains valid:
+
+```bash
+mpiexec -n 4 agentfem run
+```
+
+Do not start a second MPI launcher from an already distributed case. The CLI
+detects the communicator and runs the entrypoint on it.
+
+## Understand the output contract
+
+Each run receives its own directory:
+
+```text
+outputs/<project>/<run-id>/
+├── execution.json
+├── result.json
+├── fields.xdmf
+├── fields.h5
+└── logs/
+```
+
+- `execution.json` answers whether the application completed or failed.
+- `result.json` is the published `SimulationResult`, including quantities,
+  histories, artifacts, checkpoints, metadata, and verification evidence.
+- `outputs/<project>/latest.json` points to the most recent run without a
+  platform-specific symbolic link.
+- XDMF/HDF5, CSV, NPZ, images, and reports are artifacts referenced by the
+  result rather than replacements for it.
+
+`agentfem run --json` reserves standard output for the final machine record and
+writes case and solver logs into the run directory. A GUI or agent can parse
+the response without scraping progress prose.
+
+## Check before solving
+
+The first `agentfem check` validates project structure and Python syntax
+without solving. Model construction should additionally call `model.check()`
+before the step. The evidence layers are separate:
+
+1. project and entrypoint checks;
+2. model, region, material, load, and capability checks;
+3. solver convergence evidence;
+4. scientific verification and validation evidence.
+
+A zero process exit code means the requested operation completed. It does not
+by itself promote a result from computed to verified.
+
+For common post-processing, prefer named, MPI-safe quantities over ad hoc local
+array inspection: `results.region_integral(...)`,
+`results.region_average(...)`, `results.boundary_resultant(...)`, and
+`results.field_extrema(...)`.
+
+## Continue into campaigns and learning
+
+One case and a parameter campaign should use the same case builder and result
+contract. Campaigns consume declared inputs and `SimulationResult` outputs,
+then create a `ScientificDataset` only when the selected evidence policy is
+satisfied. The dataset can be exported to NumPy, passed to built-in
+ridge/POD/PyTorch surrogates, or used by an existing user model.

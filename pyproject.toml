@@ -44,6 +44,9 @@ Repository = "https://github.com/haoming-luo/agentfem"
 Issues = "https://github.com/haoming-luo/agentfem/issues"
 Documentation = "https://github.com/haoming-luo/agentfem#readme"
 
+[project.scripts]
+agentfem = "agentfem.cli:main"
+
 [project.optional-dependencies]
 mesh-formats = ["meshio"]
 gmsh = ["gmsh>=4.11"]
@@ -88,6 +91,7 @@ packages = [
   "agentfem.results",
   "agentfem.surrogates",
   "agentfem.time",
+  "agentfem.templates",
 ]
 
 [tool.setuptools.package-data]
@@ -100,6 +104,8 @@ packages = [
   "schema/*.json",
   "decisions/*.md",
 ]
+"agentfem" = ["py.typed"]
+"agentfem.templates" = ["*/case.py", "*/agentfem.toml", "*/README.md", "*/AGENTS.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Getting Started - AgentFEM</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <a class="brand" href="index.html">
+        <img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM">
+      </a>
+      <div class="tagline">AI-assisted finite-element workflows</div>
+      <nav><a class="" href="index.html">Home</a>
+<a class="" href="install.html">Install</a>
+<a class="active" href="getting-started.html">Getting Started</a>
+<a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="agent-gui-integration.html">Agent and GUI Integration</a>
+<a class="" href="workflow.html">Workflow</a>
+<a class="" href="concepts.html">Concepts</a>
+<a class="" href="examples.html">Examples</a>
+<a class="" href="product-roadmap.html">Product Roadmap</a>
+<a class="" href="nonlinear-materials.html">Nonlinear Materials</a>
+<a class="" href="nonlinear-solid-architecture.html">Nonlinear Solid Architecture</a>
+<a class="" href="solution-procedures-and-thermal-creep.html">Procedures, Thermal Stress, and Creep</a>
+<a class="" href="scientific-function-reference.html">Scientific Function Reference</a>
+<a class="" href="operator-contracts.html">Scientific Operator Contracts</a>
+<a class="" href="results-and-campaigns.html">Results and Campaigns</a>
+<a class="" href="step-and-output-architecture.html">Stable Steps and Compact Output</a>
+<a class="" href="mesh-interoperability.html">Mesh Interoperability</a>
+<a class="" href="platform-support.html">Platform and Optional Dependencies</a>
+<a class="" href="abaqus-periodic-cell.html">Abaqus Periodic Cell</a>
+<a class="" href="abaqus-user-material-bridge.html">Abaqus User Materials</a>
+<a class="" href="module-map.html">Module Map</a>
+<a class="" href="api-style.html">API Style</a>
+<a class="" href="extension-rules.html">Extension Rules</a>
+<a class="" href="tutorial-design.html">Tutorial Design</a>
+<a class="" href="validation.html">Validation</a>
+<a class="" href="scientific-verification.html">Scientific Trust and Verification</a>
+<a class="" href="licensing.html">Licensing</a>
+<a class="" href="publishing.html">Publishing</a>
+<a class="" href="release-0.2.0a1.html">AgentFEM 0.2.0a1</a>
+<a class="" href="release-2026-08-26.html">26 August 2026 Release Gate</a>
+<a class="" href="architecture-review.html">Architecture Review</a>
+<a class="" href="air-architecture-roadmap.html">AIR Architecture Roadmap</a>
+<a class="" href="ai-native-learning.html">AI-Native Campaigns and Learning</a>
+<a class="" href="documentation-site.html">Documentation Site</a>
+<a class="" href="skill.html">AgentFEM Skill</a></nav>
+    </aside>
+    <main>
+      <article>
+<h1 id="installed-project-workflow">Installed Project Workflow</h1>
+<p>AgentFEM is both a Python library and an installed finite-element application. The same case remains executable with <code>python case.py</code>; the <code>agentfem</code> command adds project discovery, checks, repeatable output locations, MPI launch, and machine-readable run evidence.</p>
+<h2 id="prepare-the-numerical-environment">Prepare the numerical environment</h2>
+<p>AgentFEM currently uses a compatible FEniCSx/PETSc/MPI environment. On Linux, macOS, and Windows through WSL2, create that stack with conda-forge and install the AgentFEM wheel into it. Then check the actual runtime:</p>
+<pre><code>agentfem doctor
+agentfem doctor --json</code></pre>
+<p>The JSON form is intended for issue reports, IDE integrations, and agents. It records the platform route, core versions, and optional mesh, visualization, machine-learning, and distributed-MPC integrations.</p>
+<h2 id="create-a-project-anywhere">Create a project anywhere</h2>
+<pre><code>agentfem templates
+mkdir beam
+cd beam
+agentfem init --template static-solid .
+agentfem check
+agentfem run
+agentfem inspect</code></pre>
+<p>Initial templates include <code>static-solid</code>, <code>steady-heat</code>, and <code>structural-dynamics</code>. The generated layout is intentionally small:</p>
+<pre><code>beam/
+├── agentfem.toml
+├── case.py
+├── AGENTS.md
+├── README.md
+└── outputs/</code></pre>
+<p><code>case.py</code> is the source of modeling truth. It contains the Study, mesh, regions, fields, materials, constraints, loads, steps, and result requests. <code>agentfem.toml</code> does not duplicate the physics; it only identifies the project name, Python entrypoint, and output root.</p>
+<p>Use the concise Study factories for common engineering work:</p>
+<pre><code>study = studies.static_solid(dimension=3)
+study = studies.steady_heat_transfer(dimension=3)
+study = studies.transient_heat_transfer(dimension=3)
+study = studies.dynamic_solid(dimension=3, method=&quot;explicit&quot;)
+study = studies.dynamic_solid(dimension=3, method=&quot;newmark&quot;)</code></pre>
+<p>The Study states the physical problem; <code>method</code> selects the procedure without changing that problem&#x27;s identity. <code>model.check()</code> uses the same provider rules as <code>model.step(...)</code>, so a declared but unsupported combination is rejected before numerical work begins.</p>
+<p>Time histories are reusable model assets rather than custom step callbacks:</p>
+<pre><code>ramp = amplitudes.ramp(0.0, 1.0, start_time=0.0, end_time=0.1)
+model.traction((0.0, -1.0e6), on=loaded, amplitude=ramp)
+model.prescribed_temperature(T, temperature_history, on=heated)
+model.convection(
+    on=cooled,
+    coefficient=25.0,
+    ambient_temperature=ambient_history,
+)</code></pre>
+<p>Standard/Explicit dynamics and transient heat update registered histories at their physical step times. Manual callbacks remain available for advanced state not represented by a model asset.</p>
+<p>Resolve input files from the case directory rather than the shell&#x27;s current directory:</p>
+<pre><code>from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+mesh_path = HERE / &quot;meshes&quot; / &quot;component.inp&quot;</code></pre>
+<h2 id="run-directly-or-through-the-product-shell">Run directly or through the product shell</h2>
+<p>Direct Python remains supported:</p>
+<pre><code>python case.py</code></pre>
+<p>The product shell adds a stable run identity and output contract:</p>
+<pre><code>agentfem run
+agentfem run --run-id baseline
+agentfem run --mpi 4</code></pre>
+<p>The equivalent explicit MPI spelling remains valid:</p>
+<pre><code>mpiexec -n 4 agentfem run</code></pre>
+<p>Do not start a second MPI launcher from an already distributed case. The CLI detects the communicator and runs the entrypoint on it.</p>
+<h2 id="understand-the-output-contract">Understand the output contract</h2>
+<p>Each run receives its own directory:</p>
+<pre><code>outputs/&lt;project&gt;/&lt;run-id&gt;/
+├── execution.json
+├── result.json
+├── fields.xdmf
+├── fields.h5
+└── logs/</code></pre>
+<ul>
+<li><code>execution.json</code> answers whether the application completed or failed.</li>
+<li><code>result.json</code> is the published <code>SimulationResult</code>, including quantities,<br>histories, artifacts, checkpoints, metadata, and verification evidence.</li>
+<li><code>outputs/&lt;project&gt;/latest.json</code> points to the most recent run without a<br>platform-specific symbolic link.</li>
+<li>XDMF/HDF5, CSV, NPZ, images, and reports are artifacts referenced by the<br>result rather than replacements for it.</li>
+</ul>
+<p><code>agentfem run --json</code> reserves standard output for the final machine record and writes case and solver logs into the run directory. A GUI or agent can parse the response without scraping progress prose.</p>
+<h2 id="check-before-solving">Check before solving</h2>
+<p>The first <code>agentfem check</code> validates project structure and Python syntax without solving. Model construction should additionally call <code>model.check()</code> before the step. The evidence layers are separate:</p>
+<ol>
+<li>project and entrypoint checks;</li>
+<li>model, region, material, load, and capability checks;</li>
+<li>solver convergence evidence;</li>
+<li>scientific verification and validation evidence.</li>
+</ol>
+<p>A zero process exit code means the requested operation completed. It does not by itself promote a result from computed to verified.</p>
+<p>For common post-processing, prefer named, MPI-safe quantities over ad hoc local array inspection: <code>results.region_integral(...)</code>, <code>results.region_average(...)</code>, <code>results.boundary_resultant(...)</code>, and <code>results.field_extrema(...)</code>.</p>
+<h2 id="continue-into-campaigns-and-learning">Continue into campaigns and learning</h2>
+<p>One case and a parameter campaign should use the same case builder and result contract. Campaigns consume declared inputs and <code>SimulationResult</code> outputs, then create a <code>ScientificDataset</code> only when the selected evidence policy is satisfied. The dataset can be exported to NumPy, passed to built-in ridge/POD/PyTorch surrogates, or used by an existing user model.</p>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

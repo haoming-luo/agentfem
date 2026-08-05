@@ -261,6 +261,30 @@ def test_integral_average_l2_and_dataset_ready_field_statistics():
     assert captured["minimum"] == 2.0
     assert result.quantity("Temperature_maximum") == 2.0
 
+    right = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[0], 2.0),
+        name="right",
+        tag=1,
+    )
+    np.testing.assert_allclose(
+        results.boundary_resultant(vector, on=right),
+        [3.0, 4.0],
+    )
+    np.testing.assert_allclose(
+        results.region_average(vector, on=right),
+        [3.0, 4.0],
+    )
+
+    vector_space = fem.functionspace(domain, ("Lagrange", 1, (2,)))
+    vector_field = fem.Function(vector_space, name="U")
+    vector_field.x.array[:] = np.tile(
+        np.asarray([3.0, 4.0]),
+        vector_field.x.array.size // 2,
+    )
+    extrema = results.field_extrema(vector_field, magnitude=True)
+    assert extrema == {"minimum": 5.0, "maximum": 5.0, "magnitude": True}
+
 
 def test_homogenized_history_writes_exact_npz_and_human_csv(tmp_path):
     frame = HomogenizedFrame(

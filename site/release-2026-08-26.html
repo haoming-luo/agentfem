@@ -15,7 +15,9 @@
       <div class="tagline">AI-assisted finite-element workflows</div>
       <nav><a class="" href="index.html">Home</a>
 <a class="" href="install.html">Install</a>
+<a class="" href="getting-started.html">Getting Started</a>
 <a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="agent-gui-integration.html">Agent and GUI Integration</a>
 <a class="" href="workflow.html">Workflow</a>
 <a class="" href="concepts.html">Concepts</a>
 <a class="" href="examples.html">Examples</a>
@@ -87,6 +89,10 @@
 <li>The first CAE reliability-cliff test verifies rotation covariance of a<br>cantilever model and the verification API rejects unordered convergence or<br>inapplicable-theory evidence.</li>
 <li>J2 forced cutback is triggered by a real equivalent-plastic-increment limit;<br>cyclic amplitude, adaptive-controller restart, and strong-displacement<br>reaction-work/internal-energy histories have executable tests.</li>
 <li>Standard, Explicit, heat, and J2 progress/result views consume one complete<br>structured event stream, including hidden increments and failed attempts.</li>
+<li>Model validation uses the same registered provider predicates as execution,<br>so an unsupported Study/material/procedure combination fails before solve.</li>
+<li>Regional multi-material heat conduction and capacity pass a transient FEM<br>regression; reusable amplitudes automatically drive loads, prescribed data,<br>and thermal ambient conditions.</li>
+<li>Ordinary Neo-Hookean loading has automatic/fixed increments, forced-cutback<br>rollback, positive-J acceptance, recoverable strain-energy evidence, and<br>accepted-increment histories in addition to the affine periodic-cell route.</li>
+<li>Common result queries provide MPI-safe region integrals/averages, boundary<br>resultants, and scalar/vector field extrema.</li>
 <li>A separate CI job installs the official CPU-only PyTorch wheel and executes<br>the optional dataset and PINN/ML adapter tests.</li>
 </ul>
 <h2 id="explicitly-not-release-claims">Explicitly not release claims</h2>

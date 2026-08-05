@@ -4,7 +4,7 @@ import sys
 
 import pytest
 
-from agentfem import dependencies, mesh, platforms
+from agentfem import __version__, dependencies, mesh, platforms
 
 
 def test_platform_support_does_not_overclaim_native_windows():
@@ -51,6 +51,9 @@ def test_runtime_report_is_serializable_and_names_optional_integrations():
 
     assert report["python"]
     assert report["platform"]["level"]
+    assert report["packages"]["agentfem"] == __version__
+    assert report["mpi"]["vendor"]
+    assert "path_mismatch" in report["mpi"]
     assert {item["package"] for item in report["optional"]} >= {
         "gmsh",
         "meshio",

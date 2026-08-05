@@ -9,7 +9,16 @@ from .core import (
     dof_statistics,
     from_solution,
 )
-from .quantities import average, integral, l2_norm, quadrature_extrema
+from .quantities import (
+    average,
+    boundary_resultant,
+    field_extrema,
+    integral,
+    l2_norm,
+    quadrature_extrema,
+    region_average,
+    region_integral,
+)
 from .execution import add_execution_trace, execution_records
 from .finite_strain import (
     HomogenizedFrame,
@@ -77,6 +86,8 @@ __all__ = [
     "execution_records",
     "from_solution",
     "average",
+    "boundary_resultant",
+    "field_extrema",
     "integral",
     "finite_strain_cell_fields",
     "finite_strain_diagnostics",
@@ -87,6 +98,8 @@ __all__ = [
     "homogenize_periodic_path",
     "l2_norm",
     "quadrature_extrema",
+    "region_average",
+    "region_integral",
     "preselected_fields",
     "output_plan",
     "periodic_cell_history",

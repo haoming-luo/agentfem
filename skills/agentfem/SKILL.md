@@ -30,6 +30,9 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
 - Use `model.validate()` for addressable issue reports, `model.check()` before
   execution, and `model.write_ir(...)` when a persistent AF-IR record is part
   of the task.
+- Treat `model.check()` and `models.step_capability(model)` as the executable
+  Study/provider preflight. Do not advertise or lower a combination that no
+  registered provider accepts.
 - Use AgentFEM modules before writing ad hoc DOLFINx/PETSc boilerplate.
 - Prefer the stable public workflow modules first: `studies`, `mesh`, `models`, `fields`,
   `materials`, `constitutive`, `constraints`, `loads`, `operators`,
@@ -53,6 +56,10 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
 - Keep `Study` and `SolutionProcedure` distinct. A dynamics Study may lower to
   Newmark, generalized-alpha, or central difference; do not encode the
   algorithm by changing the physical problem name.
+- Prefer `studies.static_solid`, `studies.steady_heat_transfer`,
+  `studies.transient_heat_transfer`, and `studies.dynamic_solid` for common
+  cases. Attach `amplitudes` to loads, prescribed values, and supported
+  boundary models so procedures update them automatically.
 - Keep operator notation such as `K = operators.stiffness(...)`,
   `F = operators.load_vector(...)`, and
   `step = problems.linear_static(K, F, study=..., ...)` available for
@@ -78,6 +85,15 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
 - Use `solve_result()` and `results.SimulationResult` when outputs feed
   visualization, reporting, campaigns, or datasets. Do not treat XDMF/CSV as
   the scientific result itself.
+- Use `results.region_integral`, `results.region_average`,
+  `results.boundary_resultant`, and `results.field_extrema` for common
+  MPI-safe quantities instead of rank-local array reductions.
+- In an installed project, run `agentfem doctor --json` and
+  `agentfem check --json` before execution. Use `project.current_run()` and
+  publish the result so terminal, GUI, and agent consumers receive the same
+  run identity, artifacts, and manifest.
+- Treat `agentfem run --json` as the machine boundary. Read the versioned
+  execution and result records; do not infer success by matching console text.
 - Inspect external meshes before conversion, retain the conversion manifest,
   and do not call mesh conversion a full Abaqus/ANSYS model import.
 - When Abaqus constraints use node labels, preserve labels separately from

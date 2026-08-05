@@ -120,6 +120,46 @@ def step_providers() -> tuple[StepProvider, ...]:
     return _DEFAULT_REGISTRY.providers()
 
 
+def step_capability(model, *, target=None, analysis: str | None = None) -> dict[str, object]:
+    """Describe whether the current model can be lowered without executing it.
+
+    This is deliberately based on the same provider predicates used by
+    :func:`lower_step`.  A GUI, agent, or ``model.check()`` therefore cannot
+    advertise a Study/provider combination that the solver will later reject.
+    """
+
+    selected_analysis = _normalize(
+        analysis or getattr(getattr(model, "study", None), "analysis", "")
+    )
+    selected_target = target
+    if selected_target is None:
+        fields = tuple(getattr(model, "fields", ()))
+        selected_target = fields[0] if fields else None
+    request = StepRequest(
+        analysis=selected_analysis,
+        target=selected_target,
+        options={},
+    )
+    candidates = tuple(
+        provider
+        for provider in _DEFAULT_REGISTRY.providers()
+        if selected_analysis in provider.analyses
+    )
+    accepted = tuple(
+        provider for provider in candidates if provider.accepts(model, request)
+    )
+    provider = accepted[0] if accepted else None
+    return {
+        "analysis": selected_analysis,
+        "physics": getattr(getattr(model, "study", None), "physics", None),
+        "dimension": getattr(getattr(model, "study", None), "dimension", None),
+        "assumption": getattr(getattr(model, "study", None), "assumption", None),
+        "supported": provider is not None,
+        "provider": None if provider is None else provider.summary(),
+        "candidate_providers": tuple(item.name for item in candidates),
+    }
+
+
 def lower_step(model, *, analysis: str, target, options):
     """Normalize and lower one high-level step request."""
 
@@ -139,7 +179,14 @@ def _selected_material(model, request: StepRequest):
 
 
 def _accept_linear_static(model, request: StepRequest) -> bool:
-    return request.target is not None
+    study = getattr(model, "study", None)
+    return request.target is not None and (
+        (
+            getattr(study, "physics", None) == "solid_mechanics"
+            and getattr(study, "assumption", None) != "axisymmetric"
+        )
+        or getattr(study, "physics", None) == "heat_transfer"
+    )
 
 
 def _lower_linear_static(model, request: StepRequest):
@@ -178,15 +225,32 @@ def _lower_transient_heat(model, request: StepRequest):
 def _accept_neo_hookean(model, request: StepRequest) -> bool:
     from .constitutive.hyperelasticity import NeoHookeanProperties
 
-    return isinstance(_selected_material(model, request), NeoHookeanProperties)
+    study = getattr(model, "study", None)
+    supported_kinematics = (
+        getattr(study, "dimension", None) == 3
+        or (
+            getattr(study, "dimension", None) == 2
+            and getattr(study, "assumption", None) == "plane_strain"
+        )
+    )
+    return (
+        getattr(study, "physics", None) == "solid_mechanics"
+        and supported_kinematics
+        and isinstance(_selected_material(model, request), NeoHookeanProperties)
+    )
 
 
 def _accept_j2(model, request: StepRequest) -> bool:
     from .constitutive.plasticity import J2LinearIsotropicHardening
 
-    return isinstance(
-        _selected_material(model, request),
-        J2LinearIsotropicHardening,
+    study = getattr(model, "study", None)
+    return (
+        getattr(study, "physics", None) == "solid_mechanics"
+        and getattr(study, "dimension", None) == 3
+        and isinstance(
+            _selected_material(model, request),
+            J2LinearIsotropicHardening,
+        )
     )
 
 
@@ -226,9 +290,14 @@ def _accept_explicit_dynamics(model, request: StepRequest) -> bool:
         "preferred_procedure",
         None,
     )
-    return request.target is not None and (
+    return (
+        request.target is not None
+        and getattr(getattr(model, "study", None), "physics", None)
+        == "solid_mechanics"
+        and (
         method is None
         or _normalize(method) in {"explicit_dynamics", "central_difference"}
+        )
     )
 
 
@@ -253,10 +322,12 @@ def _accept_implicit_dynamics(model, request: StepRequest) -> bool:
         "preferred_procedure",
         None,
     )
-    return request.target is not None and _normalize(method or "") in {
-        "newmark",
-        "generalized_alpha",
-    }
+    return (
+        request.target is not None
+        and getattr(getattr(model, "study", None), "physics", None)
+        == "solid_mechanics"
+        and _normalize(method or "") in {"newmark", "generalized_alpha"}
+    )
 
 
 def _lower_implicit_dynamics(model, request: StepRequest):

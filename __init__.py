@@ -26,6 +26,7 @@ from . import models
 from . import operators
 from . import platforms
 from . import problems
+from . import project
 from . import procedures
 from . import results
 from . import solvers
@@ -50,6 +51,7 @@ PUBLIC_WORKFLOW_MODULES = (
     "loads",
     "operators",
     "problems",
+    "project",
     "platforms",
     "procedures",
     "results",
@@ -100,6 +102,7 @@ __all__ = [
     "operators",
     "platforms",
     "problems",
+    "project",
     "procedures",
     "results",
     "solvers",

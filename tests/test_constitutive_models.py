@@ -4,7 +4,17 @@ import numpy as np
 import pytest
 from mpi4py import MPI
 
-from agentfem import benchmarks, constitutive, fields, mesh, models, results, studies
+from agentfem import (
+    benchmarks,
+    constitutive,
+    fields,
+    mesh,
+    models,
+    problems,
+    results,
+    steps,
+    studies,
+)
 from agentfem.constitutive import creep, fatigue, hyperelasticity, plasticity
 from agentfem.materials.properties import (
     ElasticAnisotropic2DProperties,
@@ -140,12 +150,120 @@ def test_neo_hookean_model_step_solves_a_displacement_controlled_patch():
 
     stats = results.dof_statistics(solved.field("Displacement"))
     assert problem.last_solve_info.converged
+    assert problem.last_solve_info.as_dict()["kind"] == "nonlinear_load_path"
+    assert all(
+        item.checks["minimum_quadrature_J"] > 0.0
+        for item in problem.last_solve_info.increments
+    )
+    assert problem.snapshots[0].load_factor == 0.0
+    assert problem.snapshots[-1].load_factor == 1.0
+    assert any(item.kind == "step_completed" for item in problem.execution_events)
     assert stats["maximum"] >= 0.05 - 1.0e-12
     assert solved.metadata["solve"]["converged"] is True
     assert any(
         item.name == "neo_hookean_finite_strain_static"
         for item in models.step_providers()
     )
+
+
+def test_neo_hookean_standard_path_rolls_back_and_cuts_back_failed_attempt(monkeypatch):
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (4, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    model = models.create(
+        study=studies.static_solid(
+            dimension=2,
+            assumption="plane_strain",
+            nonlinear=True,
+        ),
+        mesh=domain,
+        name="hyperelastic_forced_cutback",
+    )
+    displacement = model.field(fields.displacement(domain, degree=1))
+    material = model.material(
+        hyperelasticity.neo_hookean(young=2.0e6, poisson=0.3)
+    )
+    model.clamp(
+        displacement,
+        on=mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left"),
+    )
+    model.prescribe(
+        displacement,
+        0.05,
+        component=0,
+        on=mesh.boundary(domain, lambda x: np.isclose(x[0], 1.0), name="right"),
+    )
+    original_solve = problems.solve_nonlinear_problem
+    calls = 0
+
+    def fail_first_attempt(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            solution = args[1]
+            solution.x.array[:] = 1.0e30
+            solution.x.scatter_forward()
+            raise RuntimeError("forced first-attempt failure")
+        return original_solve(*args, **kwargs)
+
+    monkeypatch.setattr(problems, "solve_nonlinear_problem", fail_first_attempt)
+    step = model.step(target=displacement, material=material, progress=False)
+    step.solve()
+
+    assert step.last_solve_info.converged
+    assert any(item.kind == "increment_cutback" for item in step.execution_events)
+    assert step.last_solve_info.attempts[0].converged is False
+    assert np.max(np.abs(displacement.value.x.array)) < 1.0
+
+
+def test_neo_hookean_standard_path_scales_natural_loads_by_increment():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (4, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    model = models.create(
+        study=studies.static_solid(
+            dimension=2,
+            assumption="plane_strain",
+            nonlinear=True,
+        ),
+        mesh=domain,
+        name="hyperelastic_traction_path",
+    )
+    displacement = model.field(fields.displacement(domain, degree=1))
+    material = model.material(
+        hyperelasticity.neo_hookean(young=2.0e6, poisson=0.3)
+    )
+    model.clamp(
+        displacement,
+        on=mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left"),
+    )
+    model.traction(
+        (1.0e4, 0.0),
+        on=mesh.boundary(domain, lambda x: np.isclose(x[0], 1.0), name="right"),
+    )
+    step = model.step(
+        target=displacement,
+        material=material,
+        incrementation=steps.fixed(3),
+        progress=False,
+    )
+    step.solve()
+
+    assert step.last_solve_info.converged
+    assert [item.load_factor for item in step.last_solve_info.increments] == [
+        pytest.approx(1.0 / 3.0),
+        pytest.approx(2.0 / 3.0),
+        pytest.approx(1.0),
+    ]
+    assert float(np.max(displacement.value.x.array)) > 0.0
 
 
 def test_step_provider_registry_is_extensible_and_deterministic():

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 import ufl
@@ -293,6 +293,407 @@ class NonlinearVariationalProblem:
         return _reaction_field(self.residual_form, self.solution, name=name)
 
 
+@dataclass(frozen=True)
+class NonlinearLoadIncrementInfo:
+    """Convergence evidence for one ordinary nonlinear load increment."""
+
+    increment: int
+    attempt: int
+    start_load_factor: float
+    load_factor: float
+    converged: bool
+    iterations: int
+    residual_norm: float
+    converged_reason: int
+    message: str = ""
+    checks: dict[str, object] = field(default_factory=dict)
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "increment": self.increment,
+            "attempt": self.attempt,
+            "start_load_factor": self.start_load_factor,
+            "load_factor": self.load_factor,
+            "increment_size": self.load_factor - self.start_load_factor,
+            "converged": self.converged,
+            "iterations": self.iterations,
+            "residual_norm": (
+                float(self.residual_norm)
+                if np.isfinite(self.residual_norm)
+                else None
+            ),
+            "converged_reason": self.converged_reason,
+            "message": self.message,
+            "checks": dict(self.checks),
+        }
+
+
+@dataclass(frozen=True)
+class NonlinearLoadPathInfo:
+    """Accepted and attempted increments for an ordinary nonlinear step."""
+
+    increments: tuple[NonlinearLoadIncrementInfo, ...]
+    attempts: tuple[NonlinearLoadIncrementInfo, ...]
+    incrementation: object
+
+    @property
+    def converged(self) -> bool:
+        return (
+            bool(self.increments)
+            and all(item.converged for item in self.increments)
+            and abs(self.increments[-1].load_factor - 1.0) <= 1.0e-12
+        )
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "nonlinear_load_path",
+            "converged": self.converged,
+            "accepted_increment_count": len(self.increments),
+            "attempt_count": len(self.attempts),
+            "incrementation": self.incrementation.summary(),
+            "increments": tuple(item.as_dict() for item in self.increments),
+            "attempts": tuple(item.as_dict() for item in self.attempts),
+        }
+
+
+@dataclass
+class IncrementalNonlinearVariationalProblem:
+    """Ordinary nonlinear equilibrium with automatic load incrementation.
+
+    Unlike :class:`AffineNonlinearVariationalProblem`, this path uses standard
+    Dirichlet constraints. Natural loads and prescribed end-of-step values are
+    driven by one normalized factor. Failed attempts restore the accepted
+    field and boundary state before cutback.
+    """
+
+    residual_form: object
+    solution: object
+    factor: object
+    value_path: object
+    acceptance_check: object | None = None
+    bcs: list = field(default_factory=list)
+    jacobian_form: object | None = None
+    incrementation: object | None = None
+    solver_options: NonlinearSolverOptions | NewtonSolverOptions | None = None
+    output_every: int | None = 1
+    progress: object = True
+    status_file: object | None = None
+    name: str = "incremental_nonlinear"
+    petsc_options_prefix: str = "agentfem_incremental_nonlinear_"
+    procedure: object | None = None
+    last_solve_info: NonlinearLoadPathInfo | None = field(default=None, init=False)
+    snapshots: list = field(default_factory=list, init=False)
+    execution_events: list = field(default_factory=list, init=False)
+
+    def solve(self):
+        from . import steps as step_controls
+        from .diagnostics import (
+            SolveEventRecorder,
+            StandardRunReporter,
+            comm_of,
+            compose_reporters,
+        )
+
+        if self.output_every is not None and self.output_every <= 0:
+            raise ValueError("Incremental nonlinear output_every must be positive.")
+        control = step_controls.normalize(self.incrementation)
+        selected_options = self.solver_options or NewtonSolverOptions()
+        snes_options = (
+            selected_options.for_snes()
+            if isinstance(selected_options, NewtonSolverOptions)
+            else selected_options
+        )
+        attempt_options = replace(snes_options, error_if_not_converged=False)
+        recorder = SolveEventRecorder(self.execution_events)
+        recorder.clear()
+        if self.progress is True:
+            reporter = compose_reporters(
+                recorder,
+                StandardRunReporter(
+                    comm_of(self.solution),
+                    status_file=self.status_file,
+                    show_iterations=False,
+                ),
+            )
+        elif self.progress in (False, None):
+            reporter = recorder
+        else:
+            reporter = compose_reporters(recorder, self.progress)
+
+        def emit(event) -> None:
+            if reporter is not None:
+                reporter.emit(event)
+
+        self.snapshots.clear()
+        self.snapshots.append(_load_snapshot(0, 0.0, self.solution))
+        history: list[NonlinearLoadIncrementInfo] = []
+        attempts: list[NonlinearLoadIncrementInfo] = []
+        accepted_factor = 0.0
+        total_attempts = 0
+        cutbacks = 0
+        proposed_size = (
+            control.initial
+            if isinstance(control, step_controls.AutomaticIncrementation)
+            else control.load_factors[0]
+        )
+        self._update_factor(0.0)
+        emit(
+            SolveEvent(
+                "step_started",
+                self.name,
+                incrementation=control.summary()["kind"],
+            )
+        )
+
+        while accepted_factor < 1.0 - 1.0e-12:
+            increment_number = len(history) + 1
+            if isinstance(control, step_controls.AutomaticIncrementation):
+                if len(history) >= control.max_increments:
+                    self._fail(
+                        history,
+                        attempts,
+                        control,
+                        emit,
+                        increment_number,
+                        total_attempts,
+                        accepted_factor,
+                        "maximum accepted increments reached before load factor 1.0",
+                    )
+                factor = min(1.0, accepted_factor + proposed_size)
+            else:
+                factor = control.load_factors[len(history)]
+            attempt_number = cutbacks + 1
+            total_attempts += 1
+            emit(
+                SolveEvent(
+                    "increment_started",
+                    self.name,
+                    increment=increment_number,
+                    attempt=attempt_number,
+                    start_factor=accepted_factor,
+                    target_factor=factor,
+                )
+            )
+            rollback = self.solution.x.array.copy()
+            self._update_factor(factor)
+            solve_info = None
+            message = ""
+            try:
+                _, solve_info = solve_nonlinear_problem(
+                    self.residual_form,
+                    self.solution,
+                    bcs=self.bcs,
+                    jacobian_form=self.jacobian_form,
+                    options=attempt_options,
+                    petsc_options_prefix=(
+                        f"{self.petsc_options_prefix}{increment_number}_{attempt_number}_"
+                    ),
+                )
+                converged = solve_info.converged and bool(
+                    np.all(np.isfinite(self.solution.x.array))
+                )
+            except (RuntimeError, ValueError) as exc:
+                converged = False
+                message = f"{type(exc).__name__}: {exc}"
+            checks = {}
+            if converged and self.acceptance_check is not None:
+                checks = dict(self.acceptance_check())
+                if not bool(checks.get("accepted", True)):
+                    converged = False
+                    message = str(
+                        checks.get(
+                            "message",
+                            "increment failed its physical acceptance check",
+                        )
+                    )
+            info = NonlinearLoadIncrementInfo(
+                increment=increment_number,
+                attempt=attempt_number,
+                start_load_factor=accepted_factor,
+                load_factor=factor,
+                converged=converged,
+                iterations=0 if solve_info is None else solve_info.iterations,
+                residual_norm=(
+                    float("nan") if solve_info is None else solve_info.function_norm
+                ),
+                converged_reason=(
+                    0 if solve_info is None else solve_info.converged_reason
+                ),
+                message=message,
+                checks=checks,
+            )
+            attempts.append(info)
+            if converged:
+                history.append(info)
+                accepted_size = factor - accepted_factor
+                accepted_factor = factor
+                cutbacks = 0
+                if (
+                    self.output_every is not None
+                    and (
+                        len(history) % self.output_every == 0
+                        or abs(factor - 1.0) <= 1.0e-12
+                    )
+                ):
+                    self.snapshots.append(
+                        _load_snapshot(
+                            len(history),
+                            factor,
+                            self.solution,
+                            solve_info=solve_info,
+                        )
+                    )
+                emit(
+                    SolveEvent(
+                        "increment_converged",
+                        self.name,
+                        increment=increment_number,
+                        attempt=attempt_number,
+                        start_factor=info.start_load_factor,
+                        target_factor=factor,
+                        iteration=info.iterations,
+                        residual_norm=info.residual_norm,
+                    )
+                )
+                if isinstance(control, step_controls.AutomaticIncrementation):
+                    proposed_size = control.after_convergence(
+                        accepted_size,
+                        info.iterations,
+                    )
+                continue
+
+            self.solution.x.array[:] = rollback
+            self.solution.x.scatter_forward()
+            self._update_factor(accepted_factor)
+            if isinstance(control, step_controls.FixedIncrementation):
+                self._fail(
+                    history,
+                    attempts,
+                    control,
+                    emit,
+                    increment_number,
+                    total_attempts,
+                    factor,
+                    f"fixed increment failed at load factor {factor:.6g}",
+                    info=info,
+                )
+            cutbacks += 1
+            next_size = control.after_failure(factor - accepted_factor)
+            if cutbacks > control.max_cutbacks or next_size < control.minimum - 1.0e-15:
+                self._fail(
+                    history,
+                    attempts,
+                    control,
+                    emit,
+                    increment_number,
+                    total_attempts,
+                    factor,
+                    "automatic increment exhausted its cutback policy",
+                    info=info,
+                )
+            proposed_size = max(control.minimum, next_size)
+            emit(
+                SolveEvent(
+                    "increment_cutback",
+                    self.name,
+                    increment=increment_number,
+                    attempt=attempt_number,
+                    start_factor=accepted_factor,
+                    target_factor=factor,
+                    iteration=info.iterations,
+                    residual_norm=info.residual_norm,
+                    next_increment=proposed_size,
+                )
+            )
+
+        self.last_solve_info = NonlinearLoadPathInfo(
+            tuple(history), tuple(attempts), control
+        )
+        emit(
+            SolveEvent(
+                "step_completed",
+                self.name,
+                increment=len(history),
+                attempt=total_attempts,
+                target_factor=1.0,
+            )
+        )
+        return self.solution
+
+    def _update_factor(self, factor: float) -> None:
+        self.factor.value = PETSc.ScalarType(factor)
+        self.value_path.update(factor)
+
+    def _fail(
+        self,
+        history,
+        attempts,
+        control,
+        emit,
+        increment,
+        total_attempts,
+        factor,
+        message,
+        *,
+        info=None,
+    ) -> None:
+        self.last_solve_info = NonlinearLoadPathInfo(
+            tuple(history), tuple(attempts), control
+        )
+        emit(
+            SolveEvent(
+                "step_failed",
+                self.name,
+                increment=increment,
+                attempt=total_attempts,
+                target_factor=factor,
+                iteration=0 if info is None else info.iterations,
+                residual_norm=None if info is None else info.residual_norm,
+                message=message,
+            )
+        )
+        raise RuntimeError(message)
+
+    def solve_result(self):
+        from .results import add_execution_trace, from_solution
+
+        solution = self.solve()
+        result = from_solution(
+            solution,
+            name=self.name,
+            metadata={
+                "problem": self.summary(),
+                "solve": self.last_solve_info.as_dict(),
+            },
+        )
+        add_execution_trace(result, self.execution_events)
+        return result
+
+    def reaction_field(self, *, name: str = "RF"):
+        return _reaction_field(self.residual_form, self.solution, name=name)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "incremental_nonlinear_variational_problem",
+            "name": self.name,
+            "num_bcs": len(self.bcs),
+            "incrementation": (
+                None
+                if self.incrementation is None
+                else self.incrementation.summary()
+            ),
+            "snapshot_count": len(self.snapshots),
+            "last_solve": (
+                None
+                if self.last_solve_info is None
+                else self.last_solve_info.as_dict()
+            ),
+            "procedure": (
+                None if self.procedure is None else self.procedure.summary()
+            ),
+        }
+
+
 @dataclass
 class AffineNonlinearVariationalProblem:
     """Nonlinear equilibrium under an exact affine dof reduction."""
@@ -502,6 +903,7 @@ class ExplicitDynamicsStep:
     study: object | None = None
     prescribed: tuple[object, ...] = ()
     constraints: tuple[object, ...] = ()
+    update_load: object | None = None
     save_every: int | None = None
     print_every: int | None = None
     procedure: object | None = None
@@ -598,6 +1000,8 @@ class ExplicitDynamicsStep:
         return result
 
     def _advance_one(self, t: float) -> None:
+        if self.update_load is not None:
+            self.update_load(t)
         self.integrator.step(
             self.dt,
             time=t,
@@ -1132,13 +1536,20 @@ ExplicitDynamicsState = SecondOrderDynamicsState
 def second_order_state(field_or_space, **kwargs) -> SecondOrderDynamicsState:
     """Create a second-order dynamics state from a field or function space."""
 
+    source = None
     if hasattr(field_or_space, "space"):
         V = field_or_space.space
+        source = getattr(field_or_space, "value", None)
     elif hasattr(field_or_space, "function_space"):
         V = field_or_space.function_space
+        source = field_or_space
     else:
         V = field_or_space
-    return SecondOrderDynamicsState.create(V, **kwargs)
+    state = SecondOrderDynamicsState.create(V, **kwargs)
+    if source is not None:
+        state.u = fields.wrap(source)
+        state.u_next.assign(source)
+    return state
 
 
 def linear_system(
@@ -1223,6 +1634,48 @@ def nonlinear(
         solution=solution,
         bcs=_collect_bcs(constraints=constraints, bcs=bcs),
         solver_options=solver_options,
+        name=name,
+        petsc_options_prefix=petsc_options_prefix,
+        procedure=procedures.nonlinear_static(),
+    )
+
+
+def incremental_nonlinear(
+    residual,
+    solution,
+    *,
+    factor,
+    value_path,
+    acceptance_check=None,
+    jacobian=None,
+    incrementation=None,
+    constraints=None,
+    bcs=None,
+    solver_options: NonlinearSolverOptions | NewtonSolverOptions | None = None,
+    output_every: int | None = 1,
+    progress=True,
+    status_file=None,
+    name: str = "incremental_nonlinear",
+    petsc_options_prefix: str = "agentfem_incremental_nonlinear_",
+) -> IncrementalNonlinearVariationalProblem:
+    """Create standard-BC nonlinear equilibrium over a normalized load path."""
+
+    from . import procedures
+    from . import steps as step_controls
+
+    return IncrementalNonlinearVariationalProblem(
+        residual_form=residual,
+        jacobian_form=jacobian,
+        solution=solution,
+        factor=factor,
+        value_path=value_path,
+        acceptance_check=acceptance_check,
+        bcs=_collect_bcs(constraints=constraints, bcs=bcs),
+        incrementation=step_controls.normalize(incrementation),
+        solver_options=solver_options,
+        output_every=output_every,
+        progress=progress,
+        status_file=status_file,
         name=name,
         petsc_options_prefix=petsc_options_prefix,
         procedure=procedures.nonlinear_static(),
@@ -1459,6 +1912,7 @@ def explicit_dynamics(
     study=None,
     prescribed=(),
     constraints=(),
+    update_load=None,
     save_every: int | None = None,
     print_every: int | None = None,
     progress=True,
@@ -1482,6 +1936,7 @@ def explicit_dynamics(
         residual=residual,
         prescribed=tuple(_as_list(prescribed)),
         constraints=tuple(_as_list(constraints)),
+        update_load=update_load,
         dt=dt,
         steps=int(steps),
         save_every=None if save_every is None else int(save_every),

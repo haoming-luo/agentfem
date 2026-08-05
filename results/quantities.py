@@ -10,6 +10,9 @@ import ufl
 from dolfinx import fem
 from mpi4py import MPI
 
+from .. import fields as field_api
+from ..kernel import dofs
+
 
 def integral(expression, *, measure=ufl.dx, comm=None):
     """Return the global integral of a scalar, vector, or tensor expression."""
@@ -80,6 +83,47 @@ def quadrature_extrema(
     )
 
 
+def region_integral(expression, *, on):
+    """Integrate a scalar, vector, or tensor over a named mesh region."""
+
+    return integral(expression, measure=_region_measure(on))
+
+
+def region_average(expression, *, on):
+    """Return a measure-weighted average over a named mesh region."""
+
+    return average(expression, measure=_region_measure(on))
+
+
+def boundary_resultant(traction, *, on):
+    """Integrate a traction/flux expression over a named boundary."""
+
+    return integral(traction, measure=_region_measure(on))
+
+
+def field_extrema(field, *, magnitude: bool = False) -> dict[str, object]:
+    """Return MPI-global extrema of owned field dofs or nodal magnitudes."""
+
+    function = field_api.unwrap(field)
+    values = np.asarray(dofs.owned_array(function), dtype=float)
+    shape = tuple(getattr(function, "ufl_shape", ()))
+    if magnitude:
+        if len(shape) != 1:
+            raise ValueError("field_extrema(magnitude=True) requires a vector field.")
+        components = int(shape[0])
+        if values.size % components:
+            raise ValueError("Vector dof storage is incompatible with its value shape.")
+        values = np.linalg.norm(values.reshape(-1, components), axis=1)
+    local_min = float(np.min(values)) if values.size else np.inf
+    local_max = float(np.max(values)) if values.size else -np.inf
+    comm = function.function_space.mesh.comm
+    return {
+        "minimum": float(comm.allreduce(local_min, op=MPI.MIN)),
+        "maximum": float(comm.allreduce(local_max, op=MPI.MAX)),
+        "magnitude": bool(magnitude),
+    }
+
+
 def _assemble_component(expression, measure, comm) -> float:
     local = fem.assemble_scalar(fem.form(expression * measure))
     return float(comm.allreduce(local, op=MPI.SUM))
@@ -95,3 +139,10 @@ def _comm_from_measure(measure):
             "pass comm=... explicitly."
         )
     return comm
+
+
+def _region_measure(region):
+    measure = getattr(region, "measure", None)
+    if measure is None:
+        raise ValueError("A named cell or boundary region with a measure is required.")
+    return measure

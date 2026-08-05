@@ -5,6 +5,10 @@ engineering models readable for researchers and operable by AI agents.
 
 Start with:
 
+- the [installed project workflow](getting_started.md) for project creation,
+  CLI runs, MPI, and result locations;
+- the [agent and GUI integration contract](agent_gui_integration.md) for
+  conversational MVPs, machine interfaces, and future service boundaries;
 - the [product roadmap](product_roadmap.md) for priorities and maturity gates;
 - [nonlinear materials](nonlinear_materials.md) for current constitutive scope;
 - [nonlinear solid architecture](nonlinear_solid_architecture.md) for the P1

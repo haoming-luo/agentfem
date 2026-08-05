@@ -21,6 +21,8 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Getting Started: getting_started.md
+  - Agent and GUI Integration: agent_gui_integration.md
   - Design Notes:
       - Product Roadmap: product_roadmap.md
       - Nonlinear Solid Architecture: nonlinear_solid_architecture.md

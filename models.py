@@ -15,6 +15,7 @@ from .step_providers import (
     StepProvider,
     StepProviderRegistry,
     register_step_provider,
+    step_capability,
     step_providers,
 )
 
@@ -129,6 +130,69 @@ class Model:
             )
         )
 
+    def prescribe(
+        self,
+        target,
+        value,
+        *,
+        on=None,
+        location=None,
+        component=None,
+        components=None,
+        name: str | None = None,
+    ):
+        """Register prescribed displacement, temperature, or scalar data."""
+
+        return self.fix(
+            target,
+            on=on,
+            location=location,
+            value=value,
+            component=component,
+            components=components,
+            name=name or "prescribed",
+        )
+
+    def clamp(
+        self,
+        target,
+        *,
+        on=None,
+        location=None,
+        value=0.0,
+        name: str | None = None,
+    ):
+        """Clamp every component of a displacement-like field."""
+
+        return self.add_constraint(
+            constraint_api.clamped(
+                target,
+                on=on,
+                location=location,
+                value=value,
+                name=name,
+            )
+        )
+
+    def prescribed_temperature(
+        self,
+        target,
+        value,
+        *,
+        on=None,
+        location=None,
+        name: str | None = None,
+    ):
+        """Register an essential temperature boundary condition."""
+
+        return self.fix(
+            target,
+            value=value,
+            on=on,
+            location=location,
+            name=name or "prescribed_temperature",
+        )
+
     def periodic(
         self,
         target,
@@ -161,38 +225,134 @@ class Model:
         self.loads.append(load)
         return load
 
+    def _with_amplitude(self, load, amplitude):
+        if amplitude is None:
+            return load
+        return load_api.with_amplitude(
+            load,
+            amplitude,
+            domain=_domain(self.mesh),
+            name=getattr(load, "name", None),
+        )
+
     def load(self, load):
         """Register a natural load/source and return it."""
 
         return self.add_load(load)
 
-    def traction(self, value, *, on=None, location=None, name: str = "traction"):
+    def traction(
+        self,
+        value,
+        *,
+        on=None,
+        location=None,
+        amplitude=None,
+        name: str = "traction",
+    ):
         """Create and register a mechanical traction load."""
 
+        load = load_api.traction(value, on=on, location=location, name=name)
         return self.add_load(
-            load_api.traction(value, on=on, location=location, name=name)
+            self._with_amplitude(load, amplitude)
         )
 
-    def body_force(self, value, *, domain=None, target=None, measure=None, name: str = "body_force"):
+    def body_force(
+        self,
+        value,
+        *,
+        domain=None,
+        target=None,
+        measure=None,
+        amplitude=None,
+        name: str = "body_force",
+    ):
         """Create and register a mechanical body-force load."""
 
         kwargs = {"domain": domain or self.mesh, "target": target, "name": name}
         if measure is not None:
             kwargs["measure"] = measure
-        return self.add_load(load_api.body_force(value, **kwargs))
+        return self.add_load(
+            self._with_amplitude(load_api.body_force(value, **kwargs), amplitude)
+        )
 
-    def heat_flux(self, value, *, on=None, location=None, name: str = "heat_flux"):
+    def heat_flux(
+        self,
+        value,
+        *,
+        on=None,
+        location=None,
+        amplitude=None,
+        name: str = "heat_flux",
+    ):
         """Create and register a prescribed heat-flux load."""
 
-        return self.add_load(load_api.heat_flux(value, on=on, location=location, name=name))
+        load = load_api.heat_flux(value, on=on, location=location, name=name)
+        return self.add_load(self._with_amplitude(load, amplitude))
 
-    def heat_source(self, value, *, domain=None, target=None, measure=None, name: str = "heat_source"):
+    def heat_source(
+        self,
+        value,
+        *,
+        domain=None,
+        target=None,
+        measure=None,
+        amplitude=None,
+        name: str = "heat_source",
+    ):
         """Create and register a volumetric heat-source load."""
 
         kwargs = {"domain": domain or self.mesh, "target": target, "name": name}
         if measure is not None:
             kwargs["measure"] = measure
-        return self.add_load(load_api.heat_source(value, **kwargs))
+        return self.add_load(
+            self._with_amplitude(load_api.heat_source(value, **kwargs), amplitude)
+        )
+
+    def gravity(
+        self,
+        acceleration,
+        *,
+        material=None,
+        domain=None,
+        target=None,
+        amplitude=None,
+        name: str = "gravity",
+    ):
+        """Register ``rho g`` using one or all model material regions."""
+
+        records = (
+            (self._material_record(material),)
+            if material is not None
+            else tuple(self.materials)
+        )
+        if not records:
+            raise ValueError("model.gravity requires a material with density.")
+        created = []
+        for index, record in enumerate(records):
+            if not hasattr(record.item, "density") or record.item.density is None:
+                raise ValueError(
+                    f"Material {_describe(record.item)!r} does not define density."
+                )
+            if len(records) > 1 and record.region is None:
+                raise ValueError(
+                    "Gravity with multiple materials requires a region for every material."
+                )
+            load = load_api.gravity(
+                acceleration,
+                density=record.item.density,
+                domain=domain or self.mesh,
+                target=target,
+                region=record.region,
+                name=(
+                    name
+                    if len(records) == 1
+                    else f"{name}_{getattr(record.region, 'name', index)}"
+                ),
+            )
+            created.append(
+                self.add_load(self._with_amplitude(load, amplitude))
+            )
+        return created[0] if len(created) == 1 else load_api.LoadSet.create(*created)
 
     def pressure(
         self,
@@ -202,20 +362,20 @@ class Model:
         location=None,
         configuration: str = "reference",
         displacement=None,
+        amplitude=None,
         name: str = "pressure",
     ):
         """Create and register dead or follower pressure."""
 
-        return self.add_load(
-            load_api.pressure(
-                value,
-                on=on,
-                location=location,
-                configuration=configuration,
-                displacement=displacement,
-                name=name,
-            )
+        load = load_api.pressure(
+            value,
+            on=on,
+            location=location,
+            configuration=configuration,
+            displacement=displacement,
+            name=name,
         )
+        return self.add_load(self._with_amplitude(load, amplitude))
 
     def symmetry(
         self,
@@ -286,6 +446,29 @@ class Model:
                 normal=selected_normal,
                 mode=mode,
                 location=on,
+            )
+        )
+
+    def convection(
+        self,
+        *,
+        on=None,
+        location=None,
+        coefficient,
+        ambient_temperature,
+        name: str = "convection",
+    ):
+        """Register linear heat exchange with an ambient temperature."""
+
+        from .boundary_models import thermal
+
+        return self.add_boundary_model(
+            thermal.convection(
+                on=on,
+                location=location,
+                coefficient=coefficient,
+                ambient_temperature=ambient_temperature,
+                name=name,
             )
         )
 
@@ -428,56 +611,101 @@ class Model:
         ).renamed(name)
 
     def conduction(self, temperature, material=None, *, measure=None, name: str = "K"):
-        """Create a heat-conduction operator from a thermoelastic material."""
+        """Create a region-aware heat-conduction operator.
+
+        A single material may occupy the whole mesh.  Multiple materials must
+        each own a cell region, matching the semantics already used by
+        :meth:`stiffness` and :meth:`mass`.
+        """
 
         import ufl
 
         from . import operators
 
-        record = (
-            self._material_record(material)
+        records = (
+            (self._material_record(material),)
             if material is not None
-            else _single_material(self, "model.conduction")
+            else tuple(self.materials)
         )
-        if not hasattr(record.item, "conductivity"):
-            raise ValueError("Selected material does not define conductivity.")
-        selected_measure = (
-            measure
-            if measure is not None
-            else (record.region.measure if record.region is not None else ufl.dx)
+        if not records:
+            raise ValueError("model.conduction requires at least one material.")
+        if measure is not None and len(records) > 1:
+            raise ValueError("Pass material=... when using one explicit conduction measure.")
+        parts = []
+        for index, record in enumerate(records):
+            if not hasattr(record.item, "conductivity"):
+                raise ValueError(
+                    f"Material {_describe(record.item)!r} does not define conductivity."
+                )
+            if len(records) > 1 and record.region is None:
+                raise ValueError(
+                    "Multiple-material conduction requires a region for every material."
+                )
+            selected_measure = (
+                measure
+                if measure is not None
+                else (record.region.measure if record.region is not None else ufl.dx)
+            )
+            parts.append(
+                operators.conduction_operator(
+                    temperature,
+                    record.item.conductivity,
+                    measure=selected_measure,
+                ).renamed(
+                    name if len(records) == 1 else f"{name}_{getattr(record.region, 'name', index)}"
+                )
+            )
+        return (
+            parts[0]
+            if len(parts) == 1
+            else operators.combine(*parts, name=name, kind="partitioned_conduction")
         )
-        return operators.conduction_operator(
-            temperature,
-            record.item.conductivity,
-            measure=selected_measure,
-        ).renamed(name)
 
     def heat_capacity(self, temperature, material=None, *, measure=None, name: str = "C"):
-        """Create ``rho c_p`` capacity from a thermoelastic material."""
+        """Create region-aware ``rho c_p`` heat capacity."""
 
         import ufl
 
         from . import operators
 
-        record = (
-            self._material_record(material)
+        records = (
+            (self._material_record(material),)
             if material is not None
-            else _single_material(self, "model.heat_capacity")
+            else tuple(self.materials)
         )
-        if not hasattr(record.item, "volumetric_heat_capacity"):
-            raise ValueError(
-                "Selected material does not define volumetric heat capacity."
+        if not records:
+            raise ValueError("model.heat_capacity requires at least one material.")
+        if measure is not None and len(records) > 1:
+            raise ValueError("Pass material=... when using one explicit capacity measure.")
+        parts = []
+        for index, record in enumerate(records):
+            if not hasattr(record.item, "volumetric_heat_capacity"):
+                raise ValueError(
+                    f"Material {_describe(record.item)!r} does not define volumetric heat capacity."
+                )
+            if len(records) > 1 and record.region is None:
+                raise ValueError(
+                    "Multiple-material heat capacity requires a region for every material."
+                )
+            selected_measure = (
+                measure
+                if measure is not None
+                else (record.region.measure if record.region is not None else ufl.dx)
             )
-        selected_measure = (
-            measure
-            if measure is not None
-            else (record.region.measure if record.region is not None else ufl.dx)
+            parts.append(
+                operators.capacity_operator(
+                    temperature,
+                    record.item.volumetric_heat_capacity,
+                    measure=selected_measure,
+                ).renamed(
+                    name if len(records) == 1 else f"{name}_{getattr(record.region, 'name', index)}"
+                )
+            )
+        return (
+            parts[0]
+            if len(parts) == 1
+            else operators.combine(*parts, name=name, kind="partitioned_heat_capacity")
         )
-        return operators.capacity_operator(
-            temperature,
-            record.item.volumetric_heat_capacity,
-            measure=selected_measure,
-        ).renamed(name)
 
     def thermal_expansion(
         self,
@@ -803,11 +1031,34 @@ class Model:
     ):
         """Create and register a linear-static analysis step in ``K u = F`` form."""
 
+        from . import operators
         from . import problems
 
         self.check()
-        K = K if K is not None else self.stiffness(target)
-        F = F if F is not None else self.external_force(target)
+        if getattr(self.study, "is_heat_transfer", False):
+            boundary_stiffness, boundary_source = self._thermal_boundary_terms(target)
+            if K is None:
+                K = self.conduction(target)
+            if boundary_stiffness:
+                K = operators.combine(
+                    K,
+                    *boundary_stiffness,
+                    name="K_thermal",
+                    kind="conduction_and_exchange",
+                )
+            if F is None:
+                sources = []
+                if self.loads:
+                    sources.append(self.external_force(target))
+                sources.extend(boundary_source)
+                F = (
+                    operators.combine(*sources, name="Q", kind="thermal_source")
+                    if sources
+                    else operators.heat_source_vector(0.0, target)
+                )
+        else:
+            K = K if K is not None else self.stiffness(target)
+            F = F if F is not None else self.external_force(target)
         step = problems.linear_static(
             K,
             F,
@@ -852,36 +1103,77 @@ class Model:
                 analysis="first_order_transient",
                 physics="heat_transfer",
             )
-        record = (
-            self._material_record(material)
+        records = (
+            (self._material_record(material),)
             if material is not None
-            else _single_material(self, "model.heat_transfer_step")
+            else tuple(self.materials)
         )
+        if not records:
+            raise ValueError("model.heat_transfer_step requires at least one material.")
         previous = fem.Function(target.space, name="TemperaturePrevious")
         previous.x.array[:] = target.value.x.array
         previous.x.scatter_forward()
         capacity = (
-            self.heat_capacity(target, record.item)
+            self.heat_capacity(target, material)
             if C is None
             else C
         )
         stiffness = (
-            self.conduction(target, record.item)
+            self.conduction(target, material)
             if K is None
             else K
         )
+        boundary_stiffness, boundary_source = self._thermal_boundary_terms(target)
+        if boundary_stiffness:
+            stiffness = operators.combine(
+                stiffness,
+                *boundary_stiffness,
+                name="K_thermal",
+                kind="conduction_and_exchange",
+            )
         source = Q
         if source is None and self.loads:
             source = self.external_force(target)
-        history = operators.heat_capacity_vector(
-            previous,
-            target,
-            record.item.volumetric_heat_capacity,
-            measure=(
-                record.region.measure
-                if record.region is not None
-                else ufl.dx
-            ),
+        if boundary_source:
+            source = operators.combine(
+                *((() if source is None else (source,)) + tuple(boundary_source)),
+                name="Q_thermal",
+                kind="thermal_source",
+            )
+        history_parts = []
+        for index, record in enumerate(records):
+            if not hasattr(record.item, "volumetric_heat_capacity"):
+                raise ValueError(
+                    f"Material {_describe(record.item)!r} does not define volumetric heat capacity."
+                )
+            if len(records) > 1 and record.region is None:
+                raise ValueError(
+                    "Multiple-material heat history requires a region for every material."
+                )
+            history_parts.append(
+                operators.heat_capacity_vector(
+                    previous,
+                    target,
+                    record.item.volumetric_heat_capacity,
+                    measure=(
+                        record.region.measure
+                        if record.region is not None
+                        else ufl.dx
+                    ),
+                ).renamed(
+                    "Q_capacity_history"
+                    if len(records) == 1
+                    else f"Q_capacity_{getattr(record.region, 'name', index)}"
+                )
+            )
+        history = (
+            history_parts[0]
+            if len(history_parts) == 1
+            else operators.combine(
+                *history_parts,
+                name="Q_capacity_history",
+                kind="partitioned_heat_capacity_history",
+            )
         )
         step = problems.first_order_transient_run(
             capacity=capacity,
@@ -897,7 +1189,7 @@ class Model:
                 self.constraints if constraints is None else constraints
             ),
             solver_options=solver_options,
-            update_load=update_load,
+            update_load=self._time_update_callback(update_load),
             save_every=save_every,
             print_every=print_every,
             progress=progress,
@@ -905,6 +1197,25 @@ class Model:
             name=name,
         )
         return self.add_step(step)
+
+    def _thermal_boundary_terms(self, target):
+        """Return matrix/vector contributions from registered thermal boundaries."""
+
+        stiffness = []
+        source = []
+        unsupported = []
+        for item in self.boundary_models:
+            if hasattr(item, "operator") and hasattr(item, "source"):
+                stiffness.append(item.operator(target))
+                source.append(item.source(target))
+            else:
+                unsupported.append(getattr(item, "name", type(item).__name__))
+        if unsupported and getattr(self.study, "is_heat_transfer", False):
+            raise ValueError(
+                "Heat-transfer steps cannot consume these boundary models: "
+                f"{unsupported}."
+            )
+        return tuple(stiffness), tuple(source)
 
     def hyperelastic_step(
         self,
@@ -933,6 +1244,8 @@ class Model:
         """
 
         import ufl
+        from dolfinx import fem
+        from petsc4py import PETSc
 
         from . import problems
         from .constitutive import hyperelasticity
@@ -966,19 +1279,11 @@ class Model:
             selected_measure = (
                 record.region.measure if record.region is not None else ufl.dx
             )
-        residual = hyperelasticity.internal_virtual_work(
+        internal_residual = hyperelasticity.internal_virtual_work(
             target.value,
             target.test,
             properties,
             measure=selected_measure,
-        )
-        if self.loads:
-            external = self.external_force(target)
-            residual -= external.expression
-        jacobian = hyperelasticity.tangent(
-            residual,
-            target.value,
-            target.trial,
         )
         selected_constraints = self.constraints if constraints is None else constraints
         selected_constraints = _as_tuple(selected_constraints)
@@ -987,27 +1292,33 @@ class Model:
             for item in selected_constraints
             if isinstance(item, constraint_api.AbaqusPeriodicConstraint)
         ]
+        if output is not None and output_every is not None:
+            raise ValueError("Pass output=... or output_every=..., not both.")
+        selected_output_every = (
+            getattr(output, "every", None)
+            if output is not None
+            else (1 if output_every is None else int(output_every))
+        )
+        from . import steps as step_api
+
+        selected_incrementation = step_api.normalize(
+            incrementation,
+            increments=increments,
+            load_factors=load_factors,
+        )
         if affine_constraints:
             if len(affine_constraints) != 1 or len(selected_constraints) != 1:
                 raise ValueError(
                     "The affine hyperelastic path currently requires exactly one "
                     "AbaqusPeriodicConstraint and no separate Dirichlet constraints."
                 )
-            from . import steps as step_api
-
-            selected_incrementation = step_api.normalize(
-                incrementation,
-                increments=increments,
-                load_factors=load_factors,
-            )
-            if output is not None and output_every is not None:
-                raise ValueError(
-                    "Pass output=... or output_every=..., not both."
-                )
-            selected_output_every = (
-                getattr(output, "every", None)
-                if output is not None
-                else (1 if output_every is None else int(output_every))
+            residual = internal_residual
+            if self.loads:
+                residual -= self.external_force(target).expression
+            jacobian = hyperelasticity.tangent(
+                residual,
+                target.value,
+                target.trial,
             )
             output_factors = (
                 output.required_factors()
@@ -1028,21 +1339,65 @@ class Model:
                 name=name,
             )
         else:
-            if (
-                incrementation is not None
-                or increments is not None
-                or load_factors is not None
-            ):
-                raise ValueError(
-                    "Incremental hyperelastic loading currently requires an "
-                    "AbaqusPeriodicConstraint."
-                )
-            problem = problems.nonlinear(
+            load_factor = fem.Constant(
+                _domain(self.mesh),
+                PETSc.ScalarType(0.0),
+            )
+            residual = internal_residual
+            if self.loads:
+                residual -= load_factor * self.external_force(target).expression
+            jacobian = hyperelasticity.tangent(
                 residual,
                 target.value,
+                target.trial,
+            )
+
+            def finite_strain_acceptance():
+                from .results import finite_strain_diagnostics, integral
+
+                diagnostics = finite_strain_diagnostics(
+                    target,
+                    quadrature_degree=2,
+                )
+                minimum_j = float(diagnostics["minimum_quadrature_J"])
+                return {
+                    "accepted": bool(minimum_j > 0.0),
+                    "minimum_quadrature_J": minimum_j,
+                    "maximum_quadrature_J": float(
+                        diagnostics["maximum_quadrature_J"]
+                    ),
+                    "recoverable_strain_energy": float(
+                        integral(
+                            hyperelasticity.strain_energy_density(
+                                target.value,
+                                properties,
+                            ),
+                            measure=selected_measure,
+                            comm=_domain(self.mesh).comm,
+                        )
+                    ),
+                    "message": (
+                        "deformation Jacobian became non-positive"
+                        if minimum_j <= 0.0
+                        else ""
+                    ),
+                }
+
+            problem = problems.incremental_nonlinear(
+                residual,
+                target.value,
+                factor=load_factor,
+                value_path=constraint_api.prescribed_value_path(
+                    selected_constraints
+                ),
+                acceptance_check=finite_strain_acceptance,
                 jacobian=jacobian,
+                incrementation=selected_incrementation,
                 constraints=selected_constraints,
                 solver_options=solver_options,
+                output_every=selected_output_every,
+                progress=progress,
+                status_file=status_file,
                 name=name,
                 petsc_options_prefix=petsc_options_prefix,
             )
@@ -1118,6 +1473,7 @@ class Model:
         mass=None,
         prescribed=(),
         constraints=None,
+        update_load=None,
         save_every: int | None = None,
         print_every: int | None = None,
         progress=True,
@@ -1137,14 +1493,28 @@ class Model:
             mass=selected_mass,
         )
         if residual is None:
-            residual = self.force_balance(internal=self.internal_force(selected_state.u))
+            residual = self.force_balance(
+                internal=self.internal_force(selected_state.u),
+                external=(self.external_force(target) if self.loads else None),
+            )
+        selected_constraints = (
+            self.constraints if constraints is None else constraints
+        )
+        selected_prescribed = (
+            tuple(_as_tuple(prescribed))
+            + constraint_api.dirichlet_constraints(selected_constraints)
+        )
         step = problems.explicit_dynamics(
             state=selected_state,
             integrator=integrator,
             residual=residual,
             study=self.study,
-            prescribed=prescribed,
-            constraints=self.constraints if constraints is None else constraints,
+            prescribed=selected_prescribed,
+            constraints=selected_constraints,
+            update_load=self._time_update_callback(
+                update_load,
+                include_constraints=False,
+            ),
             dt=dt,
             steps=steps,
             save_every=save_every,
@@ -1211,7 +1581,7 @@ class Model:
                 self.constraints if constraints is None else constraints
             ),
             solver_options=solver_options,
-            update_load=update_load,
+            update_load=self._time_update_callback(update_load),
             progress=progress,
             status_file=status_file,
             save_every=save_every,
@@ -1300,6 +1670,27 @@ class Model:
                         "model.study",
                         str(exc),
                         hint="Revise the analysis, physics, dimension, or assumption.",
+                    )
+                )
+
+        if study is not None and self.fields:
+            from .step_providers import step_capability
+
+            capability = step_capability(self, target=self.fields[0])
+            if not capability["supported"]:
+                issues.append(
+                    issue(
+                        "AFM-STUDY-002",
+                        "model.study",
+                        (
+                            "No executable step provider supports this Study, "
+                            "field, material, and procedure combination."
+                        ),
+                        hint=(
+                            "Choose a supported Study/material combination or "
+                            "register a StepProvider before solving."
+                        ),
+                        capability=capability,
                     )
                 )
 
@@ -1486,6 +1877,31 @@ class Model:
             if getattr(amplitude, "name", None) == name:
                 return amplitude
         raise KeyError(f"Unknown amplitude {name!r}.")
+
+    def _time_update_callback(self, callback=None, *, include_constraints=True):
+        """Compose registered amplitude assets with an optional user callback."""
+
+        assets = list(self.loads) + list(self.boundary_models)
+        if include_constraints:
+            assets.extend(constraint_api.dirichlet_constraints(self.constraints))
+        updates = []
+        seen = set()
+        for asset in assets:
+            update = getattr(asset, "update", None)
+            if update is None or id(asset) in seen:
+                continue
+            seen.add(id(asset))
+            updates.append(update)
+        if callback is None and not updates:
+            return None
+
+        def update_all(time_value):
+            for update in updates:
+                update(time_value)
+            if callback is not None:
+                callback(time_value)
+
+        return update_all
 
     def summary(self) -> dict[str, object]:
         """Return an agent-readable model summary."""
@@ -1850,18 +2266,19 @@ def _time_dependent_fix(target, *, on=None, location=None, value, components=Non
             name=label,
         )
     component_ids = (int(components),) if isinstance(components, Integral) else tuple(components)
-    if len(component_ids) != 1:
-        raise ValueError(
-            "Time-dependent model.fix currently supports one component at a time. "
-            "Call model.fix(..., components=component_id, value=amplitude)."
+    items = [
+        constraint_api.time_dependent_component_dirichlet(
+            target,
+            component=component,
+            on=selected_location,
+            value=value,
+            name=f"{label}_component_{component}",
         )
-    return constraint_api.time_dependent_component_dirichlet(
-        target,
-        component=component_ids[0],
-        on=selected_location,
-        value=value,
-        name=label,
-    )
+        for component in component_ids
+    ]
+    if len(items) == 1:
+        return items[0]
+    return constraint_api.ConstraintSet(dirichlet=items)
 
 
 def _all_components_or_none(target) -> tuple[int, ...] | None:

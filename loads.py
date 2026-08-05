@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import ufl
+from dolfinx import fem
+from petsc4py import PETSc
 
 from . import amplitudes
 from .constraints import boundary
@@ -54,6 +56,30 @@ class BodyLoad:
             "name": self.name,
             "kind": "body_load",
             "value": describe_value(self.value),
+        }
+
+
+@dataclass(frozen=True)
+class GravityLoad:
+    """Gravity body force ``rho g`` over a material domain."""
+
+    acceleration: object
+    density: object
+    value: object
+    measure: object = ufl.dx
+    name: str = "gravity"
+    location: object | None = None
+
+    def form(self, test_function):
+        return forms.body_force_virtual_work(self.value, test_function, self.measure)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "kind": "gravity_load",
+            "location": getattr(self.location, "name", None),
+            "acceleration": describe_value(self.acceleration),
+            "density": describe_value(self.density),
         }
 
 
@@ -135,6 +161,44 @@ class NeumannLoad:
 
 
 @dataclass(frozen=True)
+class AmplitudeLoad:
+    """A spatial load multiplied by one reusable scalar amplitude."""
+
+    load: object
+    scale: object
+    amplitude: amplitudes.Amplitude
+    name: str = "amplitude_load"
+
+    @property
+    def location(self):
+        return getattr(self.load, "location", None)
+
+    @property
+    def value(self):
+        return self.scale * getattr(self.load, "value", self.load)
+
+    def update(self, time: float) -> float:
+        value = self.amplitude(time)
+        self.scale.value = PETSc.ScalarType(value)
+        return value
+
+    def form(self, test_function):
+        return self.scale * self.load.form(test_function)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "kind": "amplitude_load",
+            "load": (
+                self.load.summary()
+                if hasattr(self.load, "summary")
+                else type(self.load).__name__
+            ),
+            "amplitude": self.amplitude.summary(),
+        }
+
+
+@dataclass(frozen=True)
 class LoadSet:
     """Ordered collection of weak-form load terms."""
 
@@ -185,6 +249,41 @@ def body_force(value, *, domain=None, target=None, measure=ufl.dx, name: str = "
     return body_load(value, measure=measure, name=name, domain=domain, target=target)
 
 
+def gravity(
+    acceleration,
+    *,
+    density,
+    domain=None,
+    target=None,
+    region=None,
+    measure=None,
+    name: str = "gravity",
+) -> GravityLoad:
+    """Create a gravity load from acceleration and material density.
+
+    Acceleration follows the global coordinate components, for example
+    ``(0, -9.81)`` in 2D or ``(0, 0, -9.81)`` in 3D.  The resulting body
+    force density is ``rho * acceleration``.
+    """
+
+    owner = domain or target or region
+    if owner is None:
+        raise ValueError("gravity requires domain=, target=, or region=.")
+    selected_measure = measure
+    if selected_measure is None:
+        selected_measure = getattr(region, "measure", ufl.dx)
+    selected_acceleration = _as_constant(acceleration, domain=owner)
+    selected_density = _as_constant(density, domain=owner)
+    return GravityLoad(
+        acceleration=selected_acceleration,
+        density=selected_density,
+        value=selected_density * selected_acceleration,
+        measure=selected_measure,
+        name=name,
+        location=region,
+    )
+
+
 def heat_source(value, *, domain=None, target=None, measure=ufl.dx, name: str = "heat_source") -> BodyLoad:
     """Create a volumetric heat-source load."""
 
@@ -215,6 +314,31 @@ def neumann(value, measure, *, name: str = "neumann_load") -> NeumannLoad:
     """Create a Neumann force/flux/traction term for the weak RHS."""
 
     return NeumannLoad(value=value, measure=measure, name=name)
+
+
+def with_amplitude(load, amplitude, *, domain=None, name: str | None = None) -> AmplitudeLoad:
+    """Drive an existing load by a scalar amplitude multiplier."""
+
+    history = amplitudes.as_amplitude(
+        amplitude,
+        name=name or f"{getattr(load, 'name', 'load')}_amplitude",
+    )
+    selected_domain = domain
+    if selected_domain is None:
+        location = getattr(load, "location", None)
+        selected_domain = getattr(location, "domain", None)
+    if selected_domain is None:
+        value = getattr(load, "value", None)
+        selected_domain = getattr(value, "ufl_domain", lambda: None)()
+    if selected_domain is None:
+        raise ValueError("with_amplitude requires a load domain.")
+    scale = fem.Constant(selected_domain, PETSc.ScalarType(history(0.0)))
+    return AmplitudeLoad(
+        load=load,
+        scale=scale,
+        amplitude=history,
+        name=name or getattr(load, "name", "amplitude_load"),
+    )
 
 
 def traction(value, *, location=None, on=None, name: str = "traction") -> BoundaryLoad:

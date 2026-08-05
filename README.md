@@ -118,6 +118,23 @@ Gmsh is a separately distributed GPL-licensed optional package and is not
 bundled with AgentFEM. Windows users should currently use WSL2. See
 [`INSTALL.md`](INSTALL.md) for platform details and development installation.
 
+After installation, verify the numerical environment and create a project in
+any working directory:
+
+```bash
+agentfem doctor
+mkdir beam && cd beam
+agentfem init --template static-solid .
+agentfem check
+agentfem run
+agentfem inspect
+```
+
+`case.py` remains ordinary Python and can also be run directly. The CLI adds a
+repeatable project root, run identity, MPI launch, structured result manifest,
+and machine-readable interface for IDEs, GUIs, and AI agents. See the
+[`Installed Project Workflow`](docs/getting_started.md).
+
 ## Quick Start
 
 ```python
@@ -173,7 +190,7 @@ print(model.tree())
 print(result)
 ```
 
-Run the complete example with:
+From a source checkout, run the complete repository example with:
 
 ```bash
 python examples/static_elasticity_2d.py
@@ -241,7 +258,7 @@ If AgentFEM helps your research or engineering work, please cite the project
 metadata in [`CITATION.cff`](CITATION.cff).
 
 ```yaml
-title: "AgentFEM: AI-assisted finite-element simulation and agent-readable CAE workflows"
+title: "AgentFEM: An AI-native open-source platform for finite-element computing"
 authors:
   - family-names: Luo
     given-names: Haoming

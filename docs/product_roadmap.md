@@ -27,16 +27,16 @@ core, results, verification, and documentation have priority.
 | --- | --- | --- | --- |
 | Scientific operator layer | FEM-integrated foundation | K/M/C/F, static/first-/second-order systems, R/K_t linearization, composition and UFL role/arity validation | no mixed/block domain-range typing or physical-unit algebra |
 | Linear elasticity | FEM-integrated | 2D isotropic/selected anisotropic, static/dynamics building blocks, strong-BC reaction field, M/K energy diagnostic | broader 3D verification and affine/weak reactions remain |
-| Thermoelasticity | FEM-integrated | implicit-Euler heat transfer and sequential isotropic thermal stress in 2D/3D | no property tables or monolithic two-way coupling |
-| Structural dynamics | FEM-integrated foundation | central difference, Newmark, and generalized-alpha through one procedure vocabulary | implicit route is linear; moving supports and common OutputPlan remain |
-| Compressible Neo-Hookean | FEM-integrated | nonlinear static solve; 3D and 2D plane strain forms | one-material convenience step; no 2D plane stress local solve |
+| Thermoelasticity | FEM-integrated | steady/implicit-transient heat transfer, regional multi-material conductivity and capacity, amplitude-driven sources/ambient conditions, and sequential isotropic thermal stress in 2D/3D | no property tables or monolithic two-way coupling |
+| Structural dynamics | FEM-integrated foundation | central difference, Newmark, and generalized-alpha through `dynamic_solid`; model-owned constraints and amplitude loads enter both Standard and Explicit paths | implicit route is linear; transient energy/checkpoint/output unification remains |
+| Compressible Neo-Hookean | FEM-integrated | 3D and 2D plane-strain nonlinear statics; automatic/fixed increments, Newton cutback/rollback, positive-J acceptance, energy and accepted-increment histories for ordinary loading; affine periodic-cell path | one-material convenience step; no 2D plane-stress local solve or external load-path benchmark |
 | J2 plasticity | FEM-integrated foundation | 3D shared quadrature transaction, analytical tangent, natural/displacement loading, non-monotone tabular amplitude, global Newton, physical-increment cutback, cumulative serial restart including adaptive state, S/PE/PEEQ/RF results, prescribed-work/energy histories, analytical uniaxial Golden path | no plane stress, kinematic hardening, multi-region driver, MPI-portable restart, or external benchmark |
 | Creep and creep damage | material-point/assessment verified | power-law and Arrhenius paths; exact K-R damage coupling; Sinh flow; modified-theta fitting; hot-wall sequential assessment | no global adaptive quadrature creep step or damage regularization |
 | Stress-life fatigue | postprocessor | Basquin/tabulated S-N, rainflow, Goodman, Miner assessment from named result histories | no multiaxial critical-plane method |
 | External CAE mesh | integrated Abaqus path + conversion interface | generic meshio conversion; Abaqus node labels; verified C3D10 import; linear equation parsing | full solver-deck sections/material cards are not imported |
 | Abaqus periodic equations | serial + two-rank FEM-integrated | exact chained affine elimination, distributed `dolfinx_mpc`, and 3D Neo-Hookean load path | AMG near-nullspace transfer, reactions, and scaling studies remain |
 | Abaqus user-material bridge | interface contract | solver-neutral material-point input/output and migration specification | no compiled adapter or quadrature-state global driver |
-| Result/data flow | integrated foundation | declarative field/history/diagnostic/presentation plans; compact deformed XDMF/HDF5; one structured Standard/Explicit/thermal/J2 event trace; typed checkpoint records; verification reports and trust-gated campaign/PyTorch bridge | general point/region probes, transient energy/checkpoint writers, and portable MPI restart remain |
+| Result/data flow | integrated foundation | declarative field/history/diagnostic/presentation plans; compact deformed XDMF/HDF5; one structured Standard/Explicit/thermal/J2 event trace; typed checkpoint records; MPI-safe region integrals/averages, boundary resultants and field extrema; verification reports and trust-gated campaign/PyTorch bridge | general point probes, transient energy/checkpoint writers, and portable MPI restart remain |
 | Scientific trust | integrated foundation | computed/converged/verified/validated vocabulary; exploratory/engineering/release policies; automatic runtime checks; explicit claims and applicability domains; coarse-to-fine convergence evidence; result manifests and learning-data quality gates; orientation metamorphic regression | representative-family evidence inheritance, hole-stress and T-stiffener cliff families, GCI, and external-deck reproductions remain |
 | Campaign-to-learning flow | workflow integrated | deterministic cases, resumable evidence, failure-aware dataset gate, reproducible train/validation workflow, ridge/POD/PyTorch adapters, applicability guard and FEM fallback | no scheduler executor, active-learning governance, or calibrated epistemic uncertainty |
 | Platform/install boundary | release foundation | Linux CI, macOS developer verification, WSL2 recommended for Windows, runtime dependency report, Gmsh/meshio optional adapters | native Windows remains experimental; AgentFEM is not yet a conda-forge package |
@@ -63,6 +63,9 @@ an agent, user, or README from confusing these levels.
 
 ### P0: harden the usable core
 
+- make the installed product shell (`doctor/init/check/run/inspect`) pass a
+  wheel-only empty-directory workflow, with versioned project, execution, and
+  result contracts shared by humans, GUIs, and agents;
 - one `SimulationResult` contract and one structured execution-event stream
   for linear, nonlinear, and transient steps;
 - standard QoIs: integrals, averages, norms, extrema, reactions, energies, and
@@ -70,7 +73,11 @@ an agent, user, or README from confusing these levels.
 - compact unified XDMF/HDF5 visualization and output manifests;
 - JSON-configured and Python-configured campaigns producing the same dataset;
 - serial, MPI, docs, package, and example release gates;
-- clear solver convergence/failure evidence.
+- clear solver convergence/failure evidence;
+- reject Study/material/procedure combinations during model validation when no
+  registered executable provider can consume them;
+- share reusable time amplitudes across loads, prescribed data, and thermal
+  boundary models, with automatic updates inside transient procedures.
 - keep execution status distinct from scientific trust; release and training
   data may require explicit verification claims rather than successful exit;
 - expand the `CAE Reliability Cliff Suite` from the automated orientation
@@ -88,7 +95,14 @@ the first release.
 
 - harden the new `SolutionProcedure` separation and make Standard/Explicit
   transient steps share result, progress, energy, and checkpoint manifests;
-- finish Neo-Hookean load-controlled and multi-region verification;
+- extend the minimal verified Newmark starter to larger meshes, MPI, and a
+  tested transient XDMF/HDF5 lifecycle; the current macOS product smoke remains
+  deliberately small after exposing a native PETSc/MPI failure at a larger
+  starter size;
+- extend the implemented ordinary Neo-Hookean automatic/fixed load path,
+  forced-cutback rollback, positive-J acceptance, strain-energy evidence, and
+  accepted-increment history to multi-region ownership and external
+  load-path benchmarks;
 - harden the implemented stateless periodic-cell automatic incrementation with
   forced-cutback regression cases and homogenized tangent checks; the serial
   affine and distributed `dolfinx_mpc` paths already share one public Newton
@@ -181,6 +195,8 @@ rank-local array serialization prototype.
 
 - maintain one public API and one validation path for humans and agents;
 - make errors addressable and capabilities queryable;
+- stabilize the local process boundary before adding an asynchronous job
+  service, report bundle, REST interface, or MCP adapter;
 - pair every public function family with compact reference examples;
 - add tool/service endpoints around the same campaign/result contracts;
 - evolve AF-IR only when a loader, validator, migration, or independent

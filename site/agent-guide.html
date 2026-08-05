@@ -15,7 +15,9 @@
       <div class="tagline">AI-assisted finite-element workflows</div>
       <nav><a class="" href="index.html">Home</a>
 <a class="" href="install.html">Install</a>
+<a class="" href="getting-started.html">Getting Started</a>
 <a class="active" href="agent-guide.html">Agent Guide</a>
+<a class="" href="agent-gui-integration.html">Agent and GUI Integration</a>
 <a class="" href="workflow.html">Workflow</a>
 <a class="" href="concepts.html">Concepts</a>
 <a class="" href="examples.html">Examples</a>
@@ -53,6 +55,7 @@
 <p>Use this guide when an AI agent is asked to build, review, extend, or debug a finite-element simulation with AgentFEM.</p>
 <h2 id="first-steps">First Steps</h2>
 <ol>
+<li>For an installed case, run <code>agentfem doctor --json</code>, then<br><code>agentfem check --json</code>. For repository work, also read this guide.</li>
 <li>Read <code>WORKFLOW.md</code> to identify the standard finite-element sequence.</li>
 <li>Read <code>CONCEPTS.md</code> to align terminology before changing code.</li>
 <li>Identify or create the <code>studies.Study</code> before choosing constitutive laws or<br>operators.</li>
@@ -65,9 +68,10 @@
 <ul>
 <li>Mesh, domain, or region modeling: read the Mesh Region, Selector, and Region<br>Set concepts in <code>CONCEPTS.md</code>. Prefer named regions and region sets over raw<br>integer tags in user-facing workflows. Use low-level <code>MeshTags</code> helpers only<br>when importing, validating, or teaching the tagging implementation.</li>
 <li>Mesh or boundary tagging: read <code>docs/module_map.md</code>, then use<br><code>mesh.summarize_mesh</code>, <code>mesh.require_cell_tags</code>, and<br><code>mesh.require_facet_tags</code>.</li>
-<li>Study setup: use <code>studies.linear_static</code>, <code>studies.first_order_transient</code>,<br><code>studies.implicit_dynamics</code>, or <code>studies.explicit_dynamics</code> before building<br>operators. Use neutral <code>studies.second_order_dynamics</code> only when downstream<br>code deliberately selects the numerical procedure.</li>
+<li>Study setup: use <code>studies.static_solid</code>, <code>studies.steady_heat_transfer</code>,<br><code>studies.transient_heat_transfer</code>, or <code>studies.dynamic_solid</code> for common<br>workflows. Use the general factories only when the common vocabulary does<br>not fit. <code>dynamic_solid(method=...)</code> changes the procedure, not the physics.</li>
 <li>Solution procedure: inspect <code>procedures.py</code> when Standard/Explicit or a<br>particular time integrator must be selected. Do not encode the algorithm by<br>inventing a new physical analysis type.</li>
 <li>Model audit: use <code>model.tree()</code>, <code>model.manifest()</code>, <code>model.summary()</code>, and<br><code>model.validate()</code> when multiple fields, regions, loads, constraints, or<br>steps must be inspected. Use <code>model.check()</code> to stop before execution on<br>validation errors and <code>model.write_ir(...)</code> when a persistent scientific<br>record is required.</li>
+<li>Capability dispatch: inspect <code>models.step_capability(model)</code> or run<br><code>model.check()</code> before solve. It queries the same provider predicates as<br><code>model.step(...)</code>; never work around <code>AFM-STUDY-002</code> by silently changing the<br>Study.</li>
 <li>Model registration: use <code>model.field(...)</code>, <code>model.material(...)</code>,<br><code>model.fix(...)</code>, and <code>model.traction(...)</code> in application workflows when the<br>assets should stay visible and auditable.</li>
 <li>Application unknowns: use <code>fields.py</code> before dropping to <code>spaces.py</code>.</li>
 <li>Function spaces: inspect <code>spaces.py</code>; only inspect <code>kernel/dofs.py</code> for<br>implementation-level dof work.</li>
@@ -77,11 +81,13 @@
 <li>Absorbing or Robin-like terms: use <code>boundary_models/</code>.</li>
 <li>Assembly or lumped operators: inspect <code>assembly.py</code>.</li>
 <li>Time stepping: inspect <code>time/</code> and <code>problems.py</code>.</li>
+<li>Time histories: define reusable assets in <code>amplitudes.py</code> and attach them to<br>model loads, prescribed values, or supported boundary models. Transient<br>procedures update registered histories automatically; use callbacks only<br>for genuinely application-specific state.</li>
 <li>Solves: inspect <code>solvers.py</code>.</li>
 <li>Step incrementation: use <code>steps.automatic(...)</code> by default or<br><code>steps.fixed(...)</code> only when exact fixed subdivision is scientifically<br>intended. <code>max_increments</code> limits accepted increments; Newton <code>max_it</code><br>limits iterations in one attempt.</li>
 <li>Analysis steps: prefer <code>model.step(...)</code> or <code>model.linear_static_step(...)</code><br>when a model owns fields, materials, loads, and constraints. Use<br><code>problems.linear_static</code> or <code>problems.first_order_transient</code> when a workflow<br>intentionally starts from explicit K/C/F operators without model ownership.</li>
 <li>Problem summaries: use <code>problems.FEMProblem</code> when a workflow needs a<br>broader structured audit record.</li>
-<li>Results: read <code>docs/results_and_campaigns.md</code>; use <code>solve_result()</code>,<br><code>results.SimulationResult</code>, assembled QoIs in <code>results</code>, then attach XDMF/CSV<br>artifacts from <code>io</code>. Distinguish execution status from<br><code>result.trust_level</code>, apply a named quality policy for routine checks, and<br>attach explicit scientific claims before describing a result as verified.</li>
+<li>Results: read <code>docs/results_and_campaigns.md</code>; use <code>solve_result()</code>,<br><code>results.SimulationResult</code>, MPI-safe region integrals/averages, boundary<br>resultants and field extrema in <code>results</code>, then attach XDMF/CSV<br>artifacts from <code>io</code>. Distinguish execution status from<br><code>result.trust_level</code>, apply a named quality policy for routine checks, and<br>attach explicit scientific claims before describing a result as verified.</li>
+<li>Installed projects and external frontends: read <code>docs/getting_started.md</code><br>and <code>docs/agent_gui_integration.md</code>. Keep <code>case.py</code> as modeling truth, use<br><code>project.current_run()</code> for artifacts, publish a <code>SimulationResult</code>, and<br>consume versioned JSON instead of scraping terminal prose.</li>
 <li>AF-IR and repair: inspect <code>ir/</code> and <code>validation.py</code>. Treat AF-IR 0.1 as an<br>experimental record, not as proof of backend-neutral executability.</li>
 <li>Backend work: inspect <code>backends/</code> and<br><code>docs/air_architecture_roadmap.md</code>. Preserve the full FEniCSx path and do not<br>advertise a backend until its capabilities are independently tested.</li>
 <li>Parameter campaigns and learned models: read<br><code>docs/ai_native_learning.md</code>, then inspect <code>campaigns/</code>, <code>datasets/</code>, and<br><code>surrogates/</code>. Build a fresh model per case; retain units, output shapes,<br>case IDs, validation data, and applicability behavior. Do not present a<br>training residual or successful prediction call as independent scientific<br>validation. Use <code>require_dataset(quality=&quot;engineering&quot;)</code> for ordinary<br>learning data and a release policy when every sample carries a scientific<br>release contract.</li>

@@ -5,15 +5,17 @@ finite-element simulation with AgentFEM.
 
 ## First Steps
 
-1. Read `WORKFLOW.md` to identify the standard finite-element sequence.
-2. Read `CONCEPTS.md` to align terminology before changing code.
-3. Identify or create the `studies.Study` before choosing constitutive laws or
+1. For an installed case, run `agentfem doctor --json`, then
+   `agentfem check --json`. For repository work, also read this guide.
+2. Read `WORKFLOW.md` to identify the standard finite-element sequence.
+3. Read `CONCEPTS.md` to align terminology before changing code.
+4. Identify or create the `studies.Study` before choosing constitutive laws or
    operators.
-4. Inspect or create a mesh summary before reasoning about boundary tags,
+5. Inspect or create a mesh summary before reasoning about boundary tags,
    material regions, or output dimensions.
-5. Inspect the target application only after mapping it to AgentFEM concepts.
-6. Prefer existing `agentfem` APIs before adding new helpers.
-7. Add reusable code only when it belongs to a standard FEM concept.
+6. Inspect the target application only after mapping it to AgentFEM concepts.
+7. Prefer existing `agentfem` APIs before adding new helpers.
+8. Add reusable code only when it belongs to a standard FEM concept.
 
 ## Progressive Reading
 
@@ -24,10 +26,10 @@ finite-element simulation with AgentFEM.
 - Mesh or boundary tagging: read `docs/module_map.md`, then use
   `mesh.summarize_mesh`, `mesh.require_cell_tags`, and
   `mesh.require_facet_tags`.
-- Study setup: use `studies.linear_static`, `studies.first_order_transient`,
-  `studies.implicit_dynamics`, or `studies.explicit_dynamics` before building
-  operators. Use neutral `studies.second_order_dynamics` only when downstream
-  code deliberately selects the numerical procedure.
+- Study setup: use `studies.static_solid`, `studies.steady_heat_transfer`,
+  `studies.transient_heat_transfer`, or `studies.dynamic_solid` for common
+  workflows. Use the general factories only when the common vocabulary does
+  not fit. `dynamic_solid(method=...)` changes the procedure, not the physics.
 - Solution procedure: inspect `procedures.py` when Standard/Explicit or a
   particular time integrator must be selected. Do not encode the algorithm by
   inventing a new physical analysis type.
@@ -36,6 +38,10 @@ finite-element simulation with AgentFEM.
   steps must be inspected. Use `model.check()` to stop before execution on
   validation errors and `model.write_ir(...)` when a persistent scientific
   record is required.
+- Capability dispatch: inspect `models.step_capability(model)` or run
+  `model.check()` before solve. It queries the same provider predicates as
+  `model.step(...)`; never work around `AFM-STUDY-002` by silently changing the
+  Study.
 - Model registration: use `model.field(...)`, `model.material(...)`,
   `model.fix(...)`, and `model.traction(...)` in application workflows when the
   assets should stay visible and auditable.
@@ -52,6 +58,10 @@ finite-element simulation with AgentFEM.
 - Absorbing or Robin-like terms: use `boundary_models/`.
 - Assembly or lumped operators: inspect `assembly.py`.
 - Time stepping: inspect `time/` and `problems.py`.
+- Time histories: define reusable assets in `amplitudes.py` and attach them to
+  model loads, prescribed values, or supported boundary models. Transient
+  procedures update registered histories automatically; use callbacks only
+  for genuinely application-specific state.
 - Solves: inspect `solvers.py`.
 - Step incrementation: use `steps.automatic(...)` by default or
   `steps.fixed(...)` only when exact fixed subdivision is scientifically
@@ -64,10 +74,15 @@ finite-element simulation with AgentFEM.
 - Problem summaries: use `problems.FEMProblem` when a workflow needs a
   broader structured audit record.
 - Results: read `docs/results_and_campaigns.md`; use `solve_result()`,
-  `results.SimulationResult`, assembled QoIs in `results`, then attach XDMF/CSV
+  `results.SimulationResult`, MPI-safe region integrals/averages, boundary
+  resultants and field extrema in `results`, then attach XDMF/CSV
   artifacts from `io`. Distinguish execution status from
   `result.trust_level`, apply a named quality policy for routine checks, and
   attach explicit scientific claims before describing a result as verified.
+- Installed projects and external frontends: read `docs/getting_started.md`
+  and `docs/agent_gui_integration.md`. Keep `case.py` as modeling truth, use
+  `project.current_run()` for artifacts, publish a `SimulationResult`, and
+  consume versioned JSON instead of scraping terminal prose.
 - AF-IR and repair: inspect `ir/` and `validation.py`. Treat AF-IR 0.1 as an
   experimental record, not as proof of backend-neutral executability.
 - Backend work: inspect `backends/` and

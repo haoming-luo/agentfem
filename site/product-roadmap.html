@@ -15,7 +15,9 @@
       <div class="tagline">AI-assisted finite-element workflows</div>
       <nav><a class="" href="index.html">Home</a>
 <a class="" href="install.html">Install</a>
+<a class="" href="getting-started.html">Getting Started</a>
 <a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="agent-gui-integration.html">Agent and GUI Integration</a>
 <a class="" href="workflow.html">Workflow</a>
 <a class="" href="concepts.html">Concepts</a>
 <a class="" href="examples.html">Examples</a>
@@ -68,16 +70,16 @@
 <tbody>
 <tr><td>Scientific operator layer</td><td>FEM-integrated foundation</td><td>K/M/C/F, static/first-/second-order systems, R/K_t linearization, composition and UFL role/arity validation</td><td>no mixed/block domain-range typing or physical-unit algebra</td></tr>
 <tr><td>Linear elasticity</td><td>FEM-integrated</td><td>2D isotropic/selected anisotropic, static/dynamics building blocks, strong-BC reaction field, M/K energy diagnostic</td><td>broader 3D verification and affine/weak reactions remain</td></tr>
-<tr><td>Thermoelasticity</td><td>FEM-integrated</td><td>implicit-Euler heat transfer and sequential isotropic thermal stress in 2D/3D</td><td>no property tables or monolithic two-way coupling</td></tr>
-<tr><td>Structural dynamics</td><td>FEM-integrated foundation</td><td>central difference, Newmark, and generalized-alpha through one procedure vocabulary</td><td>implicit route is linear; moving supports and common OutputPlan remain</td></tr>
-<tr><td>Compressible Neo-Hookean</td><td>FEM-integrated</td><td>nonlinear static solve; 3D and 2D plane strain forms</td><td>one-material convenience step; no 2D plane stress local solve</td></tr>
+<tr><td>Thermoelasticity</td><td>FEM-integrated</td><td>steady/implicit-transient heat transfer, regional multi-material conductivity and capacity, amplitude-driven sources/ambient conditions, and sequential isotropic thermal stress in 2D/3D</td><td>no property tables or monolithic two-way coupling</td></tr>
+<tr><td>Structural dynamics</td><td>FEM-integrated foundation</td><td>central difference, Newmark, and generalized-alpha through <code>dynamic_solid</code>; model-owned constraints and amplitude loads enter both Standard and Explicit paths</td><td>implicit route is linear; transient energy/checkpoint/output unification remains</td></tr>
+<tr><td>Compressible Neo-Hookean</td><td>FEM-integrated</td><td>3D and 2D plane-strain nonlinear statics; automatic/fixed increments, Newton cutback/rollback, positive-J acceptance, energy and accepted-increment histories for ordinary loading; affine periodic-cell path</td><td>one-material convenience step; no 2D plane-stress local solve or external load-path benchmark</td></tr>
 <tr><td>J2 plasticity</td><td>FEM-integrated foundation</td><td>3D shared quadrature transaction, analytical tangent, natural/displacement loading, non-monotone tabular amplitude, global Newton, physical-increment cutback, cumulative serial restart including adaptive state, S/PE/PEEQ/RF results, prescribed-work/energy histories, analytical uniaxial Golden path</td><td>no plane stress, kinematic hardening, multi-region driver, MPI-portable restart, or external benchmark</td></tr>
 <tr><td>Creep and creep damage</td><td>material-point/assessment verified</td><td>power-law and Arrhenius paths; exact K-R damage coupling; Sinh flow; modified-theta fitting; hot-wall sequential assessment</td><td>no global adaptive quadrature creep step or damage regularization</td></tr>
 <tr><td>Stress-life fatigue</td><td>postprocessor</td><td>Basquin/tabulated S-N, rainflow, Goodman, Miner assessment from named result histories</td><td>no multiaxial critical-plane method</td></tr>
 <tr><td>External CAE mesh</td><td>integrated Abaqus path + conversion interface</td><td>generic meshio conversion; Abaqus node labels; verified C3D10 import; linear equation parsing</td><td>full solver-deck sections/material cards are not imported</td></tr>
 <tr><td>Abaqus periodic equations</td><td>serial + two-rank FEM-integrated</td><td>exact chained affine elimination, distributed <code>dolfinx_mpc</code>, and 3D Neo-Hookean load path</td><td>AMG near-nullspace transfer, reactions, and scaling studies remain</td></tr>
 <tr><td>Abaqus user-material bridge</td><td>interface contract</td><td>solver-neutral material-point input/output and migration specification</td><td>no compiled adapter or quadrature-state global driver</td></tr>
-<tr><td>Result/data flow</td><td>integrated foundation</td><td>declarative field/history/diagnostic/presentation plans; compact deformed XDMF/HDF5; one structured Standard/Explicit/thermal/J2 event trace; typed checkpoint records; verification reports and trust-gated campaign/PyTorch bridge</td><td>general point/region probes, transient energy/checkpoint writers, and portable MPI restart remain</td></tr>
+<tr><td>Result/data flow</td><td>integrated foundation</td><td>declarative field/history/diagnostic/presentation plans; compact deformed XDMF/HDF5; one structured Standard/Explicit/thermal/J2 event trace; typed checkpoint records; MPI-safe region integrals/averages, boundary resultants and field extrema; verification reports and trust-gated campaign/PyTorch bridge</td><td>general point probes, transient energy/checkpoint writers, and portable MPI restart remain</td></tr>
 <tr><td>Scientific trust</td><td>integrated foundation</td><td>computed/converged/verified/validated vocabulary; exploratory/engineering/release policies; automatic runtime checks; explicit claims and applicability domains; coarse-to-fine convergence evidence; result manifests and learning-data quality gates; orientation metamorphic regression</td><td>representative-family evidence inheritance, hole-stress and T-stiffener cliff families, GCI, and external-deck reproductions remain</td></tr>
 <tr><td>Campaign-to-learning flow</td><td>workflow integrated</td><td>deterministic cases, resumable evidence, failure-aware dataset gate, reproducible train/validation workflow, ridge/POD/PyTorch adapters, applicability guard and FEM fallback</td><td>no scheduler executor, active-learning governance, or calibrated epistemic uncertainty</td></tr>
 <tr><td>Platform/install boundary</td><td>release foundation</td><td>Linux CI, macOS developer verification, WSL2 recommended for Windows, runtime dependency report, Gmsh/meshio optional adapters</td><td>native Windows remains experimental; AgentFEM is not yet a conda-forge package</td></tr>
@@ -97,12 +99,15 @@
 <h2 id="delivery-sequence">Delivery Sequence</h2>
 <h3 id="p0-harden-the-usable-core">P0: harden the usable core</h3>
 <ul>
+<li>make the installed product shell (<code>doctor/init/check/run/inspect</code>) pass a<br>wheel-only empty-directory workflow, with versioned project, execution, and<br>result contracts shared by humans, GUIs, and agents;</li>
 <li>one <code>SimulationResult</code> contract and one structured execution-event stream<br>for linear, nonlinear, and transient steps;</li>
 <li>standard QoIs: integrals, averages, norms, extrema, reactions, energies, and<br>histories;</li>
 <li>compact unified XDMF/HDF5 visualization and output manifests;</li>
 <li>JSON-configured and Python-configured campaigns producing the same dataset;</li>
 <li>serial, MPI, docs, package, and example release gates;</li>
-<li>clear solver convergence/failure evidence.</li>
+<li>clear solver convergence/failure evidence;</li>
+<li>reject Study/material/procedure combinations during model validation when no<br>registered executable provider can consume them;</li>
+<li>share reusable time amplitudes across loads, prescribed data, and thermal<br>boundary models, with automatic updates inside transient procedures.</li>
 <li>keep execution status distinct from scientific trust; release and training<br>data may require explicit verification claims rather than successful exit;</li>
 <li>expand the <code>CAE Reliability Cliff Suite</code> from the automated orientation<br>case to a perforated-plate resolution sweep and a beam/shell/solid<br>theory-applicability family.</li>
 </ul>
@@ -110,7 +115,8 @@
 <h3 id="p1-nonlinear-solid-mechanics">P1: nonlinear solid mechanics</h3>
 <ul>
 <li>harden the new <code>SolutionProcedure</code> separation and make Standard/Explicit<br>transient steps share result, progress, energy, and checkpoint manifests;</li>
-<li>finish Neo-Hookean load-controlled and multi-region verification;</li>
+<li>extend the minimal verified Newmark starter to larger meshes, MPI, and a<br>tested transient XDMF/HDF5 lifecycle; the current macOS product smoke remains<br>deliberately small after exposing a native PETSc/MPI failure at a larger<br>starter size;</li>
+<li>extend the implemented ordinary Neo-Hookean automatic/fixed load path,<br>forced-cutback rollback, positive-J acceptance, strain-energy evidence, and<br>accepted-increment history to multi-region ownership and external<br>load-path benchmarks;</li>
 <li>harden the implemented stateless periodic-cell automatic incrementation with<br>forced-cutback regression cases and homogenized tangent checks; the serial<br>affine and distributed <code>dolfinx_mpc</code> paths already share one public Newton<br>policy and output contract;</li>
 <li>extend the implemented quadrature-state transaction, 3D J2 analytical<br>tangent, analytical uniaxial Golden path, physical-increment forced cutback,<br>cyclic tabular amplitude, reaction/work/energy history, and cumulative serial<br>restart to multi-region ownership, projected visualization fields, and<br>portable MPI checkpoint identity;</li>
 <li>add reaction, internal/external work, and energy-balance histories with<br>verified strong, weak, and affine-MPC definitions;</li>
@@ -157,6 +163,7 @@
 <ul>
 <li>maintain one public API and one validation path for humans and agents;</li>
 <li>make errors addressable and capabilities queryable;</li>
+<li>stabilize the local process boundary before adding an asynchronous job<br>service, report bundle, REST interface, or MCP adapter;</li>
 <li>pair every public function family with compact reference examples;</li>
 <li>add tool/service endpoints around the same campaign/result contracts;</li>
 <li>evolve AF-IR only when a loader, validator, migration, or independent<br>consumer requires a stable semantic record.</li>

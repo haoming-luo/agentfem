@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from importlib import metadata
 import platform as _platform
 from pathlib import Path
+import shutil
+import sys
 
 from . import dependencies
 
@@ -52,6 +54,7 @@ class RuntimeReport:
     python: str
     machine: str
     packages: dict[str, str | None]
+    mpi: dict[str, object]
     optional: tuple[dependencies.DependencyStatus, ...]
 
     def summary(self) -> dict[str, object]:
@@ -60,6 +63,7 @@ class RuntimeReport:
             "python": self.python,
             "machine": self.machine,
             "packages": dict(self.packages),
+            "mpi": dict(self.mpi),
             "optional": tuple(item.summary() for item in self.optional),
         }
 
@@ -69,6 +73,13 @@ class RuntimeReport:
             f"  {name}: {version or 'not installed'}"
             for name, version in self.packages.items()
         )
+        lines.append(f"  MPI vendor: {self.mpi['vendor']}")
+        lines.append(f"  MPI launcher: {self.mpi['recommended_launcher']}")
+        if self.mpi["path_mismatch"]:
+            lines.append(
+                "  warning: PATH mpiexec differs from the active environment; "
+                "AgentFEM will use the environment launcher"
+            )
         lines.extend(
             f"  optional {item.package}: "
             f"{item.version if item.available else 'not installed'}"
@@ -144,8 +155,12 @@ def current_support() -> PlatformSupport:
 def runtime_report() -> RuntimeReport:
     """Return versions and optional integrations useful in issue reports."""
 
+    # Report the code that is actually executing.  Development checkouts can
+    # legitimately shadow an older installed distribution, in which case
+    # importlib.metadata would otherwise describe the wrong AgentFEM runtime.
+    from . import __version__ as runtime_version
+
     core_packages = (
-        "agentfem",
         "fenics-dolfinx",
         "fenics-ufl",
         "numpy",
@@ -157,7 +172,11 @@ def runtime_report() -> RuntimeReport:
         platform=current_support(),
         python=_platform.python_version(),
         machine=_platform.machine(),
-        packages={name: _version(name) for name in core_packages},
+        packages={
+            "agentfem": runtime_version,
+            **{name: _version(name) for name in core_packages},
+        },
+        mpi=_mpi_runtime(),
         optional=(
             dependencies.status(
                 "meshio",
@@ -186,6 +205,40 @@ def runtime_report() -> RuntimeReport:
             ),
         ),
     )
+
+
+def _mpi_runtime() -> dict[str, object]:
+    """Describe the mpi4py vendor and avoid PATH launcher mismatches."""
+
+    try:
+        from mpi4py import MPI
+
+        vendor_name, vendor_version = MPI.get_vendor()
+        vendor = f"{vendor_name} {'.'.join(str(item) for item in vendor_version)}"
+    except Exception as exc:
+        vendor = f"unavailable ({type(exc).__name__}: {exc})"
+    environment_launcher = Path(sys.prefix) / "bin" / "mpiexec"
+    path_launcher = shutil.which("mpiexec") or shutil.which("mpirun")
+    recommended = (
+        str(environment_launcher)
+        if environment_launcher.is_file()
+        else path_launcher
+    )
+    mismatch = False
+    if environment_launcher.is_file() and path_launcher is not None:
+        try:
+            mismatch = not Path(path_launcher).samefile(environment_launcher)
+        except OSError:
+            mismatch = str(Path(path_launcher).resolve()) != str(environment_launcher.resolve())
+    return {
+        "vendor": vendor,
+        "environment_launcher": (
+            str(environment_launcher) if environment_launcher.is_file() else None
+        ),
+        "path_launcher": path_launcher,
+        "recommended_launcher": recommended,
+        "path_mismatch": mismatch,
+    }
 
 
 def _is_wsl() -> bool:

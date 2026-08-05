@@ -1,6 +1,7 @@
 cff-version: 1.2.0
 message: "If AgentFEM helps your research or engineering work, please cite it using this metadata."
-title: "AgentFEM: AI-assisted finite-element simulation and agent-readable CAE workflows"
+title: "AgentFEM: An AI-native open-source platform for finite-element computing"
+type: software
 version: "0.2.0a1"
 authors:
   - family-names: Luo

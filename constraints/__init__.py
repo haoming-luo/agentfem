@@ -104,6 +104,72 @@ class TimeDependentDirichlet:
         }
 
 
+@dataclass
+class PrescribedValuePath:
+    """Update ordinary strong boundary values along a normalized step path.
+
+    Constant Dirichlet data are interpreted as end-of-step values and scaled
+    by ``0 <= factor <= 1``.  A :class:`TimeDependentDirichlet` instead
+    evaluates its own amplitude at the normalized factor.  The object keeps
+    this policy visible and reusable by nonlinear procedures.
+    """
+
+    constants: tuple[tuple[object, object], ...] = ()
+    amplitudes: tuple[TimeDependentDirichlet, ...] = ()
+
+    def update(self, factor: float) -> None:
+        selected = float(factor)
+        if not 0.0 <= selected <= 1.0 + 1.0e-12:
+            raise ValueError("PrescribedValuePath factor must lie in [0, 1].")
+        for constant, reference in self.constants:
+            constant.value = selected * reference
+        for constraint in self.amplitudes:
+            constraint.update(selected)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "prescribed_value_path",
+            "constant_values": len(self.constants),
+            "amplitude_values": len(self.amplitudes),
+        }
+
+
+def prescribed_value_path(constraints) -> PrescribedValuePath:
+    """Create a normalized load-factor driver from registered constraints."""
+
+    constants = []
+    histories = []
+    for item in _flatten_dirichlet(constraints):
+        if isinstance(item, TimeDependentDirichlet):
+            histories.append(item)
+            continue
+        value = getattr(item, "value", None)
+        if value is None or not hasattr(value, "value"):
+            continue
+        reference = np.asarray(value.value).copy()
+        constants.append((value, reference))
+    return PrescribedValuePath(tuple(constants), tuple(histories))
+
+
+def dirichlet_constraints(constraints) -> tuple[object, ...]:
+    """Return concrete Dirichlet assets from nested model constraint sets."""
+
+    return _flatten_dirichlet(constraints)
+
+
+def _flatten_dirichlet(items) -> tuple[object, ...]:
+    if items is None:
+        return ()
+    if isinstance(items, (list, tuple)):
+        result = []
+        for item in items:
+            result.extend(_flatten_dirichlet(item))
+        return tuple(result)
+    if hasattr(items, "dirichlet"):
+        return _flatten_dirichlet(items.dirichlet)
+    return (items,)
+
+
 def scalar_dirichlet(
     V,
     marker=None,
@@ -359,6 +425,74 @@ def fixed_all(target, *, location=None, on=None, value=0.0, name: str | None = N
     """Create a scalar/all-dof fixed-value constraint."""
 
     return fixed(target, location=location, on=on, value=value, components=None, name=name)
+
+
+def prescribed(
+    target,
+    *,
+    on=None,
+    location=None,
+    value=0.0,
+    component=None,
+    components=None,
+    name: str | None = None,
+):
+    """Create prescribed scalar or vector-component values.
+
+    This engineering spelling is equivalent to ``fixed`` but reads naturally
+    for non-zero displacement and temperature boundary data.
+    """
+
+    if component is not None:
+        if components is not None:
+            raise ValueError("Pass either component=... or components=..., not both.")
+        components = component
+    return fixed(
+        target,
+        on=on,
+        location=location,
+        value=value,
+        components=components,
+        name=name or "prescribed",
+    )
+
+
+def clamped(target, *, on=None, location=None, value=0.0, name: str | None = None):
+    """Fix every displacement component on a support boundary."""
+
+    available = _all_components_or_none(target)
+    if available is None:
+        raise ValueError("clamped requires a vector displacement-like field.")
+    return fixed(
+        target,
+        on=on,
+        location=location,
+        value=value,
+        components=available,
+        name=name or "clamped",
+    )
+
+
+def prescribed_temperature(
+    target,
+    value,
+    *,
+    on=None,
+    location=None,
+    name: str | None = None,
+):
+    """Prescribe temperature on a named boundary."""
+
+    if _all_components_or_none(target) is not None:
+        raise ValueError("prescribed_temperature requires a scalar field.")
+    return fixed(
+        target,
+        on=on,
+        location=location,
+        value=value,
+        components=None,
+        name=name or "prescribed_temperature",
+    )
 
 
 def _all_components_or_none(target) -> tuple[int, ...] | None:

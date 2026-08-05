@@ -15,7 +15,9 @@
       <div class="tagline">AI-assisted finite-element workflows</div>
       <nav><a class="active" href="index.html">Home</a>
 <a class="" href="install.html">Install</a>
+<a class="" href="getting-started.html">Getting Started</a>
 <a class="" href="agent-guide.html">Agent Guide</a>
+<a class="" href="agent-gui-integration.html">Agent and GUI Integration</a>
 <a class="" href="workflow.html">Workflow</a>
 <a class="" href="concepts.html">Concepts</a>
 <a class="" href="examples.html">Examples</a>
@@ -52,9 +54,9 @@
 <p align="center"><img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM logo" width="320"></p>
 <h1 id="agentfem">AgentFEM</h1>
 <p><a href="https://github.com/haoming-luo/agentfem/actions/workflows/test.yml/badge.svg">![Test</a>](https://github.com/haoming-luo/agentfem/actions/workflows/test.yml) <a href="https://img.shields.io/pypi/v/agentfem.svg">![PyPI</a>](https://pypi.org/project/agentfem/) <a href="https://img.shields.io/badge/license-Apache--2.0-blue.svg">![License</a>](LICENSE)</p>
-<p>AgentFEM is an open-source platform for <strong>AI-native finite-element computing</strong>. It turns finite-element simulation from backend-oriented solver code into readable, reusable scientific workflows that humans and AI agents can build, inspect, run, and improve together.</p>
+<p>AgentFEM is an open-source platform for <strong>AI-native finite-element computing</strong>. It explores how engineering simulation may evolve in the age of AI agents—from software designed primarily for human operation toward scientific workflows that humans and AI agents can jointly understand, construct, and improve.</p>
 <p>AgentFEM was initiated by Haoming Luo and open-sourced on GitHub in July 2026.</p>
-<p>Its immediate goal is practical: become a dependable and unusually usable open-source FEM tool for selected engineering analyses. Its longer-term proposition is that humans and increasingly capable AI agents will need a shared, inspectable way to build, check, communicate, and accumulate finite-element knowledge.</p>
+<p>Its immediate goal is practical: to become a dependable and unusually usable open-source FEM platform. Its longer-term vision is to turn finite-element simulation into an accessible, shared scientific workspace connecting engineering, computation, data, and AI.</p>
 <h2 id="why-agentfem">Why AgentFEM</h2>
 <ul>
 <li><strong>AI-Native FEM</strong> — finite-element software designed from the start for<br>agents to construct, operate, and automate naturally, without replacing<br>deterministic mechanics and numerical computation with AI.</li>
@@ -75,7 +77,6 @@
 <li><strong>Open at Every Layer</strong> — users can begin with a clear engineering workflow<br>and still reach operators, UFL, DOLFINx, PETSc, and custom constitutive<br>models whenever needed.</li>
 </ul>
 <p>&gt; <strong>Our conviction:</strong> AI will make code abundant, but trustworthy scientific &gt; structure will remain scarce. AgentFEM is being built so that finite-element &gt; knowledge can be created, checked, communicated, and accumulated by humans &gt; and AI agents together.</p>
-<p>AI-native does not mean replacing finite-element computation with AI. It means making the complete FEM workflow naturally operable by agents while keeping it clear, inspectable, and controllable for humans.</p>
 <h2 id="what-works-today">What Works Today</h2>
 <table>
 <thead><tr><th>Area</th><th>Implemented path</th></tr></thead>
@@ -113,6 +114,14 @@ python -m pip install --pre &#x27;agentfem[gmsh]&#x27;          # Gmsh model/.ms
 python -m pip install --pre &#x27;agentfem[visualization]&#x27;
 python -m pip install --pre &#x27;agentfem[ml]&#x27;            # PyTorch adapters</code></pre>
 <p>Gmsh is a separately distributed GPL-licensed optional package and is not bundled with AgentFEM. Windows users should currently use WSL2. See <a href="INSTALL.md"><code>INSTALL.md</code></a> for platform details and development installation.</p>
+<p>After installation, verify the numerical environment and create a project in any working directory:</p>
+<pre><code>agentfem doctor
+mkdir beam &amp;&amp; cd beam
+agentfem init --template static-solid .
+agentfem check
+agentfem run
+agentfem inspect</code></pre>
+<p><code>case.py</code> remains ordinary Python and can also be run directly. The CLI adds a repeatable project root, run identity, MPI launch, structured result manifest, and machine-readable interface for IDEs, GUIs, and AI agents. See the <a href="docs/getting_started.md"><code>Installed Project Workflow</code></a>.</p>
 <h2 id="quick-start">Quick Start</h2>
 <pre><code>from mpi4py import MPI
 import numpy as np
@@ -164,7 +173,7 @@ result.verify(&quot;engineering&quot;).require()
 
 print(model.tree())
 print(result)</code></pre>
-<p>Run the complete example with:</p>
+<p>From a source checkout, run the complete repository example with:</p>
 <pre><code>python examples/static_elasticity_2d.py</code></pre>
 <p>Models can be inspected before execution with <code>model.validate()</code>, <code>model.tree()</code>, and <code>model.manifest()</code>. Experimental AF-IR records can be written with <code>model.write_ir(...)</code> when a JSON-safe scientific record is useful.</p>
 <h2 id="release-workflows">Release Workflows</h2>
@@ -193,7 +202,7 @@ print(result)</code></pre>
 <p>The current release does not claim global adaptive creep/damage, portable MPI restart for quadrature material state, general UMAT/UHYPER binary compatibility, arbitrary-mesh automatic neural-operator training, industrial code compliance, or a fully tested native-Windows solver stack. These are visible engineering boundaries and roadmap gates, not hidden fine print.</p>
 <h2 id="citation">Citation</h2>
 <p>If AgentFEM helps your research or engineering work, please cite the project metadata in <a href="CITATION.cff"><code>CITATION.cff</code></a>.</p>
-<pre><code>title: &quot;AgentFEM: AI-assisted finite-element simulation and agent-readable CAE workflows&quot;
+<pre><code>title: &quot;AgentFEM: An AI-native open-source platform for finite-element computing&quot;
 authors:
   - family-names: Luo
     given-names: Haoming

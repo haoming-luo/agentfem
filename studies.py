@@ -194,6 +194,34 @@ def nonlinear_static(
     )
 
 
+def static_solid(
+    *,
+    dimension: int,
+    assumption: str | None = None,
+    nonlinear: bool = False,
+    name: str | None = None,
+) -> Study:
+    """Define a static solid-mechanics study with concise engineering syntax."""
+
+    factory = nonlinear_static if nonlinear else linear_static
+    return factory(
+        physics="solid_mechanics",
+        dimension=dimension,
+        assumption=assumption,
+        name=name,
+    )
+
+
+def steady_heat_transfer(*, dimension: int, name: str | None = None) -> Study:
+    """Define steady heat conduction, including source, flux, and convection."""
+
+    return linear_static(
+        physics="heat_transfer",
+        dimension=dimension,
+        name=name or "steady_heat_transfer",
+    )
+
+
 def first_order_transient(
     *,
     physics: str,
@@ -226,6 +254,16 @@ def transient(
         dimension=dimension,
         assumption=assumption,
         name=name,
+    )
+
+
+def transient_heat_transfer(*, dimension: int, name: str | None = None) -> Study:
+    """Define an implicit first-order heat-transfer study."""
+
+    return first_order_transient(
+        physics="heat_transfer",
+        dimension=dimension,
+        name=name or "transient_heat_transfer",
     )
 
 
@@ -287,6 +325,41 @@ def explicit_dynamics(
         procedure="central_difference",
         name=name,
     )
+
+
+def dynamic_solid(
+    *,
+    dimension: int,
+    assumption: str | None = None,
+    method: str = "explicit",
+    name: str | None = None,
+) -> Study:
+    """Define structural dynamics without repeating the physics name."""
+
+    selected = _normalize(method)
+    if selected in {"explicit", "central_difference"}:
+        return explicit_dynamics(
+            physics="solid_mechanics",
+            dimension=dimension,
+            assumption=assumption,
+            name=name or "explicit_structural_dynamics",
+        )
+    if selected in {"implicit", "newmark", "generalized_alpha"}:
+        implicit_method = "newmark" if selected == "implicit" else selected
+        return implicit_dynamics(
+            physics="solid_mechanics",
+            dimension=dimension,
+            assumption=assumption,
+            method=implicit_method,
+            name=name or f"{implicit_method}_structural_dynamics",
+        )
+    raise ValueError(
+        "dynamic_solid method must be 'explicit', 'newmark', or "
+        "'generalized_alpha'."
+    )
+
+
+structural_dynamics = dynamic_solid
 
 
 def _normalize(value: str) -> str:

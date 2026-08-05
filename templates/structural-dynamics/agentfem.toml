@@ -1,0 +1,7 @@
+[project]
+name = "{{PROJECT_NAME}}"
+entrypoint = "case.py"
+schema_version = "0.1.0"
+
+[run]
+output_directory = "outputs"

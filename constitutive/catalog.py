@@ -38,7 +38,12 @@ _CAPABILITIES = {
         name="neo_hookean",
         model="compressible finite-strain Neo-Hookean",
         maturity="fem_integrated",
-        available_scope="nonlinear static, 3D and 2D plane strain",
+        available_scope=(
+            "nonlinear static in 3D and 2D plane strain; automatic or fixed "
+            "load increments, Newton cutback/rollback, finite-J acceptance, "
+            "and accepted-increment histories for ordinary Dirichlet and "
+            "natural loading; affine periodic-cell load paths"
+        ),
         limitations=(
             "one material contribution in the model convenience step",
             "2D plane stress thickness-stretch solve is not implemented",
@@ -66,8 +71,9 @@ _CAPABILITIES = {
         model="isotropic linear thermoelasticity",
         maturity="fem_integrated",
         available_scope=(
-            "implicit heat transfer and sequential thermal-stress analysis "
-            "in 2D/3D"
+            "steady and implicit transient heat transfer with regional "
+            "multi-material conductivity/capacity, and sequential thermal-"
+            "stress analysis in 2D/3D"
         ),
         limitations=(
             "temperature-dependent property tables are not implemented",

@@ -1,0 +1,100 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from agentfem import cli, project, results
+
+
+def test_project_config_and_run_context_are_portable(tmp_path):
+    (tmp_path / "case.py").write_text("print('case')\n", encoding="utf-8")
+    (tmp_path / "agentfem.toml").write_text(
+        """[project]
+name = "portable-case"
+entrypoint = "case.py"
+
+[run]
+output_directory = "outputs"
+""",
+        encoding="utf-8",
+    )
+    config = project.ProjectConfig.load(tmp_path)
+    assert config.check() == ()
+    assert project.discover(tmp_path / "case.py") == config
+
+    run = project.RunContext.create(config, run_id="test-run").prepare()
+    assert run.artifact("fields/result.xdmf") == (
+        tmp_path / "outputs" / "portable-case" / "test-run" / "fields" / "result.xdmf"
+    )
+    simulation = results.SimulationResult("portable")
+    simulation.add_quantity("response", 2.0, unit="m")
+    run.publish(simulation)
+
+    manifest = json.loads(run.manifest_path.read_text(encoding="utf-8"))
+    execution = json.loads(run.execution_path.read_text(encoding="utf-8"))
+    latest = json.loads(
+        (tmp_path / "outputs" / "portable-case" / "latest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert manifest["schema"] == "agentfem.simulation-result"
+    assert execution["status"] == "completed"
+    assert execution["structured_result"] is True
+    assert latest["run_id"] == "test-run"
+
+
+def test_artifacts_cannot_escape_run_directory(tmp_path):
+    config = project.ProjectConfig(
+        root=tmp_path,
+        name="safe",
+        entrypoint=tmp_path / "case.py",
+        output_directory=tmp_path / "outputs",
+    )
+    run = project.RunContext.create(config, run_id="safe-run")
+    try:
+        run.artifact("../outside.txt")
+    except ValueError as exc:
+        assert "inside the run directory" in str(exc)
+    else:
+        raise AssertionError("Escaping artifact path should fail.")
+
+
+def test_cli_init_and_check_use_installed_template(tmp_path):
+    target = tmp_path / "case"
+    assert cli.main(["init", str(target), "--name", "my-case"]) == 0
+    assert (target / "case.py").is_file()
+    assert (target / "agentfem.toml").is_file()
+    assert cli.main(["check", "--project", str(target)]) == 0
+    assert cli.main(["templates", "--json"]) == 0
+
+
+def test_template_copy_ignores_runtime_cache_directories(tmp_path, monkeypatch):
+    source = Path(__file__).resolve().parents[1] / "templates" / "static-solid"
+    cache = source / "__pycache__"
+    cache.mkdir(exist_ok=True)
+    target = tmp_path / "cached-template"
+    try:
+        assert cli.main(["init", str(target), "--template", "static-solid"]) == 0
+        assert not (target / "__pycache__").exists()
+    finally:
+        try:
+            cache.rmdir()
+        except OSError:
+            pass
+
+
+def test_cli_check_reports_syntax_failure(tmp_path):
+    (tmp_path / "case.py").write_text("def broken(:\n", encoding="utf-8")
+    (tmp_path / "agentfem.toml").write_text(
+        "[project]\nname='broken'\nentrypoint='case.py'\n",
+        encoding="utf-8",
+    )
+    assert cli.main(["check", "--project", str(tmp_path), "--json"]) == 2
+
+
+def test_capability_command_is_json_serializable(capsys):
+    assert cli.main(["capabilities", "--json"]) == 0
+    record = json.loads(capsys.readouterr().out)
+    assert record["schema"] == "agentfem.capabilities"
+    assert "project" in record["public_modules"]
+    assert any(item["name"] == "linear_elasticity" for item in record["constitutive"])

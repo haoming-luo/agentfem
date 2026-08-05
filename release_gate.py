@@ -11,12 +11,14 @@ from __future__ import annotations
 import argparse
 import ast
 from importlib import metadata
+import json
 from pathlib import Path
 import re
 import os
 import subprocess
 import sys
 import tarfile
+import tempfile
 import tomllib
 import zipfile
 
@@ -29,6 +31,14 @@ REQUIRED_WHEEL_MEMBERS = (
     "agentfem/platforms.py",
     "agentfem/results/core.py",
     "agentfem/results/execution.py",
+    "agentfem/cli.py",
+    "agentfem/project.py",
+    "agentfem/py.typed",
+    "agentfem/templates/static-solid/case.py",
+    "agentfem/templates/static-solid/agentfem.toml",
+    "agentfem/templates/static-solid/AGENTS.md",
+    "agentfem/templates/steady-heat/case.py",
+    "agentfem/templates/structural-dynamics/case.py",
     "agentfem/verification.py",
     "agentfem/benchmarks/golden.py",
     "agentfem/constitutive/creep.py",
@@ -149,6 +159,66 @@ def run_smoke() -> None:
             check=True,
             env=environment,
         )
+    run_installed_project_smoke()
+
+
+def run_installed_project_smoke() -> None:
+    """Prove the wheel works without repository examples or source paths."""
+
+    with tempfile.TemporaryDirectory(prefix="agentfem-installed-") as directory:
+        project = Path(directory) / "case"
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "agentfem.cli",
+                "init",
+                str(project),
+                "--template",
+                "static-solid",
+            ],
+            cwd=directory,
+            check=True,
+        )
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "agentfem.cli",
+                "check",
+                "--project",
+                str(project),
+                "--json",
+            ],
+            cwd=directory,
+            check=True,
+        )
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "agentfem.cli",
+                "run",
+                "--project",
+                str(project),
+                "--run-id",
+                "installed-smoke",
+                "--json",
+            ],
+            cwd=directory,
+            check=True,
+        )
+        latest = project / "outputs" / "case" / "latest.json"
+        if not latest.is_file():
+            raise RuntimeError(
+                "Installed project smoke did not publish the latest-run pointer."
+            )
+        record = json.loads(latest.read_text(encoding="utf-8"))
+        result = Path(record["result_manifest"])
+        if not result.is_file():
+            raise RuntimeError(
+                "Installed project smoke did not publish SimulationResult manifest."
+            )
 
 
 def main() -> None:
