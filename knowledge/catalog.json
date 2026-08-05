@@ -29,6 +29,13 @@
       "title": "Sequential hot-wall creep assessment release contract"
     },
     {
+      "id": "agentfem.benchmark.j2_abaqus_rate_independent",
+      "physics": "three-dimensional small-strain Mises plasticity with linear isotropic hardening",
+      "source": "knowledge/benchmarks/j2_abaqus_rate_independent.json",
+      "status": "automated_external_verification",
+      "title": "Published Abaqus rate-independent Mises plasticity uniaxial state"
+    },
+    {
       "id": "agentfem.benchmark.j2_global_restart",
       "physics": "three-dimensional small-strain Mises plasticity with linear isotropic hardening",
       "source": "knowledge/benchmarks/j2_global_restart.json",

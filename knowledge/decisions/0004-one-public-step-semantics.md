@@ -32,9 +32,8 @@ especially unsafe for agents, campaigns, and future GUI clients.
   reconstructing hidden backend assumptions.
 - Expert UFL/DOLFINx/PETSc access remains available, but it is explicit rather
   than a silent exception to model validation.
-- Procedure-specific energy and checkpoint state remain future extensions of
-  the shared transient lifecycle; this decision does not claim that they are
-  already unified.
+- The result lifecycle is now extended by ADR 0005 with shared transient
+  history and checkpoint semantics.
 
 ## Executable evidence
 

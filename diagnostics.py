@@ -300,6 +300,85 @@ def mechanical_energy(*, mass, stiffness, displacement, velocity) -> MechanicalE
     )
 
 
+@dataclass
+class MechanicalEnergyMonitor:
+    """Cache visible M/K operators and sample mechanical energy in time.
+
+    Matrix-valued engineering operators are assembled once on first use.  A
+    lumped explicit mass remains a diagonal array.  This keeps energy output a
+    diagnostic consumer of the same operators used by the procedure instead of
+    rebuilding a separate physical model at every frame.
+    """
+
+    mass: object
+    stiffness: object | None = None
+    _compiled_mass: object | None = field(default=None, init=False, repr=False)
+    _compiled_stiffness: object | None = field(default=None, init=False, repr=False)
+
+    def evaluate(self, *, displacement, velocity) -> dict[str, float]:
+        """Return the energy components currently supported by the model."""
+
+        from . import operators
+
+        if self._compiled_mass is None:
+            self._compiled_mass = _energy_operator(self.mass)
+        kinetic = 0.5 * operators.quadratic_form(
+            self._compiled_mass,
+            velocity,
+        )
+        values = {"kinetic_energy": float(kinetic)}
+        if self.stiffness is not None:
+            if self._compiled_stiffness is None:
+                self._compiled_stiffness = _energy_operator(self.stiffness)
+            strain = 0.5 * operators.quadratic_form(
+                self._compiled_stiffness,
+                displacement,
+            )
+            values["strain_energy"] = float(strain)
+            values["total_mechanical_energy"] = float(kinetic + strain)
+        return values
+
+
+@dataclass
+class ThermalContentMonitor:
+    """Sample ``1^T C T``, the discrete sensible-heat content."""
+
+    capacity: object
+    _compiled_capacity: object | None = field(default=None, init=False, repr=False)
+    _unit_field: object | None = field(default=None, init=False, repr=False)
+
+    def evaluate(self, temperature) -> dict[str, float]:
+        """Return sensible thermal content relative to the model's zero."""
+
+        from . import operators
+
+        selected = field_api.unwrap(temperature)
+        if self._compiled_capacity is None:
+            self._compiled_capacity = _energy_operator(self.capacity)
+        if self._unit_field is None:
+            self._unit_field = fem.Function(
+                selected.function_space,
+                name="UnitTemperatureWeight",
+            )
+            self._unit_field.interpolate(
+                lambda x: np.ones((1, x.shape[1]), dtype=float)
+            )
+        content = operators.xtmy(
+            self._unit_field,
+            self._compiled_capacity,
+            selected,
+        )
+        return {"thermal_content": float(content)}
+
+
+def _energy_operator(operator):
+    if hasattr(operator, "assemble_matrix"):
+        return operator.assemble_matrix()
+    if hasattr(operator, "mass") and isinstance(operator.mass, np.ndarray):
+        return operator.mass
+    return operator
+
+
 def max_abs(function: fem.Function) -> float:
     """Global max absolute value of a finite-element field."""
 

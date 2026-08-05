@@ -55,6 +55,7 @@
 <p>Every nontrivial change should be checked at three levels.</p>
 <p>Model validation, solver convergence, and scientific verification are different operations. <code>model.validate()</code> checks structural/model contracts; <code>SimulationResult.status</code> describes execution; <code>verification.VerificationReport</code> records reference, convergence, invariant, cross-solver, or physical evidence. See <a href="scientific_verification.md">Scientific Trust and Verification</a>.</p>
 <p>Public model validation should use <code>model.validate()</code> when callers need a complete structured report, or <code>model.check()</code> when execution must stop on errors. New issues should define a stable <code>AFM-*</code> code, a scientific-object path, a severity, and a repair hint where a local repair is meaningful.</p>
+<p>Validation is capability-based rather than a registry-presence check. It must find a target field compatible with the Study and verify that registered or explicit materials implement the protocol consumed by the selected provider. For example, steady heat requires a scalar temperature target and conductivity; transient heat additionally requires volumetric heat capacity; default structural dynamics requires elastic response and density. A complete expert-supplied algebraic system may deliberately replace those model-owned material operators.</p>
 <h2 id="structural-checks">Structural Checks</h2>
 <ul>
 <li>Imports use the current package layout.</li>

@@ -26,6 +26,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | `agentfem.benchmark.campaign_surrogate_pipeline` | Static-elasticity campaign to guarded surrogate pipeline | parameterized small-strain isotropic linear elasticity | executable_integration |
 | `agentfem.benchmark.creep_damage_material_paths` | Creep-damage material paths and curve projection | Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection | automated_regression |
 | `agentfem.benchmark.creep_hot_wall_release` | Sequential hot-wall creep assessment release contract | sequential transient heat conduction, plane-strain thermoelasticity, and local creep-damage assessment | automated_regression |
+| `agentfem.benchmark.j2_abaqus_rate_independent` | Published Abaqus rate-independent Mises plasticity uniaxial state | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_external_verification |
 | `agentfem.benchmark.j2_global_restart` | Three-dimensional J2 path, physical cutback, cyclic amplitude, energy, and restart equivalence | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_regression |
 | `agentfem.benchmark.linear_static_cantilever` | Two-dimensional linear-static cantilever | small-strain isotropic linear elasticity in plane strain | numerical_regression |
 | `agentfem.benchmark.neo_hookean_release` | Compressible Neo-Hookean finite-strain release contract | compressible Neo-Hookean hyperelasticity | automated_regression |

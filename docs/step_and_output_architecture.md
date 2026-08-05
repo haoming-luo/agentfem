@@ -232,18 +232,19 @@ multiaxial damage model.
    to an ownership-safe directly deformed geometry product.
 2. Promote the implemented strong-BC reaction field and M/K energy diagnostic
    into named point/region histories; define affine/weak reactions separately.
-3. Extend the implemented cumulative J2 serial checkpoint and event history
-   to portable MPI cell identity and multi-region state.
+3. Extend the implemented cumulative J2 serial checkpoint and scientific
+   identity to portable MPI cell identity and multi-region state.
 4. Extend the implemented analytical J2 Golden path, physical forced cutback,
    cyclic amplitude, S/PE/PEEQ/RF fields, and strong-displacement work/energy
    history with projected visualization, mesh convergence, natural/affine work
-   definitions, and an external benchmark.
+   definitions, mesh convergence, and full external-deck reproduction; the
+   published Abaqus homogeneous uniaxial constitutive state is now automated.
 5. Build global implicit creep by consuming the shared
    `QuadratureTransaction`, adaptive controller state, and rollback machinery.
 6. Let fatigue consume verified extracted histories; add a fatigue field only
    after hotspot/element mapping and provenance are defined.
 7. Add load-controlled finite-strain examples for dead and follower pressure,
    including tangent and sign checks.
-8. Extend the shared transient result lifecycle with procedure-specific energy
-   histories and one checkpoint envelope for heat, Standard dynamics, and
-   Explicit dynamics.
+8. Promote the implemented shared transient energy/checkpoint lifecycle from
+   same-partition restart to automatic checkpoint cadence, broader work/heat
+   balances, and cross-partition MPI portability.

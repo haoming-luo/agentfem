@@ -112,6 +112,7 @@ step = model.step(
 <pre><code>output = results.field_output(&quot;U&quot;, &quot;S&quot;, &quot;E&quot;, intervals=6)
 step = model.step(..., output=output)</code></pre>
 <p>With <code>intervals=6</code>, the initial state and six interval endpoints form seven result frames. The nonlinear controller lands on those requested marks and may insert additional internal increments after cutbacks. <code>frames</code> is reserved for the states read back from a result dataset; it is not a solve-control argument.</p>
+<p>Amplitude coordinates follow the same separation. A natural load without an amplitude receives the nonlinear Step&#x27;s proportional load factor. A load with an amplitude evaluates that history at normalized step time and is not scaled again. Linear static evaluates model histories at step end, while heat and dynamics evaluate them at physical time.</p>
 <h2 id="standard-run-feedback">Standard run feedback</h2>
 <p>Nonlinear steps report progress on MPI rank zero without requiring routine CLI flags:</p>
 <pre><code>[STEP 1] periodic_neo_hookean | automatic_incrementation
@@ -167,11 +168,12 @@ results.h5     compressed numerical payload</code></pre>
 <ol>
 <li>Extend collective MPI output from reference-configuration scientific fields<br>to an ownership-safe directly deformed geometry product.</li>
 <li>Promote the implemented strong-BC reaction field and M/K energy diagnostic<br>into named point/region histories; define affine/weak reactions separately.</li>
-<li>Extend the implemented cumulative J2 serial checkpoint and event history<br>to portable MPI cell identity and multi-region state.</li>
-<li>Extend the implemented analytical J2 Golden path, physical forced cutback,<br>cyclic amplitude, S/PE/PEEQ/RF fields, and strong-displacement work/energy<br>history with projected visualization, mesh convergence, natural/affine work<br>definitions, and an external benchmark.</li>
+<li>Extend the implemented cumulative J2 serial checkpoint and scientific<br>identity to portable MPI cell identity and multi-region state.</li>
+<li>Extend the implemented analytical J2 Golden path, physical forced cutback,<br>cyclic amplitude, S/PE/PEEQ/RF fields, and strong-displacement work/energy<br>history with projected visualization, mesh convergence, natural/affine work<br>definitions, mesh convergence, and full external-deck reproduction; the<br>published Abaqus homogeneous uniaxial constitutive state is now automated.</li>
 <li>Build global implicit creep by consuming the shared<br><code>QuadratureTransaction</code>, adaptive controller state, and rollback machinery.</li>
 <li>Let fatigue consume verified extracted histories; add a fatigue field only<br>after hotspot/element mapping and provenance are defined.</li>
 <li>Add load-controlled finite-strain examples for dead and follower pressure,<br>including tangent and sign checks.</li>
+<li>Promote the implemented shared transient energy/checkpoint lifecycle from<br>same-partition restart to automatic checkpoint cadence, broader work/heat<br>balances, and cross-partition MPI portability.</li>
 </ol>
       </article>
     </main>

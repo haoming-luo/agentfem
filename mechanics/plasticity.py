@@ -414,9 +414,11 @@ class J2PlasticityStep:
             selected = selected.with_suffix(".npz")
         selected.parent.mkdir(parents=True, exist_ok=True)
         state = self.state.snapshot()
+        identity = self._checkpoint_identity()
         np.savez(
             selected,
-            schema="agentfem.j2-step-checkpoint.v3",
+            schema="agentfem.j2-step-checkpoint.v4",
+            step_identity=json.dumps(identity, sort_keys=True),
             displacement=self.solution.x.array,
             accepted_load_factor=self.accepted_load_factor,
             amplitude_summary=json.dumps(self.amplitude.summary()),
@@ -445,7 +447,7 @@ class J2PlasticityStep:
         record = CheckpointRecord(
             name=f"{self.name}_{self.accepted_load_factor:g}",
             path=selected,
-            schema="agentfem.j2-step-checkpoint.v3",
+            schema="agentfem.j2-step-checkpoint.v4",
             step_name=self.name,
             coordinate_name="load_factor",
             coordinate_value=self.accepted_load_factor,
@@ -454,6 +456,7 @@ class J2PlasticityStep:
                 "reason": "serial dof and quadrature layout checkpoint",
                 "state_variables": ("U", "PE", "PEEQ"),
                 "amplitude": self.amplitude.summary(),
+                "identity": identity,
             },
         )
         record.write_manifest()
@@ -473,9 +476,21 @@ class J2PlasticityStep:
                 "agentfem.j2-step-checkpoint.v1",
                 "agentfem.j2-step-checkpoint.v2",
                 "agentfem.j2-step-checkpoint.v3",
+                "agentfem.j2-step-checkpoint.v4",
             }:
                 raise ValueError("Unsupported J2 step checkpoint schema.")
             displacement = np.asarray(data["displacement"])
+            if schema == "agentfem.j2-step-checkpoint.v4":
+                stored_identity = json.loads(str(data["step_identity"]))
+                current_identity = json.loads(
+                    json.dumps(self._checkpoint_identity(), sort_keys=True)
+                )
+                if stored_identity != current_identity:
+                    raise ValueError(
+                        "J2 checkpoint material, procedure, increment control, "
+                        "quadrature state, or mesh/function layout differs from "
+                        "the current step."
+                    )
             if displacement.size != self.solution.x.array.size:
                 raise ValueError("Checkpoint displacement layout does not match.")
             self.solution.x.array[:] = displacement
@@ -504,6 +519,7 @@ class J2PlasticityStep:
             if schema in {
                 "agentfem.j2-step-checkpoint.v2",
                 "agentfem.j2-step-checkpoint.v3",
+                "agentfem.j2-step-checkpoint.v4",
             }:
                 self.accepted_increments.extend(
                     J2IncrementInfo.from_dict(item)
@@ -536,6 +552,25 @@ class J2PlasticityStep:
                 self.state.evaluate_strain(elasticity.strain(self.solution)),
                 self.material,
             )
+
+    def _checkpoint_identity(self) -> dict[str, object]:
+        """Return the stateful procedure identity required for safe restart."""
+
+        from ..checkpointing import function_partition_identity
+
+        return {
+            "step_name": self.name,
+            "procedure": self.procedure.summary(),
+            "material": self.material.as_dict(),
+            "incrementation": self.incrementation.summary(),
+            "solution": function_partition_identity(self.solution),
+            "plastic_strain": function_partition_identity(
+                self.state.plastic_strain.function
+            ),
+            "equivalent_plastic_strain": function_partition_identity(
+                self.state.equivalent_plastic_strain.function
+            ),
+        }
 
     def solve_result(self):
         from ..results import add_execution_trace, from_solution

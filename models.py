@@ -1595,7 +1595,9 @@ class Model:
             state=selected_state,
             mass=selected_mass,
         )
+        energy_stiffness = None
         if residual is None:
+            energy_stiffness = self.stiffness(target)
             residual = self.force_balance(
                 internal=self.internal_force(selected_state.u),
                 external=(self.external_force(target) if self.loads else None),
@@ -1611,6 +1613,7 @@ class Model:
             state=selected_state,
             integrator=integrator,
             residual=residual,
+            stiffness=energy_stiffness,
             study=self.study,
             prescribed=selected_prescribed,
             constraints=selected_constraints,

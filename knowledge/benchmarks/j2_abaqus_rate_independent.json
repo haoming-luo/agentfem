@@ -1,0 +1,55 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.j2_abaqus_rate_independent",
+  "title": "Published Abaqus rate-independent Mises plasticity uniaxial state",
+  "status": "automated_external_verification",
+  "purpose": "Compare AgentFEM's global three-dimensional J2 procedure with the material data and homogeneous uniaxial state published in the Abaqus rate-independent plasticity verification manual.",
+  "physics": "three-dimensional small-strain Mises plasticity with linear isotropic hardening",
+  "source": {
+    "organization": "Dassault Systemes SIMULIA",
+    "title": "Rate-independent plasticity",
+    "url": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-rateindepplast.htm",
+    "retrieved": "2026-08-05",
+    "case": "Mises plasticity with isotropic hardening; homogeneous uniaxial C3D8 verification data"
+  },
+  "execution": {
+    "command": "python -m pytest -q tests/test_p1_platform.py -k 'published_abaqus_rate_independent'",
+    "example": "examples/j2_plasticity_3d.py",
+    "evidence": "For E=200000, nu=0.3 and the published hardening points (yield stress, plastic strain)=(200,0) and (220,0.0009), a homogeneous total axial strain of 0.002 must recover axial stress 220 and equivalent plastic strain 0.0009."
+  },
+  "observables": [
+    "Mean axial stress at total axial strain 0.002.",
+    "Mean equivalent plastic strain at the same converged state."
+  ],
+  "acceptance": [
+    "Mean axial stress equals 220 within the versioned numerical tolerance.",
+    "Mean equivalent plastic strain equals 0.0009 within the versioned numerical tolerance."
+  ],
+  "golden": {
+    "reference_version": "abaqus-rate-independent-plasticity-2025",
+    "quantities": [
+      {
+        "name": "mean_axial_stress",
+        "expected": 220.0,
+        "relative_tolerance": 5e-6,
+        "absolute_tolerance": 1e-7,
+        "unit": "consistent stress unit",
+        "description": "Second published isotropic-hardening point under homogeneous uniaxial deformation."
+      },
+      {
+        "name": "mean_equivalent_plastic_strain",
+        "expected": 0.0009,
+        "relative_tolerance": 5e-6,
+        "absolute_tolerance": 1e-10,
+        "unit": null,
+        "description": "Published equivalent plastic strain paired with yield stress 220."
+      }
+    ]
+  },
+  "limitations": [
+    "This reproduces a published homogeneous constitutive verification state; it is not an experimental material validation.",
+    "AgentFEM uses its native tetrahedral unit-cube patch rather than the Abaqus C3D8 input file, so this contract isolates constitutive/global-equilibrium agreement rather than element-by-element equivalence.",
+    "Only the first linear hardening segment is represented by the current AgentFEM material law."
+  ]
+}

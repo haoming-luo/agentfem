@@ -88,7 +88,7 @@ def test_global_j2_checkpoint_restart_matches_uninterrupted_path(tmp_path):
     checkpoint = partial.save_checkpoint(tmp_path / "j2_restart.npz")
     assert checkpoint.with_suffix(".npz.checkpoint.json").is_file()
     assert partial.checkpoints[0].portable is False
-    assert partial.checkpoints[0].schema == "agentfem.j2-step-checkpoint.v3"
+    assert partial.checkpoints[0].schema == "agentfem.j2-step-checkpoint.v4"
     assert partial.execution_events[-1].kind == "step_paused"
 
     restarted, restarted_u = _j2_patch()
@@ -119,6 +119,16 @@ def test_global_j2_checkpoint_restart_matches_uninterrupted_path(tmp_path):
     )
     with pytest.raises(ValueError, match="amplitude differs"):
         incompatible.load_checkpoint(checkpoint)
+
+    incompatible_material, _ = _j2_uniaxial_patch()
+    incompatible_material.material = constitutive.J2LinearIsotropicHardening(
+        young=200.0e3,
+        poisson=0.3,
+        yield_stress=200.0,
+        hardening_modulus=3.0e3,
+    )
+    with pytest.raises(ValueError, match="material, procedure, increment control"):
+        incompatible_material.load_checkpoint(checkpoint)
 
 
 def test_global_j2_uniaxial_path_matches_versioned_analytical_golden():
@@ -154,6 +164,28 @@ def test_global_j2_uniaxial_path_matches_versioned_analytical_golden():
     assert abs(final_balance) / final_internal < 0.03
     assert np.all(np.diff(simulation.histories["plastic_dissipation"].values) >= 0.0)
     assert simulation.metadata["execution"]["event_count"] > 4
+
+
+def test_global_j2_matches_published_abaqus_rate_independent_plasticity_case():
+    """Reproduce the homogeneous uniaxial state in the Abaqus verification case."""
+
+    step = _j2_external_abaqus_uniaxial_patch()
+    step.solve()
+    golden = benchmarks.golden_benchmark(
+        "agentfem.benchmark.j2_abaqus_rate_independent"
+    )
+    actual = {
+        "mean_axial_stress": results.average(
+            step.state.stress.function[0, 0],
+            measure=step.state.measure,
+        ),
+        "mean_equivalent_plastic_strain": results.average(
+            step.state.equivalent_plastic_strain.function,
+            measure=step.state.measure,
+        ),
+    }
+
+    assert all(golden.verify(actual).values())
 
 
 def test_global_j2_proportionally_applies_prescribed_displacement():
@@ -591,3 +623,62 @@ def _j2_uniaxial_patch(*, amplitude=None, incrementation=None):
         progress=False,
     )
     return step, displacement
+
+
+def _j2_external_abaqus_uniaxial_patch():
+    """Abaqus rate-independent Mises verification data at its second point."""
+
+    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    model = models.create(
+        study=studies.nonlinear_static(
+            physics="solid_mechanics",
+            dimension=3,
+        ),
+        mesh=domain,
+        name="abaqus_rate_independent_j2",
+    )
+    displacement = model.field(fields.displacement(domain))
+    material = model.material(
+        constitutive.J2LinearIsotropicHardening(
+            young=200.0e3,
+            poisson=0.3,
+            yield_stress=200.0,
+            hardening_modulus=(220.0 - 200.0) / 0.0009,
+        )
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="x", value=0.0, name="left", tag=1),
+        component=0,
+        value=0.0,
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="y", value=0.0, name="y_symmetry", tag=2),
+        component=1,
+        value=0.0,
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="z", value=0.0, name="z_symmetry", tag=3),
+        component=2,
+        value=0.0,
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="x", value=1.0, name="right", tag=4),
+        component=0,
+        value=0.002,
+    )
+    return model.step(
+        target=displacement,
+        material=material,
+        incrementation=steps.fixed(4),
+        solver_options=solvers.newton(
+            relative_tolerance=1.0e-9,
+            absolute_tolerance=1.0e-10,
+            maximum_iterations=20,
+            line_search="backtracking",
+        ),
+        progress=False,
+    )

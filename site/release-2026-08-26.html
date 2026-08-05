@@ -90,9 +90,12 @@
 <li>J2 forced cutback is triggered by a real equivalent-plastic-increment limit;<br>cyclic amplitude, adaptive-controller restart, and strong-displacement<br>reaction-work/internal-energy histories have executable tests.</li>
 <li>Standard, Explicit, heat, and J2 progress/result views consume one complete<br>structured event stream, including hidden increments and failed attempts.</li>
 <li>Model validation uses the same registered provider predicates as execution,<br>so an unsupported Study/material/procedure combination fails before solve.</li>
+<li>Model validation also rejects incompatible target fields and missing heat or<br>dynamic material protocols rather than deferring the error to assembly.</li>
 <li>Regional multi-material heat conduction and capacity pass a transient FEM<br>regression; reusable amplitudes automatically drive loads, prescribed data,<br>and thermal ambient conditions.</li>
 <li>Ordinary Neo-Hookean loading has automatic/fixed increments, forced-cutback<br>rollback, positive-J acceptance, recoverable strain-energy evidence, and<br>accepted-increment histories in addition to the affine periodic-cell route.</li>
 <li>Common result queries provide MPI-safe region integrals/averages, boundary<br>resultants, and scalar/vector field extrema.</li>
+<li>Heat, Explicit dynamics, and Standard dynamics use one-call<br><code>solve_result(output=...)</code>, attach XDMF/HDF5 artifacts, default field sets,<br>and accepted time increments to one <code>SimulationResult</code>.</li>
+<li>A failure on any MPI rank produces one collective failed execution record;<br>successful ranks do not wait forever at a completion barrier.</li>
 <li>A separate CI job installs the official CPU-only PyTorch wheel and executes<br>the optional dataset and PINN/ML adapter tests.</li>
 </ul>
 <h2 id="explicitly-not-release-claims">Explicitly not release claims</h2>

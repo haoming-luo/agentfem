@@ -47,9 +47,10 @@ cutbacks and failed attempts remain auditable rather than being filtered out.
 
 This is important for both reproducibility and AI operation. An agent does not
 infer convergence by scraping prose, and a human does not receive a simplified
-story that differs from the machine record. Checkpoint state is still owned by
-each procedure; `CheckpointRecord` makes its schema and portability boundary
-visible without pretending every checkpoint is MPI-portable.
+story that differs from the machine record. Stateful J2 owns its quadrature
+state, while heat, Explicit dynamics, and Standard dynamics share one transient
+checkpoint envelope. `CheckpointRecord` makes every schema and portability
+boundary visible without pretending a partition-bound checkpoint is portable.
 
 Transient heat, Explicit dynamics, and Standard dynamics also share one-call
 field output:
@@ -64,6 +65,29 @@ dynamics writes displacement, velocity, and acceleration. Supplying
 `fields=(...)` replaces that default catalog. Request output on the first solve;
 AgentFEM refuses to fabricate missing intermediate frames after a step has
 already completed.
+
+The three transient procedures can also pause and resume with the same public
+contract:
+
+```python
+step.run(until_step=50)
+checkpoint = step.save_checkpoint("restart/step-50")
+
+resumed = build_the_same_step()
+resumed.load_checkpoint(checkpoint)
+result = resumed.solve_result()
+```
+
+The checkpoint records current fields, accepted time, algorithm identity,
+execution events, diagnostic histories, mesh/function layout, and one state
+shard per MPI rank. Version 1 intentionally requires the same mesh partition
+and MPI size. This is useful restart today and a precise boundary for the
+future global-cell identity needed by cross-partition restart.
+
+Dynamics results carry kinetic energy and, when the step exposes a linear
+stiffness operator, recoverable strain and total mechanical energy. Transient
+heat carries `thermal_content = 1^T C T`. These are sampled from the same
+engineering operators consumed by the solution procedure and survive restart.
 
 ## Field output versus history output
 

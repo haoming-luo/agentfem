@@ -911,12 +911,16 @@ class ExplicitDynamicsStep:
     save_every: int | None = None
     print_every: int | None = None
     procedure: object | None = None
+    history_monitor: object | None = None
     progress: object = True
     status_file: object | None = None
     accepted_times: list[float] = field(default_factory=list, init=False)
     execution_events: list[object] = field(default_factory=list, init=False)
     last_output: Path | None = field(default=None, init=False)
     last_output_fields: tuple[object, ...] = field(default=(), init=False)
+    completed_steps: int = field(default=0, init=False)
+    history_records: list[dict[str, float]] = field(default_factory=list, init=False)
+    checkpoints: list[object] = field(default_factory=list, init=False)
 
     def run(
         self,
@@ -926,6 +930,7 @@ class ExplicitDynamicsStep:
         fields=(),
         progress=None,
         comm=None,
+        until_step: int | None = None,
     ):
         """Run the explicit dynamics step with optional output and progress text."""
 
@@ -934,14 +939,19 @@ class ExplicitDynamicsStep:
 
         selected_comm = comm if comm is not None else comm_of(self.state.u)
         selected_progress = self.progress if progress is None else progress
-        self.execution_events.clear()
+        if self.completed_steps >= self.steps:
+            return self
+        if self.completed_steps == 0:
+            self.execution_events.clear()
+            self.accepted_times.clear()
+            self.history_records.clear()
         reporter = _transient_reporter(
             selected_progress,
             selected_comm,
             self.execution_events,
             self.status_file,
         )
-        self.accepted_times.clear()
+        stop_step = _transient_stop_step(self, until_step)
         save_every = _save_interval(self.save_every, output=output, steps=self.steps)
         print_every = _print_interval(self.print_every, self.steps)
         stepper = time.TimeStepper(
@@ -949,6 +959,8 @@ class ExplicitDynamicsStep:
             dt=self.dt,
             save_every=save_every,
             print_every=print_every,
+            start_step=self.completed_steps + 1,
+            stop_step=stop_step,
         )
         output_fields = tuple(fields) or (
             self.state.u.value,
@@ -959,11 +971,14 @@ class ExplicitDynamicsStep:
         self.last_output_fields = output_fields if output is not None else ()
 
         _emit_transient_started(reporter, self)
+        _record_transient_history(self, self.completed_steps * self.dt)
 
         if output is None:
             for info in stepper:
                 self._advance_one(info.time)
+                self.completed_steps = int(info.index)
                 self.accepted_times.append(float(info.time))
+                _record_transient_history(self, info.time)
                 _report_transient_increment(
                     reporter,
                     selected_progress,
@@ -978,10 +993,12 @@ class ExplicitDynamicsStep:
         if domain is None:
             domain = self.state.u.function_space.mesh
         with io.XDMFTimeSeries(self.last_output, domain) as xdmf:
-            xdmf.write_fields(0.0, *output_fields)
+            xdmf.write_fields(self.completed_steps * self.dt, *output_fields)
             for info in stepper:
                 self._advance_one(info.time)
+                self.completed_steps = int(info.index)
                 self.accepted_times.append(float(info.time))
+                _record_transient_history(self, info.time)
                 if info.should_save:
                     xdmf.write_fields(info.time, *output_fields)
                 _report_transient_increment(
@@ -1006,7 +1023,7 @@ class ExplicitDynamicsStep:
             raise RuntimeError(
                 "Transient field output must be requested before the step is run."
             )
-        if output is not None or len(self.accepted_times) != self.steps:
+        if output is not None or self.completed_steps != self.steps:
             self.run(output=output, fields=fields, progress=progress, comm=comm)
         solution = self.state.u.value
         result = from_solution(solution, name=self.name, metadata={"step": self.summary()})
@@ -1019,6 +1036,24 @@ class ExplicitDynamicsStep:
             or (self.state.u.value, self.state.v.value, self.state.a.value),
         )
         return result
+
+    def save_checkpoint(self, path) -> Path:
+        """Save a partition-bound explicit dynamics restart."""
+
+        return _save_transient_checkpoint(
+            self,
+            path,
+            {"displacement": self.state.u, "velocity": self.state.v, "acceleration": self.state.a},
+        )
+
+    def load_checkpoint(self, path) -> None:
+        """Restore explicit state and the accepted time/history position."""
+
+        _load_transient_checkpoint(
+            self,
+            path,
+            {"displacement": self.state.u, "velocity": self.state.v, "acceleration": self.state.a},
+        )
 
     def _advance_one(self, t: float) -> None:
         if self.update_load is not None:
@@ -1040,6 +1075,7 @@ class ExplicitDynamicsStep:
             "study": _describe_asset(self.study) if self.study is not None else None,
             "dt": self.dt,
             "steps": self.steps,
+            "completed_steps": self.completed_steps,
             "save_every": self.save_every,
             "print_every": _print_interval(self.print_every, self.steps),
             "integrator": (
@@ -1077,14 +1113,26 @@ class ImplicitDynamicsStep:
     save_every: int | None = None
     print_every: int | None = None
     procedure: object | None = None
+    history_monitor: object | None = None
     progress: object = True
     status_file: object | None = None
     accepted_times: list[float] = field(default_factory=list, init=False)
     execution_events: list[object] = field(default_factory=list, init=False)
     last_output: Path | None = field(default=None, init=False)
     last_output_fields: tuple[object, ...] = field(default=(), init=False)
+    completed_steps: int = field(default=0, init=False)
+    history_records: list[dict[str, float]] = field(default_factory=list, init=False)
+    checkpoints: list[object] = field(default_factory=list, init=False)
 
-    def run(self, *, output=None, fields=(), progress=None, comm=None):
+    def run(
+        self,
+        *,
+        output=None,
+        fields=(),
+        progress=None,
+        comm=None,
+        until_step: int | None = None,
+    ):
         """Advance the implicit dynamics step with standard progress output."""
 
         from . import io
@@ -1092,14 +1140,19 @@ class ImplicitDynamicsStep:
 
         selected_comm = comm if comm is not None else comm_of(self.state.u)
         selected_progress = self.progress if progress is None else progress
-        self.execution_events.clear()
+        if self.completed_steps >= self.steps:
+            return self
+        if self.completed_steps == 0:
+            self.execution_events.clear()
+            self.accepted_times.clear()
+            self.history_records.clear()
         reporter = _transient_reporter(
             selected_progress,
             selected_comm,
             self.execution_events,
             self.status_file,
         )
-        self.accepted_times.clear()
+        stop_step = _transient_stop_step(self, until_step)
         save_every = _save_interval(self.save_every, output=output, steps=self.steps)
         print_every = _print_interval(self.print_every, self.steps)
         stepper = time.TimeStepper(
@@ -1107,6 +1160,8 @@ class ImplicitDynamicsStep:
             dt=self.dt,
             save_every=save_every,
             print_every=print_every,
+            start_step=self.completed_steps + 1,
+            stop_step=stop_step,
         )
         output_fields = tuple(fields) or (
             self.state.u.value,
@@ -1116,10 +1171,13 @@ class ImplicitDynamicsStep:
         self.last_output = None if output is None else Path(output)
         self.last_output_fields = output_fields if output is not None else ()
         _emit_transient_started(reporter, self)
+        _record_transient_history(self, self.completed_steps * self.dt)
         if output is None:
             for info in stepper:
                 self._advance_one(info.time)
+                self.completed_steps = int(info.index)
                 self.accepted_times.append(float(info.time))
+                _record_transient_history(self, info.time)
                 _report_transient_increment(
                     reporter, selected_progress, info, self, self.state,
                     selected_comm,
@@ -1128,10 +1186,12 @@ class ImplicitDynamicsStep:
             return self
         domain = self.state.u.function_space.mesh
         with io.XDMFTimeSeries(self.last_output, domain) as xdmf:
-            xdmf.write_fields(0.0, *output_fields)
+            xdmf.write_fields(self.completed_steps * self.dt, *output_fields)
             for info in stepper:
                 self._advance_one(info.time)
+                self.completed_steps = int(info.index)
                 self.accepted_times.append(float(info.time))
+                _record_transient_history(self, info.time)
                 if info.should_save:
                     xdmf.write_fields(info.time, *output_fields)
                 _report_transient_increment(
@@ -1152,7 +1212,7 @@ class ImplicitDynamicsStep:
             raise RuntimeError(
                 "Transient field output must be requested before the step is run."
             )
-        if output is not None or len(self.accepted_times) != self.steps:
+        if output is not None or self.completed_steps != self.steps:
             self.run(output=output, fields=fields, progress=progress, comm=comm)
         solution = self.state.u.value
         result = from_solution(
@@ -1169,6 +1229,24 @@ class ImplicitDynamicsStep:
             or (self.state.u.value, self.state.v.value, self.state.a.value),
         )
         return result
+
+    def save_checkpoint(self, path) -> Path:
+        """Save a partition-bound implicit dynamics restart."""
+
+        return _save_transient_checkpoint(
+            self,
+            path,
+            {"displacement": self.state.u, "velocity": self.state.v, "acceleration": self.state.a},
+        )
+
+    def load_checkpoint(self, path) -> None:
+        """Restore implicit state and the accepted time/history position."""
+
+        _load_transient_checkpoint(
+            self,
+            path,
+            {"displacement": self.state.u, "velocity": self.state.v, "acceleration": self.state.a},
+        )
 
     def _advance_one(self, time_value: float) -> None:
         p = self.parameters
@@ -1231,6 +1309,7 @@ class ImplicitDynamicsStep:
             "integration": self.parameters.summary(),
             "dt": self.dt,
             "steps": self.steps,
+            "completed_steps": self.completed_steps,
             "save_every": self.save_every,
             "print_every": _print_interval(self.print_every, self.steps),
             "problem": {
@@ -1260,26 +1339,43 @@ class FirstOrderTransientStep:
     print_every: int | None = None
     progress: object = True
     procedure: object | None = None
+    history_monitor: object | None = None
     status_file: object | None = None
     accepted_times: list[float] = field(default_factory=list, init=False)
     execution_events: list[object] = field(default_factory=list, init=False)
     last_output: Path | None = field(default=None, init=False)
     last_output_fields: tuple[object, ...] = field(default=(), init=False)
+    completed_steps: int = field(default=0, init=False)
+    history_records: list[dict[str, float]] = field(default_factory=list, init=False)
+    checkpoints: list[object] = field(default_factory=list, init=False)
 
-    def run(self, *, output=None, fields=(), progress=None, comm=None):
+    def run(
+        self,
+        *,
+        output=None,
+        fields=(),
+        progress=None,
+        comm=None,
+        until_step: int | None = None,
+    ):
         from . import io
         from .diagnostics import comm_of, print_on_root
 
         selected_comm = comm if comm is not None else comm_of(self.current)
         selected_progress = self.progress if progress is None else progress
-        self.execution_events.clear()
+        if self.completed_steps >= self.steps:
+            return self
+        if self.completed_steps == 0:
+            self.execution_events.clear()
+            self.accepted_times.clear()
+            self.history_records.clear()
         reporter = _transient_reporter(
             selected_progress,
             selected_comm,
             self.execution_events,
             self.status_file,
         )
-        self.accepted_times.clear()
+        stop_step = _transient_stop_step(self, until_step)
         stepper = time.TimeStepper(
             total_steps=self.steps,
             dt=self.dt,
@@ -1289,12 +1385,15 @@ class FirstOrderTransientStep:
                 steps=self.steps,
             ),
             print_every=_print_interval(self.print_every, self.steps),
+            start_step=self.completed_steps + 1,
+            stop_step=stop_step,
         )
         selected_fields = tuple(fields) or (self.current,)
         self.last_output = None if output is None else Path(output)
         self.last_output_fields = selected_fields if output is not None else ()
 
         _emit_transient_started(reporter, self)
+        _record_transient_history(self, self.completed_steps * self.dt)
 
         def advance(info):
             if self.update_load is not None:
@@ -1302,7 +1401,9 @@ class FirstOrderTransientStep:
             self.problem.solve()
             self.previous.x.array[:] = self.current.x.array
             self.previous.x.scatter_forward()
+            self.completed_steps = int(info.index)
             self.accepted_times.append(float(info.time))
+            _record_transient_history(self, info.time)
             _report_transient_increment(
                 reporter, selected_progress, info, self, self.current,
                 selected_comm,
@@ -1315,7 +1416,7 @@ class FirstOrderTransientStep:
             return self
         domain = self.current.function_space.mesh
         with io.XDMFTimeSeries(self.last_output, domain) as xdmf:
-            xdmf.write_fields(0.0, *selected_fields)
+            xdmf.write_fields(self.completed_steps * self.dt, *selected_fields)
             for info in stepper:
                 advance(info)
                 if info.should_save:
@@ -1334,7 +1435,7 @@ class FirstOrderTransientStep:
             raise RuntimeError(
                 "Transient field output must be requested before the step is run."
             )
-        if output is not None or len(self.accepted_times) != self.steps:
+        if output is not None or self.completed_steps != self.steps:
             self.run(output=output, fields=fields, progress=progress, comm=comm)
         solution = self.current
         result = from_solution(
@@ -1350,6 +1451,24 @@ class FirstOrderTransientStep:
         )
         return result
 
+    def save_checkpoint(self, path) -> Path:
+        """Save a partition-bound first-order transient restart."""
+
+        return _save_transient_checkpoint(
+            self,
+            path,
+            {"current": self.current, "previous": self.previous},
+        )
+
+    def load_checkpoint(self, path) -> None:
+        """Restore first-order state and the accepted time/history position."""
+
+        _load_transient_checkpoint(
+            self,
+            path,
+            {"current": self.current, "previous": self.previous},
+        )
+
     def summary(self) -> dict[str, object]:
         return {
             "kind": "first_order_transient_step",
@@ -1360,6 +1479,7 @@ class FirstOrderTransientStep:
             ),
             "dt": self.dt,
             "steps": self.steps,
+            "completed_steps": self.completed_steps,
             "save_every": self.save_every,
             "print_every": _print_interval(self.print_every, self.steps),
             "problem": self.problem.summary(),
@@ -1370,6 +1490,24 @@ def _attach_transient_output(result, step, output_fields) -> None:
     """Attach the accepted time axis and one logical XDMF/HDF5 dataset."""
 
     result.metadata["accepted_times"] = tuple(float(item) for item in step.accepted_times)
+    if step.history_records:
+        coordinates = [item["time"] for item in step.history_records]
+        names = tuple(
+            name
+            for name in step.history_records[0]
+            if name != "time"
+        )
+        result.add_histories(
+            coordinates,
+            {
+                name: [item[name] for item in step.history_records]
+                for name in names
+            },
+            abscissa_name="time",
+            abscissa_unit="s",
+        )
+    for checkpoint in step.checkpoints:
+        result.add_checkpoint(checkpoint)
     path = step.last_output
     if path is None:
         return
@@ -1415,7 +1553,7 @@ def _emit_transient_started(reporter, step) -> None:
     algorithm = getattr(procedure, "algorithm", "time_integration")
     reporter.emit(
         SolveEvent(
-            "transient_started",
+            "transient_started" if step.completed_steps == 0 else "transient_resumed",
             step.name,
             incrementation=algorithm,
             total_increments=step.steps,
@@ -1456,11 +1594,127 @@ def _emit_transient_completed(reporter, step) -> None:
     times = getattr(step, "accepted_times", ())
     reporter.emit(
         SolveEvent(
-            "transient_completed",
+            (
+                "transient_completed"
+                if step.completed_steps >= step.steps
+                else "transient_paused"
+            ),
             step.name,
-            increment=len(times),
-            time=0.0 if not times else float(times[-1]),
+            increment=step.completed_steps,
+            time=float(step.completed_steps) * float(step.dt),
             total_increments=step.steps,
+        )
+    )
+
+
+def _transient_stop_step(step, until_step: int | None) -> int:
+    stop = step.steps if until_step is None else int(until_step)
+    if not step.completed_steps <= stop <= step.steps:
+        raise ValueError(
+            "until_step must lie between the completed step and total steps."
+        )
+    return stop
+
+
+def _record_transient_history(step, time_value: float) -> None:
+    monitor = getattr(step, "history_monitor", None)
+    if monitor is None:
+        return
+    selected_time = float(time_value)
+    if step.history_records and np.isclose(
+        step.history_records[-1]["time"],
+        selected_time,
+    ):
+        return
+    if isinstance(step, FirstOrderTransientStep):
+        values = monitor.evaluate(step.current)
+    elif hasattr(monitor, "evaluate"):
+        values = monitor.evaluate(
+            displacement=step.state.u,
+            velocity=step.state.v,
+        )
+    else:
+        values = monitor(step, selected_time)
+    frame = {"time": selected_time}
+    for name, value in values.items():
+        selected = float(value)
+        if not np.isfinite(selected):
+            raise ValueError(f"Transient history {name!r} is not finite.")
+        frame[str(name)] = selected
+    if len(frame) > 1:
+        step.history_records.append(frame)
+
+
+def _save_transient_checkpoint(step, path, state) -> Path:
+    from . import checkpointing
+    from .results import CheckpointRecord
+
+    manifest = checkpointing.save_transient_checkpoint(
+        path,
+        step_kind=step.summary()["kind"],
+        step_name=step.name,
+        procedure=step.procedure,
+        dt=step.dt,
+        total_steps=step.steps,
+        completed_steps=step.completed_steps,
+        state=state,
+        accepted_times=step.accepted_times,
+        execution_events=step.execution_events,
+        history_records=step.history_records,
+    )
+    record = CheckpointRecord(
+        name=f"{step.name}_{step.completed_steps}",
+        path=manifest,
+        schema=checkpointing.TRANSIENT_CHECKPOINT_SCHEMA,
+        step_name=step.name,
+        coordinate_name="time",
+        coordinate_value=float(step.completed_steps) * float(step.dt),
+        portable=False,
+        metadata={
+            "completed_steps": step.completed_steps,
+            "total_steps": step.steps,
+            "portability": "same mesh partition and MPI size",
+        },
+    )
+    step.checkpoints.append(record)
+    return manifest
+
+
+def _load_transient_checkpoint(step, path, state) -> None:
+    from . import checkpointing
+    from .results import CheckpointRecord
+
+    metadata = checkpointing.load_transient_checkpoint(
+        path,
+        step_kind=step.summary()["kind"],
+        step_name=step.name,
+        procedure=step.procedure,
+        dt=step.dt,
+        total_steps=step.steps,
+        state=state,
+    )
+    step.completed_steps = int(metadata["completed_steps"])
+    step.accepted_times[:] = [float(value) for value in metadata["accepted_times"]]
+    step.execution_events[:] = [
+        SolveEvent.from_dict(item) for item in metadata["execution_events"]
+    ]
+    step.history_records[:] = [
+        {name: float(value) for name, value in item.items()}
+        for item in metadata["history_records"]
+    ]
+    step.checkpoints.append(
+        CheckpointRecord(
+            name=f"{step.name}_{step.completed_steps}_restart",
+            path=Path(metadata["manifest_path"]),
+            schema=checkpointing.TRANSIENT_CHECKPOINT_SCHEMA,
+            step_name=step.name,
+            coordinate_name="time",
+            coordinate_value=float(step.completed_steps) * float(step.dt),
+            portable=False,
+            metadata={
+                "role": "restart_source",
+                "portability": metadata["portability"],
+            },
         )
     )
 
@@ -1938,6 +2192,7 @@ def first_order_transient_run(
     """Create an executable implicit-Euler time step and loop."""
 
     from . import procedures
+    from .diagnostics import ThermalContentMonitor
 
     if steps <= 0:
         raise ValueError("first_order_transient_run requires steps > 0.")
@@ -1968,6 +2223,7 @@ def first_order_transient_run(
         progress=progress,
         status_file=status_file,
         procedure=procedures.implicit_euler(),
+        history_monitor=ThermalContentMonitor(capacity),
     )
 
 
@@ -1976,6 +2232,7 @@ def explicit_dynamics(
     state,
     integrator,
     residual,
+    stiffness=None,
     dt: float,
     steps: int,
     study=None,
@@ -1996,6 +2253,7 @@ def explicit_dynamics(
     if steps <= 0:
         raise ValueError("explicit_dynamics requires steps > 0.")
     from . import procedures
+    from .diagnostics import MechanicalEnergyMonitor
 
     return ExplicitDynamicsStep(
         name=name,
@@ -2003,6 +2261,10 @@ def explicit_dynamics(
         state=state,
         integrator=integrator,
         residual=residual,
+        history_monitor=MechanicalEnergyMonitor(
+            mass=integrator.mass,
+            stiffness=stiffness,
+        ),
         prescribed=tuple(_as_list(prescribed)),
         constraints=tuple(_as_list(constraints)),
         update_load=update_load,
@@ -2046,6 +2308,7 @@ def implicit_dynamics(
     """
 
     from . import procedures
+    from .diagnostics import MechanicalEnergyMonitor
     from .time import implicit as implicit_time
 
     _require_study_analysis(study, "second_order_dynamics")
@@ -2101,6 +2364,10 @@ def implicit_dynamics(
         print_every=print_every,
         progress=progress,
         status_file=status_file,
+        history_monitor=MechanicalEnergyMonitor(
+            mass=mass,
+            stiffness=stiffness,
+        ),
         procedure=(
             procedures.newmark()
             if selected.method == "newmark"

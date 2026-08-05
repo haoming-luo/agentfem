@@ -49,18 +49,31 @@ class TimeStepper:
     print_every: int = 0
     start_step: int = 1
     start_time: float = 0.0
+    stop_step: int | None = None
 
     def __iter__(self):
-        for index in range(self.start_step, self.total_steps + 1):
+        stop = self.total_steps if self.stop_step is None else self.stop_step
+        if not 1 <= self.start_step <= self.total_steps + 1:
+            raise ValueError("start_step must lie in [1, total_steps + 1].")
+        if not self.start_step - 1 <= stop <= self.total_steps:
+            raise ValueError("stop_step must lie in [start_step - 1, total_steps].")
+        for index in range(self.start_step, stop + 1):
             time = self.start_time + index * self.dt
             is_last = index == self.total_steps
+            is_stop = index == stop
             yield TimeStep(
                 index=index,
                 time=time,
                 total_steps=self.total_steps,
-                should_save=self.save_every > 0 and (index % self.save_every == 0 or is_last),
+                should_save=self.save_every > 0
+                and (index % self.save_every == 0 or is_last or is_stop),
                 should_print=self.print_every > 0
-                and (index == self.start_step or index % self.print_every == 0 or is_last),
+                and (
+                    index == self.start_step
+                    or index % self.print_every == 0
+                    or is_last
+                    or is_stop
+                ),
             )
 
 
