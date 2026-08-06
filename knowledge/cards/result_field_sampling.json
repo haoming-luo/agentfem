@@ -10,10 +10,13 @@
     "agentfem.results.probe",
     "agentfem.results.sample_points",
     "agentfem.results.sample_path",
+    "agentfem.results.history",
+    "agentfem.results.probe_history",
     "agentfem.results.PathSample.add_to"
   ],
   "implementation": [
     "results/quantities.py",
+    "results/plan.py",
     "results/core.py"
   ],
   "science": {
@@ -66,7 +69,8 @@
     "conventions": [
       "The lowest-rank owned-cell candidate evaluates a point; ties on one rank use the lowest local cell index.",
       "Missing points raise by default instead of silently returning zero.",
-      "Path distance is measured from the first endpoint in physical coordinates."
+      "Path distance is measured from the first endpoint in physical coordinates.",
+      "Accepted-frame history requests use physical time or normalized load factor; an unlabelled frame sequence must provide its coordinate explicitly."
     ],
     "applicability": [
       "Final-state quantities of interest, line plots, campaign outputs, sensor comparisons, and observation data for learned models."

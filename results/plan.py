@@ -76,6 +76,111 @@ class SolverHistoryRequest:
 
 
 @dataclass(frozen=True)
+class HistoryRequest:
+    """Evaluate one scientific quantity on every accepted output frame.
+
+    ``evaluate`` receives ``(snapshot, output_context)``.  The request is
+    intentionally agnostic to whether the value is a probe, integral,
+    resultant, energy, or application-defined quantity.
+    """
+
+    name: str
+    evaluate: object
+    coordinate: object | None = None
+    unit: str | None = None
+    abscissa_name: str | None = None
+    abscissa_unit: str | None = None
+    description: str = ""
+
+    def __post_init__(self) -> None:
+        if not str(self.name).strip():
+            raise ValueError("HistoryRequest.name must not be empty.")
+        if not callable(self.evaluate):
+            raise TypeError("HistoryRequest.evaluate must be callable.")
+        if self.coordinate is not None and not callable(self.coordinate):
+            raise TypeError("HistoryRequest.coordinate must be callable or None.")
+
+    def apply(self, context: OutputContext) -> None:
+        snapshots = tuple(getattr(context.step, "snapshots", ()))
+        if not snapshots:
+            raise ValueError(
+                f"History request {self.name!r} requires accepted snapshots."
+            )
+        if self.coordinate is None:
+            coordinate_name, coordinate_unit, abscissa = _snapshot_abscissa(
+                snapshots
+            )
+        else:
+            abscissa = [self.coordinate(snapshot, context) for snapshot in snapshots]
+            coordinate_name = self.abscissa_name or "coordinate"
+            coordinate_unit = self.abscissa_unit
+        context.result.add_history(
+            self.name,
+            abscissa,
+            [self.evaluate(snapshot, context) for snapshot in snapshots],
+            unit=self.unit,
+            abscissa_name=self.abscissa_name or coordinate_name,
+            abscissa_unit=(
+                self.abscissa_unit
+                if self.abscissa_unit is not None
+                else coordinate_unit
+            ),
+            description=self.description,
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "history_request",
+            "name": self.name,
+            "unit": self.unit,
+            "abscissa_name": self.abscissa_name or "automatic",
+            "description": self.description,
+        }
+
+
+@dataclass(frozen=True)
+class ProbeHistoryRequest:
+    """Record a field value at one physical point on every accepted frame."""
+
+    name: str
+    at: tuple[float, ...]
+    field: object | None = None
+    component: int | None = None
+    unit: str | None = None
+    description: str = ""
+
+    def apply(self, context: OutputContext) -> None:
+        from .quantities import probe
+
+        def evaluate(snapshot, selected_context):
+            selected = (
+                getattr(snapshot, "solution")
+                if self.field is None
+                else self.field(snapshot, selected_context)
+            )
+            value = probe(selected, at=self.at)
+            if self.component is not None:
+                value = np.asarray(value)[int(self.component)]
+            return value
+
+        HistoryRequest(
+            name=self.name,
+            evaluate=evaluate,
+            unit=self.unit,
+            description=self.description,
+        ).apply(context)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "probe_history",
+            "name": self.name,
+            "at": self.at,
+            "component": self.component,
+            "unit": self.unit,
+        }
+
+
+@dataclass(frozen=True)
 class PeriodicCellHistoryRequest:
     """Record complete tensor histories for a finite-strain periodic cell."""
 
@@ -434,6 +539,71 @@ def output_plan(
 
 def solver_history() -> SolverHistoryRequest:
     return SolverHistoryRequest()
+
+
+def history(
+    name: str,
+    evaluate,
+    *,
+    coordinate=None,
+    unit: str | None = None,
+    abscissa_name: str | None = None,
+    abscissa_unit: str | None = None,
+    description: str = "",
+) -> HistoryRequest:
+    """Create a quantity history evaluated on accepted snapshots."""
+
+    return HistoryRequest(
+        name=name,
+        evaluate=evaluate,
+        coordinate=coordinate,
+        unit=unit,
+        abscissa_name=abscissa_name,
+        abscissa_unit=abscissa_unit,
+        description=description,
+    )
+
+
+def probe_history(
+    name: str,
+    *,
+    at,
+    field=None,
+    component: int | None = None,
+    unit: str | None = None,
+    description: str = "",
+) -> ProbeHistoryRequest:
+    """Create a point-probe history for an accepted field sequence."""
+
+    point = tuple(float(value) for value in np.asarray(at).reshape(-1))
+    if not point or not np.all(np.isfinite(point)):
+        raise ValueError("probe_history at= must contain finite coordinates.")
+    if field is not None and not callable(field):
+        raise TypeError("probe_history field= must be callable or None.")
+    return ProbeHistoryRequest(
+        name=str(name),
+        at=point,
+        field=field,
+        component=component,
+        unit=unit,
+        description=description,
+    )
+
+
+def _snapshot_abscissa(snapshots):
+    """Infer a physical time or normalized load coordinate without guessing."""
+
+    if all(hasattr(snapshot, "time") for snapshot in snapshots):
+        return "time", "s", [float(snapshot.time) for snapshot in snapshots]
+    if all(hasattr(snapshot, "load_factor") for snapshot in snapshots):
+        return (
+            "load_factor",
+            None,
+            [float(snapshot.load_factor) for snapshot in snapshots],
+        )
+    raise ValueError(
+        "Snapshots expose neither a common time nor load_factor; pass coordinate=."
+    )
 
 
 def periodic_cell_history(

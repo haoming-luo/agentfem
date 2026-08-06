@@ -24,6 +24,33 @@ uses registered material densities and regions. Hydrostatic pressure follows
 traction whose integrated force and moment equal the reference-point
 resultants, avoiding a mesh-sensitive single solid-node force.
 
+## Local coordinates and named reference points
+
+```python
+local = coordinates.cartesian(
+    origin=(0.0, 0.0, 0.0),
+    x=(0.0, 1.0, 0.0), y=(-1.0, 0.0, 0.0), z=(0.0, 0.0, 1.0),
+    name="fixture",
+)
+rp = coordinates.reference_point((100.0, 20.0, 0.0), name="RP-1")
+
+model.remote_force(
+    (0.0, -50_000.0, 0.0), moment=(2_000.0, 0.0, 0.0),
+    reference_point=rp, system=local, on=loaded_surface,
+)
+model.remote_displacement(
+    U, reference_point=rp, translation=(0.0, 1.0, 0.0),
+    rotation=(0.0, 0.0, 0.01), system=local, on=driven_surface,
+)
+```
+
+Coordinate axes are validated as a right-handed orthonormal basis. Vector and
+tensor transforms are public and inspectable. `remote_force` uses the existing
+continuum distribution and preserves force and moment about the named point;
+`remote_displacement` prescribes the corresponding rigid boundary motion and
+participates in nonlinear load-factor ramping. It does not claim an unknown
+reference-point degree of freedom or a general kinematic MPC.
+
 ## Step inheritance
 
 ```python

@@ -1,0 +1,70 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.simplex_mesh_quality",
+  "title": "Collective simplex mesh-quality preflight",
+  "kind": "workflow",
+  "status": "supported",
+  "summary": "Computes normalized triangle/tetrahedron mean-ratio quality and turns a declared threshold into MPI-global preflight evidence.",
+  "public_api": ["agentfem.mesh.cell_quality", "agentfem.mesh.audit_quality"],
+  "implementation": ["mesh/quality.py", "mesh/__init__.py"],
+  "science": {
+    "statement": "Simplex mean ratio compares physical area or volume with squared edge lengths and equals one for an equilateral element and zero for a degenerate element.",
+    "equations": [
+      {
+        "label": "triangle mean ratio",
+        "expression": "q = 4 sqrt(3) A / sum_e l_e^2",
+        "description": "The metric is dimensionless and normalized to one."
+      },
+      {
+        "label": "tetrahedron mean ratio",
+        "expression": "q = 12 (3 V)^(2/3) / sum_e l_e^2",
+        "description": "Six edge lengths and absolute tetrahedron volume define the metric."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "simplex mesh and threshold",
+        "type": "DOLFINx triangle/tetrahedron domain and q_min in [0,1]",
+        "unit_role": "dimensionless quality; coordinates share any consistent length unit",
+        "description": "Only owned cells contribute to collective counts and statistics."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "MeshQualityReport",
+        "type": "global min/mean/max, poor/invalid counts, and acceptance",
+        "unit_role": "dimensionless",
+        "description": "Strict mode rejects the mesh when the declared acceptance rule fails."
+      }
+    ],
+    "assumptions": ["The selected topology is a triangle or tetrahedron solver domain."],
+    "conventions": ["Cells below threshold are poor; zero or non-finite cells are invalid."],
+    "applicability": ["Generated or imported simplex meshes, including C3D10 geometric topology preflight."],
+    "limitations": [
+      "Mean ratio does not replace curved high-order Jacobian sampling or analysis-specific distortion checks.",
+      "Quadrilateral/hexahedron quality requires a different Jacobian-based contract and is rejected for now."
+    ]
+  },
+  "usage": {
+    "minimal_example": "quality = mesh.audit_quality(domain, threshold=0.1, strict=True)",
+    "examples": ["tests/test_mesh_quality.py"]
+  },
+  "verification": {
+    "tests": ["tests/test_mesh_quality.py"],
+    "benchmarks": [],
+    "validation_rules": [
+      "Recover sqrt(3)/2 for a right isosceles triangle.",
+      "Return values within [0,1].",
+      "Reduce counts and statistics collectively over owned MPI cells.",
+      "Reject unsupported cell types instead of reusing the simplex metric."
+    ]
+  },
+  "references": [
+    {
+      "title": "Algebraic mesh quality metrics for unstructured initial meshes",
+      "locator": "https://doi.org/10.1002/nme.1429"
+    }
+  ],
+  "related_cards": ["agentfem.workflow.abaqus_engineering_regions", "agentfem.workflow.scientific_verification"]
+}

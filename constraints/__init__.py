@@ -16,7 +16,7 @@ from mpi4py import MPI
 
 from .. import amplitudes
 from ..ir.values import describe_value
-from ..kernel import constants
+from ..kernel import constants, dofs
 from . import boundary
 from .affine import (
     AbaqusPeriodicConstraint,
@@ -104,6 +104,35 @@ class TimeDependentDirichlet:
         }
 
 
+@dataclass(frozen=True)
+class RemoteDisplacementConstraint:
+    """Rigid boundary motion prescribed about a named reference point."""
+
+    bc: object
+    value: object
+    reference_values: np.ndarray
+    reference_point: object
+    translation: tuple[float, ...]
+    rotation: object
+    name: str = "remote_displacement"
+    location: object | None = None
+    coordinate_system: str | None = None
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "kind": "remote_displacement_constraint",
+            "location": getattr(self.location, "name", None),
+            "reference_point": getattr(
+                self.reference_point, "name", "reference_point"
+            ),
+            "translation": self.translation,
+            "rotation": self.rotation,
+            "coordinate_system": self.coordinate_system,
+            "kinematics": "prescribed rigid boundary motion",
+        }
+
+
 @dataclass
 class PrescribedValuePath:
     """Update ordinary strong boundary values along a normalized step path.
@@ -115,6 +144,7 @@ class PrescribedValuePath:
     """
 
     constants: tuple[tuple[object, object], ...] = ()
+    fields: tuple[tuple[object, np.ndarray], ...] = ()
     amplitudes: tuple[TimeDependentDirichlet, ...] = ()
 
     def update(self, factor: float) -> None:
@@ -123,6 +153,9 @@ class PrescribedValuePath:
             raise ValueError("PrescribedValuePath factor must lie in [0, 1].")
         for constant, reference in self.constants:
             constant.value = selected * reference
+        for function, reference in self.fields:
+            function.x.array[:] = selected * reference
+            function.x.scatter_forward()
         for constraint in self.amplitudes:
             constraint.update(selected)
 
@@ -130,6 +163,7 @@ class PrescribedValuePath:
         return {
             "kind": "prescribed_value_path",
             "constant_values": len(self.constants),
+            "field_values": len(self.fields),
             "amplitude_values": len(self.amplitudes),
         }
 
@@ -139,16 +173,20 @@ def prescribed_value_path(constraints) -> PrescribedValuePath:
 
     constants = []
     histories = []
+    fields = []
     for item in _flatten_dirichlet(constraints):
         if isinstance(item, TimeDependentDirichlet):
             histories.append(item)
+            continue
+        if isinstance(item, RemoteDisplacementConstraint):
+            fields.append((item.value, item.reference_values.copy()))
             continue
         value = getattr(item, "value", None)
         if value is None or not hasattr(value, "value"):
             continue
         reference = np.asarray(value.value).copy()
         constants.append((value, reference))
-    return PrescribedValuePath(tuple(constants), tuple(histories))
+    return PrescribedValuePath(tuple(constants), tuple(fields), tuple(histories))
 
 
 def dirichlet_constraints(constraints) -> tuple[object, ...]:
@@ -492,6 +530,89 @@ def prescribed_temperature(
         value=value,
         components=None,
         name=name or "prescribed_temperature",
+    )
+
+
+def remote_displacement(
+    target,
+    *,
+    reference_point,
+    on=None,
+    location=None,
+    translation=None,
+    rotation=None,
+    system=None,
+    name: str = "remote_displacement",
+) -> RemoteDisplacementConstraint:
+    """Prescribe rigid translation/rotation of a solid boundary.
+
+    This is a known-motion kinematic coupling.  It does not introduce an
+    unknown reference-point degree of freedom and therefore remains a standard
+    strong boundary condition with deterministic load-path scaling.
+    """
+
+    selected = _select_location(location=location, on=on)
+    if selected is None:
+        raise ValueError("remote_displacement requires on=... or location=....")
+    value = getattr(target, "value", target)
+    space = value.function_space if hasattr(value, "function_space") else target
+    shape = tuple(getattr(value, "ufl_shape", ()))
+    if len(shape) != 1 or shape[0] not in {2, 3}:
+        raise ValueError("remote_displacement requires a 2D or 3D vector space.")
+    dimension = int(shape[0])
+    point = np.asarray(
+        getattr(reference_point, "coordinates", reference_point), dtype=float
+    ).reshape(-1)
+    if point.size != dimension or not np.all(np.isfinite(point)):
+        raise ValueError(f"reference_point must have {dimension} finite components.")
+    translation_values = np.zeros(dimension) if translation is None else np.asarray(
+        system.vector_to_global(translation) if system is not None else translation,
+        dtype=float,
+    ).reshape(-1)
+    if translation_values.size != dimension or not np.all(np.isfinite(translation_values)):
+        raise ValueError(f"translation must have {dimension} finite components.")
+    if dimension == 2:
+        rotation_value = float(0.0 if rotation is None else np.asarray(rotation).reshape(-1)[0])
+    else:
+        rotation_value = np.zeros(3) if rotation is None else np.asarray(
+            system.vector_to_global(rotation) if system is not None else rotation,
+            dtype=float,
+        ).reshape(-1)
+        if rotation_value.size != 3 or not np.all(np.isfinite(rotation_value)):
+            raise ValueError("3D rotation must have three finite components.")
+
+    function = fem.Function(space, name=name)
+
+    def rigid_motion(x):
+        arm = x[:dimension] - point[:, None]
+        if dimension == 2:
+            rotational = rotation_value * np.vstack((-arm[1], arm[0]))
+        else:
+            rotational = np.cross(
+                np.broadcast_to(rotation_value, (x.shape[1], 3)),
+                arm.T,
+            ).T
+        return translation_values[:, None] + rotational
+
+    function.interpolate(rigid_motion)
+    function.x.scatter_forward()
+    selected_dofs = dofs.locate_dofs(space, selected)
+    bc = fem.dirichletbc(function, selected_dofs)
+    stored_rotation = (
+        float(rotation_value)
+        if dimension == 2
+        else tuple(float(value) for value in rotation_value)
+    )
+    return RemoteDisplacementConstraint(
+        bc=bc,
+        value=function,
+        reference_values=function.x.array.copy(),
+        reference_point=reference_point,
+        translation=tuple(float(value) for value in translation_values),
+        rotation=stored_rotation,
+        name=name,
+        location=selected,
+        coordinate_system=getattr(system, "name", None),
     )
 
 

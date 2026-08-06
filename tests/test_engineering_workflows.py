@@ -7,7 +7,19 @@ import pytest
 import ufl
 from mpi4py import MPI
 
-from agentfem import boundary_models, constitutive, fields, loads, mesh, models, results, steps, studies
+from agentfem import (
+    boundary_models,
+    constitutive,
+    constraints,
+    coordinates,
+    fields,
+    loads,
+    mesh,
+    models,
+    results,
+    steps,
+    studies,
+)
 from agentfem.step_providers import step_capability
 
 
@@ -78,6 +90,52 @@ def test_distributing_coupling_preserves_force_and_moment_resultants():
 
     np.testing.assert_allclose(integrated, [3.0, 4.0], atol=1.0e-11)
     assert check.moment == pytest.approx(2.0, abs=1.0e-11)
+
+
+def test_remote_force_consumes_local_components_and_named_reference_point():
+    domain = mesh.rectangle(
+        (0.0, 0.0), (2.0, 1.0), (2, 2),
+        comm=MPI.COMM_SELF, cell_type="triangle",
+    )
+    right = mesh.boundary(domain, lambda x: np.isclose(x[0], 2.0), name="right")
+    local = coordinates.cartesian(x=(0.0, 1.0), y=(-1.0, 0.0), name="fixture")
+    point = coordinates.reference_point((2.0, 0.5), name="RP-1")
+
+    load = loads.remote_force(
+        (3.0, 4.0), moment=2.0, reference_point=point,
+        system=local, on=right,
+    )
+    integrated = results.boundary_resultant(load.traction, on=right)
+
+    np.testing.assert_allclose(integrated, [-4.0, 3.0], atol=1.0e-11)
+    assert load.reference_point == pytest.approx((2.0, 0.5))
+    assert load.summary()["reference_name"] == "RP-1"
+    assert load.summary()["coordinate_system"] == "fixture"
+
+
+def test_remote_displacement_is_a_ramped_rigid_boundary_motion():
+    domain = mesh.rectangle(
+        (0.0, 0.0), (2.0, 1.0), (2, 2),
+        comm=MPI.COMM_SELF, cell_type="triangle",
+    )
+    displacement = fields.displacement(domain)
+    right = mesh.boundary(domain, lambda x: np.isclose(x[0], 2.0), name="right")
+    point = coordinates.reference_point((2.0, 0.5), name="RP-1")
+    constraint = constraints.remote_displacement(
+        displacement,
+        reference_point=point,
+        on=right,
+        translation=(1.0, 2.0),
+        rotation=0.25,
+    )
+    reference = constraint.reference_values.copy()
+
+    path = constraints.prescribed_value_path((constraint,))
+    path.update(0.4)
+
+    np.testing.assert_allclose(constraint.value.x.array, 0.4 * reference)
+    assert path.summary()["field_values"] == 1
+    assert constraint.summary()["reference_point"] == "RP-1"
 
 
 def test_elastic_foundation_is_a_mechanical_boundary_matrix():

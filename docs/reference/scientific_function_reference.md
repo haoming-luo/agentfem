@@ -16,10 +16,13 @@ the compact machine-readable `knowledge/catalog.json`.
 | [`agentfem.material.j2_global_plasticity`](#agentfem-material-j2_global_plasticity) | Global small-strain J2 plasticity | material | supported |
 | [`agentfem.material.mixed_hybrid_hyperelasticity`](#agentfem-material-mixed_hybrid_hyperelasticity) | Constant-pressure mixed Neo-Hookean solid | material | supported |
 | [`agentfem.operator.system_contracts`](#agentfem-operator-system_contracts) | Finite-element operator and system contracts | operator | supported |
+| [`agentfem.workflow.abaqus_engineering_regions`](#agentfem-workflow-abaqus_engineering_regions) | Abaqus node sets and element-face surfaces as FEM regions | workflow | supported |
 | [`agentfem.workflow.campaign_learning_pipeline`](#agentfem-workflow-campaign_learning_pipeline) | Simulation campaign to guarded learning workflow | workflow | supported |
+| [`agentfem.workflow.coordinate_reference_coupling`](#agentfem-workflow-coordinate_reference_coupling) | Local coordinates and reference-point continuum coupling | workflow | supported |
 | [`agentfem.workflow.observation_grid_learning`](#agentfem-workflow-observation_grid_learning) | Mesh-independent structured observation grids | workflow | supported |
 | [`agentfem.workflow.result_field_sampling`](#agentfem-workflow-result_field_sampling) | MPI-safe point and path field sampling | workflow | supported |
 | [`agentfem.workflow.scientific_verification`](#agentfem-workflow-scientific_verification) | Scientific trust and verification workflow | workflow | supported |
+| [`agentfem.workflow.simplex_mesh_quality`](#agentfem-workflow-simplex_mesh_quality) | Collective simplex mesh-quality preflight | workflow | supported |
 | [`agentfem.workflow.solution_procedures`](#agentfem-workflow-solution_procedures) | Solution procedure vocabulary | analysis_step | supported |
 | [`agentfem.workflow.standard_result_projection`](#agentfem-workflow-standard_result_projection) | Projected small-strain fields, reactions, and static equilibrium | workflow | supported |
 | [`agentfem.workflow.thermoelastic_analysis`](#agentfem-workflow-thermoelastic_analysis) | Sequential thermoelastic analysis | workflow | supported |
@@ -711,6 +714,97 @@ Create C = operators.capacity_operator(T, rho_c), K = operators.conduction_opera
 - Cast3M presentation and principles of development: `https://www-cast3m.cea.fr/html/ManuelCastemEnsta/ManuelCastemEnsta.html`
 - UFL automatic differentiation manual: `https://docs.fenicsproject.org/ufl/2026.1.0/manual/form_language.html`
 
+<a id="agentfem-workflow-abaqus_engineering_regions"></a>
+
+## Abaqus node sets and element-face surfaces as FEM regions
+
+**Stable ID:** `agentfem.workflow.abaqus_engineering_regions`<br>
+**Kind:** `workflow`<br>
+**Status:** `supported`<br>
+**Source card:** `knowledge/cards/abaqus_engineering_regions.json`
+
+Promotes source-labelled Abaqus NSET and supported exterior SURFACE definitions into distinct DOLFINx node and facet regions.
+
+### Public API
+
+- `agentfem.mesh.read_abaqus_mesh`
+- `agentfem.mesh.abaqus.AbaqusMeshImport.node_set`
+- `agentfem.mesh.abaqus.AbaqusMeshImport.boundary`
+- `agentfem.mesh.abaqus.AbaqusMeshImport.surface_faces`
+
+### Scientific contract
+
+Source labels and official element-face numbering determine engineering regions; coordinate proximity is used only to recover explicit source-to-runtime node or vertex identity within a declared tolerance.
+
+**source-to-runtime node identity**
+
+$$
+selected(x_h) iff there exists a unique source node n such that ||x_h - x_n|| <= tolerance
+$$
+
+The coordinate match preserves explicit source-node identity, including high-order nodes; absence or ambiguity is an error rather than a geometric selection rule.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| Abaqus source and converted solver domain | keyword nodes/elements/sets/surfaces plus one selected topology | geometry length | The conversion fingerprint binds the source, topology choice, and XDMF artifact. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| NodeRegion or BoundaryRegion | source-node coordinate region or tagged exterior facets | none; boundary measure inherits geometry units | Strong constraints consume node regions; weak loads consume boundary regions through ds(tag). |
+
+#### Assumptions
+
+- Source node and element labels are unique in the selected import scope.
+- A reconstructed boundary face is exterior to the selected solver domain.
+
+#### Conventions
+
+- NSET does not acquire a surface measure.
+- High-order source nodes such as C3D10 midside nodes remain addressable by compatible finite-element spaces.
+- SURFACE face identifiers follow Abaqus solid-element node ordering.
+- Unknown or ambiguous semantics fail instead of being inferred from a normal or bounding box.
+
+#### Applicability
+
+- C3D4/C3D10 and C3D8-family external solid meshes with explicit NSET/ELSET/SURFACE data.
+
+#### Limitations
+
+- Assembly/instance-scoped duplicate labels, free-surface generation, internal dS interfaces, and other element families need dedicated adapters.
+- This is mesh and region interoperability, not full Abaqus solver-deck execution.
+
+### Minimal example
+
+```python
+cell = mesh.read_abaqus_mesh('part.inp', 'part.xdmf'); fixed = cell.node_set('FIXED'); loaded = cell.boundary('LOAD_FACE')
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_abaqus_interop.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Recover every requested source node or fail with missing labels.
+- Match every requested face to one exterior runtime facet.
+- Reject unsupported element families and face identifiers.
+- Verify the reconstructed boundary facet count and physical measure.
+
+### References
+
+- Abaqus element-based surface definition: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEMODRefMap/simamod-c-deformablesurf.htm`
+- Abaqus three-dimensional solid node ordering and face numbering: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEELMRefMap/simaelm-r-3delem.htm`
+
 <a id="agentfem-workflow-campaign_learning_pipeline"></a>
 
 ## Simulation campaign to guarded learning workflow
@@ -814,6 +908,114 @@ dataset = report.require_dataset(quality='engineering'); training = surrogates.t
 ### References
 
 - AgentFEM results and campaigns contract: `docs/results_and_campaigns.md`
+
+<a id="agentfem-workflow-coordinate_reference_coupling"></a>
+
+## Local coordinates and reference-point continuum coupling
+
+**Stable ID:** `agentfem.workflow.coordinate_reference_coupling`<br>
+**Kind:** `workflow`<br>
+**Status:** `supported`<br>
+**Source card:** `knowledge/cards/coordinate_reference_coupling.json`
+
+Maps explicit local components to global finite-element loads and applies force/moment or known rigid motion through a named continuum reference point.
+
+### Public API
+
+- `agentfem.coordinates.cartesian`
+- `agentfem.coordinates.reference_point`
+- `agentfem.loads.remote_force`
+- `agentfem.constraints.remote_displacement`
+- `agentfem.models.Model.remote_force`
+- `agentfem.models.Model.remote_displacement`
+
+### Scientific contract
+
+A right-handed orthonormal basis makes component conventions explicit; remote resultants and known rigid motions are then transferred to a continuum boundary without a singular solid-node force.
+
+**local-to-global vector**
+
+$$
+v_global = Q^T v_local
+$$
+
+Rows of Q are local basis vectors expressed in global components.
+
+**rigid boundary motion**
+
+$$
+u(x) = u_RP + theta x (x - x_RP)
+$$
+
+The prescribed displacement is evaluated on every constrained boundary dof.
+
+**remote resultant**
+
+$$
+integral_Gamma t dGamma = F_RP; integral_Gamma (x-x_RP) x t dGamma = M_RP
+$$
+
+The distributing traction preserves force and moment about the named point.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| coordinate system and reference point | orthonormal basis, origin, and finite point coordinates | length and dimensionless rotation | Local axes must be right handed and match the model dimension. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| continuum load or strong rigid-motion constraint | weak boundary load or Dirichlet asset | force/moment or displacement/rotation | Both assets are consumed by ordinary model steps and retain engineering summaries. |
+
+#### Assumptions
+
+- The selected surface has sufficient geometric extent to transmit a requested moment.
+- remote_displacement specifies known rigid motion rather than solving for an independent reference-point degree of freedom.
+
+#### Conventions
+
+- Coordinate-system axes are stored by row in global components.
+- Two-dimensional rotation and moment are scalar out-of-plane quantities.
+- Constant remote displacement follows the normalized nonlinear load path.
+
+#### Applicability
+
+- Fixture coordinates, remote loading, driven grips, and continuum-solid coupling surfaces.
+
+#### Limitations
+
+- An unknown kinematic reference-point degree of freedom and general MPC coupling are not implemented by this contract.
+- Local component constraints on an arbitrary oblique direction require a dedicated MPC rather than a component Dirichlet approximation.
+
+### Minimal example
+
+```python
+local = coordinates.cartesian(x=(0,1), y=(-1,0)); rp = coordinates.reference_point((2,0.5), name='RP-1'); model.remote_force((3,4), moment=2, reference_point=rp, system=local, on=end)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_coordinates.py`
+- `tests/test_engineering_workflows.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Reject non-orthonormal and left-handed bases.
+- Reject coordinate, vector, rotation, and target dimension mismatches.
+- Integrate generated traction and recover transformed force and requested moment.
+- Verify remote motion follows deterministic load-factor scaling.
+
+### References
+
+- Abaqus distributing coupling constraints: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAECSTRefMap/simacst-c-coupling.htm`
 
 <a id="agentfem-workflow-observation_grid_learning"></a>
 
@@ -934,6 +1136,8 @@ Evaluates scalar, vector, or tensor finite-element fields at named physical poin
 - `agentfem.results.probe`
 - `agentfem.results.sample_points`
 - `agentfem.results.sample_path`
+- `agentfem.results.history`
+- `agentfem.results.probe_history`
 - `agentfem.results.PathSample.add_to`
 
 ### Scientific contract
@@ -981,6 +1185,7 @@ Straight-path samples use physical distance as the standard result-history absci
 - The lowest-rank owned-cell candidate evaluates a point; ties on one rank use the lowest local cell index.
 - Missing points raise by default instead of silently returning zero.
 - Path distance is measured from the first endpoint in physical coordinates.
+- Accepted-frame history requests use physical time or normalized load factor; an unlabelled frame sequence must provide its coordinate explicitly.
 
 #### Applicability
 
@@ -1124,6 +1329,98 @@ result.verify('engineering', required_quantities=('response',)).require(); datas
 ### References
 
 - AgentFEM scientific trust guide: `docs/scientific_verification.md`
+
+<a id="agentfem-workflow-simplex_mesh_quality"></a>
+
+## Collective simplex mesh-quality preflight
+
+**Stable ID:** `agentfem.workflow.simplex_mesh_quality`<br>
+**Kind:** `workflow`<br>
+**Status:** `supported`<br>
+**Source card:** `knowledge/cards/simplex_mesh_quality.json`
+
+Computes normalized triangle/tetrahedron mean-ratio quality and turns a declared threshold into MPI-global preflight evidence.
+
+### Public API
+
+- `agentfem.mesh.cell_quality`
+- `agentfem.mesh.audit_quality`
+
+### Scientific contract
+
+Simplex mean ratio compares physical area or volume with squared edge lengths and equals one for an equilateral element and zero for a degenerate element.
+
+**triangle mean ratio**
+
+$$
+q = 4 sqrt(3) A / sum_e l_e^2
+$$
+
+The metric is dimensionless and normalized to one.
+
+**tetrahedron mean ratio**
+
+$$
+q = 12 (3 V)^(2/3) / sum_e l_e^2
+$$
+
+Six edge lengths and absolute tetrahedron volume define the metric.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| simplex mesh and threshold | DOLFINx triangle/tetrahedron domain and q_min in [0,1] | dimensionless quality; coordinates share any consistent length unit | Only owned cells contribute to collective counts and statistics. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| MeshQualityReport | global min/mean/max, poor/invalid counts, and acceptance | dimensionless | Strict mode rejects the mesh when the declared acceptance rule fails. |
+
+#### Assumptions
+
+- The selected topology is a triangle or tetrahedron solver domain.
+
+#### Conventions
+
+- Cells below threshold are poor; zero or non-finite cells are invalid.
+
+#### Applicability
+
+- Generated or imported simplex meshes, including C3D10 geometric topology preflight.
+
+#### Limitations
+
+- Mean ratio does not replace curved high-order Jacobian sampling or analysis-specific distortion checks.
+- Quadrilateral/hexahedron quality requires a different Jacobian-based contract and is rejected for now.
+
+### Minimal example
+
+```python
+quality = mesh.audit_quality(domain, threshold=0.1, strict=True)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_mesh_quality.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Recover sqrt(3)/2 for a right isosceles triangle.
+- Return values within [0,1].
+- Reduce counts and statistics collectively over owned MPI cells.
+- Reject unsupported cell types instead of reusing the simplex metric.
+
+### References
+
+- Algebraic mesh quality metrics for unstructured initial meshes: `https://doi.org/10.1002/nme.1429`
 
 <a id="agentfem-workflow-solution_procedures"></a>
 

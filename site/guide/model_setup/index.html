@@ -886,6 +886,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#declare-the-numerical-unit-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Declare the numerical unit contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#go-deeper" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2678,6 +2689,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#declare-the-numerical-unit-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Declare the numerical unit contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#go-deeper" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2778,6 +2800,22 @@ models, and step activation reusable rather than embedding them in one solver.</
 <li>distributed force and moment resultants;</li>
 <li>step-wise activation and deactivation.</li>
 </ul>
+<h2 id="declare-the-numerical-unit-contract">Declare the numerical unit contract<a class="headerlink" href="#declare-the-numerical-unit-contract" title="Permanent link">&para;</a></h2>
+<p>Finite-element kernels operate on consistent numbers. Record the convention
+once so manifests, agents, datasets, and future interfaces do not infer units
+from magnitude:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">model</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">study</span><span class="o">=</span><span class="n">studies</span><span class="o">.</span><span class="n">static_solid</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">mesh</span><span class="o">=</span><span class="n">domain</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">units</span><span class="o">=</span><span class="n">units</span><span class="o">.</span><span class="n">n_mm_mpa</span><span class="p">(),</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span>
+</code></pre></div>
+<p><code>units.si()</code> and <code>units.n_mm_mpa()</code> are ready-to-use contracts;
+<code>units.consistent(...)</code> records another coherent system. AgentFEM does not
+silently convert material constants in this layer.</p>
+<p>For imported simplex meshes, run <code>mesh.audit_quality(..., strict=True)</code> before
+assembly. The report is collective under MPI and records the threshold and
+number of poor/invalid owned cells.</p>
 <h2 id="go-deeper">Go deeper<a class="headerlink" href="#go-deeper" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../mesh_interoperability/">Mesh interoperability</a></li>

@@ -36,6 +36,7 @@ class Model:
     regions: list[object] = field(default_factory=list)
     steps: list[object] = field(default_factory=list)
     engineering_steps: list[object] = field(default_factory=list)
+    unit_system: object | None = None
 
     def add_field(self, field_object):
         """Register an unknown or output field and return it."""
@@ -164,6 +165,33 @@ class Model:
             name=name or "prescribed",
         )
 
+    def remote_displacement(
+        self,
+        target,
+        *,
+        reference_point,
+        on=None,
+        location=None,
+        translation=None,
+        rotation=None,
+        system=None,
+        name: str = "remote_displacement",
+    ):
+        """Prescribe a rigid boundary motion about a reference point."""
+
+        return self.add_constraint(
+            constraint_api.remote_displacement(
+                target,
+                reference_point=reference_point,
+                on=on,
+                location=location,
+                translation=translation,
+                rotation=rotation,
+                system=system,
+                name=name,
+            )
+        )
+
     def clamp(
         self,
         target,
@@ -267,11 +295,14 @@ class Model:
         on=None,
         location=None,
         amplitude=None,
+        system=None,
         name: str = "traction",
     ):
         """Create and register a mechanical traction load."""
 
-        load = load_api.traction(value, on=on, location=location, name=name)
+        load = load_api.traction(
+            value, on=on, location=location, system=system, name=name
+        )
         return self.add_load(
             self._with_amplitude(load, amplitude)
         )
@@ -284,6 +315,7 @@ class Model:
         location=None,
         reference_measure=None,
         amplitude=None,
+        system=None,
         name: str = "surface_force",
     ):
         """Uniformly distribute a requested total force over a boundary."""
@@ -293,6 +325,7 @@ class Model:
             on=on,
             location=location,
             reference_measure=reference_measure,
+            system=system,
             name=name,
         )
         return self.add_load(self._with_amplitude(load, amplitude))
@@ -306,6 +339,7 @@ class Model:
         on=None,
         location=None,
         amplitude=None,
+        system=None,
         name: str = "distributing_coupling",
     ):
         """Distribute a reference-point force/moment over a solid surface."""
@@ -316,6 +350,32 @@ class Model:
             reference_point=reference_point,
             on=on,
             location=location,
+            system=system,
+            name=name,
+        )
+        return self.add_load(self._with_amplitude(load, amplitude))
+
+    def remote_force(
+        self,
+        force,
+        *,
+        reference_point,
+        moment=None,
+        on=None,
+        location=None,
+        amplitude=None,
+        system=None,
+        name: str = "remote_force",
+    ):
+        """Apply a reference-point resultant through a continuum surface."""
+
+        load = load_api.remote_force(
+            force,
+            reference_point=reference_point,
+            moment=moment,
+            on=on,
+            location=location,
+            system=system,
             name=name,
         )
         return self.add_load(self._with_amplitude(load, amplitude))
@@ -328,11 +388,17 @@ class Model:
         target=None,
         measure=None,
         amplitude=None,
+        system=None,
         name: str = "body_force",
     ):
         """Create and register a mechanical body-force load."""
 
-        kwargs = {"domain": domain or self.mesh, "target": target, "name": name}
+        kwargs = {
+            "domain": domain or self.mesh,
+            "target": target,
+            "system": system,
+            "name": name,
+        }
         if measure is not None:
             kwargs["measure"] = measure
         return self.add_load(
@@ -380,6 +446,7 @@ class Model:
         domain=None,
         target=None,
         amplitude=None,
+        system=None,
         name: str = "gravity",
     ):
         """Register ``rho g`` using one or all model material regions."""
@@ -407,6 +474,7 @@ class Model:
                 domain=domain or self.mesh,
                 target=target,
                 region=record.region,
+                system=system,
                 name=(
                     name
                     if len(records) == 1
@@ -2592,6 +2660,7 @@ class Model:
         return {
             "name": self.name,
             "study": _describe(self.study),
+            "unit_system": _describe(self.unit_system),
             "mesh": _mesh_summary(self.mesh),
             "fields": tuple(_describe(item) for item in self.fields),
             "amplitudes": tuple(_describe(item) for item in self.amplitudes),
@@ -2726,10 +2795,10 @@ class _WithRegion:
         }
 
 
-def create(*, study, mesh=None, name: str = "model") -> Model:
+def create(*, study, mesh=None, name: str = "model", units=None) -> Model:
     """Create a lightweight model registry."""
 
-    return Model(study=study, mesh=mesh, name=name)
+    return Model(study=study, mesh=mesh, name=name, unit_system=units)
 
 
 def _stiffness_from_record(

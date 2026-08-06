@@ -75,6 +75,27 @@ Application examples should prefer named region collections such as
 raw `MeshTags` unless the example is explicitly teaching the low-level mesh
 tagging layer.
 
+A node region is a named set of finite-element source nodes, commonly imported
+from an Abaqus `NSET`. It includes high-order geometry nodes such as C3D10
+midside nodes, can drive strong constraints and nodal observations, and does
+not provide a surface measure. A boundary region is a set of facets and does
+provide `ds`; the two must not be silently interchanged.
+
+## Coordinate System and Reference Point
+
+A coordinate system declares how local vector/tensor components map to global
+components. A reference point is a named physical location used to state
+remote forces, moments, rigid boundary motions, resultants, and output
+origins. These objects record engineering meaning; an independent unknown
+reference-point degree of freedom exists only when a solver procedure creates
+and couples one explicitly.
+
+## Unit System
+
+A unit system records the consistent base-unit contract used by model numbers.
+It is model metadata and validation evidence, not an implicit coefficient
+conversion service.
+
 ## Selector
 
 A reusable rule for selecting mesh entities by coordinates, imported tags, or

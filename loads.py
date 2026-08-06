@@ -242,6 +242,8 @@ class DistributedCouplingLoad:
     measure: object
     location: object
     name: str = "distributing_coupling"
+    reference_name: str | None = None
+    coordinate_system: str | None = None
 
     @property
     def value(self):
@@ -258,6 +260,8 @@ class DistributedCouplingLoad:
             "force": self.force,
             "moment": self.moment,
             "reference_point": self.reference_point,
+            "reference_name": self.reference_name,
+            "coordinate_system": self.coordinate_system,
             "surface_centroid": self.centroid,
             "reference_measure": self.reference_measure,
             "weighting": "continuum_tributary_measure",
@@ -368,10 +372,19 @@ def body_load(value, measure=ufl.dx, *, name: str = "body_load", domain=None, ta
     )
 
 
-def body_force(value, *, domain=None, target=None, measure=ufl.dx, name: str = "body_force") -> BodyLoad:
-    """Create a mechanical body-force load."""
+def body_force(
+    value, *, domain=None, target=None, measure=ufl.dx,
+    system=None, name: str = "body_force",
+) -> BodyLoad:
+    """Create a mechanical body-force load in global or local components."""
 
-    return body_load(value, measure=measure, name=name, domain=domain, target=target)
+    return body_load(
+        _global_vector(value, system),
+        measure=measure,
+        name=name,
+        domain=domain,
+        target=target,
+    )
 
 
 def gravity(
@@ -382,6 +395,7 @@ def gravity(
     target=None,
     region=None,
     measure=None,
+    system=None,
     name: str = "gravity",
 ) -> GravityLoad:
     """Create a gravity load from acceleration and material density.
@@ -397,7 +411,9 @@ def gravity(
     selected_measure = measure
     if selected_measure is None:
         selected_measure = getattr(region, "measure", ufl.dx)
-    selected_acceleration = _as_constant(acceleration, domain=owner)
+    selected_acceleration = _as_constant(
+        _global_vector(acceleration, system), domain=owner
+    )
     selected_density = _as_constant(density, domain=owner)
     return GravityLoad(
         acceleration=selected_acceleration,
@@ -517,10 +533,14 @@ def with_amplitude(load, amplitude, *, domain=None, name: str | None = None) -> 
     )
 
 
-def traction(value, *, location=None, on=None, name: str = "traction") -> BoundaryLoad:
-    """Create a mechanical traction applied on a boundary region."""
+def traction(
+    value, *, location=None, on=None, system=None, name: str = "traction"
+) -> BoundaryLoad:
+    """Create a traction in global or an explicit local coordinate system."""
 
-    return boundary_load(value, location=location, on=on, name=name)
+    return boundary_load(
+        _global_vector(value, system), location=location, on=on, name=name
+    )
 
 
 def surface_force(
@@ -529,6 +549,7 @@ def surface_force(
     location=None,
     on=None,
     reference_measure: float | None = None,
+    system=None,
     name: str = "surface_force",
 ) -> SurfaceResultantLoad:
     """Distribute a total reference-configuration force over a boundary.
@@ -543,7 +564,7 @@ def surface_force(
     selected = _select_location(location=location, on=on)
     if selected is None or not hasattr(selected, "domain") or not hasattr(selected, "measure"):
         raise ValueError("surface_force requires a named boundary region.")
-    values = np.asarray(resultant, dtype=float).reshape(-1)
+    values = np.asarray(_global_vector(resultant, system), dtype=float).reshape(-1)
     dimension = int(selected.domain.geometry.dim)
     if values.size != dimension:
         raise ValueError(
@@ -571,6 +592,7 @@ def surface_force(
 
 def distributing_coupling(
     force, *, moment=None, reference_point=None, location=None, on=None,
+    system=None,
     name: str = "distributing_coupling",
 ) -> DistributedCouplingLoad:
     """Distribute force/moment over a surface with tributary-area weighting."""
@@ -580,7 +602,7 @@ def distributing_coupling(
         raise ValueError("distributing_coupling requires a boundary region.")
     domain, measure = selected.domain, selected.measure
     dimension = int(domain.geometry.dim)
-    values = np.asarray(force, dtype=float).reshape(-1)
+    values = np.asarray(_global_vector(force, system), dtype=float).reshape(-1)
     if values.size != dimension or not np.all(np.isfinite(values)):
         raise ValueError(f"force must have {dimension} finite components.")
     x = ufl.SpatialCoordinate(domain)
@@ -606,7 +628,11 @@ def distributing_coupling(
         alpha = 0.0 if polar <= np.finfo(float).eps else float(target / polar)
         correction = (alpha / area) * ufl.as_vector((-arm[1], arm[0]))
     elif dimension == 3:
-        requested = np.zeros(3) if moment is None else np.asarray(moment, dtype=float).reshape(-1)
+        requested = (
+            np.zeros(3)
+            if moment is None
+            else np.asarray(_global_vector(moment, system), dtype=float).reshape(-1)
+        )
         if requested.size != 3:
             raise ValueError("3D distributing-coupling moment needs 3 components.")
         target = requested - np.cross(centroid - reference, values)
@@ -619,9 +645,40 @@ def distributing_coupling(
     else:
         raise NotImplementedError("distributing_coupling supports 2D and 3D solids.")
     return DistributedCouplingLoad(
-        tuple(float(value) for value in values), selected_moment,
-        tuple(float(value) for value in reference), tuple(float(value) for value in centroid),
-        base + correction, area, measure, selected, name,
+        force=tuple(float(value) for value in values),
+        moment=selected_moment,
+        reference_point=tuple(float(value) for value in reference),
+        centroid=tuple(float(value) for value in centroid),
+        traction=base + correction,
+        reference_measure=area,
+        measure=measure,
+        location=selected,
+        name=name,
+        reference_name=getattr(reference_point, "name", None),
+        coordinate_system=getattr(system, "name", None),
+    )
+
+
+def remote_force(
+    force,
+    *,
+    reference_point,
+    moment=None,
+    location=None,
+    on=None,
+    system=None,
+    name: str = "remote_force",
+) -> DistributedCouplingLoad:
+    """Apply a reference-point force/moment through a continuum surface."""
+
+    return distributing_coupling(
+        force,
+        moment=moment,
+        reference_point=reference_point,
+        location=location,
+        on=on,
+        system=system,
+        name=name,
     )
 
 
@@ -758,6 +815,16 @@ def _location_measure(location):
     if not hasattr(location, "measure"):
         raise ValueError("location must provide a boundary integration measure.")
     return location.measure
+
+
+def _global_vector(value, system):
+    """Return global components while keeping coordinate conventions explicit."""
+
+    if system is None:
+        return value
+    if not hasattr(system, "vector_to_global"):
+        raise TypeError("system must provide vector_to_global(...).")
+    return system.vector_to_global(value)
 
 
 def _select_location(*, location=None, on=None):

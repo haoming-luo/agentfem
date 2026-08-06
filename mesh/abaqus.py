@@ -172,6 +172,149 @@ class AbaqusElementDefinition:
         }
 
 
+@dataclass(frozen=True)
+class AbaqusElement:
+    """One source element with its original label and node ordering."""
+
+    label: int
+    element_type: str
+    connectivity: tuple[int, ...]
+
+    def face_corner_labels(self, face: str) -> tuple[int, ...]:
+        """Return source node labels for a supported solid-element face."""
+
+        selected = str(face).upper()
+        family = _solid_face_family(self.element_type)
+        try:
+            local = _SOLID_FACE_CORNERS[family][selected]
+        except KeyError as exc:
+            raise NotImplementedError(
+                f"Abaqus face {selected!r} is not supported for "
+                f"element type {self.element_type!r}."
+            ) from exc
+        return tuple(self.connectivity[index - 1] for index in local)
+
+
+@dataclass(frozen=True)
+class AbaqusElementTable:
+    """Source-labelled elements used to reconstruct engineering surfaces."""
+
+    elements: tuple[AbaqusElement, ...]
+
+    def __post_init__(self) -> None:
+        labels = [item.label for item in self.elements]
+        if len(set(labels)) != len(labels):
+            raise ValueError(
+                "Repeated Abaqus element labels require part/instance-aware import, "
+                "which this surface adapter does not yet infer."
+            )
+
+    def element(self, label: int) -> AbaqusElement:
+        for item in self.elements:
+            if item.label == int(label):
+                return item
+        raise KeyError(f"Abaqus element label {label} is not present.")
+
+
+_SOLID_FACE_CORNERS = {
+    "tetrahedron": {
+        "S1": (1, 2, 3),
+        "S2": (1, 4, 2),
+        "S3": (2, 4, 3),
+        "S4": (3, 4, 1),
+    },
+    "hexahedron": {
+        "S1": (1, 2, 3, 4),
+        "S2": (5, 8, 7, 6),
+        "S3": (1, 5, 6, 2),
+        "S4": (2, 6, 7, 3),
+        "S5": (3, 7, 8, 4),
+        "S6": (4, 8, 5, 1),
+    },
+}
+
+
+def _solid_face_family(element_type: str) -> str:
+    selected = str(element_type).upper()
+    if selected.startswith("C3D10") or selected.startswith("C3D4"):
+        return "tetrahedron"
+    if selected.startswith("C3D8"):
+        return "hexahedron"
+    raise NotImplementedError(
+        "Abaqus surface reconstruction currently supports C3D4/C3D10 and "
+        f"C3D8 solid families, not {element_type!r}."
+    )
+
+
+def _element_node_count(element_type: str) -> int:
+    selected = str(element_type).upper()
+    if selected.startswith("C3D10"):
+        return 10
+    if selected.startswith("C3D4"):
+        return 4
+    if selected.startswith("C3D8"):
+        return 8
+    raise NotImplementedError(
+        f"Element connectivity parsing is not implemented for {element_type!r}."
+    )
+
+
+def read_element_table(path: str | Path) -> AbaqusElementTable:
+    """Read supported solid connectivity without losing source labels."""
+
+    source = Path(path)
+    records: list[AbaqusElement] = []
+    element_type: str | None = None
+    pending: list[str] = []
+    expected = 0
+
+    def consume(line_number: int) -> None:
+        nonlocal pending
+        while pending:
+            if len(pending) < expected + 1:
+                return
+            values, pending = pending[: expected + 1], pending[expected + 1 :]
+            records.append(
+                AbaqusElement(
+                    int(values[0]),
+                    str(element_type),
+                    tuple(int(value) for value in values[1:]),
+                )
+            )
+
+    for line_number, raw in enumerate(source.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw.strip()
+        if not line or line.startswith("**"):
+            continue
+        if line.startswith("*"):
+            if pending:
+                raise ValueError(
+                    f"Incomplete Abaqus element at {source}:{line_number - 1}."
+                )
+            fields = [item.strip() for item in line.split(",")]
+            if fields[0].upper() != "*ELEMENT":
+                element_type = None
+                continue
+            options = {}
+            for item in fields[1:]:
+                if "=" in item:
+                    key, value = item.split("=", 1)
+                    options[key.strip().upper()] = value.strip().upper()
+            element_type = options.get("TYPE")
+            if element_type is None:
+                raise ValueError(f"*ELEMENT at {source}:{line_number} requires TYPE=.")
+            expected = _element_node_count(element_type)
+            continue
+        if element_type is not None:
+            pending.extend(_csv_values(line))
+            consume(line_number)
+    if pending:
+        raise ValueError(f"Incomplete Abaqus element at the end of {source}.")
+    if not records:
+        raise ValueError(f"No supported *ELEMENT data were found in {source}.")
+    return AbaqusElementTable(tuple(records))
+
+
 _C3D10_FAMILY = {
     "C3D10": {
         "formulation": "displacement",
@@ -425,6 +568,149 @@ class AbaqusMeshImport:
             expanded.extend((int(label), entry.get("face")) for label in labels)
         return tuple(expanded)
 
+    @property
+    def elements(self) -> AbaqusElementTable:
+        """Return supported source connectivity used by semantic adapters."""
+
+        return read_element_table(self.conversion.source_path)
+
+    def surface_corner_labels(self, name: str) -> tuple[tuple[int, ...], ...]:
+        """Expand an Abaqus surface to ordered corner-node labels."""
+
+        selected = []
+        table = self.elements
+        for element_label, face in self.surface_faces(name):
+            if face is None:
+                raise NotImplementedError(
+                    "Free-surface generation without an Abaqus face identifier "
+                    "is not inferred by this adapter."
+                )
+            selected.append(table.element(element_label).face_corner_labels(face))
+        return tuple(selected)
+
+    def node_set(self, name: str, *, tolerance: float | None = None):
+        """Promote an Abaqus ``NSET`` to a strong-constraint-ready node region."""
+
+        from . import NodeRegion
+
+        selected = self.node_sets.get(str(name).upper())
+        if selected is None:
+            raise KeyError(f"Abaqus node set {name!r} is not present.")
+        source_labels = tuple(int(label) for label in selected.get("labels", ()))
+        if not source_labels:
+            raise ValueError(f"Abaqus node set {name!r} is empty.")
+        source_coordinates = np.asarray(
+            [self.nodes.coordinate(label) for label in source_labels], dtype=float
+        )
+        scale = max(1.0, float(np.max(np.ptp(self.nodes.coordinates, axis=0))))
+        selected_tolerance = (
+            max(1.0e-12, 1.0e-9 * scale)
+            if tolerance is None
+            else float(tolerance)
+        )
+        if selected_tolerance <= 0.0 or not np.isfinite(selected_tolerance):
+            raise ValueError("node-set matching tolerance must be positive.")
+        for left in range(len(source_labels)):
+            for right in range(left + 1, len(source_labels)):
+                distance = np.linalg.norm(
+                    source_coordinates[left] - source_coordinates[right]
+                )
+                if distance <= selected_tolerance:
+                    raise ValueError(
+                        f"Abaqus node set {name!r} contains coincident source "
+                        "nodes whose runtime identity would be ambiguous."
+                    )
+        runtime_coordinates = np.asarray(self.domain.geometry.x, dtype=float)
+        found = {
+            label
+            for label, coordinate in zip(source_labels, source_coordinates)
+            if runtime_coordinates.size
+            and np.min(np.linalg.norm(runtime_coordinates - coordinate, axis=1))
+            <= selected_tolerance
+        }
+        requested = set(source_labels)
+        missing = requested - set().union(*self.domain.comm.allgather(found))
+        if missing:
+            raise ValueError(
+                f"Abaqus node set {name!r} contains {len(missing)} node(s) "
+                "outside the selected solver domain; "
+                f"examples: {sorted(missing)[:8]}."
+            )
+        return NodeRegion(
+            name=str(name),
+            domain=self.domain,
+            coordinates=source_coordinates,
+            source_labels=source_labels,
+            tolerance=selected_tolerance,
+        )
+
+    def boundary(
+        self,
+        name: str,
+        *,
+        tag: int = 1,
+        tolerance: float | None = None,
+    ):
+        """Reconstruct an exterior Abaqus ``SURFACE`` as a boundary region.
+
+        Matching uses source node labels recovered from vertex coordinates and
+        exact solid-family face conventions.  It does not guess a face from a
+        normal or bounding box.  Internal element faces are rejected because
+        an exterior ``ds`` region and an interior ``dS`` interface have
+        different finite-element meanings.
+        """
+
+        from dolfinx import mesh as dxmesh
+        from . import mark_facets, tagged_boundary_region
+
+        domain = self.domain
+        if domain.topology.dim != 3:
+            raise NotImplementedError(
+                "Abaqus element-face reconstruction currently supports 3D solids."
+            )
+        vertex_labels = _runtime_vertex_source_labels(
+            domain, self.nodes, tolerance=tolerance
+        )
+
+        targets = {
+            tuple(sorted(labels)) for labels in self.surface_corner_labels(name)
+        }
+        fdim = domain.topology.dim - 1
+        domain.topology.create_connectivity(fdim, 0)
+        domain.topology.create_connectivity(fdim, domain.topology.dim)
+        domain.topology.create_connectivity(0, domain.topology.dim)
+        connectivity = domain.topology.connectivity(fdim, 0)
+        exterior = np.asarray(
+            dxmesh.exterior_facet_indices(domain.topology), dtype=np.int32
+        )
+        selected_facets = []
+        for facet in exterior:
+            vertices = np.asarray(connectivity.links(int(facet)), dtype=np.int32)
+            labels = tuple(sorted(vertex_labels[int(vertex)] for vertex in vertices))
+            if labels in targets:
+                selected_facets.append(int(facet))
+
+        local_keys = set()
+        for facet in selected_facets:
+            vertices = np.asarray(connectivity.links(facet), dtype=np.int32)
+            local_keys.add(tuple(sorted(vertex_labels[int(vertex)] for vertex in vertices)))
+        global_keys = set().union(*domain.comm.allgather(local_keys))
+        missing = targets - global_keys
+        if missing:
+            preview = sorted(missing)[:4]
+            raise ValueError(
+                f"Abaqus surface {name!r} contains {len(missing)} face(s) that "
+                "are not exterior facets of the selected solver domain; "
+                f"examples: {preview}."
+            )
+        facet_tags = mark_facets(domain, selected_facets, int(tag))
+        return tagged_boundary_region(
+            domain,
+            facet_tags,
+            tag=int(tag),
+            name=str(name),
+        )
+
     def require_formulation(
         self,
         *supported: str,
@@ -494,6 +780,84 @@ def read_node_table(path: str | Path) -> AbaqusNodeTable:
     if len(dimensions) != 1:
         raise ValueError(f"Inconsistent Abaqus node dimensions in {path}.")
     return AbaqusNodeTable(np.asarray(labels), np.asarray(coordinates))
+
+
+def _runtime_vertex_source_labels(
+    domain,
+    nodes: AbaqusNodeTable,
+    *,
+    tolerance: float | None = None,
+) -> dict[int, int]:
+    """Match local topology vertices to source labels with an explicit tolerance."""
+
+    from dolfinx.cpp.mesh import entities_to_geometry
+
+    source_coordinates = np.asarray(nodes.coordinates, dtype=float)
+    if source_coordinates.shape[1] != domain.geometry.dim:
+        raise ValueError("Source and runtime geometric dimensions differ.")
+    scale = max(1.0, float(np.max(np.ptp(source_coordinates, axis=0))))
+    selected_tolerance = (
+        max(1.0e-12, 1.0e-9 * scale)
+        if tolerance is None
+        else float(tolerance)
+    )
+    if selected_tolerance <= 0.0 or not np.isfinite(selected_tolerance):
+        raise ValueError("node matching tolerance must be positive.")
+
+    buckets: dict[tuple[int, ...], list[int]] = {}
+    for label, coordinate in zip(nodes.labels, source_coordinates):
+        key = tuple(np.rint(coordinate / selected_tolerance).astype(np.int64))
+        buckets.setdefault(key, []).append(int(label))
+
+    def source_label(coordinate) -> int:
+        key = tuple(np.rint(coordinate / selected_tolerance).astype(np.int64))
+        candidates = []
+        for shift in product((-1, 0, 1), repeat=domain.geometry.dim):
+            candidates.extend(
+                buckets.get(
+                    tuple(key[index] + shift[index] for index in range(len(key))),
+                    (),
+                )
+            )
+        if not candidates:
+            raise ValueError("A runtime mesh vertex has no matching Abaqus source node.")
+        distances = np.asarray(
+            [np.linalg.norm(nodes.coordinate(label) - coordinate) for label in candidates]
+        )
+        closest = int(np.argmin(distances))
+        if distances[closest] > selected_tolerance:
+            raise ValueError(
+                "A runtime mesh vertex exceeds the Abaqus matching tolerance."
+            )
+        tied = np.flatnonzero(
+            np.isclose(
+                distances,
+                distances[closest],
+                atol=np.finfo(float).eps * scale,
+                rtol=0.0,
+            )
+        )
+        if tied.size > 1:
+            raise ValueError(
+                "Multiple Abaqus source nodes share one runtime vertex coordinate."
+            )
+        return int(candidates[closest])
+
+    domain.topology.create_connectivity(0, domain.topology.dim)
+    vertex_map = domain.topology.index_map(0)
+    vertices = np.arange(
+        vertex_map.size_local + vertex_map.num_ghosts, dtype=np.int32
+    )
+    geometry_nodes = np.asarray(
+        entities_to_geometry(domain._cpp_object, 0, vertices, False),
+        dtype=np.int32,
+    ).reshape(-1)
+    if geometry_nodes.size != vertices.size:
+        raise RuntimeError("A topology vertex did not map to exactly one geometry node.")
+    return {
+        int(vertex): source_label(domain.geometry.x[int(geometry_node)])
+        for vertex, geometry_node in zip(vertices, geometry_nodes)
+    }
 
 
 def read_equations(path: str | Path) -> AbaqusEquationSet:

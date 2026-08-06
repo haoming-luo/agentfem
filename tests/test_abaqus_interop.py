@@ -3,6 +3,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 from types import SimpleNamespace
+from mpi4py import MPI
+
+from agentfem import constraints, fields, mesh
 
 from agentfem.constraints.affine import (
     _build_reduction,
@@ -56,6 +59,28 @@ def test_abaqus_element_reader_preserves_c3d10h_formulation_identity(tmp_path):
     assert definitions[0].additional_pressure_variables == 1
 
 
+def test_abaqus_element_table_preserves_connectivity_and_official_face_order(tmp_path):
+    source = tmp_path / "solid.inp"
+    source.write_text(
+        "\n".join(
+            (
+                "*Element, type=C3D10H, elset=SOLID",
+                "42, 11, 12, 13, 14, 15, 16,",
+                "17, 18, 19, 20",
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    element = abaqus.read_element_table(source).element(42)
+
+    assert element.connectivity == tuple(range(11, 21))
+    assert element.face_corner_labels("S1") == (11, 12, 13)
+    assert element.face_corner_labels("S2") == (11, 14, 12)
+    assert element.face_corner_labels("S3") == (12, 14, 13)
+    assert element.face_corner_labels("S4") == (13, 14, 11)
+
+
 def test_abaqus_semantics_preserve_sets_and_element_face_surfaces(tmp_path):
     source = tmp_path / "sets.inp"
     source.write_text(
@@ -88,6 +113,90 @@ def test_abaqus_semantics_preserve_sets_and_element_face_surfaces(tmp_path):
         conversion=SimpleNamespace(source_metadata={"abaqus_model_semantics": semantics.summary()}),
     )
     assert imported.surface_faces("LOAD_FACE") == ((1, "S2"), (3, "S2"), (5, "S2"))
+
+
+def test_abaqus_surface_becomes_a_load_ready_boundary_region(tmp_path):
+    pytest.importorskip("meshio")
+    source = tmp_path / "one_tetra.inp"
+    source.write_text(
+        "\n".join(
+            (
+                "*Heading",
+                "*Node",
+                "1, 0., 0., 0.",
+                "2, 1., 0., 0.",
+                "3, 0., 1., 0.",
+                "4, 0., 0., 1.",
+                "*Nset, nset=FIXED",
+                "1, 4",
+                "*Element, type=C3D4, elset=SOLID",
+                "1, 1, 2, 3, 4",
+                "*Surface, name=LOADED, type=ELEMENT",
+                "SOLID, S1",
+            )
+        ),
+        encoding="utf-8",
+    )
+    imported = mesh.read_abaqus_mesh(
+        source,
+        tmp_path / "converted.xdmf",
+        comm=MPI.COMM_SELF,
+        cell_type="tetra",
+        reuse_conversion=False,
+    )
+
+    loaded = imported.boundary("LOADED", tag=17)
+    fixed_nodes = imported.node_set("FIXED")
+    fixed = constraints.fixed(fields.displacement(imported.domain), on=fixed_nodes)
+    evidence = loaded.audit(strict=True)
+
+    assert loaded.name == "LOADED"
+    assert evidence["global_tagged_facets"] == 1
+    assert evidence["measure"] == pytest.approx(0.5)
+    assert fixed_nodes.summary()["global_nodes"] == 2
+    assert len(fixed.bcs) == 3
+
+
+def test_abaqus_node_set_retains_c3d10_midside_nodes_for_p2_constraints(tmp_path):
+    pytest.importorskip("meshio")
+    source = tmp_path / "quadratic_tetra.inp"
+    source.write_text(
+        "\n".join(
+            (
+                "*Node",
+                "1, 0., 0., 0.",
+                "2, 1., 0., 0.",
+                "3, 0., 1., 0.",
+                "4, 0., 0., 1.",
+                "5, 0.5, 0., 0.",
+                "6, 0.5, 0.5, 0.",
+                "7, 0., 0.5, 0.",
+                "8, 0., 0., 0.5",
+                "9, 0.5, 0., 0.5",
+                "10, 0., 0.5, 0.5",
+                "*Nset, nset=MIDSIDE",
+                "5",
+                "*Element, type=C3D10, elset=SOLID",
+                "1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+            )
+        ),
+        encoding="utf-8",
+    )
+    imported = mesh.read_abaqus_mesh(
+        source,
+        tmp_path / "quadratic_tetra.xdmf",
+        comm=MPI.COMM_SELF,
+        cell_type="tetra10",
+        reuse_conversion=False,
+    )
+    midside = imported.node_set("MIDSIDE")
+    fixed = constraints.fixed(
+        fields.displacement(imported.domain, degree=2), on=midside
+    )
+
+    assert midside.summary()["global_nodes"] == 1
+    assert midside.marker(np.asarray(((0.5,), (0.0,), (0.0,)))).tolist() == [True]
+    assert all(len(bc.dof_indices()[0]) == 1 for bc in fixed.bcs)
 
 
 def test_imported_hybrid_identity_cannot_be_silently_consumed_as_displacement_only():

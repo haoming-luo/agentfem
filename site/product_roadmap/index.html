@@ -3034,8 +3034,8 @@ core, results, verification, and documentation have priority.</p>
 <tr>
 <td>External CAE mesh</td>
 <td>integrated Abaqus path + conversion interface</td>
-<td>generic meshio conversion; SHA-256 conversion identity/cache invalidation; Abaqus node labels, NSET/ELSET/SURFACE semantics and element-face expansion; verified C3D10 import; C3D10H mixed-pressure provider; linear equation parsing</td>
-<td>source face pairs still need a general facet reconstruction adapter; mixed-topology solve domains and full solver-deck semantics remain</td>
+<td>generic meshio conversion; SHA-256 conversion identity/cache invalidation; Abaqus node labels; NSET node regions; exterior SURFACE facet reconstruction for C3D4/C3D10/C3D8 families; verified C3D10 import; C3D10H mixed-pressure provider; linear equation parsing; simplex quality preflight</td>
+<td>assembly-instance label scope, free/internal surfaces, more element families, mixed-topology solve domains, Jacobian quality for tensor-product cells, and full solver-deck semantics remain</td>
 </tr>
 <tr>
 <td>Abaqus periodic equations</td>
@@ -3052,8 +3052,8 @@ core, results, verification, and documentation have priority.</p>
 <tr>
 <td>Result/data flow</td>
 <td>integrated foundation</td>
-<td>declarative field/history/diagnostic/presentation plans; serial single-grid mixed point/cell XDMF/HDF5 with non-fatal output errors; engineering-default U/S/E/MISES with opt-in SENER; discontinuous cell-average processing metadata; located MPI-safe extrema; one structured Standard/Explicit/thermal/J2 event trace; atomic heat/Standard/Explicit checkpoint envelope with accepted-increment cadence; continuation-aware output; mechanical-energy, proportional-static closure, and thermal-balance histories; MPI-safe probes, strong-BC resultants and integrals; verification reports and trust-gated learning bridge</td>
-<td>collective MPI single-grid visualization, integration-point export and material-aware recovery/smoothing, affine/weak reactions, non-zero prescribed-displacement work, checkpoint retention, cross-partition restart, and broader conservation balances remain</td>
+<td>declarative field/history/diagnostic/presentation plans; generic accepted-frame history and probe requests; serial single-grid mixed point/cell XDMF/HDF5 with non-fatal output errors; engineering-default U/S/E/MISES with opt-in SENER; discontinuous cell-average processing metadata; located MPI-safe extrema; one structured Standard/Explicit/thermal/J2 event trace; atomic heat/Standard/Explicit checkpoint envelope with accepted-increment cadence; continuation-aware output; mechanical-energy, proportional-static closure, and thermal-balance histories; MPI-safe probes, strong-BC resultants and integrals; verification reports and trust-gated learning bridge</td>
+<td>generic requests still need the same lifecycle in every transient provider; collective MPI single-grid visualization, integration-point export and material-aware recovery/smoothing, affine/weak reactions, non-zero prescribed-displacement work, checkpoint retention, cross-partition restart, and broader conservation balances remain</td>
 </tr>
 <tr>
 <td>Scientific trust and provenance</td>
@@ -3236,9 +3236,10 @@ rank-local array serialization prototype.</p>
 <li>map volume sets and boundary sets to named AgentFEM regions;</li>
 <li>preserve source identities, checksums, conversion choices, and warnings
   (implemented for the Abaqus/XDMF cache path);</li>
-<li>reconstruct the now-preserved Abaqus element-face surface pairs as DOLFINx
-  facet tags for verified solid families, and promote NSET to a point-region
-  contract without coordinate guessing;</li>
+<li>extend the implemented NSET node-region and exterior element-face adapters
+  beyond C3D4/C3D10/C3D8 to assembly/instance label scopes, automatically
+  generated free surfaces, verified internal interfaces, and more element
+  families;</li>
 <li>represent multi-topology imports as explicit solver-domain bundles while
   DOLFINx mixed-topology support remains incomplete;</li>
 <li>treat ANSYS CDB and full solver decks as separate adapters, not generic mesh

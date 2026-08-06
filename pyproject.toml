@@ -107,6 +107,9 @@ packages = [
 "agentfem" = ["py.typed"]
 "agentfem.templates" = ["*/case.py", "*/agentfem.toml", "*/README.md", "*/AGENTS.md"]
 
+[tool.setuptools.exclude-package-data]
+"*" = ["*.py[cod]", "__pycache__/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"

@@ -751,6 +751,44 @@ def test_solver_history_request_records_accepted_increment_evidence(tmp_path):
     )
 
 
+def test_generic_history_request_uses_accepted_frame_coordinate_and_tensor_values():
+    snapshots = (
+        SimpleNamespace(load_factor=0.25, response=np.eye(2)),
+        SimpleNamespace(load_factor=1.0, response=2.0 * np.eye(2)),
+    )
+    simulation = results.SimulationResult("history")
+    request = results.history(
+        "section_tensor",
+        lambda snapshot, context: snapshot.response,
+        unit="Pa",
+        description="Section response on accepted frames.",
+    )
+
+    request.apply(
+        SimpleNamespace(
+            step=SimpleNamespace(snapshots=snapshots),
+            result=simulation,
+        )
+    )
+
+    history = simulation.histories["section_tensor"]
+    assert history.abscissa_name == "load_factor"
+    assert history.abscissa_unit is None
+    np.testing.assert_allclose(history.abscissa, [0.25, 1.0])
+    np.testing.assert_allclose(history.values[1], 2.0 * np.eye(2))
+
+
+def test_generic_history_requires_explicit_coordinate_for_unlabelled_frames():
+    request = results.history("custom", lambda snapshot, context: snapshot.value)
+    context = SimpleNamespace(
+        step=SimpleNamespace(snapshots=(SimpleNamespace(value=1.0),)),
+        result=results.SimulationResult("history"),
+    )
+
+    with pytest.raises(ValueError, match="pass coordinate"):
+        request.apply(context)
+
+
 def test_result_format_is_concise_and_does_not_dump_numeric_manifest():
     result = results.SimulationResult("readable")
     result.add_quantity("long_value", np.arange(100, dtype=float))

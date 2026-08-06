@@ -11,6 +11,7 @@ from . import campaigns
 from . import checkpointing
 from . import constraints
 from . import constitutive
+from . import coordinates
 from . import datasets
 from . import dependencies
 from . import diagnostics
@@ -37,6 +38,7 @@ from . import steps
 from . import studies
 from . import surrogates
 from . import time
+from . import units
 from . import upgrades
 from . import validation
 from . import verification
@@ -49,6 +51,7 @@ PUBLIC_WORKFLOW_MODULES = (
     "materials",
     "mechanics",
     "constitutive",
+    "coordinates",
     "constraints",
     "amplitudes",
     "loads",
@@ -62,6 +65,7 @@ PUBLIC_WORKFLOW_MODULES = (
     "solvers",
     "steps",
     "time",
+    "units",
     "upgrades",
     "io",
     "diagnostics",
@@ -93,6 +97,7 @@ __all__ = [
     "checkpointing",
     "constraints",
     "constitutive",
+    "coordinates",
     "datasets",
     "dependencies",
     "diagnostics",
@@ -119,6 +124,7 @@ __all__ = [
     "studies",
     "surrogates",
     "time",
+    "units",
     "upgrades",
     "validation",
     "verification",

@@ -52,6 +52,8 @@ REQUIRED_WHEEL_MEMBERS = (
     "agentfem/knowledge/catalog.json",
     "agentfem/materials/data/steel_generic.json",
 )
+FORBIDDEN_DISTRIBUTION_PARTS = ("__pycache__",)
+FORBIDDEN_DISTRIBUTION_SUFFIXES = (".pyc", ".pyo")
 SMOKE_EXAMPLES = (
     "examples/static_elasticity_2d.py",
     "examples/transient_heat_2d.py",
@@ -147,11 +149,28 @@ def check_distributions(directory: Path) -> Path:
     missing = [name for name in REQUIRED_WHEEL_MEMBERS if name not in wheel_members]
     if missing:
         raise RuntimeError(f"Wheel omits required runtime assets: {missing}.")
+    forbidden = _forbidden_distribution_members(wheel_members)
+    if forbidden:
+        raise RuntimeError(
+            "Wheel contains build-machine bytecode/cache artifacts: "
+            f"{forbidden[:8]}."
+        )
     sdist_members = _archive_members(sdists[0])
     for required in ("README.md", "LICENSE", "NOTICE", "pyproject.toml"):
         if required not in sdist_members:
             raise RuntimeError(f"Source distribution omits {required}.")
     return wheels[0]
+
+
+def _forbidden_distribution_members(members) -> list[str]:
+    """Return non-source cache artifacts that must never enter a release."""
+
+    return sorted(
+        name
+        for name in members
+        if any(part in FORBIDDEN_DISTRIBUTION_PARTS for part in Path(name).parts)
+        or str(name).endswith(FORBIDDEN_DISTRIBUTION_SUFFIXES)
+    )
 
 
 def run_smoke(*, wheel: Path | None = None) -> None:

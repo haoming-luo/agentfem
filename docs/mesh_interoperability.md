@@ -127,10 +127,45 @@ displacement dofs and constructs exact affine elimination. See
 
 The Abaqus adapter also preserves inline and explicit `NSET`/`ELSET`
 definitions, expands `GENERATE` ranges, and records node- and element-based
-`SURFACE` entries. `imported.surface_faces(name)` expands an element-based
-surface to source `(element_label, face_identifier)` pairs. This is durable
-engineering evidence even when a selected neutral topology cannot yet become
-one DOLFINx facet-tag field.
+`SURFACE` entries. For supported three-dimensional continuum families, these
+source semantics now become ordinary AgentFEM regions:
+
+```python
+cell = mesh.read_abaqus_mesh("part.inp", "output/part.xdmf")
+support_nodes = cell.node_set("FIXED")
+loaded_surface = cell.boundary("LOAD_FACE")
+
+model.fix(U, on=support_nodes)
+model.pressure(12.0e6, on=loaded_surface)
+```
+
+`node_set(...)` preserves source-node identity as a coordinate-backed region
+used by strong constraints and probes. It includes high-order geometry nodes,
+so a C3D10 midside `NSET` can locate the corresponding P2 degree of freedom;
+it deliberately has no boundary integration measure. `boundary(...)`
+reconstructs exterior facets from official Abaqus face numbering and returns
+the same tagged `BoundaryRegion` consumed by weak loads and output resultants.
+C3D4/C3D10 and C3D8 solid families are supported first. Missing nodes,
+internal faces, unknown face identifiers, unsupported element families, and
+ambiguous coincident source nodes fail explicitly.
+
+`imported.surface_faces(name)` remains available as source-level evidence and
+for adapters that need the original `(element_label, face_identifier)` pairs.
+
+## Mesh-quality preflight
+
+Imported and generated triangle/tetrahedron domains can be audited before a
+solve with a normalized simplex mean-ratio metric:
+
+```python
+quality = mesh.audit_quality(cell.domain, threshold=0.1, strict=True)
+print(quality.summary())
+```
+
+One denotes an equilateral simplex and zero a degenerate cell. The first
+implementation is intentionally topology-specific; quadrilateral and
+hexahedral quality need Jacobian-based metrics and are not assigned the same
+number under a misleading common name.
 
 ### C3D10 and C3D10H are not the same solver formulation
 
@@ -160,9 +195,10 @@ a claim that neutral conversion reproduces Abaqus internal element code.
 
 ## Current Limits
 
-- node sets and element-face surfaces are preserved and queryable, but node
-  sets are not yet first-class DOLFINx point regions and source face pairs are
-  not yet reconstructed as facet tags unless lower-dimensional cells exist;
+- NSET point regions and exterior element-face surfaces are reconstructed for
+  supported 3D solid families; assembly/instance-scoped duplicate labels,
+  automatically generated free surfaces, internal interfaces, and other
+  element families still require dedicated adapters;
 - mixed top-dimensional element families need an explicit selection;
 - high-order topology compatibility remains format-specific; Abaqus `C3D10` /
   meshio `tetra10` / DOLFINx quadratic tetrahedral geometry is now covered by

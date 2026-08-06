@@ -1,0 +1,89 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.coordinate_reference_coupling",
+  "title": "Local coordinates and reference-point continuum coupling",
+  "kind": "workflow",
+  "status": "supported",
+  "summary": "Maps explicit local components to global finite-element loads and applies force/moment or known rigid motion through a named continuum reference point.",
+  "public_api": [
+    "agentfem.coordinates.cartesian",
+    "agentfem.coordinates.reference_point",
+    "agentfem.loads.remote_force",
+    "agentfem.constraints.remote_displacement",
+    "agentfem.models.Model.remote_force",
+    "agentfem.models.Model.remote_displacement"
+  ],
+  "implementation": ["coordinates.py", "loads.py", "constraints/__init__.py", "models.py"],
+  "science": {
+    "statement": "A right-handed orthonormal basis makes component conventions explicit; remote resultants and known rigid motions are then transferred to a continuum boundary without a singular solid-node force.",
+    "equations": [
+      {
+        "label": "local-to-global vector",
+        "expression": "v_global = Q^T v_local",
+        "description": "Rows of Q are local basis vectors expressed in global components."
+      },
+      {
+        "label": "rigid boundary motion",
+        "expression": "u(x) = u_RP + theta x (x - x_RP)",
+        "description": "The prescribed displacement is evaluated on every constrained boundary dof."
+      },
+      {
+        "label": "remote resultant",
+        "expression": "integral_Gamma t dGamma = F_RP; integral_Gamma (x-x_RP) x t dGamma = M_RP",
+        "description": "The distributing traction preserves force and moment about the named point."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "coordinate system and reference point",
+        "type": "orthonormal basis, origin, and finite point coordinates",
+        "unit_role": "length and dimensionless rotation",
+        "description": "Local axes must be right handed and match the model dimension."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "continuum load or strong rigid-motion constraint",
+        "type": "weak boundary load or Dirichlet asset",
+        "unit_role": "force/moment or displacement/rotation",
+        "description": "Both assets are consumed by ordinary model steps and retain engineering summaries."
+      }
+    ],
+    "assumptions": [
+      "The selected surface has sufficient geometric extent to transmit a requested moment.",
+      "remote_displacement specifies known rigid motion rather than solving for an independent reference-point degree of freedom."
+    ],
+    "conventions": [
+      "Coordinate-system axes are stored by row in global components.",
+      "Two-dimensional rotation and moment are scalar out-of-plane quantities.",
+      "Constant remote displacement follows the normalized nonlinear load path."
+    ],
+    "applicability": ["Fixture coordinates, remote loading, driven grips, and continuum-solid coupling surfaces."],
+    "limitations": [
+      "An unknown kinematic reference-point degree of freedom and general MPC coupling are not implemented by this contract.",
+      "Local component constraints on an arbitrary oblique direction require a dedicated MPC rather than a component Dirichlet approximation."
+    ]
+  },
+  "usage": {
+    "minimal_example": "local = coordinates.cartesian(x=(0,1), y=(-1,0)); rp = coordinates.reference_point((2,0.5), name='RP-1'); model.remote_force((3,4), moment=2, reference_point=rp, system=local, on=end)",
+    "examples": ["tests/test_engineering_workflows.py"]
+  },
+  "verification": {
+    "tests": ["tests/test_coordinates.py", "tests/test_engineering_workflows.py"],
+    "benchmarks": [],
+    "validation_rules": [
+      "Reject non-orthonormal and left-handed bases.",
+      "Reject coordinate, vector, rotation, and target dimension mismatches.",
+      "Integrate generated traction and recover transformed force and requested moment.",
+      "Verify remote motion follows deterministic load-factor scaling."
+    ]
+  },
+  "references": [
+    {
+      "title": "Abaqus distributing coupling constraints",
+      "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAECSTRefMap/simacst-c-coupling.htm"
+    }
+  ],
+  "related_cards": ["agentfem.load.surface_resultant", "agentfem.operator.system_contracts"]
+}

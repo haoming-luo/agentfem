@@ -16,6 +16,28 @@ quality policy, verification, and failure state under one contract.
 4. **Structured result metadata** records status, trust, quality acceptance,
    files, provenance, and restart identity.
 
+Accepted-frame histories use one reusable request rather than one function per
+analysis type:
+
+```python
+output = results.output_plan(
+    "output",
+    requests=(
+        results.probe_history("tip_U2", at=tip, component=1, unit="mm"),
+        results.history(
+            "section_force",
+            lambda frame, context: evaluate_section(frame.solution),
+            unit="N",
+        ),
+    ),
+)
+```
+
+The same request contract can represent probes, integrals, resultants,
+energies, or application-defined quantities. The abscissa is taken from the
+accepted physical time or normalized load factor; custom frame types must
+provide an explicit coordinate instead of falling back to an arbitrary index.
+
 ## Standard questions
 
 - Did the requested step converge or complete stably?

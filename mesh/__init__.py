@@ -15,10 +15,14 @@ from mpi4py import MPI
 from agentfem import dependencies
 
 from . import formats
+from . import quality
 from . import abaqus
 from . import selectors as select
 from .regions import RegionSet
 from .selectors import Selector, ball, box, disk, layer, plane, where
+
+audit_quality = quality.audit
+cell_quality = quality.cell_quality
 
 
 @dataclass(frozen=True)
@@ -176,6 +180,59 @@ class CellRegion:
             "name": self.name,
             "kind": "cell_region",
             "tag": self.tag,
+        }
+
+
+@dataclass(frozen=True)
+class NodeRegion:
+    """Named source-node region, including high-order geometry nodes."""
+
+    name: str
+    domain: object
+    coordinates: np.ndarray
+    source_labels: tuple[int, ...] = ()
+    tolerance: float = 1.0e-9
+    selection: str = "source_nodes"
+
+    def __post_init__(self) -> None:
+        coordinates = np.asarray(self.coordinates, dtype=float)
+        if coordinates.ndim != 2 or coordinates.shape[1] != self.domain.geometry.dim:
+            raise ValueError("NodeRegion coordinates have incompatible shape.")
+        if not np.all(np.isfinite(coordinates)):
+            raise ValueError("NodeRegion coordinates must be finite.")
+        if float(self.tolerance) <= 0.0:
+            raise ValueError("NodeRegion tolerance must be positive.")
+        object.__setattr__(self, "coordinates", coordinates)
+        object.__setattr__(
+            self,
+            "source_labels",
+            tuple(int(value) for value in self.source_labels),
+        )
+
+    def marker(self, x) -> np.ndarray:
+        """Select finite-element dof coordinates matching source nodes."""
+
+        selected = np.zeros(x.shape[1], dtype=bool)
+        for coordinate in self.coordinates:
+            selected |= np.all(
+                np.isclose(
+                    x[: self.domain.geometry.dim],
+                    coordinate[:, None],
+                    rtol=0.0,
+                    atol=float(self.tolerance),
+                ),
+                axis=0,
+            )
+        return selected
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "kind": "node_region",
+            "selection": self.selection,
+            "global_nodes": len(self.source_labels),
+            "source_labels": self.source_labels,
+            "tolerance": float(self.tolerance),
         }
 
 

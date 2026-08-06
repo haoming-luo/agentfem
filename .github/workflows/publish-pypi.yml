@@ -33,7 +33,7 @@ jobs:
           python -m pip install -e . --no-deps
           python build_knowledge.py --check --check-imports
           python -m pytest
-          mpirun -n 2 python -m pytest tests/test_parallel_affine.py tests/test_parallel_cli.py tests/test_parallel_results.py tests/test_parallel_transient.py
+          mpirun -n 2 python -m pytest tests/test_parallel_affine.py tests/test_parallel_cli.py tests/test_parallel_mesh_semantics.py tests/test_parallel_mixed.py tests/test_parallel_results.py tests/test_parallel_transient.py
 
   build:
     name: Build package distributions

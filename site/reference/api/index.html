@@ -1357,6 +1357,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agentfemcoordinates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.coordinates
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agentfemconstraints" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1493,6 +1504,17 @@
     <span class="md-ellipsis">
       
         agentfem.time
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agentfemunits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.units
       
     </span>
   </a>
@@ -3030,6 +3052,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agentfemcoordinates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.coordinates
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agentfemconstraints" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3166,6 +3199,17 @@
     <span class="md-ellipsis">
       
         agentfem.time
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agentfemunits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.units
       
     </span>
   </a>
@@ -3481,6 +3525,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>Named cell/material region on a mesh.</td>
 </tr>
 <tr>
+<td>class</td>
+<td><code>NodeRegion</code></td>
+<td>Named source-node region, including high-order geometry nodes.</td>
+</tr>
+<tr>
 <td>function</td>
 <td><code>import_gmsh_model(model, comm: MPI.Comm = MPI.COMM_WORLD, *, model_rank: int = 0, gdim: int = 3) -&gt; FEMMesh</code></td>
 <td>Convert an in-memory Gmsh model to a DOLFINx mesh.</td>
@@ -3744,7 +3793,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>create(*, study, mesh = None, name: str = 'model') -&gt; Model</code></td>
+<td><code>create(*, study, mesh = None, name: str = 'model', units = None) -&gt; Model</code></td>
 <td>Create a lightweight model registry.</td>
 </tr>
 </tbody>
@@ -4282,6 +4331,38 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="agentfemcoordinates"><code>agentfem.coordinates</code><a class="headerlink" href="#agentfemcoordinates" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Public object</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>class</td>
+<td><code>CartesianSystem</code></td>
+<td>Right-handed orthonormal Cartesian coordinate system.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ReferencePoint</code></td>
+<td>Named engineering point used for remote resultants and kinematics.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>cartesian(*, origin = None, axes = None, x = None, y = None, z = None, name = 'local') -&gt; CartesianSystem</code></td>
+<td>Create a Cartesian system from a matrix or named basis vectors.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>reference_point(coordinates, *, name = 'reference_point', system = None) -&gt; ReferencePoint</code></td>
+<td>Create a named engineering reference point.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="agentfemconstraints"><code>agentfem.constraints</code><a class="headerlink" href="#agentfemconstraints" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4301,6 +4382,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>class</td>
 <td><code>TimeDependentDirichlet</code></td>
 <td>Dirichlet constraint driven by an amplitude.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>RemoteDisplacementConstraint</code></td>
+<td>Rigid boundary motion prescribed about a named reference point.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -4386,6 +4472,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>prescribed_temperature(target, value, *, on = None, location = None, name: str \| None = None)</code></td>
 <td>Prescribe temperature on a named boundary.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>remote_displacement(target, *, reference_point, on = None, location = None, translation = None, rotation = None, system = None, name: str = 'remote_displacement') -&gt; RemoteDisplacementConstraint</code></td>
+<td>Prescribe rigid translation/rotation of a solid boundary.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -4568,12 +4659,12 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>body_force(value, *, domain = None, target = None, measure = ufl.dx, name: str = 'body_force') -&gt; BodyLoad</code></td>
-<td>Create a mechanical body-force load.</td>
+<td><code>body_force(value, *, domain = None, target = None, measure = ufl.dx, system = None, name: str = 'body_force') -&gt; BodyLoad</code></td>
+<td>Create a mechanical body-force load in global or local components.</td>
 </tr>
 <tr>
 <td>function</td>
-<td><code>gravity(acceleration, *, density, domain = None, target = None, region = None, measure = None, name: str = 'gravity') -&gt; GravityLoad</code></td>
+<td><code>gravity(acceleration, *, density, domain = None, target = None, region = None, measure = None, system = None, name: str = 'gravity') -&gt; GravityLoad</code></td>
 <td>Create a gravity load from acceleration and material density.</td>
 </tr>
 <tr>
@@ -4603,18 +4694,23 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>traction(value, *, location = None, on = None, name: str = 'traction') -&gt; BoundaryLoad</code></td>
-<td>Create a mechanical traction applied on a boundary region.</td>
+<td><code>traction(value, *, location = None, on = None, system = None, name: str = 'traction') -&gt; BoundaryLoad</code></td>
+<td>Create a traction in global or an explicit local coordinate system.</td>
 </tr>
 <tr>
 <td>function</td>
-<td><code>surface_force(resultant, *, location = None, on = None, reference_measure: float \| None = None, name: str = 'surface_force') -&gt; SurfaceResultantLoad</code></td>
+<td><code>surface_force(resultant, *, location = None, on = None, reference_measure: float \| None = None, system = None, name: str = 'surface_force') -&gt; SurfaceResultantLoad</code></td>
 <td>Distribute a total reference-configuration force over a boundary.</td>
 </tr>
 <tr>
 <td>function</td>
-<td><code>distributing_coupling(force, *, moment = None, reference_point = None, location = None, on = None, name: str = 'distributing_coupling') -&gt; DistributedCouplingLoad</code></td>
+<td><code>distributing_coupling(force, *, moment = None, reference_point = None, location = None, on = None, system = None, name: str = 'distributing_coupling') -&gt; DistributedCouplingLoad</code></td>
 <td>Distribute force/moment over a surface with tributary-area weighting.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>remote_force(force, *, reference_point, moment = None, location = None, on = None, system = None, name: str = 'remote_force') -&gt; DistributedCouplingLoad</code></td>
+<td>Apply a reference-point force/moment through a continuum surface.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -5472,6 +5568,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>HistoryRequest</code></td>
+<td>Evaluate one scientific quantity on every accepted output frame.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>OutputPlan</code></td>
 <td>One declarative output contract for a completed finite-strain step.</td>
 </tr>
@@ -5479,6 +5580,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>class</td>
 <td><code>PeriodicCellHistoryRequest</code></td>
 <td>Record complete tensor histories for a finite-strain periodic cell.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ProbeHistoryRequest</code></td>
+<td>Record a field value at one physical point on every accepted frame.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -5502,6 +5608,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
+<td><code>history(name: str, evaluate, *, coordinate = None, unit: str \| None = None, abscissa_name: str \| None = None, abscissa_unit: str \| None = None, description: str = '') -&gt; HistoryRequest</code></td>
+<td>Create a quantity history evaluated on accepted snapshots.</td>
+</tr>
+<tr>
+<td>function</td>
 <td><code>output_plan(directory, *, field: FieldOutput \| None = None, requests = (), presentation: PresentationOutput \| None = None, basename: str = 'results') -&gt; OutputPlan</code></td>
 <td>Create a complete finite-strain output plan.</td>
 </tr>
@@ -5509,6 +5620,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>periodic_cell_history(constraint, *, basename: str = 'homogenized_history') -&gt; PeriodicCellHistoryRequest</code></td>
 <td>Public AgentFEM object.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>probe_history(name: str, *, at, field = None, component: int \| None = None, unit: str \| None = None, description: str = '') -&gt; ProbeHistoryRequest</code></td>
+<td>Create a point-probe history for an accepted field sequence.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -5765,6 +5881,38 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>newmark(*, beta: float = 0.25, gamma: float = 0.5)</code></td>
 <td>Average-acceleration Newmark by default.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="agentfemunits"><code>agentfem.units</code><a class="headerlink" href="#agentfemunits" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Public object</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>class</td>
+<td><code>UnitSystem</code></td>
+<td>Named consistent base-unit contract attached to a model.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>consistent(*, length, mass, time, temperature = 'K', name = 'consistent_units')</code></td>
+<td>Declare the base units used consistently by all model inputs.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>si(*, temperature = 'K') -&gt; UnitSystem</code></td>
+<td>Return the SI <code>m-kg-s</code> engineering contract.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>n_mm_mpa(*, temperature = 'K') -&gt; UnitSystem</code></td>
+<td>Return the common <code>mm-N-s-MPa</code> consistent system.</td>
 </tr>
 </tbody>
 </table>

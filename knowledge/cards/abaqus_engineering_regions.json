@@ -1,0 +1,82 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.abaqus_engineering_regions",
+  "title": "Abaqus node sets and element-face surfaces as FEM regions",
+  "kind": "workflow",
+  "status": "supported",
+  "summary": "Promotes source-labelled Abaqus NSET and supported exterior SURFACE definitions into distinct DOLFINx node and facet regions.",
+  "public_api": [
+    "agentfem.mesh.read_abaqus_mesh",
+    "agentfem.mesh.abaqus.AbaqusMeshImport.node_set",
+    "agentfem.mesh.abaqus.AbaqusMeshImport.boundary",
+    "agentfem.mesh.abaqus.AbaqusMeshImport.surface_faces"
+  ],
+  "implementation": ["mesh/abaqus.py", "mesh/__init__.py", "kernel/dofs.py"],
+  "science": {
+    "statement": "Source labels and official element-face numbering determine engineering regions; coordinate proximity is used only to recover explicit source-to-runtime node or vertex identity within a declared tolerance.",
+    "equations": [
+      {
+        "label": "source-to-runtime node identity",
+        "expression": "selected(x_h) iff there exists a unique source node n such that ||x_h - x_n|| <= tolerance",
+        "description": "The coordinate match preserves explicit source-node identity, including high-order nodes; absence or ambiguity is an error rather than a geometric selection rule."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "Abaqus source and converted solver domain",
+        "type": "keyword nodes/elements/sets/surfaces plus one selected topology",
+        "unit_role": "geometry length",
+        "description": "The conversion fingerprint binds the source, topology choice, and XDMF artifact."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "NodeRegion or BoundaryRegion",
+        "type": "source-node coordinate region or tagged exterior facets",
+        "unit_role": "none; boundary measure inherits geometry units",
+        "description": "Strong constraints consume node regions; weak loads consume boundary regions through ds(tag)."
+      }
+    ],
+    "assumptions": [
+      "Source node and element labels are unique in the selected import scope.",
+      "A reconstructed boundary face is exterior to the selected solver domain."
+    ],
+    "conventions": [
+      "NSET does not acquire a surface measure.",
+      "High-order source nodes such as C3D10 midside nodes remain addressable by compatible finite-element spaces.",
+      "SURFACE face identifiers follow Abaqus solid-element node ordering.",
+      "Unknown or ambiguous semantics fail instead of being inferred from a normal or bounding box."
+    ],
+    "applicability": ["C3D4/C3D10 and C3D8-family external solid meshes with explicit NSET/ELSET/SURFACE data."],
+    "limitations": [
+      "Assembly/instance-scoped duplicate labels, free-surface generation, internal dS interfaces, and other element families need dedicated adapters.",
+      "This is mesh and region interoperability, not full Abaqus solver-deck execution."
+    ]
+  },
+  "usage": {
+    "minimal_example": "cell = mesh.read_abaqus_mesh('part.inp', 'part.xdmf'); fixed = cell.node_set('FIXED'); loaded = cell.boundary('LOAD_FACE')",
+    "examples": ["tests/test_abaqus_interop.py"]
+  },
+  "verification": {
+    "tests": ["tests/test_abaqus_interop.py"],
+    "benchmarks": [],
+    "validation_rules": [
+      "Recover every requested source node or fail with missing labels.",
+      "Match every requested face to one exterior runtime facet.",
+      "Reject unsupported element families and face identifiers.",
+      "Verify the reconstructed boundary facet count and physical measure."
+    ]
+  },
+  "references": [
+    {
+      "title": "Abaqus element-based surface definition",
+      "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAEMODRefMap/simamod-c-deformablesurf.htm"
+    },
+    {
+      "title": "Abaqus three-dimensional solid node ordering and face numbering",
+      "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAEELMRefMap/simaelm-r-3delem.htm"
+    }
+  ],
+  "related_cards": ["agentfem.workflow.coordinate_reference_coupling", "agentfem.load.surface_resultant"]
+}

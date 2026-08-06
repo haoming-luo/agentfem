@@ -222,6 +222,24 @@
       "title": "Finite-element operator and system contracts"
     },
     {
+      "id": "agentfem.workflow.abaqus_engineering_regions",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.mesh.read_abaqus_mesh",
+        "agentfem.mesh.abaqus.AbaqusMeshImport.node_set",
+        "agentfem.mesh.abaqus.AbaqusMeshImport.boundary",
+        "agentfem.mesh.abaqus.AbaqusMeshImport.surface_faces"
+      ],
+      "related_cards": [
+        "agentfem.workflow.coordinate_reference_coupling",
+        "agentfem.load.surface_resultant"
+      ],
+      "source": "knowledge/cards/abaqus_engineering_regions.json",
+      "status": "supported",
+      "summary": "Promotes source-labelled Abaqus NSET and supported exterior SURFACE definitions into distinct DOLFINx node and facet regions.",
+      "title": "Abaqus node sets and element-face surfaces as FEM regions"
+    },
+    {
       "id": "agentfem.workflow.campaign_learning_pipeline",
       "kind": "workflow",
       "public_api": [
@@ -238,6 +256,26 @@
       "status": "supported",
       "summary": "Turns quality-gated deterministic simulations into scientific datasets, independent surrogate validation, optional PyTorch tensors, applicability decisions, and explicit high-fidelity fallback.",
       "title": "Simulation campaign to guarded learning workflow"
+    },
+    {
+      "id": "agentfem.workflow.coordinate_reference_coupling",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.coordinates.cartesian",
+        "agentfem.coordinates.reference_point",
+        "agentfem.loads.remote_force",
+        "agentfem.constraints.remote_displacement",
+        "agentfem.models.Model.remote_force",
+        "agentfem.models.Model.remote_displacement"
+      ],
+      "related_cards": [
+        "agentfem.load.surface_resultant",
+        "agentfem.operator.system_contracts"
+      ],
+      "source": "knowledge/cards/coordinate_reference_coupling.json",
+      "status": "supported",
+      "summary": "Maps explicit local components to global finite-element loads and applies force/moment or known rigid motion through a named continuum reference point.",
+      "title": "Local coordinates and reference-point continuum coupling"
     },
     {
       "id": "agentfem.workflow.observation_grid_learning",
@@ -265,6 +303,8 @@
         "agentfem.results.probe",
         "agentfem.results.sample_points",
         "agentfem.results.sample_path",
+        "agentfem.results.history",
+        "agentfem.results.probe_history",
         "agentfem.results.PathSample.add_to"
       ],
       "related_cards": [
@@ -299,6 +339,22 @@
       "status": "supported",
       "summary": "Separates computed, converged, verified, and validated results while providing exploratory, engineering, and release policies for automatic runtime checks and campaign learning gates.",
       "title": "Scientific trust and verification workflow"
+    },
+    {
+      "id": "agentfem.workflow.simplex_mesh_quality",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.mesh.cell_quality",
+        "agentfem.mesh.audit_quality"
+      ],
+      "related_cards": [
+        "agentfem.workflow.abaqus_engineering_regions",
+        "agentfem.workflow.scientific_verification"
+      ],
+      "source": "knowledge/cards/simplex_mesh_quality.json",
+      "status": "supported",
+      "summary": "Computes normalized triangle/tetrahedron mean-ratio quality and turns a declared threshold into MPI-global preflight evidence.",
+      "title": "Collective simplex mesh-quality preflight"
     },
     {
       "id": "agentfem.workflow.solution_procedures",

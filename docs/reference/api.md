@@ -41,6 +41,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `MeshSummary` | Human- and agent-readable mesh summary. |
 | class | `BoundaryRegion` | Named exterior boundary region on a mesh. |
 | class | `CellRegion` | Named cell/material region on a mesh. |
+| class | `NodeRegion` | Named source-node region, including high-order geometry nodes. |
 | function | `import_gmsh_model(model, comm: MPI.Comm = MPI.COMM_WORLD, *, model_rank: int = 0, gdim: int = 3) -> FEMMesh` | Convert an in-memory Gmsh model to a DOLFINx mesh. |
 | function | `rectangle(lower, upper, cells, comm: MPI.Comm = MPI.COMM_WORLD, *, cell_type: str \| mesh.CellType = 'quadrilateral')` | Create a structured 2D rectangular mesh. |
 | function | `cuboid(lower, upper, cells, comm: MPI.Comm = MPI.COMM_WORLD, *, cell_type: str \| mesh.CellType = 'hexahedron')` | Create a structured 3D cuboid mesh. |
@@ -96,7 +97,7 @@ and evidence remain in the linked guides and scientific function reference.
 | Kind | Public object | Purpose |
 | --- | --- | --- |
 | class | `Model` | Finite-element model registry for humans and agents. |
-| function | `create(*, study, mesh = None, name: str = 'model') -> Model` | Create a lightweight model registry. |
+| function | `create(*, study, mesh = None, name: str = 'model', units = None) -> Model` | Create a lightweight model registry. |
 
 ## `agentfem.fields`
 
@@ -215,12 +216,22 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `MaterialPointOutput` | Constitutive response returned to a nonlinear finite-element driver. |
 | class | `UserMaterial` | Protocol implemented by native or adapted material-point models. |
 
+## `agentfem.coordinates`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `CartesianSystem` | Right-handed orthonormal Cartesian coordinate system. |
+| class | `ReferencePoint` | Named engineering point used for remote resultants and kinematics. |
+| function | `cartesian(*, origin = None, axes = None, x = None, y = None, z = None, name = 'local') -> CartesianSystem` | Create a Cartesian system from a matrix or named basis vectors. |
+| function | `reference_point(coordinates, *, name = 'reference_point', system = None) -> ReferencePoint` | Create a named engineering reference point. |
+
 ## `agentfem.constraints`
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
 | class | `DirichletConstraint` | Strong Dirichlet constraint and its optional mutable value object. |
 | class | `TimeDependentDirichlet` | Dirichlet constraint driven by an amplitude. |
+| class | `RemoteDisplacementConstraint` | Rigid boundary motion prescribed about a named reference point. |
 | class | `PrescribedValuePath` | Update ordinary strong boundary values along a normalized step path. |
 | function | `prescribed_value_path(constraints) -> PrescribedValuePath` | Create a normalized load-factor driver from registered constraints. |
 | function | `dirichlet_constraints(constraints) -> tuple[object, ...]` | Return concrete Dirichlet assets from nested model constraint sets. |
@@ -238,6 +249,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `prescribed(target, *, on = None, location = None, value = 0.0, component = None, components = None, name: str \| None = None)` | Create prescribed scalar or vector-component values. |
 | function | `clamped(target, *, on = None, location = None, value = 0.0, name: str \| None = None)` | Fix every displacement component on a support boundary. |
 | function | `prescribed_temperature(target, value, *, on = None, location = None, name: str \| None = None)` | Prescribe temperature on a named boundary. |
+| function | `remote_displacement(target, *, reference_point, on = None, location = None, translation = None, rotation = None, system = None, name: str = 'remote_displacement') -> RemoteDisplacementConstraint` | Prescribe rigid translation/rotation of a solid boundary. |
 | class | `PeriodicProjectionConstraint` | Projection-style periodic constraint for explicit field updates. |
 | function | `periodic(target, *, master, slave, match_axis: str \| int = 0, method: str = 'projection', tolerance: float = 1e-12, name: str = 'periodic')` | Create a periodic constraint with an explicit method choice. |
 | function | `periodic_projection(target, *, master, slave, match_axis: str \| int = 0, tolerance: float = 1e-12, name: str = 'periodic_projection') -> PeriodicProjectionConstraint` | Create component-wise dof pairs for projection-style periodicity. |
@@ -279,16 +291,17 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `AmplitudeLoad` | A spatial load multiplied by one reusable scalar amplitude. |
 | class | `LoadSet` | Ordered collection of weak-form load terms. |
 | function | `body_load(value, measure = ufl.dx, *, name: str = 'body_load', domain = None, target = None) -> BodyLoad` | Create a domain source/body-force load. |
-| function | `body_force(value, *, domain = None, target = None, measure = ufl.dx, name: str = 'body_force') -> BodyLoad` | Create a mechanical body-force load. |
-| function | `gravity(acceleration, *, density, domain = None, target = None, region = None, measure = None, name: str = 'gravity') -> GravityLoad` | Create a gravity load from acceleration and material density. |
+| function | `body_force(value, *, domain = None, target = None, measure = ufl.dx, system = None, name: str = 'body_force') -> BodyLoad` | Create a mechanical body-force load in global or local components. |
+| function | `gravity(acceleration, *, density, domain = None, target = None, region = None, measure = None, system = None, name: str = 'gravity') -> GravityLoad` | Create a gravity load from acceleration and material density. |
 | function | `centrifugal(angular_velocity, *, density, center = None, domain = None, target = None, region = None, measure = None, name: str = 'centrifugal') -> CentrifugalLoad` | Create the outward body force caused by constant angular velocity. |
 | function | `heat_source(value, *, domain = None, target = None, measure = ufl.dx, name: str = 'heat_source') -> BodyLoad` | Create a volumetric heat-source load. |
 | function | `boundary_load(value, measure = None, *, location = None, on = None, name: str = 'boundary_load') -> BoundaryLoad` | Create a generic natural boundary load. |
 | function | `neumann(value, measure, *, name: str = 'neumann_load') -> NeumannLoad` | Create a Neumann force/flux/traction term for the weak RHS. |
 | function | `with_amplitude(load, amplitude, *, domain = None, name: str \| None = None) -> AmplitudeLoad` | Drive an existing load by a scalar amplitude multiplier. |
-| function | `traction(value, *, location = None, on = None, name: str = 'traction') -> BoundaryLoad` | Create a mechanical traction applied on a boundary region. |
-| function | `surface_force(resultant, *, location = None, on = None, reference_measure: float \| None = None, name: str = 'surface_force') -> SurfaceResultantLoad` | Distribute a total reference-configuration force over a boundary. |
-| function | `distributing_coupling(force, *, moment = None, reference_point = None, location = None, on = None, name: str = 'distributing_coupling') -> DistributedCouplingLoad` | Distribute force/moment over a surface with tributary-area weighting. |
+| function | `traction(value, *, location = None, on = None, system = None, name: str = 'traction') -> BoundaryLoad` | Create a traction in global or an explicit local coordinate system. |
+| function | `surface_force(resultant, *, location = None, on = None, reference_measure: float \| None = None, system = None, name: str = 'surface_force') -> SurfaceResultantLoad` | Distribute a total reference-configuration force over a boundary. |
+| function | `distributing_coupling(force, *, moment = None, reference_point = None, location = None, on = None, system = None, name: str = 'distributing_coupling') -> DistributedCouplingLoad` | Distribute force/moment over a surface with tributary-area weighting. |
+| function | `remote_force(force, *, reference_point, moment = None, location = None, on = None, system = None, name: str = 'remote_force') -> DistributedCouplingLoad` | Apply a reference-point force/moment through a continuum surface. |
 | function | `pressure(value, *, location = None, on = None, normal = None, configuration: str = 'reference', displacement = None, name: str = 'pressure') -> PressureLoad` | Create inward pressure on a reference or current boundary. |
 | function | `hydrostatic_pressure(*, density, gravity, reference_point, reference_pressure = 0.0, on = None, location = None, clip_at_zero: bool = True, configuration: str = 'reference', displacement = None, name: str = 'hydrostatic_pressure') -> HydrostaticPressureLoad` | Create ``p = p_ref + rho g dot (x - x_ref)`` on a boundary. |
 | function | `heat_flux(value, *, location = None, on = None, name: str = 'heat_flux') -> BoundaryLoad` | Create a prescribed heat flux applied on a boundary region. |
@@ -478,14 +491,18 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `write_deformed_vtk_series(pvd_path, snapshots, cell_fields, *, deformation_scale: float = 1.0) -> tuple[Path, tuple[Path, ...]]` | Write one deformed VTU grid per frame and a ParaView PVD collection. |
 | function | `write_unified_xdmf_series(xdmf_path, snapshots, cell_fields, *, deformation_scale: float = 1.0, store_reference_geometry: bool = True, compression: int = 4) -> Path` | Write one temporal XDMF and one compressed HDF5 heavy-data file. |
 | class | `FiniteStrainDiagnosticRequest` | Record physical admissibility and constraint checks. |
+| class | `HistoryRequest` | Evaluate one scientific quantity on every accepted output frame. |
 | class | `OutputPlan` | One declarative output contract for a completed finite-strain step. |
 | class | `PeriodicCellHistoryRequest` | Record complete tensor histories for a finite-strain periodic cell. |
+| class | `ProbeHistoryRequest` | Record a field value at one physical point on every accepted frame. |
 | class | `PresentationOutput` | Optional serial rendering from the scientific XDMF/HDF5 series. |
 | class | `SolverHistoryRequest` | Record accepted-increment convergence history. |
 | class | `SourceNodeHistoryRequest` | Record U and current coordinates using source-mesh node labels. |
 | function | `finite_strain_checks(*, constraint = None, quadrature_degree: int = 4) -> FiniteStrainDiagnosticRequest` | Public AgentFEM object. |
+| function | `history(name: str, evaluate, *, coordinate = None, unit: str \| None = None, abscissa_name: str \| None = None, abscissa_unit: str \| None = None, description: str = '') -> HistoryRequest` | Create a quantity history evaluated on accepted snapshots. |
 | function | `output_plan(directory, *, field: FieldOutput \| None = None, requests = (), presentation: PresentationOutput \| None = None, basename: str = 'results') -> OutputPlan` | Create a complete finite-strain output plan. |
 | function | `periodic_cell_history(constraint, *, basename: str = 'homogenized_history') -> PeriodicCellHistoryRequest` | Public AgentFEM object. |
+| function | `probe_history(name: str, *, at, field = None, component: int \| None = None, unit: str \| None = None, description: str = '') -> ProbeHistoryRequest` | Create a point-probe history for an accepted field sequence. |
 | function | `presentation(*, comparison: bool = True, animation: str \| None = 'gif', scalar: str = 'UMAG', fps: int = 2) -> PresentationOutput` | Public AgentFEM object. |
 | function | `solver_history() -> SolverHistoryRequest` | Public AgentFEM object. |
 | function | `source_node_history(nodes, **points: int) -> SourceNodeHistoryRequest` | Public AgentFEM object. |
@@ -545,6 +562,15 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `GeneralizedAlphaParameters` | Parameters for Newmark/generalized-alpha time integration. |
 | function | `generalized_alpha(*, spectral_radius: float = 0.8)` | Second-order generalized-alpha parameters from ``rho_infinity``. |
 | function | `newmark(*, beta: float = 0.25, gamma: float = 0.5)` | Average-acceleration Newmark by default. |
+
+## `agentfem.units`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `UnitSystem` | Named consistent base-unit contract attached to a model. |
+| function | `consistent(*, length, mass, time, temperature = 'K', name = 'consistent_units')` | Declare the base units used consistently by all model inputs. |
+| function | `si(*, temperature = 'K') -> UnitSystem` | Return the SI ``m-kg-s`` engineering contract. |
+| function | `n_mm_mpa(*, temperature = 'K') -> UnitSystem` | Return the common ``mm-N-s-MPa`` consistent system. |
 
 ## `agentfem.upgrades`
 
