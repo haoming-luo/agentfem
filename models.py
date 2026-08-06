@@ -35,6 +35,7 @@ class Model:
     boundary_models: list[object] = field(default_factory=list)
     regions: list[object] = field(default_factory=list)
     steps: list[object] = field(default_factory=list)
+    engineering_steps: list[object] = field(default_factory=list)
 
     def add_field(self, field_object):
         """Register an unknown or output field and return it."""
@@ -275,6 +276,50 @@ class Model:
             self._with_amplitude(load, amplitude)
         )
 
+    def surface_force(
+        self,
+        resultant,
+        *,
+        on=None,
+        location=None,
+        reference_measure=None,
+        amplitude=None,
+        name: str = "surface_force",
+    ):
+        """Uniformly distribute a requested total force over a boundary."""
+
+        load = load_api.surface_force(
+            resultant,
+            on=on,
+            location=location,
+            reference_measure=reference_measure,
+            name=name,
+        )
+        return self.add_load(self._with_amplitude(load, amplitude))
+
+    def distributing_coupling(
+        self,
+        force,
+        *,
+        moment=None,
+        reference_point=None,
+        on=None,
+        location=None,
+        amplitude=None,
+        name: str = "distributing_coupling",
+    ):
+        """Distribute a reference-point force/moment over a solid surface."""
+
+        load = load_api.distributing_coupling(
+            force,
+            moment=moment,
+            reference_point=reference_point,
+            on=on,
+            location=location,
+            name=name,
+        )
+        return self.add_load(self._with_amplitude(load, amplitude))
+
     def body_force(
         self,
         value,
@@ -373,6 +418,48 @@ class Model:
             )
         return created[0] if len(created) == 1 else load_api.LoadSet.create(*created)
 
+    def centrifugal(
+        self,
+        angular_velocity,
+        *,
+        center=None,
+        material=None,
+        domain=None,
+        target=None,
+        amplitude=None,
+        name: str = "centrifugal",
+    ):
+        """Register density-aware centrifugal loading by material region."""
+
+        records = (
+            (self._material_record(material),)
+            if material is not None
+            else tuple(self.materials)
+        )
+        if not records:
+            raise ValueError("model.centrifugal requires a material with density.")
+        created = []
+        for index, record in enumerate(records):
+            if getattr(record.item, "density", None) is None:
+                raise ValueError(
+                    f"Material {_describe(record.item)!r} does not define density."
+                )
+            if len(records) > 1 and record.region is None:
+                raise ValueError(
+                    "Centrifugal loading with multiple materials requires regions."
+                )
+            item = load_api.centrifugal(
+                angular_velocity,
+                density=record.item.density,
+                center=center,
+                domain=domain or self.mesh,
+                target=target,
+                region=record.region,
+                name=name if len(records) == 1 else f"{name}_{index}",
+            )
+            created.append(self.add_load(self._with_amplitude(item, amplitude)))
+        return created[0] if len(created) == 1 else load_api.LoadSet.create(*created)
+
     def pressure(
         self,
         value,
@@ -390,6 +477,37 @@ class Model:
             value,
             on=on,
             location=location,
+            configuration=configuration,
+            displacement=displacement,
+            name=name,
+        )
+        return self.add_load(self._with_amplitude(load, amplitude))
+
+    def hydrostatic_pressure(
+        self,
+        *,
+        density,
+        gravity,
+        reference_point,
+        reference_pressure=0.0,
+        on=None,
+        location=None,
+        clip_at_zero: bool = True,
+        configuration: str = "reference",
+        displacement=None,
+        amplitude=None,
+        name: str = "hydrostatic_pressure",
+    ):
+        """Register pressure varying with elevation from a free surface."""
+
+        load = load_api.hydrostatic_pressure(
+            density=density,
+            gravity=gravity,
+            reference_point=reference_point,
+            reference_pressure=reference_pressure,
+            on=on,
+            location=location,
+            clip_at_zero=clip_at_zero,
             configuration=configuration,
             displacement=displacement,
             name=name,
@@ -487,6 +605,31 @@ class Model:
                 location=location,
                 coefficient=coefficient,
                 ambient_temperature=ambient_temperature,
+                name=name,
+            )
+        )
+
+    def elastic_foundation(
+        self,
+        *,
+        on=None,
+        location=None,
+        stiffness,
+        mode: str = "isotropic",
+        normal=None,
+        name: str = "elastic_foundation",
+    ):
+        """Register a distributed normal or isotropic spring support."""
+
+        from .boundary_models import mechanical
+
+        return self.add_boundary_model(
+            mechanical.elastic_foundation(
+                on=on,
+                location=location,
+                stiffness=stiffness,
+                mode=mode,
+                normal=normal,
                 name=name,
             )
         )
@@ -1000,6 +1143,27 @@ class Model:
         self.steps.append(step)
         return step
 
+    def stage(
+        self,
+        name: str,
+        *,
+        previous=None,
+        inherit_model_loads: bool = False,
+        inherit_model_constraints: bool = True,
+    ):
+        """Define inherited load/constraint activation for an engineering Step."""
+
+        from . import steps as step_api
+
+        created = step_api.engineering_step(
+            name,
+            previous=previous,
+            inherit_model_loads=inherit_model_loads,
+            inherit_model_constraints=inherit_model_constraints,
+        )
+        self.engineering_steps.append(created)
+        return created
+
     def step(
         self,
         *,
@@ -1010,6 +1174,7 @@ class Model:
         constraints=None,
         solver_options=None,
         name: str | None = None,
+        configuration=None,
         **kwargs,
     ):
         """Create and register an analysis step.
@@ -1024,19 +1189,33 @@ class Model:
             raise ValueError("model.step requires kind=... or a study with an analysis.")
         from .step_providers import lower_step
 
-        return lower_step(
-            self,
-            analysis=selected_kind,
-            target=target,
-            options={
-                "K": K,
-                "F": F,
-                "constraints": constraints,
-                "solver_options": solver_options,
-                "name": name,
-                **kwargs,
-            },
-        )
+        options = {
+            "K": K,
+            "F": F,
+            "constraints": constraints,
+            "solver_options": solver_options,
+            "name": name,
+            **kwargs,
+        }
+        if configuration is None:
+            return lower_step(self, analysis=selected_kind, target=target, options=options)
+        original_loads, original_constraints = self.loads, self.constraints
+        configuration.apply_predefined_fields()
+        self.loads = list(configuration.resolve_loads(original_loads))
+        self.constraints = list(configuration.resolve_constraints(original_constraints))
+        if constraints is not None:
+            options["constraints"] = constraints
+        try:
+            created = lower_step(
+                self,
+                analysis=selected_kind,
+                target=target,
+                options=options,
+            )
+            created.engineering_step = configuration
+            return created
+        finally:
+            self.loads, self.constraints = original_loads, original_constraints
 
     def linear_static_step(
         self,
@@ -1083,6 +1262,18 @@ class Model:
                 )
         else:
             K = K if K is not None else self.stiffness(target)
+            foundation_terms = tuple(
+                item.operator(target)
+                for item in self.boundary_models
+                if item.__class__.__name__ == "ElasticFoundation"
+            )
+            if foundation_terms:
+                K = operators.combine(
+                    K,
+                    *foundation_terms,
+                    name="K_with_foundation",
+                    kind="solid_and_foundation_stiffness",
+                )
             if F is None:
                 if self.loads:
                     F = self.external_force(target)
@@ -1336,6 +1527,12 @@ class Model:
         from . import problems
         from .constitutive import hyperelasticity
 
+        if hasattr(self.mesh, "require_formulation"):
+            self.mesh.require_formulation(
+                "displacement",
+                operation="model.hyperelastic_step",
+            )
+
         self.check(
             target=target,
             step_options={"material": material},
@@ -1519,6 +1716,163 @@ class Model:
             )
         return self.add_step(problem)
 
+    def mixed_hyperelastic_step(
+        self,
+        *,
+        target,
+        material=None,
+        constraints=None,
+        solver_options=None,
+        measure=None,
+        name: str = "mixed_hyperelastic",
+        petsc_options_prefix: str = "agentfem_mixed_hyperelastic_",
+        incrementation=None,
+        increments: int | None = None,
+        load_factors=None,
+        output_every: int | None = None,
+        progress=True,
+        status_file=None,
+    ):
+        """Create P2-displacement/DG0-pressure finite-strain equilibrium.
+
+        This is the verified AgentFEM constant-pressure hybrid route.  A
+        source ``C3D10H`` mesh is consumed only when the target explicitly
+        carries one discontinuous constant pressure unknown per cell.
+        """
+
+        import ufl
+        from dolfinx import fem
+        from petsc4py import PETSc
+
+        from . import problems
+        from .constitutive import hyperelasticity
+
+        if getattr(target, "kind", None) != "displacement_pressure":
+            raise TypeError(
+                "mixed_hyperelastic_step requires fields.displacement_pressure(...)."
+            )
+        if int(getattr(target, "displacement_degree", -1)) != 2 or int(
+            getattr(target, "pressure_degree", -1)
+        ) != 0:
+            raise ValueError(
+                "The verified constant-pressure hybrid route requires P2/DG0."
+            )
+        if hasattr(self.mesh, "require_formulation"):
+            self.mesh.require_formulation(
+                "hybrid",
+                operation="model.mixed_hyperelastic_step",
+            )
+        if hasattr(self.study, "require"):
+            self.study.require(analysis="nonlinear_static", physics="solid_mechanics")
+        if getattr(self.study, "dimension", None) == 2 and getattr(
+            self.study, "assumption", None
+        ) != "plane_strain":
+            raise NotImplementedError(
+                "The mixed Neo-Hookean 2D route currently represents plane strain."
+            )
+        if material is None:
+            if len(self.materials) != 1:
+                raise ValueError(
+                    "mixed_hyperelastic_step requires material=... or exactly one material."
+                )
+            record = self.materials[0]
+        else:
+            record = self._material_record(material)
+        properties = record.item
+        if not isinstance(properties, hyperelasticity.MixedNeoHookeanProperties):
+            raise TypeError(
+                "mixed_hyperelastic_step requires MixedNeoHookeanProperties."
+            )
+        selected_measure = measure or (
+            record.region.measure if record.region is not None else ufl.dx
+        )
+        w = target.value
+        displacement, pressure = ufl.split(w)
+        test = ufl.TestFunction(target.space)
+        trial = ufl.TrialFunction(target.space)
+        internal_energy = hyperelasticity.mixed_strain_energy_density(
+            displacement,
+            pressure,
+            properties,
+        ) * selected_measure
+        residual = ufl.derivative(internal_energy, w, test)
+        load_factor = fem.Constant(_domain(self.mesh), PETSc.ScalarType(0.0))
+        if self.loads:
+            residual -= load_factor * self.external_force(
+                target.displacement
+            ).expression
+        jacobian = ufl.derivative(residual, w, trial)
+        selected_constraints = _as_tuple(
+            self.constraints if constraints is None else constraints
+        )
+        from . import steps as step_api
+
+        selected_incrementation = step_api.normalize(
+            incrementation,
+            increments=increments,
+            load_factors=load_factors,
+        )
+
+        def mixed_acceptance():
+            from .results import finite_strain_diagnostics, integral
+
+            displacement_field = target.collapsed_displacement()
+            diagnostics = finite_strain_diagnostics(
+                displacement_field,
+                quadrature_degree=3,
+            )
+            minimum_j = float(diagnostics["minimum_quadrature_J"])
+            return {
+                "accepted": bool(minimum_j > 0.0),
+                "minimum_quadrature_J": minimum_j,
+                "maximum_quadrature_J": float(
+                    diagnostics["maximum_quadrature_J"]
+                ),
+                "mixed_potential": float(
+                    integral(
+                        hyperelasticity.mixed_strain_energy_density(
+                            displacement,
+                            pressure,
+                            properties,
+                        ),
+                        measure=selected_measure,
+                        comm=_domain(self.mesh).comm,
+                    )
+                ),
+                "message": (
+                    "deformation Jacobian became non-positive"
+                    if minimum_j <= 0.0
+                    else ""
+                ),
+            }
+
+        problem = problems.incremental_nonlinear(
+            residual,
+            w,
+            factor=load_factor,
+            value_path=constraint_api.prescribed_value_path(selected_constraints),
+            update_load=self._time_update_callback(include_constraints=False),
+            acceptance_check=mixed_acceptance,
+            jacobian=jacobian,
+            incrementation=selected_incrementation,
+            constraints=selected_constraints,
+            solver_options=solver_options,
+            output_every=1 if output_every is None else int(output_every),
+            progress=progress,
+            status_file=status_file,
+            name=name,
+            petsc_options_prefix=petsc_options_prefix,
+        )
+        problem.primary_fields = {
+            "U": target.displacement,
+            "P": target.pressure,
+        }
+        problem.result_field_factory = lambda: (
+            target.collapsed_displacement(name="U"),
+            target.collapsed_pressure(name="P"),
+        )
+        return self.add_step(problem)
+
     def j2_plasticity_step(
         self,
         *,
@@ -1609,6 +1963,98 @@ class Model:
             constraints=(
                 self.constraints if constraints is None else constraints
             ),
+            study=self.study,
+            incrementation=incrementation,
+            solver_options=solver_options,
+            quadrature_degree=quadrature_degree,
+            progress=progress,
+            status_file=status_file,
+            amplitude=amplitude,
+            name=name,
+        )
+        return self.add_step(step)
+
+    def creep_step(
+        self,
+        *,
+        target,
+        duration: float,
+        material=None,
+        constraints=None,
+        incrementation=None,
+        solver_options=None,
+        quadrature_degree: int = 2,
+        progress=True,
+        status_file=None,
+        amplitude=None,
+        name: str = "implicit_creep",
+    ):
+        """Create a global 3D small-strain implicit creep step.
+
+        ``duration`` and amplitudes use physical time. Ordinary loads and
+        prescribed values are held at their full value by default; pass an
+        amplitude when a ramp or other history is part of the model.
+        """
+
+        from . import mechanics
+        from .constitutive.creep import IsotropicPowerLawCreepMaterial
+
+        self.check(target=target, step_options={"material": material})
+        if hasattr(self.study, "require"):
+            self.study.require(
+                analysis="nonlinear_transient",
+                physics="solid_mechanics",
+            )
+        if material is None:
+            if len(self.materials) != 1:
+                raise ValueError(
+                    "model.creep_step requires material=... or exactly one "
+                    "registered material."
+                )
+            material = self.materials[0].item
+        else:
+            material = self._material_record(material).item
+        if not isinstance(material, IsotropicPowerLawCreepMaterial):
+            raise TypeError(
+                "model.creep_step requires IsotropicPowerLawCreepMaterial."
+            )
+
+        selected_loads = tuple(self.loads)
+        amplitude_loads = tuple(
+            item
+            for item in selected_loads
+            if isinstance(item, load_api.AmplitudeLoad)
+        )
+        if amplitude_loads:
+            ordinary_loads = tuple(
+                item
+                for item in selected_loads
+                if not isinstance(item, load_api.AmplitudeLoad)
+            )
+            histories = {id(item.amplitude): item.amplitude for item in amplitude_loads}
+            if ordinary_loads or len(histories) != 1:
+                raise ValueError(
+                    "An implicit creep step currently requires one shared "
+                    "physical-time load amplitude. Do not mix ordinary and "
+                    "amplitude-driven loads or use multiple amplitudes."
+                )
+            if amplitude is not None:
+                raise ValueError(
+                    "Pass a load amplitude or step amplitude to creep, not both."
+                )
+            amplitude = next(iter(histories.values()))
+            selected_loads = tuple(item.load for item in amplitude_loads)
+
+        step = mechanics.implicit_creep_step(
+            displacement=target,
+            material=material,
+            duration=duration,
+            external_force=(
+                self.external_force(target, loads=selected_loads)
+                if selected_loads
+                else None
+            ),
+            constraints=(self.constraints if constraints is None else constraints),
             study=self.study,
             incrementation=incrementation,
             solver_options=solver_options,
@@ -2154,6 +2600,9 @@ class Model:
             "loads": tuple(_describe(item) for item in self.loads),
             "boundary_models": tuple(_describe(item) for item in self.boundary_models),
             "regions": tuple(_describe(item) for item in self.regions),
+            "engineering_steps": tuple(
+                _describe(item) for item in self.engineering_steps
+            ),
             "steps": tuple(_describe(item) for item in self.steps),
         }
 
@@ -2176,6 +2625,7 @@ class Model:
                 "constraints",
                 "loads",
                 "boundary_models",
+                "engineering_steps",
                 "steps",
             ),
         }

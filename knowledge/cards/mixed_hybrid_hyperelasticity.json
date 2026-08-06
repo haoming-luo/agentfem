@@ -1,0 +1,93 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.material.mixed_hybrid_hyperelasticity",
+  "title": "Constant-pressure mixed Neo-Hookean solid",
+  "kind": "material",
+  "status": "supported",
+  "summary": "Solves finite-strain equilibrium with quadratic displacement and one independent constant pressure unknown per cell, including automatic incrementation, Newton tangent, rollback, and positive-J acceptance.",
+  "public_api": [
+    "agentfem.fields.displacement_pressure",
+    "agentfem.constitutive.mixed_neo_hookean",
+    "agentfem.models.Model.step"
+  ],
+  "implementation": [
+    "spaces.py",
+    "fields.py",
+    "constitutive/hyperelasticity.py",
+    "models.py",
+    "step_providers.py"
+  ],
+  "science": {
+    "statement": "The pressure field is a solved scientific unknown rather than metadata inferred from tetra10 geometry; the P2/DG0 pair is AgentFEM's constant-pressure hybrid analogue for C3D10H source meshes.",
+    "equations": [
+      {
+        "label": "mixed finite-strain potential",
+        "expression": "Pi = integral(psi_iso(F) - p(J-1) - p^2/(2 kappa)) dV - W_ext",
+        "description": "Automatic differentiation supplies the coupled residual and consistent Newton tangent."
+      },
+      {
+        "label": "pressure constraint",
+        "expression": "p = -kappa (J-1)",
+        "description": "Positive pressure denotes compression and DG0 creates one pressure value per cell."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "mixed field and material",
+        "type": "P2 displacement/DG0 pressure unknown and MixedNeoHookeanProperties",
+        "unit_role": "length, pressure, and energy density",
+        "description": "Displacement constraints are applied to the displacement subfield while both fields solve monolithically."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "U and P",
+        "type": "mixed finite-element solution with collapsible displacement and pressure fields",
+        "unit_role": "length and pressure",
+        "description": "Both primary fields retain explicit names and can be exported or inspected independently."
+      }
+    ],
+    "assumptions": [
+      "Three-dimensional solids and two-dimensional plane strain use total-Lagrangian kinematics.",
+      "The volumetric response uses a finite bulk modulus derived from E and nu."
+    ],
+    "conventions": [
+      "Positive pressure is compressive.",
+      "A known imported hybrid element is accepted only by the mixed provider.",
+      "Every accepted increment must retain positive quadrature-point J."
+    ],
+    "applicability": [
+      "Nearly incompressible Neo-Hookean continuum solids and C3D10H-topology import workflows."
+    ],
+    "limitations": [
+      "This is an AgentFEM variational analogue, not a byte-for-byte reproduction of Abaqus internal hybrid elements.",
+      "Mixed affine-periodic MPC, multiple finite-strain material regions, and an external locking benchmark remain release gates."
+    ]
+  },
+  "usage": {
+    "minimal_example": "unknown = model.field(fields.displacement_pressure(domain))\nmaterial = model.material(constitutive.mixed_neo_hookean(young=1e6, poisson=0.499))\nmodel.fix(unknown.displacement, on=support)\nstep = model.step(target=unknown, material=material)",
+    "examples": ["tests/test_engineering_workflows.py"]
+  },
+  "verification": {
+    "tests": ["tests/test_engineering_workflows.py", "tests/test_abaqus_interop.py", "tests/test_mesh_formats.py"],
+    "benchmarks": [],
+    "validation_rules": [
+      "Require the verified P2/DG0 pair for the constant-pressure provider.",
+      "Reject displacement-only consumption of known C3D10H source semantics.",
+      "Solve the constrained zero state and recover exactly zero displacement and pressure.",
+      "Reject any accepted increment with non-positive quadrature-point J."
+    ]
+  },
+  "references": [
+    {
+      "title": "Abaqus hybrid incompressible solid formulation",
+      "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-hybridincompress.htm"
+    },
+    {
+      "title": "DOLFINx mixed function-space API",
+      "locator": "https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.html"
+    }
+  ],
+  "related_cards": ["agentfem.load.surface_resultant", "agentfem.workflow.standard_result_projection"]
+}

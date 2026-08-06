@@ -5,7 +5,7 @@
   "title": "Creep damage and modified-theta assessment",
   "kind": "material",
   "status": "supported",
-  "summary": "Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, with an explicit boundary before global finite-element creep.",
+  "summary": "Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, kept distinct from the implemented global isothermal power-law creep route.",
   "public_api": [
     "agentfem.constitutive.KachanovRabotnovCreep",
     "agentfem.constitutive.CreepDamageState",
@@ -88,10 +88,10 @@
     "applicability": [
       "Material calibration checks and constant-stress creep screening.",
       "Sequential thermoelastic-to-creep hotspot workflows with explicit scope labels.",
-      "Reference updates for a future global quadrature creep driver."
+      "Reference updates for future global damage and Sinh consumers."
     ],
     "limitations": [
-      "No global creep equilibrium, adaptive time stepping, temperature field interpolation, or restartable quadrature state yet.",
+      "K-R damage and Sinh flow do not yet enter global equilibrium, adaptive time stepping, or restartable quadrature state; the separate isothermal power-law model does.",
       "Local softening/damage is not mesh regularized.",
       "No Liu-Murakami multiaxial damage law is claimed in this release."
     ]
@@ -113,7 +113,7 @@
     "validation_rules": [
       "Reject nonfinite parameters, invalid reference scales, and damage outside [0, 1).",
       "Clamp a failed update at the declared failure damage and report failed=True.",
-      "Do not promote the capability beyond material-point maturity without a global state consumer."
+      "Do not promote K-R, Sinh, or modified-theta beyond their declared local/curve maturity merely because power-law creep has a global state consumer."
     ]
   },
   "references": [
@@ -131,6 +131,7 @@
     }
   ],
   "related_cards": [
+    "agentfem.material.global_implicit_creep",
     "agentfem.material.j2_global_plasticity",
     "agentfem.workflow.thermoelastic_analysis"
   ]

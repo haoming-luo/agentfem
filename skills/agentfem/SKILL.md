@@ -24,7 +24,9 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   analysis steps; do not hide K/F systems or finite-element meaning.
 - Prefer model registration helpers such as `model.field(...)`,
   `model.material(...)`, `model.fix(...)`, `model.symmetry(...)`,
-  `model.traction(...)`, and `model.pressure(...)` for application examples.
+  `model.traction(...)`, `model.surface_force(...)`, and `model.pressure(...)`
+  for application examples. Use `surface_force` when a continuum-solid end
+  resultant should be distributed over a named reference boundary.
 - Use `FEMProblem.summary()` or equivalent structured summaries when auditing a
   workflow.
 - Use `model.validate()` for addressable issue reports, `model.check()` before
@@ -91,6 +93,9 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   transient outputs that feed
   visualization, reporting, campaigns, or datasets. Do not treat XDMF/CSV as
   the scientific result itself.
+- After publishing, run `agentfem verify <result.json> --json` when results are
+  copied, reused, or admitted to a campaign. This checks manifest/artifact
+  integrity, not convergence or scientific validation.
 - For heat, Standard dynamics, and Explicit dynamics, pause with
   `run(until_step=...)`, save with `save_checkpoint(...)`, rebuild the same
   step, then `load_checkpoint(...)`. Resume through
@@ -120,8 +125,11 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
 - Use `checkpointing.every(...)` through the public Step for automatic
   transient checkpoints. Cadence follows accepted increments, not output or
   progress frames.
-- In an installed project, run `agentfem doctor --json` and
-  `agentfem check --json` before execution. Use `project.current_run()` and
+- In an installed project, run `agentfem doctor --json`,
+  `agentfem check --json`, and `agentfem upgrade --json` before execution.
+  Never apply a `semantic_review=true` migration without inspecting regions,
+  loads, constraints, materials, forms, output meaning, and verification. Use
+  `project.current_run()` and
   publish the result so terminal, GUI, and agent consumers receive the same
   run identity, artifacts, and manifest.
 - Treat `agentfem run --json` as the machine boundary. Read the versioned

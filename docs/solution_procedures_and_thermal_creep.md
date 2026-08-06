@@ -11,6 +11,7 @@ static or transient, dimension, and kinematic assumptions.
 | \(K u=F\) | linear solve | not applicable |
 | \(R(u)=0\) | incremental Newton | not yet available |
 | \(C\dot T+KT=Q\) | implicit Euler | not yet available |
+| \(R(u,CE,t)=0\) | backward-Euler creep + Newton | not applicable |
 | \(M\ddot u+C\dot u+Ku=F\) | Newmark or generalized-\(\alpha\) | central difference |
 
 This keeps `second_order_dynamics` from meaning “central difference” merely
@@ -50,7 +51,7 @@ coupled analysis is needed when stress and temperature mutually influence
 each other; sequential analysis is appropriate when the coupling is
 effectively one way. The current route does not claim monolithic coupling.
 
-## Why high-temperature creep is the next state consumer
+## The first global creep state consumer
 
 The local `ArrheniusPowerLawCreep` relation is normalized at a declared
 reference temperature:
@@ -62,21 +63,29 @@ A(T)=A_{\mathrm{ref}}
 \]
 
 The implementation uses the equivalent exponent form in code; all
-temperatures are absolute. This local law is useful for calibration and
-material-point checks, but power-component credibility requires more:
+temperatures are absolute. The first global route deliberately starts one
+step earlier: isothermal three-dimensional Mises power-law creep. It now
+provides:
 
-- creep strain and equivalent creep strain at every integration point;
-- an implicit local update and local error estimate over \(\Delta t\);
-- global equilibrium at the end of every accepted time increment;
-- commit only after convergence and rollback after cutback;
-- temperature interpolation at the same integration points;
-- restart equivalence, relaxation and one-element paths, then an external
-  benchmark.
+- committed/trial `CE` and `CEEQ` at every quadrature point;
+- a safeguarded backward-Euler local scalar solve over \(\Delta t\);
+- an analytical algorithmic consistent tangent consumed by global Newton;
+- atomic commit after acceptance and rollback after Newton, local, or
+  maximum-creep-increment failure;
+- fixed or automatic physical-time increments, dissipation history, and
+  serial checkpoint/restart;
+- a three-dimensional homogeneous stress-relaxation Golden contract.
 
-The implemented J2 quadrature transaction already supplies the essential
-committed/trial distinction, analytical tangent channel, rollback, and serial
-checkpoint pattern. Global creep should generalize and consume that contract;
-it should not introduce a second case-specific state store.
+This is implemented by reusing `QuadratureTransaction`; creep does not own a
+second private state store. Checkpoint recovery reconstructs accepted stress
+from displacement and committed `CE` without advancing a fictitious time
+increment. The route follows the same consistent-linearization principle that
+underpins robust Newton convergence in inelastic finite elements.
+
+The Arrhenius, Sinh, and Kachanov--Rabotnov relations remain material-point
+capabilities. Promoting one isothermal power-law branch does not silently
+promote temperature interpolation, damage, mesh regularization, or structural
+rupture prediction.
 
 ## Current boundary and next gates
 
@@ -94,6 +103,9 @@ Implemented now:
   and modified-theta curve projection;
 - a sequential hot-wall FEM-to-creep assessment example with explicit
   calibration and maturity boundaries.
+- global isothermal 3D power-law creep with backward Euler, analytical
+  tangent, shared transaction, automatic cutback, CE/CEEQ/S/MISES/RF,
+  dissipation history, serial restart, and a relaxation Golden contract.
 
 Next gates:
 
@@ -102,10 +114,13 @@ Next gates:
    result manifest across heat, implicit dynamics, and explicit dynamics;
 2. portable MPI state identity based on global cells/material regions rather
    than a rank-local array layout;
-3. stateful global creep using the common transaction and automatic time
-   increments;
-4. temperature-dependent property tables and interpolation policies;
-5. monolithic coupling only after a real case demonstrates two-way feedback.
+3. extend global creep from the isothermal power-law foundation to
+   temperature-field interpolation and Arrhenius rate data;
+4. add multi-element and external power-component benchmarks, then MPI-stable
+   global quadrature identity;
+5. introduce K-R/Liu--Murakami damage only with near-failure time control and
+   a declared mesh-regularization policy;
+6. monolithic coupling only after a real case demonstrates two-way feedback.
 
 References:
 
@@ -113,3 +128,5 @@ References:
 - [Abaqus heat-transfer procedures](https://docs.software.vt.edu/abaqusv2024/English/SIMACAEANLRefMap/simaanl-c-heatproc.htm)
 - [Abaqus CREEP user subroutine](https://docs.software.vt.edu/abaqusv2024/English/SIMACAESUBRefMap/simasub-c-creep.htm)
 - [Chung and Hulbert generalized-\(\alpha\) paper](https://deepblue.lib.umich.edu/bitstream/handle/2027.42/50422/1640100803_ftp.pdf?isAllowed=y&sequence=1)
+- [Simo and Taylor, consistent tangent operators](https://escholarship.org/uc/item/9cp19009)
+- [Duxbury, Crook, and Lyons, consistent plasticity/creep integration](https://doi.org/10.1002/nme.1620370803)

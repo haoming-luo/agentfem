@@ -45,8 +45,7 @@ def main():
         print_every=1,
         name="newmark_response",
     )
-    step.run()
-    simulation = step.solve_result()
+    simulation = step.solve_result(output=run.artifact("dynamics.xdmf"))
     simulation.add_dof_statistics(
         step.state.u,
         prefix="final_displacement",

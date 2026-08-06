@@ -1,0 +1,131 @@
+:root {
+  --af-navy: #071f62;
+  --af-blue: #0878f7;
+  --af-cyan: #17b9f4;
+  --af-violet: #6b35df;
+  --af-soft: #f3f7ff;
+}
+
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: var(--af-navy);
+  --md-accent-fg-color: var(--af-blue);
+}
+
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 2.15rem;
+  width: auto;
+}
+
+.md-tabs {
+  background: linear-gradient(90deg, var(--af-navy), #113d9d);
+}
+
+.md-grid {
+  max-width: 76rem;
+}
+
+.af-hero {
+  align-items: center;
+  background:
+    radial-gradient(circle at 88% 20%, rgba(23, 185, 244, 0.2), transparent 32%),
+    linear-gradient(135deg, #f9fbff 0%, #eef4ff 55%, #f8f5ff 100%);
+  border: 1px solid rgba(8, 120, 247, 0.16);
+  border-radius: 1.25rem;
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: minmax(0, 1.45fr) minmax(14rem, 0.55fr);
+  margin: 1rem 0 2.5rem;
+  overflow: hidden;
+  padding: clamp(2rem, 5vw, 4.5rem);
+}
+
+.af-hero h1 {
+  color: var(--af-navy);
+  font-size: clamp(2.25rem, 5vw, 4.25rem);
+  letter-spacing: -0.04em;
+  line-height: 1.02;
+  margin: 0.4rem 0 1.25rem;
+}
+
+.af-hero p {
+  color: #324568;
+  font-size: 1.05rem;
+  max-width: 45rem;
+}
+
+.af-kicker {
+  color: #1c55ad;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.af-hero-mark img {
+  display: block;
+  filter: drop-shadow(0 1.2rem 1.6rem rgba(5, 37, 111, 0.17));
+  margin: auto;
+  max-width: 18rem;
+  width: 100%;
+}
+
+.af-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.af-paths > ul > li,
+.af-capabilities > ul > li {
+  border-top: 0.2rem solid var(--af-blue);
+}
+
+.af-attribution {
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+  color: var(--md-default-fg-color--light);
+  font-size: 0.82rem;
+  margin-top: 3rem;
+  padding-top: 1rem;
+}
+
+.af-status {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-right: 0.35rem;
+  padding: 0.18rem 0.55rem;
+  text-transform: uppercase;
+}
+
+.af-status--release { background: #e5f8ec; color: #17663a; }
+.af-status--engineering { background: #e7f1ff; color: #1456a0; }
+.af-status--experimental { background: #fff1dc; color: #915410; }
+
+@media screen and (max-width: 76.234375em) {
+  .md-nav--primary .md-nav__title[for="__drawer"] {
+    background: linear-gradient(135deg, var(--af-navy), #154bb9);
+  }
+}
+
+@media screen and (max-width: 48rem) {
+  .af-hero {
+    grid-template-columns: 1fr;
+    padding: 1.7rem;
+  }
+
+  .af-hero-mark {
+    grid-row: 1;
+  }
+
+  .af-hero-mark img {
+    max-width: 11rem;
+  }
+
+  .af-actions .md-button {
+    text-align: center;
+    width: 100%;
+  }
+}

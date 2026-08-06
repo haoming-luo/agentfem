@@ -21,6 +21,7 @@ from typing import Mapping
 
 PROJECT_FILENAME = "agentfem.toml"
 PROJECT_SCHEMA = "agentfem.project"
+CURRENT_PROJECT_SCHEMA_VERSION = "0.1.0"
 RUN_SCHEMA = "agentfem.run"
 
 _ENV_PROJECT_ROOT = "AGENTFEM_PROJECT_ROOT"
@@ -54,7 +55,8 @@ class ProjectConfig:
     name: str
     entrypoint: Path
     output_directory: Path
-    schema_version: str = "0.1.0"
+    schema_version: str = CURRENT_PROJECT_SCHEMA_VERSION
+    created_with: str | None = None
 
     @classmethod
     def load(cls, path: str | Path) -> "ProjectConfig":
@@ -74,7 +76,14 @@ class ProjectConfig:
             name=name,
             entrypoint=entrypoint.resolve(),
             output_directory=output_directory.resolve(),
-            schema_version=str(project.get("schema_version", "0.1.0")),
+            schema_version=str(
+                project.get("schema_version", CURRENT_PROJECT_SCHEMA_VERSION)
+            ),
+            created_with=(
+                None
+                if project.get("created_with") is None
+                else str(project["created_with"])
+            ),
         )
 
     def check(self) -> tuple[str, ...]:
@@ -86,10 +95,26 @@ class ProjectConfig:
         elif self.entrypoint.suffix != ".py":
             errors.append("The initial project runner supports Python entrypoints only.")
         try:
+            self.entrypoint.relative_to(self.root)
+        except ValueError:
+            errors.append("project.entrypoint must remain inside the project directory.")
+        try:
             self.output_directory.relative_to(self.root)
         except ValueError:
             errors.append(
                 "run.output_directory must remain inside the project directory."
+            )
+        selected_schema = _numeric_version(self.schema_version)
+        current_schema = _numeric_version(CURRENT_PROJECT_SCHEMA_VERSION)
+        if selected_schema is None:
+            errors.append(
+                f"project.schema_version {self.schema_version!r} is not a valid "
+                "numeric version."
+            )
+        elif selected_schema > current_schema:
+            errors.append(
+                f"Project schema {self.schema_version} is newer than this runtime "
+                f"supports ({CURRENT_PROJECT_SCHEMA_VERSION})."
             )
         return tuple(errors)
 
@@ -97,6 +122,7 @@ class ProjectConfig:
         return {
             "schema": PROJECT_SCHEMA,
             "schema_version": self.schema_version,
+            "created_with": self.created_with,
             "name": self.name,
             "root": str(self.root),
             "entrypoint": str(self.entrypoint),
@@ -120,6 +146,11 @@ def discover(start: str | Path | None = None) -> ProjectConfig:
         f"No {PROJECT_FILENAME} found from {selected}. "
         "Run `agentfem init` or pass --project explicitly."
     )
+
+
+def _numeric_version(value: str) -> tuple[int, int, int] | None:
+    match = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$", str(value))
+    return None if match is None else tuple(int(item) for item in match.groups())
 
 
 @dataclass(frozen=True)
@@ -300,7 +331,10 @@ def _write_json(path: Path, record: Mapping[str, object]) -> None:
 
 
 __all__ = [
+    "CURRENT_PROJECT_SCHEMA_VERSION",
     "PROJECT_FILENAME",
+    "PROJECT_SCHEMA",
+    "RUN_SCHEMA",
     "ProjectConfig",
     "RunContext",
     "current_run",

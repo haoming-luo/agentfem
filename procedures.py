@@ -106,6 +106,20 @@ def implicit_euler(*, nonlinear: bool = False, stateful: bool = True) -> Solutio
     )
 
 
+def implicit_creep() -> SolutionProcedure:
+    """Quasi-static backward-Euler creep with global Newton equilibrium."""
+
+    return SolutionProcedure(
+        name="implicit creep",
+        family="standard",
+        equation_order="first_order",
+        control="time_increments",
+        algorithm="backward_euler_newton",
+        nonlinear=True,
+        stateful=True,
+    )
+
+
 def newmark() -> SolutionProcedure:
     return SolutionProcedure(
         name="Newmark",
@@ -152,6 +166,9 @@ def for_step(*, analysis: str, method: str | None = None, stateful: bool = False
         return nonlinear_static(stateful=stateful)
     if selected_analysis == "first_order_transient":
         return implicit_euler(stateful=True)
+    if selected_analysis == "nonlinear_transient":
+        if selected_method in {"", "implicit_creep", "backward_euler"}:
+            return implicit_creep()
     if selected_analysis == "second_order_dynamics":
         if selected_method in {"explicit", "central_difference"}:
             return central_difference()
@@ -173,6 +190,7 @@ __all__ = [
     "for_step",
     "generalized_alpha",
     "implicit_euler",
+    "implicit_creep",
     "linear_static",
     "newmark",
     "nonlinear_static",

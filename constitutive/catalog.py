@@ -83,14 +83,17 @@ _CAPABILITIES = {
     "power_law_creep": ConstitutiveCapability(
         name="power_law_creep",
         model="Mises time-hardening power-law creep",
-        maturity="material_point_verified",
+        maturity="fem_integrated_foundation",
         available_scope=(
-            "constant-stress, relaxation, tensor increments, and normalized "
-            "Arrhenius temperature dependence"
+            "material-point constant-stress and relaxation checks plus a 3D "
+            "isothermal small-strain global step with backward Euler, shared "
+            "quadrature transaction, analytical tangent, automatic physical-"
+            "time cutback, standard creep fields, dissipation, and serial restart"
         ),
         limitations=(
-            "no adaptive global time-step driver",
-            "no quadrature-field state storage",
+            "the first global provider is serial, 3D, isothermal, and single-material",
+            "Arrhenius temperature fields and Sinh/K-R laws remain local consumers",
+            "no external component benchmark or damage regularization",
         ),
     ),
     "creep_damage": ConstitutiveCapability(

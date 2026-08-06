@@ -1,0 +1,27 @@
+# AgentFEM
+
+> AI-native finite-element computing for humans and agents.
+
+AgentFEM keeps finite-element models readable, structured, inspectable, and
+operable through ordinary Python and a machine-readable CLI.
+
+## Start
+
+- [Human quick start](get_started/)
+- [AI agent quick start](agents/)
+- [Engineering guides](guide/)
+- [Examples](examples/)
+- [Python API](reference/api/)
+- [Machine manifest](agentfem.json)
+
+## Canonical sources
+
+- [Repository](https://github.com/haoming-luo/agentfem)
+- [Scientific knowledge catalog](https://raw.githubusercontent.com/haoming-luo/agentfem/main/knowledge/catalog.json)
+- [AgentFEM skill](agents/skill/)
+
+## Safety and scientific contract
+
+Do not treat a completed solver call as automatically verified. Inspect the
+structured result, convergence status, requested outputs, quality policy,
+and benchmark evidence before accepting or exporting simulation data.

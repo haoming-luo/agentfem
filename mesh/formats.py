@@ -8,6 +8,7 @@ and many neutral formats are best handled through it.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from hashlib import sha256
 import json
 from pathlib import Path
 from typing import Any
@@ -46,6 +47,7 @@ class MeshConversionResult:
     facet_path: Path | None = None
     boundary_tags: dict[str, int] = field(default_factory=dict)
     warnings: tuple[str, ...] = ()
+    source_metadata: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -86,6 +88,29 @@ class ExternalMeshSummary:
             "point_sets": self.point_sets,
             "point_data": self.point_data,
             "cell_data": self.cell_data,
+        }
+
+
+@dataclass(frozen=True)
+class ExternalMeshBundle:
+    """Explicit collection of single-topology solver-domain conversions."""
+
+    source_path: Path
+    conversions: tuple[MeshConversionResult, ...]
+    manifest_path: Path
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "source_path": str(self.source_path),
+            "manifest_path": str(self.manifest_path),
+            "domains": tuple(
+                {
+                    "cell_type": item.cell_type,
+                    "mesh_path": str(item.mesh_path),
+                    "manifest_path": str(item.manifest_path),
+                }
+                for item in self.conversions
+            ),
         }
 
 
@@ -169,6 +194,58 @@ def summarize_external_mesh(
     )
 
 
+def convert_topology_bundle(
+    input_path: str | Path,
+    output_directory: str | Path,
+    *,
+    cell_types=None,
+    prune_z: bool = False,
+    input_format: str | None = None,
+) -> ExternalMeshBundle:
+    """Convert every requested source topology into an explicit domain file.
+
+    DOLFINx mixed-topology support is still incomplete, so AgentFEM does not
+    merge unlike top-dimensional cells into one opaque solver mesh.  The
+    bundle preserves each block and makes domain selection an explicit model
+    decision.
+    """
+
+    source = Path(input_path)
+    output = Path(output_directory)
+    output.mkdir(parents=True, exist_ok=True)
+    inventory = inspect_external_mesh(source, input_format=input_format)
+    selected = tuple(dict.fromkeys(cell_types or inventory.cell_types))
+    conversions = tuple(
+        convert_to_xdmf(
+            source,
+            output / f"{source.stem}_{cell_type}.xdmf",
+            cell_type=cell_type,
+            prune_z=prune_z,
+            input_format=input_format,
+        )
+        for cell_type in selected
+    )
+    manifest_path = output / f"{source.stem}.mesh-bundle.json"
+    manifest = {
+        "schema": "agentfem.mesh-conversion-bundle",
+        "schema_version": "0.1.0",
+        "source": str(source),
+        "source_fingerprint": _source_fingerprint(source),
+        "domains": [
+            {
+                "cell_type": item.cell_type,
+                "mesh_path": str(item.mesh_path),
+                "manifest_path": str(item.manifest_path),
+            }
+            for item in conversions
+        ],
+    }
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return ExternalMeshBundle(source, conversions, manifest_path)
+
+
 def convert_to_xdmf(
     input_path: str | Path,
     output_path: str | Path | None = None,
@@ -179,6 +256,8 @@ def convert_to_xdmf(
     facet_type: str | None = None,
     facet_output_path: str | Path | None = None,
     input_format: str | None = None,
+    source_metadata: dict[str, object] | None = None,
+    conversion_warnings: tuple[str, ...] = (),
 ) -> MeshConversionResult:
     """Convert external volume/cell and optional boundary blocks to XDMF.
 
@@ -270,7 +349,7 @@ def convert_to_xdmf(
         for block in inspection.cell_blocks
         if block.cell_type not in {selected_type, facet_type}
     )
-    warnings = []
+    warnings = list(conversion_warnings)
     if ignored_types:
         warnings.append(
             "Only the selected topological cell type was written; omitted "
@@ -295,10 +374,20 @@ def convert_to_xdmf(
         if manifest_path is not None
         else output_path.with_suffix(".mesh.json")
     )
+    source_summary = inspection.as_dict()
+    source_summary["fingerprint"] = _source_fingerprint(input_path)
+    source_summary["conversion_options"] = {
+        "cell_type": selected_type,
+        "facet_type": facet_type,
+        "prune_z": bool(prune_z),
+        "input_format": input_format,
+    }
+    if source_metadata:
+        source_summary["format_metadata"] = source_metadata
     manifest = {
         "schema": "agentfem.mesh-conversion",
         "schema_version": "0.1.0",
-        "source": inspection.as_dict(),
+        "source": source_summary,
         "output": {
             "mesh_path": str(output_path),
             "selected_cell_type": selected_type,
@@ -337,6 +426,7 @@ def convert_to_xdmf(
         selected_facet_path,
         boundary_tags,
         tuple(warnings),
+        dict(source_metadata or {}),
     )
 
 
@@ -351,6 +441,22 @@ def convert_abaqus_inp_to_xdmf(
 ) -> MeshConversionResult:
     """Convert an Abaqus ``.inp`` mesh to XDMF through meshio."""
 
+    from . import abaqus
+
+    definitions = abaqus.read_element_definitions(input_path)
+    semantics = abaqus.read_model_semantics(input_path)
+    abaqus_metadata = {
+        "abaqus_element_definitions": [item.summary() for item in definitions],
+        "abaqus_model_semantics": semantics.summary(),
+    }
+    warnings = ()
+    if any(item.is_hybrid for item in definitions):
+        warnings = (
+            "Abaqus hybrid element topology was converted, but XDMF does not "
+            "encode independent pressure variables. Select a verified hybrid/mixed "
+            "solution formulation; tetra10 geometry alone is not C3D10H equivalence.",
+        )
+
     return convert_to_xdmf(
         input_path,
         output_path,
@@ -359,7 +465,51 @@ def convert_abaqus_inp_to_xdmf(
         facet_type=facet_type,
         facet_output_path=facet_output_path,
         input_format="abaqus",
+        source_metadata=abaqus_metadata,
+        conversion_warnings=warnings,
     )
+
+
+def reusable_conversion(
+    source_path: str | Path,
+    output_path: str | Path,
+    *,
+    cell_type: str | None,
+) -> MeshConversionResult | None:
+    """Reuse XDMF only when source hash, options, and heavy data all match."""
+
+    source_path, output_path = Path(source_path), Path(output_path)
+    manifest_path = output_path.with_suffix(".mesh.json")
+    if not manifest_path.exists() or not output_path.exists():
+        return None
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        source, output = manifest["source"], manifest["output"]
+        options = source["conversion_options"]
+        expected_type = cell_type or output["selected_cell_type"]
+        if source["fingerprint"] != _source_fingerprint(source_path):
+            return None
+        if options != {
+            "cell_type": expected_type,
+            "facet_type": None,
+            "prune_z": False,
+            "input_format": "abaqus",
+        }:
+            return None
+        if not output_path.with_suffix(".h5").exists():
+            return None
+        metadata = dict(source.get("format_metadata", {}))
+        return MeshConversionResult(
+            mesh_path=output_path,
+            cell_type=str(output["selected_cell_type"]),
+            source_path=source_path,
+            manifest_path=manifest_path,
+            region_tags={str(k): int(v) for k, v in output.get("region_tags", {}).items()},
+            warnings=tuple(manifest.get("warnings", ())),
+            source_metadata=metadata,
+        )
+    except (KeyError, TypeError, ValueError, OSError, json.JSONDecodeError):
+        return None
 
 
 def convert_nastran_to_xdmf(
@@ -429,6 +579,23 @@ def _first_supported_cell_type(cells: list[Any]) -> str:
         if cell_type in available:
             return cell_type
     return available[0]
+
+
+def _source_fingerprint(path: str | Path) -> dict[str, object]:
+    """Return the immutable identity used to invalidate mesh conversions."""
+
+    selected = Path(path)
+    if not selected.exists():
+        return {"algorithm": "sha256", "digest": None, "size": None}
+    digest = sha256()
+    with selected.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return {
+        "algorithm": "sha256",
+        "digest": digest.hexdigest(),
+        "size": int(selected.stat().st_size),
+    }
 
 
 def _cells_of_type(cells: list[Any], cell_type: str) -> np.ndarray:

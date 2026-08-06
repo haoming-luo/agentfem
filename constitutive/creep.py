@@ -8,6 +8,7 @@ from math import exp, isfinite, log, sinh
 import numpy as np
 
 from .plasticity import deviatoric, von_mises
+from agentfem.materials.properties import ElasticIsotropicProperties
 
 
 @dataclass(frozen=True)
@@ -65,6 +66,252 @@ class CreepDamageUpdate:
     equivalent_increment: float
     damage_increment: float
     failed: bool = False
+
+
+@dataclass(frozen=True)
+class ImplicitCreepState:
+    """Committed small-strain creep state at one integration point."""
+
+    creep_strain: np.ndarray | None = None
+    equivalent_creep_strain: float = 0.0
+
+    def __post_init__(self) -> None:
+        tensor = (
+            np.zeros((3, 3), dtype=float)
+            if self.creep_strain is None
+            else np.asarray(self.creep_strain, dtype=float)
+        )
+        equivalent = float(self.equivalent_creep_strain)
+        if tensor.shape != (3, 3) or not np.all(np.isfinite(tensor)):
+            raise ValueError("creep_strain must be a finite 3x3 tensor.")
+        if not np.isfinite(equivalent) or equivalent < 0.0:
+            raise ValueError(
+                "equivalent_creep_strain must be finite and nonnegative."
+            )
+        object.__setattr__(self, "creep_strain", tensor.copy())
+        object.__setattr__(self, "equivalent_creep_strain", equivalent)
+
+
+@dataclass(frozen=True)
+class ImplicitCreepUpdate:
+    """Backward-Euler material-point update and consistent tangent."""
+
+    stress: np.ndarray
+    state: ImplicitCreepState
+    equivalent_increment: float
+    algorithmic_tangent: np.ndarray
+    local_iterations: int
+    converged: bool = True
+
+
+@dataclass(frozen=True)
+class IsotropicPowerLawCreepMaterial:
+    """Isotropic elasticity with an implicit Mises power-law creep branch.
+
+    The local corrector solves
+
+    ``dgamma = dt * A(t_end) * (q_new / sigma_ref)**n``
+
+    with ``q_new = q_trial - 3*G*dgamma``.  Differentiating this exact
+    backward-Euler equation supplies the algorithmic tangent consumed by the
+    global Newton solve.
+    """
+
+    elastic: ElasticIsotropicProperties
+    creep: "PowerLawCreep"
+    name: str = "isotropic power-law creep material"
+
+    @property
+    def young(self) -> float:
+        return self.elastic.young
+
+    @property
+    def poisson(self) -> float:
+        return self.elastic.poisson
+
+    @property
+    def density(self) -> float:
+        return self.elastic.density
+
+    @property
+    def shear_modulus(self) -> float:
+        return self.elastic.mu
+
+    @property
+    def bulk_modulus(self) -> float:
+        return self.young / (3.0 * (1.0 - 2.0 * self.poisson))
+
+    def elastic_tangent(self) -> np.ndarray:
+        identity = np.eye(3)
+        symmetric_identity = 0.5 * (
+            np.einsum("ik,jl->ijkl", identity, identity)
+            + np.einsum("il,jk->ijkl", identity, identity)
+        )
+        deviatoric_identity = symmetric_identity - np.einsum(
+            "ij,kl->ijkl", identity, identity
+        ) / 3.0
+        return (
+            self.bulk_modulus * np.einsum("ij,kl->ijkl", identity, identity)
+            + 2.0 * self.shear_modulus * deviatoric_identity
+        )
+
+    def stress_from_state(
+        self,
+        total_strain,
+        state: ImplicitCreepState | None = None,
+    ) -> np.ndarray:
+        """Evaluate stress from a committed state without advancing time.
+
+        This operation is deliberately separate from :meth:`update`.  Output
+        recovery and checkpoint restore must never create a fictitious creep
+        increment merely to reconstruct the accepted stress.
+        """
+
+        strain = np.asarray(total_strain, dtype=float)
+        if strain.shape != (3, 3) or not np.all(np.isfinite(strain)):
+            raise ValueError("total_strain must be a finite 3x3 tensor.")
+        strain = 0.5 * (strain + strain.T)
+        accepted = ImplicitCreepState() if state is None else state
+        elastic_strain = strain - accepted.creep_strain
+        return (
+            2.0 * self.shear_modulus * deviatoric(elastic_strain)
+            + self.bulk_modulus * np.trace(elastic_strain) * np.eye(3)
+        )
+
+    def update(
+        self,
+        total_strain,
+        *,
+        time_start: float,
+        time_end: float,
+        state: ImplicitCreepState | None = None,
+        tolerance: float = 1.0e-12,
+        maximum_iterations: int = 30,
+    ) -> ImplicitCreepUpdate:
+        """Integrate one strain-driven creep increment by backward Euler."""
+
+        strain = np.asarray(total_strain, dtype=float)
+        if strain.shape != (3, 3) or not np.all(np.isfinite(strain)):
+            raise ValueError("total_strain must be a finite 3x3 tensor.")
+        strain = 0.5 * (strain + strain.T)
+        start = float(time_start)
+        end = float(time_end)
+        dt = end - start
+        if not np.isfinite(start) or not np.isfinite(end) or start < 0.0 or dt <= 0.0:
+            raise ValueError(
+                "Creep update requires finite 0 <= time_start < time_end."
+            )
+        if tolerance <= 0.0 or maximum_iterations <= 0:
+            raise ValueError("Local tolerance and maximum_iterations must be positive.")
+        old = ImplicitCreepState() if state is None else state
+        elastic_trial = strain - old.creep_strain
+        trial_stress = (
+            2.0 * self.shear_modulus * deviatoric(elastic_trial)
+            + self.bulk_modulus * np.trace(elastic_trial) * np.eye(3)
+        )
+        trial_deviator = deviatoric(trial_stress)
+        q_trial = von_mises(trial_stress)
+        if q_trial <= max(1.0, self.young) * tolerance:
+            return ImplicitCreepUpdate(
+                stress=trial_stress,
+                state=old,
+                equivalent_increment=0.0,
+                algorithmic_tangent=self.elastic_tangent(),
+                local_iterations=0,
+            )
+
+        upper = q_trial / (3.0 * self.shear_modulus)
+        increment = min(dt * self.creep.equivalent_rate(q_trial, end), upper)
+        lower = 0.0
+        iterations = 0
+        converged = False
+        for iterations in range(1, maximum_iterations + 1):
+            q = max(0.0, q_trial - 3.0 * self.shear_modulus * increment)
+            rate = self.creep.equivalent_rate(q, end)
+            residual = increment - dt * rate
+            scale = max(1.0, upper, abs(increment), dt * rate)
+            if abs(residual) <= tolerance * scale:
+                converged = True
+                break
+            if residual > 0.0:
+                upper = increment
+            else:
+                lower = increment
+            rate_derivative = (
+                0.0
+                if q <= 0.0 or rate == 0.0
+                else self.creep.stress_exponent * rate / q
+            )
+            derivative = 1.0 + 3.0 * self.shear_modulus * dt * rate_derivative
+            candidate = increment - residual / derivative
+            if not lower < candidate < upper:
+                candidate = 0.5 * (lower + upper)
+            increment = candidate
+        if not converged:
+            raise RuntimeError(
+                "Implicit power-law creep local update did not converge within "
+                f"{maximum_iterations} iterations."
+            )
+
+        q = max(0.0, q_trial - 3.0 * self.shear_modulus * increment)
+        direction = 1.5 * trial_deviator / q_trial
+        creep_strain = old.creep_strain + increment * direction
+        reduction = q / q_trial
+        pressure = np.trace(trial_stress) * np.eye(3) / 3.0
+        stress = pressure + reduction * trial_deviator
+        rate = self.creep.equivalent_rate(q, end)
+        rate_derivative = (
+            0.0
+            if q <= 0.0 or rate == 0.0
+            else self.creep.stress_exponent * rate / q
+        )
+        d_increment_d_qtrial = (
+            0.0
+            if rate_derivative == 0.0
+            else dt * rate_derivative
+            / (1.0 + 3.0 * self.shear_modulus * dt * rate_derivative)
+        )
+        identity = np.eye(3)
+        symmetric_identity = 0.5 * (
+            np.einsum("ik,jl->ijkl", identity, identity)
+            + np.einsum("il,jk->ijkl", identity, identity)
+        )
+        deviatoric_identity = symmetric_identity - np.einsum(
+            "ij,kl->ijkl", identity, identity
+        ) / 3.0
+        radial_coefficient = (
+            d_increment_d_qtrial / q_trial - increment / q_trial**2
+        )
+        tangent = (
+            self.bulk_modulus * np.einsum("ij,kl->ijkl", identity, identity)
+            + 2.0 * self.shear_modulus * reduction * deviatoric_identity
+            - 6.0
+            * self.shear_modulus**2
+            * radial_coefficient
+            * np.einsum("ij,kl->ijkl", trial_deviator, direction)
+        )
+        return ImplicitCreepUpdate(
+            stress=stress,
+            state=ImplicitCreepState(
+                creep_strain,
+                old.equivalent_creep_strain + increment,
+            ),
+            equivalent_increment=float(increment),
+            algorithmic_tangent=tangent,
+            local_iterations=iterations,
+        )
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "model": "isotropic_power_law_creep",
+            "elastic": self.elastic.as_dict(),
+            "creep": self.creep.as_dict(),
+            "integration": "backward_euler",
+            "algorithmic_tangent": "analytical_consistent",
+            "maturity": "fem_integrated_foundation",
+            "fem_quadrature_driver": True,
+        }
 
 
 @dataclass(frozen=True)
@@ -593,6 +840,37 @@ class PowerLawCreep:
             "maturity": "material_point_verified",
             "fem_quadrature_driver": False,
         }
+
+
+def isotropic_power_law(
+    *,
+    young: float,
+    poisson: float,
+    density: float,
+    coefficient: float,
+    stress_exponent: float,
+    time_exponent: float = 0.0,
+    reference_stress: float = 1.0,
+    reference_time: float = 1.0,
+    name: str = "isotropic power-law creep",
+) -> IsotropicPowerLawCreepMaterial:
+    """Create one Abaqus-style material record with elastic and creep data."""
+
+    elastic = ElasticIsotropicProperties(
+        name=f"{name} elastic",
+        young=young,
+        density=density,
+        poisson=poisson,
+    )
+    law = PowerLawCreep(
+        coefficient=coefficient,
+        stress_exponent=stress_exponent,
+        time_exponent=time_exponent,
+        reference_stress=reference_stress,
+        reference_time=reference_time,
+        name=f"{name} creep law",
+    )
+    return IsotropicPowerLawCreepMaterial(elastic=elastic, creep=law, name=name)
 
 
 @dataclass(frozen=True)

@@ -21,7 +21,9 @@ print(platforms.runtime_report().format())
 ```
 
 This reports the operating-system route, Python and core-package versions,
-and the availability of meshio, Gmsh, PyVista, PyTorch, and `dolfinx_mpc`.
+the exact interpreter and imported AgentFEM directory, any installed-package
+shadowing, and the availability of meshio, Gmsh, PyVista, PyTorch, and
+`dolfinx_mpc`.
 
 ## Windows recommendation
 

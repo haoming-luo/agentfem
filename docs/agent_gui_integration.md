@@ -34,8 +34,9 @@ The surrounding agent performs five visible stages:
 2. **Case construction** — create or edit a normal AgentFEM `case.py` from a
    version-matched template.
 3. **Preflight** — call `agentfem capabilities --json` and
-   `agentfem check --json`; present unsupported assumptions instead of silently
-   replacing them.
+   `agentfem check --json`; for an existing case also call
+   `agentfem upgrade --json`. Present unsupported assumptions and semantic
+   migration findings instead of silently replacing them.
 4. **Deterministic execution** — call `agentfem run --json`, optionally with
    MPI, and monitor the execution artifacts.
 5. **Result explanation** — read `execution.json`, `result.json`, fields,
@@ -57,6 +58,7 @@ agentfem templates --json
 agentfem capabilities --json
 agentfem init --template static-solid ./case --json
 agentfem check --project ./case --json
+agentfem upgrade --project ./case --json
 agentfem run --project ./case --json
 agentfem inspect ./case/outputs/case/latest.json --json
 ```
@@ -69,6 +71,8 @@ The contracts are versioned independently:
 
 - `agentfem.project` — operational case identity;
 - `agentfem.project-check` — preflight status and addressable errors;
+- `agentfem.upgrade-report` — source locations, safe fixes, and changes that
+  require finite-element review;
 - `agentfem.run` — one execution identity and artifact root;
 - `agentfem.solve-events` — solver progress and increment evidence;
 - `agentfem.simulation-result` — scientific outputs and trust evidence;

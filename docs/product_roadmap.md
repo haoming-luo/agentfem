@@ -26,20 +26,20 @@ core, results, verification, and documentation have priority.
 | Capability | Maturity | What is usable now | Important limit |
 | --- | --- | --- | --- |
 | Scientific operator layer | FEM-integrated foundation | K/M/C/F, static/first-/second-order systems, R/K_t linearization, composition and UFL role/arity validation | no mixed/block domain-range typing or physical-unit algebra |
-| Linear elasticity | FEM-integrated | 2D plane stress/strain and 3D isotropic solids; regional materials; displacement-only steps; one-call U/S/E/MISES output with opt-in SENER and explicit processing metadata; named-boundary reactions; serial/MPI patch evidence | external structural convergence, integration-point export/recovery, axisymmetry, mixed incompressibility, beams/shells, and affine/weak reactions remain |
+| Linear elasticity | FEM-integrated | 2D plane stress/strain and 3D isotropic solids; regional materials; displacement-only steps; one-call U/S/E/MISES output with opt-in SENER and explicit processing metadata; named-boundary reactions; automatic assembled external-force/strong-reaction equilibrium evidence; serial/MPI patch evidence | external structural convergence, integration-point export/recovery, axisymmetry, mixed incompressibility, beams/shells, and affine/weak reactions remain |
 | Thermoelasticity | FEM-integrated | steady/implicit-transient heat transfer, regional multi-material conductivity and capacity, amplitude-driven sources/ambient conditions, and sequential isotropic thermal stress in 2D/3D | no property tables or monolithic two-way coupling |
 | Structural dynamics | FEM-integrated foundation | central difference, Newmark, and generalized-alpha through `dynamic_solid`; model-owned constraints and amplitude loads enter both Standard and Explicit paths; shared field output, mechanical-energy histories, integrity-checked pause/checkpoint/restart, and truthful continuation output | implicit route is linear; checkpoints require the same mesh partition and MPI size |
-| Compressible Neo-Hookean | FEM-integrated | 3D and 2D plane-strain nonlinear statics; automatic/fixed increments, Newton cutback/rollback, positive-J acceptance, energy and accepted-increment histories for ordinary loading; affine periodic-cell path | one-material convenience step; no 2D plane-stress local solve or external load-path benchmark |
+| Neo-Hookean solids | FEM-integrated | compressible displacement route plus monolithic P2/DG0 constant-pressure mixed route; 3D and 2D plane strain; automatic/fixed increments, consistent Newton tangent, cutback/rollback, positive-J acceptance; explicit C3D10H source-formulation dispatch | one material; mixed affine-periodic MPC, 2D plane-stress local solve, locking/convergence suite, and external load-path benchmark remain |
 | J2 plasticity | FEM-integrated foundation | 3D shared quadrature transaction, analytical tangent, natural/displacement loading, non-monotone tabular amplitude, global Newton, physical-increment cutback, cumulative serial restart, traceable quadrature S/PE/PEEQ/MISES and nodal RF results, prescribed-work/energy histories, analytical and Abaqus states, and multi-element patch evidence | linear isotropic hardening, serial single-material small strain only; no plane stress, multi-region driver, MPI-portable restart, or nonuniform external structural benchmark |
-| Creep and creep damage | material-point/assessment verified | power-law and Arrhenius paths; exact K-R damage coupling; Sinh flow; modified-theta fitting; hot-wall sequential assessment | no global adaptive quadrature creep step or damage regularization |
+| Creep and creep damage | FEM-integrated power-law foundation + local damage assessment | 3D isothermal power-law backward Euler with shared quadrature state, analytical tangent, automatic physical-time cutback, CE/CEEQ/S/MISES/RF, dissipation and serial restart; local Arrhenius, K-R, Sinh, modified-theta and hot-wall assessment | global route is serial/single-material/isothermal; no temperature-field coupling, external component validation, or damage regularization |
 | Stress-life fatigue | postprocessor | Basquin/tabulated S-N, rainflow, Goodman, Miner assessment from named result histories | no multiaxial critical-plane method |
-| External CAE mesh | integrated Abaqus path + conversion interface | generic meshio conversion; Abaqus node labels; verified C3D10 import; linear equation parsing | full solver-deck sections/material cards are not imported |
+| External CAE mesh | integrated Abaqus path + conversion interface | generic meshio conversion; SHA-256 conversion identity/cache invalidation; Abaqus node labels, NSET/ELSET/SURFACE semantics and element-face expansion; verified C3D10 import; C3D10H mixed-pressure provider; linear equation parsing | source face pairs still need a general facet reconstruction adapter; mixed-topology solve domains and full solver-deck semantics remain |
 | Abaqus periodic equations | serial + two-rank FEM-integrated | exact chained affine elimination, distributed `dolfinx_mpc`, and 3D Neo-Hookean load path | AMG near-nullspace transfer, reactions, and scaling studies remain |
 | Abaqus user-material bridge | interface contract | solver-neutral material-point input/output and migration specification | no compiled adapter or quadrature-state global driver |
 | Result/data flow | integrated foundation | declarative field/history/diagnostic/presentation plans; serial single-grid mixed point/cell XDMF/HDF5 with non-fatal output errors; engineering-default U/S/E/MISES with opt-in SENER; discontinuous cell-average processing metadata; located MPI-safe extrema; one structured Standard/Explicit/thermal/J2 event trace; atomic heat/Standard/Explicit checkpoint envelope with accepted-increment cadence; continuation-aware output; mechanical-energy, proportional-static closure, and thermal-balance histories; MPI-safe probes, strong-BC resultants and integrals; verification reports and trust-gated learning bridge | collective MPI single-grid visualization, integration-point export and material-aware recovery/smoothing, affine/weak reactions, non-zero prescribed-displacement work, checkpoint retention, cross-partition restart, and broader conservation balances remain |
-| Scientific trust | integrated foundation | computed/converged/verified/validated vocabulary; exploratory/engineering/release policies; automatic runtime checks; explicit claims and applicability domains; coarse-to-fine convergence evidence; result manifests and learning-data quality gates; orientation metamorphic regression | representative-family evidence inheritance, hole-stress and T-stiffener cliff families, GCI, and external-deck reproductions remain |
+| Scientific trust and provenance | integrated foundation | computed/converged/verified/validated vocabulary; exploratory/engineering/release policies; automatic runtime checks; explicit claims and applicability domains; coarse-to-fine convergence evidence; automatically sealed result manifests and artifact hashes; attested tagged distributions; learning-data quality gates; orientation metamorphic regression | optional signed result identities, representative-family evidence inheritance, hole-stress and T-stiffener cliff families, GCI, and external-deck reproductions remain |
 | Campaign-to-learning flow | workflow integrated | deterministic cases, resumable evidence, failure-aware dataset gate, reproducible train/validation workflow, ridge/POD/PyTorch adapters, applicability guard and FEM fallback; MPI-safe structured observation grids with units, layout, and geometry masks | no graph/basis field encoder, scheduler executor, active-learning governance, or calibrated epistemic uncertainty |
-| Platform/install boundary | release foundation | Linux CI, macOS developer verification, WSL2 recommended for Windows, runtime dependency report, Gmsh/meshio optional adapters | native Windows remains experimental; AgentFEM is not yet a conda-forge package |
+| Platform/install boundary | release foundation | Linux CI, macOS developer verification, WSL2 recommended for Windows, exact interpreter/import/distribution identity, versioned project schema, source-aware upgrade reports, Gmsh/meshio optional adapters | native Windows remains experimental; semantic Python migrations require human or agent review; AgentFEM is not yet a conda-forge package |
 
 The same table is queryable in code through
 `constitutive.capabilities()` and `benchmarks.list_benchmarks()`.
@@ -66,11 +66,19 @@ an agent, user, or README from confusing these levels.
 - make the installed product shell (`doctor/init/check/run/inspect`) pass a
   wheel-only empty-directory workflow, with versioned project, execution, and
   result contracts shared by humans, GUIs, and agents;
+- preserve old-project operability through an independent project schema,
+  stable upgrade diagnostic codes, dry-run JSON plans, and automatic changes
+  limited to deterministic metadata;
 - one `SimulationResult` contract and one structured execution-event stream
   for linear, nonlinear, and transient steps;
 - standard QoIs: integrals, averages, norms, extrema, reactions, energies, and
   histories;
+- attach global assembled load, strong reaction, force-balance residual, and
+  relative equilibrium error to ordinary linear-static solid results;
 - compact unified XDMF/HDF5 visualization and output manifests;
+- automatically bind every published result manifest to its registered
+  artifacts with a local provenance seal and one machine-readable verification
+  command; keep optional authorship signatures as a later compatible layer;
 - JSON-configured and Python-configured campaigns producing the same dataset;
 - serial, MPI, docs, package, and example release gates;
 - clear solver convergence/failure evidence;
@@ -123,6 +131,10 @@ the first release.
   cross-partition MPI restart, and full external-deck reproduction;
 - add reaction, internal/external work, and energy-balance histories with
   verified strong, weak, and affine-MPC definitions;
+- implement the C3D10H analogue as a constant-pressure mixed/hybrid finite-
+  strain procedure, then gate it with incompressible patch tests, Cook's
+  membrane convergence, locking diagnostics, finite-deformation element paths,
+  and periodic-MPC compatibility; do not infer it from `tetra10` topology;
 - then add tabulated hardening, kinematic hardening, and finite-strain
   plasticity only when driven by real applications.
 
@@ -136,9 +148,12 @@ than depend on Abaqus interfaces directly.
 
 ### P2: time-dependent materials and life
 
-- make the implemented Arrhenius, K-R, and Sinh local models consume the J2
-  quadrature transaction in a global implicit creep step with adaptive time
-  increments and restartable state;
+- harden the implemented global isothermal power-law step with time-step
+  convergence, multi-element paths, natural-load work/energy balance, and an
+  external benchmark;
+- make Arrhenius temperature dependence consume accepted temperature fields
+  at the same quadrature identity; keep Sinh and K-R as separate material
+  consumers rather than one flag-heavy solver;
 - treat sequential temperature-to-creep as the first useful power-component
   route; add monolithic coupling only for cases with material heat generation
   or meaningful mechanical feedback;
@@ -148,24 +163,25 @@ than depend on Abaqus interfaces directly.
 - multiaxial fatigue only after a chosen engineering criterion and reference
   dataset are explicit.
 
-The first global creep promotion has non-negotiable acceptance gates:
+The first global creep promotion has the following gate status:
 
-1. the public step consumes `QuadratureTransaction`; no second private state
-   store or copy-only rollback is accepted;
-2. a backward-Euler local update returns stress, state, convergence evidence,
-   an algorithmic consistent tangent, and a local error/step recommendation;
-3. global Newton failure, local failure, excessive equivalent creep increment,
-   or excessive damage increment causes atomic rollback and deterministic
-   cutback;
-4. checkpoint/restart retains physical time, next proposed increment,
-   temperature, displacement, committed material state, energy/dissipation,
-   event cursor, and schema version;
-5. constant-stress creep, stress relaxation, one-element paths, time-step
-   convergence, forced cutback, and restart equivalence pass before a
-   multi-element hot-wall example is advertised;
-6. start with isothermal Sinh/power-law flow, add Arrhenius temperature
-   dependence second, and K-R/Liu--Murakami damage only after near-failure
-   step control and mesh-dependence limitations are explicit.
+1. **implemented:** the public step consumes `QuadratureTransaction`; no second
+   private state store or copy-only rollback is used;
+2. **implemented except an explicit local error estimator:** backward Euler
+   returns stress, state, convergence evidence, local iterations, and an
+   analytical algorithmic consistent tangent;
+3. **implemented for power-law flow:** global/local failure or excessive CEEQ
+   increment causes atomic rollback and deterministic cutback; damage remains
+   outside the global driver;
+4. **implemented in serial except temperature:** restart retains physical time,
+   next increment, displacement, CE/CEEQ, energy/dissipation, events, and schema;
+5. **partially implemented:** constant-stress material checks, one-element
+   relaxation, consistent tangent, forced cutback, Golden observables, and
+   restart equivalence pass; time-step convergence, multi-element nonuniform
+   paths, and an external case remain;
+6. **method decision retained:** add Arrhenius field coupling next; add
+   K-R/Liu--Murakami damage only after near-failure control and mesh-dependence
+   policy are explicit.
 
 ### Shared transient and MPI state identity
 
@@ -192,9 +208,13 @@ rank-local array serialization prototype.
 
 - verify Abaqus `.inp`, Nastran bulk-data, Gmsh, Exodus, and MED meshes;
 - map volume sets and boundary sets to named AgentFEM regions;
-- preserve source identities, checksums, conversion choices, and warnings;
-- extend the now-preserved Abaqus node labels and linear equations to common
-  node/element-set semantics where meshio loses information;
+- preserve source identities, checksums, conversion choices, and warnings
+  (implemented for the Abaqus/XDMF cache path);
+- reconstruct the now-preserved Abaqus element-face surface pairs as DOLFINx
+  facet tags for verified solid families, and promote NSET to a point-region
+  contract without coordinate guessing;
+- represent multi-topology imports as explicit solver-domain bundles while
+  DOLFINx mixed-topology support remains incomplete;
 - treat ANSYS CDB and full solver decks as separate adapters, not generic mesh
   conversion.
 - keep Gmsh a separately installed adapter for direct model/`.msh` workflows;

@@ -91,6 +91,77 @@ def neo_hookean(
 
 
 @dataclass(frozen=True)
+class MixedNeoHookeanProperties:
+    """Isochoric Neo-Hookean solid with an independent pressure field.
+
+    AgentFEM uses the perturbed-Lagrangian energy
+
+    ``psi_iso(F) - p (J - 1) - p^2 / (2 kappa)``.
+
+    Stationarity with respect to pressure gives
+    ``p = -kappa (J - 1)``.  With ``DG0`` pressure interpolation this creates
+    one pressure unknown per cell and avoids encoding hybrid semantics in a
+    neutral mesh topology.
+    """
+
+    young: float
+    poisson: float
+    density: float | None = None
+    name: str = "mixed Neo-Hookean"
+
+    def __post_init__(self) -> None:
+        if not isfinite(float(self.young)) or self.young <= 0.0:
+            raise ValueError("MixedNeoHookeanProperties.young must be positive.")
+        if not isfinite(float(self.poisson)) or not (-1.0 < self.poisson < 0.5):
+            raise ValueError(
+                "MixedNeoHookeanProperties.poisson must satisfy -1 < poisson < 0.5."
+            )
+        if self.density is not None and (
+            not isfinite(float(self.density)) or self.density <= 0.0
+        ):
+            raise ValueError("MixedNeoHookeanProperties.density must be positive.")
+
+    @property
+    def mu(self) -> float:
+        return self.young / (2.0 * (1.0 + self.poisson))
+
+    @property
+    def bulk_modulus(self) -> float:
+        return self.young / (3.0 * (1.0 - 2.0 * self.poisson))
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "model": "mixed_neo_hookean",
+            "kinematics": "finite_strain",
+            "young": self.young,
+            "poisson": self.poisson,
+            "density": self.density,
+            "mu": self.mu,
+            "bulk_modulus": self.bulk_modulus,
+            "pressure_sign": "positive_in_compression",
+            "maturity": "verified_mixed_fem_form",
+        }
+
+
+def mixed_neo_hookean(
+    *,
+    young: float,
+    poisson: float,
+    density: float | None = None,
+    name: str = "mixed Neo-Hookean",
+) -> MixedNeoHookeanProperties:
+    """Create a pressure-displacement Neo-Hookean material."""
+
+    return MixedNeoHookeanProperties(
+        young=young,
+        poisson=poisson,
+        density=density,
+        name=name,
+    )
+
+
+@dataclass(frozen=True)
 class FiniteStrainKinematics:
     """Standard total-Lagrangian kinematics derived from one displacement."""
 
@@ -169,6 +240,25 @@ def strain_energy_density(displacement, properties: NeoHookeanProperties):
     return strain_energy_density_from_gradient(
         deformation_gradient(displacement),
         properties,
+    )
+
+
+def mixed_strain_energy_density(
+    displacement,
+    pressure,
+    properties: MixedNeoHookeanProperties,
+):
+    """Return the mixed isochoric/volumetric energy density."""
+
+    F = deformation_gradient(displacement)
+    dimension = int(F.ufl_shape[0])
+    J = ufl.det(F)
+    isochoric_invariant = J ** (-2.0 / dimension) * ufl.tr(F.T * F)
+    isochoric = 0.5 * properties.mu * (isochoric_invariant - dimension)
+    return (
+        isochoric
+        - pressure * (J - 1.0)
+        - 0.5 * pressure**2 / properties.bulk_modulus
     )
 
 

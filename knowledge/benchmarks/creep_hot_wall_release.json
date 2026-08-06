@@ -21,7 +21,7 @@
     "Heat and thermoelastic component results pass the engineering quality policy.",
     "Every versioned observable satisfies its Golden tolerance.",
     "The release result passes the release quality policy and materializes all declared artifacts.",
-    "The manifest continues to state that creep is a governing-point assessment rather than a global creep field solve."
+    "The manifest states that K-R damage is a governing-point assessment rather than the separate global isothermal power-law creep field solve."
   ],
   "golden": {
     "reference_version": "q1-6x10-heat4-kr40-1",

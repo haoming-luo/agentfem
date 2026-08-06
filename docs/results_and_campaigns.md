@@ -17,7 +17,11 @@ This distinction lets one solve feed visualization, a campaign, a report, or a
 training dataset without each consumer reverse-engineering output files.
 `write_manifest(...)` records artifacts inside the manifest directory with
 relative paths by default, so moving one complete result directory does not
-break its links.
+break its links. It also adds a deterministic provenance seal over the result
+record and every registered artifact. Run `agentfem verify result.json` to
+detect a partial copy, replaced HDF5 payload, or edited manifest. This integrity
+check is deliberately separate from scientific verification; see
+`docs/provenance_seal.md`.
 
 Linear problems, engineering `AnalysisStep` objects, and nonlinear problems
 provide `solve_result()` while preserving the older `solve()` field-return
@@ -268,6 +272,23 @@ deliberately require separate definitions. For proportional linear
 loading, `diagnostics.linear_static_energy(...)` reports strain energy,
 external work, and their closure; non-zero prescribed displacements require
 reaction work in a displacement-control-specific history.
+
+A model-generated linear static solid also records force equilibrium without
+extra application code:
+
+```python
+result = model.step(target=displacement).solve_result()
+result.quantities["external_force_resultant"]
+result.quantities["reaction_force_resultant"]
+result.quantities["force_balance_residual"]
+result.quantities["relative_force_balance_error"]
+```
+
+The external resultant is assembled from the same complete right-hand side
+used by the solver; it therefore includes all body and boundary contributions
+in `F`. The reaction is the unconstrained residual at strong Dirichlet dofs.
+The metadata states this scope explicitly rather than implying support for MPC,
+contact, weak-constraint, or multiplier reactions.
 
 ## Structured observation grids
 

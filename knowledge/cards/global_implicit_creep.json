@@ -1,0 +1,131 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.material.global_implicit_creep",
+  "title": "Global implicit power-law creep",
+  "kind": "material",
+  "status": "supported",
+  "summary": "Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, atomic rollback, serial restart, and standard creep fields.",
+  "public_api": [
+    "agentfem.studies.creep_solid",
+    "agentfem.constitutive.isotropic_power_law",
+    "agentfem.constitutive.IsotropicPowerLawCreepMaterial",
+    "agentfem.constitutive.CreepQuadratureState",
+    "agentfem.models.Model.step"
+  ],
+  "implementation": [
+    "constitutive/creep.py",
+    "constitutive/quadrature.py",
+    "mechanics/creep.py",
+    "step_providers.py"
+  ],
+  "science": {
+    "statement": "The creep increment is solved locally from the fully implicit Mises power-law equation; its analytical derivative supplies the material tangent for global quasi-static Newton equilibrium, while all history remains trial state until the complete increment is accepted.",
+    "equations": [
+      {
+        "label": "power-law flow",
+        "expression": "Delta gamma = Delta t A(t_{n+1}) (q_{n+1}/sigma_ref)^n",
+        "description": "Backward Euler evaluates the time-hardening rate and equivalent stress at the increment end."
+      },
+      {
+        "label": "local scalar corrector",
+        "expression": "q_{n+1} = q_trial - 3 G Delta gamma",
+        "description": "A safeguarded scalar Newton solve keeps the equivalent stress and creep increment nonnegative."
+      },
+      {
+        "label": "global equilibrium",
+        "expression": "integral sigma(epsilon(u_{n+1}), CE_n, Delta t) : epsilon(v) dOmega = F_ext(t_{n+1}; v)",
+        "description": "The global Newton matrix consumes the analytical algorithmic consistent tangent of the same local update."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "elastic and creep parameters",
+        "type": "E, nu, density, A, n, optional time exponent and reference scales",
+        "unit_role": "one declared consistent stress-time system",
+        "description": "Use isotropic_power_law to keep instantaneous elasticity and creep flow in one material record."
+      },
+      {
+        "name": "physical duration and increment controls",
+        "type": "positive duration plus fixed or automatic incrementation",
+        "unit_role": "time",
+        "description": "Normalized increment sizes map to physical time; amplitudes are evaluated in physical time."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "S and MISES",
+        "type": "quadrature tensor and scalar fields",
+        "unit_role": "stress",
+        "description": "Accepted constitutive stress and its von Mises invariant."
+      },
+      {
+        "name": "CE and CEEQ",
+        "type": "committed quadrature state",
+        "unit_role": "strain",
+        "description": "Creep strain tensor and accumulated equivalent creep strain."
+      },
+      {
+        "name": "time, Newton, local-update and dissipation histories",
+        "type": "structured histories and execution events",
+        "unit_role": "time, iterations, strain, and energy",
+        "description": "Accepted times, maximum creep increment, local/global iterations, elastic energy, and creep dissipation."
+      }
+    ],
+    "assumptions": [
+      "Small strain, three spatial dimensions, isotropic elasticity, associative Mises creep, and isothermal material properties.",
+      "Quasi-static equilibrium; inertia is not part of this procedure.",
+      "One material covers the current convenience-step domain."
+    ],
+    "conventions": [
+      "Ordinary loads and prescribed values are held at full magnitude by default; an explicit amplitude defines any physical-time history.",
+      "CE and CEEQ are committed only after local integration, global Newton convergence, and increment-level acceptance all succeed.",
+      "maximum_inelastic_increment limits the maximum quadrature-point CEEQ increment and causes rollback/cutback when exceeded.",
+      "Checkpoint restore reconstructs stress from accepted strain and CE without advancing a fictitious time increment."
+    ],
+    "applicability": [
+      "Isothermal three-dimensional research and engineering studies governed by a calibrated Mises power-law creep relation.",
+      "Stress-relaxation and creep-deformation workflows requiring inspectable state, cutback, and restart evidence."
+    ],
+    "limitations": [
+      "The provider and checkpoint are serial-only and do not yet support multiple material regions.",
+      "Temperature-field interpolation, Arrhenius coupling, damage, and mesh regularization are not part of this global route.",
+      "External component or code-standard validation remains required before application-specific qualification."
+    ]
+  },
+  "usage": {
+    "minimal_example": "Create studies.creep_solid(), register constitutive.isotropic_power_law(...), add supports and loads, then call model.step(target=u, material=steel, duration=..., incrementation=steps.automatic()).",
+    "examples": [
+      "examples/implicit_creep_relaxation_3d.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_p1_platform.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.implicit_creep_relaxation"
+    ],
+    "validation_rules": [
+      "Reject non-3D, multi-rank, nonpositive-duration, or incompatible material use.",
+      "Verify the analytical tangent independently against a centered material-point derivative.",
+      "Commit shared transaction state only after a globally accepted physical-time increment.",
+      "Restore displacement, CE, CEEQ, physical time, next increment, histories, energies, and events from a compatible checkpoint."
+    ]
+  },
+  "references": [
+    {
+      "title": "Consistent tangent operators for rate independent elasto-plasticity",
+      "locator": "https://escholarship.org/uc/item/9cp19009"
+    },
+    {
+      "title": "A consistent formulation for the integration of combined plasticity and creep",
+      "locator": "doi:10.1002/nme.1620370803"
+    }
+  ],
+  "related_cards": [
+    "agentfem.material.j2_global_plasticity",
+    "agentfem.material.creep_damage_assessment",
+    "agentfem.workflow.solution_procedures"
+  ]
+}

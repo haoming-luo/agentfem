@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 from mpi4py import MPI
 
-from agentfem import constitutive, fields, io, mesh, models, project, studies
+from agentfem import constitutive, fields, mesh, models, project, studies
 from agentfem.diagnostics import print_on_root
 
 
@@ -39,13 +39,10 @@ def main():
     model.prescribed_temperature(temperature, 400.0, on=left)
     model.convection(on=right, coefficient=25.0, ambient_temperature=300.0)
 
-    simulation = model.step(target=temperature, name="steady_heat").solve_result()
+    simulation = model.step(target=temperature, name="steady_heat").solve_result(
+        output=run.artifact("temperature.xdmf"),
+    )
     simulation.add_dof_statistics(temperature, prefix="temperature", unit="K")
-    field_path = run.artifact("temperature.xdmf")
-    output_temperature = io.interpolate_for_xdmf(temperature.value, degree=1)
-    with io.XDMFTimeSeries(field_path, domain) as writer:
-        writer.write_fields(0.0, output_temperature)
-    simulation.add_artifact("temperature", field_path)
     if MPI.COMM_WORLD.rank == 0:
         run.publish(simulation)
         print_on_root(MPI.COMM_WORLD, simulation.format())

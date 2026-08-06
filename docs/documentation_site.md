@@ -1,57 +1,55 @@
-# AgentFEM Documentation Site
+# AgentFEM documentation site
 
-AgentFEM documentation is written as linked Markdown files. The current
-recommended static-site layer is MkDocs because it is simple, friendly to
-research software, and easy for agents to inspect.
+AgentFEM documentation uses one knowledge base with progressive disclosure:
 
-MkDocs builds the engineering design pages under `docs/`. The dependency-free
-`build_docs.py` builder additionally collects the repository README,
-installation/workflow/concept guides, examples, and project skill into the
-complete local site.
+1. the home page explains the product and routes each visitor;
+2. Start and Guides organize work by user goal and physical problem;
+3. Examples provide executable evidence;
+4. Reference supports precise lookup;
+5. Project preserves trust, release, audit, and design history.
 
-## Local Preview
+Internal audits remain public and searchable but do not compete with the first
+user journey.
 
-From the repository root:
+## Build contract
 
-```bash
-cd agentfem
-mkdocs serve
-```
-
-Then open the local address printed by MkDocs.
-
-## Static Build
-
-```bash
-cd agentfem
-mkdocs build
-```
-
-The generated site is written to `agentfem/site/`.
-
-## Dependencies
-
-For a polished local site:
-
-```bash
-pip install mkdocs mkdocs-material pymdown-extensions
-```
-
-For a dependency-free static site:
+The site uses Material for MkDocs. `build_docs.py` is the canonical build entry:
 
 ```bash
 python build_docs.py
 ```
 
-This writes a simple HTML site to `agentfem/site/`.
+It performs three tasks before the MkDocs build:
 
-## Documentation Rule
+- generates the Python API index from declared public workflow modules;
+- refreshes `/llms.txt` and `/agentfem.json` for AI-agent discovery;
+- synchronizes the reviewed project logo into the documentation assets.
 
-Human-facing docs and agent-facing docs should share the same concepts. When a
-workflow concept changes, update:
+The generated site is written to `site/`. Use `python build_docs.py --check` in
+CI to ensure generated references are current.
 
-- `README.md`
-- `WORKFLOW.md`
-- `CONCEPTS.md`
-- `docs/module_map.md`
-- `skills/agentfem/`
+## Local preview
+
+```bash
+python build_docs.py
+mkdocs serve
+```
+
+Install the optional documentation tools with:
+
+```bash
+python -m pip install -e '.[docs]'
+```
+
+## Version policy
+
+Material's Mike provider separates development documentation from immutable
+release snapshots. Ordinary CI only validates the site; publishing a version is
+an explicit release action. See [Documentation versions](project/versioning.md).
+
+## Documentation rule
+
+Human-facing and agent-facing material must share the same public concepts.
+When a workflow concept changes, update the responsible guide, scientific card,
+machine manifest or skill rather than copying an inconsistent explanation into
+several unrelated pages.

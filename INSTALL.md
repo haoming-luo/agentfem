@@ -96,7 +96,9 @@ Homebrew Open MPI can appear before a conda MPICH launcher on `PATH`; check
 `requirements.txt` records the tested MVP stack, but direct pip installation of
 DOLFINx/PETSc/MPI packages may be fragile across platforms.
 
-Inspect the actual runtime before reporting an installation issue:
+Inspect the actual runtime before reporting an installation issue. The report
+includes the exact Python executable and imported AgentFEM directory, which
+reveals when a source checkout shadows another installed release:
 
 ```python
 from agentfem import platforms

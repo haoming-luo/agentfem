@@ -1,0 +1,4774 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="AI-native finite-element computing for humans and agents.">
+      
+      
+      
+        <link rel="canonical" href="https://haoming-luo.github.io/agentfem/air_architecture_roadmap/">
+      
+      
+        <link rel="prev" href="../release_audit_2026_08_05/">
+      
+      
+        <link rel="next" href="../ai_native_learning/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/AgentFEM_logo_transparent.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>AIR Architecture Roadmap - AgentFEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#agentfem-air-architecture-and-engineering-roadmap" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="AgentFEM" class="md-header__button md-logo" aria-label="AgentFEM" data-md-component="logo">
+      
+  <img src="../assets/images/AgentFEM_logo_transparent.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            AgentFEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              AIR Architecture Roadmap
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/haoming-luo/agentfem" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    haoming-luo/agentfem
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../get_started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Start
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guide/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../examples/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../reference/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../extend/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Develop
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../project/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Project
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="AgentFEM" class="md-nav__button md-logo" aria-label="AgentFEM" data-md-component="logo">
+      
+  <img src="../assets/images/AgentFEM_logo_transparent.png" alt="logo">
+
+    </a>
+    AgentFEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/haoming-luo/agentfem" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    haoming-luo/agentfem
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../get_started/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Start
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Start
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting_started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install and First Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    For AI Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../guide/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/solid_mechanics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Solid Mechanics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/heat_transfer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Heat Transfer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/dynamics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dynamics and Waves
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/creep_and_inelasticity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Creep and Inelasticity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/model_setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Meshes, Loads, and Constraints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Results and Post-processing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/simulation_to_learning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simulation to Learning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../engineering_workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Engineering Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nonlinear_materials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nonlinear Materials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nonlinear_solid_architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nonlinear Solid Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../solution_procedures_and_thermal_creep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Thermal Stress and Creep Procedures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../results_and_campaigns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Results and Campaigns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../examples/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../abaqus_periodic_cell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Abaqus Periodic Cell
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../reference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/scientific_function_reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scientific Function Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operator_contracts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scientific Operator Contracts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../result_field_semantics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Result-field Semantics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../step_and_output_architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stable Steps and Compact Output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mesh_interoperability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh Interoperability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../module_map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Module Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../extend/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Develop
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Develop
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agent_gui_integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent and GUI Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api_style/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Style
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extension_rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extension Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../abaqus_user_material_bridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Abaqus User Materials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agents/skill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AgentFEM Skill
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../project/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Project
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../product_roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../trust/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trust and Operations
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_3" id="__nav_7_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Trust and Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scientific_verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scientific Trust and Verification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../provenance_seal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Result Provenance Seal
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project_upgrades/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project Compatibility and Upgrades
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../platform_support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platform and Optional Dependencies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../licensing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Licensing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_4" id="__nav_7_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Releases
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Releases
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project/versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation Versions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release_0.2.0a1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AgentFEM 0.2.0a1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release_2026_08_26/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    26 August 2026 Release Gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../publishing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Publishing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7_5" id="__nav_7_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Engineering Notes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Engineering Notes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project/engineering_notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Engineering Notes Index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture_review/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture Review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../fem_foundation_audit_2026_08_05/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FEM Foundation Audit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../engineering_feedback_2026_08_05/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Engineering Feedback Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release_audit_2026_08_05/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CTO Product Audit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AIR Architecture Roadmap
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AIR Architecture Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-position" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Position
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#current-architectural-reality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current Architectural Reality
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-by-module-assessment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module-by-Module Assessment
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Module-by-Module Assessment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#studiespy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        studies.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelspy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        models.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mesh/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fieldspy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        fields.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#materials-and-constitutive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        materials/ and constitutive/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#constraints-loadspy-and-boundary_models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        constraints/, loads.py, and boundary_models/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#operators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        operators/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#problemspy-time-and-solverspy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        problems.py, time/, and solvers.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#diagnosticspy-results-and-iopy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        diagnostics.py, results/, and io.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#documentation-skill-and-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation skill and examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#packaging-and-ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Packaging and CI
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture-introduced-in-this-iteration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture Introduced in This Iteration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Architecture Introduced in This Iteration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#versioned-af-ir-document-envelope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Versioned AF-IR document envelope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#structured-validation-and-repair-addresses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Structured validation and repair addresses
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#honest-backend-seam" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Honest backend seam
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#preserved-operator-construction-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Preserved operator construction history
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#first-test-and-continuous-integration-foundation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        First test and continuous-integration foundation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#target-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Target Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design-laws" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design Laws
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Design Laws">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scientific-meaning-before-serialization-convenience" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scientific meaning before serialization convenience
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#one-strong-backend-before-superficial-portability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One strong backend before superficial portability
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#semantic-objects-and-compiled-objects-have-different-lifetimes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Semantic objects and compiled objects have different lifetimes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unsupported-behavior-is-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unsupported behavior is data
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#progressive-disclosure-applies-to-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Progressive disclosure applies to architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#human-and-agent-interfaces-share-one-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Human and agent interfaces share one state
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#missing-interfaces-and-proposed-designs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Missing Interfaces and Proposed Designs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Missing Interfaces and Proposed Designs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#stable-object-identity-and-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stable object identity and references
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#semantic-specification-versus-compiled-artifact" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Semantic specification versus compiled artifact
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#execution-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Execution plan
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#execution-record-and-scientific-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Execution record and scientific evidence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#schema-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema migration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#capability-negotiation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Capability negotiation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#agent-repair-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent repair protocol
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#extension-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Extension protocol
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#batch-surrogate-and-tool-service-interfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch, surrogate, and tool-service interfaces
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fenicsx-first-product-priorities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FEniCSx-First Product Priorities
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phased-delivery-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phased Delivery Plan
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phased Delivery Plan">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-a-strengthen-the-executable-core" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase A: strengthen the executable core
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-b-af-ir-02-scientific-records" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase B: AF-IR 0.2 scientific records
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-c-semanticruntime-separation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase C: semantic/runtime separation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-d-test-the-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase D: test the boundary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-e-scientific-memory-and-agent-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase E: scientific memory and agent operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification Matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decisions-to-avoid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decisions to Avoid
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#near-term-implementation-queue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Near-Term Implementation Queue
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#success-criterion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criterion
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ai_native_learning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI-Native Campaigns and Learning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../digital_twin_direction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Digital-twin Direction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial_design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../documentation_site/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation Site
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-position" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Position
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#current-architectural-reality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current Architectural Reality
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-by-module-assessment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module-by-Module Assessment
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Module-by-Module Assessment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#studiespy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        studies.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelspy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        models.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mesh/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fieldspy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        fields.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#materials-and-constitutive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        materials/ and constitutive/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#constraints-loadspy-and-boundary_models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        constraints/, loads.py, and boundary_models/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#operators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        operators/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#problemspy-time-and-solverspy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        problems.py, time/, and solvers.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#diagnosticspy-results-and-iopy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        diagnostics.py, results/, and io.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#documentation-skill-and-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation skill and examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#packaging-and-ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Packaging and CI
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture-introduced-in-this-iteration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture Introduced in This Iteration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Architecture Introduced in This Iteration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#versioned-af-ir-document-envelope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Versioned AF-IR document envelope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#structured-validation-and-repair-addresses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Structured validation and repair addresses
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#honest-backend-seam" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Honest backend seam
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#preserved-operator-construction-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Preserved operator construction history
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#first-test-and-continuous-integration-foundation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        First test and continuous-integration foundation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#target-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Target Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design-laws" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design Laws
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Design Laws">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scientific-meaning-before-serialization-convenience" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scientific meaning before serialization convenience
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#one-strong-backend-before-superficial-portability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One strong backend before superficial portability
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#semantic-objects-and-compiled-objects-have-different-lifetimes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Semantic objects and compiled objects have different lifetimes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unsupported-behavior-is-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unsupported behavior is data
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#progressive-disclosure-applies-to-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Progressive disclosure applies to architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#human-and-agent-interfaces-share-one-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Human and agent interfaces share one state
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#missing-interfaces-and-proposed-designs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Missing Interfaces and Proposed Designs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Missing Interfaces and Proposed Designs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#stable-object-identity-and-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stable object identity and references
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#semantic-specification-versus-compiled-artifact" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Semantic specification versus compiled artifact
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#execution-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Execution plan
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#execution-record-and-scientific-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Execution record and scientific evidence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#schema-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema migration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#capability-negotiation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Capability negotiation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#agent-repair-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent repair protocol
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#extension-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Extension protocol
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#batch-surrogate-and-tool-service-interfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch, surrogate, and tool-service interfaces
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fenicsx-first-product-priorities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FEniCSx-First Product Priorities
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phased-delivery-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phased Delivery Plan
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phased Delivery Plan">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-a-strengthen-the-executable-core" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase A: strengthen the executable core
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-b-af-ir-02-scientific-records" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase B: AF-IR 0.2 scientific records
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-c-semanticruntime-separation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase C: semantic/runtime separation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-d-test-the-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase D: test the boundary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-e-scientific-memory-and-agent-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase E: scientific memory and agent operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification Matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decisions-to-avoid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decisions to Avoid
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#near-term-implementation-queue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Near-Term Implementation Queue
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#success-criterion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criterion
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href=".." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../project/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Project
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../project/engineering_notes/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Engineering Notes
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="agentfem-air-architecture-and-engineering-roadmap">AgentFEM AIR Architecture and Engineering Roadmap<a class="headerlink" href="#agentfem-air-architecture-and-engineering-roadmap" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Product priority note: the executable FEniCSx product, nonlinear mechanics,
+results, interoperability, and verification now have the governing
+near-term roadmap in <code>docs/product_roadmap.md</code>. AF-IR remains experimental
+and should advance only when a loader, migration, validator, or independent
+consumer creates evidence for a stable representation.</p>
+</blockquote>
+<h2 id="purpose">Purpose<a class="headerlink" href="#purpose" title="Permanent link">&para;</a></h2>
+<p>This document turns the long-term AF-IR/AIR argument into an engineering
+sequence. It distinguishes:</p>
+<ul>
+<li>what AgentFEM already executes,</li>
+<li>what this release has made explicit,</li>
+<li>what should be built next,</li>
+<li>what should remain a research question,</li>
+<li>and what must not be claimed before evidence exists.</li>
+</ul>
+<p>AgentFEM is not required to finish the final architecture before it becomes
+useful. The near-term goal is a dependable, high-level, open finite-element
+environment on FEniCSx. The long-term goal is a scientific layer through which
+humans and agents can construct, inspect, validate, execute, and accumulate
+finite-element knowledge while numerical backends continue to evolve.</p>
+<h2 id="core-position">Core Position<a class="headerlink" href="#core-position" title="Permanent link">&para;</a></h2>
+<p>Deep FEniCSx integration is the present strength of AgentFEM.</p>
+<p>FEniCSx supplies mature weak-form, finite-element, PETSc, MPI, and output
+machinery. AgentFEM should use those capabilities fully. A backend-neutral
+interface that exposes only the intersection of imagined future solvers would
+be less useful, less testable, and less scientifically honest than a strong
+FEniCSx implementation.</p>
+<p>At the same time, backend runtime objects must not become the only surviving
+record of scientific intent. The architecture should therefore evolve along
+two coordinated tracks:</p>
+<ol>
+<li><strong>FEniCSx product depth</strong></li>
+<li>broader supported analyses,</li>
+<li>stable public workflows,</li>
+<li>verification benchmarks,</li>
+<li>deterministic diagnostics,</li>
+<li>serial and MPI testing,</li>
+<li>
+<p>reliable output and restart behavior.</p>
+</li>
+<li>
+<p><strong>AIR/AF-IR durability</strong></p>
+</li>
+<li>versioned scientific records,</li>
+<li>stable object identities and references,</li>
+<li>structured validation and repair,</li>
+<li>explicit compilation boundaries,</li>
+<li>execution provenance,</li>
+<li>migrations,</li>
+<li>and eventually independently tested lowering targets.</li>
+</ol>
+<p>Neither track substitutes for the other. A beautiful schema without a strong
+solver path is not a finite-element platform. A strong solver wrapper without
+durable scientific records cannot become the shared human-agent layer proposed
+by AgentFEM.</p>
+<h2 id="current-architectural-reality">Current Architectural Reality<a class="headerlink" href="#current-architectural-reality" title="Permanent link">&para;</a></h2>
+<p>The current executable path is:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Human / agent-authored Python
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>        |
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>        v
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>AgentFEM Study / Model / Region / Field / Material / Load / Step
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        |
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        v
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>AgentFEM operators containing UFL expressions
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        |
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        v
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>DOLFINx form compilation and assembly
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        |
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>        v
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>PETSc / MPI solve or AgentFEM time integration
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>        |
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>        v
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>Diagnostics and XDMF output
+</code></pre></div>
+<p>This already has important AIR properties:</p>
+<ul>
+<li>the top-level vocabulary follows finite-element practice;</li>
+<li>constraints, loads, and weak boundary models are distinct;</li>
+<li>operators retain engineering names such as <code>K</code>, <code>M</code>, <code>C</code>, and <code>F</code>;</li>
+<li>steps expose analysis and time-integration intent;</li>
+<li>summaries and model trees are inspectable;</li>
+<li>expert users can descend to UFL, DOLFINx, and PETSc.</li>
+</ul>
+<p>The main technical coupling is also clear:</p>
+<ul>
+<li>fields contain DOLFINx functions and spaces;</li>
+<li>regions contain DOLFINx mesh tags and UFL measures;</li>
+<li>constraints contain DOLFINx boundary-condition objects;</li>
+<li>loads and boundary models may contain UFL coefficients and forms;</li>
+<li><code>OperatorForm.expression</code> is currently a UFL expression;</li>
+<li>solving and output are directly implemented with DOLFINx/PETSc APIs.</li>
+</ul>
+<p>This means AgentFEM 0.1 is best described as a human- and agent-readable
+scientific layer with an experimental AF-IR record, executed through a
+FEniCSx-first runtime. It is not yet a complete backend-independent compiler.</p>
+<h2 id="module-by-module-assessment">Module-by-Module Assessment<a class="headerlink" href="#module-by-module-assessment" title="Permanent link">&para;</a></h2>
+<h3 id="studiespy"><code>studies.py</code><a class="headerlink" href="#studiespy" title="Permanent link">&para;</a></h3>
+<p>This is one of the cleanest semantic modules. <code>Study</code> is immutable, normalized,
+and validated before execution. It is already close to a persistable AF-IR
+node. Its next need is a capability table linking analysis/physics combinations
+to implemented operators and steps; expanding the vocabulary without this
+table would let users declare unsupported studies too easily.</p>
+<h3 id="modelspy"><code>models.py</code><a class="headerlink" href="#modelspy" title="Permanent link">&para;</a></h3>
+<p><code>Model</code> is the central scientific registry and the strongest part of the public
+language. It also carries the greatest architectural pressure: registration,
+convenience constructors, regional assembly, validation, step construction,
+inspection, and export now meet in one large module.</p>
+<p>Do not split it merely to reduce line count. First stabilize the public
+responsibilities, then move internal services behind the same <code>Model</code> API:</p>
+<ul>
+<li>assignment registry,</li>
+<li>validator,</li>
+<li>operator builder,</li>
+<li>step factory,</li>
+<li>AF-IR exporter.</li>
+</ul>
+<p>The important boundary is responsibility, not file size.</p>
+<h3 id="mesh"><code>mesh/</code><a class="headerlink" href="#mesh" title="Permanent link">&para;</a></h3>
+<p>Named boundary/cell regions and selectors provide the right public concept.
+The current region objects remain runtime DOLFINx assets, and raw generated
+meshes do not retain enough construction data for reconstruction. The AF-IR
+export therefore marks runtime mesh summaries as non-reconstructable.</p>
+<p>The next durable object is a <code>MeshSpec</code>/<code>MeshSource</code> that can represent:</p>
+<ul>
+<li>structured constructor parameters,</li>
+<li>imported file identity and checksum,</li>
+<li>Gmsh physical groups,</li>
+<li>conversion warnings,</li>
+<li>and the relationship between source labels and AgentFEM regions.</li>
+</ul>
+<h3 id="fieldspy"><code>fields.py</code><a class="headerlink" href="#fieldspy" title="Permanent link">&para;</a></h3>
+<p><code>UnknownField</code> provides excellent top-level readability. Eager <code>Field</code>
+arithmetic is useful for explicit state updates and has a clear PyTorch/Cast3M
+feel. The main risk is conceptual ambiguity between:</p>
+<ul>
+<li>eager dof-vector algebra,</li>
+<li>symbolic UFL expressions,</li>
+<li>and discrete operator action.</li>
+</ul>
+<p>The current documentation distinguishes these, and this distinction should
+become a validation/type rule before mixed and tensor fields expand.</p>
+<h3 id="materials-and-constitutive"><code>materials/</code> and <code>constitutive/</code><a class="headerlink" href="#materials-and-constitutive" title="Permanent link">&para;</a></h3>
+<p>Separating data records, property containers, and response laws is correct.
+Material properties already serialize well. The missing durable relations are:</p>
+<ul>
+<li>units,</li>
+<li>source/provenance at the property instance,</li>
+<li>applicable study assumptions,</li>
+<li>law/version identity,</li>
+<li>and explicit material-to-region references.</li>
+</ul>
+<p>These should be added before a large material catalog.</p>
+<h3 id="constraints-loadspy-and-boundary_models"><code>constraints/</code>, <code>loads.py</code>, and <code>boundary_models/</code><a class="headerlink" href="#constraints-loadspy-and-boundary_models" title="Permanent link">&para;</a></h3>
+<p>The conceptual separation is strong and should remain non-negotiable.
+Scientific summaries now preserve common prescribed/load values and absorbing
+impedances. Remaining gaps include target-field identity, full region
+references, local coordinate systems, amplitudes on general loads, and clear
+capability declarations that distinguish serial nodal projection from the
+distributed Abaqus-equation MPC backend.</p>
+<p>The periodic projection implementation is correctly explicit about being a
+serial, nodal-averaging method rather than a general MPC solution. Future MPC
+support should be a new implementation of the same semantic constraint, not a
+silent change in the existing method.</p>
+<h3 id="operators"><code>operators/</code><a class="headerlink" href="#operators" title="Permanent link">&para;</a></h3>
+<p>The K/M/C/F language is the clearest bridge between engineering review and
+backend computation. Operator composition now retains sum/scale history, but
+primitive operators still need explicit dependencies on fields, materials,
+regions, coefficients, and measures. <code>OperatorSpec</code> should grow from these
+common families while <code>OperatorForm.expression</code> remains the efficient UFL
+runtime path.</p>
+<h3 id="problemspy-time-and-solverspy"><code>problems.py</code>, <code>time/</code>, and <code>solvers.py</code><a class="headerlink" href="#problemspy-time-and-solverspy" title="Permanent link">&para;</a></h3>
+<p>The separation among systems, steps, states, and time integrators is sound.
+Solver options are now inspectable and validated. The next missing interface is
+an execution plan that records when compilation, constraint application,
+state updates, diagnostics, and output occur. Numerical execution still calls
+DOLFINx/PETSc directly in several places, which is appropriate until the plan
+interface has real use.</p>
+<h3 id="diagnosticspy-results-and-iopy"><code>diagnostics.py</code>, <code>results/</code>, and <code>io.py</code><a class="headerlink" href="#diagnosticspy-results-and-iopy" title="Permanent link">&para;</a></h3>
+<p>These modules now form the beginning of an execution evidence system.
+<code>SolveEvent</code> is shared by terminal progress, status files, complete result
+traces, and accepted-increment histories across Standard, Explicit, heat, and
+J2 paths. Versioned Golden quantities add numerical acceptance criteria for
+selected release workflows. Remaining work includes field/source checksums,
+named regional reactions, external-work balances, transient checkpoints, and
+MPI-portable state identity.</p>
+<p>This clarifies an important architectural point: the proposed AIR layer is not
+one JSON document. In the working product it is the coordinated public
+language, validation contracts, structured execution evidence, scientific
+results, benchmark cards, knowledge assets, and adapters. AF-IR is one durable
+representation within that layer and should grow only with real consumers.</p>
+<h3 id="documentation-skill-and-examples">Documentation skill and examples<a class="headerlink" href="#documentation-skill-and-examples" title="Permanent link">&para;</a></h3>
+<p>The skill already gives agents a progressive reading order and important
+concept boundaries. The next gain will come from pairing those instructions
+with structured validation codes and small repair examples. Examples should
+remain readable teaching artifacts; separate benchmarks must carry numerical
+expected values and tolerances.</p>
+<h3 id="packaging-and-ci">Packaging and CI<a class="headerlink" href="#packaging-and-ci" title="Permanent link">&para;</a></h3>
+<p>The conda-forge FEniCSx environment is the correct reproducibility anchor for
+the current stack. Unit/interface tests, serial solve, two-rank MPI solve,
+package build, and documentation build are the minimum release gates. PyPI
+metadata alone cannot install the full MPI/PETSc/DOLFINx stack reliably, so the
+documentation must continue to make the conda path primary.</p>
+<h2 id="architecture-introduced-in-this-iteration">Architecture Introduced in This Iteration<a class="headerlink" href="#architecture-introduced-in-this-iteration" title="Permanent link">&para;</a></h2>
+<h3 id="versioned-af-ir-document-envelope">Versioned AF-IR document envelope<a class="headerlink" href="#versioned-af-ir-document-envelope" title="Permanent link">&para;</a></h3>
+<p><code>agentfem.ir</code> now defines:</p>
+<ul>
+<li><code>AFIR_SCHEMA</code>,</li>
+<li><code>AFIR_SCHEMA_VERSION</code>,</li>
+<li><code>IRDocument</code>,</li>
+<li>deterministic JSON serialization,</li>
+<li>explicit opaque markers for runtime objects that do not yet have stable
+  scientific serialization,</li>
+<li><code>model.to_ir()</code> and <code>model.write_ir(...)</code>.</li>
+</ul>
+<p>AF-IR 0.1 is marked <code>experimental</code>. It records supported public semantics and
+does not imply that arbitrary UFL expressions can be reconstructed or lowered
+to another backend.</p>
+<h3 id="structured-validation-and-repair-addresses">Structured validation and repair addresses<a class="headerlink" href="#structured-validation-and-repair-addresses" title="Permanent link">&para;</a></h3>
+<p><code>model.validate()</code> now returns a <code>ValidationReport</code> containing
+<code>ValidationIssue</code> objects. Every issue has:</p>
+<ul>
+<li>a stable code,</li>
+<li>a scientific-object path,</li>
+<li>a severity,</li>
+<li>an explanation,</li>
+<li>an optional repair hint,</li>
+<li>and optional structured context.</li>
+</ul>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>[ERROR AFM-MATERIAL-002] model.materials[1].region:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>Every material in a multi-material model needs a region.
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>Hint: Pass region=... when registering each material.
+</code></pre></div>
+<p><code>model.check()</code> remains the fail-fast public guard, but it now raises a
+<code>ModelValidationError</code> carrying the complete structured report.</p>
+<h3 id="honest-backend-seam">Honest backend seam<a class="headerlink" href="#honest-backend-seam" title="Permanent link">&para;</a></h3>
+<p><code>agentfem.backends</code> now provides:</p>
+<ul>
+<li><code>BackendDescriptor</code>,</li>
+<li><code>BackendAdapter</code>,</li>
+<li>lazy backend registration,</li>
+<li>an explicit default backend,</li>
+<li>a <code>FEniCSxBackend</code> implementation.</li>
+</ul>
+<p><code>OperatorForm.compile</code>, <code>assemble_matrix</code>, and <code>assemble_vector</code> now cross this
+seam. The seam is deliberately narrow. It does not claim that fields, meshes,
+constraints, steps, or all operators are backend neutral.</p>
+<h3 id="preserved-operator-construction-history">Preserved operator construction history<a class="headerlink" href="#preserved-operator-construction-history" title="Permanent link">&para;</a></h3>
+<p>Operator scaling and addition now retain:</p>
+<ul>
+<li>operation kind (<code>primitive</code>, <code>scale</code>, or <code>sum</code>),</li>
+<li>operand summaries,</li>
+<li>scale factors when representable,</li>
+<li>source names,</li>
+<li>operand count.</li>
+</ul>
+<p>This repairs a major scientific-record problem: <code>C / dt</code> and <code>K1 + K2</code> should
+not become anonymous UFL expressions after composition.</p>
+<h3 id="first-test-and-continuous-integration-foundation">First test and continuous-integration foundation<a class="headerlink" href="#first-test-and-continuous-integration-foundation" title="Permanent link">&para;</a></h3>
+<p>The project now contains unit/interface tests for:</p>
+<ul>
+<li>validation reports,</li>
+<li>AF-IR serialization,</li>
+<li>backend registration,</li>
+<li>operator composition metadata,</li>
+<li>solver-policy validation.</li>
+</ul>
+<p>The static FEniCSx example is also a serial and two-rank MPI smoke test and
+writes an AF-IR record from rank zero. CI configuration uses a conda-forge
+FEniCSx environment because MPI, PETSc, and DOLFINx should be tested as one
+compatible stack.</p>
+<h2 id="target-architecture">Target Architecture<a class="headerlink" href="#target-architecture" title="Permanent link">&para;</a></h2>
+<p>The desired long-term flow is:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Natural language / expert / domain model / general agent / imported case
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>                              |
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>                              v
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>                 AgentFEM public Python language
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>                              |
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>                              v
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>                Canonical semantic AF-IR graph
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>                 /            |             \
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>                v             v              v
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>        validation       transformation    scientific memory
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>        and repair       and composition   and provenance
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>                \             |              /
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>                 \            v             /
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>                  ---- execution plan -----
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>                              |
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>                  backend capability match
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>                              |
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>            +-----------------+------------------+
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>            |                 |                  |
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>            v                 v                  v
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>      FEniCSx lowering   future lowering   export/service target
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>            |                 |                  |
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>            v                 v                  v
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>      PETSc/MPI result   verified result    external execution
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>            \                 |                  /
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>             +-------- execution evidence ------+
+<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>                              |
+<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a>                              v
+<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a>                  human/agent review and reuse
+</code></pre></div>
+<p>The canonical graph is not required to contain every backend detail.
+Backend-specific extensions are acceptable when they are:</p>
+<ul>
+<li>explicitly namespaced,</li>
+<li>capability checked,</li>
+<li>preserved during round trips,</li>
+<li>visible to reviewers,</li>
+<li>and rejected rather than silently approximated on unsupported targets.</li>
+</ul>
+<h2 id="design-laws">Design Laws<a class="headerlink" href="#design-laws" title="Permanent link">&para;</a></h2>
+<h3 id="scientific-meaning-before-serialization-convenience">Scientific meaning before serialization convenience<a class="headerlink" href="#scientific-meaning-before-serialization-convenience" title="Permanent link">&para;</a></h3>
+<p>A JSON field should exist because it represents a meaningful finite-element
+decision, not merely because a Python attribute was easy to dump.</p>
+<h3 id="one-strong-backend-before-superficial-portability">One strong backend before superficial portability<a class="headerlink" href="#one-strong-backend-before-superficial-portability" title="Permanent link">&para;</a></h3>
+<p>The FEniCSx path remains the reference implementation. A second backend should
+be added to test the semantic boundary, not to create a marketing checklist.</p>
+<h3 id="semantic-objects-and-compiled-objects-have-different-lifetimes">Semantic objects and compiled objects have different lifetimes<a class="headerlink" href="#semantic-objects-and-compiled-objects-have-different-lifetimes" title="Permanent link">&para;</a></h3>
+<p>A <code>MaterialAssignment</code> or <code>OperatorSpec</code> should be persistable across sessions.
+A DOLFINx <code>Form</code>, PETSc matrix, communicator, and dof map are runtime objects.
+They may be cached or referenced in an execution record, but they should not
+define the canonical scientific model.</p>
+<h3 id="unsupported-behavior-is-data">Unsupported behavior is data<a class="headerlink" href="#unsupported-behavior-is-data" title="Permanent link">&para;</a></h3>
+<p>An unsupported formulation must produce an addressable capability or validation
+failure. It must not be silently dropped, translated approximately, or hidden
+inside generated backend code.</p>
+<h3 id="progressive-disclosure-applies-to-architecture">Progressive disclosure applies to architecture<a class="headerlink" href="#progressive-disclosure-applies-to-architecture" title="Permanent link">&para;</a></h3>
+<p>Beginner code should remain short. Researchers should see operators and
+solver policies. Backend specialists should reach UFL, PETSc, MPI, quadrature,
+and dof-level behavior.</p>
+<h3 id="human-and-agent-interfaces-share-one-state">Human and agent interfaces share one state<a class="headerlink" href="#human-and-agent-interfaces-share-one-state" title="Permanent link">&para;</a></h3>
+<p>The agent API must not operate an invisible model different from the model
+shown to the engineer. Python objects, AF-IR records, validation reports, and
+execution evidence should describe the same scientific state.</p>
+<h2 id="missing-interfaces-and-proposed-designs">Missing Interfaces and Proposed Designs<a class="headerlink" href="#missing-interfaces-and-proposed-designs" title="Permanent link">&para;</a></h2>
+<h3 id="stable-object-identity-and-references">Stable object identity and references<a class="headerlink" href="#stable-object-identity-and-references" title="Permanent link">&para;</a></h3>
+<p>Current names are useful but not always unique. Future AF-IR nodes need:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">ObjectId</span><span class="p">(</span><span class="n">namespace</span><span class="o">=</span><span class="s2">&quot;model&quot;</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;region&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="n">revision</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+<p>Requirements:</p>
+<ul>
+<li>deterministic within one model document;</li>
+<li>human-readable where possible;</li>
+<li>no dependence on Python memory addresses;</li>
+<li>references survive serialization and migration;</li>
+<li>duplicate display names produce a validation issue;</li>
+<li>renaming has explicit migration semantics.</li>
+</ul>
+<p>Do not introduce global UUIDs everywhere in the public Python API. Begin with
+document-local deterministic identifiers and retain friendly names.</p>
+<h3 id="semantic-specification-versus-compiled-artifact">Semantic specification versus compiled artifact<a class="headerlink" href="#semantic-specification-versus-compiled-artifact" title="Permanent link">&para;</a></h3>
+<p>The operator path should eventually distinguish:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">OperatorSpec</span><span class="p">(</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">family</span><span class="o">=</span><span class="s2">&quot;elastic_stiffness&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">role</span><span class="o">=</span><span class="s2">&quot;matrix&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">target</span><span class="o">=</span><span class="n">Ref</span><span class="p">(</span><span class="s2">&quot;field:displacement&quot;</span><span class="p">),</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">material</span><span class="o">=</span><span class="n">Ref</span><span class="p">(</span><span class="s2">&quot;material:steel&quot;</span><span class="p">),</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">region</span><span class="o">=</span><span class="n">Ref</span><span class="p">(</span><span class="s2">&quot;region:matrix&quot;</span><span class="p">),</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="p">)</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">CompiledOperator</span><span class="p">(</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="n">spec</span><span class="o">=...</span><span class="p">,</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="n">backend</span><span class="o">=</span><span class="s2">&quot;fenicsx&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="n">expression</span><span class="o">=</span><span class="n">ufl_form</span><span class="p">,</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>    <span class="n">cache_key</span><span class="o">=...</span><span class="p">,</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="p">)</span>
+</code></pre></div>
+<p>This should be introduced family by family, beginning with operators that have
+clear portable semantics:</p>
+<ul>
+<li>scalar mass/capacity,</li>
+<li>diffusion/conduction,</li>
+<li>isotropic elastic stiffness,</li>
+<li>body source,</li>
+<li>traction/flux,</li>
+<li>simple Dirichlet constraints.</li>
+</ul>
+<p>Do not attempt to parse arbitrary UFL back into a universal semantic tree.
+Custom UFL should remain an explicit backend extension with declared
+capabilities and reduced validation coverage.</p>
+<h3 id="execution-plan">Execution plan<a class="headerlink" href="#execution-plan" title="Permanent link">&para;</a></h3>
+<p>A <code>Step</code> currently combines description and execution. A future
+<code>ExecutionPlan</code> should resolve:</p>
+<ul>
+<li>selected backend,</li>
+<li>capability requirements,</li>
+<li>ordered compilation tasks,</li>
+<li>assembly tasks,</li>
+<li>constraint transformations,</li>
+<li>solver/integrator policy,</li>
+<li>diagnostic schedule,</li>
+<li>output schedule,</li>
+<li>restart and checkpoint policy.</li>
+</ul>
+<p>The plan should be inspectable before execution and should have a stable hash
+over scientific inputs plus declared numerical policy.</p>
+<h3 id="execution-record-and-scientific-evidence">Execution record and scientific evidence<a class="headerlink" href="#execution-record-and-scientific-evidence" title="Permanent link">&para;</a></h3>
+<p>Each run should be able to produce:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>case.agentfem.py
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>case.afir.json
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>case.plan.json
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>case.validation.json
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>case.run.json
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>results/
+</code></pre></div>
+<p><code>case.run.json</code> should include:</p>
+<ul>
+<li>AgentFEM and backend versions;</li>
+<li>MPI size and scalar type;</li>
+<li>mesh identity and partition information;</li>
+<li>solver options and convergence reason;</li>
+<li>time-step and stability estimates;</li>
+<li>warnings and capability fallbacks;</li>
+<li>outputs with checksums;</li>
+<li>diagnostics and benchmark comparisons;</li>
+<li>start/end status;</li>
+<li>human approvals or edits when supplied.</li>
+</ul>
+<p>This is the foundation for scientific memory. It is not a claim that every
+successful run is scientifically correct.</p>
+<h3 id="schema-migration">Schema migration<a class="headerlink" href="#schema-migration" title="Permanent link">&para;</a></h3>
+<p>Before AF-IR is called stable, implement:</p>
+<ul>
+<li>semantic-version compatibility rules;</li>
+<li><code>load_document(...)</code>;</li>
+<li>schema validation;</li>
+<li>migration functions such as <code>0.1 -&gt; 0.2</code>;</li>
+<li>round-trip tests;</li>
+<li>golden example documents;</li>
+<li>preservation of unknown namespaced extensions;</li>
+<li>clear failure for unsupported future major versions.</li>
+</ul>
+<p>The Python API and AF-IR schema may evolve at different rates. They need an
+explicit compatibility table.</p>
+<h3 id="capability-negotiation">Capability negotiation<a class="headerlink" href="#capability-negotiation" title="Permanent link">&para;</a></h3>
+<p>Backend descriptors should eventually answer questions such as:</p>
+<ul>
+<li>supported mesh cell families;</li>
+<li>supported field value shapes;</li>
+<li>element/interpolation policies;</li>
+<li>supported constitutive/operator families;</li>
+<li>strong and weak constraint types;</li>
+<li>serial/MPI support;</li>
+<li>scalar/complex support;</li>
+<li>nonlinear/autodiff support;</li>
+<li>output formats;</li>
+<li>restart support.</li>
+</ul>
+<p>Capability matching should return structured issues at paths such as:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>model.steps[0].operators.K
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>model.constraints[2]
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>model.outputs[0]
+</code></pre></div>
+<p>A backend must never advertise a broad capability such as <code>solid_mechanics</code>
+when only one narrow formulation has been verified.</p>
+<h3 id="agent-repair-protocol">Agent repair protocol<a class="headerlink" href="#agent-repair-protocol" title="Permanent link">&para;</a></h3>
+<p>Documentation and a skill help an agent choose APIs, but reliable repair also
+needs a machine-operable protocol:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">&quot;code&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AFM-MATERIAL-002&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model.materials[1].region&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="nt">&quot;severity&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;error&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Every material in a multi-material model needs a region.&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span><span class="nt">&quot;allowed_repairs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="s2">&quot;assign_existing_region&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="s2">&quot;define_region&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="s2">&quot;remove_material_assignment&quot;</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="p">}</span>
+</code></pre></div>
+<p>Future validators may add <code>allowed_repairs</code>, but they should not automatically
+apply scientific changes unless policy and user authority allow it.</p>
+<h3 id="extension-protocol">Extension protocol<a class="headerlink" href="#extension-protocol" title="Permanent link">&para;</a></h3>
+<p>Every custom extension should declare:</p>
+<ul>
+<li>semantic name and version;</li>
+<li>required backend capabilities;</li>
+<li>serializable parameters;</li>
+<li>validation hook;</li>
+<li>lowering hook;</li>
+<li>summary and documentation;</li>
+<li>benchmark or example evidence;</li>
+<li>whether it is deterministic;</li>
+<li>whether it supports MPI;</li>
+<li>fallback behavior, normally explicit rejection.</li>
+</ul>
+<p>This is a stronger extension boundary than accepting arbitrary callables with
+no record of their meaning.</p>
+<h3 id="batch-surrogate-and-tool-service-interfaces">Batch, surrogate, and tool-service interfaces<a class="headerlink" href="#batch-surrogate-and-tool-service-interfaces" title="Permanent link">&para;</a></h3>
+<p>Agent-native simulation will often operate collections rather than one case.
+The long-term layer should support:</p>
+<ul>
+<li>parameter definitions with units and bounds;</li>
+<li>immutable case variants;</li>
+<li>deterministic case IDs;</li>
+<li>sweep and design-of-experiment plans;</li>
+<li>resumable execution;</li>
+<li>extracted quantities of interest;</li>
+<li>field sampling contracts;</li>
+<li>dataset manifests;</li>
+<li>links between samples and the exact AF-IR/run record;</li>
+<li>asynchronous local, cluster, or service execution.</li>
+</ul>
+<p>The first local implementation now provides typed real/integer/choice
+parameters, deterministic random/Latin-hypercube/factorial plans, stable case
+IDs, resumable case records, deterministic plan shards, within-case MPI
+coordination, scientific dataset manifests, NumPy ridge and POD baselines, an
+optional PyTorch MLP adapter, independent validation reports, and a guarded
+high-fidelity fallback. This advances part of the former Phase C/E route
+without claiming that AF-IR reconstruction or remote execution is complete.</p>
+<p>The implemented separation is:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>case factory -&gt; FEM execution -&gt; case/run evidence -&gt; scientific dataset
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>             -&gt; learning adapter -&gt; validation -&gt; applicability guard
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>             -&gt; prediction or explicit FEM fallback
+</code></pre></div>
+<p>Neural-operator and PINN objects currently define contract-only records for
+field encoding, geometry/mesh policy, physical residuals, conditions, and
+required checks. They are intentionally not executable trainers. Arbitrary UFL
+is not assumed to lower to a differentiable strong residual.</p>
+<p>An MCP or other tool interface should expose operations such as:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>validate_model
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>explain_model
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>compile_plan
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>run_case
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>get_status
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>read_diagnostics
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>compare_runs
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>export_artifact
+</code></pre></div>
+<p>The service interface should wrap the same AF-IR and validation semantics used
+locally. It should not create a second hidden representation.</p>
+<h2 id="fenicsx-first-product-priorities">FEniCSx-First Product Priorities<a class="headerlink" href="#fenicsx-first-product-priorities" title="Permanent link">&para;</a></h2>
+<p>The following work has higher near-term value than adding a second backend:</p>
+<ol>
+<li>Linear static elasticity</li>
+<li>verified plane strain and plane stress;</li>
+<li>3D isotropic elasticity;</li>
+<li>reaction forces;</li>
+<li>solver convergence records;</li>
+<li>
+<p>mesh-convergence benchmarks.</p>
+</li>
+<li>
+<p>Transient heat transfer</p>
+</li>
+<li>model-owned step API;</li>
+<li>time-dependent sources and boundary conditions;</li>
+<li>convection/Robin boundaries;</li>
+<li>energy balance;</li>
+<li>
+<p>restart.</p>
+</li>
+<li>
+<p>Explicit dynamics</p>
+</li>
+<li>stable time-step estimation;</li>
+<li>energy and momentum diagnostics;</li>
+<li>clear residual sign conventions;</li>
+<li>robust constraint behavior;</li>
+<li>serial and MPI benchmark coverage;</li>
+<li>
+<p>absorbing-boundary validation.</p>
+</li>
+<li>
+<p>Mesh and region reliability</p>
+</li>
+<li>partition completeness and overlap checks;</li>
+<li>imported tag provenance;</li>
+<li>empty-region detection;</li>
+<li>region visualization;</li>
+<li>
+<p>deterministic region identities.</p>
+</li>
+<li>
+<p>Materials and constitutive behavior</p>
+</li>
+<li>units and provenance;</li>
+<li>validated model/assumption compatibility;</li>
+<li>thermal properties;</li>
+<li>
+<p>carefully staged anisotropy and path dependence.</p>
+</li>
+<li>
+<p>Output and restart</p>
+</li>
+<li>output manifests;</li>
+<li>checksums;</li>
+<li>consistent field naming;</li>
+<li>checkpoint/restart contracts;</li>
+<li>
+<p>parallel behavior.</p>
+</li>
+<li>
+<p>Verification assets</p>
+</li>
+<li>benchmarks separate from tutorials;</li>
+<li>expected values and tolerances;</li>
+<li>mesh/time-step convergence;</li>
+<li>serial/MPI parity where meaningful.</li>
+</ol>
+<h2 id="phased-delivery-plan">Phased Delivery Plan<a class="headerlink" href="#phased-delivery-plan" title="Permanent link">&para;</a></h2>
+<h3 id="phase-a-strengthen-the-executable-core">Phase A: strengthen the executable core<a class="headerlink" href="#phase-a-strengthen-the-executable-core" title="Permanent link">&para;</a></h3>
+<p>Target: current 0.1.x line.</p>
+<ul>
+<li>keep FEniCSx as the sole production backend;</li>
+<li>add unit tests for semantic containers;</li>
+<li>run static example in serial and with two MPI ranks in CI;</li>
+<li>add small numerical benchmarks;</li>
+<li>expand structured model validation;</li>
+<li>make solver policies inspectable;</li>
+<li>keep AF-IR explicitly experimental.</li>
+</ul>
+<p>Exit evidence:</p>
+<ul>
+<li>reproducible environment;</li>
+<li>unit suite;</li>
+<li>serial and two-rank MPI static numerical smoke test;</li>
+<li>at least three benchmark quantities with tolerances;</li>
+<li>no silent unsupported behavior in demonstrated workflows.</li>
+</ul>
+<h3 id="phase-b-af-ir-02-scientific-records">Phase B: AF-IR 0.2 scientific records<a class="headerlink" href="#phase-b-af-ir-02-scientific-records" title="Permanent link">&para;</a></h3>
+<p>Target: v0.2.</p>
+<ul>
+<li>stable document-local object IDs;</li>
+<li>explicit references between core model assets;</li>
+<li>JSON Schema or equivalent formal validation;</li>
+<li>load/write and migration API;</li>
+<li>golden AF-IR documents;</li>
+<li>execution-plan prototype;</li>
+<li>run record with environment and output evidence;</li>
+<li>validation codes documented as public contracts.</li>
+</ul>
+<p>Exit evidence:</p>
+<ul>
+<li>round trip for supported examples;</li>
+<li>migration test from AF-IR 0.1;</li>
+<li>deterministic document hashes;</li>
+<li>agent repair evaluation on planted model defects.</li>
+</ul>
+<h3 id="phase-c-semanticruntime-separation">Phase C: semantic/runtime separation<a class="headerlink" href="#phase-c-semanticruntime-separation" title="Permanent link">&para;</a></h3>
+<p>Target: v0.3.</p>
+<ul>
+<li><code>OperatorSpec</code> and <code>CompiledOperator</code> for selected common families;</li>
+<li>backend capability matching;</li>
+<li>namespaced FEniCSx extensions;</li>
+<li>compilation caches keyed by semantic and numerical policy;</li>
+<li>broader benchmark suite;</li>
+<li>harden the implemented batch/sweep interface and link every case to
+  content-addressed AF-IR/run records.</li>
+</ul>
+<p>Exit evidence:</p>
+<ul>
+<li>supported model can be reconstructed without retaining live UFL objects;</li>
+<li>compiled FEniCSx result agrees with reference implementation;</li>
+<li>custom UFL survives as an explicit extension rather than being erased.</li>
+</ul>
+<h3 id="phase-d-test-the-boundary">Phase D: test the boundary<a class="headerlink" href="#phase-d-test-the-boundary" title="Permanent link">&para;</a></h3>
+<p>Target: research milestone after v0.3, not a calendar promise.</p>
+<ul>
+<li>choose one deliberately narrow second target;</li>
+<li>lower a small semantic subset;</li>
+<li>compare results and unsupported-capability behavior;</li>
+<li>revise AF-IR where the second implementation reveals accidental FEniCSx
+  assumptions.</li>
+</ul>
+<p>Good candidates are not necessarily full solvers. A second target might be:</p>
+<ul>
+<li>an export deck for a restricted static problem;</li>
+<li>a matrix/reference backend for tiny verification cases;</li>
+<li>a service adapter;</li>
+<li>or another open finite-element library for a narrow operator family.</li>
+</ul>
+<p>Exit evidence:</p>
+<ul>
+<li>independent lowering of the same AF-IR subset;</li>
+<li>explicit capability differences;</li>
+<li>benchmark agreement within declared tolerances;</li>
+<li>no weakening of the FEniCSx path.</li>
+</ul>
+<h3 id="phase-e-scientific-memory-and-agent-operations">Phase E: scientific memory and agent operations<a class="headerlink" href="#phase-e-scientific-memory-and-agent-operations" title="Permanent link">&para;</a></h3>
+<ul>
+<li>indexed run/evidence records;</li>
+<li>retrieval by scientific entities and assumptions;</li>
+<li>comparison and regression tools;</li>
+<li>approved reusable patterns;</li>
+<li>extend the implemented dataset/surrogate foundation with merge,
+  deduplication, uncertainty calibration, active-learning proposals, and
+  reviewed external trainers;</li>
+<li>tool-service/MCP interface;</li>
+<li>access-control and audit policies for consequential execution.</li>
+</ul>
+<p>Exit evidence:</p>
+<ul>
+<li>a reviewed case can be found, understood, rerun, compared, and adapted;</li>
+<li>agent actions remain attributable to AF-IR nodes and execution records;</li>
+<li>human review does not require reconstructing intent from generated code.</li>
+</ul>
+<h2 id="verification-matrix">Verification Matrix<a class="headerlink" href="#verification-matrix" title="Permanent link">&para;</a></h2>
+<p>Every public capability should eventually carry a matrix with:</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Required evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Semantic</td>
+<td>constructor and validation tests</td>
+</tr>
+<tr>
+<td>Serialization</td>
+<td>JSON safety, round trip, migration, golden file</td>
+</tr>
+<tr>
+<td>Lowering</td>
+<td>form shape and backend capability test</td>
+</tr>
+<tr>
+<td>Assembly</td>
+<td>tiny matrix/vector reference</td>
+</tr>
+<tr>
+<td>Solve</td>
+<td>analytical/manufactured/benchmark quantity</td>
+</tr>
+<tr>
+<td>Parallel</td>
+<td>MPI smoke and declared limitations</td>
+</tr>
+<tr>
+<td>Human use</td>
+<td>readable example and defect-localization task</td>
+</tr>
+<tr>
+<td>Agent use</td>
+<td>generation/repair task with structured feedback</td>
+</tr>
+<tr>
+<td>Provenance</td>
+<td>complete run record and output identity</td>
+</tr>
+</tbody>
+</table>
+<p>Not every early feature needs all rows immediately, but its documentation must
+state which rows are missing.</p>
+<h2 id="decisions-to-avoid">Decisions to Avoid<a class="headerlink" href="#decisions-to-avoid" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Do not replace readable Python with JSON as the primary human language.</li>
+<li>Do not advertise multi-backend support when only descriptors exist.</li>
+<li>Do not serialize <code>repr()</code> values containing memory addresses.</li>
+<li>Do not promise arbitrary UFL portability.</li>
+<li>Do not make a monolithic <code>solve_everything(...)</code> API the beginner path.</li>
+<li>Do not hide analysis assumptions inside backend defaults.</li>
+<li>Do not auto-repair scientific intent without an explicit policy.</li>
+<li>Do not treat examples as verification benchmarks.</li>
+<li>Do not expand feature coverage faster than validation evidence.</li>
+<li>Do not describe successful execution as proof of physical correctness.</li>
+</ul>
+<h2 id="near-term-implementation-queue">Near-Term Implementation Queue<a class="headerlink" href="#near-term-implementation-queue" title="Permanent link">&para;</a></h2>
+<p>The next concrete code changes should be:</p>
+<ol>
+<li>Unify linear, nonlinear, and transient outputs through <code>SimulationResult</code>;
+   finish reactions, energies, point/path probes, projection, and restart.</li>
+<li>Harden Neo-Hookean nonlinear-static solving and build the quadrature-state
+   protocol required for a real J2 finite-element step.</li>
+<li>Add validation for region emptiness, partition overlap/completeness, target
+   mesh consistency, and step/operator completeness.</li>
+<li>Complete external mesh volume/boundary region import with real Abaqus,
+   Nastran, Gmsh, Exodus, and MED golden files.</li>
+<li>Expand the test-linked benchmark registry with expected quantities,
+   tolerances, and mesh/time convergence.</li>
+<li>Record solver convergence reason and iteration count in every result.</li>
+<li>Add a model-owned transient heat step and checkpoint/restart.</li>
+<li>Integrate J2 plasticity only after local state, consistent tangent,
+   increment cutback, and single-element path tests are complete.</li>
+<li>Keep the Abaqus-equation serial/two-rank parity gate and extend focused MPI
+   validation to transient state, diagnostics, scaling, and deformed output.</li>
+<li>Add a global adaptive creep step and reproduce closed-form/NAFEMS cases.</li>
+<li>Add fatigue stress-history extraction and field-result provenance.</li>
+<li>Complete standard QoIs for reactions, energies, curves, and
+    mesh-independent field samples.</li>
+<li>Add an execution-service protocol so local plan shards, Slurm jobs, and
+    hosted runners produce the same case records.</li>
+<li>Add Gaussian-process/ensemble uncertainty adapters and active-learning
+    proposal records before automatic retraining.</li>
+<li>Implement field projection and reviewed residual families before enabling
+    neural-operator or PINN training adapters.</li>
+<li>Revisit AF-IR loading/migration/object IDs only alongside an executable
+    consumer and golden cases; do not let schema work displace product gates.</li>
+</ol>
+<h2 id="success-criterion">Success Criterion<a class="headerlink" href="#success-criterion" title="Permanent link">&para;</a></h2>
+<p>AgentFEM succeeds in the near term if it becomes a finite-element environment
+that engineers can actually use and trust for its supported analyses.</p>
+<p>It succeeds in the longer term if a scientific model can outlive:</p>
+<ul>
+<li>the prompt that produced it,</li>
+<li>the particular model that authored it,</li>
+<li>the Python process that executed it,</li>
+<li>and eventually the first backend that compiled it,</li>
+</ul>
+<p>while remaining understandable to the people responsible for the result.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2026 Haoming Luo. AgentFEM is Apache-2.0 licensed.
+    </div>
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/haoming-luo/agentfem" target="_blank" rel="noopener" title="AgentFEM on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://pypi.org/project/agentfem/" target="_blank" rel="noopener" title="AgentFEM on PyPI" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.path", "navigation.top", "navigation.tracking", "toc.follow", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

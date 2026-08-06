@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agentfem import cli, project, results
+from agentfem import __version__, cli, project, results, upgrades
 
 
 def test_project_config_and_run_context_are_portable(tmp_path):
@@ -96,5 +96,117 @@ def test_capability_command_is_json_serializable(capsys):
     assert cli.main(["capabilities", "--json"]) == 0
     record = json.loads(capsys.readouterr().out)
     assert record["schema"] == "agentfem.capabilities"
+    assert "upgrade" in record["commands"]
+    assert "verify" in record["commands"]
     assert "project" in record["public_modules"]
+    assert "provenance" in record["public_modules"]
     assert any(item["name"] == "linear_elasticity" for item in record["constitutive"])
+
+
+def test_upgrade_report_is_location_aware_and_does_not_rewrite_case(tmp_path):
+    case = tmp_path / "case.py"
+    source = """from agentfem import io\nwith io.XDMFTimeSeries('old.xdmf', domain) as writer:\n    writer.write_fields(0.0, u)\n"""
+    case.write_text(source, encoding="utf-8")
+    (tmp_path / "agentfem.toml").write_text(
+        "[project]\nname='legacy'\nentrypoint='case.py'\n",
+        encoding="utf-8",
+    )
+
+    report = upgrades.inspect_project(project.ProjectConfig.load(tmp_path))
+
+    assert report.status == "review_recommended"
+    assert {item.code for item in report.findings} == {
+        "AFM-UPG-004",
+        "AFM-UPG-101",
+    }
+    xdmf = next(item for item in report.findings if item.code == "AFM-UPG-101")
+    assert xdmf.line == 2
+    assert xdmf.semantic_review is True
+    assert case.read_text(encoding="utf-8") == source
+
+
+def test_upgrade_can_apply_only_safe_metadata_and_write_plan(tmp_path):
+    (tmp_path / "case.py").write_text("print('safe')\n", encoding="utf-8")
+    config = tmp_path / "agentfem.toml"
+    original = "[project]\nname='safe'\nentrypoint='case.py'\n"
+    config.write_text(original, encoding="utf-8")
+
+    assert cli.main(
+        [
+            "upgrade",
+            "--project",
+            str(tmp_path),
+            "--apply-safe",
+            "--write-plan",
+            "upgrade.json",
+            "--json",
+        ]
+    ) == 0
+
+    assert 'schema_version = "0.1.0"' in config.read_text(encoding="utf-8")
+    assert config.with_suffix(".toml.bak").read_text(encoding="utf-8") == original
+    saved = json.loads((tmp_path / "upgrade.json").read_text(encoding="utf-8"))
+    assert saved["schema"] == "agentfem.upgrade-report"
+    assert saved["status"] == "current"
+
+
+def test_check_blocks_project_schema_newer_than_runtime(tmp_path):
+    (tmp_path / "case.py").write_text("print('future')\n", encoding="utf-8")
+    (tmp_path / "agentfem.toml").write_text(
+        "[project]\nname='future'\nentrypoint='case.py'\nschema_version='99.0.0'\n",
+        encoding="utf-8",
+    )
+
+    assert cli.main(["check", "--project", str(tmp_path), "--json"]) == 2
+
+
+def test_safe_upgrade_replaces_an_older_operational_schema(tmp_path):
+    (tmp_path / "case.py").write_text("print('old')\n", encoding="utf-8")
+    config = tmp_path / "agentfem.toml"
+    config.write_text(
+        "[project]\nname='old'\nentrypoint='case.py'\nschema_version='0.0.1'\n",
+        encoding="utf-8",
+    )
+
+    changed = upgrades.apply_safe_metadata(project.ProjectConfig.load(tmp_path))
+
+    assert changed
+    assert 'schema_version="0.1.0"' in config.read_text(encoding="utf-8")
+
+
+def test_upgrade_scans_project_modules_but_ignores_generated_outputs(tmp_path):
+    (tmp_path / "case.py").write_text("from helpers import area\n", encoding="utf-8")
+    (tmp_path / "helpers.py").write_text(
+        "area = results.integral(1.0, measure=surface.measure)\n",
+        encoding="utf-8",
+    )
+    outputs = tmp_path / "outputs"
+    outputs.mkdir()
+    (outputs / "generated.py").write_text(
+        "with io.XDMFTimeSeries('ignored.xdmf', domain):\n    pass\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "agentfem.toml").write_text(
+        "[project]\nname='modules'\nentrypoint='case.py'\nschema_version='0.1.0'\n",
+        encoding="utf-8",
+    )
+
+    report = upgrades.inspect_project(project.ProjectConfig.load(tmp_path))
+
+    assert [(item.code, item.path.name) for item in report.findings] == [
+        ("AFM-UPG-103", "helpers.py")
+    ]
+
+
+def test_all_installed_templates_are_current_and_version_stamped(tmp_path):
+    for template in cli._templates():
+        target = tmp_path / template
+        assert cli.main(
+            ["init", str(target), "--template", template, "--name", template]
+        ) == 0
+        config = project.ProjectConfig.load(target)
+        report = upgrades.inspect_project(config)
+        assert config.created_with == __version__
+        assert report.status == "current"
+        source = config.entrypoint.read_text(encoding="utf-8")
+        assert "io.XDMFTimeSeries" not in source

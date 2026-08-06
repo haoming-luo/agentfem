@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+import ufl
 from dolfinx import fem
 from mpi4py import MPI
 
@@ -167,6 +168,60 @@ class UnknownField:
         return self.value.function_space.mesh.comm.allreduce(local, op=MPI.MAX)
 
 
+@dataclass(frozen=True)
+class DisplacementPressureUnknown:
+    """Mixed displacement/pressure unknown for hybrid solid mechanics.
+
+    ``displacement`` and ``pressure`` are views of one monolithic mixed
+    solution.  Users apply mechanical constraints to ``displacement`` while
+    the nonlinear problem solves both fields together.
+    """
+
+    name: str
+    space: object
+    value: object
+    trial: tuple[object, object]
+    test: tuple[object, object]
+    displacement: UnknownField
+    pressure: UnknownField
+    displacement_degree: int = 2
+    pressure_degree: int = 0
+    kind: str = "displacement_pressure"
+
+    @property
+    def function_space(self):
+        return self.space
+
+    @property
+    def ufl_shape(self):
+        return None
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "kind": self.kind,
+            "element": str(self.space.ufl_element()),
+            "displacement_degree": int(self.displacement_degree),
+            "pressure_degree": int(self.pressure_degree),
+            "pressure_interpolation": "cellwise_discontinuous",
+            "pressure_unknowns_per_cell": 1 if self.pressure_degree == 0 else None,
+        }
+
+    def collapsed_displacement(self, *, name: str = "U"):
+        """Return a standalone displacement field copied from the mixed state."""
+
+        result = self.value.sub(0).collapse()
+        result.name = name
+        return result
+
+    def collapsed_pressure(self, *, name: str = "P"):
+        """Return a standalone pressure field copied from the mixed state."""
+
+        result = self.value.sub(1).collapse()
+        result.name = name
+        return result
+
+
 def scalar_unknown(domain, *, name: str = "Unknown", degree: int = 1, value=0.0) -> UnknownField:
     """Create a scalar finite-element unknown."""
 
@@ -213,6 +268,62 @@ def displacement(domain, *, degree: int = 1, dim: int | None = None, value=0.0) 
         value=field.value,
         trial=field.trial,
         test=field.test,
+    )
+
+
+def displacement_pressure(
+    domain,
+    *,
+    displacement_degree: int = 2,
+    pressure_degree: int = 0,
+    name: str = "DisplacementPressure",
+) -> DisplacementPressureUnknown:
+    """Create a mixed displacement/pressure unknown.
+
+    The default has quadratic displacement interpolation and one constant
+    pressure value per cell.  Apply constraints through
+    ``unknown.displacement`` and request pressure output through
+    ``unknown.collapsed_pressure()``.
+    """
+
+    W = spaces.displacement_pressure_space(
+        domain,
+        displacement_degree=displacement_degree,
+        pressure_degree=pressure_degree,
+    )
+    mixed_value = fem.Function(W, name=name)
+    trial = tuple(ufl.TrialFunctions(W))
+    test = tuple(ufl.TestFunctions(W))
+    displacement_value = mixed_value.sub(0)
+    displacement_value.name = "Displacement"
+    pressure_value = mixed_value.sub(1)
+    pressure_value.name = "Pressure"
+    displacement_unknown = UnknownField(
+        name="Displacement",
+        kind="displacement_subfield",
+        space=W.sub(0),
+        value=displacement_value,
+        trial=trial[0],
+        test=test[0],
+    )
+    pressure_unknown = UnknownField(
+        name="Pressure",
+        kind="pressure_subfield",
+        space=W.sub(1),
+        value=pressure_value,
+        trial=trial[1],
+        test=test[1],
+    )
+    return DisplacementPressureUnknown(
+        name=name,
+        space=W,
+        value=mixed_value,
+        trial=trial,
+        test=test,
+        displacement=displacement_unknown,
+        pressure=pressure_unknown,
+        displacement_degree=int(displacement_degree),
+        pressure_degree=int(pressure_degree),
     )
 
 

@@ -1,10 +1,10 @@
 """Sequential hot-wall FEM and Kachanov--Rabotnov creep assessment.
 
-This release demo is intentionally honest about its boundary: heat transfer
-and thermoelastic stress are finite-element analyses; creep is then evaluated
-at the governing sampled equivalent stress with a verified material-point
-law. It demonstrates the data path needed by power-component screening while
-the global quadrature creep step remains a release gate, not a hidden claim.
+This release demo remains a sequential governing-point assessment: heat
+transfer and thermoelastic stress are finite-element analyses; Kachanov--
+Rabotnov damage is then evaluated at the sampled hotspot. AgentFEM's separate
+global implicit route currently consumes isothermal power-law creep, not this
+damage law or the temperature field.
 """
 
 from __future__ import annotations

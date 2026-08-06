@@ -56,6 +56,7 @@ class RuntimeReport:
     packages: dict[str, str | None]
     mpi: dict[str, object]
     optional: tuple[dependencies.DependencyStatus, ...]
+    execution: dict[str, object]
 
     def summary(self) -> dict[str, object]:
         return {
@@ -65,6 +66,7 @@ class RuntimeReport:
             "packages": dict(self.packages),
             "mpi": dict(self.mpi),
             "optional": tuple(item.summary() for item in self.optional),
+            "execution": dict(self.execution),
         }
 
     def format(self) -> str:
@@ -75,6 +77,18 @@ class RuntimeReport:
         )
         lines.append(f"  MPI vendor: {self.mpi['vendor']}")
         lines.append(f"  MPI launcher: {self.mpi['recommended_launcher']}")
+        lines.append(f"  Python executable: {self.execution['python_executable']}")
+        lines.append(f"  imported AgentFEM: {self.execution['imported_package']}")
+        lines.append(
+            "  installed distribution: "
+            f"{self.execution['installed_distribution'] or 'not installed'}"
+        )
+        lines.append(f"  runtime mode: {self.execution['mode']}")
+        if self.execution["distribution_mismatch"]:
+            lines.append(
+                "  warning: the imported AgentFEM package differs from the installed "
+                "distribution; a source checkout may be shadowing the environment"
+            )
         if self.mpi["path_mismatch"]:
             lines.append(
                 "  warning: PATH mpiexec differs from the active environment; "
@@ -204,7 +218,37 @@ def runtime_report() -> RuntimeReport:
                 capability="Distributed multi-point constraints",
             ),
         ),
+        execution=_execution_identity(),
     )
+
+
+def _execution_identity() -> dict[str, object]:
+    """Identify the exact code and interpreter used by the current process."""
+
+    imported_package = Path(__file__).resolve().parent
+    distribution_package = None
+    try:
+        distribution = metadata.distribution("agentfem")
+        candidate = Path(distribution.locate_file("agentfem")).resolve()
+        if candidate.exists():
+            distribution_package = candidate
+    except metadata.PackageNotFoundError:
+        pass
+    mismatch = (
+        distribution_package is not None
+        and distribution_package != imported_package
+    )
+    source_checkout = (imported_package / "pyproject.toml").is_file()
+    return {
+        "python_executable": sys.executable,
+        "working_directory": str(Path.cwd()),
+        "imported_package": str(imported_package),
+        "installed_distribution": (
+            None if distribution_package is None else str(distribution_package)
+        ),
+        "distribution_mismatch": mismatch,
+        "mode": "source_checkout" if source_checkout else "installed_distribution",
+    }
 
 
 def _mpi_runtime() -> dict[str, object]:

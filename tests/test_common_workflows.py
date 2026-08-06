@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 from mpi4py import MPI
 
-from agentfem import amplitudes, constitutive, fields, mesh, models, studies
+from agentfem import amplitudes, constitutive, fields, mesh, models, results, studies
 from agentfem.constitutive import elasticity
 
 
@@ -13,6 +14,19 @@ def _left(x):
 
 def _right(x):
     return np.isclose(x[0], 1.0)
+
+
+def test_cuboid_is_the_three_dimensional_structured_mesh_factory():
+    domain = mesh.cuboid(
+        (0.0, 0.0, 0.0),
+        (2.0, 1.0, 0.5),
+        (2, 1, 1),
+        comm=MPI.COMM_SELF,
+    )
+    summary = mesh.summarize_mesh(domain)
+
+    assert summary.geometric_dim == 3
+    assert summary.global_cells == 2
 
 
 def test_static_solid_clamp_and_gravity_are_model_owned():
@@ -51,6 +65,39 @@ def test_static_solid_clamp_and_gravity_are_model_owned():
     assert model.constraints[0].summary()["dirichlet"][0]["name"].startswith("clamped")
     assert simulation.status == "completed"
     assert displacement.max_abs() > 0.0
+
+
+def test_surface_force_distributes_requested_resultant_over_reference_boundary():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (2.0, 0.5),
+        (4, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    model = models.create(
+        study=studies.static_solid(dimension=2, assumption="plane_strain"),
+        mesh=domain,
+        name="end_resultant",
+    )
+    displacement = model.field(fields.displacement(domain))
+    model.material(
+        elasticity.isotropic_elastic(young=1.0e6, poisson=0.3, density=1.0)
+    )
+    left = mesh.boundary(domain, _left, name="support", tag=1)
+    right = mesh.boundary(domain, lambda x: np.isclose(x[0], 2.0), name="loaded_end", tag=2)
+    model.clamp(displacement, on=left)
+    load = model.surface_force((125.0, -50.0), on=right)
+
+    applied = results.boundary_resultant(load.value, on=right)
+    simulation = model.step(target=displacement).solve_result()
+    balance = results.static_force_balance(model.steps[-1].problem)
+
+    np.testing.assert_allclose(applied, [125.0, -50.0], rtol=1.0e-12, atol=1.0e-12)
+    assert load.reference_measure == pytest.approx(0.5)
+    assert load.summary()["distribution"] == "uniform"
+    assert simulation.status == "completed"
+    assert balance.relative_error < 1.0e-10
 
 
 def test_steady_heat_transfer_consumes_flux_and_convection():

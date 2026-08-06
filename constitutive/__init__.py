@@ -14,11 +14,15 @@ from .creep import (
     CreepDamageState,
     CreepDamageUpdate,
     CreepHistory,
+    ImplicitCreepState,
+    ImplicitCreepUpdate,
+    IsotropicPowerLawCreepMaterial,
     KachanovRabotnovCreep,
     ModifiedThetaProjection,
     PowerLawCreep,
     SinhCreep,
     integrate_stress_history,
+    isotropic_power_law,
 )
 from .elasticity import (
     AnisotropicElasticMaterial2D,
@@ -55,8 +59,10 @@ from .fatigue import (
 )
 from .hyperelasticity import (
     FiniteStrainKinematics,
+    MixedNeoHookeanProperties,
     NeoHookeanProperties,
     kinematics,
+    mixed_neo_hookean,
     neo_hookean,
 )
 from .plasticity import (
@@ -67,7 +73,12 @@ from .plasticity import (
     update_uniaxial,
     von_mises,
 )
-from .quadrature import J2QuadratureState, QuadratureField, QuadratureTransaction
+from .quadrature import (
+    CreepQuadratureState,
+    J2QuadratureState,
+    QuadratureField,
+    QuadratureTransaction,
+)
 from .user_material import (
     AbaqusUserMaterialBridge,
     MaterialPointInput,
@@ -90,6 +101,10 @@ __all__ = [
     "ConstitutiveCapability",
     "BasquinCurve",
     "CreepHistory",
+    "CreepQuadratureState",
+    "ImplicitCreepState",
+    "ImplicitCreepUpdate",
+    "IsotropicPowerLawCreepMaterial",
     "CreepDamageState",
     "CreepDamageUpdate",
     "ElasticAnisotropic2DProperties",
@@ -104,6 +119,7 @@ __all__ = [
     "J2Update",
     "J2QuadratureState",
     "FiniteStrainKinematics",
+    "MixedNeoHookeanProperties",
     "NeoHookeanProperties",
     "MaterialPointInput",
     "MaterialPointOutput",
@@ -130,12 +146,14 @@ __all__ = [
     "thermoelastic",
     "thermoelastic_stress",
     "integrate_stress_history",
+    "isotropic_power_law",
     "life_scale_factor",
     "damage_from_history",
     "goodman_amplitude",
     "miner_damage",
     "rainflow_cycles",
     "neo_hookean",
+    "mixed_neo_hookean",
     "kinematics",
     "orthotropic_plane_stress_2d",
     "stress",

@@ -166,6 +166,15 @@ The neutral conversion makes topology selection and any set loss visible in a
 manifest. Labels and equations are retained separately because generic mesh
 conversion cannot preserve every periodic-constraint requirement.
 
+The current source declares `C3D10`, so the example uses quadratic geometry,
+P2 displacement, and a displacement-based compressible Neo-Hookean law. If a
+source deck declares `C3D10H`, meshio can still carry its `tetra10` geometry,
+but the `H` denotes a hybrid constant-pressure element with an additional
+element variable. AgentFEM records that distinction and the current
+displacement-only hyperelastic step refuses to label it equivalent. The
+planned hybrid route will be a separately benchmarked formulation, not a file-
+name alias.
+
 ## Evidence and Failure Checks
 
 A credible run should report:

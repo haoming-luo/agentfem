@@ -28,6 +28,7 @@ from . import operators
 from . import platforms
 from . import problems
 from . import project
+from . import provenance
 from . import procedures
 from . import results
 from . import solvers
@@ -36,6 +37,7 @@ from . import steps
 from . import studies
 from . import surrogates
 from . import time
+from . import upgrades
 from . import validation
 from . import verification
 
@@ -53,12 +55,14 @@ PUBLIC_WORKFLOW_MODULES = (
     "operators",
     "problems",
     "project",
+    "provenance",
     "platforms",
     "procedures",
     "results",
     "solvers",
     "steps",
     "time",
+    "upgrades",
     "io",
     "diagnostics",
     "ir",
@@ -106,6 +110,7 @@ __all__ = [
     "platforms",
     "problems",
     "project",
+    "provenance",
     "procedures",
     "results",
     "solvers",
@@ -114,6 +119,7 @@ __all__ = [
     "studies",
     "surrogates",
     "time",
+    "upgrades",
     "validation",
     "verification",
     "public_api",

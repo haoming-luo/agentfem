@@ -59,7 +59,7 @@ visualization = [
   "imageio-ffmpeg",
 ]
 parallel-mpc = ["dolfinx_mpc>=0.11,<0.12"]
-docs = ["mkdocs", "mkdocs-material", "pymdown-extensions"]
+docs = ["mkdocs", "mkdocs-material", "pymdown-extensions", "mike"]
 notebooks = ["jupyterlab", "ipykernel", "nbformat", "nbclient"]
 ml = ["torch"]
 dev = ["build", "pytest", "twine"]

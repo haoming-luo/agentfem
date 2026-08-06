@@ -492,8 +492,10 @@ class SimulationResult:
         """Create a dataset sample without copying live finite-element fields."""
 
         from agentfem.datasets import Sample
+        from agentfem.provenance import ORIGIN
 
         evidence = {
+            "software_origin": dict(ORIGIN),
             "simulation_result": self.summary(),
             **({} if provenance is None else dict(provenance)),
         }
@@ -597,12 +599,22 @@ class SimulationResult:
     ) -> Path:
         output = Path(path)
         output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(
+        record = self.manifest(
+            include_histories=include_histories,
+            artifact_base=output.parent if relative_artifacts else None,
+        )
+        from .. import __version__
+        from ..provenance import seal_manifest
+
+        record["provenance_seal"] = seal_manifest(
+            record,
+            base=output.parent,
+            producer_version=__version__,
+        )
+        temporary = output.with_suffix(output.suffix + ".tmp")
+        temporary.write_text(
             json.dumps(
-                self.manifest(
-                    include_histories=include_histories,
-                    artifact_base=output.parent if relative_artifacts else None,
-                ),
+                record,
                 indent=2,
                 sort_keys=True,
                 ensure_ascii=False,
@@ -611,6 +623,7 @@ class SimulationResult:
             + "\n",
             encoding="utf-8",
         )
+        temporary.replace(output)
         return output
 
 

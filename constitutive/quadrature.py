@@ -13,6 +13,7 @@ import ufl
 from dolfinx import fem
 
 from .plasticity import J2LinearIsotropicHardening, J2PlasticState
+from .creep import ImplicitCreepState, IsotropicPowerLawCreepMaterial
 
 
 @dataclass
@@ -472,4 +473,228 @@ class J2QuadratureState:
         return output
 
 
-__all__ = ["J2QuadratureState", "QuadratureField", "QuadratureTransaction"]
+@dataclass
+class CreepQuadratureState:
+    """Committed/trial integration-point state for implicit 3D creep."""
+
+    creep_strain: QuadratureField
+    equivalent_creep_strain: QuadratureField
+    trial_creep_strain: QuadratureField
+    trial_equivalent_creep_strain: QuadratureField
+    stress: QuadratureField
+    tangent: QuadratureField
+    degree: int
+    scheme: str = "default"
+    transaction: QuadratureTransaction = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.transaction = QuadratureTransaction(
+            committed={
+                "creep_strain": self.creep_strain,
+                "equivalent_creep_strain": self.equivalent_creep_strain,
+            },
+            trial={
+                "creep_strain": self.trial_creep_strain,
+                "equivalent_creep_strain": self.trial_equivalent_creep_strain,
+            },
+            schema="agentfem.power-law-creep-small-strain-state",
+            metadata={
+                "integration": "backward_euler",
+                "tangent": "algorithmic_consistent",
+            },
+        )
+
+    @classmethod
+    def create(cls, domain, *, degree: int = 2, scheme: str = "default"):
+        common = {"degree": degree, "scheme": scheme}
+        return cls(
+            creep_strain=QuadratureField.create(
+                domain, name="CE", value_shape=(3, 3), **common
+            ),
+            equivalent_creep_strain=QuadratureField.create(
+                domain, name="CEEQ", **common
+            ),
+            trial_creep_strain=QuadratureField.create(
+                domain, name="CE_trial", value_shape=(3, 3), **common
+            ),
+            trial_equivalent_creep_strain=QuadratureField.create(
+                domain, name="CEEQ_trial", **common
+            ),
+            stress=QuadratureField.create(
+                domain, name="S", value_shape=(3, 3), **common
+            ),
+            tangent=QuadratureField.create(
+                domain, name="DDSDDE", value_shape=(3, 3, 3, 3), **common
+            ),
+            degree=int(degree),
+            scheme=scheme,
+        )
+
+    @property
+    def domain(self):
+        return self.stress.function.function_space.mesh
+
+    @property
+    def measure(self):
+        return ufl.Measure(
+            "dx",
+            domain=self.domain,
+            metadata={
+                "quadrature_degree": self.degree,
+                "quadrature_scheme": self.scheme,
+            },
+        )
+
+    def evaluate_strain(self, strain_expression) -> np.ndarray:
+        topology = self.domain.topology
+        cell_dim = topology.dim
+        topology.create_connectivity(cell_dim, cell_dim)
+        index_map = topology.index_map(cell_dim)
+        cells = np.arange(
+            index_map.size_local + index_map.num_ghosts,
+            dtype=np.int32,
+        )
+        evaluated = fem.Expression(strain_expression, self.stress.points).eval(
+            self.domain,
+            cells,
+        )
+        return np.asarray(evaluated).reshape((-1, 3, 3))
+
+    def update(
+        self,
+        strain_values,
+        material: IsotropicPowerLawCreepMaterial,
+        *,
+        time_start: float,
+        time_end: float,
+    ) -> dict[str, float | int]:
+        """Update trial creep state, stress, and tangent from committed state."""
+
+        strains = np.asarray(strain_values, dtype=float).reshape((-1, 3, 3))
+        committed_ce = self.creep_strain.values
+        committed_ceeq = self.equivalent_creep_strain.values.reshape(-1)
+        if len(strains) != len(committed_ce):
+            raise ValueError(
+                "Strain evaluation and creep quadrature layouts do not match."
+            )
+        stresses = np.empty_like(self.stress.values)
+        tangents = np.empty_like(self.tangent.values)
+        trial_ce = np.empty_like(self.trial_creep_strain.values)
+        trial_ceeq = np.empty_like(
+            self.trial_equivalent_creep_strain.values.reshape(-1)
+        )
+        maximum_increment = 0.0
+        maximum_local_iterations = 0
+        active_points = 0
+        for index, strain in enumerate(strains):
+            old = ImplicitCreepState(committed_ce[index], committed_ceeq[index])
+            update = material.update(
+                strain,
+                time_start=time_start,
+                time_end=time_end,
+                state=old,
+            )
+            stresses[index] = update.stress
+            tangents[index] = update.algorithmic_tangent
+            trial_ce[index] = update.state.creep_strain
+            trial_ceeq[index] = update.state.equivalent_creep_strain
+            maximum_increment = max(maximum_increment, update.equivalent_increment)
+            maximum_local_iterations = max(
+                maximum_local_iterations,
+                update.local_iterations,
+            )
+            active_points += int(update.equivalent_increment > 0.0)
+        self.stress.assign(stresses)
+        self.tangent.assign(tangents)
+        self.trial_creep_strain.assign(trial_ce)
+        self.trial_equivalent_creep_strain.assign(trial_ceeq)
+        return {
+            "points": len(strains),
+            "creeping_points": active_points,
+            "maximum_creep_increment": maximum_increment,
+            "maximum_local_iterations": maximum_local_iterations,
+        }
+
+    def refresh_response(
+        self,
+        strain_values,
+        material: IsotropicPowerLawCreepMaterial,
+    ) -> None:
+        """Recover accepted stress without changing committed/trial state."""
+
+        strains = np.asarray(strain_values, dtype=float).reshape((-1, 3, 3))
+        committed_ce = self.creep_strain.values
+        committed_ceeq = self.equivalent_creep_strain.values.reshape(-1)
+        if len(strains) != len(committed_ce):
+            raise ValueError(
+                "Strain evaluation and creep quadrature layouts do not match."
+            )
+        stresses = np.empty_like(self.stress.values)
+        for index, strain in enumerate(strains):
+            stresses[index] = material.stress_from_state(
+                strain,
+                ImplicitCreepState(committed_ce[index], committed_ceeq[index]),
+            )
+        self.stress.assign(stresses)
+        elastic_tangent = material.elastic_tangent()
+        self.tangent.assign(
+            np.broadcast_to(
+                elastic_tangent,
+                (len(strains), *elastic_tangent.shape),
+            )
+        )
+        self.rollback()
+
+    def commit(self) -> None:
+        self.transaction.commit()
+
+    def rollback(self) -> None:
+        self.transaction.rollback()
+
+    def snapshot(self) -> dict[str, np.ndarray]:
+        return self.transaction.snapshot()
+
+    def restore(self, snapshot: Mapping[str, object]) -> None:
+        self.transaction.restore(snapshot)
+
+    def equivalent_stress(self) -> QuadratureField:
+        stress = self.stress.values
+        trace = np.trace(stress, axis1=-2, axis2=-1)
+        identity = np.eye(3, dtype=stress.dtype)
+        deviator = stress - trace[:, None, None] * identity / 3.0
+        mises = np.sqrt(1.5 * np.sum(deviator * deviator, axis=(-2, -1)))
+        output = QuadratureField.create(
+            self.domain,
+            name="MISES",
+            degree=self.degree,
+            scheme=self.scheme,
+        )
+        output.assign(mises)
+        return output
+
+    def output_fields(self) -> tuple[object, ...]:
+        return (
+            self.stress.cell_average(name="S"),
+            self.creep_strain.cell_average(name="CE"),
+            self.equivalent_creep_strain.cell_average(name="CEEQ"),
+            self.equivalent_stress().cell_average(name="MISES"),
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "creep_quadrature_state",
+            "degree": self.degree,
+            "scheme": self.scheme,
+            "points_local": int(len(self.equivalent_creep_strain.values)),
+            "state_variables": ("creep_strain", "equivalent_creep_strain"),
+            "trial_fields": ("stress", "algorithmic_tangent"),
+            "transaction": self.transaction.summary(),
+        }
+
+
+__all__ = [
+    "CreepQuadratureState",
+    "J2QuadratureState",
+    "QuadratureField",
+    "QuadratureTransaction",
+]

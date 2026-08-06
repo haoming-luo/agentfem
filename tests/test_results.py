@@ -47,6 +47,8 @@ def test_result_collects_qois_histories_artifacts_and_dataset_sample(tmp_path):
     assert sample.outputs["tip_displacement"] == -1.2e-3
     np.testing.assert_allclose(sample.outputs["reaction"], [10.0, -20.0])
     assert sample.artifacts == {"visualization": "cantilever.xdmf"}
+    assert sample.provenance["software_origin"]["project"] == "AgentFEM"
+    assert sample.provenance["software_origin"]["initiated_by"] == "Haoming Luo"
     assert sample.provenance["simulation_result"]["status"] == "completed"
     assert result.histories["energy"].latest == 3.0
     assert saved["schema"] == "agentfem.simulation-result"
@@ -123,6 +125,20 @@ def test_linear_step_result_carries_ksp_evidence_consumed_by_engineering_quality
     solve = simulation.metadata["step"]["problem"]["last_solve"]
     assert solve["kind"] == "linear_solve_info"
     assert solve["converged"] is True
+    np.testing.assert_allclose(
+        simulation.quantities["external_force_resultant"].value,
+        [0.0, -0.2],
+        atol=1.0e-12,
+    )
+    np.testing.assert_allclose(
+        simulation.quantities["reaction_force_resultant"].value,
+        [0.0, 0.2],
+        atol=1.0e-10,
+    )
+    assert simulation.quantities["relative_force_balance_error"].value < 1.0e-10
+    assert simulation.metadata["static_equilibrium"]["definition"] == (
+        "reaction + assembled external force"
+    )
     assert quality.trust_level == "converged"
     assert quality.acceptable
 
@@ -808,6 +824,41 @@ def test_unified_xdmf_keeps_deformed_time_series_and_fields_in_one_h5(tmp_path):
     for grid in uniform_grids:
         names = {item.attrib["Name"] for item in grid.findall("Attribute")}
         assert names == {"U", "UMAG", "MISES"}
+
+
+def test_unified_xdmf_accepts_scalar_primary_field_on_reference_geometry(tmp_path):
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.5),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    V = fem.functionspace(domain, ("Lagrange", 1))
+    temperature = fem.Function(V, name="Temperature")
+    temperature.interpolate(lambda x: 300.0 + 10.0 * x[0])
+
+    xdmf = results.write_unified_xdmf_series(
+        tmp_path / "temperature.xdmf",
+        (SimpleNamespace(solution=temperature, load_factor=0.0),),
+        ((),),
+        deformation_scale=1.0,
+    )
+
+    with h5py.File(xdmf.with_suffix(".h5"), "r") as h5:
+        assert h5.attrs["primary_field"] == "Temperature"
+        assert h5.attrs["geometry_mode"] == "reference"
+        assert set(h5["Frames/0000/Point"]) == {"Temperature"}
+        np.testing.assert_allclose(
+            h5["Frames/0000/Geometry"],
+            h5["Mesh/ReferenceGeometry"],
+        )
+    grid = ET.parse(xdmf).find(".//Grid[@GridType='Uniform']")
+    assert grid is not None
+    assert {
+        item.attrib["Name"]: item.attrib["Center"]
+        for item in grid.findall("Attribute")
+    } == {"Temperature": "Node"}
 
 
 def test_unified_xdmf_places_continuous_auxiliary_field_on_same_p2_grid(tmp_path):

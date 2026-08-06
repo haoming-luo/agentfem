@@ -6,7 +6,10 @@ finite-element simulation with AgentFEM.
 ## First Steps
 
 1. For an installed case, run `agentfem doctor --json`, then
-   `agentfem check --json`. For repository work, also read this guide.
+   `agentfem check --json`. For an existing case also run
+   `agentfem upgrade --json`; treat `semantic_review=true` as a requirement to
+   inspect the finite-element meaning, not as permission for blind text
+   replacement. For repository work, also read this guide.
 2. Read `WORKFLOW.md` to identify the standard finite-element sequence.
 3. Read `CONCEPTS.md` to align terminology before changing code.
 4. Identify or create the `studies.Study` before choosing constitutive laws or
@@ -44,8 +47,9 @@ finite-element simulation with AgentFEM.
   needed by the default lowering; never work around `AFM-STUDY-002` by
   silently changing the Study.
 - Model registration: use `model.field(...)`, `model.material(...)`,
-  `model.fix(...)`, and `model.traction(...)` in application workflows when the
-  assets should stay visible and auditable.
+  `model.fix(...)`, `model.traction(...)`, `model.surface_force(...)`,
+  `model.distributing_coupling(...)`, and `model.elastic_foundation(...)` in
+  application workflows when the assets should stay visible and auditable.
 - Application unknowns: use `fields.py` before dropping to `spaces.py`.
 - Function spaces: inspect `spaces.py`; only inspect `kernel/dofs.py` for
   implementation-level dof work.
@@ -71,6 +75,13 @@ finite-element simulation with AgentFEM.
   `steps.fixed(...)` only when exact fixed subdivision is scientifically
   intended. `max_increments` limits accepted increments; Newton `max_it`
   limits iterations in one attempt.
+- Multi-Step activation: use `model.stage(...)` and pass its result as
+  `configuration=` to `model.step(...)`; keep asset inheritance separate from
+  incrementation and nonlinear solver controls.
+- Hybrid solids: a known C3D10H source mesh requires
+  `fields.displacement_pressure(...)` and
+  `constitutive.mixed_neo_hookean(...)`; do not route it through a
+  displacement-only provider.
 - Analysis steps: prefer `model.step(...)` or `model.linear_static_step(...)`
   when a model owns fields, materials, loads, and constraints. Use
   `problems.linear_static` or `problems.first_order_transient` when a workflow
@@ -100,6 +111,10 @@ finite-element simulation with AgentFEM.
   execution status from
   `result.trust_level`, apply a named quality policy for routine checks, and
   attach explicit scientific claims before describing a result as verified.
+- Result provenance: register every numerical/report artifact before
+  publishing, then use `agentfem verify ... --json`. Treat `verified` here as
+  byte-integrity evidence only; scientific trust remains in
+  `SimulationResult.verification`.
 - For long transient jobs, pass one `checkpointing.every(...)` policy through
   `model.step(checkpoint=...)`; do not implement cadence in a case loop.
 - Restart: heat, Standard dynamics, and Explicit dynamics share

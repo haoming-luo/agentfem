@@ -1,0 +1,88 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.load.surface_resultant",
+  "title": "Uniform boundary traction from a requested resultant force",
+  "kind": "workflow",
+  "status": "supported",
+  "summary": "Converts an engineering total force into a uniform reference-boundary traction while preserving the requested MPI-global resultant.",
+  "public_api": [
+    "agentfem.loads.surface_force",
+    "agentfem.loads.distributing_coupling",
+    "agentfem.models.Model.surface_force",
+    "agentfem.models.Model.distributing_coupling",
+    "agentfem.results.boundary_resultant"
+  ],
+  "implementation": ["loads.py", "models.py"],
+  "science": {
+    "statement": "A known continuum-solid end force can be applied without a singular nodal load by distributing it over a named reference boundary.",
+    "equations": [
+      {
+        "label": "uniform reference traction",
+        "expression": "t0 = F_requested / measure(Gamma0)",
+        "description": "The same constant traction is integrated over the selected reference edge or surface."
+      },
+      {
+        "label": "resultant contract",
+        "expression": "integral(Gamma0, t0 dGamma0) = F_requested",
+        "description": "The boundary measure and verification integral are MPI-global."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "resultant and boundary",
+        "type": "finite vector and named BoundaryRegion",
+        "unit_role": "force and reference edge length/surface area",
+        "description": "The vector dimension must match the mesh geometric dimension."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "surface resultant load",
+        "type": "weak boundary load",
+        "unit_role": "traction integrated to force",
+        "description": "The load retains requested resultant, measured reference size, and applied traction in its summary."
+      }
+    ],
+    "assumptions": [
+      "The traction is uniform over the selected reference boundary.",
+      "In 2D the resultant is per unit out-of-plane thickness."
+    ],
+    "conventions": [
+      "The force vector follows global coordinates.",
+      "Amplitude scaling acts on the complete distributed load.",
+      "The geometric measure is assembled unless an explicit positive reference_measure is supplied."
+    ],
+    "applicability": [
+      "Continuum-solid end loads, verification beams, specimens, and distributing-load workflows."
+    ],
+    "limitations": [
+      "surface_force is uniform; use distributing_coupling when a reference-point moment must also be transmitted.",
+      "The distributing load preserves resultants but does not yet create kinematic reference-point degrees of freedom or an MPC constraint."
+    ]
+  },
+  "usage": {
+    "minimal_example": "loaded = mesh.boundary(domain, right, name='loaded_end')\nmodel.surface_force((0.0, -50000.0), on=loaded)",
+    "examples": ["tests/test_common_workflows.py"]
+  },
+  "verification": {
+    "tests": ["tests/test_common_workflows.py", "tests/test_engineering_workflows.py"],
+    "benchmarks": ["agentfem.benchmark.elasticity_foundation"],
+    "validation_rules": [
+      "Reject non-finite or dimensionally incompatible resultants.",
+      "Reject an empty or non-positive reference boundary measure.",
+      "Integrate the generated traction and recover the requested vector.",
+      "Solve a clamped solid and verify global force balance."
+    ]
+  },
+  "references": [
+    {
+      "title": "Abaqus three-dimensional solid distributed loads",
+      "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAEELMRefMap/simaelm-r-3delem.htm"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.standard_result_projection",
+    "agentfem.operator.system_contracts"
+  ]
+}

@@ -1,5 +1,10 @@
 # Workflow Reference
 
+For an existing installed project, start with `agentfem doctor --json`,
+`agentfem check --json`, and `agentfem upgrade --json`. Automatic migration is
+limited to deterministic metadata. A finding with `semantic_review=true`
+requires inspection and re-verification of the finite-element meaning.
+
 AgentFEM workflow:
 
 1. Study context: analysis type, physics, dimension, and assumptions

@@ -2,6 +2,7 @@
 name = "{{PROJECT_NAME}}"
 entrypoint = "case.py"
 schema_version = "0.1.0"
+created_with = "{{AGENTFEM_VERSION}}"
 
 [run]
 output_directory = "outputs"

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numpy as np
 import ufl
 from dolfinx import fem
+from mpi4py import MPI
 from petsc4py import PETSc
 
 from . import amplitudes
@@ -84,6 +86,32 @@ class GravityLoad:
 
 
 @dataclass(frozen=True)
+class CentrifugalLoad:
+    """Rotating-frame body force ``rho omega x (omega x r)`` outward."""
+
+    angular_velocity: object
+    center: tuple[float, ...]
+    density: object
+    value: object
+    measure: object = ufl.dx
+    name: str = "centrifugal"
+    location: object | None = None
+
+    def form(self, test_function):
+        return forms.body_force_virtual_work(self.value, test_function, self.measure)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "kind": "centrifugal_load",
+            "location": getattr(self.location, "name", None),
+            "center": self.center,
+            "angular_velocity": describe_value(self.angular_velocity),
+            "density": describe_value(self.density),
+        }
+
+
+@dataclass(frozen=True)
 class BoundaryLoad:
     """Boundary flux/traction term for a weak form."""
 
@@ -136,6 +164,103 @@ class PressureLoad:
             "pressure": describe_value(self.pressure),
             "configuration": self.configuration,
             "sign_convention": "positive pressure acts inward",
+        }
+
+
+@dataclass(frozen=True)
+class HydrostaticPressureLoad(PressureLoad):
+    """Pressure varying with elevation from a reference free surface."""
+
+    density: object = None
+    gravity: object = None
+    reference_point: tuple[float, ...] = ()
+
+    def summary(self) -> dict[str, object]:
+        result = super().summary()
+        result.update(
+            {
+                "kind": "hydrostatic_pressure_load",
+                "density": describe_value(self.density),
+                "gravity": describe_value(self.gravity),
+                "reference_point": self.reference_point,
+            }
+        )
+        return result
+
+
+@dataclass(frozen=True)
+class SurfaceResultantLoad:
+    """A requested total force uniformly distributed over a reference boundary.
+
+    This is useful for continuum-solid models where a physical end load is
+    known but a singular nodal force is neither intended nor numerically
+    desirable.  In two-dimensional studies the resultant is per unit
+    out-of-plane thickness.
+    """
+
+    resultant: tuple[float, ...]
+    traction: object
+    reference_measure: float
+    measure: object
+    location: object
+    name: str = "surface_force"
+
+    @property
+    def value(self):
+        return self.traction
+
+    def form(self, test_function):
+        return forms.boundary_flux_virtual_work(
+            self.traction,
+            test_function,
+            self.measure,
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "kind": "surface_resultant_load",
+            "location": getattr(self.location, "name", None),
+            "resultant": self.resultant,
+            "reference_measure": self.reference_measure,
+            "traction": describe_value(self.traction),
+            "configuration": "reference",
+            "distribution": "uniform",
+        }
+
+
+@dataclass(frozen=True)
+class DistributedCouplingLoad:
+    """Force and moment distributed over a continuum surface."""
+
+    force: tuple[float, ...]
+    moment: object
+    reference_point: tuple[float, ...]
+    centroid: tuple[float, ...]
+    traction: object
+    reference_measure: float
+    measure: object
+    location: object
+    name: str = "distributing_coupling"
+
+    @property
+    def value(self):
+        return self.traction
+
+    def form(self, test_function):
+        return forms.boundary_flux_virtual_work(self.traction, test_function, self.measure)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "kind": "distributed_coupling_load",
+            "location": getattr(self.location, "name", None),
+            "force": self.force,
+            "moment": self.moment,
+            "reference_point": self.reference_point,
+            "surface_centroid": self.centroid,
+            "reference_measure": self.reference_measure,
+            "weighting": "continuum_tributary_measure",
         }
 
 
@@ -284,6 +409,57 @@ def gravity(
     )
 
 
+def centrifugal(
+    angular_velocity,
+    *,
+    density,
+    center=None,
+    domain=None,
+    target=None,
+    region=None,
+    measure=None,
+    name: str = "centrifugal",
+) -> CentrifugalLoad:
+    """Create the outward body force caused by constant angular velocity."""
+
+    owner = domain or target or region
+    if owner is None:
+        raise ValueError("centrifugal requires domain=, target=, or region=.")
+    selected_domain = getattr(owner, "domain", owner)
+    if hasattr(selected_domain, "function_space"):
+        selected_domain = selected_domain.function_space.mesh
+    dimension = int(selected_domain.geometry.dim)
+    origin = np.zeros(dimension) if center is None else np.asarray(center, dtype=float)
+    if origin.shape != (dimension,) or not np.all(np.isfinite(origin)):
+        raise ValueError(f"centrifugal center must have {dimension} finite components.")
+    x = ufl.SpatialCoordinate(selected_domain)
+    radial = x - ufl.as_vector(tuple(float(value) for value in origin))
+    if dimension == 2:
+        omega = float(np.asarray(angular_velocity).reshape(-1)[0])
+        acceleration = omega**2 * radial
+        selected_omega = omega
+    elif dimension == 3:
+        values = np.asarray(angular_velocity, dtype=float).reshape(-1)
+        if values.size == 1:
+            values = np.asarray((0.0, 0.0, float(values[0])))
+        if values.size != 3 or not np.all(np.isfinite(values)):
+            raise ValueError("3D centrifugal angular_velocity needs 3 components.")
+        selected_omega = constants.constant(selected_domain, values)
+        acceleration = -ufl.cross(selected_omega, ufl.cross(selected_omega, radial))
+    else:
+        raise NotImplementedError("centrifugal currently supports 2D and 3D solids.")
+    selected_density = constants.constant(selected_domain, density)
+    return CentrifugalLoad(
+        angular_velocity=selected_omega,
+        center=tuple(float(value) for value in origin),
+        density=selected_density,
+        value=selected_density * acceleration,
+        measure=measure or getattr(region, "measure", ufl.dx),
+        name=name,
+        location=region,
+    )
+
+
 def heat_source(value, *, domain=None, target=None, measure=ufl.dx, name: str = "heat_source") -> BodyLoad:
     """Create a volumetric heat-source load."""
 
@@ -347,6 +523,108 @@ def traction(value, *, location=None, on=None, name: str = "traction") -> Bounda
     return boundary_load(value, location=location, on=on, name=name)
 
 
+def surface_force(
+    resultant,
+    *,
+    location=None,
+    on=None,
+    reference_measure: float | None = None,
+    name: str = "surface_force",
+) -> SurfaceResultantLoad:
+    """Distribute a total reference-configuration force over a boundary.
+
+    ``resultant`` is the desired MPI-global force vector.  AgentFEM computes
+    the selected edge length in 2D or surface area in 3D and applies the
+    uniform traction ``resultant / reference_measure``.  Pass an explicit
+    ``reference_measure`` only when the geometric measure is intentionally
+    supplied by an external model.
+    """
+
+    selected = _select_location(location=location, on=on)
+    if selected is None or not hasattr(selected, "domain") or not hasattr(selected, "measure"):
+        raise ValueError("surface_force requires a named boundary region.")
+    values = np.asarray(resultant, dtype=float).reshape(-1)
+    dimension = int(selected.domain.geometry.dim)
+    if values.size != dimension:
+        raise ValueError(
+            f"surface_force requires {dimension} force components, got {values.size}."
+        )
+    if not np.all(np.isfinite(values)):
+        raise ValueError("surface_force resultant components must be finite.")
+    area = reference_measure
+    if area is None:
+        local = fem.assemble_scalar(fem.form(ufl.as_ufl(1.0) * selected.measure))
+        area = selected.domain.comm.allreduce(float(local), op=MPI.SUM)
+    area = float(area)
+    if not np.isfinite(area) or area <= 0.0:
+        raise ValueError("surface_force reference_measure must be finite and positive.")
+    traction_value = constants.constant(selected.domain, values / area)
+    return SurfaceResultantLoad(
+        resultant=tuple(float(value) for value in values),
+        traction=traction_value,
+        reference_measure=area,
+        measure=selected.measure,
+        location=selected,
+        name=name,
+    )
+
+
+def distributing_coupling(
+    force, *, moment=None, reference_point=None, location=None, on=None,
+    name: str = "distributing_coupling",
+) -> DistributedCouplingLoad:
+    """Distribute force/moment over a surface with tributary-area weighting."""
+
+    selected = _select_location(location=location, on=on)
+    if selected is None or not hasattr(selected, "domain"):
+        raise ValueError("distributing_coupling requires a boundary region.")
+    domain, measure = selected.domain, selected.measure
+    dimension = int(domain.geometry.dim)
+    values = np.asarray(force, dtype=float).reshape(-1)
+    if values.size != dimension or not np.all(np.isfinite(values)):
+        raise ValueError(f"force must have {dimension} finite components.")
+    x = ufl.SpatialCoordinate(domain)
+    def assembled(expression):
+        local = fem.assemble_scalar(fem.form(expression * measure))
+        return float(domain.comm.allreduce(float(local), op=MPI.SUM))
+    area = assembled(ufl.as_ufl(1.0))
+    if area <= 0.0:
+        raise ValueError("distributing_coupling requires positive surface measure.")
+    centroid = np.asarray([assembled(x[i]) / area for i in range(dimension)])
+    reference = centroid if reference_point is None else np.asarray(reference_point, dtype=float).reshape(-1)
+    if reference.size != dimension:
+        raise ValueError(f"reference_point must have {dimension} components.")
+    arm = x - ufl.as_vector(tuple(float(value) for value in centroid))
+    base = ufl.as_vector(tuple(float(value) for value in values / area))
+    if dimension == 2:
+        selected_moment = float(0.0 if moment is None else np.asarray(moment).reshape(-1)[0])
+        offset = centroid - reference
+        target = selected_moment - (offset[0] * values[1] - offset[1] * values[0])
+        polar = assembled(ufl.dot(arm, arm)) / area
+        if abs(target) > 0.0 and polar <= np.finfo(float).eps:
+            raise ValueError("Surface cannot transmit the requested moment.")
+        alpha = 0.0 if polar <= np.finfo(float).eps else float(target / polar)
+        correction = (alpha / area) * ufl.as_vector((-arm[1], arm[0]))
+    elif dimension == 3:
+        requested = np.zeros(3) if moment is None else np.asarray(moment, dtype=float).reshape(-1)
+        if requested.size != 3:
+            raise ValueError("3D distributing-coupling moment needs 3 components.")
+        target = requested - np.cross(centroid - reference, values)
+        tensor = np.asarray([[assembled((ufl.dot(arm, arm) if i == j else 0.0) - arm[i]*arm[j])/area for j in range(3)] for i in range(3)])
+        if np.linalg.matrix_rank(tensor) < 3 and np.linalg.norm(target) > 1.0e-12:
+            raise ValueError("Surface geometry cannot transmit the requested 3D moment.")
+        alpha = np.linalg.pinv(tensor) @ target
+        correction = ufl.cross(ufl.as_vector(tuple(alpha / area)), arm)
+        selected_moment = tuple(float(value) for value in requested)
+    else:
+        raise NotImplementedError("distributing_coupling supports 2D and 3D solids.")
+    return DistributedCouplingLoad(
+        tuple(float(value) for value in values), selected_moment,
+        tuple(float(value) for value in reference), tuple(float(value) for value in centroid),
+        base + correction, area, measure, selected, name,
+    )
+
+
 def pressure(
     value,
     *,
@@ -399,6 +677,60 @@ def pressure(
         configuration=normalized,
         name=name,
         location=selected_location,
+    )
+
+
+def hydrostatic_pressure(
+    *,
+    density,
+    gravity,
+    reference_point,
+    reference_pressure=0.0,
+    on=None,
+    location=None,
+    clip_at_zero: bool = True,
+    configuration: str = "reference",
+    displacement=None,
+    name: str = "hydrostatic_pressure",
+) -> HydrostaticPressureLoad:
+    """Create ``p = p_ref + rho g dot (x - x_ref)`` on a boundary."""
+
+    selected = _select_location(location=location, on=on)
+    if selected is None or not hasattr(selected, "domain"):
+        raise ValueError("hydrostatic_pressure requires a boundary region.")
+    dimension = int(selected.domain.geometry.dim)
+    point = np.asarray(reference_point, dtype=float).reshape(-1)
+    gravity_values = np.asarray(gravity, dtype=float).reshape(-1)
+    if point.size != dimension or gravity_values.size != dimension:
+        raise ValueError(
+            f"reference_point and gravity must each have {dimension} components."
+        )
+    rho = constants.constant(selected.domain, density)
+    gravity_field = constants.constant(selected.domain, gravity_values)
+    x = ufl.SpatialCoordinate(selected.domain)
+    pressure_value = (
+        reference_pressure
+        + rho * ufl.dot(gravity_field, x - ufl.as_vector(tuple(point)))
+    )
+    if clip_at_zero:
+        pressure_value = ufl.max_value(pressure_value, 0.0)
+    base = pressure(
+        pressure_value,
+        location=selected,
+        configuration=configuration,
+        displacement=displacement,
+        name=name,
+    )
+    return HydrostaticPressureLoad(
+        pressure=base.pressure,
+        traction=base.traction,
+        measure=base.measure,
+        configuration=base.configuration,
+        name=base.name,
+        location=base.location,
+        density=rho,
+        gravity=gravity_field,
+        reference_point=tuple(float(value) for value in point),
     )
 
 

@@ -244,9 +244,10 @@ def write_unified_xdmf_series(
     """Write one temporal XDMF and one compressed HDF5 heavy-data file.
 
     Each temporal grid owns its geometry and all point/cell attributes, while
-    every frame references one shared topology dataset. With
-    ``deformation_scale=1`` ParaView displays the physical deformed shape
-    directly. Reference coordinates remain in HDF5 for provenance.
+    every frame references one shared topology dataset. A vector primary field
+    is interpreted as displacement and may deform the geometry. A scalar
+    primary field, such as temperature, is written on the reference geometry.
+    Reference coordinates remain in HDF5 for provenance.
     """
 
     selected = tuple(snapshots)
@@ -278,6 +279,18 @@ def write_unified_xdmf_series(
     )
     cell_count = len(cell_types)
     point_count = reference_coordinates.shape[0]
+    primary_shape = tuple(getattr(solution0, "ufl_shape", ()))
+    if len(primary_shape) > 1:
+        raise NotImplementedError(
+            "Unified XDMF primary fields currently support scalar or vector fields."
+        )
+    vector_primary = len(primary_shape) == 1
+    primary_name = (
+        "U" if vector_primary else str(getattr(solution0, "name", "Primary"))
+    )
+    effective_deformation_scale = (
+        float(deformation_scale) if vector_primary else 0.0
+    )
     h5_options = {
         "compression": "gzip",
         "compression_opts": int(compression),
@@ -296,7 +309,7 @@ def write_unified_xdmf_series(
     with h5py.File(h5_path, "w") as h5:
         h5.attrs["agentfem_schema"] = "agentfem.unified-xdmf"
         h5.attrs["schema_version"] = "0.1.0"
-        h5.attrs["deformation_scale"] = float(deformation_scale)
+        h5.attrs["deformation_scale"] = effective_deformation_scale
         unique_cell_types = np.unique(cell_types)
         if unique_cell_types.size != 1:
             raise ValueError("Unified XDMF currently requires one VTK cell type.")
@@ -305,6 +318,10 @@ def write_unified_xdmf_series(
         h5.attrs["nodes_per_cell"] = nodes_per_cell
         h5.attrs["point_count"] = point_count
         h5.attrs["cell_count"] = cell_count
+        h5.attrs["primary_field"] = primary_name
+        h5.attrs["geometry_mode"] = (
+            "deformed" if effective_deformation_scale != 0.0 else "reference"
+        )
         mesh_group = h5.create_group("Mesh")
         mesh_group.create_dataset(
             "Topology",
@@ -324,39 +341,42 @@ def write_unified_xdmf_series(
             frame_group = h5.create_group(f"Frames/{frame_name}")
             frame_group.attrs["load_factor"] = float(snapshot.load_factor)
             solution = snapshot.solution
-            value_dimension = solution.ufl_shape[0]
-            displacement_values = np.asarray(solution.x.array).reshape(
-                -1,
-                value_dimension,
-            )
-            if displacement_values.shape[0] != point_count:
+            current_shape = tuple(getattr(solution, "ufl_shape", ()))
+            if current_shape != primary_shape:
+                raise ValueError("Unified XDMF primary-field shape changed between frames.")
+            value_size = int(np.prod(current_shape)) if current_shape else 1
+            primary_values = np.asarray(solution.x.array).reshape(-1, value_size)
+            if primary_values.shape[0] != point_count:
                 raise ValueError(
-                    "Unified XDMF displacement dofs must match mesh points."
+                    "Unified XDMF primary-field dofs must match mesh points."
                 )
             displacement = np.zeros_like(reference_coordinates)
-            displacement[:, :value_dimension] = displacement_values
+            if vector_primary:
+                value_dimension = int(primary_shape[0])
+                displacement[:, :value_dimension] = primary_values
             geometry = (
                 reference_coordinates
-                + float(deformation_scale) * displacement
+                + effective_deformation_scale * displacement
             )
             frame_group.create_dataset("Geometry", data=geometry, **h5_options)
             point_group = frame_group.create_group("Point")
             point_group.create_dataset(
-                "U",
-                data=displacement_values,
+                primary_name,
+                data=(primary_values if vector_primary else primary_values[:, 0]),
                 **h5_options,
             )
-            point_group.create_dataset(
-                "UMAG",
-                data=np.linalg.norm(displacement_values, axis=1),
-                **h5_options,
-            )
+            if vector_primary:
+                point_group.create_dataset(
+                    "UMAG",
+                    data=np.linalg.norm(primary_values, axis=1),
+                    **h5_options,
+                )
             cell_group = frame_group.create_group("Cell")
             shaped_point_fields = []
             shaped_cell_fields = []
             for field in fields:
                 name = str(getattr(field, "name", "Field"))
-                if name in {"U", "UMAG"}:
+                if name in {primary_name, "UMAG"}:
                     continue
                 center, shaped = _unified_field_values(
                     field,
@@ -399,21 +419,25 @@ def write_unified_xdmf_series(
                 dimensions=geometry.shape,
                 value=f"{h5_path.name}:/Frames/{frame_name}/Geometry",
             )
+            stored_primary = (
+                primary_values if vector_primary else primary_values[:, 0]
+            )
             _attribute(
                 grid,
-                "U",
+                primary_name,
                 "Node",
-                displacement_values,
-                f"{h5_path.name}:/Frames/{frame_name}/Point/U",
+                stored_primary,
+                f"{h5_path.name}:/Frames/{frame_name}/Point/{primary_name}",
             )
-            magnitude = np.linalg.norm(displacement_values, axis=1)
-            _attribute(
-                grid,
-                "UMAG",
-                "Node",
-                magnitude,
-                f"{h5_path.name}:/Frames/{frame_name}/Point/UMAG",
-            )
+            if vector_primary:
+                magnitude = np.linalg.norm(primary_values, axis=1)
+                _attribute(
+                    grid,
+                    "UMAG",
+                    "Node",
+                    magnitude,
+                    f"{h5_path.name}:/Frames/{frame_name}/Point/UMAG",
+                )
             for field_name, shaped in shaped_point_fields:
                 _attribute(
                     grid,

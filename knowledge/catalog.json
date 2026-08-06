@@ -36,6 +36,13 @@
       "title": "Foundational small-strain elasticity verification"
     },
     {
+      "id": "agentfem.benchmark.implicit_creep_relaxation",
+      "physics": "three-dimensional small-strain isotropic Mises power-law creep",
+      "source": "knowledge/benchmarks/implicit_creep_relaxation.json",
+      "status": "automated_regression",
+      "title": "Three-dimensional implicit power-law creep relaxation and restart"
+    },
+    {
       "id": "agentfem.benchmark.j2_abaqus_rate_independent",
       "physics": "three-dimensional small-strain Mises plasticity with linear isotropic hardening",
       "source": "knowledge/benchmarks/j2_abaqus_rate_independent.json",
@@ -101,6 +108,25 @@
   ],
   "cards": [
     {
+      "id": "agentfem.load.surface_resultant",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.loads.surface_force",
+        "agentfem.loads.distributing_coupling",
+        "agentfem.models.Model.surface_force",
+        "agentfem.models.Model.distributing_coupling",
+        "agentfem.results.boundary_resultant"
+      ],
+      "related_cards": [
+        "agentfem.workflow.standard_result_projection",
+        "agentfem.operator.system_contracts"
+      ],
+      "source": "knowledge/cards/surface_resultant_load.json",
+      "status": "supported",
+      "summary": "Converts an engineering total force into a uniform reference-boundary traction while preserving the requested MPI-global resultant.",
+      "title": "Uniform boundary traction from a requested resultant force"
+    },
+    {
       "id": "agentfem.material.creep_damage_assessment",
       "kind": "material",
       "public_api": [
@@ -110,13 +136,34 @@
         "agentfem.constitutive.ModifiedThetaProjection"
       ],
       "related_cards": [
+        "agentfem.material.global_implicit_creep",
         "agentfem.material.j2_global_plasticity",
         "agentfem.workflow.thermoelastic_analysis"
       ],
       "source": "knowledge/cards/creep_damage_assessment.json",
       "status": "supported",
-      "summary": "Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, with an explicit boundary before global finite-element creep.",
+      "summary": "Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, kept distinct from the implemented global isothermal power-law creep route.",
       "title": "Creep damage and modified-theta assessment"
+    },
+    {
+      "id": "agentfem.material.global_implicit_creep",
+      "kind": "material",
+      "public_api": [
+        "agentfem.studies.creep_solid",
+        "agentfem.constitutive.isotropic_power_law",
+        "agentfem.constitutive.IsotropicPowerLawCreepMaterial",
+        "agentfem.constitutive.CreepQuadratureState",
+        "agentfem.models.Model.step"
+      ],
+      "related_cards": [
+        "agentfem.material.j2_global_plasticity",
+        "agentfem.material.creep_damage_assessment",
+        "agentfem.workflow.solution_procedures"
+      ],
+      "source": "knowledge/cards/global_implicit_creep.json",
+      "status": "supported",
+      "summary": "Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, atomic rollback, serial restart, and standard creep fields.",
+      "title": "Global implicit power-law creep"
     },
     {
       "id": "agentfem.material.j2_global_plasticity",
@@ -134,6 +181,23 @@
       "status": "supported",
       "summary": "Three-dimensional Mises plasticity with linear isotropic hardening, a shared quadrature transaction, analytical algorithmic tangent, cyclic amplitude paths, physical-increment cutback, cumulative serial restart, standard fields, and work/energy histories.",
       "title": "Global small-strain J2 plasticity"
+    },
+    {
+      "id": "agentfem.material.mixed_hybrid_hyperelasticity",
+      "kind": "material",
+      "public_api": [
+        "agentfem.fields.displacement_pressure",
+        "agentfem.constitutive.mixed_neo_hookean",
+        "agentfem.models.Model.step"
+      ],
+      "related_cards": [
+        "agentfem.load.surface_resultant",
+        "agentfem.workflow.standard_result_projection"
+      ],
+      "source": "knowledge/cards/mixed_hybrid_hyperelasticity.json",
+      "status": "supported",
+      "summary": "Solves finite-strain equilibrium with quadratic displacement and one independent constant pressure unknown per cell, including automatic incrementation, Newton tangent, rollback, and positive-J acceptance.",
+      "title": "Constant-pressure mixed Neo-Hookean solid"
     },
     {
       "id": "agentfem.operator.system_contracts",
@@ -269,6 +333,8 @@
         "agentfem.results.field_extrema",
         "agentfem.results.region_measure",
         "agentfem.results.reaction_resultant",
+        "agentfem.results.external_force_resultant",
+        "agentfem.results.static_force_balance",
         "agentfem.mesh.tagged_boundary_region",
         "agentfem.diagnostics.linear_static_energy"
       ],
@@ -278,8 +344,8 @@
       ],
       "source": "knowledge/cards/standard_result_projection.json",
       "status": "supported",
-      "summary": "Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell-average fields, and extracts MPI-global resultants on named strong-constraint boundaries.",
-      "title": "Projected small-strain result fields and strong-constraint resultants"
+      "summary": "Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell-average fields, extracts MPI-global resultants, and records assembled external-force versus strong-reaction equilibrium.",
+      "title": "Projected small-strain fields, reactions, and static equilibrium"
     },
     {
       "id": "agentfem.workflow.thermoelastic_analysis",

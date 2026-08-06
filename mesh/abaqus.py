@@ -14,6 +14,240 @@ import numpy as np
 
 
 @dataclass(frozen=True)
+class AbaqusNamedSet:
+    """A source-labelled Abaqus node or element set."""
+
+    name: str
+    labels: tuple[int, ...]
+    kind: str
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "kind": self.kind,
+            "count": len(self.labels),
+            "labels": list(self.labels),
+        }
+
+
+@dataclass(frozen=True)
+class AbaqusSurfaceEntry:
+    """One source set/element and face identifier in an Abaqus surface."""
+
+    reference: str
+    face: str | None = None
+
+
+@dataclass(frozen=True)
+class AbaqusSurface:
+    """A node- or element-based Abaqus surface definition."""
+
+    name: str
+    surface_type: str
+    entries: tuple[AbaqusSurfaceEntry, ...]
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "kind": "abaqus_surface",
+            "surface_type": self.surface_type,
+            "entries": [
+                {"reference": item.reference, "face": item.face}
+                for item in self.entries
+            ],
+        }
+
+
+@dataclass(frozen=True)
+class AbaqusModelSemantics:
+    """Engineering names retained independently of neutral mesh topology."""
+
+    node_sets: tuple[AbaqusNamedSet, ...] = ()
+    element_sets: tuple[AbaqusNamedSet, ...] = ()
+    surfaces: tuple[AbaqusSurface, ...] = ()
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "node_sets": {item.name: item.summary() for item in self.node_sets},
+            "element_sets": {
+                item.name: item.summary() for item in self.element_sets
+            },
+            "surfaces": {item.name: item.summary() for item in self.surfaces},
+        }
+
+
+def read_model_semantics(path: str | Path) -> AbaqusModelSemantics:
+    """Read named node/element sets and explicit surface entries."""
+
+    source = Path(path)
+    nsets: dict[str, list[int]] = {}
+    elsets: dict[str, list[int]] = {}
+    surfaces: dict[str, tuple[str, list[AbaqusSurfaceEntry]]] = {}
+    keyword, options, flags = "", {}, set()
+    for line_number, raw in enumerate(source.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw.strip()
+        if not line or line.startswith("**"):
+            continue
+        if line.startswith("*"):
+            parts = [item.strip() for item in line.split(",")]
+            keyword, options, flags = parts[0].upper(), {}, set()
+            for item in parts[1:]:
+                if "=" in item:
+                    key, value = item.split("=", 1)
+                    options[key.strip().upper()] = value.strip().upper()
+                elif item:
+                    flags.add(item.upper())
+            if keyword == "*SURFACE":
+                name = options.get("NAME")
+                if not name:
+                    raise ValueError(f"*SURFACE at {source}:{line_number} requires NAME=.")
+                surfaces.setdefault(name, (options.get("TYPE", "ELEMENT"), []))
+            continue
+        values = _csv_values(line)
+        if keyword == "*NODE" and options.get("NSET"):
+            nsets.setdefault(options["NSET"], []).append(int(values[0]))
+        elif keyword == "*ELEMENT" and options.get("ELSET"):
+            elsets.setdefault(options["ELSET"], []).append(int(values[0]))
+        elif keyword in {"*NSET", "*ELSET"}:
+            option = keyword[1:]
+            name = options.get(option)
+            if not name:
+                raise ValueError(f"{keyword} at {source}:{line_number} requires {option}=.")
+            selected = (nsets if keyword == "*NSET" else elsets).setdefault(name, [])
+            if "GENERATE" in flags:
+                if len(values) not in {2, 3}:
+                    raise ValueError(f"Invalid {keyword}, GENERATE at {source}:{line_number}.")
+                start, end = int(values[0]), int(values[1])
+                increment = 1 if len(values) == 2 else int(values[2])
+                if increment <= 0 or end < start:
+                    raise ValueError("Abaqus set generation requires a positive range.")
+                selected.extend(range(start, end + 1, increment))
+            else:
+                selected.extend(int(value) for value in values)
+        elif keyword == "*SURFACE":
+            reference = values[0].upper()
+            face = values[1].upper() if len(values) > 1 and values[1] else None
+            surfaces[options["NAME"]][1].append(AbaqusSurfaceEntry(reference, face))
+
+    def named(values, kind):
+        return tuple(AbaqusNamedSet(name, tuple(dict.fromkeys(labels)), kind) for name, labels in sorted(values.items()))
+
+    return AbaqusModelSemantics(
+        named(nsets, "abaqus_node_set"), named(elsets, "abaqus_element_set"),
+        tuple(AbaqusSurface(name, value[0], tuple(value[1])) for name, value in sorted(surfaces.items())),
+    )
+
+
+@dataclass(frozen=True)
+class AbaqusElementDefinition:
+    """Scientific identity attached to one Abaqus ``*ELEMENT`` type.
+
+    Neutral mesh formats preserve topology and geometry, but normally discard
+    formulation suffixes such as ``H``.  Keeping that distinction beside the
+    converted mesh prevents a readable ``tetra10`` grid from being mistaken
+    for a verified Abaqus hybrid formulation.
+    """
+
+    source_type: str
+    topology: str | None = None
+    interpolation: str | None = None
+    formulation: str = "source_defined"
+    pressure_interpolation: str | None = None
+    additional_pressure_variables: int = 0
+    additional_displacement_variables: int = 0
+
+    @property
+    def is_hybrid(self) -> bool:
+        return self.pressure_interpolation is not None
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "source_type": self.source_type,
+            "topology": self.topology,
+            "interpolation": self.interpolation,
+            "formulation": self.formulation,
+            "pressure_interpolation": self.pressure_interpolation,
+            "additional_pressure_variables": self.additional_pressure_variables,
+            "additional_displacement_variables": self.additional_displacement_variables,
+        }
+
+
+_C3D10_FAMILY = {
+    "C3D10": {
+        "formulation": "displacement",
+    },
+    "C3D10H": {
+        "formulation": "hybrid",
+        "pressure_interpolation": "constant",
+        "additional_pressure_variables": 1,
+    },
+    "C3D10HS": {
+        "formulation": "hybrid_improved_surface_stress",
+        "pressure_interpolation": "linear",
+        "additional_pressure_variables": 4,
+    },
+    "C3D10M": {
+        "formulation": "modified_hourglass_control",
+        "additional_displacement_variables": 3,
+    },
+    "C3D10MH": {
+        "formulation": "modified_hybrid_hourglass_control",
+        "pressure_interpolation": "linear",
+        "additional_pressure_variables": 4,
+        "additional_displacement_variables": 3,
+    },
+}
+
+
+def describe_element_type(element_type: str) -> AbaqusElementDefinition:
+    """Describe formulation information that is lost in neutral mesh I/O."""
+
+    selected = str(element_type).strip().upper()
+    details = _C3D10_FAMILY.get(selected)
+    if details is None:
+        return AbaqusElementDefinition(source_type=selected)
+    return AbaqusElementDefinition(
+        source_type=selected,
+        topology="tetra10",
+        interpolation="quadratic",
+        **details,
+    )
+
+
+def read_element_definitions(path: str | Path) -> tuple[AbaqusElementDefinition, ...]:
+    """Read distinct Abaqus element declarations in source order.
+
+    This intentionally reads keyword headers rather than inferring element
+    semantics from the topology produced by meshio.
+    """
+
+    path = Path(path)
+    selected: list[AbaqusElementDefinition] = []
+    seen: set[str] = set()
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line.startswith("*") or line.startswith("**"):
+            continue
+        fields = [item.strip() for item in line.split(",")]
+        if fields[0].upper() != "*ELEMENT":
+            continue
+        options = {}
+        for item in fields[1:]:
+            if "=" not in item:
+                continue
+            key, value = item.split("=", 1)
+            options[key.strip().upper()] = value.strip()
+        element_type = options.get("TYPE")
+        if element_type is None:
+            raise ValueError(f"Abaqus *ELEMENT declaration in {path} has no TYPE= option.")
+        normalized = element_type.upper()
+        if normalized not in seen:
+            selected.append(describe_element_type(normalized))
+            seen.add(normalized)
+    return tuple(selected)
+
+
+@dataclass(frozen=True)
 class AbaqusNodeTable:
     """Abaqus node labels and coordinates in source-file order."""
 
@@ -141,6 +375,81 @@ class AbaqusMeshImport:
     def facet_tags(self):
         return self.fem_mesh.facet_tags
 
+    @property
+    def element_definitions(self) -> tuple[dict[str, object], ...]:
+        values = self.conversion.source_metadata.get(
+            "abaqus_element_definitions",
+            (),
+        )
+        return tuple(dict(value) for value in values)
+
+    @property
+    def model_semantics(self) -> dict[str, object]:
+        """Return preserved NSET/ELSET/SURFACE source semantics."""
+
+        return dict(
+            self.conversion.source_metadata.get("abaqus_model_semantics", {})
+        )
+
+    @property
+    def node_sets(self) -> dict[str, object]:
+        return dict(self.model_semantics.get("node_sets", {}))
+
+    @property
+    def element_sets(self) -> dict[str, object]:
+        return dict(self.model_semantics.get("element_sets", {}))
+
+    @property
+    def surfaces(self) -> dict[str, object]:
+        return dict(self.model_semantics.get("surfaces", {}))
+
+    def surface_faces(self, name: str) -> tuple[tuple[int, str | None], ...]:
+        """Expand an element-based surface to source element-label/face pairs."""
+
+        selected = self.surfaces.get(str(name).upper())
+        if selected is None:
+            raise KeyError(f"Abaqus surface {name!r} is not present.")
+        if selected.get("surface_type") != "ELEMENT":
+            raise TypeError(f"Abaqus surface {name!r} is not element based.")
+        expanded = []
+        for entry in selected.get("entries", ()):
+            reference = str(entry["reference"]).upper()
+            labels = self.element_sets.get(reference, {}).get("labels")
+            if labels is None:
+                try:
+                    labels = (int(reference),)
+                except ValueError as exc:
+                    raise KeyError(
+                        f"Surface {name!r} references unknown ELSET {reference!r}."
+                    ) from exc
+            expanded.extend((int(label), entry.get("face")) for label in labels)
+        return tuple(expanded)
+
+    def require_formulation(
+        self,
+        *supported: str,
+        operation: str = "selected solution procedure",
+    ) -> None:
+        """Reject known source formulations not consumed by a solver path."""
+
+        accepted = {str(value) for value in supported}
+        incompatible = [
+            value
+            for value in self.element_definitions
+            if value.get("formulation") not in accepted
+            and value.get("formulation") != "source_defined"
+        ]
+        if incompatible:
+            labels = ", ".join(
+                f"{value.get('source_type')} ({value.get('formulation')})"
+                for value in incompatible
+            )
+            raise NotImplementedError(
+                f"{operation} does not consume the imported Abaqus formulation: "
+                f"{labels}. Neutral-mesh conversion preserves geometry/topology "
+                "but cannot replace the element's pressure or enhanced variables."
+            )
+
     def summary(self) -> dict[str, object]:
         return {
             "kind": "abaqus_mesh_import",
@@ -149,6 +458,11 @@ class AbaqusMeshImport:
             "nodes": self.nodes.summary(),
             "mesh": self.fem_mesh.summary().as_dict(),
             "region_tags": self.conversion.region_tags,
+            "element_definitions": self.element_definitions,
+            "node_sets": self.node_sets,
+            "element_sets": self.element_sets,
+            "surfaces": self.surfaces,
+            "source_metadata": self.conversion.source_metadata,
             "warnings": self.conversion.warnings,
         }
 

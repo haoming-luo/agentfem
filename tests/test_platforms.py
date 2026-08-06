@@ -67,6 +67,13 @@ def test_runtime_report_is_serializable_and_names_optional_integrations():
     assert report["packages"]["agentfem"] == __version__
     assert report["mpi"]["vendor"]
     assert "path_mismatch" in report["mpi"]
+    assert report["execution"]["python_executable"] == sys.executable
+    assert report["execution"]["imported_package"]
+    assert report["execution"]["mode"] in {
+        "source_checkout",
+        "installed_distribution",
+    }
+    assert isinstance(report["execution"]["distribution_mismatch"], bool)
     assert {item["package"] for item in report["optional"]} >= {
         "gmsh",
         "meshio",

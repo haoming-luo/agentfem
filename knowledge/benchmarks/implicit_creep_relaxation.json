@@ -1,0 +1,61 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.implicit_creep_relaxation",
+  "title": "Three-dimensional implicit power-law creep relaxation and restart",
+  "status": "automated_regression",
+  "purpose": "Verify that backward-Euler material integration, the analytical algorithmic tangent, shared quadrature transaction, global Newton equilibrium, physical-time cutback, dissipation history, and checkpoint restoration operate as one finite-element procedure.",
+  "physics": "three-dimensional small-strain isotropic Mises power-law creep",
+  "execution": {
+    "command": "python -m pytest -q tests/test_p1_platform.py -k 'implicit_creep'",
+    "example": "examples/implicit_creep_relaxation_3d.py",
+    "evidence": "A homogeneous constant-total-strain bar is compared with the analytical stress-relaxation solution; uninterrupted and restarted paths must recover identical displacement, CE, CEEQ, stress, accepted times, and dissipation history."
+  },
+  "observables": [
+    "The mean axial stress decays from the instantaneous elastic value toward the analytical power-law relaxation curve.",
+    "Equivalent creep strain and cumulative creep dissipation are positive and monotone.",
+    "An excessive equivalent creep-strain increment rejects an otherwise converged global attempt and causes atomic rollback and cutback.",
+    "Restart at physical time 5 reproduces the uninterrupted state at physical time 10."
+  ],
+  "acceptance": [
+    "The analytical tangent matches a centered directional derivative of the backward-Euler update.",
+    "The ten-increment FE stress is within the declared time-discretization tolerance of the closed-form continuous-time relaxation solution.",
+    "Restart differences satisfy the strict automated floating-point tolerances.",
+    "Every accepted increment respects maximum_inelastic_increment when that control is active."
+  ],
+  "golden": {
+    "reference_version": "uniaxial-relaxation-be10-1",
+    "quantities": [
+      {
+        "name": "mean_axial_stress",
+        "expected": 314.5236575055139,
+        "relative_tolerance": 1e-8,
+        "absolute_tolerance": 1e-8,
+        "unit": "consistent stress unit",
+        "description": "Backward-Euler ten-increment result for E=200000, nu=0.3, total axial strain 0.002, A=1e-6, n=3, reference stress 100, and duration 10."
+      },
+      {
+        "name": "mean_equivalent_creep_strain",
+        "expected": 0.0004273817124724316,
+        "relative_tolerance": 1e-8,
+        "absolute_tolerance": 1e-12,
+        "unit": null,
+        "description": "Mean committed CEEQ for the same homogeneous relaxation path."
+      },
+      {
+        "name": "creep_dissipation",
+        "expected": 0.15078497441493677,
+        "relative_tolerance": 1e-8,
+        "absolute_tolerance": 1e-10,
+        "unit": "consistent energy unit",
+        "description": "Accumulated stress-work conjugate to accepted creep-strain increments."
+      }
+    ]
+  },
+  "limitations": [
+    "This homogeneous bar is an analytical and regression benchmark, not external component validation.",
+    "The current global provider is isothermal, serial, single-material, small-strain, and three-dimensional.",
+    "The checkpoint requires the same serial mesh and degree-of-freedom layout.",
+    "Kachanov-Rabotnov damage, Sinh flow, and Arrhenius field coupling are not consumed by this global driver."
+  ]
+}

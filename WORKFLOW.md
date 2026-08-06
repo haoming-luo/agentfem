@@ -51,6 +51,11 @@ this sequence visible unless there is a strong reason to encapsulate it.
     invariant, discretization, or validation claims when the result will be
     described as verified or validated.
 
+For an existing installed-use project, precede this sequence with
+`agentfem doctor`, `agentfem check`, and `agentfem upgrade`. Only deterministic
+project metadata may be migrated automatically; changes to scientific Python
+require semantic review and re-verification.
+
 For a collection of related cases, continue with:
 
 21. Define a typed `campaigns.ParameterSpace` with bounds and units, directly

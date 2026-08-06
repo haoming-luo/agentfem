@@ -52,6 +52,53 @@ class PathSample:
         )
 
 
+@dataclass(frozen=True)
+class StaticForceBalance:
+    """Global algebraic force equilibrium for one linear static solid."""
+
+    external: object
+    reaction: object
+    residual: object
+    absolute_error: float
+    relative_error: float
+
+    def as_dict(self) -> dict[str, object]:
+        def value(item):
+            array = np.asarray(item)
+            return float(array) if array.ndim == 0 else array.tolist()
+
+        return {
+            "external_force_resultant": value(self.external),
+            "reaction_force_resultant": value(self.reaction),
+            "force_balance_residual": value(self.residual),
+            "absolute_error": float(self.absolute_error),
+            "relative_error": float(self.relative_error),
+            "definition": "reaction + assembled external force",
+            "reaction_scope": "strong Dirichlet constraints",
+        }
+
+
+@dataclass(frozen=True)
+class ForceMomentResultant:
+    """Integrated force and moment about an explicit physical point."""
+
+    force: np.ndarray
+    moment: np.ndarray | float
+    about: np.ndarray
+    measure: float
+    source: str
+
+    def as_dict(self) -> dict[str, object]:
+        moment = np.asarray(self.moment)
+        return {
+            "force": np.asarray(self.force).tolist(),
+            "moment": float(moment) if moment.ndim == 0 else moment.tolist(),
+            "about": np.asarray(self.about).tolist(),
+            "measure": float(self.measure),
+            "source": self.source,
+        }
+
+
 def integral(expression, *, measure=ufl.dx, comm=None):
     """Return the global integral of a scalar, vector, or tensor expression."""
 
@@ -145,6 +192,75 @@ def boundary_resultant(traction, *, on):
     """Integrate a traction/flux expression over a named boundary."""
 
     return integral(traction, measure=_region_measure(on))
+
+
+def section_resultant(stress, *, on, normal=None, about=None) -> ForceMomentResultant:
+    """Integrate section force and moment from a Cauchy/nominal stress field."""
+
+    domain = on.domain
+    dimension = int(domain.geometry.dim)
+    selected_normal = normal if normal is not None else ufl.FacetNormal(domain)
+    traction = ufl.dot(stress, selected_normal)
+    x = ufl.SpatialCoordinate(domain)
+    measure = region_measure(on=on)
+    if about is None:
+        selected_about = np.asarray(
+            average(x, measure=on.measure, comm=domain.comm), dtype=float
+        )
+    else:
+        selected_about = np.asarray(about, dtype=float).reshape(-1)
+    if selected_about.size != dimension:
+        raise ValueError(f"section_resultant about requires {dimension} components.")
+    reference = ufl.as_vector(tuple(float(value) for value in selected_about))
+    arm = x - reference
+    force = np.asarray(integral(traction, measure=on.measure, comm=domain.comm))
+    if dimension == 3:
+        moment_expression = ufl.cross(arm, traction)
+    elif dimension == 2:
+        moment_expression = arm[0] * traction[1] - arm[1] * traction[0]
+    else:
+        raise NotImplementedError("section_resultant supports 2D and 3D mechanics.")
+    moment = integral(moment_expression, measure=on.measure, comm=domain.comm)
+    return ForceMomentResultant(force, moment, selected_about, measure, "section_stress")
+
+
+def free_body_resultant(
+    *,
+    boundary_tractions=(),
+    body_forces=(),
+    about,
+) -> ForceMomentResultant:
+    """Integrate boundary and volume forces into one free-body resultant."""
+
+    contributions = tuple(boundary_tractions) + tuple(body_forces)
+    if not contributions:
+        raise ValueError("free_body_resultant requires at least one force contribution.")
+    first_expression, first_region = contributions[0]
+    domain = first_region.domain
+    dimension = int(domain.geometry.dim)
+    selected_about = np.asarray(about, dtype=float).reshape(-1)
+    if selected_about.size != dimension:
+        raise ValueError(f"free_body_resultant about requires {dimension} components.")
+    force = np.zeros(dimension)
+    moment = np.zeros(3) if dimension == 3 else 0.0
+    total_measure = 0.0
+    reference = ufl.as_vector(tuple(float(value) for value in selected_about))
+    x = ufl.SpatialCoordinate(domain)
+    for expression, region in contributions:
+        if region.domain is not domain:
+            raise ValueError("All free-body contributions must use the same mesh.")
+        force += np.asarray(integral(expression, measure=region.measure, comm=domain.comm))
+        arm = x - reference
+        moment_expression = (
+            ufl.cross(arm, expression)
+            if dimension == 3
+            else arm[0] * expression[1] - arm[1] * expression[0]
+        )
+        moment += integral(moment_expression, measure=region.measure, comm=domain.comm)
+        total_measure += region_measure(on=region)
+    return ForceMomentResultant(
+        force, moment, selected_about, total_measure, "free_body_forces"
+    )
 
 
 def field_extrema(
@@ -355,6 +471,82 @@ def reaction_resultant(
     global_values = np.empty_like(local)
     comm.Allreduce(local, global_values, op=MPI.SUM)
     return global_values.reshape(shape)
+
+
+def external_force_resultant(problem):
+    """Return the MPI-global resultant of a linear problem's assembled RHS.
+
+    The result includes every body, boundary, and other contribution contained
+    in the system force operator. It is algebraic evidence for the solved
+    system, not an attempt to infer the provenance of individual load terms.
+    """
+
+    if not hasattr(problem, "system") or not hasattr(problem.system, "rhs_form"):
+        raise TypeError(
+            "external_force_resultant requires a linear system problem with rhs_form()."
+        )
+    import dolfinx.fem.petsc as fem_petsc
+    from petsc4py import PETSc
+
+    solution = problem._solution()
+    vector = fem_petsc.assemble_vector(fem.form(problem.system.rhs_form()))
+    try:
+        vector.ghostUpdate(
+            addv=PETSc.InsertMode.ADD,
+            mode=PETSc.ScatterMode.REVERSE,
+        )
+        shape = tuple(getattr(solution, "ufl_shape", ()))
+        space = solution.function_space
+        owned = int(space.dofmap.index_map.size_local) * int(
+            space.dofmap.index_map_bs
+        )
+        values = np.asarray(vector.array_r[:owned])
+        comm = space.mesh.comm
+        if not shape:
+            return float(comm.allreduce(float(np.sum(values)), op=MPI.SUM))
+        if len(shape) != 1:
+            raise NotImplementedError(
+                "External resultants currently require scalar or vector fields."
+            )
+        components = int(shape[0])
+        if values.size % components:
+            raise ValueError(
+                "External-force storage is incompatible with its value shape."
+            )
+        local = np.sum(values.reshape((-1, components)), axis=0)
+        global_values = np.empty_like(local)
+        comm.Allreduce(local, global_values, op=MPI.SUM)
+        return global_values.reshape(shape)
+    finally:
+        vector.destroy()
+
+
+def static_force_balance(problem) -> StaticForceBalance:
+    """Evaluate ``R + F = 0`` for a converged linear static solid.
+
+    Reactions are the unconstrained residual at strong Dirichlet dofs. Affine
+    MPC, weak, contact, and multiplier reactions need dedicated definitions
+    and are intentionally not folded into this diagnostic.
+    """
+
+    external = external_force_resultant(problem)
+    reaction = reaction_resultant(problem)
+    residual = np.asarray(external) + np.asarray(reaction)
+    absolute = float(np.linalg.norm(np.atleast_1d(residual)))
+    scale = max(
+        float(np.linalg.norm(np.atleast_1d(external))),
+        float(np.linalg.norm(np.atleast_1d(reaction))),
+    )
+    relative = 0.0 if scale == 0.0 else absolute / scale
+    if residual.ndim == 0:
+        residual = float(residual)
+    return StaticForceBalance(
+        external=external,
+        reaction=reaction,
+        residual=residual,
+        absolute_error=absolute,
+        relative_error=relative,
+    )
 
 
 def probe(field, *, at, padding: float = 1.0e-10):

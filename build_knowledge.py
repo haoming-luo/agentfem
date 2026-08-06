@@ -524,6 +524,8 @@ def build_reference(
         lines.extend(
             [
                 "",
+                f"<a id=\"{card['id'].replace('.', '-')}\"></a>",
+                "",
                 f"## {card['title']}",
                 "",
                 f"**Stable ID:** `{card['id']}`<br>",

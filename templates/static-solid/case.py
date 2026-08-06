@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 from mpi4py import MPI
 
-from agentfem import fields, io, mesh, models, project, results, studies
+from agentfem import fields, mesh, models, project, studies
 from agentfem.constitutive import elasticity
 from agentfem.diagnostics import print_on_root
 
@@ -41,13 +41,10 @@ def main():
     model.traction((0.0, -1.0e6), on=right)
     model.check()
 
-    simulation = model.step(target=displacement, name="static_load").solve_result()
+    simulation = model.step(target=displacement, name="static_load").solve_result(
+        output=run.artifact("fields.xdmf"),
+    )
     simulation.add_dof_statistics(displacement, prefix="displacement", unit="m")
-    field_path = run.artifact("fields.xdmf")
-    output_displacement = io.interpolate_for_xdmf(displacement.value, degree=1)
-    with io.XDMFTimeSeries(field_path, domain) as writer:
-        writer.write_fields(0.0, output_displacement)
-    simulation.add_artifact("fields", field_path)
     if MPI.COMM_WORLD.rank == 0:
         run.publish(simulation)
         print_on_root(MPI.COMM_WORLD, simulation.format())

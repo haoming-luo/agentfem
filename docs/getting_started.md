@@ -17,8 +17,9 @@ agentfem doctor --json
 ```
 
 The JSON form is intended for issue reports, IDE integrations, and agents. It
-records the platform route, core versions, and optional mesh, visualization,
-machine-learning, and distributed-MPC integrations.
+records the platform route, exact interpreter and imported package, core
+versions, and optional mesh, visualization, machine-learning, and
+distributed-MPC integrations.
 
 ## Create a project anywhere
 
@@ -30,6 +31,7 @@ agentfem init --template static-solid .
 agentfem check
 agentfem run
 agentfem inspect
+agentfem verify
 ```
 
 Initial templates include `static-solid`, `steady-heat`, and
@@ -76,6 +78,17 @@ model.convection(
     ambient_temperature=ambient_history,
 )
 ```
+
+When the engineering input is a total end force rather than a traction, let
+the model distribute it over the selected reference edge or surface:
+
+```python
+model.surface_force((0.0, -50_000.0), on=loaded)
+```
+
+AgentFEM assembles the MPI-global boundary measure and applies a uniform
+traction whose resultant is the requested vector. In 2D the force is per unit
+out-of-plane thickness.
 
 Standard/Explicit dynamics and transient heat update registered histories at
 their physical step times. Manual callbacks remain available for advanced
@@ -137,6 +150,11 @@ outputs/<project>/<run-id>/
 - XDMF/HDF5, CSV, NPZ, images, and reports are artifacts referenced by the
   result rather than replacements for it.
 
+Published results are sealed automatically. `agentfem verify` follows the
+latest run by default and checks both the manifest and all registered files.
+It detects changed or incomplete output; it does not replace convergence,
+mesh-sensitivity, or engineering validation checks.
+
 `agentfem run --json` reserves standard output for the final machine record and
 writes case and solver logs into the run directory. A GUI or agent can parse
 the response without scraping progress prose.
@@ -144,8 +162,17 @@ the response without scraping progress prose.
 ## Check before solving
 
 The first `agentfem check` validates project structure and Python syntax
-without solving. Model construction should additionally call `model.check()`
-before the step. The evidence layers are separate:
+without solving. For a case created with an earlier release, also run:
+
+```bash
+agentfem upgrade --json
+```
+
+This is a dry-run migration plan. `--apply-safe` is limited to deterministic
+project metadata; findings marked `semantic_review=true` require inspection of
+the finite-element meaning and renewed evidence. Model construction should
+additionally call `model.check()` before the step. The evidence layers are
+separate:
 
 1. project and entrypoint checks;
 2. model, region, material, load, and capability checks;

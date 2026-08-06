@@ -77,6 +77,187 @@ def test_j2_algorithmic_tangent_matches_return_map_derivative():
     np.testing.assert_allclose(analytical, numerical, rtol=2.0e-7, atol=1.0e-6)
 
 
+def test_implicit_power_law_creep_tangent_matches_backward_euler_update():
+    material = constitutive.isotropic_power_law(
+        young=200.0e3,
+        poisson=0.3,
+        density=1.0,
+        coefficient=2.0e-6,
+        stress_exponent=3.0,
+        reference_stress=100.0,
+    )
+    strain = np.array(
+        [
+            [0.002, 0.0002, 0.0],
+            [0.0002, -0.001, 0.0],
+            [0.0, 0.0, -0.001],
+        ]
+    )
+    direction = np.array(
+        [
+            [0.7, -0.2, 0.1],
+            [-0.2, -0.4, 0.05],
+            [0.1, 0.05, -0.3],
+        ]
+    )
+    update = material.update(strain, time_start=0.0, time_end=10.0)
+    analytical = np.einsum(
+        "ijkl,kl->ij",
+        update.algorithmic_tangent,
+        direction,
+    )
+    perturbation = 1.0e-7
+    numerical = (
+        material.update(
+            strain + perturbation * direction,
+            time_start=0.0,
+            time_end=10.0,
+        ).stress
+        - material.update(
+            strain - perturbation * direction,
+            time_start=0.0,
+            time_end=10.0,
+        ).stress
+    ) / (2.0 * perturbation)
+
+    assert update.converged
+    assert update.equivalent_increment > 0.0
+    assert update.local_iterations > 0
+    np.testing.assert_allclose(analytical, numerical, rtol=2.0e-7, atol=5.0e-4)
+
+
+def test_creep_quadrature_state_uses_shared_atomic_transaction():
+    domain = dolfinx_mesh.create_box(
+        MPI.COMM_SELF,
+        [np.zeros(3), np.ones(3)],
+        [1, 1, 1],
+        cell_type=dolfinx_mesh.CellType.tetrahedron,
+    )
+    state = constitutive.CreepQuadratureState.create(domain, degree=2)
+    material = constitutive.isotropic_power_law(
+        young=200.0e3,
+        poisson=0.3,
+        density=1.0,
+        coefficient=1.0e-6,
+        stress_exponent=3.0,
+        reference_stress=100.0,
+    )
+    point_count = len(state.equivalent_creep_strain.values)
+    strain = np.zeros((point_count, 3, 3))
+    strain[:, 0, 0] = 0.002
+    strain[:, 1, 1] = -0.001
+    strain[:, 2, 2] = -0.001
+
+    update = state.update(
+        strain,
+        material,
+        time_start=0.0,
+        time_end=10.0,
+    )
+    assert update["creeping_points"] == point_count
+    assert update["maximum_creep_increment"] > 0.0
+    assert np.all(state.equivalent_creep_strain.values == 0.0)
+    assert np.all(state.trial_equivalent_creep_strain.values > 0.0)
+
+    state.rollback()
+    assert np.all(state.trial_equivalent_creep_strain.values == 0.0)
+    state.update(strain, material, time_start=0.0, time_end=10.0)
+    state.commit()
+    assert np.all(state.equivalent_creep_strain.values > 0.0)
+    assert state.transaction.schema == (
+        "agentfem.power-law-creep-small-strain-state"
+    )
+
+
+def test_global_implicit_creep_relaxation_uses_public_step_and_fields():
+    step, _ = _creep_relaxation_patch()
+    simulation = step.solve_result()
+    final_stress = results.average(
+        step.state.stress.function[0, 0],
+        measure=step.state.measure,
+    )
+    analytical = step.material.creep.relaxation_stress(
+        initial_stress=step.material.young * 0.002,
+        young=step.material.young,
+        time=step.duration,
+    )
+    golden = benchmarks.golden_benchmark(
+        "agentfem.benchmark.implicit_creep_relaxation"
+    )
+    observables = {
+        "mean_axial_stress": final_stress,
+        "mean_equivalent_creep_strain": results.average(
+            step.state.equivalent_creep_strain.function,
+            measure=step.state.measure,
+        ),
+        "creep_dissipation": simulation.histories["creep_dissipation"].latest,
+    }
+
+    assert step.procedure.algorithm == "backward_euler_newton"
+    assert step.last_solve_info.completed_step
+    assert final_stress == pytest.approx(analytical, rel=2.5e-2)
+    assert all(golden.verify(observables).values())
+    assert {"S", "CE", "CEEQ", "MISES", "RF"} <= set(simulation.fields)
+    assert simulation.quantity("maximum_equivalent_creep_strain") > 0.0
+    assert simulation.histories["creep_dissipation"].latest > 0.0
+    assert np.all(
+        np.diff(simulation.histories["creep_dissipation"].values) >= -1.0e-12
+    )
+
+
+def test_global_implicit_creep_checkpoint_restart_matches_full_path(tmp_path):
+    reference, _ = _creep_relaxation_patch()
+    reference.solve()
+    expected_u = reference.solution.x.array.copy()
+    expected_ce = reference.state.creep_strain.values.copy()
+    expected_ceeq = reference.state.equivalent_creep_strain.values.copy()
+    expected_stress = reference.state.stress.values.copy()
+
+    partial, _ = _creep_relaxation_patch()
+    partial.solve(until=5.0)
+    checkpoint = partial.save_checkpoint(tmp_path / "creep_restart.npz")
+    restarted, _ = _creep_relaxation_patch()
+    restarted.load_checkpoint(checkpoint)
+    np.testing.assert_allclose(
+        restarted.state.stress.values,
+        partial.state.stress.values,
+        rtol=1.0e-12,
+        atol=1.0e-12,
+    )
+    restarted.solve()
+
+    assert restarted.last_solve_info.completed_step
+    np.testing.assert_allclose(restarted.solution.x.array, expected_u, rtol=2e-8, atol=2e-10)
+    np.testing.assert_allclose(restarted.state.creep_strain.values, expected_ce, rtol=2e-8, atol=2e-10)
+    np.testing.assert_allclose(restarted.state.equivalent_creep_strain.values, expected_ceeq, rtol=2e-8, atol=2e-10)
+    np.testing.assert_allclose(restarted.state.stress.values, expected_stress, rtol=2e-8, atol=2e-8)
+    assert [item.end_time for item in restarted.last_solve_info.increments] == pytest.approx(
+        np.arange(1.0, 11.0)
+    )
+
+
+def test_global_implicit_creep_state_limit_forces_real_cutback():
+    control = steps.automatic(
+        initial=1.0,
+        minimum=1.0e-4,
+        maximum=1.0,
+        max_increments=100,
+        max_cutbacks=10,
+        cutback_factor=0.5,
+        maximum_inelastic_increment=2.0e-5,
+    )
+    step, _ = _creep_relaxation_patch(incrementation=control)
+    step.solve()
+
+    rejected = [item for item in step.attempted_increments if not item.converged]
+    assert step.last_solve_info.completed_step
+    assert rejected
+    assert "maximum equivalent creep-strain increment" in rejected[0].rejection_reason
+    assert max(
+        item.maximum_creep_increment for item in step.accepted_increments
+    ) <= control.maximum_inelastic_increment * (1.0 + 1.0e-10)
+
+
 def test_global_j2_checkpoint_restart_matches_uninterrupted_path(tmp_path):
     reference, reference_u = _j2_patch()
     reference.solve()
@@ -561,6 +742,66 @@ def _j2_patch():
         solver_options=solvers.newton(
             relative_tolerance=1.0e-8,
             absolute_tolerance=1.0e-9,
+            maximum_iterations=20,
+            line_search="backtracking",
+        ),
+        progress=False,
+    )
+    return step, displacement
+
+
+def _creep_relaxation_patch(*, incrementation=None):
+    """Homogeneous 3D constant-strain relaxation with free contraction."""
+
+    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    model = models.create(
+        study=studies.creep_solid(),
+        mesh=domain,
+        name="power_law_creep_relaxation",
+    )
+    displacement = model.field(fields.displacement(domain))
+    material = model.material(
+        constitutive.isotropic_power_law(
+            young=200.0e3,
+            poisson=0.3,
+            density=1.0,
+            coefficient=1.0e-6,
+            stress_exponent=3.0,
+            reference_stress=100.0,
+        )
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="x", value=0.0, name="left", tag=1),
+        component=0,
+        value=0.0,
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="y", value=0.0, name="y_symmetry", tag=2),
+        component=1,
+        value=0.0,
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="z", value=0.0, name="z_symmetry", tag=3),
+        component=2,
+        value=0.0,
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="x", value=1.0, name="right", tag=4),
+        component=0,
+        value=0.002,
+    )
+    step = model.step(
+        target=displacement,
+        material=material,
+        duration=10.0,
+        incrementation=(steps.fixed(10) if incrementation is None else incrementation),
+        solver_options=solvers.newton(
+            relative_tolerance=1.0e-9,
+            absolute_tolerance=1.0e-10,
             maximum_iterations=20,
             line_search="backtracking",
         ),

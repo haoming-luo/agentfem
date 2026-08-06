@@ -9,7 +9,7 @@ The controls in this module therefore describe how a normalized step interval
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import isfinite
 
 
@@ -206,11 +206,115 @@ def normalize(
     return value
 
 
+@dataclass
+class EngineeringStep:
+    """Named inherited activation state, separate from solver controls."""
+
+    name: str
+    previous: "EngineeringStep | None" = None
+    inherit_model_loads: bool = False
+    inherit_model_constraints: bool = True
+    load_changes: dict[str, object | None] = field(default_factory=dict)
+    constraint_changes: dict[str, object | None] = field(default_factory=dict)
+    predefined_fields: dict[str, tuple[object, object]] = field(default_factory=dict)
+
+    def activate_load(self, load, *, name=None):
+        self.load_changes[_asset_name(load, name)] = load
+        return load
+
+    def deactivate_load(self, load_or_name) -> None:
+        self.load_changes[_asset_name(load_or_name)] = None
+
+    def activate_constraint(self, constraint, *, name=None):
+        self.constraint_changes[_asset_name(constraint, name)] = constraint
+        return constraint
+
+    def deactivate_constraint(self, constraint_or_name) -> None:
+        self.constraint_changes[_asset_name(constraint_or_name)] = None
+
+    def predefine(self, target, value, *, name=None) -> None:
+        self.predefined_fields[_asset_name(target, name)] = (target, value)
+
+    def resolve_loads(self, base):
+        return self._resolve(base, "load_changes")
+
+    def resolve_constraints(self, base):
+        return self._resolve(base, "constraint_changes")
+
+    def apply_predefined_fields(self) -> None:
+        values = {} if self.previous is None else self.previous._resolved_predefined()
+        values.update(self.predefined_fields)
+        for target, value in values.values():
+            function = getattr(target, "value", target)
+            if callable(value):
+                function.interpolate(value)
+            elif hasattr(value, "x"):
+                function.x.array[:] = value.x.array
+            else:
+                function.x.array[:] = value
+            function.x.scatter_forward()
+
+    def summary(self):
+        return {
+            "name": self.name, "kind": "engineering_step",
+            "previous": None if self.previous is None else self.previous.name,
+            "inherit_model_loads": self.inherit_model_loads,
+            "inherit_model_constraints": self.inherit_model_constraints,
+            "load_changes": tuple(self.load_changes),
+            "constraint_changes": tuple(self.constraint_changes),
+            "predefined_fields": tuple(self.predefined_fields),
+        }
+
+    def _resolve(self, base, attribute):
+        if self.previous is not None:
+            source = self.previous._resolve(base, attribute)
+        elif attribute == "load_changes":
+            source = base if self.inherit_model_loads else ()
+        else:
+            source = base if self.inherit_model_constraints else ()
+        resolved = {_asset_name(item): item for item in source}
+        for name, item in getattr(self, attribute).items():
+            if item is None:
+                resolved.pop(name, None)
+            else:
+                resolved[name] = item
+        return tuple(resolved.values())
+
+    def _resolved_predefined(self):
+        values = {} if self.previous is None else self.previous._resolved_predefined()
+        values.update(self.predefined_fields)
+        return values
+
+
+def engineering_step(
+    name: str,
+    *,
+    previous: EngineeringStep | None = None,
+    inherit_model_loads: bool = False,
+    inherit_model_constraints: bool = True,
+):
+    return EngineeringStep(
+        str(name),
+        previous=previous,
+        inherit_model_loads=bool(inherit_model_loads),
+        inherit_model_constraints=bool(inherit_model_constraints),
+    )
+
+
+def _asset_name(asset_or_name, explicit=None) -> str:
+    name = explicit or (asset_or_name if isinstance(asset_or_name, str) else getattr(asset_or_name, "name", None))
+    if not name:
+        raise ValueError("Step-managed assets require a stable name.")
+    return str(name)
+
+
 __all__ = [
     "AutomaticIncrementation",
     "FixedIncrementation",
+    "EngineeringStep",
     "at",
     "automatic",
     "fixed",
+    "engineering_step",
     "normalize",
 ]

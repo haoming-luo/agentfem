@@ -385,6 +385,7 @@ class IncrementalNonlinearVariationalProblem:
     name: str = "incremental_nonlinear"
     petsc_options_prefix: str = "agentfem_incremental_nonlinear_"
     procedure: object | None = None
+    result_field_factory: object | None = None
     last_solve_info: NonlinearLoadPathInfo | None = field(default=None, init=False)
     snapshots: list = field(default_factory=list, init=False)
     execution_events: list = field(default_factory=list, init=False)
@@ -664,14 +665,29 @@ class IncrementalNonlinearVariationalProblem:
         from .results import add_execution_trace, from_solution
 
         solution = self.solve()
+        generated = (
+            () if self.result_field_factory is None
+            else tuple(self.result_field_factory())
+        )
+        primary = solution if not generated else generated[0]
         result = from_solution(
-            solution,
+            primary,
             name=self.name,
             metadata={
                 "problem": self.summary(),
                 "solve": self.last_solve_info.as_dict(),
             },
         )
+        for field in generated[1:]:
+            result.add_field(
+                getattr(field, "name", type(field).__name__),
+                field,
+                processing={
+                    "method": "primary_mixed_finite_element_subfield",
+                    "representation": "collapsed_finite_element_dofs",
+                    "postprocessed": False,
+                },
+            )
         add_execution_trace(result, self.execution_events)
         return result
 
@@ -689,6 +705,10 @@ class IncrementalNonlinearVariationalProblem:
                 else self.incrementation.summary()
             ),
             "snapshot_count": len(self.snapshots),
+            "primary_result_fields": (
+                None if self.result_field_factory is None else tuple(self.primary_fields)
+                if hasattr(self, "primary_fields") else "generated"
+            ),
             "last_solve": (
                 None
                 if self.last_solve_info is None
@@ -873,7 +893,7 @@ class AnalysisStep:
         """
 
         from . import io
-        from .results import from_solution
+        from .results import from_solution, static_force_balance
 
         solution = self.problem.solve()
         if fields and field_variables is not None:
@@ -922,6 +942,36 @@ class AnalysisStep:
                     else None
                 ),
             )
+        is_static_solid = bool(
+            self.study is not None
+            and getattr(self.study, "is_solid_mechanics", False)
+            and len(tuple(getattr(solution, "ufl_shape", ()))) == 1
+        )
+        if is_static_solid:
+            equilibrium = static_force_balance(self.problem)
+            result.add_quantities(
+                {
+                    "external_force_resultant": equilibrium.external,
+                    "reaction_force_resultant": equilibrium.reaction,
+                    "force_balance_residual": equilibrium.residual,
+                    "relative_force_balance_error": equilibrium.relative_error,
+                },
+                kind="diagnostic",
+                descriptions={
+                    "external_force_resultant": (
+                        "Resultant of the assembled linear-system right-hand side."
+                    ),
+                    "reaction_force_resultant": (
+                        "Resultant of strong-constraint algebraic reactions."
+                    ),
+                    "force_balance_residual": "Reaction plus external-force resultant.",
+                    "relative_force_balance_error": (
+                        "Norm of the force-balance residual divided by the larger "
+                        "external or reaction resultant norm."
+                    ),
+                },
+            )
+            result.metadata["static_equilibrium"] = equilibrium.as_dict()
         if output is not None:
             path = Path(output)
             domain = solution.function_space.mesh
@@ -968,7 +1018,11 @@ class AnalysisStep:
                     "backend": backend,
                     "layout": layout,
                     "geometry": "reference",
-                    "warp_field": "U",
+                    "warp_field": (
+                        "U"
+                        if len(tuple(getattr(solution, "ufl_shape", ()))) == 1
+                        else None
+                    ),
                 }
                 result.add_artifact("fields_xdmf", path)
                 heavy = path.with_suffix(".h5")

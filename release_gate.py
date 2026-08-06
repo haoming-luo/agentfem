@@ -31,10 +31,12 @@ REQUIRED_WHEEL_MEMBERS = (
     "agentfem/models.py",
     "agentfem/dependencies.py",
     "agentfem/platforms.py",
+    "agentfem/provenance.py",
     "agentfem/results/core.py",
     "agentfem/results/execution.py",
     "agentfem/cli.py",
     "agentfem/project.py",
+    "agentfem/upgrades.py",
     "agentfem/py.typed",
     "agentfem/templates/static-solid/case.py",
     "agentfem/templates/static-solid/agentfem.toml",
@@ -60,6 +62,7 @@ SMOKE_IDENTITY_FILES = (
     "checkpointing.py",
     "problems.py",
     "results/core.py",
+    "provenance.py",
 )
 
 
@@ -245,6 +248,28 @@ def run_installed_project_smoke(*, environment=None) -> None:
             check=True,
             env=environment,
         )
+        upgrade = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "agentfem.cli",
+                "upgrade",
+                "--project",
+                str(project),
+                "--json",
+            ],
+            cwd=directory,
+            check=True,
+            env=environment,
+            capture_output=True,
+            text=True,
+        )
+        upgrade_record = json.loads(upgrade.stdout)
+        if upgrade_record["status"] != "current":
+            raise RuntimeError(
+                "Installed project template immediately requires migration: "
+                f"{upgrade_record['findings']}"
+            )
         subprocess.run(
             [
                 sys.executable,
@@ -286,6 +311,23 @@ def run_installed_project_smoke(*, environment=None) -> None:
             raise RuntimeError(
                 "Installed project smoke did not publish SimulationResult manifest."
             )
+        verification = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "agentfem.cli",
+                "verify",
+                str(result),
+                "--json",
+            ],
+            cwd=directory,
+            check=True,
+            env=environment,
+            capture_output=True,
+            text=True,
+        )
+        if json.loads(verification.stdout)["status"] != "verified":
+            raise RuntimeError("Installed project result provenance did not verify.")
 
 
 def main() -> None:

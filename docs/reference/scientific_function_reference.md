@@ -10,15 +10,18 @@ the compact machine-readable `knowledge/catalog.json`.
 
 | Stable ID | Title | Kind | Status |
 | --- | --- | --- | --- |
+| [`agentfem.load.surface_resultant`](#agentfem-load-surface_resultant) | Uniform boundary traction from a requested resultant force | workflow | supported |
 | [`agentfem.material.creep_damage_assessment`](#agentfem-material-creep_damage_assessment) | Creep damage and modified-theta assessment | material | supported |
+| [`agentfem.material.global_implicit_creep`](#agentfem-material-global_implicit_creep) | Global implicit power-law creep | material | supported |
 | [`agentfem.material.j2_global_plasticity`](#agentfem-material-j2_global_plasticity) | Global small-strain J2 plasticity | material | supported |
+| [`agentfem.material.mixed_hybrid_hyperelasticity`](#agentfem-material-mixed_hybrid_hyperelasticity) | Constant-pressure mixed Neo-Hookean solid | material | supported |
 | [`agentfem.operator.system_contracts`](#agentfem-operator-system_contracts) | Finite-element operator and system contracts | operator | supported |
 | [`agentfem.workflow.campaign_learning_pipeline`](#agentfem-workflow-campaign_learning_pipeline) | Simulation campaign to guarded learning workflow | workflow | supported |
 | [`agentfem.workflow.observation_grid_learning`](#agentfem-workflow-observation_grid_learning) | Mesh-independent structured observation grids | workflow | supported |
 | [`agentfem.workflow.result_field_sampling`](#agentfem-workflow-result_field_sampling) | MPI-safe point and path field sampling | workflow | supported |
 | [`agentfem.workflow.scientific_verification`](#agentfem-workflow-scientific_verification) | Scientific trust and verification workflow | workflow | supported |
 | [`agentfem.workflow.solution_procedures`](#agentfem-workflow-solution_procedures) | Solution procedure vocabulary | analysis_step | supported |
-| [`agentfem.workflow.standard_result_projection`](#agentfem-workflow-standard_result_projection) | Projected small-strain result fields and strong-constraint resultants | workflow | supported |
+| [`agentfem.workflow.standard_result_projection`](#agentfem-workflow-standard_result_projection) | Projected small-strain fields, reactions, and static equilibrium | workflow | supported |
 | [`agentfem.workflow.thermoelastic_analysis`](#agentfem-workflow-thermoelastic_analysis) | Sequential thermoelastic analysis | workflow | supported |
 
 ## Benchmark index
@@ -30,6 +33,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | `agentfem.benchmark.creep_damage_material_paths` | Creep-damage material paths and curve projection | Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection | automated_regression |
 | `agentfem.benchmark.creep_hot_wall_release` | Sequential hot-wall creep assessment release contract | sequential transient heat conduction, plane-strain thermoelasticity, and local creep-damage assessment | automated_regression |
 | `agentfem.benchmark.elasticity_foundation` | Foundational small-strain elasticity verification | two- and three-dimensional small-strain linear elasticity | automated |
+| `agentfem.benchmark.implicit_creep_relaxation` | Three-dimensional implicit power-law creep relaxation and restart | three-dimensional small-strain isotropic Mises power-law creep | automated_regression |
 | `agentfem.benchmark.j2_abaqus_rate_independent` | Published Abaqus rate-independent Mises plasticity uniaxial state | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_external_verification |
 | `agentfem.benchmark.j2_global_restart` | Three-dimensional J2 path, physical cutback, cyclic amplitude, energy, and restart equivalence | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_regression |
 | `agentfem.benchmark.j2_multielement_patch` | Multi-element global J2 plasticity patch | three-dimensional small-strain rate-independent J2 plasticity with linear isotropic hardening | automated |
@@ -40,6 +44,108 @@ the compact machine-readable `knowledge/catalog.json`.
 | `agentfem.benchmark.transient_heat_release` | Implicit-Euler transient heat release regression | two-dimensional transient heat conduction with constant isotropic properties | numerical_regression |
 | `agentfem.benchmark.wave_release` | Explicit elastic-wave inclusion release contract | two-dimensional plane-strain linear elastodynamics | automated_regression |
 
+<a id="agentfem-load-surface_resultant"></a>
+
+## Uniform boundary traction from a requested resultant force
+
+**Stable ID:** `agentfem.load.surface_resultant`<br>
+**Kind:** `workflow`<br>
+**Status:** `supported`<br>
+**Source card:** `knowledge/cards/surface_resultant_load.json`
+
+Converts an engineering total force into a uniform reference-boundary traction while preserving the requested MPI-global resultant.
+
+### Public API
+
+- `agentfem.loads.surface_force`
+- `agentfem.loads.distributing_coupling`
+- `agentfem.models.Model.surface_force`
+- `agentfem.models.Model.distributing_coupling`
+- `agentfem.results.boundary_resultant`
+
+### Scientific contract
+
+A known continuum-solid end force can be applied without a singular nodal load by distributing it over a named reference boundary.
+
+**uniform reference traction**
+
+$$
+t0 = F_requested / measure(Gamma0)
+$$
+
+The same constant traction is integrated over the selected reference edge or surface.
+
+**resultant contract**
+
+$$
+integral(Gamma0, t0 dGamma0) = F_requested
+$$
+
+The boundary measure and verification integral are MPI-global.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| resultant and boundary | finite vector and named BoundaryRegion | force and reference edge length/surface area | The vector dimension must match the mesh geometric dimension. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| surface resultant load | weak boundary load | traction integrated to force | The load retains requested resultant, measured reference size, and applied traction in its summary. |
+
+#### Assumptions
+
+- The traction is uniform over the selected reference boundary.
+- In 2D the resultant is per unit out-of-plane thickness.
+
+#### Conventions
+
+- The force vector follows global coordinates.
+- Amplitude scaling acts on the complete distributed load.
+- The geometric measure is assembled unless an explicit positive reference_measure is supplied.
+
+#### Applicability
+
+- Continuum-solid end loads, verification beams, specimens, and distributing-load workflows.
+
+#### Limitations
+
+- surface_force is uniform; use distributing_coupling when a reference-point moment must also be transmitted.
+- The distributing load preserves resultants but does not yet create kinematic reference-point degrees of freedom or an MPC constraint.
+
+### Minimal example
+
+```python
+loaded = mesh.boundary(domain, right, name='loaded_end')
+model.surface_force((0.0, -50000.0), on=loaded)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_common_workflows.py`
+- `tests/test_engineering_workflows.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.elasticity_foundation`
+
+**Validation rules**
+
+- Reject non-finite or dimensionally incompatible resultants.
+- Reject an empty or non-positive reference boundary measure.
+- Integrate the generated traction and recover the requested vector.
+- Solve a clamped solid and verify global force balance.
+
+### References
+
+- Abaqus three-dimensional solid distributed loads: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEELMRefMap/simaelm-r-3delem.htm`
+
+<a id="agentfem-material-creep_damage_assessment"></a>
+
 ## Creep damage and modified-theta assessment
 
 **Stable ID:** `agentfem.material.creep_damage_assessment`<br>
@@ -47,7 +153,7 @@ the compact machine-readable `knowledge/catalog.json`.
 **Status:** `supported`<br>
 **Source card:** `knowledge/cards/creep_damage_assessment.json`
 
-Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, with an explicit boundary before global finite-element creep.
+Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, kept distinct from the implemented global isothermal power-law creep route.
 
 ### Public API
 
@@ -116,11 +222,11 @@ Primary and tertiary terms project a creep strain-time curve.
 
 - Material calibration checks and constant-stress creep screening.
 - Sequential thermoelastic-to-creep hotspot workflows with explicit scope labels.
-- Reference updates for a future global quadrature creep driver.
+- Reference updates for future global damage and Sinh consumers.
 
 #### Limitations
 
-- No global creep equilibrium, adaptive time stepping, temperature field interpolation, or restartable quadrature state yet.
+- K-R damage and Sinh flow do not yet enter global equilibrium, adaptive time stepping, or restartable quadrature state; the separate isothermal power-law model does.
 - Local softening/damage is not mesh regularized.
 - No Liu-Murakami multiaxial damage law is claimed in this release.
 
@@ -144,13 +250,129 @@ Create KachanovRabotnovCreep with traceable parameters, advance CreepDamageState
 
 - Reject nonfinite parameters, invalid reference scales, and damage outside [0, 1).
 - Clamp a failed update at the declared failure damage and report failed=True.
-- Do not promote the capability beyond material-point maturity without a global state consumer.
+- Do not promote K-R, Sinh, or modified-theta beyond their declared local/curve maturity merely because power-law creep has a global state consumer.
 
 ### References
 
 - Constitutive equations for creep rupture: `doi:10.1016/0001-6160(77)90135-3`
 - Damage localization of conventional creep damage models and proposition of a new model: `doi:10.1299/jsmea.41.57`
 - Modified theta projection equation for high-temperature creep curves: `https://pmc.ncbi.nlm.nih.gov/articles/PMC6838921/`
+
+<a id="agentfem-material-global_implicit_creep"></a>
+
+## Global implicit power-law creep
+
+**Stable ID:** `agentfem.material.global_implicit_creep`<br>
+**Kind:** `material`<br>
+**Status:** `supported`<br>
+**Source card:** `knowledge/cards/global_implicit_creep.json`
+
+Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, atomic rollback, serial restart, and standard creep fields.
+
+### Public API
+
+- `agentfem.studies.creep_solid`
+- `agentfem.constitutive.isotropic_power_law`
+- `agentfem.constitutive.IsotropicPowerLawCreepMaterial`
+- `agentfem.constitutive.CreepQuadratureState`
+- `agentfem.models.Model.step`
+
+### Scientific contract
+
+The creep increment is solved locally from the fully implicit Mises power-law equation; its analytical derivative supplies the material tangent for global quasi-static Newton equilibrium, while all history remains trial state until the complete increment is accepted.
+
+**power-law flow**
+
+$$
+Delta gamma = Delta t A(t_{n+1}) (q_{n+1}/sigma_ref)^n
+$$
+
+Backward Euler evaluates the time-hardening rate and equivalent stress at the increment end.
+
+**local scalar corrector**
+
+$$
+q_{n+1} = q_trial - 3 G Delta gamma
+$$
+
+A safeguarded scalar Newton solve keeps the equivalent stress and creep increment nonnegative.
+
+**global equilibrium**
+
+$$
+integral sigma(epsilon(u_{n+1}), CE_n, Delta t) : epsilon(v) dOmega = F_ext(t_{n+1}; v)
+$$
+
+The global Newton matrix consumes the analytical algorithmic consistent tangent of the same local update.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| elastic and creep parameters | E, nu, density, A, n, optional time exponent and reference scales | one declared consistent stress-time system | Use isotropic_power_law to keep instantaneous elasticity and creep flow in one material record. |
+| physical duration and increment controls | positive duration plus fixed or automatic incrementation | time | Normalized increment sizes map to physical time; amplitudes are evaluated in physical time. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| S and MISES | quadrature tensor and scalar fields | stress | Accepted constitutive stress and its von Mises invariant. |
+| CE and CEEQ | committed quadrature state | strain | Creep strain tensor and accumulated equivalent creep strain. |
+| time, Newton, local-update and dissipation histories | structured histories and execution events | time, iterations, strain, and energy | Accepted times, maximum creep increment, local/global iterations, elastic energy, and creep dissipation. |
+
+#### Assumptions
+
+- Small strain, three spatial dimensions, isotropic elasticity, associative Mises creep, and isothermal material properties.
+- Quasi-static equilibrium; inertia is not part of this procedure.
+- One material covers the current convenience-step domain.
+
+#### Conventions
+
+- Ordinary loads and prescribed values are held at full magnitude by default; an explicit amplitude defines any physical-time history.
+- CE and CEEQ are committed only after local integration, global Newton convergence, and increment-level acceptance all succeed.
+- maximum_inelastic_increment limits the maximum quadrature-point CEEQ increment and causes rollback/cutback when exceeded.
+- Checkpoint restore reconstructs stress from accepted strain and CE without advancing a fictitious time increment.
+
+#### Applicability
+
+- Isothermal three-dimensional research and engineering studies governed by a calibrated Mises power-law creep relation.
+- Stress-relaxation and creep-deformation workflows requiring inspectable state, cutback, and restart evidence.
+
+#### Limitations
+
+- The provider and checkpoint are serial-only and do not yet support multiple material regions.
+- Temperature-field interpolation, Arrhenius coupling, damage, and mesh regularization are not part of this global route.
+- External component or code-standard validation remains required before application-specific qualification.
+
+### Minimal example
+
+```python
+Create studies.creep_solid(), register constitutive.isotropic_power_law(...), add supports and loads, then call model.step(target=u, material=steel, duration=..., incrementation=steps.automatic()).
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_p1_platform.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.implicit_creep_relaxation`
+
+**Validation rules**
+
+- Reject non-3D, multi-rank, nonpositive-duration, or incompatible material use.
+- Verify the analytical tangent independently against a centered material-point derivative.
+- Commit shared transaction state only after a globally accepted physical-time increment.
+- Restore displacement, CE, CEEQ, physical time, next increment, histories, energies, and events from a compatible checkpoint.
+
+### References
+
+- Consistent tangent operators for rate independent elasto-plasticity: `https://escholarship.org/uc/item/9cp19009`
+- A consistent formulation for the integration of combined plasticity and creep: `doi:10.1002/nme.1620370803`
+
+<a id="agentfem-material-j2_global_plasticity"></a>
 
 ## Global small-strain J2 plasticity
 
@@ -266,6 +488,110 @@ Register J2LinearIsotropicHardening in a 3D nonlinear_static Model, add supports
 
 - Abaqus theory: classical metal plasticity: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-isoelastoplast.htm`
 - MOOSE radial return stress update: `https://mooseframework.inl.gov/moose/source/materials/RadialReturnStressUpdate.html`
+
+<a id="agentfem-material-mixed_hybrid_hyperelasticity"></a>
+
+## Constant-pressure mixed Neo-Hookean solid
+
+**Stable ID:** `agentfem.material.mixed_hybrid_hyperelasticity`<br>
+**Kind:** `material`<br>
+**Status:** `supported`<br>
+**Source card:** `knowledge/cards/mixed_hybrid_hyperelasticity.json`
+
+Solves finite-strain equilibrium with quadratic displacement and one independent constant pressure unknown per cell, including automatic incrementation, Newton tangent, rollback, and positive-J acceptance.
+
+### Public API
+
+- `agentfem.fields.displacement_pressure`
+- `agentfem.constitutive.mixed_neo_hookean`
+- `agentfem.models.Model.step`
+
+### Scientific contract
+
+The pressure field is a solved scientific unknown rather than metadata inferred from tetra10 geometry; the P2/DG0 pair is AgentFEM's constant-pressure hybrid analogue for C3D10H source meshes.
+
+**mixed finite-strain potential**
+
+$$
+Pi = integral(psi_iso(F) - p(J-1) - p^2/(2 kappa)) dV - W_ext
+$$
+
+Automatic differentiation supplies the coupled residual and consistent Newton tangent.
+
+**pressure constraint**
+
+$$
+p = -kappa (J-1)
+$$
+
+Positive pressure denotes compression and DG0 creates one pressure value per cell.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| mixed field and material | P2 displacement/DG0 pressure unknown and MixedNeoHookeanProperties | length, pressure, and energy density | Displacement constraints are applied to the displacement subfield while both fields solve monolithically. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| U and P | mixed finite-element solution with collapsible displacement and pressure fields | length and pressure | Both primary fields retain explicit names and can be exported or inspected independently. |
+
+#### Assumptions
+
+- Three-dimensional solids and two-dimensional plane strain use total-Lagrangian kinematics.
+- The volumetric response uses a finite bulk modulus derived from E and nu.
+
+#### Conventions
+
+- Positive pressure is compressive.
+- A known imported hybrid element is accepted only by the mixed provider.
+- Every accepted increment must retain positive quadrature-point J.
+
+#### Applicability
+
+- Nearly incompressible Neo-Hookean continuum solids and C3D10H-topology import workflows.
+
+#### Limitations
+
+- This is an AgentFEM variational analogue, not a byte-for-byte reproduction of Abaqus internal hybrid elements.
+- Mixed affine-periodic MPC, multiple finite-strain material regions, and an external locking benchmark remain release gates.
+
+### Minimal example
+
+```python
+unknown = model.field(fields.displacement_pressure(domain))
+material = model.material(constitutive.mixed_neo_hookean(young=1e6, poisson=0.499))
+model.fix(unknown.displacement, on=support)
+step = model.step(target=unknown, material=material)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_engineering_workflows.py`
+- `tests/test_abaqus_interop.py`
+- `tests/test_mesh_formats.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Require the verified P2/DG0 pair for the constant-pressure provider.
+- Reject displacement-only consumption of known C3D10H source semantics.
+- Solve the constrained zero state and recover exactly zero displacement and pressure.
+- Reject any accepted increment with non-positive quadrature-point J.
+
+### References
+
+- Abaqus hybrid incompressible solid formulation: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-hybridincompress.htm`
+- DOLFINx mixed function-space API: `https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.html`
+
+<a id="agentfem-operator-system_contracts"></a>
 
 ## Finite-element operator and system contracts
 
@@ -385,6 +711,8 @@ Create C = operators.capacity_operator(T, rho_c), K = operators.conduction_opera
 - Cast3M presentation and principles of development: `https://www-cast3m.cea.fr/html/ManuelCastemEnsta/ManuelCastemEnsta.html`
 - UFL automatic differentiation manual: `https://docs.fenicsproject.org/ufl/2026.1.0/manual/form_language.html`
 
+<a id="agentfem-workflow-campaign_learning_pipeline"></a>
+
 ## Simulation campaign to guarded learning workflow
 
 **Stable ID:** `agentfem.workflow.campaign_learning_pipeline`<br>
@@ -487,6 +815,8 @@ dataset = report.require_dataset(quality='engineering'); training = surrogates.t
 
 - AgentFEM results and campaigns contract: `docs/results_and_campaigns.md`
 
+<a id="agentfem-workflow-observation_grid_learning"></a>
+
 ## Mesh-independent structured observation grids
 
 **Stable ID:** `agentfem.workflow.observation_grid_learning`<br>
@@ -588,6 +918,8 @@ grid = surrogates.regular_grid(bounds=((0,L),(0,H)), shape=(128,64)); sample = d
 - Fourier Neural Operator for Parametric Partial Differential Equations: `https://openreview.net/forum?id=c8P9NQVtmnO`
 - NIST human-centered framework to update digital twins: `https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=936651`
 
+<a id="agentfem-workflow-result_field_sampling"></a>
+
 ## MPI-safe point and path field sampling
 
 **Stable ID:** `agentfem.workflow.result_field_sampling`<br>
@@ -686,6 +1018,8 @@ tip = results.probe(U, at=(L, H/2)); path = results.sample_path(U, start=(0, H/2
 ### References
 
 - DOLFINx geometry and finite-element function evaluation: `https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.geometry.html`
+
+<a id="agentfem-workflow-scientific_verification"></a>
 
 ## Scientific trust and verification workflow
 
@@ -790,6 +1124,8 @@ result.verify('engineering', required_quantities=('response',)).require(); datas
 ### References
 
 - AgentFEM scientific trust guide: `docs/scientific_verification.md`
+
+<a id="agentfem-workflow-solution_procedures"></a>
 
 ## Solution procedure vocabulary
 
@@ -899,14 +1235,16 @@ Create studies.implicit_dynamics(..., method='generalized_alpha') and call model
 
 - Chung and Hulbert generalized-alpha method: `https://deepblue.lib.umich.edu/bitstream/handle/2027.42/50422/1640100803_ftp.pdf?isAllowed=y&sequence=1`
 
-## Projected small-strain result fields and strong-constraint resultants
+<a id="agentfem-workflow-standard_result_projection"></a>
+
+## Projected small-strain fields, reactions, and static equilibrium
 
 **Stable ID:** `agentfem.workflow.standard_result_projection`<br>
 **Kind:** `workflow`<br>
 **Status:** `supported`<br>
 **Source card:** `knowledge/cards/standard_result_projection.json`
 
-Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell-average fields, and extracts MPI-global resultants on named strong-constraint boundaries.
+Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell-average fields, extracts MPI-global resultants, and records assembled external-force versus strong-reaction equilibrium.
 
 ### Public API
 
@@ -917,6 +1255,8 @@ Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell
 - `agentfem.results.field_extrema`
 - `agentfem.results.region_measure`
 - `agentfem.results.reaction_resultant`
+- `agentfem.results.external_force_resultant`
+- `agentfem.results.static_force_balance`
 - `agentfem.mesh.tagged_boundary_region`
 - `agentfem.diagnostics.linear_static_energy`
 
@@ -940,6 +1280,14 @@ $$
 
 At converged free degrees of freedom R is zero to solver tolerance; prescribed degrees retain reaction entries.
 
+**global static force balance**
+
+$$
+r_balance = sum(R_strong) + sum(F_assembled)
+$$
+
+The relative error is the residual norm divided by the larger external or reaction resultant norm.
+
 **proportional linear work**
 
 $$
@@ -960,7 +1308,7 @@ The equality applies to a load ramped proportionally from zero when non-zero pre
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | standard fields | DG projected Functions named S, E, MISES, and optionally SENER | stress, strain, and energy density | Serial solve_result(output=...) stores these cell fields with nodal U on one Uniform Grid. |
-| resultant and energy closure | MPI-global scalar/vector and LinearStaticEnergy | force and energy | Compact engineering histories or verification quantities. |
+| resultants, force balance, and energy closure | MPI-global scalar/vector, StaticForceBalance, and LinearStaticEnergy | force and energy | Compact engineering histories or verification quantities. |
 
 #### Assumptions
 
@@ -977,6 +1325,7 @@ The equality applies to a load ramped proportionally from zero when non-zero pre
 - Non-zero prescribed-displacement work is not silently included in proportional force work.
 - Imported physical boundaries use their facet tag for both strong topological dof location and weak integration; an optional marker is audit evidence.
 - field_extrema(location=True) identifies its finite-element-dof sampling, coordinate, rank, global dof, and DG0 cell where applicable.
+- Model-generated linear static solids attach assembled external force, strong reaction, balance residual, and relative error to SimulationResult.
 
 #### Applicability
 
@@ -994,6 +1343,7 @@ The equality applies to a load ramped proportionally from zero when non-zero pre
 support = mesh.tagged_boundary_region(domain, facet_tags, tag=101, name='support')
 result = step.solve_result(output='solid.xdmf')
 RF_x = results.reaction_resultant(step.problem, on=support, component=0)
+balance = results.static_force_balance(step.problem)
 peak = results.field_extrema(result.fields['MISES'], location=True)
 ```
 
@@ -1014,6 +1364,7 @@ peak = results.field_extrema(result.fields['MISES'], location=True)
 - Reject unknown field variables and negative projection degrees.
 - Compare affine displacement projection with its analytical constant strain.
 - Check named-boundary reaction equilibrium and proportional static energy closure.
+- Check the automatically attached assembled-force, strong-reaction, and relative global balance evidence.
 - Verify a regional two-material series bar through one piecewise projection.
 
 ### References
@@ -1022,6 +1373,8 @@ peak = results.field_extrema(result.fields['MISES'], location=True)
 - Abaqus field and history output requests: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEOUTRefMap/simaout-c-output.htm`
 - Abaqus contour extrapolation and averaging: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAECAERefMap/simacae-c-conconceptlimits.htm`
 - COMSOL Gauss-point evaluation: `https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_modeling.05.224.html`
+
+<a id="agentfem-workflow-thermoelastic_analysis"></a>
 
 ## Sequential thermoelastic analysis
 

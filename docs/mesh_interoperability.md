@@ -30,6 +30,40 @@ The inventory exposes point count, element blocks, cell sets, point sets, and
 data arrays. Choosing a volume topology without this inspection can silently
 discard boundary elements or mixed element families.
 
+When several topologies must be retained, convert an explicit bundle:
+
+```python
+bundle = mesh.convert_external_mesh_bundle(
+    "assembly.inp", "output/mesh",
+    cell_types=("tetra10", "hexahedron"),
+)
+```
+
+Each topology receives its own XDMF/HDF5 domain and manifest, plus one bundle
+manifest. AgentFEM does not merge unlike cells into an opaque solve mesh while
+mixed-topology support in DOLFINx remains incomplete.
+
+## Source mesh, converted artifact, and runtime mesh
+
+`mesh.read_abaqus_mesh(source, converted_path, ...)` does not remesh the
+geometry. Rank zero reads the Abaqus source, converts its selected topology to
+XDMF/HDF5 at the caller-supplied `converted_path`, writes an adjacent
+`.mesh.json` evidence manifest, and then all ranks read that converted mesh
+into DOLFINx. The finite-element solve therefore uses the in-memory DOLFINx
+mesh reconstructed from XDMF/HDF5; it does not repeatedly solve from the
+original keyword file.
+
+The adjacent manifest stores a SHA-256 source fingerprint and the topology,
+facet, dimension-pruning, and reader choices.  `read_abaqus_mesh(...)` reuses
+the conversion by default only when that complete identity still matches and
+the XDMF/HDF5 pair is present. Editing the source mesh or changing a conversion
+choice invalidates the cache and triggers conversion on rank zero.
+
+The output location is not forced to a global `mesh/` directory. A project may
+keep derived conversion artifacts under `output/mesh/`, while retaining the
+original `.inp`/`.dat` as the authoritative source and reconversion input. The
+manifest links both identities and records topology selection and omissions.
+
 ## Preserve Volume and Boundary Sets
 
 ```python
@@ -91,16 +125,50 @@ cells, `constraints.abaqus_periodic_cell(...)` maps source labels to
 displacement dofs and constructs exact affine elimination. See
 [Abaqus C3D10 Periodic Cell](abaqus_periodic_cell.md).
 
+The Abaqus adapter also preserves inline and explicit `NSET`/`ELSET`
+definitions, expands `GENERATE` ranges, and records node- and element-based
+`SURFACE` entries. `imported.surface_faces(name)` expands an element-based
+surface to source `(element_label, face_identifier)` pairs. This is durable
+engineering evidence even when a selected neutral topology cannot yet become
+one DOLFINx facet-tag field.
+
+### C3D10 and C3D10H are not the same solver formulation
+
+Both Abaqus `C3D10` and `C3D10H` have ten-node quadratic tetrahedral geometry,
+so meshio maps both to `tetra10`. AgentFEM now preserves the source keyword
+identity beside the neutral mesh. For `C3D10H` the conversion manifest records
+the hybrid constant-pressure formulation and its one additional element
+pressure variable, and emits a warning that XDMF contains topology rather than
+that pressure formulation.
+
+AgentFEM now provides an explicit mixed route:
+
+```python
+unknown = model.field(fields.displacement_pressure(domain))  # P2 / DG0
+material = model.material(
+    constitutive.mixed_neo_hookean(young=1.0e6, poisson=0.499)
+)
+model.fix(unknown.displacement, on=support)
+step = model.step(target=unknown, material=material)
+```
+
+The monolithic solution has quadratic displacement and one independent
+constant pressure value per cell. The provider consumes known `C3D10H`
+constant-pressure source semantics; the ordinary displacement-only provider
+continues to reject them. This is an AgentFEM mixed variational analogue, not
+a claim that neutral conversion reproduces Abaqus internal element code.
+
 ## Current Limits
 
-- point/node sets are inventoried but not yet converted to a DOLFINx point
-  region;
-- surface definitions derived from element faces are not reconstructed unless
-  explicit lower-dimensional cells exist;
+- node sets and element-face surfaces are preserved and queryable, but node
+  sets are not yet first-class DOLFINx point regions and source face pairs are
+  not yet reconstructed as facet tags unless lower-dimensional cells exist;
 - mixed top-dimensional element families need an explicit selection;
-- high-order compatibility remains format-specific; Abaqus `C3D10` /
+- high-order topology compatibility remains format-specific; Abaqus `C3D10` /
   meshio `tetra10` / DOLFINx quadratic tetrahedral geometry is now covered by
   a real import and nonlinear example;
+- the C3D10H constant-pressure route is solved explicitly; other hybrid and
+  enhanced suffixes remain source evidence until a matching provider exists;
 - ANSYS CDB support depends on the installed reader and is not claimed merely
   from the file extension.
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from types import SimpleNamespace
 
 from agentfem.constraints.affine import (
     _build_reduction,
@@ -30,6 +31,83 @@ def test_abaqus_node_reader_preserves_nonconsecutive_labels(tmp_path):
 
     assert nodes.labels.tolist() == [10, 25]
     np.testing.assert_allclose(nodes.coordinate(25), [1.0, 0.0, 0.0])
+
+
+def test_abaqus_element_reader_preserves_c3d10h_formulation_identity(tmp_path):
+    source = tmp_path / "hybrid.inp"
+    source.write_text(
+        "\n".join(
+            (
+                "*Heading",
+                "*Element, type=C3D10H, elset=RUBBER",
+                "1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    definitions = abaqus.read_element_definitions(source)
+
+    assert len(definitions) == 1
+    assert definitions[0].source_type == "C3D10H"
+    assert definitions[0].topology == "tetra10"
+    assert definitions[0].formulation == "hybrid"
+    assert definitions[0].pressure_interpolation == "constant"
+    assert definitions[0].additional_pressure_variables == 1
+
+
+def test_abaqus_semantics_preserve_sets_and_element_face_surfaces(tmp_path):
+    source = tmp_path / "sets.inp"
+    source.write_text(
+        "\n".join(
+            (
+                "*Node, nset=ALLN",
+                "10, 0., 0., 0.",
+                "20, 1., 0., 0.",
+                "*Nset, nset=FIXED",
+                "10",
+                "*Elset, elset=SOLID, generate",
+                "1, 5, 2",
+                "*Surface, name=LOAD_FACE, type=ELEMENT",
+                "SOLID, S2",
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    semantics = abaqus.read_model_semantics(source)
+
+    assert semantics.node_sets[0].name == "ALLN"
+    assert semantics.node_sets[1].labels == (10,)
+    assert semantics.element_sets[0].labels == (1, 3, 5)
+    assert semantics.surfaces[0].entries[0].reference == "SOLID"
+    assert semantics.surfaces[0].entries[0].face == "S2"
+
+    imported = abaqus.AbaqusMeshImport(
+        fem_mesh=SimpleNamespace(), nodes=SimpleNamespace(),
+        conversion=SimpleNamespace(source_metadata={"abaqus_model_semantics": semantics.summary()}),
+    )
+    assert imported.surface_faces("LOAD_FACE") == ((1, "S2"), (3, "S2"), (5, "S2"))
+
+
+def test_imported_hybrid_identity_cannot_be_silently_consumed_as_displacement_only():
+    imported = abaqus.AbaqusMeshImport(
+        fem_mesh=SimpleNamespace(),
+        nodes=SimpleNamespace(),
+        conversion=SimpleNamespace(
+            source_metadata={
+                "abaqus_element_definitions": [
+                    abaqus.describe_element_type("C3D10H").summary()
+                ]
+            }
+        ),
+    )
+
+    with pytest.raises(NotImplementedError, match="C3D10H.*hybrid"):
+        imported.require_formulation(
+            "displacement",
+            operation="ordinary hyperelastic step",
+        )
 
 
 def test_abaqus_equation_reader_supports_continued_term_lines(tmp_path):

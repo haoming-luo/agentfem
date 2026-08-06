@@ -134,6 +134,21 @@ def test_conversion_can_preserve_boundary_sets_in_a_separate_xdmf(
     assert converted.warnings == ()
 
 
+def test_multi_topology_bundle_keeps_each_block_as_an_explicit_domain(tmp_path, monkeypatch):
+    meshio = _MeshIO(_source_mesh())
+    monkeypatch.setattr(formats, "require_meshio", lambda: meshio)
+
+    bundle = formats.convert_topology_bundle(
+        tmp_path / "model.inp",
+        tmp_path / "converted",
+        cell_types=("triangle", "line"),
+    )
+    manifest = json.loads(bundle.manifest_path.read_text(encoding="utf-8"))
+
+    assert tuple(item.cell_type for item in bundle.conversions) == ("triangle", "line")
+    assert [item["cell_type"] for item in manifest["domains"]] == ["triangle", "line"]
+
+
 def test_real_abaqus_mesh_conversion_is_readable_by_dolfinx(tmp_path):
     meshio = pytest.importorskip("meshio")
     from mpi4py import MPI
@@ -177,3 +192,54 @@ def test_real_abaqus_mesh_conversion_is_readable_by_dolfinx(tmp_path):
     assert converted_mesh.facet_tags.values.tolist() == [
         conversion.boundary_tags["outer"]
     ] * 4
+
+
+def test_c3d10h_conversion_keeps_hybrid_identity_beside_tetra10(tmp_path):
+    pytest.importorskip("meshio")
+    source = tmp_path / "one_hybrid_tet.inp"
+    source.write_text(
+        "\n".join(
+            (
+                "*Heading",
+                "*Node",
+                "1, 0., 0., 0.",
+                "2, 1., 0., 0.",
+                "3, 0., 1., 0.",
+                "4, 0., 0., 1.",
+                "5, .5, 0., 0.",
+                "6, .5, .5, 0.",
+                "7, 0., .5, 0.",
+                "8, 0., 0., .5",
+                "9, .5, 0., .5",
+                "10, 0., .5, .5",
+                "*Element, type=C3D10H, elset=SOLID",
+                "1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    conversion = formats.convert_abaqus_inp_to_xdmf(
+        source,
+        tmp_path / "hybrid.xdmf",
+        cell_type="tetra10",
+    )
+    manifest = json.loads(conversion.manifest_path.read_text(encoding="utf-8"))
+
+    assert conversion.cell_type == "tetra10"
+    definition = conversion.source_metadata["abaqus_element_definitions"][0]
+    assert definition["source_type"] == "C3D10H"
+    assert definition["pressure_interpolation"] == "constant"
+    assert manifest["source"]["format_metadata"] == conversion.source_metadata
+    assert manifest["source"]["fingerprint"]["algorithm"] == "sha256"
+    assert "tetra10 geometry alone is not C3D10H equivalence" in conversion.warnings[0]
+
+    cached = formats.reusable_conversion(
+        source, tmp_path / "hybrid.xdmf", cell_type="tetra10",
+    )
+    assert cached is not None
+
+    source.write_text(source.read_text(encoding="utf-8") + "\n** changed\n", encoding="utf-8")
+    assert formats.reusable_conversion(
+        source, tmp_path / "hybrid.xdmf", cell_type="tetra10",
+    ) is None

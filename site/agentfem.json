@@ -1,0 +1,72 @@
+{
+  "schema": "agentfem.documentation-entry",
+  "schema_version": "1.0",
+  "project": "AgentFEM",
+  "version": "0.2.0a1",
+  "maturity": "public-alpha",
+  "description": "AI-native finite-element computing for humans and agents.",
+  "documentation": "https://haoming-luo.github.io/agentfem/",
+  "repository": "https://github.com/haoming-luo/agentfem",
+  "package": "https://pypi.org/project/agentfem/",
+  "human_entrypoints": {
+    "start": "get_started/",
+    "guides": "guide/",
+    "examples": "examples/",
+    "reference": "reference/"
+  },
+  "agent_entrypoints": {
+    "guide": "agents/",
+    "llms_txt": "llms.txt",
+    "knowledge_catalog": "https://raw.githubusercontent.com/haoming-luo/agentfem/main/knowledge/catalog.json",
+    "skill": "agents/skill/"
+  },
+  "commands": {
+    "environment_check": "agentfem doctor --json",
+    "project_check": "agentfem check --json",
+    "run": "agentfem run --json",
+    "inspect": "agentfem inspect --json"
+  },
+  "public_workflow_modules": [
+    "studies",
+    "mesh",
+    "models",
+    "fields",
+    "materials",
+    "mechanics",
+    "constitutive",
+    "constraints",
+    "amplitudes",
+    "loads",
+    "operators",
+    "problems",
+    "project",
+    "provenance",
+    "platforms",
+    "procedures",
+    "results",
+    "solvers",
+    "steps",
+    "time",
+    "upgrades",
+    "io",
+    "diagnostics",
+    "ir",
+    "campaigns",
+    "checkpointing",
+    "datasets",
+    "surrogates",
+    "validation",
+    "verification"
+  ],
+  "workflow": [
+    "study",
+    "model",
+    "mesh_and_regions",
+    "fields",
+    "materials",
+    "loads_and_constraints",
+    "step",
+    "solve",
+    "result_and_verification"
+  ]
+}

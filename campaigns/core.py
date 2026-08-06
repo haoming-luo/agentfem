@@ -19,6 +19,7 @@ from typing import Callable, Mapping
 
 from ..datasets import Quantity, Sample, ScientificDataset
 from ..ir.schema import to_json_safe
+from ..provenance import ORIGIN
 from ..results import SimulationResult
 from .parameters import ParameterSpace, SamplingPlan
 
@@ -645,7 +646,10 @@ def _as_case_outcome(
     if isinstance(raw, SimulationResult):
         return CaseOutcome(
             outputs=raw.outputs(expected_names),
-            provenance={"simulation_result": raw.summary()},
+            provenance={
+                "software_origin": dict(ORIGIN),
+                "simulation_result": raw.summary(),
+            },
             artifacts={
                 name: str(path) for name, path in raw.artifacts.items()
             },

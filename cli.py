@@ -19,6 +19,8 @@ from mpi4py import MPI
 
 from . import __version__
 from . import platforms
+from . import provenance
+from . import upgrades
 from .project import PROJECT_FILENAME, ProjectConfig, RunContext, discover, new_run_id
 
 
@@ -62,7 +64,11 @@ def _copy_template(template: str, target: Path, name: str, *, force: bool) -> No
         destination = target / item.name
         if destination.exists() and not force:
             raise FileExistsError(f"Refusing to overwrite {destination}.")
-        text = item.read_text(encoding="utf-8").replace("{{PROJECT_NAME}}", name)
+        text = (
+            item.read_text(encoding="utf-8")
+            .replace("{{PROJECT_NAME}}", name)
+            .replace("{{AGENTFEM_VERSION}}", __version__)
+        )
         destination.write_text(text, encoding="utf-8")
     (target / "outputs").mkdir(exist_ok=True)
     gitignore = target / ".gitignore"
@@ -84,6 +90,11 @@ def _check_project(project: ProjectConfig) -> dict[str, object]:
         except SyntaxError as exc:
             syntax = "invalid"
             errors.append(f"{exc.filename}:{exc.lineno}:{exc.offset}: {exc.msg}")
+    upgrade = upgrades.inspect_project(project)
+    for item in upgrade.errors:
+        message = f"{item.code}: {item.message}"
+        if not any(item.message in existing for existing in errors):
+            errors.append(message)
     return {
         "schema": "agentfem.project-check",
         "schema_version": "0.1.0",
@@ -91,7 +102,43 @@ def _check_project(project: ProjectConfig) -> dict[str, object]:
         "project": project.summary(),
         "syntax": syntax,
         "errors": errors,
+        "upgrade_status": upgrade.status,
+        "upgrade_findings": tuple(
+            item.as_dict(root=project.root) for item in upgrade.findings
+        ),
     }
+
+
+def _format_check(record: dict[str, object]) -> str:
+    if record["status"] != "passed":
+        return "Project check failed:\n" + "\n".join(record["errors"])
+    text = "Project check passed."
+    if record["upgrade_status"] != "current":
+        count = len(record["upgrade_findings"])
+        text += (
+            f"\nUpgrade review recommended: {count} finding(s). "
+            "Run `agentfem upgrade`."
+        )
+    return text
+
+
+def _command_upgrade(args) -> int:
+    project = _project(args.project)
+    changed = ()
+    if args.apply_safe:
+        changed = upgrades.apply_safe_metadata(project)
+        project = ProjectConfig.load(project.root)
+    report = upgrades.inspect_project(project)
+    record = report.summary()
+    record["changed_files"] = tuple(str(path) for path in changed)
+    if args.write_plan:
+        plan_path = Path(args.write_plan).expanduser()
+        if not plan_path.is_absolute():
+            plan_path = project.root / plan_path
+        report.write(plan_path)
+        record["plan"] = str(plan_path.resolve())
+    _emit(record, as_json=args.json, human=report.format())
+    return 2 if report.errors else 0
 
 
 def _run_context(project: ProjectConfig, run_id: str | None, output: str | None) -> RunContext:
@@ -265,6 +312,44 @@ def _command_inspect(args) -> int:
     return 0
 
 
+def _result_manifest_path(path: str | None, project_path: str | None) -> Path:
+    """Resolve a result manifest from a file, run directory, or latest pointer."""
+
+    selected = Path(path).expanduser().resolve() if path else None
+    if selected is None:
+        project = _project(project_path)
+        selected = project.output_directory / project.name / "latest.json"
+    if selected.is_dir():
+        selected = selected / "result.json"
+    for _ in range(3):
+        if not selected.is_file():
+            raise FileNotFoundError(
+                f"No AgentFEM result manifest found at {selected}."
+            )
+        record = json.loads(selected.read_text(encoding="utf-8"))
+        if record.get("schema") == "agentfem.simulation-result":
+            return selected
+        target = record.get("result_manifest")
+        if target is None:
+            raise ValueError(
+                f"{selected} is not an AgentFEM result manifest or result pointer."
+            )
+        candidate = Path(str(target)).expanduser()
+        selected = (
+            candidate.resolve()
+            if candidate.is_absolute()
+            else (selected.parent / candidate).resolve()
+        )
+    raise ValueError("AgentFEM result pointer chain is unexpectedly deep.")
+
+
+def _command_verify(args) -> int:
+    path = _result_manifest_path(args.path, args.project)
+    report = provenance.verify_manifest(path)
+    _emit(report.summary(), as_json=args.json, human=report.format())
+    return 0 if report.verified else 2
+
+
 def _format_record(record: dict[str, object], path: Path) -> str:
     lines = [f"AgentFEM record: {path}"]
     for key in ("schema", "project", "run_id", "name", "status", "trust_level"):
@@ -299,6 +384,15 @@ def build_parser() -> argparse.ArgumentParser:
     check.add_argument("--project")
     check.add_argument("--json", action="store_true")
 
+    upgrade = sub.add_parser(
+        "upgrade",
+        help="Inspect legacy patterns and produce a safe, agent-readable migration plan.",
+    )
+    upgrade.add_argument("--project")
+    upgrade.add_argument("--apply-safe", action="store_true")
+    upgrade.add_argument("--write-plan")
+    upgrade.add_argument("--json", action="store_true")
+
     run = sub.add_parser("run", help="Run a project with a standard output and evidence contract.")
     run.add_argument("--project")
     run.add_argument("--run-id")
@@ -311,6 +405,14 @@ def build_parser() -> argparse.ArgumentParser:
     inspect.add_argument("path", nargs="?")
     inspect.add_argument("--project")
     inspect.add_argument("--json", action="store_true")
+
+    verify = sub.add_parser(
+        "verify",
+        help="Check a result manifest and the integrity of its registered artifacts.",
+    )
+    verify.add_argument("path", nargs="?")
+    verify.add_argument("--project")
+    verify.add_argument("--json", action="store_true")
 
     capabilities = sub.add_parser("capabilities", help="Return machine-readable runtime capabilities.")
     capabilities.add_argument("--json", action="store_true")
@@ -339,20 +441,35 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "check":
             record = _check_project(_project(args.project))
-            _emit(record, as_json=args.json, human=("Project check passed." if record["status"] == "passed" else "Project check failed:\n" + "\n".join(record["errors"])))
+            _emit(record, as_json=args.json, human=_format_check(record))
             return 0 if record["status"] == "passed" else 2
+        if args.command == "upgrade":
+            return _command_upgrade(args)
         if args.command == "run":
             if args.mpi <= 0:
                 parser.error("--mpi must be positive")
             return _command_run(args)
         if args.command == "inspect":
             return _command_inspect(args)
+        if args.command == "verify":
+            return _command_verify(args)
         if args.command == "capabilities":
             from . import constitutive, public_api
             record = {
                 "schema": "agentfem.capabilities",
                 "schema_version": "0.1.0",
                 "agentfem_version": __version__,
+                "commands": (
+                    "doctor",
+                    "templates",
+                    "capabilities",
+                    "init",
+                    "check",
+                    "upgrade",
+                    "run",
+                    "inspect",
+                    "verify",
+                ),
                 "public_modules": public_api(),
                 "templates": _templates(),
                 "runtime": platforms.runtime_report().summary(),

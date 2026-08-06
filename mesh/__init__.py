@@ -223,6 +223,38 @@ def rectangle(
     )
 
 
+def cuboid(
+    lower,
+    upper,
+    cells,
+    comm: MPI.Comm = MPI.COMM_WORLD,
+    *,
+    cell_type: str | mesh.CellType = "hexahedron",
+):
+    """Create a structured 3D cuboid mesh.
+
+    The name remains distinct from :func:`box`, which is the long-standing
+    axis-aligned region selector. Use ``cell_type="tetrahedron"`` when a
+    simplicial subdivision is preferred.
+    """
+
+    lower_point = np.asarray(lower, dtype=float)
+    upper_point = np.asarray(upper, dtype=float)
+    selected_cells = tuple(int(value) for value in cells)
+    if lower_point.shape != (3,) or upper_point.shape != (3,):
+        raise ValueError("cuboid lower and upper points must have three coordinates.")
+    if len(selected_cells) != 3 or any(value <= 0 for value in selected_cells):
+        raise ValueError("cuboid cells must contain three positive integers.")
+    if np.any(upper_point <= lower_point):
+        raise ValueError("cuboid upper coordinates must exceed lower coordinates.")
+    return mesh.create_box(
+        comm,
+        [lower_point, upper_point],
+        list(selected_cells),
+        cell_type=_cell_type(cell_type),
+    )
+
+
 def _cell_type(cell_type: str | mesh.CellType):
     if isinstance(cell_type, mesh.CellType):
         return cell_type
@@ -336,6 +368,12 @@ def convert_external_mesh_to_xdmf(*args, **kwargs):
     return convert_to_xdmf(*args, **kwargs)
 
 
+def convert_external_mesh_bundle(*args, **kwargs):
+    """Convert selected source topologies into explicit solver-domain files."""
+
+    return formats.convert_topology_bundle(*args, **kwargs)
+
+
 def inspect_external_mesh(path):
     """Inventory external element blocks and named sets before conversion."""
 
@@ -348,6 +386,7 @@ def read_abaqus_mesh(
     comm: MPI.Comm = MPI.COMM_WORLD,
     *,
     cell_type: str | None = None,
+    reuse_conversion: bool = True,
 ) -> abaqus.AbaqusMeshImport:
     """Convert and read an Abaqus mesh while retaining source node labels.
 
@@ -365,11 +404,17 @@ def read_abaqus_mesh(
     conversion_error = None
     if comm.rank == 0:
         try:
-            conversion = formats.convert_abaqus_inp_to_xdmf(
-                source,
-                converted,
-                cell_type=cell_type,
+            conversion = (
+                formats.reusable_conversion(source, converted, cell_type=cell_type)
+                if reuse_conversion
+                else None
             )
+            if conversion is None:
+                conversion = formats.convert_abaqus_inp_to_xdmf(
+                    source,
+                    converted,
+                    cell_type=cell_type,
+                )
         except Exception as exc:  # broadcast avoids stranding non-root ranks
             conversion_error = (type(exc).__name__, str(exc))
     conversion, conversion_error = comm.bcast(

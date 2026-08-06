@@ -267,6 +267,43 @@ def transient_heat_transfer(*, dimension: int, name: str | None = None) -> Study
     )
 
 
+def nonlinear_transient(
+    *,
+    physics: str,
+    dimension: int,
+    assumption: str | None = None,
+    name: str | None = None,
+    procedure: str | None = None,
+) -> Study:
+    """Define a nonlinear time-domain study."""
+
+    return define(
+        analysis="nonlinear_transient",
+        physics=physics,
+        dimension=dimension,
+        assumption=assumption,
+        name=name,
+        preferred_procedure=procedure,
+    )
+
+
+def creep_solid(
+    *,
+    dimension: int = 3,
+    assumption: str | None = None,
+    name: str | None = None,
+) -> Study:
+    """Define an implicit quasi-static creep study."""
+
+    return nonlinear_transient(
+        physics="solid_mechanics",
+        dimension=dimension,
+        assumption=assumption,
+        procedure="implicit_creep",
+        name=name or "implicit_creep_solid",
+    )
+
+
 def second_order_dynamics(
     *,
     physics: str,

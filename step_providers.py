@@ -352,6 +352,28 @@ def _accept_neo_hookean(model, request: StepRequest) -> bool:
     )
 
 
+def _accept_mixed_neo_hookean(model, request: StepRequest) -> bool:
+    from .constitutive.hyperelasticity import MixedNeoHookeanProperties
+
+    study = getattr(model, "study", None)
+    supported_kinematics = (
+        getattr(study, "dimension", None) == 3
+        or (
+            getattr(study, "dimension", None) == 2
+            and getattr(study, "assumption", None) == "plane_strain"
+        )
+    )
+    return (
+        getattr(study, "physics", None) == "solid_mechanics"
+        and getattr(request.target, "kind", None) == "displacement_pressure"
+        and supported_kinematics
+        and isinstance(
+            _selected_material(model, request),
+            MixedNeoHookeanProperties,
+        )
+    )
+
+
 def _accept_j2(model, request: StepRequest) -> bool:
     from .constitutive.plasticity import J2LinearIsotropicHardening
 
@@ -382,6 +404,45 @@ def _lower_j2(model, request: StepRequest):
     )
 
 
+def _accept_implicit_creep(model, request: StepRequest) -> bool:
+    from .constitutive.creep import IsotropicPowerLawCreepMaterial
+
+    study = getattr(model, "study", None)
+    method = request.options.get("method") or getattr(
+        study,
+        "preferred_procedure",
+        None,
+    )
+    return (
+        getattr(study, "physics", None) == "solid_mechanics"
+        and getattr(study, "analysis", None) == "nonlinear_transient"
+        and getattr(study, "dimension", None) == 3
+        and _is_vector_target(request.target)
+        and _normalize(method or "implicit_creep")
+        in {"implicit_creep", "backward_euler"}
+        and isinstance(
+            _selected_material(model, request),
+            IsotropicPowerLawCreepMaterial,
+        )
+    )
+
+
+def _lower_implicit_creep(model, request: StepRequest):
+    options = dict(request.options)
+    material = _selected_material(model, request)
+    options.pop("material", None)
+    options.pop("K", None)
+    options.pop("F", None)
+    options.pop("method", None)
+    name = options.pop("name", None) or "implicit_creep"
+    return model.creep_step(
+        target=request.target,
+        material=material,
+        name=name,
+        **options,
+    )
+
+
 def _lower_neo_hookean(model, request: StepRequest):
     options = dict(request.options)
     material = _selected_material(model, request)
@@ -390,6 +451,21 @@ def _lower_neo_hookean(model, request: StepRequest):
     options.pop("K", None)
     options.pop("F", None)
     return model.hyperelastic_step(
+        target=request.target,
+        material=material,
+        name=name,
+        **options,
+    )
+
+
+def _lower_mixed_neo_hookean(model, request: StepRequest):
+    options = dict(request.options)
+    material = _selected_material(model, request)
+    options.pop("material", None)
+    options.pop("K", None)
+    options.pop("F", None)
+    name = options.pop("name", None) or "mixed_finite_strain_static"
+    return model.mixed_hyperelastic_step(
         target=request.target,
         material=material,
         name=name,
@@ -486,6 +562,20 @@ def _normalize(value: str) -> str:
 
 register_step_provider(
     StepProvider(
+        name="implicit_power_law_creep",
+        analyses=("nonlinear_transient",),
+        accepts=_accept_implicit_creep,
+        lower=_lower_implicit_creep,
+        priority=120,
+        description=(
+            "Lower isotropic power-law creep to backward-Euler quadrature "
+            "state, consistent-tangent Newton equilibrium, and cutback."
+        ),
+        procedure="standard/backward_euler/stateful",
+    )
+)
+register_step_provider(
+    StepProvider(
         name="implicit_euler_heat_transfer",
         analyses=("first_order_transient",),
         accepts=_accept_transient_heat,
@@ -518,6 +608,19 @@ register_step_provider(
             "with algorithmic tangent and cutback."
         ),
         procedure="standard/newton/stateful",
+    )
+)
+register_step_provider(
+    StepProvider(
+        name="mixed_neo_hookean_constant_pressure",
+        analyses=("nonlinear_static",),
+        accepts=_accept_mixed_neo_hookean,
+        lower=_lower_mixed_neo_hookean,
+        priority=115,
+        description=(
+            "Lower P2 displacement and DG0 pressure to mixed finite-strain equilibrium."
+        ),
+        procedure="standard/newton/mixed_constant_pressure",
     )
 )
 register_step_provider(

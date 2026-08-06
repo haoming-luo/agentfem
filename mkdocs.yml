@@ -1,54 +1,154 @@
 site_name: AgentFEM
-site_description: AI-native finite-element workflows for humans and agents.
-repo_name: AgentFEM
+site_description: AI-native finite-element computing for humans and agents.
+site_url: https://haoming-luo.github.io/agentfem/
+repo_name: haoming-luo/agentfem
+repo_url: https://github.com/haoming-luo/agentfem
+edit_uri: edit/main/docs/
 docs_dir: docs
 site_dir: site
+copyright: Copyright &copy; 2026 Haoming Luo. AgentFEM is Apache-2.0 licensed.
 
 theme:
   name: material
-  logo: logo/AgentFEM_logo_transparent.png
+  language: en
+  logo: assets/images/AgentFEM_logo_transparent.png
+  favicon: assets/images/AgentFEM_logo_transparent.png
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: light-blue
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
   features:
+    - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.sections
     - navigation.indexes
+    - navigation.path
+    - navigation.top
+    - navigation.tracking
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
     - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+
+plugins:
+  - search:
+      lang: en
 
 markdown_extensions:
+  - abbr
   - admonition
+  - attr_list
+  - md_in_html
+  - tables
   - toc:
       permalink: true
   - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
   - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra_css:
+  - stylesheets/extra.css
+
+extra:
+  version:
+    provider: mike
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/haoming-luo/agentfem
+      name: AgentFEM on GitHub
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/agentfem/
+      name: AgentFEM on PyPI
+  generator: false
 
 nav:
   - Home: index.md
-  - Getting Started: getting_started.md
-  - Agent and GUI Integration: agent_gui_integration.md
-  - Design Notes:
-      - Product Roadmap: product_roadmap.md
-      - Nonlinear Solid Architecture: nonlinear_solid_architecture.md
+
+  - Start:
+      - get_started/index.md
+      - Install and First Project: getting_started.md
+      - For AI Agents: agents/index.md
+
+  - Guides:
+      - guide/index.md
+      - Solid Mechanics: guide/solid_mechanics.md
+      - Heat Transfer: guide/heat_transfer.md
+      - Dynamics and Waves: guide/dynamics.md
+      - Creep and Inelasticity: guide/creep_and_inelasticity.md
+      - Meshes, Loads, and Constraints: guide/model_setup.md
+      - Results and Post-processing: guide/results.md
+      - Simulation to Learning: guide/simulation_to_learning.md
+      - Engineering Workflows: engineering_workflows.md
       - Nonlinear Materials: nonlinear_materials.md
-      - Procedures, Thermal Stress, and Creep: solution_procedures_and_thermal_creep.md
+      - Nonlinear Solid Architecture: nonlinear_solid_architecture.md
+      - Thermal Stress and Creep Procedures: solution_procedures_and_thermal_creep.md
+      - Results and Campaigns: results_and_campaigns.md
+
+  - Examples:
+      - examples/index.md
+      - Abaqus Periodic Cell: abaqus_periodic_cell.md
+
+  - Reference:
+      - reference/index.md
+      - Python API: reference/api.md
       - Scientific Function Reference: reference/scientific_function_reference.md
       - Scientific Operator Contracts: operator_contracts.md
-      - Results and Campaigns: results_and_campaigns.md
-      - Engineering Feedback Decisions: engineering_feedback_2026_08_05.md
+      - Result-field Semantics: result_field_semantics.md
       - Stable Steps and Compact Output: step_and_output_architecture.md
       - Mesh Interoperability: mesh_interoperability.md
-      - Platform and Optional Dependencies: platform_support.md
-      - Abaqus Periodic Cell: abaqus_periodic_cell.md
-      - Abaqus User Materials: abaqus_user_material_bridge.md
       - Module Map: module_map.md
+
+  - Develop:
+      - extend/index.md
+      - Agent and GUI Integration: agent_gui_integration.md
       - API Style: api_style.md
       - Extension Rules: extension_rules.md
-      - Tutorial Design: tutorial_design.md
-      - Validation: validation.md
-      - Scientific Trust and Verification: scientific_verification.md
-      - Architecture Review: architecture_review.md
-      - CTO Product Audit: release_audit_2026_08_05.md
-      - AIR Architecture Roadmap: air_architecture_roadmap.md
-      - AI-Native Campaigns and Learning: ai_native_learning.md
-      - Documentation Site: documentation_site.md
-      - Licensing: licensing.md
-      - Publishing: publishing.md
-      - AgentFEM 0.2.0a1: release_0.2.0a1.md
-      - 26 August 2026 Release Gate: release_2026_08_26.md
+      - Abaqus User Materials: abaqus_user_material_bridge.md
+      - AgentFEM Skill: agents/skill.md
+
+  - Project:
+      - project/index.md
+      - Product Roadmap: product_roadmap.md
+      - Trust and Operations:
+          - trust/index.md
+          - Scientific Trust and Verification: scientific_verification.md
+          - Validation: validation.md
+          - Result Provenance Seal: provenance_seal.md
+          - Project Compatibility and Upgrades: project_upgrades.md
+          - Platform and Optional Dependencies: platform_support.md
+          - Licensing: licensing.md
+      - Releases:
+          - Documentation Versions: project/versioning.md
+          - AgentFEM 0.2.0a1: release_0.2.0a1.md
+          - 26 August 2026 Release Gate: release_2026_08_26.md
+          - Publishing: publishing.md
+      - Engineering Notes:
+          - Engineering Notes Index: project/engineering_notes.md
+          - Architecture Review: architecture_review.md
+          - FEM Foundation Audit: fem_foundation_audit_2026_08_05.md
+          - Engineering Feedback Decisions: engineering_feedback_2026_08_05.md
+          - CTO Product Audit: release_audit_2026_08_05.md
+          - AIR Architecture Roadmap: air_architecture_roadmap.md
+          - AI-Native Campaigns and Learning: ai_native_learning.md
+          - Digital-twin Direction: digital_twin_direction.md
+          - Tutorial Design: tutorial_design.md
+          - Documentation Site: documentation_site.md

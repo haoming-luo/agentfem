@@ -210,5 +210,16 @@ def test_named_boundary_reaction_and_static_result_are_distributed():
         on=left,
         component=0,
     ) == pytest.approx(-0.2)
+    np.testing.assert_allclose(
+        simulation.quantities["external_force_resultant"].value,
+        [0.2, 0.0],
+        atol=1.0e-12,
+    )
+    np.testing.assert_allclose(
+        simulation.quantities["reaction_force_resultant"].value,
+        [-0.2, 0.0],
+        atol=1.0e-11,
+    )
+    assert simulation.quantities["relative_force_balance_error"].value < 1.0e-10
     assert {"S", "E", "MISES"} <= set(simulation.fields)
     assert "SENER" not in simulation.fields

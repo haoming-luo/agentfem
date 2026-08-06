@@ -2,10 +2,10 @@
   "schema": "agentfem.scientific-function-card",
   "schema_version": "0.1.0",
   "id": "agentfem.workflow.standard_result_projection",
-  "title": "Projected small-strain result fields and strong-constraint resultants",
+  "title": "Projected small-strain fields, reactions, and static equilibrium",
   "kind": "workflow",
   "status": "supported",
-  "summary": "Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell-average fields, and extracts MPI-global resultants on named strong-constraint boundaries.",
+  "summary": "Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell-average fields, extracts MPI-global resultants, and records assembled external-force versus strong-reaction equilibrium.",
   "public_api": [
     "agentfem.results.project",
     "agentfem.results.project_piecewise",
@@ -14,6 +14,8 @@
     "agentfem.results.field_extrema",
     "agentfem.results.region_measure",
     "agentfem.results.reaction_resultant",
+    "agentfem.results.external_force_resultant",
+    "agentfem.results.static_force_balance",
     "agentfem.mesh.tagged_boundary_region",
     "agentfem.diagnostics.linear_static_energy"
   ],
@@ -34,6 +36,11 @@
         "label": "strong-constraint reaction",
         "expression": "R = K u - F",
         "description": "At converged free degrees of freedom R is zero to solver tolerance; prescribed degrees retain reaction entries."
+      },
+      {
+        "label": "global static force balance",
+        "expression": "r_balance = sum(R_strong) + sum(F_assembled)",
+        "description": "The relative error is the residual norm divided by the larger external or reaction resultant norm."
       },
       {
         "label": "proportional linear work",
@@ -63,8 +70,8 @@
         "description": "Serial solve_result(output=...) stores these cell fields with nodal U on one Uniform Grid."
       },
       {
-        "name": "resultant and energy closure",
-        "type": "MPI-global scalar/vector and LinearStaticEnergy",
+        "name": "resultants, force balance, and energy closure",
+        "type": "MPI-global scalar/vector, StaticForceBalance, and LinearStaticEnergy",
         "unit_role": "force and energy",
         "description": "Compact engineering histories or verification quantities."
       }
@@ -81,7 +88,8 @@
       "E means infinitesimal strain in a small-strain context.",
       "Non-zero prescribed-displacement work is not silently included in proportional force work.",
       "Imported physical boundaries use their facet tag for both strong topological dof location and weak integration; an optional marker is audit evidence.",
-      "field_extrema(location=True) identifies its finite-element-dof sampling, coordinate, rank, global dof, and DG0 cell where applicable."
+      "field_extrema(location=True) identifies its finite-element-dof sampling, coordinate, rank, global dof, and DG0 cell where applicable.",
+      "Model-generated linear static solids attach assembled external force, strong reaction, balance residual, and relative error to SimulationResult."
     ],
     "applicability": [
       "Linear small-strain solid mechanics, field visualization, reaction checks, and proportional load energy verification."
@@ -93,7 +101,7 @@
     ]
   },
   "usage": {
-    "minimal_example": "support = mesh.tagged_boundary_region(domain, facet_tags, tag=101, name='support')\nresult = step.solve_result(output='solid.xdmf')\nRF_x = results.reaction_resultant(step.problem, on=support, component=0)\npeak = results.field_extrema(result.fields['MISES'], location=True)",
+    "minimal_example": "support = mesh.tagged_boundary_region(domain, facet_tags, tag=101, name='support')\nresult = step.solve_result(output='solid.xdmf')\nRF_x = results.reaction_resultant(step.problem, on=support, component=0)\nbalance = results.static_force_balance(step.problem)\npeak = results.field_extrema(result.fields['MISES'], location=True)",
     "examples": ["examples/static_elasticity_2d.py"]
   },
   "verification": {
@@ -106,6 +114,7 @@
       "Reject unknown field variables and negative projection degrees.",
       "Compare affine displacement projection with its analytical constant strain.",
       "Check named-boundary reaction equilibrium and proportional static energy closure.",
+      "Check the automatically attached assembled-force, strong-reaction, and relative global balance evidence.",
       "Verify a regional two-material series bar through one piecewise projection."
     ]
   },

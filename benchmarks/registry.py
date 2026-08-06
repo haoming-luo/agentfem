@@ -196,6 +196,17 @@ _BENCHMARKS = (
         automated_test="tests/test_constitutive_models.py::test_power_law_creep_matches_constant_stress_and_relaxation_solutions",
     ),
     BenchmarkSpec(
+        identifier="implicit_creep_relaxation",
+        capability="power_law_creep",
+        level="finite_element",
+        reference="knowledge/benchmarks/implicit_creep_relaxation.json",
+        criterion=(
+            "a 3D constant-strain bar follows the analytical relaxation path; "
+            "state-limit cutback and checkpoint restart preserve accepted state"
+        ),
+        automated_test="tests/test_p1_platform.py -k global_implicit_creep",
+    ),
+    BenchmarkSpec(
         identifier="creep_damage_material_paths",
         capability="creep_damage",
         level="material_point",
