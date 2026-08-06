@@ -128,6 +128,20 @@ class HistoryRequest:
             description=self.description,
         )
 
+    def evaluate_transient(self, step, time_value: float) -> float:
+        """Evaluate this request after one accepted transient increment."""
+
+        value = np.asarray(self.evaluate(step, float(time_value)))
+        if value.size != 1:
+            raise ValueError(
+                f"Transient history {self.name!r} must evaluate to one scalar; "
+                "request one component or define separate named histories."
+            )
+        selected = float(value.reshape(-1)[0])
+        if not np.isfinite(selected):
+            raise ValueError(f"Transient history {self.name!r} is not finite.")
+        return selected
+
     def summary(self) -> dict[str, object]:
         return {
             "kind": "history_request",
@@ -153,11 +167,15 @@ class ProbeHistoryRequest:
         from .quantities import probe
 
         def evaluate(snapshot, selected_context):
-            selected = (
-                getattr(snapshot, "solution")
-                if self.field is None
-                else self.field(snapshot, selected_context)
-            )
+            if self.field is None:
+                selected = getattr(snapshot, "solution")
+            elif callable(self.field):
+                selected = self.field(snapshot, selected_context)
+            else:
+                raise TypeError(
+                    "A post-solve probe history requires field=callback; live "
+                    "field objects are supported by transient online histories."
+                )
             value = probe(selected, at=self.at)
             if self.component is not None:
                 value = np.asarray(value)[int(self.component)]
@@ -169,6 +187,32 @@ class ProbeHistoryRequest:
             unit=self.unit,
             description=self.description,
         ).apply(context)
+
+    def evaluate_transient(self, step, time_value: float) -> float:
+        """Sample one live field after an accepted transient increment."""
+
+        from .quantities import probe
+
+        if self.field is None:
+            selected = step.current if hasattr(step, "current") else step.state.u
+        elif callable(self.field):
+            selected = self.field(step, float(time_value))
+        else:
+            selected = self.field
+        value = np.asarray(probe(selected, at=self.at))
+        if self.component is not None:
+            value = np.asarray(value[int(self.component)])
+        if value.size != 1:
+            raise ValueError(
+                f"Transient probe history {self.name!r} is vector-valued; "
+                "pass component=... or define separate named histories."
+            )
+        selected_value = float(value.reshape(-1)[0])
+        if not np.isfinite(selected_value):
+            raise ValueError(
+                f"Transient probe history {self.name!r} is not finite."
+            )
+        return selected_value
 
     def summary(self) -> dict[str, object]:
         return {
@@ -551,7 +595,12 @@ def history(
     abscissa_unit: str | None = None,
     description: str = "",
 ) -> HistoryRequest:
-    """Create a quantity history evaluated on accepted snapshots."""
+    """Create a scalar history evaluated on accepted analysis states.
+
+    Finite-strain output plans call ``evaluate(snapshot, context)`` after the
+    solve. Transient steps call ``evaluate(step, physical_time)`` immediately
+    after every accepted increment.
+    """
 
     return HistoryRequest(
         name=name,
@@ -573,13 +622,11 @@ def probe_history(
     unit: str | None = None,
     description: str = "",
 ) -> ProbeHistoryRequest:
-    """Create a point-probe history for an accepted field sequence."""
+    """Create a point-probe history for accepted static or transient states."""
 
     point = tuple(float(value) for value in np.asarray(at).reshape(-1))
     if not point or not np.all(np.isfinite(point)):
         raise ValueError("probe_history at= must contain finite coordinates.")
-    if field is not None and not callable(field):
-        raise TypeError("probe_history field= must be callable or None.")
     return ProbeHistoryRequest(
         name=str(name),
         at=point,

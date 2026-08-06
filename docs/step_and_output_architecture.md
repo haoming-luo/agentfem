@@ -242,6 +242,7 @@ step = model.step(
         100,
         directory="checkpoints",
         final=True,
+        keep_last=3,
     ),
 )
 ```
@@ -249,9 +250,11 @@ step = model.step(
 A checkpoint is written only after an increment has been accepted, its state
 and scientific histories have been committed, and its execution event has been
 recorded. The final state is retained even when the total increment count is
-not divisible by the cadence. The current retention policy keeps every
-scheduled checkpoint and the restart remains bound to the same MPI partition;
-retention pruning and cross-partition identities are separate future changes.
+not divisible by the cadence. `keep_last` bounds scheduled-checkpoint storage;
+AgentFEM publishes the new manifest and all rank shards before deleting older
+generations, removes only files named by their manifests, and preserves an
+explicit restart-source record. Omitting `keep_last` retains every scheduled
+checkpoint. Cross-partition identity remains a separate future capability.
 
 ## Next gates
 

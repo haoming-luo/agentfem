@@ -315,7 +315,7 @@
       ],
       "source": "knowledge/cards/result_field_sampling.json",
       "status": "supported",
-      "summary": "Evaluates scalar, vector, or tensor finite-element fields at named physical points and straight paths with deterministic MPI ownership and standard result-history integration.",
+      "summary": "Evaluates finite-element fields at named physical points and paths with deterministic MPI ownership, including shared accepted-increment probe histories for heat, Standard dynamics, and Explicit dynamics.",
       "title": "MPI-safe point and path field sampling"
     },
     {

@@ -36,6 +36,7 @@ class CheckpointPolicy:
     directory: Path
     final: bool = True
     prefix: str | None = None
+    keep_last: int | None = None
 
     def __post_init__(self) -> None:
         interval = int(self.every)
@@ -45,6 +46,11 @@ class CheckpointPolicy:
         object.__setattr__(self, "directory", Path(self.directory))
         if self.prefix is not None and not str(self.prefix).strip():
             raise ValueError("CheckpointPolicy.prefix must be non-empty when supplied.")
+        if self.keep_last is not None:
+            selected = int(self.keep_last)
+            if selected <= 0:
+                raise ValueError("CheckpointPolicy.keep_last must be positive.")
+            object.__setattr__(self, "keep_last", selected)
 
     def due(self, increment: int, total: int) -> bool:
         selected = int(increment)
@@ -52,7 +58,7 @@ class CheckpointPolicy:
 
     def path(self, *, step_name: str, increment: int) -> Path:
         base = self.prefix or _safe_name(step_name)
-        return self.directory / f"{base}.inc-{int(increment):08d}"
+        return self.directory / f"{base}-inc-{int(increment):08d}"
 
     def summary(self) -> dict[str, object]:
         return {
@@ -61,7 +67,12 @@ class CheckpointPolicy:
             "directory": str(self.directory),
             "final": bool(self.final),
             "prefix": self.prefix,
-            "retention": "all_scheduled_checkpoints",
+            "keep_last": self.keep_last,
+            "retention": (
+                "all_scheduled_checkpoints"
+                if self.keep_last is None
+                else f"latest_{self.keep_last}_scheduled_checkpoints"
+            ),
         }
 
 
@@ -71,6 +82,7 @@ def every(
     directory="checkpoints",
     final: bool = True,
     prefix: str | None = None,
+    keep_last: int | None = None,
 ) -> CheckpointPolicy:
     """Create an automatic checkpoint policy for accepted time increments."""
 
@@ -79,6 +91,7 @@ def every(
         directory=Path(directory),
         final=final,
         prefix=prefix,
+        keep_last=keep_last,
     )
 
 
@@ -282,6 +295,32 @@ def load_transient_checkpoint(
         function.x.scatter_forward()
     metadata["manifest_path"] = str(manifest)
     return metadata
+
+
+def _remove_transient_checkpoint(path, *, comm) -> None:
+    """Collectively remove one published manifest and exactly its shards.
+
+    The manifest is removed last. This narrow operation is used only by an
+    explicit retention policy after a newer checkpoint has been published.
+    """
+
+    manifest = _manifest_path(path)
+    error = None
+    if comm.rank == 0:
+        try:
+            metadata = json.loads(manifest.read_text(encoding="utf-8"))
+            for record in metadata.get("shards", ()):
+                name = record if isinstance(record, str) else record["path"]
+                shard = manifest.parent / name
+                if shard.exists():
+                    shard.unlink()
+            manifest.unlink()
+        except Exception as exc:  # pragma: no cover - filesystem failure
+            error = f"{type(exc).__name__}: {exc}"
+    error = comm.bcast(error, root=0)
+    if error is not None:
+        raise RuntimeError(f"Transient checkpoint removal failed: {error}")
+    comm.barrier()
 
 
 def _manifest_path(path) -> Path:

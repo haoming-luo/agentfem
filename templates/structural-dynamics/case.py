@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 from mpi4py import MPI
 
-from agentfem import constitutive, fields, mesh, models, project, studies
+from agentfem import constitutive, fields, mesh, models, project, results, studies
 from agentfem.diagnostics import print_on_root
 
 
@@ -45,7 +45,17 @@ def main():
         print_every=1,
         name="newmark_response",
     )
-    simulation = step.solve_result(output=run.artifact("dynamics.xdmf"))
+    simulation = step.solve_result(
+        output=run.artifact("dynamics.xdmf"),
+        history=(
+            results.probe_history(
+                "tip_U2",
+                at=(1.0, 0.1),
+                component=1,
+                unit="m",
+            ),
+        ),
+    )
     simulation.add_dof_statistics(
         step.state.u,
         prefix="final_displacement",

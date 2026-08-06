@@ -1088,6 +1088,7 @@ class ExplicitDynamicsStep:
     progress: object = True
     status_file: object | None = None
     checkpoint_policy: object | None = None
+    history_requests: tuple[object, ...] = field(default_factory=tuple, init=False)
     accepted_times: list[float] = field(default_factory=list, init=False)
     execution_events: list[object] = field(default_factory=list, init=False)
     last_output: Path | None = field(default=None, init=False)
@@ -1106,6 +1107,7 @@ class ExplicitDynamicsStep:
         progress=None,
         comm=None,
         until_step: int | None = None,
+        history=(),
     ):
         """Run the explicit dynamics step with optional output and progress text."""
 
@@ -1113,6 +1115,7 @@ class ExplicitDynamicsStep:
         from .diagnostics import comm_of, print_on_root
 
         selected_comm = comm if comm is not None else comm_of(self.state.u)
+        _configure_transient_history(self, history)
         selected_progress = self.progress if progress is None else progress
         if self.completed_steps >= self.steps:
             return self
@@ -1188,16 +1191,25 @@ class ExplicitDynamicsStep:
         self.run()
         return self.state.u.value
 
-    def solve_result(self, *, output=None, fields=(), progress=None, comm=None):
+    def solve_result(
+        self, *, output=None, fields=(), history=(), progress=None, comm=None
+    ):
         from .results import add_execution_trace, from_solution
 
+        _configure_transient_history(self, history)
         if output is not None and self.completed_steps >= self.steps:
             raise RuntimeError(
                 "Transient field output must be requested before completion; "
                 "completed steps cannot be reconstructed from final state alone."
             )
         if output is not None or self.completed_steps != self.steps:
-            self.run(output=output, fields=fields, progress=progress, comm=comm)
+            self.run(
+                output=output,
+                fields=fields,
+                history=history,
+                progress=progress,
+                comm=comm,
+            )
         solution = self.state.u.value
         result = from_solution(solution, name=self.name, metadata={"step": self.summary()})
         add_execution_trace(result, self.execution_events)
@@ -1251,6 +1263,14 @@ class ExplicitDynamicsStep:
             "completed_steps": self.completed_steps,
             "save_every": self.save_every,
             "print_every": _print_interval(self.print_every, self.steps),
+            "checkpoint_policy": (
+                None
+                if self.checkpoint_policy is None
+                else self.checkpoint_policy.summary()
+            ),
+            "history_requests": [
+                request.summary() for request in self.history_requests
+            ],
             "integrator": (
                 self.integrator.summary()
                 if hasattr(self.integrator, "summary")
@@ -1290,6 +1310,7 @@ class ImplicitDynamicsStep:
     progress: object = True
     status_file: object | None = None
     checkpoint_policy: object | None = None
+    history_requests: tuple[object, ...] = field(default_factory=tuple, init=False)
     accepted_times: list[float] = field(default_factory=list, init=False)
     execution_events: list[object] = field(default_factory=list, init=False)
     last_output: Path | None = field(default=None, init=False)
@@ -1307,6 +1328,7 @@ class ImplicitDynamicsStep:
         progress=None,
         comm=None,
         until_step: int | None = None,
+        history=(),
     ):
         """Advance the implicit dynamics step with standard progress output."""
 
@@ -1314,6 +1336,7 @@ class ImplicitDynamicsStep:
         from .diagnostics import comm_of, print_on_root
 
         selected_comm = comm if comm is not None else comm_of(self.state.u)
+        _configure_transient_history(self, history)
         selected_progress = self.progress if progress is None else progress
         if self.completed_steps >= self.steps:
             return self
@@ -1377,16 +1400,25 @@ class ImplicitDynamicsStep:
         self.run()
         return self.state.u.value
 
-    def solve_result(self, *, output=None, fields=(), progress=None, comm=None):
+    def solve_result(
+        self, *, output=None, fields=(), history=(), progress=None, comm=None
+    ):
         from .results import add_execution_trace, from_solution
 
+        _configure_transient_history(self, history)
         if output is not None and self.completed_steps >= self.steps:
             raise RuntimeError(
                 "Transient field output must be requested before completion; "
                 "completed steps cannot be reconstructed from final state alone."
             )
         if output is not None or self.completed_steps != self.steps:
-            self.run(output=output, fields=fields, progress=progress, comm=comm)
+            self.run(
+                output=output,
+                fields=fields,
+                history=history,
+                progress=progress,
+                comm=comm,
+            )
         solution = self.state.u.value
         result = from_solution(
             solution,
@@ -1485,6 +1517,14 @@ class ImplicitDynamicsStep:
             "completed_steps": self.completed_steps,
             "save_every": self.save_every,
             "print_every": _print_interval(self.print_every, self.steps),
+            "checkpoint_policy": (
+                None
+                if self.checkpoint_policy is None
+                else self.checkpoint_policy.summary()
+            ),
+            "history_requests": [
+                request.summary() for request in self.history_requests
+            ],
             "problem": {
                 "num_bcs": len(self.problem.bcs),
                 "solver": (
@@ -1515,6 +1555,7 @@ class FirstOrderTransientStep:
     history_monitor: object | None = None
     status_file: object | None = None
     checkpoint_policy: object | None = None
+    history_requests: tuple[object, ...] = field(default_factory=tuple, init=False)
     accepted_times: list[float] = field(default_factory=list, init=False)
     execution_events: list[object] = field(default_factory=list, init=False)
     last_output: Path | None = field(default=None, init=False)
@@ -1532,11 +1573,13 @@ class FirstOrderTransientStep:
         progress=None,
         comm=None,
         until_step: int | None = None,
+        history=(),
     ):
         from . import io
         from .diagnostics import comm_of, print_on_root
 
         selected_comm = comm if comm is not None else comm_of(self.current)
+        _configure_transient_history(self, history)
         selected_progress = self.progress if progress is None else progress
         if self.completed_steps >= self.steps:
             return self
@@ -1603,16 +1646,25 @@ class FirstOrderTransientStep:
         self.run()
         return self.current
 
-    def solve_result(self, *, output=None, fields=(), progress=None, comm=None):
+    def solve_result(
+        self, *, output=None, fields=(), history=(), progress=None, comm=None
+    ):
         from .results import add_execution_trace, from_solution
 
+        _configure_transient_history(self, history)
         if output is not None and self.completed_steps >= self.steps:
             raise RuntimeError(
                 "Transient field output must be requested before completion; "
                 "completed steps cannot be reconstructed from final state alone."
             )
         if output is not None or self.completed_steps != self.steps:
-            self.run(output=output, fields=fields, progress=progress, comm=comm)
+            self.run(
+                output=output,
+                fields=fields,
+                history=history,
+                progress=progress,
+                comm=comm,
+            )
         solution = self.current
         result = from_solution(
             solution,
@@ -1658,6 +1710,14 @@ class FirstOrderTransientStep:
             "completed_steps": self.completed_steps,
             "save_every": self.save_every,
             "print_every": _print_interval(self.print_every, self.steps),
+            "checkpoint_policy": (
+                None
+                if self.checkpoint_policy is None
+                else self.checkpoint_policy.summary()
+            ),
+            "history_requests": [
+                request.summary() for request in self.history_requests
+            ],
             "problem": self.problem.summary(),
         }
 
@@ -1679,6 +1739,10 @@ def _attach_transient_output(result, step, output_fields) -> None:
             else "continuation_segment"
         ),
     }
+    if step.history_requests:
+        result.metadata["transient"]["history_requests"] = [
+            request.summary() for request in step.history_requests
+        ]
     if step.history_records:
         coordinates = [item["time"] for item in step.history_records]
         names = tuple(
@@ -1686,6 +1750,10 @@ def _attach_transient_output(result, step, output_fields) -> None:
             for name in step.history_records[0]
             if name != "time"
         )
+        requests = {
+            request.name: request
+            for request in getattr(step, "history_requests", ())
+        }
         result.add_histories(
             coordinates,
             {
@@ -1694,8 +1762,15 @@ def _attach_transient_output(result, step, output_fields) -> None:
             },
             abscissa_name="time",
             abscissa_unit="s",
+            units={
+                name: getattr(requests.get(name), "unit", None)
+                for name in names
+            },
             descriptions={
-                name: _TRANSIENT_HISTORY_DESCRIPTIONS.get(name, "")
+                name: (
+                    getattr(requests.get(name), "description", "")
+                    or _TRANSIENT_HISTORY_DESCRIPTIONS.get(name, "")
+                )
                 for name in names
             },
         )
@@ -1830,12 +1905,14 @@ def _write_scheduled_checkpoint(step) -> Path | None:
     policy = getattr(step, "checkpoint_policy", None)
     if policy is None or not policy.due(step.completed_steps, step.steps):
         return None
-    return step.save_checkpoint(
+    written = step.save_checkpoint(
         policy.path(
             step_name=step.name,
             increment=step.completed_steps,
         )
     )
+    _apply_checkpoint_retention(step, policy)
+    return written
 
 
 def _emit_transient_completed(reporter, step) -> None:
@@ -1868,7 +1945,8 @@ def _transient_stop_step(step, until_step: int | None) -> int:
 
 def _record_transient_history(step, time_value: float) -> None:
     monitor = getattr(step, "history_monitor", None)
-    if monitor is None:
+    requests = tuple(getattr(step, "history_requests", ()))
+    if monitor is None and not requests:
         return
     selected_time = float(time_value)
     if step.history_records and np.isclose(
@@ -1878,23 +1956,97 @@ def _record_transient_history(step, time_value: float) -> None:
         if hasattr(monitor, "restore"):
             monitor.restore(step.history_records[-1])
         return
-    if isinstance(step, FirstOrderTransientStep):
-        values = monitor.evaluate(step.current)
-    elif hasattr(monitor, "evaluate"):
-        values = monitor.evaluate(
-            displacement=step.state.u,
-            velocity=step.state.v,
-        )
-    else:
-        values = monitor(step, selected_time)
+    values = {}
+    if monitor is not None:
+        if isinstance(step, FirstOrderTransientStep):
+            values.update(monitor.evaluate(step.current))
+        elif hasattr(monitor, "evaluate"):
+            values.update(
+                monitor.evaluate(
+                    displacement=step.state.u,
+                    velocity=step.state.v,
+                )
+            )
+        else:
+            values.update(monitor(step, selected_time))
+    for request in requests:
+        if not hasattr(request, "evaluate_transient"):
+            raise TypeError(
+                f"History request {type(request).__name__} cannot be evaluated "
+                "during a transient Step."
+            )
+        name = str(request.name)
+        if name == "time" or name in values:
+            raise ValueError(
+                f"Transient history name {name!r} conflicts with an existing "
+                "history channel."
+            )
+        values[name] = request.evaluate_transient(step, selected_time)
     frame = {"time": selected_time}
     for name, value in values.items():
         selected = float(value)
         if not np.isfinite(selected):
             raise ValueError(f"Transient history {name!r} is not finite.")
         frame[str(name)] = selected
+    if step.history_records:
+        expected = set(step.history_records[0])
+        actual = set(frame)
+        if actual != expected:
+            raise RuntimeError(
+                "Transient history channels changed after the analysis began: "
+                f"expected {tuple(sorted(expected))}, received "
+                f"{tuple(sorted(actual))}. When restarting, pass "
+                "the same history requests used by the original Step."
+            )
     if len(frame) > 1:
         step.history_records.append(frame)
+
+
+def _configure_transient_history(step, requests) -> None:
+    """Bind immutable accepted-increment requests to one transient Step."""
+
+    selected = tuple(requests)
+    if not selected:
+        return
+    names = [str(getattr(request, "name", "")) for request in selected]
+    if any(not name for name in names):
+        raise ValueError("Every transient history request requires a name.")
+    if len(set(names)) != len(names):
+        raise ValueError("Transient history request names must be unique.")
+    current = tuple(getattr(step, "history_requests", ()))
+    if current and current != selected:
+        raise RuntimeError(
+            "Transient history requests are fixed after execution begins; "
+            "continue with the same request objects."
+        )
+    step.history_requests = selected
+
+
+def _apply_checkpoint_retention(step, policy) -> None:
+    """Prune published scheduled checkpoints beyond an explicit policy."""
+
+    keep_last = getattr(policy, "keep_last", None)
+    scheduled = [
+        record
+        for record in step.checkpoints
+        if record.metadata.get("role") != "restart_source"
+    ]
+    if keep_last is None or len(scheduled) <= keep_last:
+        return
+    from . import checkpointing
+
+    obsolete = scheduled[:-keep_last]
+    state = step.current if isinstance(step, FirstOrderTransientStep) else step.state.u
+    function = getattr(state, "value", state)
+    for record in obsolete:
+        checkpointing._remove_transient_checkpoint(
+            record.path,
+            comm=function.function_space.mesh.comm,
+        )
+    removed = {id(record) for record in obsolete}
+    step.checkpoints[:] = [
+        record for record in step.checkpoints if id(record) not in removed
+    ]
 
 
 def _save_transient_checkpoint(step, path, state) -> Path:

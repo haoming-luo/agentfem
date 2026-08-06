@@ -1129,7 +1129,7 @@ grid = surrogates.regular_grid(bounds=((0,L),(0,H)), shape=(128,64)); sample = d
 **Status:** `supported`<br>
 **Source card:** `knowledge/cards/result_field_sampling.json`
 
-Evaluates scalar, vector, or tensor finite-element fields at named physical points and straight paths with deterministic MPI ownership and standard result-history integration.
+Evaluates finite-element fields at named physical points and paths with deterministic MPI ownership, including shared accepted-increment probe histories for heat, Standard dynamics, and Explicit dynamics.
 
 ### Public API
 
@@ -1186,21 +1186,24 @@ Straight-path samples use physical distance as the standard result-history absci
 - Missing points raise by default instead of silently returning zero.
 - Path distance is measured from the first endpoint in physical coordinates.
 - Accepted-frame history requests use physical time or normalized load factor; an unlabelled frame sequence must provide its coordinate explicitly.
+- Transient requests are evaluated only after accepted increments and are restored through the shared checkpoint history.
+- One online transient history channel is scalar; vector or tensor sensors use explicit components or separate named channels.
 
 #### Applicability
 
-- Final-state quantities of interest, line plots, campaign outputs, sensor comparisons, and observation data for learned models.
+- Final-state quantities of interest, line plots, campaign outputs, sensor comparisons, compact digital-twin observations, and observation data for learned models.
 
 #### Limitations
 
 - Straight paths are built in; arbitrary curves should supply explicit coordinates to sample_points.
 - Interface traces of discontinuous fields require an explicit one-sided sampling location.
 - Curved paths and one-sided discontinuous traces require explicit coordinates beyond the straight-path helper.
+- Online transient requests store compact scalar histories, not a replacement for spatial field-output frames.
 
 ### Minimal example
 
 ```python
-tip = results.probe(U, at=(L, H/2)); path = results.sample_path(U, start=(0, H/2), end=(L, H/2), count=101); path.add_to(result, name='centerline_U')
+sensor = results.probe_history('tip_U2', at=(L, H/2), component=1, unit='m'); result = step.solve_result(output='results.xdmf', history=(sensor,))
 ```
 
 ### Verification
@@ -1209,6 +1212,8 @@ tip = results.probe(U, at=(L, H/2)); path = results.sample_path(U, start=(0, H/2
 
 - `tests/test_results.py`
 - `tests/test_parallel_results.py`
+- `tests/test_transient_restart.py`
+- `tests/test_parallel_transient.py`
 
 **Benchmarks**
 
@@ -1219,6 +1224,8 @@ tip = results.probe(U, at=(L, H/2)); path = results.sample_path(U, start=(0, H/2
 - Reject negative geometric padding, unknown missing-point policies, and coordinates with the wrong geometric dimension.
 - Reject rank-inconsistent coordinate requests before field evaluation.
 - Reject missing points before returning a scientific quantity unless missing='nan' is explicit.
+- Reject duplicate or conflicting transient history names and non-scalar online channels.
+- Reject continuation when the accepted-history channel schema differs from the checkpoint evidence.
 
 ### References
 

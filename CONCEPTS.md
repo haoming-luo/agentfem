@@ -245,6 +245,13 @@ default primary/state fields to one XDMF/HDF5 series, records every accepted
 time increment, and attaches those artifacts to the returned
 `SimulationResult`.
 
+Accepted-increment history requests are procedure-independent. Heat,
+Standard dynamics, and Explicit dynamics all accept `history=(...)` on
+`run()` or `solve_result()`. A request is evaluated only after the increment
+has been accepted, then follows the same checkpoint/restart and result
+contract as built-in energy or conservation histories. Requests must remain
+unchanged across continuation because missing past states are not fabricated.
+
 The step should not hide the finite-element meaning. It is the place where
 visible operators become a solveable algebraic problem.
 

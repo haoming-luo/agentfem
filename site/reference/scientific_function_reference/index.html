@@ -8809,7 +8809,7 @@ $$</p>
 <strong>Kind:</strong> <code>workflow</code><br>
 <strong>Status:</strong> <code>supported</code><br>
 <strong>Source card:</strong> <code>knowledge/cards/result_field_sampling.json</code></p>
-<p>Evaluates scalar, vector, or tensor finite-element fields at named physical points and straight paths with deterministic MPI ownership and standard result-history integration.</p>
+<p>Evaluates finite-element fields at named physical points and paths with deterministic MPI ownership, including shared accepted-increment probe histories for heat, Standard dynamics, and Explicit dynamics.</p>
 <h3 id="public-api_10">Public API<a class="headerlink" href="#public-api_10" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>agentfem.results.probe</code></li>
@@ -8893,25 +8893,30 @@ $$</p>
 <li>Missing points raise by default instead of silently returning zero.</li>
 <li>Path distance is measured from the first endpoint in physical coordinates.</li>
 <li>Accepted-frame history requests use physical time or normalized load factor; an unlabelled frame sequence must provide its coordinate explicitly.</li>
+<li>Transient requests are evaluated only after accepted increments and are restored through the shared checkpoint history.</li>
+<li>One online transient history channel is scalar; vector or tensor sensors use explicit components or separate named channels.</li>
 </ul>
 <h4 id="applicability_10">Applicability<a class="headerlink" href="#applicability_10" title="Permanent link">&para;</a></h4>
 <ul>
-<li>Final-state quantities of interest, line plots, campaign outputs, sensor comparisons, and observation data for learned models.</li>
+<li>Final-state quantities of interest, line plots, campaign outputs, sensor comparisons, compact digital-twin observations, and observation data for learned models.</li>
 </ul>
 <h4 id="limitations_10">Limitations<a class="headerlink" href="#limitations_10" title="Permanent link">&para;</a></h4>
 <ul>
 <li>Straight paths are built in; arbitrary curves should supply explicit coordinates to sample_points.</li>
 <li>Interface traces of discontinuous fields require an explicit one-sided sampling location.</li>
 <li>Curved paths and one-sided discontinuous traces require explicit coordinates beyond the straight-path helper.</li>
+<li>Online transient requests store compact scalar histories, not a replacement for spatial field-output frames.</li>
 </ul>
 <h3 id="minimal-example_10">Minimal example<a class="headerlink" href="#minimal-example_10" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">tip</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">probe</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">at</span><span class="o">=</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">H</span><span class="o">/</span><span class="mi">2</span><span class="p">));</span> <span class="n">path</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">sample_path</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">H</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span> <span class="n">end</span><span class="o">=</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">H</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span> <span class="n">count</span><span class="o">=</span><span class="mi">101</span><span class="p">);</span> <span class="n">path</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;centerline_U&#39;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">sensor</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">probe_history</span><span class="p">(</span><span class="s1">&#39;tip_U2&#39;</span><span class="p">,</span> <span class="n">at</span><span class="o">=</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">H</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span> <span class="n">component</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s1">&#39;m&#39;</span><span class="p">);</span> <span class="n">result</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">solve_result</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="s1">&#39;results.xdmf&#39;</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="p">(</span><span class="n">sensor</span><span class="p">,))</span>
 </code></pre></div>
 <h3 id="verification_10">Verification<a class="headerlink" href="#verification_10" title="Permanent link">&para;</a></h3>
 <p><strong>Tests</strong></p>
 <ul>
 <li><code>tests/test_results.py</code></li>
 <li><code>tests/test_parallel_results.py</code></li>
+<li><code>tests/test_transient_restart.py</code></li>
+<li><code>tests/test_parallel_transient.py</code></li>
 </ul>
 <p><strong>Benchmarks</strong></p>
 <ul>
@@ -8922,6 +8927,8 @@ $$</p>
 <li>Reject negative geometric padding, unknown missing-point policies, and coordinates with the wrong geometric dimension.</li>
 <li>Reject rank-inconsistent coordinate requests before field evaluation.</li>
 <li>Reject missing points before returning a scientific quantity unless missing='nan' is explicit.</li>
+<li>Reject duplicate or conflicting transient history names and non-scalar online channels.</li>
+<li>Reject continuation when the accepted-history channel schema differs from the checkpoint evidence.</li>
 </ul>
 <h3 id="references_10">References<a class="headerlink" href="#references_10" title="Permanent link">&para;</a></h3>
 <ul>

@@ -116,7 +116,14 @@ finite-element simulation with AgentFEM.
   byte-integrity evidence only; scientific trust remains in
   `SimulationResult.verification`.
 - For long transient jobs, pass one `checkpointing.every(...)` policy through
-  `model.step(checkpoint=...)`; do not implement cadence in a case loop.
+  `model.step(checkpoint=...)`; do not implement cadence in a case loop. Set
+  `keep_last` for bounded storage; do not delete checkpoint directories in
+  application code.
+- For transient probes or scalar histories, pass reusable
+  `results.probe_history(...)` / `results.history(...)` requests to
+  `run(history=...)` or `solve_result(history=...)`. The callback receives the
+  public Step and physical time. Keep the same named requests across restart;
+  AgentFEM rejects a changed history schema instead of producing ragged data.
 - Restart: heat, Standard dynamics, and Explicit dynamics share
   `run(until_step=...)`, `save_checkpoint(...)`, `load_checkpoint(...)`, and
   resumed `solve_result(output=...)`. Treat `output_scope="continuation_segment"`

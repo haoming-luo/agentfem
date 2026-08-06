@@ -5,7 +5,7 @@
   "title": "MPI-safe point and path field sampling",
   "kind": "workflow",
   "status": "supported",
-  "summary": "Evaluates scalar, vector, or tensor finite-element fields at named physical points and straight paths with deterministic MPI ownership and standard result-history integration.",
+  "summary": "Evaluates finite-element fields at named physical points and paths with deterministic MPI ownership, including shared accepted-increment probe histories for heat, Standard dynamics, and Explicit dynamics.",
   "public_api": [
     "agentfem.results.probe",
     "agentfem.results.sample_points",
@@ -17,7 +17,8 @@
   "implementation": [
     "results/quantities.py",
     "results/plan.py",
-    "results/core.py"
+    "results/core.py",
+    "problems.py"
   ],
   "science": {
     "statement": "A finite-element field is evaluated inside a containing owned cell from its basis representation; distributed ownership changes where evaluation occurs, not the returned physical value order.",
@@ -70,19 +71,22 @@
       "The lowest-rank owned-cell candidate evaluates a point; ties on one rank use the lowest local cell index.",
       "Missing points raise by default instead of silently returning zero.",
       "Path distance is measured from the first endpoint in physical coordinates.",
-      "Accepted-frame history requests use physical time or normalized load factor; an unlabelled frame sequence must provide its coordinate explicitly."
+      "Accepted-frame history requests use physical time or normalized load factor; an unlabelled frame sequence must provide its coordinate explicitly.",
+      "Transient requests are evaluated only after accepted increments and are restored through the shared checkpoint history.",
+      "One online transient history channel is scalar; vector or tensor sensors use explicit components or separate named channels."
     ],
     "applicability": [
-      "Final-state quantities of interest, line plots, campaign outputs, sensor comparisons, and observation data for learned models."
+      "Final-state quantities of interest, line plots, campaign outputs, sensor comparisons, compact digital-twin observations, and observation data for learned models."
     ],
     "limitations": [
       "Straight paths are built in; arbitrary curves should supply explicit coordinates to sample_points.",
       "Interface traces of discontinuous fields require an explicit one-sided sampling location.",
-      "Curved paths and one-sided discontinuous traces require explicit coordinates beyond the straight-path helper."
+      "Curved paths and one-sided discontinuous traces require explicit coordinates beyond the straight-path helper.",
+      "Online transient requests store compact scalar histories, not a replacement for spatial field-output frames."
     ]
   },
   "usage": {
-    "minimal_example": "tip = results.probe(U, at=(L, H/2)); path = results.sample_path(U, start=(0, H/2), end=(L, H/2), count=101); path.add_to(result, name='centerline_U')",
+    "minimal_example": "sensor = results.probe_history('tip_U2', at=(L, H/2), component=1, unit='m'); result = step.solve_result(output='results.xdmf', history=(sensor,))",
     "examples": [
       "examples/static_elasticity_2d.py",
       "examples/transient_heat_2d.py"
@@ -91,13 +95,17 @@
   "verification": {
     "tests": [
       "tests/test_results.py",
-      "tests/test_parallel_results.py"
+      "tests/test_parallel_results.py",
+      "tests/test_transient_restart.py",
+      "tests/test_parallel_transient.py"
     ],
     "benchmarks": [],
     "validation_rules": [
       "Reject negative geometric padding, unknown missing-point policies, and coordinates with the wrong geometric dimension.",
       "Reject rank-inconsistent coordinate requests before field evaluation.",
-      "Reject missing points before returning a scientific quantity unless missing='nan' is explicit."
+      "Reject missing points before returning a scientific quantity unless missing='nan' is explicit.",
+      "Reject duplicate or conflicting transient history names and non-scalar online channels.",
+      "Reject continuation when the accepted-history channel schema differs from the checkpoint evidence."
     ]
   },
   "references": [

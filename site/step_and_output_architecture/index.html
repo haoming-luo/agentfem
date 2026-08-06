@@ -3083,15 +3083,18 @@ implicit-Euler heat transfer—consume the same policy object:</p>
 <a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="mi">100</span><span class="p">,</span>
 <a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>        <span class="n">directory</span><span class="o">=</span><span class="s2">&quot;checkpoints&quot;</span><span class="p">,</span>
 <a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>        <span class="n">final</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    <span class="p">),</span>
-<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="p">)</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>        <span class="n">keep_last</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="p">),</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="p">)</span>
 </code></pre></div>
 <p>A checkpoint is written only after an increment has been accepted, its state
 and scientific histories have been committed, and its execution event has been
 recorded. The final state is retained even when the total increment count is
-not divisible by the cadence. The current retention policy keeps every
-scheduled checkpoint and the restart remains bound to the same MPI partition;
-retention pruning and cross-partition identities are separate future changes.</p>
+not divisible by the cadence. <code>keep_last</code> bounds scheduled-checkpoint storage;
+AgentFEM publishes the new manifest and all rank shards before deleting older
+generations, removes only files named by their manifests, and preserves an
+explicit restart-source record. Omitting <code>keep_last</code> retains every scheduled
+checkpoint. Cross-partition identity remains a separate future capability.</p>
 <h2 id="next-gates">Next gates<a class="headerlink" href="#next-gates" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Extend collective MPI output from reference-configuration scientific fields

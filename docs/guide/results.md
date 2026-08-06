@@ -38,6 +38,34 @@ energies, or application-defined quantities. The abscissa is taken from the
 accepted physical time or normalized load factor; custom frame types must
 provide an explicit coordinate instead of falling back to an arbitrary index.
 
+Transient steps evaluate the same vocabulary online, without keeping every
+field frame in memory:
+
+```python
+result = step.solve_result(
+    output="results.xdmf",
+    history=(
+        results.probe_history(
+            "sensor_temperature",
+            at=(0.5, 0.1),
+            unit="K",
+        ),
+        results.history(
+            "mean_temperature_dof",
+            lambda accepted_step, time: np.mean(
+                accepted_step.current.x.array
+            ),
+            unit="K",
+        ),
+    ),
+)
+```
+
+For dynamics, an omitted `field=` selects displacement; for first-order heat
+it selects current temperature. Pass a live field or callback for another
+state variable. Vector probes require `component=...` because one history
+channel has one scalar engineering meaning.
+
 ## Standard questions
 
 - Did the requested step converge or complete stably?

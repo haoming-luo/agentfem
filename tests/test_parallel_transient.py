@@ -66,6 +66,25 @@ def test_distributed_checkpoint_policy_writes_cadence_and_final(tmp_path):
             assert len(manifest["shards"]) == 2
 
 
+def test_distributed_checkpoint_retention_removes_complete_old_generations(tmp_path):
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("distributed checkpoint retention requires at least two MPI ranks")
+
+    root = str(tmp_path) if MPI.COMM_WORLD.rank == 0 else None
+    root = MPI.COMM_WORLD.bcast(root, root=0)
+    directory = Path(root) / "retained"
+    policy = checkpointing.every(1, directory=directory, keep_last=1)
+    step = _distributed_heat_step(checkpoint=policy)
+
+    step.run()
+
+    assert len(step.checkpoints) == 1
+    assert step.checkpoints[0].coordinate_value == pytest.approx(1.5)
+    if MPI.COMM_WORLD.rank == 0:
+        assert len(tuple(directory.glob("*.checkpoint.json"))) == 1
+        assert len(tuple(directory.glob("*.rank-*.npz"))) == 2
+
+
 def test_partition_bound_transient_checkpoint_restarts_collectively(tmp_path):
     if MPI.COMM_WORLD.size < 2:
         pytest.skip("distributed transient restart requires at least two MPI ranks")

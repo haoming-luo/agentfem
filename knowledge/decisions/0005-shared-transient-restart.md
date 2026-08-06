@@ -39,6 +39,16 @@ history the state belongs to.
    M/K operators. Transient heat samples `1^T C T` and calls it thermal content,
    avoiding a stronger conservation claim when flux/source work is not yet
    integrated.
+8. Heat, Standard dynamics, and Explicit dynamics evaluate the same
+   `results.history(...)` and `results.probe_history(...)` requests after each
+   accepted increment. Their values, units, descriptions, and channel names
+   enter the same `SimulationResult` and checkpoint history. Continuation
+   rejects a changed channel schema instead of producing ragged evidence.
+9. Automatic checkpoint paths contain one unambiguous increment identity.
+   `keep_last=N` publishes the newest manifest and every rank shard before
+   pruning older scheduled generations. Pruning reads exact shard names from
+   each manifest, deletes the manifest last, and never removes an explicit
+   restart source or recursively cleans a directory.
 
 ## Consequences
 
@@ -50,8 +60,12 @@ history the state belongs to.
   why it is not yet portable to another process count.
 - Interrupted writes and corrupted state shards fail explicitly rather than
   silently mutating fields.
-- Full energy/work/heat balances and automatic checkpoint cadence remain
-  extensions of this contract, not parallel implementations.
+- Compact sensors and engineering histories can feed reports, fatigue,
+  learning, or online-monitoring clients without application-owned time loops.
+- Checkpoint storage can be bounded without weakening atomic publication or
+  turning user directories into disposable solver state.
+- Full energy/work/heat balances remain extensions of this contract, not
+  parallel implementations.
 
 ## Executable evidence
 
@@ -62,4 +76,7 @@ history the state belongs to.
 - two-rank same-partition heat restart with rank-sharded state;
 - collective failure evidence when one MPI state shard is missing;
 - checksum failure evidence when a state shard is modified;
-- resumed `solve_result(output=...)` with an explicit continuation boundary.
+- resumed `solve_result(output=...)` with an explicit continuation boundary;
+- shared heat, Standard, and Explicit probe-history requests;
+- custom-history continuation equivalence and changed-schema rejection;
+- serial and two-rank bounded retention with restart-source preservation.

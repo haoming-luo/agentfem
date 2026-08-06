@@ -2909,10 +2909,12 @@ They are curated and gated rather than duplicated under new names.</p>
   strong-reaction, balance-residual, and relative-equilibrium evidence.</li>
 <li>Heat, Explicit dynamics, and Standard dynamics use one-call
   <code>solve_result(output=...)</code>, attach XDMF/HDF5 artifacts, default field sets,
-  and accepted time increments to one <code>SimulationResult</code>.</li>
+  accepted time increments, and shared user-declared history/probe requests to
+  one <code>SimulationResult</code>.</li>
 <li>Their shared checkpoint uses atomic publication, per-rank integrity checks,
-  topology-aware partition identity, collective failure, and an explicitly
-  labeled continuation-output boundary after restart.</li>
+  unique generation identities, bounded retention, topology-aware partition
+  identity, collective failure, and an explicitly labeled continuation-output
+  boundary after restart.</li>
 <li>A failure on any MPI rank produces one collective failed execution record;
   successful ranks do not wait forever at a completion barrier.</li>
 <li>A separate CI job installs the official CPU-only PyTorch wheel and executes

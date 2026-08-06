@@ -39,6 +39,9 @@ this sequence visible unless there is a strong reason to encapsulate it.
     one consumer. For transient heat or dynamics, prefer
     `step.solve_result(output="results.xdmf")`; it writes the time series and
     attaches the logical XDMF/HDF5 dataset to the same result.
+    Declare compact transient probes, integrals, or other scalar histories
+    through `history=(results.probe_history(...), results.history(...))` on
+    this same call; they are sampled after every accepted increment.
     A paused/restarted step may use the same call; the result identifies the
     artifact as a continuation segment and records its physical start time.
 18. Evaluate physical QoIs, diagnostics, and histories. Keep coefficient

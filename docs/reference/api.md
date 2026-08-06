@@ -499,10 +499,10 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `SolverHistoryRequest` | Record accepted-increment convergence history. |
 | class | `SourceNodeHistoryRequest` | Record U and current coordinates using source-mesh node labels. |
 | function | `finite_strain_checks(*, constraint = None, quadrature_degree: int = 4) -> FiniteStrainDiagnosticRequest` | Public AgentFEM object. |
-| function | `history(name: str, evaluate, *, coordinate = None, unit: str \| None = None, abscissa_name: str \| None = None, abscissa_unit: str \| None = None, description: str = '') -> HistoryRequest` | Create a quantity history evaluated on accepted snapshots. |
+| function | `history(name: str, evaluate, *, coordinate = None, unit: str \| None = None, abscissa_name: str \| None = None, abscissa_unit: str \| None = None, description: str = '') -> HistoryRequest` | Create a scalar history evaluated on accepted analysis states. |
 | function | `output_plan(directory, *, field: FieldOutput \| None = None, requests = (), presentation: PresentationOutput \| None = None, basename: str = 'results') -> OutputPlan` | Create a complete finite-strain output plan. |
 | function | `periodic_cell_history(constraint, *, basename: str = 'homogenized_history') -> PeriodicCellHistoryRequest` | Public AgentFEM object. |
-| function | `probe_history(name: str, *, at, field = None, component: int \| None = None, unit: str \| None = None, description: str = '') -> ProbeHistoryRequest` | Create a point-probe history for an accepted field sequence. |
+| function | `probe_history(name: str, *, at, field = None, component: int \| None = None, unit: str \| None = None, description: str = '') -> ProbeHistoryRequest` | Create a point-probe history for accepted static or transient states. |
 | function | `presentation(*, comparison: bool = True, animation: str \| None = 'gif', scalar: str = 'UMAG', fps: int = 2) -> PresentationOutput` | Public AgentFEM object. |
 | function | `solver_history() -> SolverHistoryRequest` | Public AgentFEM object. |
 | function | `source_node_history(nodes, **points: int) -> SourceNodeHistoryRequest` | Public AgentFEM object. |
@@ -662,7 +662,7 @@ and evidence remain in the linked guides and scientific function reference.
 | Kind | Public object | Purpose |
 | --- | --- | --- |
 | class | `CheckpointPolicy` | Automatic accepted-increment checkpoint cadence for transient steps. |
-| function | `every(increments: int, *, directory = 'checkpoints', final: bool = True, prefix: str \| None = None) -> CheckpointPolicy` | Create an automatic checkpoint policy for accepted time increments. |
+| function | `every(increments: int, *, directory = 'checkpoints', final: bool = True, prefix: str \| None = None, keep_last: int \| None = None) -> CheckpointPolicy` | Create an automatic checkpoint policy for accepted time increments. |
 | function | `save_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, completed_steps: int, state: dict[str, object], accepted_times = (), execution_events = (), history_records = ())` | Write one partition-bound transient restart and return its manifest. |
 | function | `load_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, state: dict[str, object]) -> dict[str, object]` | Restore a transient state after validating its scientific identity. |
 | function | `function_partition_identity(function) -> dict[str, object]` | Return a JSON-safe identity for one field on one mesh partition. |

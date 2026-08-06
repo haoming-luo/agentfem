@@ -81,8 +81,17 @@ def main() -> dict[str, float]:
     )
 
     out = Path(__file__).resolve().parents[1] / "examples_output" / "transient_heat_2d.xdmf"
-    step.run(output=out)
-    simulation = step.solve_result()
+    simulation = step.solve_result(
+        output=out,
+        history=(
+            results.probe_history(
+                "center_temperature",
+                at=(0.5, 0.2),
+                unit="K",
+                description="Temperature at the plate center.",
+            ),
+        ),
+    )
     observables = {
         "final_mean_temperature": results.average(
             temperature.value,
@@ -98,12 +107,11 @@ def main() -> dict[str, float]:
         observables["final_mean_temperature"],
         unit="K",
     )
-    simulation.add_artifact("temperature", out)
     quality = simulation.verify(
         "release" if smoke else "engineering",
         claims=golden.claims(observables) if smoke else (),
         required_quantities=("final_mean_temperature",),
-        required_artifacts=("temperature",),
+        required_artifacts=("fields_xdmf",),
     )
     quality.require()
     if comm.rank == 0:

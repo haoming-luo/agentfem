@@ -5609,7 +5609,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tr>
 <td>function</td>
 <td><code>history(name: str, evaluate, *, coordinate = None, unit: str \| None = None, abscissa_name: str \| None = None, abscissa_unit: str \| None = None, description: str = '') -&gt; HistoryRequest</code></td>
-<td>Create a quantity history evaluated on accepted snapshots.</td>
+<td>Create a scalar history evaluated on accepted analysis states.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -5624,7 +5624,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tr>
 <td>function</td>
 <td><code>probe_history(name: str, *, at, field = None, component: int \| None = None, unit: str \| None = None, description: str = '') -&gt; ProbeHistoryRequest</code></td>
-<td>Create a point-probe history for an accepted field sequence.</td>
+<td>Create a point-probe history for accepted static or transient states.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -6293,7 +6293,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>every(increments: int, *, directory = 'checkpoints', final: bool = True, prefix: str \| None = None) -&gt; CheckpointPolicy</code></td>
+<td><code>every(increments: int, *, directory = 'checkpoints', final: bool = True, prefix: str \| None = None, keep_last: int \| None = None) -&gt; CheckpointPolicy</code></td>
 <td>Create an automatic checkpoint policy for accepted time increments.</td>
 </tr>
 <tr>

@@ -6,7 +6,15 @@ import numpy as np
 import pytest
 from mpi4py import MPI
 
-from agentfem import checkpointing, constitutive, fields, mesh, models, studies
+from agentfem import (
+    checkpointing,
+    constitutive,
+    fields,
+    mesh,
+    models,
+    results,
+    studies,
+)
 
 
 def _left(x):
@@ -165,6 +173,120 @@ def test_heat_checkpoint_policy_always_records_final_state(tmp_path):
     final = json.loads(step.checkpoints[-1].path.read_text(encoding="utf-8"))
     assert final["completed_steps"] == 4
     assert policy.summary()["retention"] == "all_scheduled_checkpoints"
+
+
+def test_checkpoint_policy_can_keep_only_latest_published_states(tmp_path):
+    directory = tmp_path / "retained"
+    policy = checkpointing.every(1, directory=directory, keep_last=2)
+    step = _heat_step(checkpoint=policy, steps=4)
+
+    result = step.solve_result()
+
+    assert [item.coordinate_value for item in result.checkpoints.values()] == [
+        pytest.approx(1.5),
+        pytest.approx(2.0),
+    ]
+    assert len(tuple(directory.glob("*.checkpoint.json"))) == 2
+    assert len(tuple(directory.glob("*.npz"))) == 2
+    assert policy.summary()["retention"] == "latest_2_scheduled_checkpoints"
+    assert result.metadata["step"]["checkpoint_policy"]["keep_last"] == 2
+
+
+def test_transient_result_accepts_shared_history_and_probe_requests():
+    step = _heat_step()
+    requests = (
+        results.history(
+            "mean_temperature_dof",
+            lambda accepted_step, time: np.mean(accepted_step.current.x.array),
+            unit="K",
+            description="Mean temperature interpolation coefficient.",
+        ),
+        results.probe_history(
+            "center_temperature",
+            at=(0.5, 0.1),
+            unit="K",
+        ),
+    )
+
+    simulation = step.solve_result(history=requests)
+
+    assert len(simulation.histories["mean_temperature_dof"].values) == 5
+    assert simulation.histories["mean_temperature_dof"].unit == "K"
+    assert simulation.histories["center_temperature"].unit == "K"
+    assert simulation.metadata["transient"]["history_requests"] == [
+        request.summary() for request in requests
+    ]
+    assert simulation.metadata["step"]["history_requests"] == [
+        request.summary() for request in requests
+    ]
+    assert np.all(
+        np.diff(simulation.histories["center_temperature"].values) <= 0.0
+    )
+
+
+@pytest.mark.parametrize("implicit", [False, True])
+def test_standard_and_explicit_dynamics_share_probe_history(implicit):
+    step = _dynamic_step(implicit=implicit)
+    request = results.probe_history(
+        "interior_U1",
+        at=(0.75, 0.1),
+        component=0,
+        unit="m",
+    )
+
+    simulation = step.solve_result(history=(request,))
+
+    assert len(simulation.histories["interior_U1"].values) == 5
+    assert simulation.histories["interior_U1"].unit == "m"
+    assert np.all(np.isfinite(simulation.histories["interior_U1"].values))
+
+
+def test_restart_requires_same_custom_history_schema_for_continuation(tmp_path):
+    request = results.history(
+        "mean_temperature_dof",
+        lambda accepted_step, time: np.mean(accepted_step.current.x.array),
+        unit="K",
+    )
+    partial = _heat_step()
+    partial.run(until_step=2, history=(request,))
+    checkpoint = partial.save_checkpoint(tmp_path / "custom-history")
+
+    missing_request = _heat_step()
+    missing_request.load_checkpoint(checkpoint)
+    with pytest.raises(RuntimeError, match="same history requests"):
+        missing_request.run()
+
+    restarted = _heat_step()
+    restarted.load_checkpoint(checkpoint)
+    simulation = restarted.solve_result(history=(request,))
+
+    assert len(simulation.histories["mean_temperature_dof"].values) == 5
+    np.testing.assert_allclose(
+        simulation.histories["mean_temperature_dof"].abscissa,
+        [0.0, 0.5, 1.0, 1.5, 2.0],
+    )
+
+
+def test_retention_never_deletes_the_explicit_restart_source(tmp_path):
+    partial = _heat_step()
+    partial.run(until_step=2)
+    source = partial.save_checkpoint(tmp_path / "source")
+    policy = checkpointing.every(
+        1,
+        directory=tmp_path / "continued",
+        keep_last=1,
+    )
+    restarted = _heat_step(checkpoint=policy)
+    restarted.load_checkpoint(source)
+
+    result = restarted.solve_result()
+
+    assert source.is_file()
+    assert len(result.checkpoints) == 2
+    assert any(
+        item.metadata.get("role") == "restart_source"
+        for item in result.checkpoints.values()
+    )
 
 
 def test_heat_restart_matches_uninterrupted_state_and_thermal_history(tmp_path):
