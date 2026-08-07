@@ -474,11 +474,15 @@ def _lower_mixed_neo_hookean(model, request: StepRequest):
 
 
 def _accept_explicit_dynamics(model, request: StepRequest) -> bool:
+    from .constitutive.hyperelasticity import NeoHookeanProperties
+
     method = request.options.get("method") or getattr(
         getattr(model, "study", None),
         "preferred_procedure",
         None,
     )
+    selected_material = _selected_material(model, request)
+    explicit_residual = request.options.get("residual") is not None
     return (
         request.target is not None
         and _is_vector_target(request.target)
@@ -492,9 +496,59 @@ def _accept_explicit_dynamics(model, request: StepRequest) -> bool:
             or _all_materials_support(model, request, _supports_dynamics)
         )
         and (
+            explicit_residual
+            or not isinstance(selected_material, NeoHookeanProperties)
+        )
+        and (
         method is None
         or _normalize(method) in {"explicit_dynamics", "central_difference"}
         )
+    )
+
+
+def _accept_finite_strain_explicit_dynamics(model, request: StepRequest) -> bool:
+    from .constitutive.hyperelasticity import NeoHookeanProperties
+
+    study = getattr(model, "study", None)
+    method = request.options.get("method") or getattr(
+        study,
+        "preferred_procedure",
+        None,
+    )
+    supported_kinematics = (
+        getattr(study, "dimension", None) == 3
+        or (
+            getattr(study, "dimension", None) == 2
+            and getattr(study, "assumption", None) == "plane_strain"
+        )
+    )
+    material = _selected_material(model, request)
+    return (
+        request.target is not None
+        and _is_vector_target(request.target)
+        and getattr(study, "physics", None) == "solid_mechanics"
+        and getattr(study, "analysis", None) == "second_order_dynamics"
+        and supported_kinematics
+        and isinstance(material, NeoHookeanProperties)
+        and material.density is not None
+        and _normalize(method or "central_difference")
+        in {"explicit_dynamics", "central_difference"}
+        and request.options.get("residual") is None
+    )
+
+
+def _lower_finite_strain_explicit_dynamics(model, request: StepRequest):
+    options = dict(request.options)
+    material = _selected_material(model, request)
+    for key in ("K", "F", "solver_options", "method", "residual"):
+        options.pop(key, None)
+    options.pop("material", None)
+    name = options.pop("name", None) or "finite_strain_explicit_dynamics"
+    return model.finite_strain_explicit_dynamics_step(
+        target=request.target,
+        material=material,
+        name=name,
+        **options,
     )
 
 
@@ -514,20 +568,27 @@ def _lower_explicit_dynamics(model, request: StepRequest):
 
 
 def _accept_implicit_dynamics(model, request: StepRequest) -> bool:
+    from .constitutive.hyperelasticity import NeoHookeanProperties
+
     method = request.options.get("method") or getattr(
         getattr(model, "study", None),
         "preferred_procedure",
         None,
     )
+    complete_system = all(
+        request.options.get(item) is not None for item in ("M", "K", "F")
+    )
+    selected_material = _selected_material(model, request)
     return (
         request.target is not None
         and _is_vector_target(request.target)
         and getattr(getattr(model, "study", None), "physics", None)
         == "solid_mechanics"
         and (
-            all(request.options.get(item) is not None for item in ("M", "K", "F"))
+            complete_system
             or _all_materials_support(model, request, _supports_dynamics)
         )
+        and (complete_system or not isinstance(selected_material, NeoHookeanProperties))
         and _normalize(method or "") in {"newmark", "generalized_alpha"}
     )
 
@@ -560,6 +621,20 @@ def _normalize(value: str) -> str:
     return aliases.get(normalized, normalized)
 
 
+register_step_provider(
+    StepProvider(
+        name="neo_hookean_finite_strain_explicit_dynamics",
+        analyses=("explicit_dynamics", "second_order_dynamics"),
+        accepts=_accept_finite_strain_explicit_dynamics,
+        lower=_lower_finite_strain_explicit_dynamics,
+        priority=120,
+        description=(
+            "Lower Neo-Hookean finite strain to a current-configuration-updated "
+            "Total-Lagrangian residual and explicit central difference."
+        ),
+        procedure="explicit/central_difference/total_lagrangian",
+    )
+)
 register_step_provider(
     StepProvider(
         name="implicit_power_law_creep",

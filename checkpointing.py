@@ -115,6 +115,7 @@ def save_transient_checkpoint(
     accepted_times=(),
     execution_events=(),
     history_records=(),
+    auxiliary_state: dict[str, object] | None = None,
     portable: bool = False,
 ):
     """Write a transient restart, optionally with partition-independent state."""
@@ -190,6 +191,11 @@ def save_transient_checkpoint(
             for event in execution_events
         ],
         "history_records": [dict(item) for item in history_records],
+        "auxiliary_state": (
+            None
+            if auxiliary_state is None
+            else json.loads(json.dumps(auxiliary_state, sort_keys=True))
+        ),
     }
     root_error = None
     if comm.rank == 0:

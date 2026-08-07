@@ -137,19 +137,41 @@ class ExplicitDynamicsIntegrator:
                 update(time)
         self.predict_displacement(dt)
         displacement_bcs = _collect_bcs(prescribed_values, displacement_bcs)
+        prescribed_kinematics = _prescribed_kinematics(
+            prescribed_values,
+            time=time,
+            dt=dt,
+        )
+        for dof in _owned_dirichlet_dofs(displacement_bcs):
+            prescribed_kinematics.setdefault(int(dof), (0.0, 0.0, 0.0))
         if displacement_bcs:
             constraint_api.apply_dirichlet_bcs(self.state.u_next, displacement_bcs)
         _apply_constraints(active_constraints, self.state.u_next)
         self.update_displacement()
         self.update_midstep_velocity(dt)
+        _assign_prescribed_component(
+            self.state.v_mid,
+            prescribed_kinematics,
+            component=0,
+        )
         _apply_constraints(active_constraints, self.state.v_mid)
         residual = operators.assemble_vector(residual_operator)
         try:
             self.solve_acceleration(residual)
         finally:
             residual.destroy()
+        _assign_prescribed_component(
+            self.state.a_next,
+            prescribed_kinematics,
+            component=1,
+        )
         _apply_constraints(active_constraints, self.state.a_next)
         self.update_velocity(dt)
+        _assign_prescribed_component(
+            self.state.v_next,
+            prescribed_kinematics,
+            component=2,
+        )
         _apply_constraints(active_constraints, self.state.v_next)
         self.advance_velocity_acceleration()
 
@@ -193,6 +215,75 @@ def _collect_bcs(prescribed, displacement_bcs) -> list:
         elif hasattr(item, "bc"):
             result.append(item.bc)
     return result
+
+
+def _owned_dirichlet_dofs(bcs) -> np.ndarray:
+    """Return unique owned scalar dofs constrained by backend Dirichlet BCs."""
+
+    selected = []
+    for bc in bcs:
+        indices, first_ghost = bc.dof_indices()
+        selected.extend(np.asarray(indices[:first_ghost], dtype=np.int64).tolist())
+    if not selected:
+        return np.empty(0, dtype=np.int64)
+    return np.unique(np.asarray(selected, dtype=np.int64))
+
+
+def _prescribed_kinematics(prescribed, *, time, dt: float):
+    """Resolve midpoint velocity, acceleration, and whole-step velocity.
+
+    Ordinary Dirichlet data are stationary.  Amplitude-driven data are
+    differentiated from their declared scalar history with centered finite
+    differences.  This keeps velocity and acceleration compatible with a
+    moving support instead of applying displacement while leaving inertial
+    state unconstrained.
+    """
+
+    resolved: dict[int, tuple[float, float, float]] = {}
+    selected_time = 0.0 if time is None else float(time)
+    h = 0.5 * float(dt)
+    for item in prescribed:
+        bcs = []
+        if hasattr(item, "bcs"):
+            bcs.extend(item.bcs)
+        elif hasattr(item, "bc"):
+            bcs.append(item.bc)
+        amplitude = getattr(item, "amplitude", None)
+        if amplitude is None:
+            values = (0.0, 0.0, 0.0)
+        else:
+            def derivative(at):
+                return (amplitude(at + h) - amplitude(at - h)) / (2.0 * h)
+
+            midpoint_velocity = derivative(selected_time - 0.5 * dt)
+            whole_velocity = derivative(selected_time)
+            acceleration = (
+                amplitude(selected_time + h)
+                - 2.0 * amplitude(selected_time)
+                + amplitude(selected_time - h)
+            ) / h**2
+            values = (
+                float(midpoint_velocity),
+                float(acceleration),
+                float(whole_velocity),
+            )
+        for dof in _owned_dirichlet_dofs(bcs):
+            previous = resolved.get(int(dof))
+            if previous is not None and not np.allclose(previous, values):
+                raise ValueError(
+                    f"Conflicting prescribed kinematics at scalar dof {int(dof)}."
+                )
+            resolved[int(dof)] = values
+    return resolved
+
+
+def _assign_prescribed_component(field, kinematics, *, component: int) -> None:
+    if not kinematics:
+        return
+    function = fields.unwrap(field)
+    for dof, values in kinematics.items():
+        function.x.array[dof] = values[component]
+    function.x.scatter_forward()
 
 
 def _apply_constraints(constraints, field) -> None:

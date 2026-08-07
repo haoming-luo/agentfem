@@ -1147,6 +1147,7 @@ class ExplicitDynamicsStep:
     print_every: int | None = None
     procedure: object | None = None
     history_monitor: object | None = None
+    stability: object | None = None
     progress: object = True
     status_file: object | None = None
     checkpoint_policy: object | None = None
@@ -1306,13 +1307,21 @@ class ExplicitDynamicsStep:
     def _advance_one(self, t: float) -> None:
         if self.update_load is not None:
             self.update_load(t)
-        self.integrator.step(
-            self.dt,
-            time=t,
-            residual_operator=self.residual,
-            prescribed=self.prescribed,
-            constraints=self.constraints,
-        )
+        try:
+            self.integrator.step(
+                self.dt,
+                time=t,
+                residual_operator=self.residual,
+                prescribed=self.prescribed,
+                constraints=self.constraints,
+            )
+        except Exception:
+            if hasattr(self.residual, "rollback"):
+                self.residual.rollback()
+            raise
+        else:
+            if hasattr(self.residual, "commit"):
+                self.residual.commit()
 
     def summary(self) -> dict[str, object]:
         """Return a compact, agent-readable explicit step summary."""
@@ -1334,6 +1343,15 @@ class ExplicitDynamicsStep:
             "history_requests": [
                 request.summary() for request in self.history_requests
             ],
+            "stability": (
+                None
+                if self.stability is None
+                else (
+                    self.stability.summary()
+                    if hasattr(self.stability, "summary")
+                    else self.stability
+                )
+            ),
             "integrator": (
                 self.integrator.summary()
                 if hasattr(self.integrator, "summary")
@@ -1866,6 +1884,15 @@ _TRANSIENT_HISTORY_DESCRIPTIONS = {
     "kinetic_energy": "Discrete kinetic energy, one half v-transpose M v.",
     "strain_energy": "Recoverable linear strain energy, one half u-transpose K u.",
     "total_mechanical_energy": "Sum of discrete kinetic and recoverable strain energy.",
+    "bulk_strain_energy": "Finite-strain constitutive energy integrated in the reference body.",
+    "cohesive_stored_energy": "Recoverable energy currently stored by the cohesive interface.",
+    "cohesive_fracture_dissipation": "Irreversible cohesive dissipation relative to the initial interface state.",
+    "numerical_damping_dissipation": "Accepted nonnegative work dissipated by the declared viscous damping model.",
+    "natural_load_work": "Accepted-path trapezoidal work of weak natural loads.",
+    "prescribed_motion_work": "Accepted-path trapezoidal work of strong prescribed-motion reactions.",
+    "external_work": "Sum of natural-load and prescribed-motion work.",
+    "energy_balance_error": "Initial accounted energy plus external work minus current accounted energy.",
+    "relative_energy_balance_error": "Absolute energy-balance error normalized by the largest energy scale.",
     "thermal_content": (
         "Discrete thermal content, one-transpose C T, relative to the model's "
         "temperature zero."
@@ -2131,6 +2158,11 @@ def _save_transient_checkpoint(step, path, state, *, portable: bool = False) -> 
         accepted_times=step.accepted_times,
         execution_events=step.execution_events,
         history_records=step.history_records,
+        auxiliary_state=(
+            {"residual": step.residual.snapshot()}
+            if hasattr(getattr(step, "residual", None), "snapshot")
+            else None
+        ),
         portable=portable,
     )
     record = CheckpointRecord(
@@ -2168,6 +2200,20 @@ def _load_transient_checkpoint(step, path, state) -> None:
         total_steps=step.steps,
         state=state,
     )
+    auxiliary = metadata.get("auxiliary_state")
+    residual = getattr(step, "residual", None)
+    if auxiliary is not None:
+        if residual is None or not hasattr(residual, "restore"):
+            raise ValueError(
+                "Checkpoint contains auxiliary residual state, but the current "
+                "step has no compatible residual-state consumer."
+            )
+        residual.restore(auxiliary["residual"])
+    elif hasattr(residual, "restore"):
+        raise ValueError(
+            "The current step requires auxiliary residual state that is absent "
+            "from this checkpoint."
+        )
     step.completed_steps = int(metadata["completed_steps"])
     step.accepted_times[:] = [float(value) for value in metadata["accepted_times"]]
     step.execution_events[:] = [
@@ -2177,6 +2223,12 @@ def _load_transient_checkpoint(step, path, state) -> None:
         {name: float(value) for name, value in item.items()}
         for item in metadata["history_records"]
     ]
+    restart_time = float(step.completed_steps) * float(step.dt)
+    if getattr(step, "update_load", None) is not None:
+        step.update_load(restart_time)
+    for item in tuple(getattr(step, "prescribed", ())):
+        if hasattr(item, "update"):
+            item.update(restart_time)
     step.checkpoints.append(
         CheckpointRecord(
             name=f"{step.name}_{step.completed_steps}_restart",
@@ -2749,6 +2801,8 @@ def explicit_dynamics(
     progress=True,
     status_file=None,
     checkpoint_policy=None,
+    history_monitor=None,
+    stability=None,
     name: str = "explicit_dynamics",
 ) -> ExplicitDynamicsStep:
     """Create a second-order explicit dynamics step."""
@@ -2767,10 +2821,15 @@ def explicit_dynamics(
         state=state,
         integrator=integrator,
         residual=residual,
-        history_monitor=MechanicalEnergyMonitor(
-            mass=integrator.mass,
-            stiffness=stiffness,
+        history_monitor=(
+            MechanicalEnergyMonitor(
+                mass=integrator.mass,
+                stiffness=stiffness,
+            )
+            if history_monitor is None
+            else history_monitor
         ),
+        stability=stability,
         prescribed=tuple(_as_list(prescribed)),
         constraints=tuple(_as_list(constraints)),
         update_load=update_load,

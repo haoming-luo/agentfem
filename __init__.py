@@ -16,11 +16,13 @@ from . import datasets
 from . import dependencies
 from . import diagnostics
 from . import fields
+from . import fracture
 from . import elements
 from . import extensions
 from . import forms
 from . import io
 from . import ir
+from . import interfaces
 from . import loads
 from . import materials
 from . import mechanics
@@ -49,6 +51,7 @@ PUBLIC_WORKFLOW_MODULES = (
     "mesh",
     "models",
     "fields",
+    "fracture",
     "materials",
     "mechanics",
     "constitutive",
@@ -72,6 +75,7 @@ PUBLIC_WORKFLOW_MODULES = (
     "diagnostics",
     "extensions",
     "ir",
+    "interfaces",
     "campaigns",
     "checkpointing",
     "datasets",

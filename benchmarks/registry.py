@@ -218,6 +218,92 @@ _BENCHMARKS = (
         status="release_regression",
     ),
     BenchmarkSpec(
+        identifier="cohesive_mode_i_v0",
+        capability="dynamic_cohesive_fracture",
+        level="material_point_and_interface_element",
+        reference="docs/dynamic_cohesive_fracture_architecture.md#v0----local-mathematics",
+        criterion=(
+            "bilinear envelope area equals fracture energy; irreversible "
+            "loading paths, closure, precrack, equal-opposite facet forces, "
+            "and interface splitting identities remain exact"
+        ),
+        automated_test="tests/test_interfaces.py",
+        status="experimental_regression",
+    ),
+    BenchmarkSpec(
+        identifier="finite_strain_explicit_v0",
+        capability="dynamic_cohesive_fracture",
+        level="finite_element_foundation",
+        reference="docs/dynamic_cohesive_fracture_architecture.md#bulk-dynamics",
+        criterion=(
+            "Neo-Hookean dynamics selects the Total-Lagrangian Explicit "
+            "provider, preserves rigid-rotation objectivity, reports the "
+            "constitutive energy, and cannot silently lower to linear elasticity"
+        ),
+        automated_test="tests/test_dynamic_fracture.py",
+        status="experimental_regression",
+    ),
+    BenchmarkSpec(
+        identifier="cohesive_global_state_v0",
+        capability="dynamic_cohesive_fracture",
+        level="serial_global_consumer",
+        reference="docs/dynamic_cohesive_fracture_architecture.md#state-ownership",
+        criterion=(
+            "bulk and cohesive residuals share accepted-step commit/rollback, "
+            "typed energy, stable-step evidence, and checkpoint state identity"
+        ),
+        automated_test="tests/test_global_cohesive_residual.py",
+        status="experimental_regression",
+    ),
+    BenchmarkSpec(
+        identifier="finite_strain_incremental_waves_v1",
+        capability="dynamic_cohesive_fracture",
+        level="constitutive_and_homogeneous_prestrain",
+        reference="knowledge/benchmarks/finite_strain_incremental_waves_v1.json",
+        criterion=(
+            "the analytical Neo-Hookean material tangent matches finite "
+            "differences, the unstretched acoustic tensor recovers c_s/c_d, "
+            "and current/reference propagation directions transform consistently"
+        ),
+        automated_test=(
+            "tests/test_dynamic_fracture.py -k "
+            "'acoustic_tensor or prestrained_wave or material_tangent'"
+        ),
+        status="experimental_v1_automated",
+    ),
+    BenchmarkSpec(
+        identifier="dynamic_fracture_energy_v2",
+        capability="dynamic_cohesive_fracture",
+        level="finite_element_energy_convergence",
+        reference="knowledge/benchmarks/dynamic_fracture_energy_v2.json",
+        criterion=(
+            "no-fracture mechanical energy converges under mesh refinement; "
+            "complete interface separation dissipates exactly Gamma and the "
+            "full external/internal/kinetic/fracture ledger converges in time"
+        ),
+        automated_test=(
+            "tests/test_dynamic_fracture_benchmarks.py::"
+            "test_v2_cohesive_dissipation_is_exact_and_energy_error_converges"
+        ),
+        status="experimental_v2_automated",
+    ),
+    BenchmarkSpec(
+        identifier="classical_sub_rayleigh_crack_v3",
+        capability="dynamic_cohesive_fracture",
+        level="finite_element_dynamic_crack_guardrail",
+        reference="knowledge/benchmarks/classical_sub_rayleigh_crack_v3.json",
+        criterion=(
+            "a precracked cohesive strip advances multiple facets while its "
+            "window-fitted speed remains below c_R under mesh, time-step, and "
+            "declared mass-damping perturbations with typed energy closure"
+        ),
+        automated_test=(
+            "tests/test_dynamic_fracture_benchmarks.py::"
+            "test_v3_classical_crack_remains_sub_rayleigh_under_refinement_and_damping"
+        ),
+        status="experimental_v3_guardrail_automated",
+    ),
+    BenchmarkSpec(
         identifier="creep_closed_forms",
         capability="power_law_creep",
         level="material_point",

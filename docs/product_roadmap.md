@@ -220,6 +220,41 @@ laboratory-scale bridge, not the final collective HDF5 path. The cell,
 quadrature-point, material-region, and state-layout keys needed by J2/creep
 remain the next identity gate.
 
+### Experimental finite-strain dynamic fracture
+
+The first target is deliberately fixed-path rather than a generic fracture
+framework: prestrained compressible Neo-Hookean dynamics plus a zero-thickness
+Mode-I cohesive interface.  The current foundation includes auditable mesh
+splitting, automatic independent interface-DOF recovery, irreversible
+bilinear cohesive state, Total-Lagrangian central difference, stable-step
+screening, preload transfer, crack observations, restart state, a complete
+strong-Dirichlet/natural-load energy ledger, and an analytical small-on-large
+wave oracle.  All remain experimental.
+
+The first three promotion gates now have automated experimental evidence:
+
+1. V1 finite-element arrival times under several homogeneous prestrains,
+   checked against the acoustic tensor and mesh refinement;
+2. V2 no-fracture and one-interface energy convergence, including smooth
+   prescribed separation and exact cohesive dissipation;
+3. V3 a classical sub-Rayleigh cohesive crack guardrail before any supershear
+   exploration, repeated across mesh, time-step, and declared damping changes.
+
+These are scoped V1--V3 benchmarks for the named plane-strain compressible
+models, not universal validation. The next gates are:
+
+4. smooth quasi-static preload-to-dynamic-release equivalence, followed by a
+   verified near-incompressible route and finite-strain plane stress or thin
+   3D counterpart;
+5. Abaqus/Gmsh internal-surface ingestion, deterministic MPI facet ownership,
+   and portable interface-state identity;
+6. only then the JMPS 2025 mode-transition benchmark and retained Science 2023
+   Dryad prediction cases.
+
+The governing decisions and evidence boundaries live in
+`docs/dynamic_cohesive_fracture_architecture.md`.  Phase field, free crack
+paths, branching, and general contact do not enter this sequence early.
+
 ### P3: mesh and model interoperability
 
 - verify Abaqus `.inp`, Nastran bulk-data, Gmsh, Exodus, and MED meshes;

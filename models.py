@@ -2226,6 +2226,7 @@ class Model:
         residual=None,
         state=None,
         mass=None,
+        cohesive_force=None,
         prescribed=(),
         constraints=None,
         update_load=None,
@@ -2240,6 +2241,35 @@ class Model:
 
         from . import problems
         from . import time as time_api
+        from .constitutive.hyperelasticity import NeoHookeanProperties
+
+        if (
+            residual is None
+            and len(self.materials) == 1
+            and isinstance(self.materials[0].item, NeoHookeanProperties)
+        ):
+            if prescribed:
+                raise ValueError(
+                    "Use registered constraints for automatic finite-strain "
+                    "Explicit, or pass an expert residual explicitly."
+                )
+            return self.finite_strain_explicit_dynamics_step(
+                target=target,
+                dt=dt,
+                steps=steps,
+                material=self.materials[0].item,
+                state=state,
+                mass=mass,
+                cohesive_force=cohesive_force,
+                constraints=constraints,
+                update_load=update_load,
+                save_every=save_every,
+                print_every=print_every,
+                progress=progress,
+                status_file=status_file,
+                checkpoint=checkpoint,
+                name=name,
+            )
 
         self.check(
             target=target,
@@ -2284,6 +2314,190 @@ class Model:
             progress=progress,
             status_file=status_file,
             checkpoint_policy=checkpoint,
+            name=name,
+        )
+        return self.add_step(step)
+
+    def finite_strain_explicit_dynamics_step(
+        self,
+        *,
+        target,
+        dt: float | str | None = "auto",
+        steps: int,
+        material=None,
+        state=None,
+        mass=None,
+        cohesive_force=None,
+        constraints=None,
+        update_load=None,
+        save_every: int | None = None,
+        print_every: int | None = None,
+        progress=True,
+        status_file=None,
+        checkpoint=None,
+        stability_safety: float = 0.8,
+        mass_damping: float = 0.0,
+        name: str = "finite_strain_explicit_dynamics",
+    ):
+        """Create Total-Lagrangian Neo-Hookean central-difference dynamics."""
+
+        import ufl
+
+        from . import fracture
+        from . import problems
+        from . import time as time_api
+        from .constitutive.hyperelasticity import NeoHookeanProperties
+
+        self.check(target=target, step_options={"material": material})
+        if hasattr(self.study, "require"):
+            self.study.require(
+                analysis="second_order_dynamics",
+                physics="solid_mechanics",
+            )
+        if getattr(self.study, "dimension", None) == 2 and getattr(
+            self.study, "assumption", None
+        ) != "plane_strain":
+            raise NotImplementedError(
+                "Finite-strain Explicit currently supports 2D plane strain or 3D. "
+                "A thin-sheet claim requires the planned plane-stress local solve "
+                "or a thin 3D model."
+            )
+        record = (
+            _single_material(self, "model.finite_strain_explicit_dynamics_step")
+            if material is None
+            else self._material_record(material)
+        )
+        properties = record.item
+        if not isinstance(properties, NeoHookeanProperties):
+            raise TypeError(
+                "finite_strain_explicit_dynamics_step requires NeoHookeanProperties."
+            )
+        if properties.density is None:
+            raise ValueError("Finite-strain Explicit requires material density.")
+        selected_measure = (
+            record.region.measure if record.region is not None else ufl.dx
+        )
+        selected_state = (
+            state if state is not None else problems.second_order_state(target)
+        )
+        if cohesive_force is not None:
+            cohesive_force = cohesive_force.for_displacement(selected_state.u)
+        selected_mass = (
+            mass
+            if mass is not None
+            else problems.LumpedMassOperator.assemble(
+                _space(target),
+                density=properties.density,
+                measure=selected_measure,
+            )
+        )
+        wave_speeds = fracture.isotropic_reference_wave_speeds(properties)
+        interface_stability = (
+            {}
+            if cohesive_force is None
+            else cohesive_force.stability_inputs(selected_mass)
+        )
+        stability = fracture.estimate_stable_time_increment(
+            characteristic_length=fracture.minimum_cell_nodal_spacing(
+                _domain(self.mesh)
+            ),
+            dilatational_speed=wave_speeds.pressure,
+            safety_factor=stability_safety,
+            **interface_stability,
+        )
+        if dt is None or str(dt).strip().lower() == "auto":
+            selected_dt = stability.selected
+        else:
+            selected_dt = float(dt)
+            if selected_dt <= 0.0:
+                raise ValueError("Finite-strain Explicit requires dt > 0.")
+            if selected_dt > stability.selected:
+                raise ValueError(
+                    "The requested dt exceeds the current body/interface "
+                    "screening limit "
+                    f"({selected_dt:.6g} > {stability.selected:.6g}; "
+                    f"controller={stability.controller})."
+                )
+        internal = fracture.finite_strain_internal_force(
+            selected_state.u,
+            target.test,
+            properties,
+            measure=selected_measure,
+        )
+        external = self.external_force(target) if self.loads else None
+        residual = self.force_balance(internal=internal, external=external)
+        if cohesive_force is not None:
+            residual = fracture.FiniteStrainCohesiveResidual(
+                residual,
+                cohesive_force,
+            )
+        damping_residual = None
+        if float(mass_damping) != 0.0:
+            damping_residual = fracture.MassProportionalDampingResidual(
+                residual,
+                mass=selected_mass,
+                velocity=selected_state.v_mid,
+                coefficient=mass_damping,
+                dt=selected_dt,
+            )
+            residual = damping_residual
+        selected_constraints = self.constraints if constraints is None else constraints
+        selected_prescribed = constraint_api.dirichlet_constraints(
+            selected_constraints
+        )
+        base_energy = (
+            fracture.FiniteStrainEnergyMonitor(
+                mass=selected_mass,
+                material=properties,
+                measure=selected_measure,
+            )
+            if cohesive_force is None
+            else fracture.FiniteStrainCohesiveEnergyMonitor(
+                bulk=fracture.FiniteStrainEnergyMonitor(
+                    mass=selected_mass,
+                    material=properties,
+                    measure=selected_measure,
+                ),
+                cohesive=cohesive_force,
+            )
+        )
+        if damping_residual is not None:
+            base_energy = fracture.DampingEnergyMonitor(
+                energy=base_energy,
+                damping=damping_residual,
+            )
+        integrator = time_api.explicit.central_difference(
+            state=selected_state,
+            mass=selected_mass,
+        )
+        step = problems.explicit_dynamics(
+            state=selected_state,
+            integrator=integrator,
+            residual=residual,
+            stiffness=None,
+            study=self.study,
+            prescribed=selected_prescribed,
+            constraints=selected_constraints,
+            update_load=self._time_update_callback(
+                update_load,
+                include_constraints=False,
+            ),
+            dt=selected_dt,
+            steps=steps,
+            save_every=save_every,
+            print_every=print_every,
+            progress=progress,
+            status_file=status_file,
+            checkpoint_policy=checkpoint,
+            history_monitor=fracture.DynamicEnergyLedger(
+                energy=base_energy,
+                state=selected_state,
+                mass=selected_mass,
+                residual=residual,
+                natural_force=external,
+                prescribed=selected_prescribed,
+            ),
+            stability=stability,
             name=name,
         )
         return self.add_step(step)
@@ -2894,6 +3108,14 @@ def _stiffness_from_record(
     law=None,
     name: str = "K",
 ):
+    from .constitutive.hyperelasticity import NeoHookeanProperties
+
+    if isinstance(record.item, NeoHookeanProperties) and law is None:
+        raise TypeError(
+            "A Neo-Hookean material has a deformation-dependent tangent, not "
+            "one linear stiffness operator. Build its finite-strain residual "
+            "and use operators.linearize(...) when a tangent is required."
+        )
     selected_measure = measure
     if selected_measure is None and record.region is not None:
         selected_measure = record.region.measure
@@ -2918,9 +3140,29 @@ def _internal_force_from_record(
     measure=None,
     name: str = "F_internal",
 ):
+    import ufl
+
+    from .constitutive.hyperelasticity import NeoHookeanProperties
+
     selected_measure = measure
     if selected_measure is None and record.region is not None:
         selected_measure = record.region.measure
+    if isinstance(record.item, NeoHookeanProperties):
+        from . import fracture
+
+        operator = fracture.finite_strain_internal_force(
+            displacement,
+            test_function,
+            record.item,
+            measure=(ufl.dx if selected_measure is None else selected_measure),
+            name=name,
+        )
+        if record.region is not None:
+            return operator.renamed(
+                name,
+                kind="regional_finite_strain_internal_force",
+            )
+        return operator
     kwargs = {"study": study}
     if selected_measure is not None:
         kwargs["measure"] = selected_measure

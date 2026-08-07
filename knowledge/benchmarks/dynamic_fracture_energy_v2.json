@@ -1,0 +1,29 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.dynamic_fracture_energy_v2",
+  "title": "Finite-strain and cohesive dynamic energy closure",
+  "status": "experimental_v2_automated",
+  "purpose": "Require energy evidence before a dynamic crack-speed claim is accepted.",
+  "physics": "Total-Lagrangian Neo-Hookean dynamics with optional Mode-I cohesive separation",
+  "execution": {
+    "command": "python -m pytest -q tests/test_dynamic_fracture_benchmarks.py -k v2",
+    "evidence": "A no-fracture wave packet checks conservative energy under mesh refinement. A split interface is then opened completely by a smooth prescribed motion and repeated with smaller time increments."
+  },
+  "observables": [
+    "Bulk recoverable energy and kinetic energy.",
+    "Cohesive stored energy and irreversible fracture dissipation.",
+    "Natural-load work and strong prescribed-motion work.",
+    "Absolute and relative energy-balance errors."
+  ],
+  "acceptance": [
+    "Complete separation dissipates the declared fracture energy Gamma to absolute tolerance 1e-12.",
+    "The fine time-step final relative energy error is smaller than the coarse result and below 1e-5.",
+    "The no-fracture relative energy error decreases under spatial refinement."
+  ],
+  "limitations": [
+    "The cohesive case is uniform Mode-I separation, not a propagating crack.",
+    "MPC, contact, and weak-constraint work require their own dual-variable definitions.",
+    "The benchmark covers the named compressible plane-strain model and parameter range."
+  ]
+}

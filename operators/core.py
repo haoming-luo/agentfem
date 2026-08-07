@@ -380,6 +380,8 @@ def assemble_vector(operator, *, backend=None):
 
     if isinstance(operator, OperatorForm):
         return operator.assemble_vector(backend=backend)
+    if hasattr(operator, "assemble_vector"):
+        return operator.assemble_vector()
     from agentfem.backends import get_backend
 
     selected = get_backend() if backend is None else backend

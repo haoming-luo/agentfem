@@ -122,6 +122,36 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `require_same_space(left, right) -> None` | Raise if two fields/functions are not on the same function space. |
 | function | `same_space(left, right) -> bool` | Return whether two fields/functions share the same function space. |
 
+## `agentfem.fracture`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| function | `finite_strain_internal_force(displacement, test_function, material: hyperelasticity.NeoHookeanProperties, *, measure = ufl.dx, name: str = 'F_internal_finite_strain') -> OperatorForm` | Return the current Total-Lagrangian Neo-Hookean internal force. |
+| class | `FiniteStrainEnergyMonitor` | Accepted-frame kinetic and Neo-Hookean bulk energy monitor. |
+| class | `DofMappedCohesiveForce(assembler, displacement, *, node_to_block_dof)` | Map the serial 2D cohesive facet kernel to vector finite-element dofs. |
+| function | `p1_input_node_to_block_dof(displacement, *, number_of_input_nodes: int)` | Recover audited input-node identity for a first-order vector space. |
+| function | `mode_i_cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law: interface_api.BilinearCohesiveLaw, *, normal_hint, thickness: float = 1.0, tolerance: float = 1e-10) -> DofMappedCohesiveForce` | Build the executable Mode-I force directly from a split mesh contract. |
+| class | `FiniteStrainCohesiveResidual(bulk, cohesive: DofMappedCohesiveForce)` | Assemble bulk UFL and paired-facet interface forces into one residual. |
+| class | `MassProportionalDampingResidual(base, *, mass, velocity, coefficient: float, dt: float)` | Add ``alpha M v_mid`` with transactional dissipation accounting. |
+| class | `DampingEnergyMonitor` | Add accepted viscous dissipation to an existing mechanical monitor. |
+| class | `FiniteStrainCohesiveEnergyMonitor` | Typed accepted-frame energy for bulk plus cohesive dynamics. |
+| class | `DynamicEnergyLedger` | Accepted-frame external work and mechanical-energy closure. |
+| class | `IsotropicWaveSpeeds` | Reference small-on-zero wave speeds for one isotropic material. |
+| class | `IncrementalWaveSpeeds` | Small-on-large bulk-wave modes about one homogeneous deformation. |
+| function | `neo_hookean_material_tangent(deformation_gradient, material: hyperelasticity.NeoHookeanProperties) -> np.ndarray` | Return ``A[i,J,k,L] = dP[i,J]/dF[k,L]`` for the declared energy. |
+| function | `incremental_wave_speeds(deformation_gradient, direction, material: hyperelasticity.NeoHookeanProperties, *, direction_configuration: str = 'current') -> IncrementalWaveSpeeds` | Return homogeneous small-on-large bulk-wave speeds. |
+| function | `isotropic_reference_wave_speeds(material: hyperelasticity.NeoHookeanProperties) -> IsotropicWaveSpeeds` | Return unstretched 3D isotropic ``c_d``, ``c_s``, and ``c_R``. |
+| class | `StableTimeIncrement` | Visible body/interface estimate for central difference. |
+| class | `CohesiveCrackHistory` | Crack-front position and window-fitted speed on a fixed path. |
+| class | `PreloadTransferReport` | Evidence for a quasi-static displacement to Explicit state transfer. |
+| function | `transfer_preload_to_explicit(preload_displacement, *, state, mass, residual, initial_velocity = None, mode: str = 'equilibrium', force_tolerance: float = 1e-08, acceleration_projection = None) -> PreloadTransferReport` | Initialize ``u/v/a`` consistently from a quasi-static preload state. |
+| function | `cohesive_crack_tip(path_coordinate, damage, *, threshold: float = 0.95, direction: str = 'increasing') -> float` | Locate the contiguous crack front by interpolating a damage threshold. |
+| function | `crack_tip_history(time_values, path_coordinate, damage_frames, *, threshold: float = 0.95, fit_window: int = 5, direction: str = 'increasing') -> CohesiveCrackHistory` | Build a crack history without single-failed-element speed spikes. |
+| function | `mach_cone_angle(*, crack_speed: float, shear_wave_speed: float) -> float` | Return the ideal Mach angle ``asin(c_s / v)`` in radians. |
+| function | `separation_regime(*, crack_speed: float, rayleigh_wave_speed: float, shear_wave_speed: float, failed_fraction: float, simultaneous_failed_fraction: float, spall_fraction: float = 0.8) -> str` | Classify one frame with explicit crack-speed and spall evidence. |
+| function | `estimate_stable_time_increment(*, characteristic_length, dilatational_speed: float, safety_factor: float = 0.8, interface_stiffness: float \| None = None, interface_area: float \| None = None, negative_mass: float \| None = None, positive_mass: float \| None = None) -> StableTimeIncrement` | Estimate explicit stability from body transit and interface oscillator. |
+| function | `minimum_cell_nodal_spacing(domain) -> float` | Return an MPI-global conservative spacing from cell geometry nodes. |
+
 ## `agentfem.materials`
 
 | Kind | Public object | Purpose |
@@ -392,7 +422,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `LoadIncrementSnapshot` | A copied solution state at one nonlinear load factor. |
 | function | `first_order_transient(*, capacity, stiffness, history, source = None, dt: float, study = None, unknown = None, solution = None, constraints = None, bcs = None, solver_options: LinearSolverOptions \| None = None, name: str = 'first_order_transient_step', method: str = 'implicit_euler') -> AnalysisStep` | Create a first-order transient step. |
 | function | `first_order_transient_run(*, capacity, stiffness, history, current, previous, dt: float, steps: int, source = None, study = None, constraints = None, bcs = None, solver_options: LinearSolverOptions \| None = None, update_load = None, save_every: int \| None = None, print_every: int \| None = None, progress = True, status_file = None, checkpoint_policy = None, name: str = 'first_order_transient') -> FirstOrderTransientStep` | Create an executable implicit-Euler time step and loop. |
-| function | `explicit_dynamics(*, state, integrator, residual, stiffness = None, dt: float, steps: int, study = None, prescribed = (), constraints = (), update_load = None, save_every: int \| None = None, print_every: int \| None = None, progress = True, status_file = None, checkpoint_policy = None, name: str = 'explicit_dynamics') -> ExplicitDynamicsStep` | Create a second-order explicit dynamics step. |
+| function | `explicit_dynamics(*, state, integrator, residual, stiffness = None, dt: float, steps: int, study = None, prescribed = (), constraints = (), update_load = None, save_every: int \| None = None, print_every: int \| None = None, progress = True, status_file = None, checkpoint_policy = None, history_monitor = None, stability = None, name: str = 'explicit_dynamics') -> ExplicitDynamicsStep` | Create a second-order explicit dynamics step. |
 | function | `implicit_dynamics(*, state, mass, stiffness, force, damping = None, dt: float, steps: int, parameters = None, study = None, constraints = (), bcs = None, solver_options: LinearSolverOptions \| None = None, update_load = None, progress = True, status_file = None, checkpoint_policy = None, save_every: int \| None = None, print_every: int \| None = None, name: str = 'implicit_dynamics') -> ImplicitDynamicsStep` | Create a linear Newmark or generalized-alpha dynamics step. |
 
 ## `agentfem.project`
@@ -656,6 +686,25 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `write_document(document: IRDocument \| Mapping[str, object], path: str \| Path, *, indent: int = 2) -> Path` | Write one deterministic AF-IR JSON document and return its path. |
 | function | `describe_value(value)` | Return a JSON-safe coefficient value or an explicit opaque marker. |
 
+## `agentfem.interfaces`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `CohesiveResponse` | One Mode-I traction--separation update. |
+| class | `BilinearCohesiveLaw` | Irreversible bilinear Mode-I cohesive law. |
+| class | `CohesiveTransaction(law: BilinearCohesiveLaw, size: int)` | Trial/commit/rollback state for a batch of cohesive points. |
+| class | `PairedLineFacets` | Deterministically paired zero-thickness line facets for a 2D mesh. |
+| class | `SplitInterfaceMesh` | Array-level result of splitting one conforming 2D interface path. |
+| function | `create_dolfinx_split_mesh(split: SplitInterfaceMesh, *, comm = None, cell_type: str \| None = None, input_order: str = 'counterclockwise')` | Create the first executable DOLFINx mesh for a split 2D interface. |
+| class | `CohesiveFacetResponse` | Trial force and energy from a batch of paired 2D facets. |
+| class | `ModeICohesiveFacetAssembler(topology: PairedLineFacets, law: BilinearCohesiveLaw, *, number_of_nodes: int, thickness: float = 1.0)` | Two-point line integration for a fixed-path 2D Mode-I interface. |
+| function | `pair_coincident_line_facets(coordinates, negative_facets, positive_facets, *, normal_hint, tolerance: float = 1e-10) -> PairedLineFacets` | Pair coincident two-node line facets with a declared normal direction. |
+| function | `split_conforming_line_interface(coordinates, cells, interface_facets, *, positive_cells) -> SplitInterfaceMesh` | Duplicate nodes on a declared conforming 2D cell interface. |
+| class | `CohesiveSurface` | Public description of a fixed-path zero-thickness interface. |
+| function | `bilinear_cohesive(*, strength: float, fracture_energy: float, initial_stiffness: float, compression_stiffness: float \| None = None, name: str = 'bilinear Mode-I cohesive law') -> BilinearCohesiveLaw` | Create a bilinear Mode-I cohesive law. |
+| function | `cohesive_surface(*, law: BilinearCohesiveLaw, mode: str = 'normal', name: str = 'cohesive surface') -> CohesiveSurface` | Declare a fixed-path zero-thickness cohesive interface. |
+| function | `cohesive_characteristic_length(*, young: float, fracture_energy: float, strength: float) -> float` | Return the declared scale ``E * Gamma / strength**2``. |
+
 ## `agentfem.campaigns`
 
 | Kind | Public object | Purpose |
@@ -688,7 +737,7 @@ and evidence remain in the linked guides and scientific function reference.
 | --- | --- | --- |
 | class | `CheckpointPolicy` | Automatic accepted-increment checkpoint cadence for transient steps. |
 | function | `every(increments: int, *, directory = 'checkpoints', final: bool = True, prefix: str \| None = None, keep_last: int \| None = None, portable: bool = False) -> CheckpointPolicy` | Create an automatic checkpoint policy for accepted time increments. |
-| function | `save_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, completed_steps: int, state: dict[str, object], accepted_times = (), execution_events = (), history_records = (), portable: bool = False)` | Write a transient restart, optionally with partition-independent state. |
+| function | `save_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, completed_steps: int, state: dict[str, object], accepted_times = (), execution_events = (), history_records = (), auxiliary_state: dict[str, object] \| None = None, portable: bool = False)` | Write a transient restart, optionally with partition-independent state. |
 | function | `load_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, state: dict[str, object]) -> dict[str, object]` | Restore a transient state after validating its scientific identity. |
 | function | `function_portable_identity(function) -> dict[str, object]` | Return an MPI-partition-independent identity for a nodal field. |
 | function | `mesh_portable_identity(domain) -> dict[str, object]` | Hash cell geometry independently of local numbering and partition. |
