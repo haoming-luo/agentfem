@@ -63,3 +63,14 @@ def test_theory_reference_states_equations_and_result_locations():
     assert "## Result locations and recovery" in theory
     assert r"\mathbf{M}\ddot{\mathbf{u}}" in theory
     assert "Integration points" in theory
+
+
+def test_manual_layout_keeps_navigation_and_footer_visually_separate():
+    stylesheet = (ROOT / "docs" / "stylesheets" / "extra.css").read_text()
+    assert '.md-nav__link[tabindex="0"]:focus' in stylesheet
+    assert ".md-sidebar__scrollwrap:hover" in stylesheet
+    assert ".md-footer__inner," in stylesheet
+    assert "pointer-events: none;" in stylesheet
+    assert "pointer-events: auto;" in stylesheet
+    assert "width: min(54rem, calc(100% - 25rem));" in stylesheet
+    assert ".md-footer-meta.md-typeset .md-social__link" in stylesheet
