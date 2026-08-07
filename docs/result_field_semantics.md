@@ -88,9 +88,23 @@ AgentFEM should ultimately expose three related but distinct products:
 
 The current release implements the second layer for elasticity. J2 results
 retain committed `S/PE/PEEQ` and pointwise `MISES` on the constitutive
-quadrature; its visualization helper produces separately identifiable DG0 cell
-averages. Direct general quadrature-file export and reviewed material-aware
-nodal recovery remain roadmap items. A naive global continuous projection is
+quadrature. J2 and implicit creep also expose separately named `*_CELL` fields
+through `results.recover_integration_point_field(...)`. These fields use the
+actual quadrature weights to form a DG0 cell average and record the source
+position, point count, target space, and explicit absence of extrapolation,
+smoothing, or material-boundary averaging. This is material-aware in the
+strict sense that values never cross an element or material interface; it is
+not yet a smooth nodal contour recovery.
+
+```python
+cell_peeq = results.recover_integration_point_field(
+    step.state.equivalent_plastic_strain,
+    name="PEEQ_CELL",
+)
+```
+
+Direct general quadrature-file export and reviewed material-domain nodal
+recovery remain roadmap items. A naive global continuous projection is
 intentionally not presented as a standard smoothing method because it can
 erase real jumps at material interfaces and obscure singular or poorly
 converged regions.

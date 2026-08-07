@@ -1,0 +1,101 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.integration_point_recovery",
+  "title": "Traceable integration-point field recovery",
+  "kind": "workflow",
+  "status": "supported",
+  "summary": "Converts J2 and creep quadrature evidence to separately named weighted DG0 cell fields without nodal extrapolation, interelement smoothing, or material-boundary averaging.",
+  "public_api": [
+    "agentfem.results.FieldRecovery",
+    "agentfem.results.cell_average_recovery",
+    "agentfem.results.recover_integration_point_field"
+  ],
+  "implementation": [
+    "constitutive/quadrature.py",
+    "results/recovery.py",
+    "mechanics/plasticity.py",
+    "mechanics/creep.py"
+  ],
+  "science": {
+    "statement": "A scientific cell field is the quadrature-weighted mean of one constitutive integration-point field over each element; its processing history is part of the result meaning.",
+    "equations": [
+      {
+        "label": "weighted cell recovery",
+        "expression": "q_e = sum_p(w_p q_ep) / sum_p(w_p)",
+        "description": "Reference-cell quadrature weights form one DG0 value per cell; no neighbor contributes."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "quadrature field",
+        "type": "QuadratureField",
+        "unit_role": "field dependent",
+        "description": "Point coordinates, weights, constitutive values, value shape, and owning mesh."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "recovered field",
+        "type": "FieldResult carrying a DG0 Function and processing metadata",
+        "unit_role": "same as source",
+        "description": "A compact cell field suitable for quantitative queries and point/cell visualization."
+      }
+    ],
+    "assumptions": [
+      "The quadrature rule and stored values describe the same reference-cell point order.",
+      "DG0 is a cell-average representation and does not retain within-cell variation."
+    ],
+    "conventions": [
+      "Raw integration-point fields keep their original names; recovered variants use an explicit *_CELL suffix in J2 and creep SimulationResult objects.",
+      "Material boundaries are preserved because recovery is performed independently within every cell.",
+      "A smooth contour is a later presentation product and never overwrites constitutive evidence."
+    ],
+    "applicability": [
+      "J2 plasticity and implicit creep field inspection, ParaView cell contours, histories, extrema, and learning-data preparation with explicit processing semantics."
+    ],
+    "limitations": [
+      "Direct general quadrature-file export is not yet implemented.",
+      "Material-domain nodal extrapolation and smoothing are not yet implemented.",
+      "For curved non-affine cells, a physical-Jacobian-weighted recovery will need a distinct reviewed policy."
+    ]
+  },
+  "usage": {
+    "minimal_example": "cell_peeq = results.recover_integration_point_field(step.state.equivalent_plastic_strain, name='PEEQ_CELL')",
+    "examples": [
+      "examples/j2_plasticity_3d.py",
+      "examples/implicit_creep_relaxation_3d.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_constitutive_models.py",
+      "tests/test_p1_platform.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.j2_global_restart",
+      "agentfem.benchmark.implicit_creep_relaxation",
+      "agentfem.benchmark.creep_abaqus_constant_stress"
+    ],
+    "validation_rules": [
+      "Reject sources without explicit quadrature points and weights.",
+      "Reject policies that silently request a non-DG0 or cross-material recovery.",
+      "Check weighted values independently and preserve processing metadata in SimulationResult."
+    ]
+  },
+  "references": [
+    {
+      "title": "Abaqus integration-point output and extrapolation semantics",
+      "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAEOUTRefMap/simaout-c-std-elementintegrationpointvariables.htm"
+    },
+    {
+      "title": "Basix quadrature rules",
+      "locator": "https://docs.fenicsproject.org/basix/main/python/demo/demo_quadrature.py.html"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.standard_result_projection",
+    "agentfem.material.j2_global_plasticity",
+    "agentfem.material.global_implicit_creep"
+  ]
+}

@@ -4,6 +4,7 @@ permissions:
   contents: read
 
 on:
+  workflow_dispatch:
   push:
     branches: ["main"]
     tags: ["v*"]
@@ -70,6 +71,11 @@ jobs:
 
       - name: Run distributed constraint and result tests
         run: mpirun -n 2 python -m pytest tests/test_parallel_affine.py tests/test_parallel_cli.py tests/test_parallel_mesh_semantics.py tests/test_parallel_mixed.py tests/test_parallel_results.py tests/test_parallel_transient.py
+
+      - name: Verify checkpoint portability across MPI rank counts
+        run: |
+          mpirun -n 2 python tests/portable_checkpoint_driver.py write /tmp/agentfem-portable-heat
+          python tests/portable_checkpoint_driver.py read /tmp/agentfem-portable-heat
 
       - name: Run static FEniCSx smoke test
         run: python examples/static_elasticity_2d.py

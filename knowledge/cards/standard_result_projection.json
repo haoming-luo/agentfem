@@ -16,6 +16,7 @@
     "agentfem.results.reaction_resultant",
     "agentfem.results.external_force_resultant",
     "agentfem.results.static_force_balance",
+    "agentfem.results.static_work_balance",
     "agentfem.mesh.tagged_boundary_region",
     "agentfem.diagnostics.linear_static_energy"
   ],
@@ -44,8 +45,8 @@
       },
       {
         "label": "proportional linear work",
-        "expression": "W_ext = 0.5 u^T F, U = 0.5 u^T K u",
-        "description": "The equality applies to a load ramped proportionally from zero when non-zero prescribed-displacement work is absent."
+        "expression": "W_ext = 0.5 u^T F + 0.5 R_c^T ubar, U = 0.5 u^T K u",
+        "description": "Natural loads and strong prescribed values are ramped proportionally from zero; the constrained residual supplies the conjugate prescribed-motion work."
       }
     ],
     "inputs": [
@@ -86,7 +87,7 @@
       "DG0 result fields are discontinuous and are not extrapolated or averaged across neighboring cells or material boundaries.",
       "The engineering default is U/S/E/MISES; SENER is an explicit diagnostic request.",
       "E means infinitesimal strain in a small-strain context.",
-      "Non-zero prescribed-displacement work is not silently included in proportional force work.",
+      "Non-zero strong prescribed-displacement work is recorded separately from natural-load work and included in total external work.",
       "Imported physical boundaries use their facet tag for both strong topological dof location and weak integration; an optional marker is audit evidence.",
       "field_extrema(location=True) identifies its finite-element-dof sampling, coordinate, rank, global dof, and DG0 cell where applicable.",
       "Model-generated linear static solids attach assembled external force, strong reaction, balance residual, and relative error to SimulationResult."
@@ -96,7 +97,7 @@
     ],
     "limitations": [
       "Nodal smoothing and superconvergent stress recovery are not implemented.",
-      "Affine MPC, weak, and contact reactions need dedicated dual definitions.",
+      "Affine MPC, weak, and contact reactions need dedicated dual definitions; the strong-Dirichlet work formula is rejected for those assets.",
       "Thermoelastic output requires temperature-aware field construction in a later extension."
     ]
   },

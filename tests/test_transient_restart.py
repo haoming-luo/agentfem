@@ -175,6 +175,24 @@ def test_heat_checkpoint_policy_always_records_final_state(tmp_path):
     assert policy.summary()["retention"] == "all_scheduled_checkpoints"
 
 
+def test_heat_checkpoint_policy_can_request_portable_state(tmp_path):
+    policy = checkpointing.every(
+        1,
+        directory=tmp_path / "portable-heat",
+        portable=True,
+    )
+    step = _heat_step(checkpoint=policy, steps=1)
+
+    result = step.solve_result()
+
+    record = next(iter(result.checkpoints.values()))
+    manifest = json.loads(record.path.read_text(encoding="utf-8"))
+    assert record.portable is True
+    assert manifest["portable"] is True
+    assert (record.path.parent / manifest["portable_state"]["path"]).is_file()
+    assert result.metadata["step"]["checkpoint_policy"]["portable"] is True
+
+
 def test_checkpoint_policy_can_keep_only_latest_published_states(tmp_path):
     directory = tmp_path / "retained"
     policy = checkpointing.every(1, directory=directory, keep_last=2)
@@ -289,6 +307,37 @@ def test_retention_never_deletes_the_explicit_restart_source(tmp_path):
     )
 
 
+def test_portable_transient_state_can_bypass_partition_identity(tmp_path):
+    reference = _heat_step()
+    reference.run()
+    partial = _heat_step()
+    partial.run(until_step=2)
+    checkpoint = partial.save_checkpoint(tmp_path / "portable-heat", portable=True)
+    metadata = json.loads(checkpoint.read_text(encoding="utf-8"))
+
+    assert metadata["portable"] is True
+    assert metadata["portable_state"]["storage"] == (
+        "root_gathered_coordinate_keyed_npz"
+    )
+    assert metadata["portable_state_identity"]["current"]["key"] == (
+        "quantized_physical_dof_coordinate_and_block_component"
+    )
+    # Force the loader away from the fast same-partition shard. The portable
+    # identity must still restore the same accepted state and continuation.
+    metadata["state_identity_by_rank"][0]["current"]["local_range"] = [-1, -1]
+    checkpoint.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n")
+
+    restarted = _heat_step()
+    restarted.load_checkpoint(checkpoint)
+    restarted.run()
+
+    np.testing.assert_allclose(restarted.current.x.array, reference.current.x.array)
+    assert restarted.completed_steps == reference.completed_steps
+    source = restarted.checkpoints[-1]
+    assert source.portable is True
+    assert "MPI partitions" in source.metadata["portability"]
+
+
 def test_heat_restart_matches_uninterrupted_state_and_thermal_history(tmp_path):
     reference = _heat_step()
     reference.run()
@@ -354,7 +403,7 @@ def test_transient_checkpoint_detects_silent_shard_corruption(tmp_path):
     partial.run(until_step=1)
     checkpoint = partial.save_checkpoint(tmp_path / "integrity")
     metadata = json.loads(checkpoint.read_text(encoding="utf-8"))
-    assert metadata["schema"] == "agentfem.transient-checkpoint.v2"
+    assert metadata["schema"] == checkpointing.TRANSIENT_CHECKPOINT_SCHEMA
     assert metadata["software"]["name"] == "AgentFEM"
     assert metadata["shards"][0]["sha256"]
     shard = checkpoint.parent / metadata["shards"][0]["path"]

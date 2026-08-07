@@ -28,15 +28,15 @@ core, results, verification, and documentation have priority.
 | Scientific operator layer | FEM-integrated foundation | K/M/C/F, static/first-/second-order systems, R/K_t linearization, composition and UFL role/arity validation | no mixed/block domain-range typing or physical-unit algebra |
 | Linear elasticity | FEM-integrated | 2D plane stress/strain and 3D isotropic solids; regional materials; displacement-only steps; one-call U/S/E/MISES output with opt-in SENER and explicit processing metadata; named-boundary reactions; automatic assembled external-force/strong-reaction equilibrium evidence; serial/MPI patch evidence | external structural convergence, integration-point export/recovery, axisymmetry, mixed incompressibility, beams/shells, and affine/weak reactions remain |
 | Thermoelasticity | FEM-integrated | steady/implicit-transient heat transfer, regional multi-material conductivity and capacity, amplitude-driven sources/ambient conditions, and sequential isotropic thermal stress in 2D/3D | no property tables or monolithic two-way coupling |
-| Structural dynamics | FEM-integrated foundation | central difference, Newmark, and generalized-alpha through `dynamic_solid`; model-owned constraints and amplitude loads enter both Standard and Explicit paths; shared field output, mechanical-energy histories, integrity-checked pause/checkpoint/restart, and truthful continuation output | implicit route is linear; checkpoints require the same mesh partition and MPI size |
+| Structural dynamics | FEM-integrated foundation | central difference, Newmark, and generalized-alpha through `dynamic_solid`; model-owned constraints and amplitude loads enter both Standard and Explicit paths; shared field output, mechanical-energy histories, integrity-checked pause/checkpoint/restart, truthful continuation output, and opt-in nodal checkpoint portability across MPI rank counts | implicit route is linear; portable NPZ is root-gathered and stateful quadrature portability is separate |
 | Neo-Hookean solids | FEM-integrated | compressible displacement route plus monolithic P2/DG0 constant-pressure mixed route; 3D and 2D plane strain; automatic/fixed increments, consistent Newton tangent, cutback/rollback, positive-J acceptance; explicit C3D10H source-formulation dispatch | one material; mixed affine-periodic MPC, 2D plane-stress local solve, locking/convergence suite, and external load-path benchmark remain |
-| J2 plasticity | FEM-integrated foundation | 3D shared quadrature transaction, analytical tangent, natural/displacement loading, non-monotone tabular amplitude, global Newton, physical-increment cutback, cumulative serial restart, traceable quadrature S/PE/PEEQ/MISES and nodal RF results, prescribed-work/energy histories, analytical and Abaqus states, and multi-element patch evidence | linear isotropic hardening, serial single-material small strain only; no plane stress, multi-region driver, MPI-portable restart, or nonuniform external structural benchmark |
-| Creep and creep damage | FEM-integrated power-law foundation + local damage assessment | 3D isothermal power-law backward Euler with shared quadrature state, analytical tangent, automatic physical-time cutback, CE/CEEQ/S/MISES/RF, dissipation and serial restart; local Arrhenius, K-R, Sinh, modified-theta and hot-wall assessment | global route is serial/single-material/isothermal; no temperature-field coupling, external component validation, or damage regularization |
+| J2 plasticity | FEM-integrated foundation | 3D shared quadrature transaction, analytical tangent, natural/displacement loading, non-monotone tabular amplitude, global Newton, physical-increment cutback, cumulative serial restart, traceable quadrature S/PE/PEEQ/MISES plus weighted DG0 recovery and nodal RF results, prescribed-work/energy histories, analytical and Abaqus states, and multi-element patch evidence | linear isotropic hardening, serial single-material small strain only; no plane stress, multi-region driver, MPI-portable quadrature restart, or nonuniform external structural benchmark |
+| Creep and creep damage | FEM-integrated power-law foundation + local damage assessment | 3D isothermal power-law backward Euler with shared quadrature state, analytical tangent, automatic physical-time cutback, CE/CEEQ/S/MISES/RF plus weighted DG0 recovery, dissipation and serial restart; official Abaqus constant-stress external contract; local Arrhenius, K-R, Sinh, modified-theta and hot-wall assessment | global route is serial/single-material/isothermal; no temperature-field coupling, external component validation, or damage regularization |
 | Stress-life fatigue | postprocessor | Basquin/tabulated S-N, rainflow, Goodman, Miner assessment from named result histories | no multiaxial critical-plane method |
 | External CAE mesh | integrated Abaqus path + conversion interface | generic meshio conversion; SHA-256 conversion identity/cache invalidation; Abaqus node labels; NSET node regions; exterior SURFACE facet reconstruction for C3D4/C3D10/C3D8 families; verified C3D10 import; C3D10H mixed-pressure provider; linear equation parsing; simplex quality preflight | assembly-instance label scope, free/internal surfaces, more element families, mixed-topology solve domains, Jacobian quality for tensor-product cells, and full solver-deck semantics remain |
 | Abaqus periodic equations | serial + two-rank FEM-integrated | exact chained affine elimination, distributed `dolfinx_mpc`, and 3D Neo-Hookean load path | AMG near-nullspace transfer, reactions, and scaling studies remain |
 | Abaqus user-material bridge | interface contract | solver-neutral material-point input/output and migration specification | no compiled adapter or quadrature-state global driver |
-| Result/data flow | integrated foundation | declarative field/history/diagnostic/presentation plans; shared accepted-increment history and probe requests across heat, Standard, and Explicit procedures; serial single-grid mixed point/cell XDMF/HDF5 with non-fatal output errors; engineering-default U/S/E/MISES with opt-in SENER; discontinuous cell-average processing metadata; located MPI-safe extrema; one structured Standard/Explicit/thermal/J2 event trace; atomic heat/Standard/Explicit checkpoint envelope with unique generations, accepted-increment cadence, bounded retention, and continuation-aware output; mechanical-energy, proportional-static closure, and thermal-balance histories; MPI-safe probes, strong-BC resultants and integrals; verification reports and trust-gated learning bridge | collective MPI single-grid visualization, integration-point export and material-aware recovery/smoothing, affine/weak reactions, non-zero prescribed-displacement work, cross-partition restart, and broader conservation balances remain |
+| Result/data flow | integrated foundation | declarative field/history/diagnostic/presentation plans; shared accepted-increment history and probe requests across heat, Standard, and Explicit procedures; serial compact single-grid XDMF/HDF5 plus collective MPI single-dataset PVD/PVTU presentation carrying point and cell fields; engineering-default U/S/E/MISES; explicit weighted integration-point-to-DG0 recovery; one structured event trace; atomic checkpoint cadence/retention and opt-in cross-rank nodal restart; strong-BC resultants, nonzero prescribed-motion work and energy closure; verification reports and trust-gated learning bridge | compact MPI single-grid/VTKHDF, direct quadrature export, smooth material-domain nodal recovery, affine/weak reactions, stateful quadrature portability, and broader conservation balances remain |
 | Scientific trust and provenance | integrated foundation | computed/converged/verified/validated vocabulary; exploratory/engineering/release policies; automatic runtime checks; explicit claims and applicability domains; coarse-to-fine convergence evidence; automatically sealed result manifests and artifact hashes; attested tagged distributions; learning-data quality gates; orientation metamorphic regression | optional signed result identities, representative-family evidence inheritance, hole-stress and T-stiffener cliff families, GCI, and external-deck reproductions remain |
 | Campaign-to-learning flow | workflow integrated | deterministic cases, resumable evidence, failure-aware dataset gate, reproducible train/validation workflow, ridge/POD/PyTorch adapters, applicability guard and FEM fallback; MPI-safe structured observation grids with units, layout, and geometry masks | no graph/basis field encoder, scheduler executor, active-learning governance, or calibrated epistemic uncertainty |
 | Platform/install boundary | release foundation | Linux CI, macOS developer verification, WSL2 recommended for Windows, exact interpreter/import/distribution identity, versioned project schema, source-aware upgrade reports, Gmsh/meshio optional adapters | native Windows remains experimental; semantic Python migrations require human or agent review; AgentFEM is not yet a conda-forge package |
@@ -130,7 +130,8 @@ the first release.
   verification to multi-region ownership, projected visualization fields,
   cross-partition MPI restart, and full external-deck reproduction;
 - add reaction, internal/external work, and energy-balance histories with
-  verified strong, weak, and affine-MPC definitions;
+  verified strong, weak, and affine-MPC definitions; proportional nonzero
+  strong-Dirichlet work is implemented, while weak and affine duals remain;
 - implement the C3D10H analogue as a constant-pressure mixed/hybrid finite-
   strain procedure, then gate it with incompressible patch tests, Cook's
   membrane convergence, locking diagnostics, finite-deformation element paths,
@@ -176,9 +177,10 @@ The first global creep promotion has the following gate status:
 4. **implemented in serial except temperature:** restart retains physical time,
    next increment, displacement, CE/CEEQ, energy/dissipation, events, and schema;
 5. **partially implemented:** constant-stress material checks, one-element
-   relaxation, consistent tangent, forced cutback, Golden observables, and
-   restart equivalence pass; time-step convergence, multi-element nonuniform
-   paths, and an external case remain;
+   relaxation, consistent tangent, forced cutback, Golden observables, restart
+   equivalence, and the official Abaqus held-stress case pass; time-step
+   convergence, multi-element nonuniform paths, and an external component case
+   remain;
 6. **method decision retained:** add Arrhenius field coupling next; add
    K-R/Liu--Murakami damage only after near-failure control and mesh-dependence
    policy are explicit.
@@ -202,7 +204,12 @@ step coordinate. Acceptance requires:
   one ambiguous scalar.
 
 This work is urgent after the first release but must not be advertised from a
-rank-local array serialization prototype.
+rank-local array serialization prototype. The first nodal-state slice is now
+implemented: an opt-in coordinate-keyed NPZ written with two MPI ranks is
+continued on one rank and checked against an uninterrupted reference. It is a
+laboratory-scale bridge, not the final collective HDF5 path. The cell,
+quadrature-point, material-region, and state-layout keys needed by J2/creep
+remain the next identity gate.
 
 ### P3: mesh and model interoperability
 

@@ -1,0 +1,56 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.creep_abaqus_constant_stress",
+  "title": "Official Abaqus time-hardening constant-stress creep case",
+  "status": "automated_external_verification",
+  "purpose": "Compare AgentFEM's global three-dimensional implicit creep procedure with the material data, held stress, duration, and closed-form response published in the Abaqus creep-integration benchmark.",
+  "physics": "three-dimensional small-strain Mises time-hardening power-law creep",
+  "source": {
+    "organization": "Dassault Systemes SIMULIA",
+    "title": "Verification of creep integration",
+    "url": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-creep.htm",
+    "input": "creep_usr_creep.inp",
+    "input_url": "https://docs.software.vt.edu/abaqusv2025/English/SIMAINPRefResources/creep_usr_creep.inp",
+    "retrieved": "2026-08-07"
+  },
+  "execution": {
+    "command": "python -m pytest -q tests/test_p1_platform.py -k official_abaqus_constant_stress",
+    "example": "examples/implicit_creep_relaxation_3d.py",
+    "evidence": "The official data use E=20e6 psi, nu=0.3, A=2.5e-27 psi^-5 s^-0.8, n=5, m=-0.2, held stress 20000 psi, and duration 100000 s. The closed-form equivalent creep strain is exactly 0.1. AgentFEM uses 100 uniform backward-Euler increments, so the declared strain tolerance includes the known time-discretization error near t=0."
+  },
+  "observables": [
+    "Mean axial stress over the accepted constitutive quadrature.",
+    "Mean committed equivalent creep strain at 100000 seconds."
+  ],
+  "acceptance": [
+    "The global finite-element equilibrium retains the prescribed 20000 psi stress.",
+    "The committed equivalent creep strain agrees with the official closed-form value 0.1 within the declared backward-Euler discretization tolerance."
+  ],
+  "golden": {
+    "reference_version": "abaqus-creep-usr-creep-2025-be100",
+    "quantities": [
+      {
+        "name": "mean_axial_stress",
+        "expected": 20000.0,
+        "relative_tolerance": 1e-8,
+        "absolute_tolerance": 1e-5,
+        "unit": "psi",
+        "description": "Held uniaxial stress from the official input deck."
+      },
+      {
+        "name": "mean_equivalent_creep_strain",
+        "expected": 0.1,
+        "relative_tolerance": 0.012,
+        "absolute_tolerance": 1e-8,
+        "unit": null,
+        "description": "Official closed-form time-hardening creep strain; tolerance covers the versioned 100-step backward-Euler path."
+      }
+    ]
+  },
+  "limitations": [
+    "The official Abaqus specimen is plane stress; AgentFEM uses a homogeneous 3D unit cube with free lateral contraction to reproduce the same uniaxial constitutive state.",
+    "The criterion verifies the global Mises creep path against the official closed form, not element-by-element equivalence with CPS4.",
+    "The first global AgentFEM creep provider remains serial, isothermal, and single-material."
+  ]
+}

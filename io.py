@@ -70,6 +70,39 @@ class XDMFTimeSeries:
             self._file.write_function(field_api.unwrap(field), time)
 
 
+class ParaViewTimeSeries:
+    """Collective VTK/PVD series with one geometry carrying all fields.
+
+    DOLFINx writes one parallel unstructured-grid dataset per saved time. Point
+    fields and DG0 cell fields remain distinct attributes on that dataset, so
+    ParaView's Warp filter no longer receives duplicate geometry blocks.
+    This is a presentation product; checkpoint and integration-point state
+    retain their separate scientific storage contracts.
+    """
+
+    def __init__(self, path: Path, domain, mode: str = "w") -> None:
+        self.path = Path(path)
+        self.domain = domain
+        self.mode = mode
+        self._file = None
+
+    def __enter__(self):
+        ensure_output_dir(self.path.parent, self.domain.comm)
+        self._file = io.VTKFile(self.domain.comm, str(self.path), self.mode)
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        if self._file is not None:
+            self._file.close()
+        return False
+
+    def write_fields(self, time: float, *fields) -> None:
+        selected = [field_api.unwrap(field) for field in fields]
+        if not selected:
+            raise ValueError("ParaViewTimeSeries requires at least one field.")
+        self._file.write_function(selected, float(time))
+
+
 class ResultWriter:
     """Named result writer for one mesh and a stable field list."""
 

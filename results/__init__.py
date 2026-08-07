@@ -13,6 +13,7 @@ from .quantities import (
     ForceMomentResultant,
     PathSample,
     StaticForceBalance,
+    StaticWorkBalance,
     average,
     boundary_resultant,
     field_extrema,
@@ -30,12 +31,18 @@ from .quantities import (
     sample_points,
     section_resultant,
     static_force_balance,
+    static_work_balance,
 )
 from .projection import (
     project,
     project_piecewise,
     small_strain_cell_fields,
     small_strain_partition_fields,
+)
+from .recovery import (
+    FieldRecovery,
+    cell_average_recovery,
+    recover_integration_point_field,
 )
 from .execution import add_execution_trace, execution_records
 from .finite_strain import (
@@ -59,6 +66,7 @@ from .output import (
     field_output,
     read_unified_xdmf_series,
     write_deformed_vtk_series,
+    write_parallel_vtk_series,
     write_unified_xdmf_series,
 )
 from .plan import (
@@ -92,6 +100,7 @@ __all__ = [
     "FieldResult",
     "FieldOutput",
     "FieldOutputArtifacts",
+    "FieldRecovery",
     "FieldVariable",
     "ForceMomentResultant",
     "FiniteStrainDiagnosticRequest",
@@ -101,6 +110,7 @@ __all__ = [
     "OutputPlan",
     "PathSample",
     "StaticForceBalance",
+    "StaticWorkBalance",
     "PeriodicCellHistoryRequest",
     "ProbeHistoryRequest",
     "PresentationOutput",
@@ -114,6 +124,7 @@ __all__ = [
     "from_solution",
     "average",
     "boundary_resultant",
+    "cell_average_recovery",
     "field_extrema",
     "free_body_resultant",
     "external_force_resultant",
@@ -130,6 +141,7 @@ __all__ = [
     "probe",
     "quadrature_extrema",
     "reaction_resultant",
+    "recover_integration_point_field",
     "region_average",
     "region_integral",
     "region_measure",
@@ -137,6 +149,7 @@ __all__ = [
     "sample_points",
     "section_resultant",
     "static_force_balance",
+    "static_work_balance",
     "project",
     "project_piecewise",
     "small_strain_cell_fields",
@@ -158,5 +171,6 @@ __all__ = [
     "write_homogenized_csv",
     "write_homogenized_history",
     "write_deformed_vtk_series",
+    "write_parallel_vtk_series",
     "write_unified_xdmf_series",
 ]

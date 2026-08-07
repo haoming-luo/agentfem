@@ -575,7 +575,11 @@ class J2PlasticityStep:
         }
 
     def solve_result(self):
-        from ..results import add_execution_trace, from_solution
+        from ..results import (
+            add_execution_trace,
+            from_solution,
+            recover_integration_point_field,
+        )
 
         solution = (
             self.solve()
@@ -645,6 +649,24 @@ class J2PlasticityStep:
                 "interelement_smoothing": False,
             },
         )
+        for source, recovered_name in (
+            (self.state.stress, "S_CELL"),
+            (self.state.plastic_strain, "PE_CELL"),
+            (self.state.equivalent_plastic_strain, "PEEQ_CELL"),
+            (self.state.equivalent_stress(), "MISES_CELL"),
+        ):
+            recovered = recover_integration_point_field(
+                source,
+                name=recovered_name,
+            )
+            result.add_field(
+                recovered.name,
+                recovered.field,
+                unit=recovered.unit,
+                location=recovered.location,
+                description=recovered.description,
+                processing=recovered.processing,
+            )
         reaction = self.reaction_field()
         result.add_field(
             "RF",

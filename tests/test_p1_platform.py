@@ -205,6 +205,27 @@ def test_global_implicit_creep_relaxation_uses_public_step_and_fields():
     )
 
 
+def test_global_creep_matches_official_abaqus_constant_stress_case():
+    step = _creep_external_abaqus_constant_stress_patch()
+    step.solve()
+    golden = benchmarks.golden_benchmark(
+        "agentfem.benchmark.creep_abaqus_constant_stress"
+    )
+    observables = {
+        "mean_axial_stress": results.average(
+            step.state.stress.function[0, 0],
+            measure=step.state.measure,
+        ),
+        "mean_equivalent_creep_strain": results.average(
+            step.state.equivalent_creep_strain.function,
+            measure=step.state.measure,
+        ),
+    }
+
+    assert all(golden.verify(observables).values())
+    assert len(step.accepted_increments) == 100
+
+
 def test_global_implicit_creep_checkpoint_restart_matches_full_path(tmp_path):
     reference, _ = _creep_relaxation_patch()
     reference.solve()
@@ -705,6 +726,46 @@ def test_linear_reaction_field_and_operator_energy_balance():
     assert static_energy.balance_error == pytest.approx(0.0, abs=1.0e-13)
 
 
+def test_linear_static_result_includes_nonzero_prescribed_motion_work():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (4, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    model = models.create(
+        study=studies.static_solid(dimension=2, assumption="plane_stress"),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    model.material(
+        constitutive.isotropic_elastic(
+            young=2.0e5,
+            poisson=0.3,
+            density=1.0,
+        )
+    )
+    left = mesh.face(domain, axis="x", value=0.0, name="left", tag=1)
+    right = mesh.face(domain, axis="x", value=1.0, name="right", tag=2)
+    model.fix(displacement, on=left, value=0.0)
+    model.fix(displacement, on=right, component=0, value=0.01)
+
+    simulation = model.step(target=displacement).solve_result()
+
+    assert simulation.quantity("natural_load_work") == pytest.approx(0.0, abs=1e-13)
+    assert simulation.quantity("prescribed_motion_work") > 0.0
+    assert simulation.quantity("external_work") == pytest.approx(
+        simulation.quantity("strain_energy"), rel=2.0e-11, abs=1.0e-12
+    )
+    assert simulation.quantity("energy_balance_error") == pytest.approx(
+        0.0, abs=1.0e-10
+    )
+    assert simulation.metadata["static_work"]["reaction_scope"] == (
+        "strong Dirichlet constraints"
+    )
+
+
 def _j2_patch():
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
     study = studies.nonlinear_static(
@@ -808,6 +869,66 @@ def _creep_relaxation_patch(*, incrementation=None):
         progress=False,
     )
     return step, displacement
+
+
+def _creep_external_abaqus_constant_stress_patch():
+    """3D counterpart of the official Abaqus constant-stress creep case."""
+
+    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    model = models.create(
+        study=studies.creep_solid(),
+        mesh=domain,
+        name="abaqus_constant_stress_creep",
+    )
+    displacement = model.field(fields.displacement(domain))
+    material = model.material(
+        constitutive.isotropic_power_law(
+            young=20.0e6,
+            poisson=0.3,
+            density=1.0,
+            coefficient=2.5e-27,
+            stress_exponent=5.0,
+            time_exponent=-0.2,
+            reference_stress=1.0,
+            reference_time=1.0,
+            name="Abaqus time-hardening creep data",
+        )
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="x", value=0.0, name="left", tag=1),
+        component=0,
+        value=0.0,
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="y", value=0.0, name="y_symmetry", tag=2),
+        component=1,
+        value=0.0,
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="z", value=0.0, name="z_symmetry", tag=3),
+        component=2,
+        value=0.0,
+    )
+    model.traction(
+        (20_000.0, 0.0, 0.0),
+        on=mesh.face(domain, axis="x", value=1.0, name="loaded", tag=4),
+    )
+    return model.step(
+        target=displacement,
+        material=material,
+        duration=100_000.0,
+        incrementation=steps.fixed(100),
+        solver_options=solvers.newton(
+            relative_tolerance=1.0e-9,
+            absolute_tolerance=1.0e-8,
+            maximum_iterations=20,
+            line_search="backtracking",
+        ),
+        progress=False,
+    )
 
 
 def _j2_displacement_patch():

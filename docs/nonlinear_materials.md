@@ -89,6 +89,10 @@ natural or strong-displacement loading, and serial execution/restart. A named
 tabular amplitude may load, unload, and reverse while the internal step
 coordinate remains monotone. Strong prescribed-displacement paths record
 generalized reaction, external work, internal energy, and balance histories.
+The result retains `S/PE/PEEQ/MISES` at constitutive integration points and
+adds separately named `*_CELL` weighted DG0 recovery fields. The recovered
+fields preserve element and material boundaries and are never labeled as raw
+integration-point values or smoothed nodal contours.
 Plane stress, kinematic hardening, distributed execution/restart,
 finite-strain plasticity, and a general UMAT path remain future work.
 
@@ -111,10 +115,18 @@ whose coefficient is calibrated at a declared reference temperature. This is
 the appropriate local basis for high-temperature component workflows, but it
 does not yet promote creep to a global coupled solver.
 
-The next creep milestone is to reuse the implemented J2 quadrature transaction
-and restart schema, add an implicit time-local update and error estimate, then
-pass relaxation, one-element, restart, and external high-temperature
-benchmarks. A new creep-law name alone is not that milestone.
+The global 3D route reuses the J2 quadrature transaction, implements a
+backward-Euler local update with analytical consistent tangent, and passes
+relaxation, forced-cutback, restart, and weighted field-recovery contracts. It
+also reproduces the official Abaqus `creep_usr_creep.inp` held-stress case:
+the published time-hardening constants, 20,000 psi stress, and 100,000 s
+duration give the closed-form equivalent creep strain 0.1. The versioned
+100-increment contract declares its expected backward-Euler error instead of
+freezing a solver-specific number as physical truth.
+
+The next milestone is nonuniform multi-element and high-temperature component
+evidence, followed by accepted temperature-field coupling and portable
+quadrature state. A new creep-law name alone is not that milestone.
 
 ## Creep Damage, Sinh Flow, and Modified Theta
 

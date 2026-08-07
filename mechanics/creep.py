@@ -761,7 +761,11 @@ class ImplicitCreepStep:
         }
 
     def solve_result(self):
-        from ..results import add_execution_trace, from_solution
+        from ..results import (
+            add_execution_trace,
+            from_solution,
+            recover_integration_point_field,
+        )
 
         solution = self.solve() if self.accepted_time < self.duration else self.solution
         result = from_solution(
@@ -800,6 +804,24 @@ class ImplicitCreepStep:
                     "postprocessed": False,
                     "committed": name in {"CE", "CEEQ"},
                 },
+            )
+        for source, recovered_name in (
+            (self.state.stress, "S_CELL"),
+            (self.state.creep_strain, "CE_CELL"),
+            (self.state.equivalent_creep_strain, "CEEQ_CELL"),
+            (self.state.equivalent_stress(), "MISES_CELL"),
+        ):
+            recovered = recover_integration_point_field(
+                source,
+                name=recovered_name,
+            )
+            result.add_field(
+                recovered.name,
+                recovered.field,
+                unit=recovered.unit,
+                location=recovered.location,
+                description=recovered.description,
+                processing=recovered.processing,
             )
         reaction = self.reaction_field()
         result.add_field(

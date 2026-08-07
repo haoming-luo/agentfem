@@ -2881,9 +2881,20 @@ metadata is retained in the result manifest.</p>
 </ol>
 <p>The current release implements the second layer for elasticity. J2 results
 retain committed <code>S/PE/PEEQ</code> and pointwise <code>MISES</code> on the constitutive
-quadrature; its visualization helper produces separately identifiable DG0 cell
-averages. Direct general quadrature-file export and reviewed material-aware
-nodal recovery remain roadmap items. A naive global continuous projection is
+quadrature. J2 and implicit creep also expose separately named <code>*_CELL</code> fields
+through <code>results.recover_integration_point_field(...)</code>. These fields use the
+actual quadrature weights to form a DG0 cell average and record the source
+position, point count, target space, and explicit absence of extrapolation,
+smoothing, or material-boundary averaging. This is material-aware in the
+strict sense that values never cross an element or material interface; it is
+not yet a smooth nodal contour recovery.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">cell_peeq</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">recover_integration_point_field</span><span class="p">(</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">step</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">equivalent_plastic_strain</span><span class="p">,</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;PEEQ_CELL&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="p">)</span>
+</code></pre></div>
+<p>Direct general quadrature-file export and reviewed material-domain nodal
+recovery remain roadmap items. A naive global continuous projection is
 intentionally not presented as a standard smoothing method because it can
 erase real jumps at material interfaces and obscure singular or poorly
 converged regions.</p>

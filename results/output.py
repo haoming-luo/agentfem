@@ -148,16 +148,18 @@ class FieldOutput:
         frame_paths = ()
         if self.backend in {"pvd", "both"}:
             if domain.comm.size > 1:
-                raise NotImplementedError(
-                    "PVD presentation output is serial. Use backend='xdmf' "
-                    "for collective MPI output, then render after the solve."
+                pvd_path = write_parallel_vtk_series(
+                    output / f"{basename}_parallel.pvd",
+                    selected,
+                    per_frame_fields,
                 )
-            pvd_path, frame_paths = write_deformed_vtk_series(
-                output / f"{basename}_deformed.pvd",
-                selected,
-                per_frame_fields,
-                deformation_scale=self.deformation_scale,
-            )
+            else:
+                pvd_path, frame_paths = write_deformed_vtk_series(
+                    output / f"{basename}_deformed.pvd",
+                    selected,
+                    per_frame_fields,
+                    deformation_scale=self.deformation_scale,
+                )
         return FieldOutputArtifacts(
             reference_xdmf,
             unified_xdmf,
@@ -178,6 +180,35 @@ class FieldOutput:
             "finite_strain_aliases": {"E": "LE"},
         }
 
+
+def write_parallel_vtk_series(path, snapshots, fields_by_frame) -> Path:
+    """Write collective single-dataset ParaView frames under MPI.
+
+    The mesh remains in the reference configuration and ``U`` is a point-data
+    vector on the same dataset as every DG0 cell field. ParaView can therefore
+    apply one Warp By Vector filter without retaining unwarped duplicate
+    blocks. The PVD/PVTU/VTU family is intentionally a presentation backend,
+    not compact checkpoint storage.
+    """
+
+    from .. import io as io_api
+
+    selected_snapshots = tuple(snapshots)
+    selected_fields = tuple(tuple(frame) for frame in fields_by_frame)
+    if not selected_snapshots or len(selected_snapshots) != len(selected_fields):
+        raise ValueError(
+            "Parallel VTK output requires one field collection per snapshot."
+        )
+    output = Path(path)
+    domain = selected_snapshots[0].solution.function_space.mesh
+    with io_api.ParaViewTimeSeries(output, domain) as writer:
+        for snapshot, frame_fields in zip(selected_snapshots, selected_fields):
+            writer.write_fields(
+                float(snapshot.load_factor),
+                snapshot.solution,
+                *frame_fields,
+            )
+    return output
 
 def field_output(
     *variables,

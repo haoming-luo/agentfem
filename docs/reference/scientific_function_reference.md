@@ -19,6 +19,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | [`agentfem.workflow.abaqus_engineering_regions`](#agentfem-workflow-abaqus_engineering_regions) | Abaqus node sets and element-face surfaces as FEM regions | workflow | supported |
 | [`agentfem.workflow.campaign_learning_pipeline`](#agentfem-workflow-campaign_learning_pipeline) | Simulation campaign to guarded learning workflow | workflow | supported |
 | [`agentfem.workflow.coordinate_reference_coupling`](#agentfem-workflow-coordinate_reference_coupling) | Local coordinates and reference-point continuum coupling | workflow | supported |
+| [`agentfem.workflow.integration_point_recovery`](#agentfem-workflow-integration_point_recovery) | Traceable integration-point field recovery | workflow | supported |
 | [`agentfem.workflow.observation_grid_learning`](#agentfem-workflow-observation_grid_learning) | Mesh-independent structured observation grids | workflow | supported |
 | [`agentfem.workflow.result_field_sampling`](#agentfem-workflow-result_field_sampling) | MPI-safe point and path field sampling | workflow | supported |
 | [`agentfem.workflow.scientific_verification`](#agentfem-workflow-scientific_verification) | Scientific trust and verification workflow | workflow | supported |
@@ -26,6 +27,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | [`agentfem.workflow.solution_procedures`](#agentfem-workflow-solution_procedures) | Solution procedure vocabulary | analysis_step | supported |
 | [`agentfem.workflow.standard_result_projection`](#agentfem-workflow-standard_result_projection) | Projected small-strain fields, reactions, and static equilibrium | workflow | supported |
 | [`agentfem.workflow.thermoelastic_analysis`](#agentfem-workflow-thermoelastic_analysis) | Sequential thermoelastic analysis | workflow | supported |
+| [`agentfem.workflow.transient_checkpoint_portability`](#agentfem-workflow-transient_checkpoint_portability) | Portable transient checkpoint state | workflow | supported |
 
 ## Benchmark index
 
@@ -33,6 +35,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | --- | --- | --- | --- |
 | `agentfem.benchmark.cae_reliability_cliffs` | CAE reliability cliffs: orientation, discretization, and reference applicability | cross-cutting finite-element verification | partial_automated_suite |
 | `agentfem.benchmark.campaign_surrogate_pipeline` | Static-elasticity campaign to guarded surrogate pipeline | parameterized small-strain isotropic linear elasticity | executable_integration |
+| `agentfem.benchmark.creep_abaqus_constant_stress` | Official Abaqus time-hardening constant-stress creep case | three-dimensional small-strain Mises time-hardening power-law creep | automated_external_verification |
 | `agentfem.benchmark.creep_damage_material_paths` | Creep-damage material paths and curve projection | Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection | automated_regression |
 | `agentfem.benchmark.creep_hot_wall_release` | Sequential hot-wall creep assessment release contract | sequential transient heat conduction, plane-strain thermoelasticity, and local creep-damage assessment | automated_regression |
 | `agentfem.benchmark.elasticity_foundation` | Foundational small-strain elasticity verification | two- and three-dimensional small-strain linear elasticity | automated |
@@ -1017,6 +1020,98 @@ local = coordinates.cartesian(x=(0,1), y=(-1,0)); rp = coordinates.reference_poi
 
 - Abaqus distributing coupling constraints: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAECSTRefMap/simacst-c-coupling.htm`
 
+<a id="agentfem-workflow-integration_point_recovery"></a>
+
+## Traceable integration-point field recovery
+
+**Stable ID:** `agentfem.workflow.integration_point_recovery`<br>
+**Kind:** `workflow`<br>
+**Status:** `supported`<br>
+**Source card:** `knowledge/cards/integration_point_recovery.json`
+
+Converts J2 and creep quadrature evidence to separately named weighted DG0 cell fields without nodal extrapolation, interelement smoothing, or material-boundary averaging.
+
+### Public API
+
+- `agentfem.results.FieldRecovery`
+- `agentfem.results.cell_average_recovery`
+- `agentfem.results.recover_integration_point_field`
+
+### Scientific contract
+
+A scientific cell field is the quadrature-weighted mean of one constitutive integration-point field over each element; its processing history is part of the result meaning.
+
+**weighted cell recovery**
+
+$$
+q_e = sum_p(w_p q_ep) / sum_p(w_p)
+$$
+
+Reference-cell quadrature weights form one DG0 value per cell; no neighbor contributes.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| quadrature field | QuadratureField | field dependent | Point coordinates, weights, constitutive values, value shape, and owning mesh. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| recovered field | FieldResult carrying a DG0 Function and processing metadata | same as source | A compact cell field suitable for quantitative queries and point/cell visualization. |
+
+#### Assumptions
+
+- The quadrature rule and stored values describe the same reference-cell point order.
+- DG0 is a cell-average representation and does not retain within-cell variation.
+
+#### Conventions
+
+- Raw integration-point fields keep their original names; recovered variants use an explicit *_CELL suffix in J2 and creep SimulationResult objects.
+- Material boundaries are preserved because recovery is performed independently within every cell.
+- A smooth contour is a later presentation product and never overwrites constitutive evidence.
+
+#### Applicability
+
+- J2 plasticity and implicit creep field inspection, ParaView cell contours, histories, extrema, and learning-data preparation with explicit processing semantics.
+
+#### Limitations
+
+- Direct general quadrature-file export is not yet implemented.
+- Material-domain nodal extrapolation and smoothing are not yet implemented.
+- For curved non-affine cells, a physical-Jacobian-weighted recovery will need a distinct reviewed policy.
+
+### Minimal example
+
+```python
+cell_peeq = results.recover_integration_point_field(step.state.equivalent_plastic_strain, name='PEEQ_CELL')
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_constitutive_models.py`
+- `tests/test_p1_platform.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.j2_global_restart`
+- `agentfem.benchmark.implicit_creep_relaxation`
+- `agentfem.benchmark.creep_abaqus_constant_stress`
+
+**Validation rules**
+
+- Reject sources without explicit quadrature points and weights.
+- Reject policies that silently request a non-DG0 or cross-material recovery.
+- Check weighted values independently and preserve processing metadata in SimulationResult.
+
+### References
+
+- Abaqus integration-point output and extrapolation semantics: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEOUTRefMap/simaout-c-std-elementintegrationpointvariables.htm`
+- Basix quadrature rules: `https://docs.fenicsproject.org/basix/main/python/demo/demo_quadrature.py.html`
+
 <a id="agentfem-workflow-observation_grid_learning"></a>
 
 ## Mesh-independent structured observation grids
@@ -1486,7 +1581,7 @@ Algorithmic parameters control stability, accuracy, and high-frequency dissipati
 | advanced state | field state and convergence evidence | problem dependent | Accepted displacement, velocity, acceleration, temperature, or material state. |
 | reaction and mechanical energy diagnostics | nodal residual field and scalar energy record | force and energy | Strong-constraint reactions and visible M/K quadratic energies for supported systems. |
 | execution trace | ordered JSON-safe SolveEvent records | problem dependent | One source for progress, status files, result histories, failures, and agent monitoring. |
-| scheduled restart state | integrity-checked checkpoint manifest and rank shards | time | Written after accepted increments at one shared cadence across explicit, implicit-dynamics, and heat routes. |
+| scheduled restart state | integrity-checked checkpoint manifest and rank shards | time | Written after accepted increments at one shared cadence across explicit, implicit-dynamics, and heat routes, with optional partition-independent nodal state. |
 
 #### Assumptions
 
@@ -1510,7 +1605,7 @@ Algorithmic parameters control stability, accuracy, and high-frequency dissipati
 
 - Nonlinear implicit structural dynamics is not implemented.
 - Moving-support kinematics for implicit dynamics are not implemented.
-- Checkpoint retention pruning and cross-partition MPI restart identities are not implemented.
+- Checkpoint retention is implemented for shared transient routes; portable cross-partition restart currently covers nodal state but not quadrature/internal-variable state.
 
 ### Minimal example
 
@@ -1561,6 +1656,7 @@ Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell
 - `agentfem.results.reaction_resultant`
 - `agentfem.results.external_force_resultant`
 - `agentfem.results.static_force_balance`
+- `agentfem.results.static_work_balance`
 - `agentfem.mesh.tagged_boundary_region`
 - `agentfem.diagnostics.linear_static_energy`
 
@@ -1595,10 +1691,10 @@ The relative error is the residual norm divided by the larger external or reacti
 **proportional linear work**
 
 $$
-W_ext = 0.5 u^T F, U = 0.5 u^T K u
+W_ext = 0.5 u^T F + 0.5 R_c^T ubar, U = 0.5 u^T K u
 $$
 
-The equality applies to a load ramped proportionally from zero when non-zero prescribed-displacement work is absent.
+Natural loads and strong prescribed values are ramped proportionally from zero; the constrained residual supplies the conjugate prescribed-motion work.
 
 #### Inputs
 
@@ -1626,7 +1722,7 @@ The equality applies to a load ramped proportionally from zero when non-zero pre
 - DG0 result fields are discontinuous and are not extrapolated or averaged across neighboring cells or material boundaries.
 - The engineering default is U/S/E/MISES; SENER is an explicit diagnostic request.
 - E means infinitesimal strain in a small-strain context.
-- Non-zero prescribed-displacement work is not silently included in proportional force work.
+- Non-zero strong prescribed-displacement work is recorded separately from natural-load work and included in total external work.
 - Imported physical boundaries use their facet tag for both strong topological dof location and weak integration; an optional marker is audit evidence.
 - field_extrema(location=True) identifies its finite-element-dof sampling, coordinate, rank, global dof, and DG0 cell where applicable.
 - Model-generated linear static solids attach assembled external force, strong reaction, balance residual, and relative error to SimulationResult.
@@ -1638,7 +1734,7 @@ The equality applies to a load ramped proportionally from zero when non-zero pre
 #### Limitations
 
 - Nodal smoothing and superconvergent stress recovery are not implemented.
-- Affine MPC, weak, and contact reactions need dedicated dual definitions.
+- Affine MPC, weak, and contact reactions need dedicated dual definitions; the strong-Dirichlet work formula is rejected for those assets.
 - Thermoelastic output requires temperature-aware field construction in a later extension.
 
 ### Minimal example
@@ -1795,3 +1891,95 @@ Solve a heat-transfer Model with the shared material, then pass its Temperature 
 
 - Abaqus fully coupled thermal-stress analysis: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEANLRefMap/simaanl-c-couptempdisp.htm`
 - Abaqus heat transfer procedures: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEANLRefMap/simaanl-c-heatproc.htm`
+
+<a id="agentfem-workflow-transient_checkpoint_portability"></a>
+
+## Portable transient checkpoint state
+
+**Stable ID:** `agentfem.workflow.transient_checkpoint_portability`<br>
+**Kind:** `workflow`<br>
+**Status:** `supported`<br>
+**Source card:** `knowledge/cards/transient_checkpoint_portability.json`
+
+Adds an opt-in coordinate-keyed nodal state beside fast MPI rank shards so a supported transient analysis can restart with a different MPI partition or rank count.
+
+### Public API
+
+- `agentfem.checkpointing.every`
+- `agentfem.checkpointing.save_transient_checkpoint`
+- `agentfem.checkpointing.load_transient_checkpoint`
+- `agentfem.checkpointing.mesh_portable_identity`
+- `agentfem.checkpointing.function_portable_identity`
+
+### Scientific contract
+
+A restart state must identify physical degrees of freedom independently of rank-local numbering before it can be called portable across MPI partitions.
+
+**portable degree-of-freedom key**
+
+$$
+k_i = (quantize(x_i; bounds, tolerance), component_i)
+$$
+
+Physical coordinates and block component define a deterministic key; quantization absorbs mesh-construction roundoff without changing the field value.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| accepted transient state | named finite-element Functions plus time, history, and solver metadata | problem dependent | Only committed increments are eligible for checkpointing. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| portable checkpoint | manifest, fast rank shards, and optional coordinate-keyed NPZ state | problem dependent | The same-partition path remains fast; a different partition consumes the verified portable state. |
+
+#### Assumptions
+
+- The restart mesh represents the same physical nodal discretization within the recorded coordinate tolerance.
+- Every participating rank calls checkpoint save and load collectively in the same field order.
+
+#### Conventions
+
+- Portable state is opt-in through checkpointing.every(..., portable=True) or save_checkpoint(..., portable=True).
+- File size and SHA-256 are checked before state restoration.
+- The manifest records both rank-local and partition-independent identities.
+
+#### Applicability
+
+- Explicit structural dynamics, implicit structural dynamics, and first-order transient heat state composed of nodal finite-element Functions.
+
+#### Limitations
+
+- The present root-gathered NPZ representation is intended for laboratory-scale restart evidence, not extreme-scale parallel checkpoint bandwidth.
+- Quadrature and constitutive internal-variable portability requires a cell/integration-point identity contract and is not implied by nodal portability.
+- Changes to mesh geometry, function-space family, degree, value shape, or field schema remain incompatible.
+
+### Minimal example
+
+```python
+policy = checkpointing.every(10, directory='checkpoints', portable=True)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_transient_restart.py`
+- `tests/test_parallel_transient.py`
+- `tests/portable_checkpoint_driver.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Reject a changed field schema or physical mesh identity.
+- Reject missing, truncated, or checksum-mismatched state files.
+- Verify a two-rank write followed by a one-rank continuation against an uninterrupted one-rank solution.
+
+### References
+
+- DOLFINx parallel checkpointing demo: `https://docs.fenicsproject.org/dolfinx/main/python/demos/demo_checkpointing.html`

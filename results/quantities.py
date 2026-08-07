@@ -79,6 +79,30 @@ class StaticForceBalance:
 
 
 @dataclass(frozen=True)
+class StaticWorkBalance:
+    """Energy closure including proportional prescribed boundary motion."""
+
+    strain_energy: float
+    natural_load_work: float
+    prescribed_motion_work: float
+    external_work: float
+    balance_error: float
+    prescribed_dof_count: int
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "strain_energy": float(self.strain_energy),
+            "natural_load_work": float(self.natural_load_work),
+            "prescribed_motion_work": float(self.prescribed_motion_work),
+            "external_work": float(self.external_work),
+            "energy_balance_error": float(self.balance_error),
+            "prescribed_dof_count": int(self.prescribed_dof_count),
+            "path": "linear proportional ramp from zero",
+            "reaction_scope": "strong Dirichlet constraints",
+        }
+
+
+@dataclass(frozen=True)
 class ForceMomentResultant:
     """Integrated force and moment about an explicit physical point."""
 
@@ -546,6 +570,88 @@ def static_force_balance(problem) -> StaticForceBalance:
         residual=residual,
         absolute_error=absolute,
         relative_error=relative,
+    )
+
+
+def static_work_balance(problem, *, constraints=()) -> StaticWorkBalance:
+    """Evaluate linear-static work including nonzero strong Dirichlet data.
+
+    Natural loads and prescribed values are assumed to ramp proportionally
+    from zero.  The prescribed-motion contribution is the trapezoidal path
+    integral ``0.5 * R_c dot ubar`` on uniquely constrained owned dofs.  MPC,
+    weak, contact, and multiplier constraints need their own dual variables
+    and are deliberately rejected by this helper.
+    """
+
+    if not hasattr(problem, "system") or not hasattr(problem, "reaction_field"):
+        raise TypeError("static_work_balance requires a linear system problem.")
+    from .. import constraints as constraint_api
+    from .. import operators
+
+    solution = problem._solution()
+    strain = 0.5 * operators.quadratic_form(problem.system.K, solution)
+    natural = 0.5 * operators.dual_product(problem.system.F, solution)
+    reaction = problem.reaction_field()
+    reaction_values = np.asarray(reaction.x.array)
+    block_size = int(solution.function_space.dofmap.index_map_bs)
+    prescribed: dict[int, float] = {}
+    unsupported = []
+    for item in constraint_api.dirichlet_constraints(constraints):
+        bc = getattr(item, "bc", None)
+        if bc is None:
+            unsupported.append(type(item).__name__)
+            continue
+        value = getattr(item, "value", None)
+        if value is None:
+            value = getattr(item, "constant", None)
+        if value is None:
+            # A raw backend BC has no inspectable prescribed-motion contract;
+            # do not silently assume that its value and work are zero.
+            unsupported.append(f"{type(item).__name__}:uninspectable_value")
+            continue
+        dof_indices, first_ghost = bc.dof_indices()
+        selected_dofs = np.asarray(dof_indices[:first_ghost], dtype=np.int64)
+        if hasattr(value, "x") and hasattr(value.x, "array"):
+            selected_values = np.asarray(value.x.array)[selected_dofs]
+        else:
+            raw = np.asarray(value.value if hasattr(value, "value") else value)
+            flat = raw.reshape(-1)
+            if flat.size == 1:
+                selected_values = np.full(selected_dofs.shape, float(flat[0]))
+            elif flat.size == block_size:
+                selected_values = flat[selected_dofs % block_size]
+            else:
+                raise ValueError(
+                    "Prescribed value shape does not match the constrained field."
+                )
+        for dof, selected_value in zip(selected_dofs, selected_values):
+            value_float = float(selected_value)
+            previous = prescribed.get(int(dof))
+            if previous is not None and not np.isclose(previous, value_float):
+                raise ValueError(
+                    f"Conflicting prescribed values were found at local dof {dof}."
+                )
+            prescribed[int(dof)] = value_float
+    if unsupported:
+        raise NotImplementedError(
+            "static_work_balance only accepts strong Dirichlet constraints; "
+            f"unsupported={tuple(unsupported)}."
+        )
+    local_generalized = sum(
+        reaction_values[dof] * value
+        for dof, value in prescribed.items()
+    )
+    comm = solution.function_space.mesh.comm
+    generalized = float(comm.allreduce(float(local_generalized), op=MPI.SUM))
+    prescribed_work = 0.5 * generalized
+    external = float(natural + prescribed_work)
+    return StaticWorkBalance(
+        strain_energy=float(strain),
+        natural_load_work=float(natural),
+        prescribed_motion_work=float(prescribed_work),
+        external_work=external,
+        balance_error=float(external - strain),
+        prescribed_dof_count=int(comm.allreduce(len(prescribed), op=MPI.SUM)),
     )
 
 

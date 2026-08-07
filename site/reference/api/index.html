@@ -5362,6 +5362,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>Global algebraic force equilibrium for one linear static solid.</td>
 </tr>
 <tr>
+<td>class</td>
+<td><code>StaticWorkBalance</code></td>
+<td>Energy closure including proportional prescribed boundary motion.</td>
+</tr>
+<tr>
 <td>function</td>
 <td><code>average(expression, *, measure = ufl.dx, comm = None)</code></td>
 <td>Return the measure-weighted global average of an expression.</td>
@@ -5448,6 +5453,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
+<td><code>static_work_balance(problem, *, constraints = ()) -&gt; StaticWorkBalance</code></td>
+<td>Evaluate linear-static work including nonzero strong Dirichlet data.</td>
+</tr>
+<tr>
+<td>function</td>
 <td><code>project(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField')</code></td>
 <td>Return the global L2 projection of a UFL expression.</td>
 </tr>
@@ -5465,6 +5475,21 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>small_strain_partition_fields(displacement, assignments, *, study = None, variables = ('S', 'E', 'MISES', 'SENER'), degree: int = 0) -&gt; tuple[object, ...]</code></td>
 <td>Create standard fields for a complete regional material partition.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>FieldRecovery</code></td>
+<td>A reviewable conversion from constitutive evidence to a field.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>cell_average_recovery() -&gt; FieldRecovery</code></td>
+<td>Return the standard scientific integration-point recovery policy.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>recover_integration_point_field(source, *, name: str \| None = None, policy: FieldRecovery \| None = None, unit: str \| None = None, description: str = '') -&gt; FieldResult</code></td>
+<td>Recover one <code>QuadratureField</code> without hiding its processing history.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -5555,6 +5580,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>write_deformed_vtk_series(pvd_path, snapshots, cell_fields, *, deformation_scale: float = 1.0) -&gt; tuple[Path, tuple[Path, ...]]</code></td>
 <td>Write one deformed VTU grid per frame and a ParaView PVD collection.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>write_parallel_vtk_series(path, snapshots, fields_by_frame) -&gt; Path</code></td>
+<td>Write collective single-dataset ParaView frames under MPI.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -5975,6 +6005,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>ParaViewTimeSeries(path: Path, domain, mode: str = 'w') -&gt; None</code></td>
+<td>Collective VTK/PVD series with one geometry carrying all fields.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>ResultWriter(path: Path, domain, fields = (), mode: str = 'w') -&gt; None</code></td>
 <td>Named result writer for one mesh and a stable field list.</td>
 </tr>
@@ -6293,18 +6328,28 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>every(increments: int, *, directory = 'checkpoints', final: bool = True, prefix: str \| None = None, keep_last: int \| None = None) -&gt; CheckpointPolicy</code></td>
+<td><code>every(increments: int, *, directory = 'checkpoints', final: bool = True, prefix: str \| None = None, keep_last: int \| None = None, portable: bool = False) -&gt; CheckpointPolicy</code></td>
 <td>Create an automatic checkpoint policy for accepted time increments.</td>
 </tr>
 <tr>
 <td>function</td>
-<td><code>save_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, completed_steps: int, state: dict[str, object], accepted_times = (), execution_events = (), history_records = ())</code></td>
-<td>Write one partition-bound transient restart and return its manifest.</td>
+<td><code>save_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, completed_steps: int, state: dict[str, object], accepted_times = (), execution_events = (), history_records = (), portable: bool = False)</code></td>
+<td>Write a transient restart, optionally with partition-independent state.</td>
 </tr>
 <tr>
 <td>function</td>
 <td><code>load_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, state: dict[str, object]) -&gt; dict[str, object]</code></td>
 <td>Restore a transient state after validating its scientific identity.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>function_portable_identity(function) -&gt; dict[str, object]</code></td>
+<td>Return an MPI-partition-independent identity for a nodal field.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>mesh_portable_identity(domain) -&gt; dict[str, object]</code></td>
+<td>Hash cell geometry independently of local numbering and partition.</td>
 </tr>
 <tr>
 <td>function</td>

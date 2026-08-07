@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
+import xml.etree.ElementTree as ET
 
 import numpy as np
 from dolfinx import fem
@@ -152,6 +154,40 @@ def test_small_strain_projection_is_distributed_and_partition_safe():
         atol=1.0e-14,
     )
     assert stress.name == "S"
+
+
+def test_parallel_paraview_series_has_one_dataset_with_point_and_cell_fields(tmp_path):
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("collective ParaView output requires at least two MPI ranks")
+    root = str(tmp_path) if MPI.COMM_WORLD.rank == 0 else None
+    root = MPI.COMM_WORLD.bcast(root, root=0)
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.25),
+        (4, 2),
+        comm=MPI.COMM_WORLD,
+        cell_type="triangle",
+    )
+    displacement = fields.displacement(domain).value
+    displacement.interpolate(lambda x: np.vstack((0.01 * x[0], 0.0 * x[1])))
+    stress = fem.Function(fem.functionspace(domain, ("DG", 0)), name="MISES")
+    stress.x.array[:] = 10.0
+    output = results.write_parallel_vtk_series(
+        Path(root) / "mixed_parallel.pvd",
+        (SimpleNamespace(solution=displacement, load_factor=1.0),),
+        ((stress,),),
+    )
+    MPI.COMM_WORLD.barrier()
+
+    if MPI.COMM_WORLD.rank == 0:
+        datasets_xml = ET.parse(output).findall(".//DataSet")
+        assert len(datasets_xml) == 1
+        parallel_grid = output.parent / datasets_xml[0].attrib["file"]
+        tree = ET.parse(parallel_grid)
+        assert tree.find(
+            ".//PPointData/PDataArray[@Name='Displacement']"
+        ) is not None
+        assert tree.find(".//PCellData/PDataArray[@Name='MISES']") is not None
 
 
 def test_named_boundary_reaction_and_static_result_are_distributed():

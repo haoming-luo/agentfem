@@ -81,7 +81,7 @@
         "name": "scheduled restart state",
         "type": "integrity-checked checkpoint manifest and rank shards",
         "unit_role": "time",
-        "description": "Written after accepted increments at one shared cadence across explicit, implicit-dynamics, and heat routes."
+        "description": "Written after accepted increments at one shared cadence across explicit, implicit-dynamics, and heat routes, with optional partition-independent nodal state."
       }
     ],
     "assumptions": [
@@ -102,7 +102,7 @@
     "limitations": [
       "Nonlinear implicit structural dynamics is not implemented.",
       "Moving-support kinematics for implicit dynamics are not implemented.",
-      "Checkpoint retention pruning and cross-partition MPI restart identities are not implemented."
+      "Checkpoint retention is implemented for shared transient routes; portable cross-partition restart currently covers nodal state but not quadrature/internal-variable state."
     ]
   },
   "usage": {

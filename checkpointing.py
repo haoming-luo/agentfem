@@ -1,8 +1,9 @@
 """Restart envelopes shared by transient finite-element procedures.
 
-The first schema deliberately stores rank-local state shards.  It is safe for
-restart with the same mesh partition and MPI size, and records that boundary
-explicitly instead of presenting partition-bound arrays as portable data.
+Fast rank-local shards remain the default.  Schema v3 can additionally store
+an explicit coordinate-keyed nodal state for restart across MPI partitions and
+rank counts; constitutive integration-point state is not implied by that
+portable nodal contract.
 """
 
 from __future__ import annotations
@@ -17,13 +18,15 @@ import tempfile
 from uuid import uuid4
 
 import numpy as np
+from mpi4py import MPI
 
 from . import fields
 
 
-TRANSIENT_CHECKPOINT_SCHEMA = "agentfem.transient-checkpoint.v2"
+TRANSIENT_CHECKPOINT_SCHEMA = "agentfem.transient-checkpoint.v3"
 _LEGACY_TRANSIENT_CHECKPOINT_SCHEMAS = {
     "agentfem.transient-checkpoint.v1",
+    "agentfem.transient-checkpoint.v2",
     TRANSIENT_CHECKPOINT_SCHEMA,
 }
 
@@ -37,6 +40,7 @@ class CheckpointPolicy:
     final: bool = True
     prefix: str | None = None
     keep_last: int | None = None
+    portable: bool = False
 
     def __post_init__(self) -> None:
         interval = int(self.every)
@@ -68,6 +72,7 @@ class CheckpointPolicy:
             "final": bool(self.final),
             "prefix": self.prefix,
             "keep_last": self.keep_last,
+            "portable": bool(self.portable),
             "retention": (
                 "all_scheduled_checkpoints"
                 if self.keep_last is None
@@ -83,6 +88,7 @@ def every(
     final: bool = True,
     prefix: str | None = None,
     keep_last: int | None = None,
+    portable: bool = False,
 ) -> CheckpointPolicy:
     """Create an automatic checkpoint policy for accepted time increments."""
 
@@ -92,6 +98,7 @@ def every(
         final=final,
         prefix=prefix,
         keep_last=keep_last,
+        portable=portable,
     )
 
 
@@ -108,8 +115,9 @@ def save_transient_checkpoint(
     accepted_times=(),
     execution_events=(),
     history_records=(),
+    portable: bool = False,
 ):
-    """Write one partition-bound transient restart and return its manifest."""
+    """Write a transient restart, optionally with partition-independent state."""
 
     functions = {name: fields.unwrap(value) for name, value in state.items()}
     if not functions:
@@ -144,6 +152,20 @@ def save_transient_checkpoint(
     _raise_collective_checkpoint_error(comm, "write state shard", local_error)
     identities = comm.gather(local_identity, root=0)
     shards = comm.gather(local_shard, root=0)
+    portable_record = None
+    portable_identities = None
+    portability = "same mesh partition and MPI size"
+    if portable:
+        portable_record, portable_identities = _write_portable_state(
+            manifest,
+            generation=generation,
+            functions=functions,
+            comm=comm,
+        )
+        portability = (
+            "nodal state portable across MPI partitions and rank counts; "
+            "rank shards retained for same-partition restart"
+        )
     metadata = {
         "schema": TRANSIENT_CHECKPOINT_SCHEMA,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -159,8 +181,8 @@ def save_transient_checkpoint(
         "completed_steps": int(completed_steps),
         "time": float(completed_steps) * float(dt),
         "rank_count": int(comm.size),
-        "portable": False,
-        "portability": "same mesh partition and MPI size",
+        "portable": bool(portable_record is not None),
+        "portability": portability,
         "state_names": list(functions),
         "accepted_times": [float(value) for value in accepted_times],
         "execution_events": [
@@ -174,6 +196,9 @@ def save_transient_checkpoint(
         try:
             metadata["shards"] = list(shards)
             metadata["state_identity_by_rank"] = list(identities)
+            if portable_record is not None:
+                metadata["portable_state"] = portable_record
+                metadata["portable_state_identity"] = portable_identities
             atomic_write_text(
                 manifest,
                 json.dumps(metadata, indent=2, sort_keys=True) + "\n",
@@ -232,7 +257,6 @@ def load_transient_checkpoint(
         "procedure": (metadata.get("procedure"), expected_procedure),
         "time increment": (float(metadata.get("dt")), float(dt)),
         "total steps": (int(metadata.get("total_steps")), int(total_steps)),
-        "MPI size": (int(metadata.get("rank_count")), int(comm.size)),
         "state names": (tuple(metadata.get("state_names", ())), tuple(functions)),
     }
     for label, (stored, current) in checks.items():
@@ -241,27 +265,133 @@ def load_transient_checkpoint(
                 f"Transient checkpoint {label} differs: stored={stored!r}, "
                 f"current={current!r}."
             )
-    identity_error = None
-    try:
-        stored_identity = metadata["state_identity_by_rank"][comm.rank]
-        for name, function in functions.items():
-            current_identity = (
-                _legacy_function_partition_identity(function)
-                if stored_schema == "agentfem.transient-checkpoint.v1"
-                else function_partition_identity(function)
-            )
-            if stored_identity[name] != current_identity:
-                raise ValueError(
-                    f"state layout for {name!r} differs from the current "
-                    "mesh partition/function space"
+    same_rank_count = int(metadata.get("rank_count")) == int(comm.size)
+    partition_compatible = same_rank_count
+    if same_rank_count:
+        try:
+            stored_identity = metadata["state_identity_by_rank"][comm.rank]
+            for name, function in functions.items():
+                current_identity = (
+                    _legacy_function_partition_identity(function)
+                    if stored_schema == "agentfem.transient-checkpoint.v1"
+                    else function_partition_identity(function)
                 )
+                if stored_identity[name] != current_identity:
+                    partition_compatible = False
+        except (KeyError, IndexError, TypeError):
+            partition_compatible = False
+    partition_compatible = bool(
+        comm.allreduce(bool(partition_compatible), op=MPI.LAND)
+    )
+    if partition_compatible:
+        _restore_partition_shard(
+            manifest,
+            metadata=metadata,
+            functions=functions,
+            comm=comm,
+        )
+        metadata["restart_mode"] = "same_partition_rank_shard"
+    elif metadata.get("portable") and metadata.get("portable_state"):
+        _restore_portable_state(
+            manifest,
+            metadata=metadata,
+            functions=functions,
+            comm=comm,
+        )
+        metadata["restart_mode"] = "portable_coordinate_keyed_state"
+    else:
+        raise ValueError(
+            "Transient checkpoint MPI size or mesh partition differs and no "
+            "portable state was written. Save with portable=True to permit "
+            "cross-partition restart."
+        )
+    metadata["manifest_path"] = str(manifest)
+    return metadata
+
+
+def _write_portable_state(manifest, *, generation, functions, comm):
+    """Write a coordinate-keyed nodal state alongside rank-local shards."""
+
+    local_payload = None
+    local_error = None
+    try:
+        local_payload = {
+            name: _portable_local_field(function)
+            for name, function in functions.items()
+        }
     except Exception as exc:
-        identity_error = f"{type(exc).__name__}: {exc}"
+        local_error = f"{type(exc).__name__}: {exc}"
     _raise_collective_checkpoint_error(
         comm,
-        "validate state identity",
-        identity_error,
+        "prepare portable state",
+        local_error,
     )
+    identities = {
+        name: function_portable_identity(function)
+        for name, function in functions.items()
+    }
+    gathered = comm.gather(local_payload, root=0)
+    response = None
+    if comm.rank == 0:
+        portable_path = manifest.with_name(
+            f"{manifest.name.removesuffix('.checkpoint.json')}.{generation}."
+            "portable.npz"
+        )
+        try:
+            arrays = {}
+            index = {}
+            for field_index, name in enumerate(functions):
+                coordinates = np.concatenate(
+                    [item[name]["coordinates"] for item in gathered], axis=0
+                )
+                values = np.concatenate(
+                    [item[name]["values"] for item in gathered], axis=0
+                )
+                order = _coordinate_order(coordinates)
+                coordinates = coordinates[order]
+                values = values[order]
+                if _has_duplicate_coordinates(coordinates):
+                    raise ValueError(
+                        f"Portable field {name!r} has duplicate owned dof coordinates."
+                    )
+                coordinate_key = f"field_{field_index}_coordinates"
+                value_key = f"field_{field_index}_values"
+                arrays[coordinate_key] = coordinates
+                arrays[value_key] = values
+                index[name] = {
+                    "coordinates": coordinate_key,
+                    "values": value_key,
+                    "rows": int(len(coordinates)),
+                    "components": int(values.shape[1]),
+                }
+            atomic_savez(portable_path, **arrays)
+            response = {
+                "record": {
+                    "path": portable_path.name,
+                    "size": int(portable_path.stat().st_size),
+                    "sha256": _file_sha256(portable_path),
+                    "storage": "root_gathered_coordinate_keyed_npz",
+                    "index": index,
+                },
+                "identities": identities,
+                "error": None,
+            }
+        except Exception as exc:
+            response = {
+                "record": None,
+                "identities": None,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+    response = comm.bcast(response, root=0)
+    if response["error"] is not None:
+        raise RuntimeError(
+            "Transient checkpoint portable state write failed: "
+            f"{response['error']}"
+        )
+    return response["record"], response["identities"]
+
+
+def _restore_partition_shard(manifest, *, metadata, functions, comm) -> None:
     shard_record = metadata["shards"][comm.rank]
     if isinstance(shard_record, str):
         shard = manifest.parent / shard_record
@@ -272,12 +402,13 @@ def load_transient_checkpoint(
         expected_size = int(shard_record["size"])
         expected_digest = str(shard_record["sha256"])
     restored = None
-    shard_error = None
+    error = None
     try:
-        if expected_size is not None and shard.stat().st_size != expected_size:
-            raise ValueError("checkpoint shard size does not match its manifest")
-        if expected_digest is not None and _file_sha256(shard) != expected_digest:
-            raise ValueError("checkpoint shard checksum does not match its manifest")
+        _validate_checkpoint_file(
+            shard,
+            expected_size=expected_size,
+            expected_digest=expected_digest,
+        )
         with np.load(shard, allow_pickle=False) as data:
             restored = {}
             for name, function in functions.items():
@@ -288,13 +419,198 @@ def load_transient_checkpoint(
                     )
                 restored[name] = values
     except Exception as exc:
-        shard_error = f"{type(exc).__name__}: {exc}"
-    _raise_collective_checkpoint_error(comm, "read state shard", shard_error)
+        error = f"{type(exc).__name__}: {exc}"
+    _raise_collective_checkpoint_error(comm, "read state shard", error)
     for name, function in functions.items():
         function.x.array[:] = restored[name]
         function.x.scatter_forward()
-    metadata["manifest_path"] = str(manifest)
-    return metadata
+
+
+def _restore_portable_state(manifest, *, metadata, functions, comm) -> None:
+    record = metadata["portable_state"]
+    portable_path = manifest.parent / record["path"]
+    error = None
+    restored = None
+    try:
+        _validate_checkpoint_file(
+            portable_path,
+            expected_size=int(record["size"]),
+            expected_digest=str(record["sha256"]),
+        )
+        expected_identity = metadata["portable_state_identity"]
+        for name, function in functions.items():
+            if expected_identity[name] != function_portable_identity(function):
+                raise ValueError(
+                    f"portable mesh/function identity for {name!r} differs"
+                )
+        with np.load(portable_path, allow_pickle=False) as data:
+            restored = {}
+            for name, function in functions.items():
+                selected = record["index"][name]
+                stored_coordinates = np.asarray(data[selected["coordinates"]])
+                stored_values = np.asarray(data[selected["values"]])
+                local = _portable_local_field(function)
+                lookup = {
+                    row.tobytes(): index
+                    for index, row in enumerate(stored_coordinates)
+                }
+                indices = []
+                for row in local["coordinates"]:
+                    key = row.tobytes()
+                    if key not in lookup:
+                        raise ValueError(
+                            f"portable state for {name!r} lacks a local dof coordinate"
+                        )
+                    indices.append(lookup[key])
+                restored[name] = stored_values[np.asarray(indices, dtype=np.int64)]
+    except Exception as exc:
+        error = f"{type(exc).__name__}: {exc}"
+    _raise_collective_checkpoint_error(comm, "read portable state", error)
+    for name, function in functions.items():
+        V = function.function_space
+        owned = int(V.dofmap.index_map.size_local)
+        block_size = int(V.dofmap.index_map_bs)
+        function.x.array[: owned * block_size] = restored[name].reshape(-1)
+        function.x.scatter_forward()
+
+
+def _portable_local_field(function) -> dict[str, np.ndarray]:
+    function = fields.unwrap(function)
+    V = function.function_space
+    index_map = V.dofmap.index_map
+    owned = int(index_map.size_local)
+    block_size = int(V.dofmap.index_map_bs)
+    if int(V.dofmap.bs) != block_size:
+        raise NotImplementedError(
+            "Portable checkpoints currently require a blocked nodal space, "
+            "not a mixed/subspace dof layout."
+        )
+    coordinates = np.asarray(V.tabulate_dof_coordinates(), dtype=np.float64)
+    if coordinates.shape[0] < owned:
+        raise ValueError("Function space does not expose every owned dof coordinate.")
+    coordinates = np.ascontiguousarray(
+        coordinates[:owned, : int(V.mesh.geometry.dim)]
+    )
+    coordinate_keys = _quantized_coordinate_keys(coordinates, V.mesh)
+    if _has_duplicate_coordinates(coordinate_keys):
+        raise NotImplementedError(
+            "Portable coordinate-keyed state requires one block dof per coordinate."
+        )
+    values = np.asarray(
+        function.x.array[: owned * block_size]
+    ).reshape((owned, block_size)).copy()
+    return {"coordinates": coordinate_keys, "values": values}
+
+
+def function_portable_identity(function) -> dict[str, object]:
+    """Return an MPI-partition-independent identity for a nodal field."""
+
+    function = fields.unwrap(function)
+    V = function.function_space
+    local = _portable_local_field(function)
+    counts = V.mesh.comm.allgather(int(len(local["coordinates"])))
+    return {
+        "element": str(V.ufl_element()),
+        "value_shape": list(function.ufl_shape),
+        "block_size": int(V.dofmap.index_map_bs),
+        "global_block_dofs": int(sum(counts)),
+        "mesh": mesh_portable_identity(V.mesh),
+        "key": "quantized_physical_dof_coordinate_and_block_component",
+    }
+
+
+def mesh_portable_identity(domain) -> dict[str, object]:
+    """Hash cell geometry independently of local numbering and partition."""
+
+    topology = domain.topology
+    cell_map = topology.index_map(topology.dim)
+    geometry_dofmap = np.asarray(domain.geometry.dofmaps[0])
+    geometry = np.asarray(domain.geometry.x)[:, : int(domain.geometry.dim)]
+    coordinate_policy = _coordinate_key_policy(domain)
+    local_signatures = []
+    for cell in range(int(cell_map.size_local)):
+        coordinates = np.asarray(geometry[geometry_dofmap[cell]], dtype=np.float64)
+        coordinates = _quantized_coordinate_keys(
+            coordinates,
+            domain,
+            policy=coordinate_policy,
+        )
+        coordinates = coordinates[_coordinate_order(coordinates)]
+        digest = sha256()
+        digest.update(np.ascontiguousarray(coordinates).tobytes())
+        local_signatures.append(digest.hexdigest())
+    signatures = []
+    for rank_values in domain.comm.allgather(local_signatures):
+        signatures.extend(rank_values)
+    signatures.sort()
+    digest = sha256()
+    digest.update(str(topology.cell_name()).encode("utf-8"))
+    for signature in signatures:
+        digest.update(signature.encode("ascii"))
+    return {
+        "topology_dimension": int(topology.dim),
+        "geometry_dimension": int(domain.geometry.dim),
+        "cell_type": str(topology.cell_name()),
+        "global_cells": int(len(signatures)),
+        "geometry_connectivity_hash": digest.hexdigest(),
+        "coordinate_key": "relative_bounds_scaled_int64",
+    }
+
+
+def _coordinate_key_policy(domain) -> tuple[np.ndarray, float]:
+    geometry = np.asarray(domain.geometry.x)[:, : int(domain.geometry.dim)]
+    gdim = int(domain.geometry.dim)
+    local_min = np.min(geometry, axis=0) if len(geometry) else np.full(gdim, np.inf)
+    local_max = np.max(geometry, axis=0) if len(geometry) else np.full(gdim, -np.inf)
+    global_min = np.empty(gdim, dtype=np.float64)
+    global_max = np.empty(gdim, dtype=np.float64)
+    domain.comm.Allreduce(local_min, global_min, op=MPI.MIN)
+    domain.comm.Allreduce(local_max, global_max, op=MPI.MAX)
+    span = float(np.max(global_max - global_min))
+    coordinate_scale = max(
+        span,
+        float(np.max(np.abs(global_min))),
+        float(np.max(np.abs(global_max))),
+        np.finfo(np.float64).tiny,
+    )
+    tolerance = max(
+        np.finfo(np.float64).tiny,
+        64.0 * np.finfo(np.float64).eps * coordinate_scale,
+    )
+    return global_min, tolerance
+
+
+def _quantized_coordinate_keys(coordinates, domain, *, policy=None) -> np.ndarray:
+    """Return partition-stable integer keys tolerant of mesh-build roundoff."""
+
+    selected = np.asarray(coordinates, dtype=np.float64)
+    gdim = int(domain.geometry.dim)
+    global_min, tolerance = policy or _coordinate_key_policy(domain)
+    return np.rint((selected[:, :gdim] - global_min) / tolerance).astype(np.int64)
+
+
+def _coordinate_order(coordinates) -> np.ndarray:
+    selected = np.asarray(coordinates)
+    if selected.ndim != 2:
+        raise ValueError("Coordinate keys require a two-dimensional array.")
+    return np.lexsort(
+        tuple(selected[:, axis] for axis in reversed(range(selected.shape[1])))
+    )
+
+
+def _has_duplicate_coordinates(coordinates) -> bool:
+    selected = np.asarray(coordinates)
+    if len(selected) < 2:
+        return False
+    ordered = selected[_coordinate_order(selected)]
+    return bool(np.any(np.all(ordered[1:] == ordered[:-1], axis=1)))
+
+
+def _validate_checkpoint_file(path, *, expected_size, expected_digest) -> None:
+    if expected_size is not None and path.stat().st_size != expected_size:
+        raise ValueError("checkpoint shard size does not match its manifest")
+    if expected_digest is not None and _file_sha256(path) != expected_digest:
+        raise ValueError("checkpoint shard checksum does not match its manifest")
 
 
 def _remove_transient_checkpoint(path, *, comm) -> None:
@@ -314,6 +630,11 @@ def _remove_transient_checkpoint(path, *, comm) -> None:
                 shard = manifest.parent / name
                 if shard.exists():
                     shard.unlink()
+            portable = metadata.get("portable_state")
+            if portable:
+                portable_path = manifest.parent / portable["path"]
+                if portable_path.exists():
+                    portable_path.unlink()
             manifest.unlink()
         except Exception as exc:  # pragma: no cover - filesystem failure
             error = f"{type(exc).__name__}: {exc}"
@@ -484,6 +805,8 @@ __all__ = [
     "atomic_savez",
     "atomic_write_text",
     "function_partition_identity",
+    "function_portable_identity",
+    "mesh_portable_identity",
     "every",
     "load_transient_checkpoint",
     "save_transient_checkpoint",

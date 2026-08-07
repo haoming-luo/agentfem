@@ -1,0 +1,92 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.transient_checkpoint_portability",
+  "title": "Portable transient checkpoint state",
+  "kind": "workflow",
+  "status": "supported",
+  "summary": "Adds an opt-in coordinate-keyed nodal state beside fast MPI rank shards so a supported transient analysis can restart with a different MPI partition or rank count.",
+  "public_api": [
+    "agentfem.checkpointing.every",
+    "agentfem.checkpointing.save_transient_checkpoint",
+    "agentfem.checkpointing.load_transient_checkpoint",
+    "agentfem.checkpointing.mesh_portable_identity",
+    "agentfem.checkpointing.function_portable_identity"
+  ],
+  "implementation": [
+    "checkpointing.py",
+    "problems.py"
+  ],
+  "science": {
+    "statement": "A restart state must identify physical degrees of freedom independently of rank-local numbering before it can be called portable across MPI partitions.",
+    "equations": [
+      {
+        "label": "portable degree-of-freedom key",
+        "expression": "k_i = (quantize(x_i; bounds, tolerance), component_i)",
+        "description": "Physical coordinates and block component define a deterministic key; quantization absorbs mesh-construction roundoff without changing the field value."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "accepted transient state",
+        "type": "named finite-element Functions plus time, history, and solver metadata",
+        "unit_role": "problem dependent",
+        "description": "Only committed increments are eligible for checkpointing."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "portable checkpoint",
+        "type": "manifest, fast rank shards, and optional coordinate-keyed NPZ state",
+        "unit_role": "problem dependent",
+        "description": "The same-partition path remains fast; a different partition consumes the verified portable state."
+      }
+    ],
+    "assumptions": [
+      "The restart mesh represents the same physical nodal discretization within the recorded coordinate tolerance.",
+      "Every participating rank calls checkpoint save and load collectively in the same field order."
+    ],
+    "conventions": [
+      "Portable state is opt-in through checkpointing.every(..., portable=True) or save_checkpoint(..., portable=True).",
+      "File size and SHA-256 are checked before state restoration.",
+      "The manifest records both rank-local and partition-independent identities."
+    ],
+    "applicability": [
+      "Explicit structural dynamics, implicit structural dynamics, and first-order transient heat state composed of nodal finite-element Functions."
+    ],
+    "limitations": [
+      "The present root-gathered NPZ representation is intended for laboratory-scale restart evidence, not extreme-scale parallel checkpoint bandwidth.",
+      "Quadrature and constitutive internal-variable portability requires a cell/integration-point identity contract and is not implied by nodal portability.",
+      "Changes to mesh geometry, function-space family, degree, value shape, or field schema remain incompatible."
+    ]
+  },
+  "usage": {
+    "minimal_example": "policy = checkpointing.every(10, directory='checkpoints', portable=True)",
+    "examples": [
+      "examples/transient_heat_2d.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_transient_restart.py",
+      "tests/test_parallel_transient.py",
+      "tests/portable_checkpoint_driver.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Reject a changed field schema or physical mesh identity.",
+      "Reject missing, truncated, or checksum-mismatched state files.",
+      "Verify a two-rank write followed by a one-rank continuation against an uninterrupted one-rank solution."
+    ]
+  },
+  "references": [
+    {
+      "title": "DOLFINx parallel checkpointing demo",
+      "locator": "https://docs.fenicsproject.org/dolfinx/main/python/demos/demo_checkpointing.html"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.solution_procedures",
+    "agentfem.workflow.result_field_sampling"
+  ]
+}

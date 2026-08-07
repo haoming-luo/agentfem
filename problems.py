@@ -855,6 +855,7 @@ class AnalysisStep:
     dt: float | None = None
     procedure: object | None = None
     result_field_factory: object | None = None
+    constraint_assets: tuple[object, ...] = ()
 
     @property
     def system(self):
@@ -893,7 +894,7 @@ class AnalysisStep:
         """
 
         from . import io
-        from .results import from_solution, static_force_balance
+        from .results import from_solution, static_force_balance, static_work_balance
 
         solution = self.problem.solve()
         if fields and field_variables is not None:
@@ -949,6 +950,17 @@ class AnalysisStep:
         )
         if is_static_solid:
             equilibrium = static_force_balance(self.problem)
+            try:
+                work = static_work_balance(
+                    self.problem,
+                    constraints=self.constraint_assets,
+                )
+            except NotImplementedError as exc:
+                work = None
+                result.metadata["static_work"] = {
+                    "status": "unavailable",
+                    "reason": str(exc),
+                }
             result.add_quantities(
                 {
                     "external_force_resultant": equilibrium.external,
@@ -972,6 +984,18 @@ class AnalysisStep:
                 },
             )
             result.metadata["static_equilibrium"] = equilibrium.as_dict()
+            if work is not None:
+                result.add_quantities(
+                    {
+                        "strain_energy": work.strain_energy,
+                        "natural_load_work": work.natural_load_work,
+                        "prescribed_motion_work": work.prescribed_motion_work,
+                        "external_work": work.external_work,
+                        "energy_balance_error": work.balance_error,
+                    },
+                    kind="diagnostic",
+                )
+                result.metadata["static_work"] = work.as_dict()
         if output is not None:
             path = Path(output)
             domain = solution.function_space.mesh
@@ -1222,13 +1246,14 @@ class ExplicitDynamicsStep:
         )
         return result
 
-    def save_checkpoint(self, path) -> Path:
-        """Save a partition-bound explicit dynamics restart."""
+    def save_checkpoint(self, path, *, portable: bool = False) -> Path:
+        """Save explicit state, optionally portable across MPI partitions."""
 
         return _save_transient_checkpoint(
             self,
             path,
             {"displacement": self.state.u, "velocity": self.state.v, "acceleration": self.state.a},
+            portable=portable,
         )
 
     def load_checkpoint(self, path) -> None:
@@ -1435,13 +1460,14 @@ class ImplicitDynamicsStep:
         )
         return result
 
-    def save_checkpoint(self, path) -> Path:
-        """Save a partition-bound implicit dynamics restart."""
+    def save_checkpoint(self, path, *, portable: bool = False) -> Path:
+        """Save implicit state, optionally portable across MPI partitions."""
 
         return _save_transient_checkpoint(
             self,
             path,
             {"displacement": self.state.u, "velocity": self.state.v, "acceleration": self.state.a},
+            portable=portable,
         )
 
     def load_checkpoint(self, path) -> None:
@@ -1679,13 +1705,14 @@ class FirstOrderTransientStep:
         )
         return result
 
-    def save_checkpoint(self, path) -> Path:
-        """Save a partition-bound first-order transient restart."""
+    def save_checkpoint(self, path, *, portable: bool = False) -> Path:
+        """Save first-order state, optionally portable across MPI partitions."""
 
         return _save_transient_checkpoint(
             self,
             path,
             {"current": self.current, "previous": self.previous},
+            portable=portable,
         )
 
     def load_checkpoint(self, path) -> None:
@@ -1909,7 +1936,8 @@ def _write_scheduled_checkpoint(step) -> Path | None:
         policy.path(
             step_name=step.name,
             increment=step.completed_steps,
-        )
+        ),
+        portable=bool(getattr(policy, "portable", False)),
     )
     _apply_checkpoint_retention(step, policy)
     return written
@@ -2049,7 +2077,7 @@ def _apply_checkpoint_retention(step, policy) -> None:
     ]
 
 
-def _save_transient_checkpoint(step, path, state) -> Path:
+def _save_transient_checkpoint(step, path, state, *, portable: bool = False) -> Path:
     from . import checkpointing
     from .results import CheckpointRecord
 
@@ -2065,6 +2093,7 @@ def _save_transient_checkpoint(step, path, state) -> Path:
         accepted_times=step.accepted_times,
         execution_events=step.execution_events,
         history_records=step.history_records,
+        portable=portable,
     )
     record = CheckpointRecord(
         name=f"{step.name}_{step.completed_steps}",
@@ -2073,11 +2102,15 @@ def _save_transient_checkpoint(step, path, state) -> Path:
         step_name=step.name,
         coordinate_name="time",
         coordinate_value=float(step.completed_steps) * float(step.dt),
-        portable=False,
+        portable=bool(portable),
         metadata={
             "completed_steps": step.completed_steps,
             "total_steps": step.steps,
-            "portability": "same mesh partition and MPI size",
+            "portability": (
+                "nodal state portable across MPI partitions and rank counts"
+                if portable
+                else "same mesh partition and MPI size"
+            ),
         },
     )
     step.checkpoints.append(record)
@@ -2114,7 +2147,7 @@ def _load_transient_checkpoint(step, path, state) -> None:
             step_name=step.name,
             coordinate_name="time",
             coordinate_value=float(step.completed_steps) * float(step.dt),
-            portable=False,
+            portable=bool(metadata.get("portable", False)),
             metadata={
                 "role": "restart_source",
                 "portability": metadata["portability"],
@@ -2337,6 +2370,7 @@ def linear_static(
         method="linear_static",
         procedure=procedures.linear_static(),
         result_field_factory=result_field_factory,
+        constraint_assets=tuple(_as_list(constraints)),
     )
 
 

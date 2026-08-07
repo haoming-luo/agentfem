@@ -450,6 +450,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ForceMomentResultant` | Integrated force and moment about an explicit physical point. |
 | class | `PathSample` | Values sampled along one straight physical-space path. |
 | class | `StaticForceBalance` | Global algebraic force equilibrium for one linear static solid. |
+| class | `StaticWorkBalance` | Energy closure including proportional prescribed boundary motion. |
 | function | `average(expression, *, measure = ufl.dx, comm = None)` | Return the measure-weighted global average of an expression. |
 | function | `boundary_resultant(traction, *, on)` | Integrate a traction/flux expression over a named boundary. |
 | function | `field_extrema(field, *, magnitude: bool = False, location: bool = False) -> dict[str, object]` | Return MPI-global field extrema, optionally with physical locations. |
@@ -467,10 +468,14 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `sample_points(field, points, *, padding: float = 1e-10, missing: str = 'raise') -> np.ndarray` | Evaluate a finite-element field at common physical points under MPI. |
 | function | `section_resultant(stress, *, on, normal = None, about = None) -> ForceMomentResultant` | Integrate section force and moment from a Cauchy/nominal stress field. |
 | function | `static_force_balance(problem) -> StaticForceBalance` | Evaluate ``R + F = 0`` for a converged linear static solid. |
+| function | `static_work_balance(problem, *, constraints = ()) -> StaticWorkBalance` | Evaluate linear-static work including nonzero strong Dirichlet data. |
 | function | `project(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField')` | Return the global L2 projection of a UFL expression. |
 | function | `project_piecewise(terms, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField')` | Project region-dependent expressions into one finite-element field. |
 | function | `small_strain_cell_fields(displacement, properties, *, study = None, variables = ('S', 'E', 'MISES', 'SENER'), degree: int = 0) -> tuple[object, ...]` | Create standard projected fields for linear small-strain elasticity. |
 | function | `small_strain_partition_fields(displacement, assignments, *, study = None, variables = ('S', 'E', 'MISES', 'SENER'), degree: int = 0) -> tuple[object, ...]` | Create standard fields for a complete regional material partition. |
+| class | `FieldRecovery` | A reviewable conversion from constitutive evidence to a field. |
+| function | `cell_average_recovery() -> FieldRecovery` | Return the standard scientific integration-point recovery policy. |
+| function | `recover_integration_point_field(source, *, name: str \| None = None, policy: FieldRecovery \| None = None, unit: str \| None = None, description: str = '') -> FieldResult` | Recover one ``QuadratureField`` without hiding its processing history. |
 | function | `add_execution_trace(result, events: Iterable[object]) -> tuple[dict[str, object], ...]` | Attach one complete execution trace and its standard histories. |
 | function | `execution_records(events: Iterable[object]) -> tuple[dict[str, object], ...]` | Normalize solver events without depending on a particular procedure. |
 | class | `HomogenizedFrame` | Macroscopic response reconstructed from one periodic-cell state. |
@@ -489,6 +494,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `field_output(*variables, every: int \| str \| None = None, intervals: int \| None = None, configuration: str = 'deformed', deformation_scale: float = 1.0, backend: str = 'xdmf') -> FieldOutput` | Create a concise, inspectable field-output request. |
 | function | `read_unified_xdmf_series(xdmf_path) -> tuple[object, ...]` | Read AgentFEM's compact XDMF/HDF5 frames as PyVista grids. |
 | function | `write_deformed_vtk_series(pvd_path, snapshots, cell_fields, *, deformation_scale: float = 1.0) -> tuple[Path, tuple[Path, ...]]` | Write one deformed VTU grid per frame and a ParaView PVD collection. |
+| function | `write_parallel_vtk_series(path, snapshots, fields_by_frame) -> Path` | Write collective single-dataset ParaView frames under MPI. |
 | function | `write_unified_xdmf_series(xdmf_path, snapshots, cell_fields, *, deformation_scale: float = 1.0, store_reference_geometry: bool = True, compression: int = 4) -> Path` | Write one temporal XDMF and one compressed HDF5 heavy-data file. |
 | class | `FiniteStrainDiagnosticRequest` | Record physical admissibility and constraint checks. |
 | class | `HistoryRequest` | Evaluate one scientific quantity on every accepted output frame. |
@@ -588,6 +594,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `ensure_output_dir(path: Path, comm: MPI.Comm) -> None` | Create an output directory once, then synchronize all ranks. |
 | class | `CSVLogger` | Rank-zero CSV writer for time histories and scalar diagnostics. |
 | class | `XDMFTimeSeries(path: Path, domain, mode: str = 'w') -> None` | Small context manager for writing a mesh and time-dependent fields. |
+| class | `ParaViewTimeSeries(path: Path, domain, mode: str = 'w') -> None` | Collective VTK/PVD series with one geometry carrying all fields. |
 | class | `ResultWriter(path: Path, domain, fields = (), mode: str = 'w') -> None` | Named result writer for one mesh and a stable field list. |
 | function | `interpolate_for_xdmf(field, *, degree: int = 1, name: str \| None = None)` | Interpolate a field to an XDMF-friendly Lagrange output space. |
 
@@ -662,9 +669,11 @@ and evidence remain in the linked guides and scientific function reference.
 | Kind | Public object | Purpose |
 | --- | --- | --- |
 | class | `CheckpointPolicy` | Automatic accepted-increment checkpoint cadence for transient steps. |
-| function | `every(increments: int, *, directory = 'checkpoints', final: bool = True, prefix: str \| None = None, keep_last: int \| None = None) -> CheckpointPolicy` | Create an automatic checkpoint policy for accepted time increments. |
-| function | `save_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, completed_steps: int, state: dict[str, object], accepted_times = (), execution_events = (), history_records = ())` | Write one partition-bound transient restart and return its manifest. |
+| function | `every(increments: int, *, directory = 'checkpoints', final: bool = True, prefix: str \| None = None, keep_last: int \| None = None, portable: bool = False) -> CheckpointPolicy` | Create an automatic checkpoint policy for accepted time increments. |
+| function | `save_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, completed_steps: int, state: dict[str, object], accepted_times = (), execution_events = (), history_records = (), portable: bool = False)` | Write a transient restart, optionally with partition-independent state. |
 | function | `load_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, state: dict[str, object]) -> dict[str, object]` | Restore a transient state after validating its scientific identity. |
+| function | `function_portable_identity(function) -> dict[str, object]` | Return an MPI-partition-independent identity for a nodal field. |
+| function | `mesh_portable_identity(domain) -> dict[str, object]` | Hash cell geometry independently of local numbering and partition. |
 | function | `function_partition_identity(function) -> dict[str, object]` | Return a JSON-safe identity for one field on one mesh partition. |
 | function | `atomic_savez(path, **arrays) -> Path` | Atomically publish one NumPy archive in its destination directory. |
 | function | `atomic_write_text(path, content: str) -> Path` | Atomically publish UTF-8 text in its destination directory. |

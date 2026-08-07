@@ -61,6 +61,39 @@ def test_shared_quadrature_transaction_commits_and_rolls_back_atomically():
     np.testing.assert_allclose(trial_a.values, [5.0, 6.0])
 
 
+def test_integration_point_recovery_is_weighted_and_traceable():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    source = constitutive.QuadratureField.create(
+        domain,
+        name="PEEQ",
+        degree=3,
+    )
+    values = np.arange(source.values.size, dtype=float).reshape(source.values.shape)
+    source.assign(values)
+
+    recovered = results.recover_integration_point_field(
+        source,
+        name="PEEQ_CELL",
+    )
+    expected = np.einsum(
+        "p,cp->c",
+        source.weights / np.sum(source.weights),
+        values.reshape((-1, len(source.points))),
+    )
+
+    np.testing.assert_allclose(recovered.field.x.array, expected)
+    assert recovered.location == "cells"
+    assert recovered.processing["source_position"] == "integration_points"
+    assert recovered.processing["method"] == "quadrature_weighted_cell_average"
+    assert recovered.processing["material_boundary_averaging"] is False
+
+
 def test_linear_materials_reject_nonphysical_parameters():
     with pytest.raises(ValueError, match="young"):
         ElasticIsotropicProperties("bad", 0.0, 1.0, 0.3)

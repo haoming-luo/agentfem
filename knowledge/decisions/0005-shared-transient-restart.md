@@ -22,16 +22,19 @@ history the state belongs to.
    mesh/function-space identity, prior evidence, and one state shard per MPI
    rank. An incompatible procedure, time increment, total step count, MPI size,
    mesh partition, or field layout is rejected before state mutation.
-4. Schema v2 publishes generation-specific state shards before atomically
+4. Schema v2/v3 publishes generation-specific state shards before atomically
    replacing the manifest. Every shard records its byte size and SHA-256
    digest, so interruption leaves the previous manifest intact and silent
    corruption is rejected collectively. The loader remains compatible with
    schema v1.
-5. The checkpoint is deliberately `portable=false`: it supports serial and
-   same-partition MPI restart. Its identity includes local topology as well as
-   geometry and function layout. Cross-partition portability requires stable
-   global mesh/dof/cell and quadrature identities and is a separate acceptance
-   gate.
+5. Schema v3 keeps rank-local shards as the default and adds an explicit
+   `portable=True` route for nodal transient state. The portable companion is
+   keyed by bounds-scaled physical dof coordinates and block components, and
+   validates a partition-independent cell-geometry hash before state mutation.
+   It supports restart with a different MPI partition or rank count. Stateful
+   J2/creep quadrature data are not covered by this nodal contract: they still
+   require stable global cell, quadrature-point, material-region, and state-
+   layout identities.
 6. A resumed step may write a truthful continuation XDMF/HDF5 segment through
    `solve_result(output=...)`. Result metadata records the segment start time;
    a completed step still refuses to fabricate unrecorded earlier frames.
@@ -56,8 +59,9 @@ history the state belongs to.
   execution trace or silently resetting its time axis.
 - GUI, CLI, campaign, and agent clients can inspect one restart schema rather
   than special-case each time integrator.
-- Same-partition MPI restart is useful now, while the manifest states exactly
-  why it is not yet portable to another process count.
+- Same-partition MPI restart retains its scalable rank-shard fast path. An
+  opt-in root-gathered NPZ companion provides laboratory-scale cross-partition
+  restart without pretending to be the final parallel-HDF5 storage design.
 - Interrupted writes and corrupted state shards fail explicitly rather than
   silently mutating fields.
 - Compact sensors and engineering histories can feed reports, fatigue,
@@ -80,3 +84,5 @@ history the state belongs to.
 - shared heat, Standard, and Explicit probe-history requests;
 - custom-history continuation equivalence and changed-schema rejection;
 - serial and two-rank bounded retention with restart-source preservation.
+- two-rank portable heat checkpoint continued on one rank and compared with an
+  uninterrupted one-rank reference.

@@ -34,6 +34,7 @@ REQUIRED_WHEEL_MEMBERS = (
     "agentfem/provenance.py",
     "agentfem/results/core.py",
     "agentfem/results/execution.py",
+    "agentfem/results/recovery.py",
     "agentfem/cli.py",
     "agentfem/project.py",
     "agentfem/upgrades.py",
@@ -50,6 +51,9 @@ REQUIRED_WHEEL_MEMBERS = (
     "agentfem/surrogates/pinn_torch.py",
     "agentfem/surrogates/training.py",
     "agentfem/knowledge/catalog.json",
+    "agentfem/knowledge/benchmarks/creep_abaqus_constant_stress.json",
+    "agentfem/knowledge/cards/integration_point_recovery.json",
+    "agentfem/knowledge/cards/transient_checkpoint_portability.json",
     "agentfem/materials/data/steel_generic.json",
 )
 FORBIDDEN_DISTRIBUTION_PARTS = ("__pycache__",)

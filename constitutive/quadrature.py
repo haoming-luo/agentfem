@@ -126,6 +126,7 @@ class QuadratureField:
 
     function: object
     points: np.ndarray
+    weights: np.ndarray
     value_shape: tuple[int, ...]
 
     @classmethod
@@ -139,7 +140,7 @@ class QuadratureField:
         scheme: str = "default",
     ):
         shape = tuple(value_shape)
-        points, _ = basix.make_quadrature(
+        points, weights = basix.make_quadrature(
             domain.basix_cell(),
             int(degree),
             rule=getattr(basix.QuadratureType, scheme),
@@ -148,16 +149,13 @@ class QuadratureField:
             domain.basix_cell(),
             value_shape=shape,
             points=points,
-            weights=basix.make_quadrature(
-                domain.basix_cell(),
-                int(degree),
-                rule=getattr(basix.QuadratureType, scheme),
-            )[1],
+            weights=weights,
         )
         space = fem.functionspace(domain, element)
         return cls(
             function=fem.Function(space, name=name),
             points=np.asarray(points),
+            weights=np.asarray(weights),
             value_shape=shape,
         )
 
@@ -216,7 +214,12 @@ class QuadratureField:
         self.function.x.scatter_forward()
 
     def cell_average(self, *, name: str | None = None):
-        """Project quadrature values to an XDMF-friendly DG0 cell field."""
+        """Recover quadrature values as weighted DG0 cell averages.
+
+        This is a discontinuous scientific field, not nodal extrapolation or
+        contour smoothing. The reference-cell quadrature weights are retained
+        explicitly instead of assuming that every rule has equal weights.
+        """
 
         domain = self.function.function_space.mesh
         element = (
@@ -228,9 +231,11 @@ class QuadratureField:
             fem.functionspace(domain, element),
             name=name or self.function.name,
         )
-        averages = self.values.reshape(
+        point_values = self.values.reshape(
             (self._cell_count(), len(self.points), self.component_count)
-        ).mean(axis=1)
+        )
+        normalized_weights = self.weights / np.sum(self.weights)
+        averages = np.einsum("p,cpi->ci", normalized_weights, point_values)
         block_size = int(output.function_space.dofmap.bs)
         for cell in range(self._cell_count()):
             dofs = output.function_space.dofmap.cell_dofs(cell)

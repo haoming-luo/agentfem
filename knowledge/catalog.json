@@ -15,6 +15,13 @@
       "title": "Static-elasticity campaign to guarded surrogate pipeline"
     },
     {
+      "id": "agentfem.benchmark.creep_abaqus_constant_stress",
+      "physics": "three-dimensional small-strain Mises time-hardening power-law creep",
+      "source": "knowledge/benchmarks/creep_abaqus_constant_stress.json",
+      "status": "automated_external_verification",
+      "title": "Official Abaqus time-hardening constant-stress creep case"
+    },
+    {
       "id": "agentfem.benchmark.creep_damage_material_paths",
       "physics": "Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection",
       "source": "knowledge/benchmarks/creep_damage_material_paths.json",
@@ -278,6 +285,24 @@
       "title": "Local coordinates and reference-point continuum coupling"
     },
     {
+      "id": "agentfem.workflow.integration_point_recovery",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.results.FieldRecovery",
+        "agentfem.results.cell_average_recovery",
+        "agentfem.results.recover_integration_point_field"
+      ],
+      "related_cards": [
+        "agentfem.workflow.standard_result_projection",
+        "agentfem.material.j2_global_plasticity",
+        "agentfem.material.global_implicit_creep"
+      ],
+      "source": "knowledge/cards/integration_point_recovery.json",
+      "status": "supported",
+      "summary": "Converts J2 and creep quadrature evidence to separately named weighted DG0 cell fields without nodal extrapolation, interelement smoothing, or material-boundary averaging.",
+      "title": "Traceable integration-point field recovery"
+    },
+    {
       "id": "agentfem.workflow.observation_grid_learning",
       "kind": "workflow",
       "public_api": [
@@ -391,6 +416,7 @@
         "agentfem.results.reaction_resultant",
         "agentfem.results.external_force_resultant",
         "agentfem.results.static_force_balance",
+        "agentfem.results.static_work_balance",
         "agentfem.mesh.tagged_boundary_region",
         "agentfem.diagnostics.linear_static_energy"
       ],
@@ -419,6 +445,25 @@
       "status": "supported",
       "summary": "One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve.",
       "title": "Sequential thermoelastic analysis"
+    },
+    {
+      "id": "agentfem.workflow.transient_checkpoint_portability",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.checkpointing.every",
+        "agentfem.checkpointing.save_transient_checkpoint",
+        "agentfem.checkpointing.load_transient_checkpoint",
+        "agentfem.checkpointing.mesh_portable_identity",
+        "agentfem.checkpointing.function_portable_identity"
+      ],
+      "related_cards": [
+        "agentfem.workflow.solution_procedures",
+        "agentfem.workflow.result_field_sampling"
+      ],
+      "source": "knowledge/cards/transient_checkpoint_portability.json",
+      "status": "supported",
+      "summary": "Adds an opt-in coordinate-keyed nodal state beside fast MPI rank shards so a supported transient analysis can restart with a different MPI partition or rank count.",
+      "title": "Portable transient checkpoint state"
     }
   ],
   "schema": "agentfem.scientific-function-catalog",

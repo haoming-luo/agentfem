@@ -207,6 +207,20 @@ _BENCHMARKS = (
         automated_test="tests/test_p1_platform.py -k global_implicit_creep",
     ),
     BenchmarkSpec(
+        identifier="creep_abaqus_constant_stress",
+        capability="power_law_creep",
+        level="finite_element",
+        reference="knowledge/benchmarks/creep_abaqus_constant_stress.json",
+        criterion=(
+            "the global 3D time-hardening creep path retains the official held "
+            "stress and approaches the published closed-form creep strain"
+        ),
+        automated_test=(
+            "tests/test_p1_platform.py -k official_abaqus_constant_stress"
+        ),
+        status="external_verification",
+    ),
+    BenchmarkSpec(
         identifier="creep_damage_material_paths",
         capability="creep_damage",
         level="material_point",

@@ -270,8 +270,18 @@ MPI-global residual resultant on one named strong-Dirichlet boundary. Omitting
 `on` retains the whole-field sum. Affine MPC, weak, and contact reactions
 deliberately require separate definitions. For proportional linear
 loading, `diagnostics.linear_static_energy(...)` reports strain energy,
-external work, and their closure; non-zero prescribed displacements require
-reaction work in a displacement-control-specific history.
+external work, and their closure. `results.static_work_balance(...)` extends
+that contract to non-zero strong prescribed motion by integrating the
+conjugate reaction along a proportional path. Ordinary model-generated static
+solid results record natural-load work, prescribed-motion work, total external
+work, strain energy, and their closure automatically.
+
+Affine MPC reactions must be defined from the dual of the reduced constraint
+or from a declared macro-motion mode; summing eliminated slave residuals is
+not invariant to the chosen elimination graph. Weak-constraint reactions are
+consistent boundary tractions/fluxes from the weak form. Until those dual
+consumers are implemented, AgentFEM marks their work balance unavailable
+instead of applying the strong-Dirichlet formula.
 
 A model-generated linear static solid also records force equilibrium without
 extra application code:
