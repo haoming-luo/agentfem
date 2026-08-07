@@ -389,14 +389,14 @@ def plane_stress_thickness_stretch_from_gradient(
     F,
     properties: PlaneStressNeoHookeanProperties,
     *,
-    iterations: int = 3,
+    iterations: int = 2,
 ):
     """Return the local thickness stretch satisfying ``P33 = 0``.
 
     Newton iterations are embedded in the UFL expression.  The initial value
     is the infinitesimal plane-stress contraction continued multiplicatively.
-    Three iterations give tight closure on the verified deformation range
-    without creating an impractically large generated UFL kernel.  The
+    Two iterations give tight closure on the verified deformation range
+    while keeping automatic differentiation portable across FFCx versions. The
     independent numerical material-point oracle iterates to tolerance.
     """
 
@@ -422,12 +422,7 @@ def plane_stress_thickness_stretch_from_gradient(
             2.0 * properties.mu * thickness
             + properties.lambda_ / thickness
         )
-        candidate = thickness - residual / derivative
-        thickness = ufl.conditional(
-            ufl.gt(candidate, 0.0),
-            candidate,
-            0.5 * thickness,
-        )
+        thickness = thickness - residual / derivative
     return thickness
 
 
