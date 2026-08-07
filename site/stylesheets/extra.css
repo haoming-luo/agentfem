@@ -113,9 +113,20 @@
   font-weight: 650;
 }
 
-.md-nav__item .md-nav__link--active {
-  color: var(--af-blue);
+.md-nav__link[tabindex="0"] {
   font-weight: 650;
+}
+
+.md-nav__item .md-nav__link--active {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--af-blue) 9%, transparent),
+    transparent 88%
+  );
+  border-radius: 0.12rem;
+  box-shadow: inset 0.12rem 0 var(--af-blue);
+  color: var(--af-blue);
+  font-weight: inherit;
 }
 
 /* Replace the browser's select-like focus ring on expandable navigation rows. */
@@ -141,14 +152,31 @@
   height: 0;
 }
 
-.af-home-logo {
+.af-home-lead {
+  align-items: center;
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
   margin: 0 0 1rem;
+  padding: 0 0 1.35rem;
 }
 
-.af-home-logo img {
+.af-home-logo {
   display: block;
   height: auto;
-  width: 5.5rem;
+  width: 7.5rem;
+}
+
+.md-typeset .af-home-lead__copy h1 {
+  margin-bottom: 0.45rem;
+}
+
+.md-typeset .af-home-lead__copy p {
+  color: var(--af-muted);
+  font-size: 0.9rem;
+  line-height: 1.65;
+  margin: 0;
+  max-width: 42rem;
 }
 
 .md-typeset {
@@ -343,8 +371,8 @@
   border-top: 1px solid var(--af-rule);
   color: var(--af-muted);
   font-size: 0.75rem;
-  margin: 1.25rem 0 2rem;
-  padding: 0.65rem 0;
+  margin: 0 0 1.6rem;
+  padding: 0.55rem 0;
 }
 
 .af-project-meta a {
@@ -407,11 +435,23 @@ mjx-container[jax="CHTML"][display="true"] {
 }
 
 @media screen and (max-width: 48rem) {
-  .af-home-logo img {
-    width: 4.5rem;
+  .af-home-lead {
+    gap: 1rem;
+    grid-template-columns: 5.25rem minmax(0, 1fr);
+    padding-bottom: 1rem;
+  }
+
+  .af-home-logo {
+    width: 5.25rem;
+  }
+
+  .md-typeset .af-home-lead__copy p {
+    font-size: 0.8rem;
   }
 
   .md-content__inner {
+    margin-left: 0.8rem;
+    margin-right: 0.8rem;
     padding-top: 1.3rem;
   }
 
@@ -430,6 +470,17 @@ mjx-container[jax="CHTML"][display="true"] {
   .md-typeset table:not([class]) {
     display: block;
     overflow-x: auto;
+  }
+}
+
+@media screen and (max-width: 36rem) {
+  .af-home-lead {
+    gap: 0.55rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .af-home-logo {
+    width: 5.75rem;
   }
 }
 

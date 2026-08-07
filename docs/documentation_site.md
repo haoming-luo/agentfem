@@ -43,6 +43,25 @@ visual language is deliberately that of a reference manual:
 
 The project logo identifies the manual; it is not used as a decorative hero.
 
+## Page and navigation boundaries
+
+Pages are divided by the question a reader is trying to answer, not by an
+arbitrary word count. A tutorial remains one continuous page when its steps
+form one executable workflow; a reference page is split when unrelated
+domains, an unscannable contents list, or slow rendering makes lookup harder.
+
+The primary navigation therefore exposes short task-oriented labels and groups
+theory separately from function and API lookup. Internal audits remain under
+the collapsed Project section. The generated scientific-function and Python
+API references currently retain stable single-page indexes because tests,
+knowledge cards, and external links address their entries directly. When those
+indexes are split by domain, the original anchors must remain available through
+stable redirects rather than breaking existing human or agent references.
+
+Footer previous/next links provide sequential reading. Numbered pagination is
+not added to ordinary manual pages because it hides context and makes technical
+search and citation less predictable.
+
 ## Scientific page contract
 
 A mature material, analysis procedure, element, load, constraint, or output

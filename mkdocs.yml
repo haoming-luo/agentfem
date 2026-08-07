@@ -30,6 +30,8 @@ theme:
         icon: material/weather-sunny
         name: Switch to light mode
   features:
+    - navigation.instant
+    - navigation.instant.progress
     - navigation.sections
     - navigation.indexes
     - navigation.path
@@ -120,14 +122,16 @@ nav:
 
   - Theory and Reference:
       - reference/index.md
-      - Theory and Conventions: reference/theory_and_conventions.md
-      - Scientific Function Reference: reference/scientific_function_reference.md
-      - Scientific Operator Contracts: operator_contracts.md
-      - Output Variables and Field Semantics: result_field_semantics.md
-      - Stable Steps and Compact Output: step_and_output_architecture.md
+      - Foundations:
+          - Theory and Conventions: reference/theory_and_conventions.md
+          - Operator Contracts: operator_contracts.md
+          - Output Variables: result_field_semantics.md
+          - Steps and Output: step_and_output_architecture.md
+      - Functions and APIs:
+          - Scientific Functions: reference/scientific_function_reference.md
+          - Python API: reference/api.md
+          - Module Map: module_map.md
       - Mesh Interoperability: mesh_interoperability.md
-      - Python API: reference/api.md
-      - Module Map: module_map.md
 
   - Extending AgentFEM:
       - extend/index.md

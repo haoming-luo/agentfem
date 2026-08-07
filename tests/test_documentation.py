@@ -50,6 +50,8 @@ def test_site_navigation_uses_scientific_manual_structure():
     assert "Engineering Notes:" in config
     assert "Theory and Conventions: reference/theory_and_conventions.md" in config
     assert "navigation.tabs" not in config
+    assert "navigation.instant" in config
+    assert "navigation.instant.progress" in config
     assert "navigation.sections" in config
     assert "search.suggest" in config
     assert "pymdownx.arithmatex" in config
@@ -74,6 +76,8 @@ def test_manual_layout_keeps_navigation_and_footer_visually_separate():
     assert "pointer-events: auto;" in stylesheet
     assert "width: min(54rem, calc(100% - 25rem));" in stylesheet
     assert ".md-footer-meta.md-typeset .md-social__link" in stylesheet
+    assert "font-weight: inherit;" in stylesheet
+    assert ".af-home-lead" in stylesheet
 
 
 def test_primary_navigation_preserves_its_scroll_position_between_pages():
@@ -90,5 +94,6 @@ def test_primary_navigation_preserves_its_scroll_position_between_pages():
 
 def test_homepage_starts_with_the_project_logo():
     homepage = (ROOT / "docs" / "index.md").read_text()
-    assert homepage.index('class="af-home-logo"') < homepage.index("# AgentFEM")
+    assert homepage.index('class="af-home-logo"') < homepage.index("<h1>AgentFEM</h1>")
+    assert 'class="af-home-lead"' in homepage
     assert "assets/images/AgentFEM_logo_transparent.png" in homepage
