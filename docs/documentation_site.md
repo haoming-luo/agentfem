@@ -1,15 +1,66 @@
 # AgentFEM documentation site
 
-AgentFEM documentation uses one knowledge base with progressive disclosure:
+AgentFEM documentation is a scientific-software manual, not a product landing
+page. Its first responsibility is to let an engineer install the software, run
+a model, inspect the equations and assumptions, find an output definition, and
+reproduce an example.
 
-1. the home page explains the product and routes each visitor;
-2. Start and Guides organize work by user goal and physical problem;
-3. Examples provide executable evidence;
-4. Reference supports precise lookup;
-5. Project preserves trust, release, audit, and design history.
+## Information architecture
 
-Internal audits remain public and searchable but do not compete with the first
-user journey.
+The public manual follows a stable progression:
+
+1. **Introduction** states the software scope and includes one complete model.
+2. **Getting Started** covers installation, project creation, execution, and
+   files produced by a run.
+3. **User Guide** is organized by analysis procedure, model definition, and
+   result workflow rather than Python module name.
+4. **Examples** provides executable cases and their numerical maturity.
+5. **Theory and Reference** contains equations, conventions, output variables,
+   scientific function cards, interoperability, and the Python API.
+6. **Extending AgentFEM** supports contributors, agent/GUI integration, and
+   custom scientific components.
+7. **Project** preserves releases, trust policy, roadmap, and engineering
+   decisions without competing with the primary user journey.
+
+This structure is informed by mature engineering software documentation:
+Gmsh separates overview, tutorials, scripting/API, options, and file formats;
+Abaqus separates analysis, constraints, elements, materials, output, theory,
+benchmarks, and verification; scientific Python manuals combine a practical
+user guide with a precise API reference.
+
+## Visual contract
+
+The site uses Material for MkDocs as a reliable documentation engine, but its
+visual language is deliberately that of a reference manual:
+
+- persistent left-hand document tree;
+- readable central text column and right-hand page contents;
+- restrained header, typography, color, borders, and status labels;
+- code, equations, tables, and result definitions as primary visual objects;
+- no full-width product hero, marketing card grid, or hidden home navigation;
+- usable narrow-screen navigation and horizontally scrollable technical tables;
+- print styles that remove site navigation and preserve the technical page.
+
+The project logo identifies the manual; it is not used as a decorative hero.
+
+## Scientific page contract
+
+A mature material, analysis procedure, element, load, constraint, or output
+page should state, where applicable:
+
+1. purpose and engineering applicability;
+2. governing equation and variable definitions;
+3. dimensional, kinematic, and constitutive assumptions;
+4. required inputs, units, and defaults;
+5. discretization, integration, and solution algorithm;
+6. available output variables and their locations;
+7. supported and incompatible combinations;
+8. tests, external benchmarks, primary references, and known limitations;
+9. a minimal public-API example.
+
+Beginner tutorials may defer derivations, but they must link to the responsible
+theory or scientific-reference page. Formula-rich reference pages should not
+force beginner pages to repeat the same equations.
 
 ## Build contract
 
@@ -26,7 +77,9 @@ It performs three tasks before the MkDocs build:
 - synchronizes the reviewed project logo into the documentation assets.
 
 The generated site is written to `site/`. Use `python build_docs.py --check` in
-CI to ensure generated references are current.
+CI to ensure generated references are current. `mkdocs build --strict` checks
+navigation and internal links. Mathematical notation is rendered through
+Arithmatex and MathJax from ordinary Markdown source.
 
 ## Local preview
 
@@ -44,12 +97,12 @@ python -m pip install -e '.[docs]'
 ## Version policy
 
 Material's Mike provider separates development documentation from immutable
-release snapshots. Ordinary CI only validates the site; publishing a version is
-an explicit release action. See [Documentation versions](project/versioning.md).
+release snapshots. Ordinary CI validates the site; publishing a version is an
+explicit release action. See [Documentation versions](project/versioning.md).
 
 ## Documentation rule
 
 Human-facing and agent-facing material must share the same public concepts.
 When a workflow concept changes, update the responsible guide, scientific card,
-machine manifest or skill rather than copying an inconsistent explanation into
-several unrelated pages.
+machine manifest, or skill rather than copying an inconsistent explanation
+into several unrelated pages.

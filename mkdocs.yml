@@ -11,6 +11,7 @@ copyright: Copyright &copy; 2026 Haoming Luo. AgentFEM is Apache-2.0 licensed.
 theme:
   name: material
   language: en
+  font: false
   logo: assets/images/AgentFEM_logo_transparent.png
   favicon: assets/images/AgentFEM_logo_transparent.png
   palette:
@@ -29,11 +30,10 @@ theme:
         icon: material/weather-sunny
         name: Switch to light mode
   features:
-    - navigation.tabs
-    - navigation.tabs.sticky
     - navigation.sections
     - navigation.indexes
     - navigation.path
+    - navigation.footer
     - navigation.top
     - navigation.tracking
     - toc.follow
@@ -59,6 +59,8 @@ markdown_extensions:
   - pymdownx.details
   - pymdownx.highlight:
       anchor_linenums: true
+  - pymdownx.arithmatex:
+      generic: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.superfences
@@ -67,6 +69,10 @@ markdown_extensions:
 
 extra_css:
   - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js
 
 extra:
   version:
@@ -81,43 +87,48 @@ extra:
   generator: false
 
 nav:
-  - Home: index.md
+  - Introduction: index.md
 
-  - Start:
+  - Getting Started:
       - get_started/index.md
       - Install and First Project: getting_started.md
       - For AI Agents: agents/index.md
 
-  - Guides:
+  - User Guide:
       - guide/index.md
-      - Solid Mechanics: guide/solid_mechanics.md
-      - Heat Transfer: guide/heat_transfer.md
-      - Dynamics and Waves: guide/dynamics.md
-      - Creep and Inelasticity: guide/creep_and_inelasticity.md
-      - Meshes, Loads, and Constraints: guide/model_setup.md
-      - Results and Post-processing: guide/results.md
-      - Simulation to Learning: guide/simulation_to_learning.md
-      - Engineering Workflows: engineering_workflows.md
-      - Nonlinear Materials: nonlinear_materials.md
-      - Nonlinear Solid Architecture: nonlinear_solid_architecture.md
-      - Thermal Stress and Creep Procedures: solution_procedures_and_thermal_creep.md
-      - Results and Campaigns: results_and_campaigns.md
+      - Analysis Procedures:
+          - Solid Mechanics: guide/solid_mechanics.md
+          - Heat Transfer: guide/heat_transfer.md
+          - Dynamics and Waves: guide/dynamics.md
+          - Creep and Inelasticity: guide/creep_and_inelasticity.md
+      - Model Definition:
+          - Meshes, Loads, and Constraints: guide/model_setup.md
+          - Engineering Workflows: engineering_workflows.md
+      - Results and Data:
+          - Results and Post-processing: guide/results.md
+          - Results and Campaigns: results_and_campaigns.md
+          - Simulation to Learning: guide/simulation_to_learning.md
+      - Nonlinear and Coupled Workflows:
+          - Nonlinear Materials: nonlinear_materials.md
+          - Nonlinear Solid Architecture: nonlinear_solid_architecture.md
+          - Thermal Stress and Creep Procedures: solution_procedures_and_thermal_creep.md
 
   - Examples:
       - examples/index.md
       - Abaqus Periodic Cell: abaqus_periodic_cell.md
 
-  - Reference:
+  - Theory and Reference:
       - reference/index.md
-      - Python API: reference/api.md
+      - Theory and Conventions: reference/theory_and_conventions.md
       - Scientific Function Reference: reference/scientific_function_reference.md
       - Scientific Operator Contracts: operator_contracts.md
-      - Result-field Semantics: result_field_semantics.md
+      - Output Variables and Field Semantics: result_field_semantics.md
       - Stable Steps and Compact Output: step_and_output_architecture.md
       - Mesh Interoperability: mesh_interoperability.md
+      - Python API: reference/api.md
       - Module Map: module_map.md
 
-  - Develop:
+  - Extending AgentFEM:
       - extend/index.md
       - Agent and GUI Integration: agent_gui_integration.md
       - API Style: api_style.md

@@ -31,4 +31,4 @@ layer.
 - [Nonlinear materials](../nonlinear_materials.md)
 - [Engineering loads and resultants](../engineering_workflows.md)
 - [Scientific function reference](../reference/scientific_function_reference.md)
-- [Example gallery](../examples/index.md#linear-solid-mechanics)
+- [Static-elasticity example](../examples/index.md#2d-static-elasticity)

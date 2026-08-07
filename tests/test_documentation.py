@@ -35,10 +35,31 @@ def test_generated_api_covers_public_workflow_objects():
     assert "SimulationResult" in reference
 
 
-def test_site_navigation_uses_progressive_disclosure():
+def test_site_navigation_uses_scientific_manual_structure():
     config = (ROOT / "mkdocs.yml").read_text()
-    for section in ("Start", "Guides", "Examples", "Reference", "Develop", "Project"):
+    for section in (
+        "Introduction",
+        "Getting Started",
+        "User Guide",
+        "Examples",
+        "Theory and Reference",
+        "Extending AgentFEM",
+        "Project",
+    ):
         assert f"  - {section}:" in config
     assert "Engineering Notes:" in config
-    assert "navigation.tabs" in config
+    assert "Theory and Conventions: reference/theory_and_conventions.md" in config
+    assert "navigation.tabs" not in config
+    assert "navigation.sections" in config
     assert "search.suggest" in config
+    assert "pymdownx.arithmatex" in config
+
+
+def test_theory_reference_states_equations_and_result_locations():
+    theory = (ROOT / "docs" / "reference" / "theory_and_conventions.md").read_text()
+    assert "## Static equilibrium" in theory
+    assert "## Structural dynamics" in theory
+    assert "## J2 plasticity and creep state" in theory
+    assert "## Result locations and recovery" in theory
+    assert r"\mathbf{M}\ddot{\mathbf{u}}" in theory
+    assert "Integration points" in theory

@@ -27,4 +27,4 @@ loads, fields, and results.
 
 - [Scientific operator contracts](../operator_contracts.md)
 - [Stable steps and output](../step_and_output_architecture.md)
-- [Example gallery](../examples/index.md#waves-and-dynamics)
+- [Wave-packet example](../examples/index.md#wave-packet-with-an-inclusion)

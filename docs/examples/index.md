@@ -1,104 +1,135 @@
-# Example gallery
+# Examples
 
-Examples are organized by the engineering question they answer. Release
-workflows are executable assets with numerical contracts; exploratory examples
-are marked separately rather than presented as equally mature.
+Examples are executable parts of the software, not screenshots of possible
+features. Each example identifies the physical problem, numerical route,
+important output, and present maturity. Release examples carry numerical
+contracts; engineering examples exercise broader workflows that still require
+problem-specific qualification.
 
-## Linear solid mechanics
+## Example index
 
-<div class="grid cards" markdown>
+| Example | Physics and procedure | Maturity |
+| --- | --- | --- |
+| [2D static elasticity](#2d-static-elasticity) | Plane-strain linear solid, direct linear solve | Release |
+| [Transient heat transfer](#transient-heat-transfer) | Heat equation, backward Euler | Release |
+| [Wave packet with an inclusion](#wave-packet-with-an-inclusion) | Heterogeneous solid wave, explicit central difference | Release |
+| [Abaqus periodic hyperelastic cell](#abaqus-periodic-hyperelastic-cell) | Imported 3D quadratic mesh, equations, finite strain | Engineering |
+| [Implicit creep relaxation](#implicit-creep-relaxation) | 3D power-law creep, global/local Newton and cutback | Engineering |
+| [Elasticity surrogate campaign](#elasticity-surrogate-campaign) | Repeated FEM, accepted dataset, surrogate and fallback | Release |
 
--   <span class="af-status af-status--release">Release</span>
-    **2D static elasticity**
+## 2D static elasticity
 
-    A compact cantilever model demonstrating study, mesh, regions, displacement,
-    material, constraints, traction, solve, standard fields, and verification.
+<span class="af-status af-status--release">Release</span>
 
-    [:octicons-mark-github-16: Source](https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_2d.py)
+A compact cantilever demonstrates Study, mesh, named boundaries, displacement,
+isotropic elasticity, strong constraints, traction, a linear step, standard
+`U/S/E/MISES` output, a Golden observable, and release-quality verification.
 
-</div>
+```bash
+python examples/static_elasticity_2d.py
+```
 
-## Heat transfer
+[Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_2d.py)
+· [Linear-solid guide](../guide/solid_mechanics.md)
+· [Golden benchmark record](https://github.com/haoming-luo/agentfem/blob/main/knowledge/benchmarks/linear_static_cantilever.json)
 
-<div class="grid cards" markdown>
+## Transient heat transfer
 
--   <span class="af-status af-status--release">Release</span>
-    **Transient heat transfer**
+<span class="af-status af-status--release">Release</span>
 
-    Implicit time integration, structured progress, temperature histories, and
-    unified field output.
+This case exercises capacity and conduction operators, backward-Euler time
+integration, accepted-increment progress, temperature histories, unified field
+output, and a release Golden observable.
 
-    [:octicons-mark-github-16: Source](https://github.com/haoming-luo/agentfem/blob/main/examples/transient_heat_2d.py)
+```bash
+python examples/transient_heat_2d.py
+```
 
--   <span class="af-status af-status--engineering">Engineering</span>
-    **Hot-wall creep assessment**
+[Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/transient_heat_2d.py)
+· [Heat-transfer guide](../guide/heat_transfer.md)
 
-    A thermal/thermoelastic workflow followed by an explicitly identified local
-    creep assessment.
+## Wave packet with an inclusion
 
-    [:octicons-mark-github-16: Source](https://github.com/haoming-luo/agentfem/blob/main/examples/creep_hot_wall_assessment.py)
+<span class="af-status af-status--release">Release</span>
 
-</div>
+An explicit wave propagates through a heterogeneous two-dimensional solid. The
+case combines material regions, a time-dependent source, boundary models,
+stable time integration, probes, progress events, and time-series fields.
 
-## Waves and dynamics
+```bash
+python examples/wave_packet_inclusion_2d.py
+```
 
-<div class="grid cards" markdown>
+[Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/wave_packet_inclusion_2d.py)
+· [Dynamics and waves](../guide/dynamics.md)
 
--   <span class="af-status af-status--release">Release</span>
-    **Wave packet and material inclusion**
+## Abaqus periodic hyperelastic cell
 
-    Explicit wave propagation through a heterogeneous domain with source,
-    boundary models, progress, histories, and time-series fields.
+<span class="af-status af-status--engineering">Engineering</span>
 
-    [:octicons-mark-github-16: Source](https://github.com/haoming-luo/agentfem/blob/main/examples/wave_packet_inclusion_2d.py)
+This workflow imports an Abaqus C3D10 mesh and equation constraints, preserves
+quadratic-node and element-formulation identity, builds distributed periodic
+constraints, solves finite-strain Neo-Hookean loading, and writes homogenized
+and visualization results.
 
-</div>
+Read the [complete periodic-cell workflow](../abaqus_periodic_cell.md) before
+running the case; it explains the source files, element mapping, periodic
+semantics, nonlinear controls, and output.
 
-## Nonlinear solids
+[Source directory](https://github.com/haoming-luo/agentfem/tree/main/examples/abaqus_c3d10_periodic_cell)
+· [Finite-strain theory](../reference/theory_and_conventions.md#compressible-neo-hookean-finite-strain)
 
-<div class="grid cards" markdown>
+## Implicit creep relaxation
 
--   <span class="af-status af-status--engineering">Engineering</span>
-    **Abaqus C3D10 periodic hyperelastic cell**
+<span class="af-status af-status--engineering">Engineering</span>
 
-    External quadratic tetrahedra, equation constraints, distributed
-    periodicity, finite strain, homogenized response, and visualization output.
+A three-dimensional isothermal power-law creep problem exercises quadrature
+state, backward-Euler constitutive integration, analytical consistent tangent,
+physical-time automatic incrementation, rollback/cutback, creep output, energy
+evidence, and restart.
 
-    [:octicons-book-24: Workflow](../abaqus_periodic_cell.md)
-    [:octicons-mark-github-16: Source](https://github.com/haoming-luo/agentfem/tree/main/examples/abaqus_c3d10_periodic_cell)
+```bash
+python examples/implicit_creep_relaxation_3d.py
+```
 
-</div>
+[Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/implicit_creep_relaxation_3d.py)
+· [Creep and inelasticity](../guide/creep_and_inelasticity.md)
+· [Constitutive equations](../reference/theory_and_conventions.md#j2-plasticity-and-creep-state)
 
-## Creep and time-dependent solids
+## Hot-wall creep assessment
 
-<div class="grid cards" markdown>
+<span class="af-status af-status--engineering">Engineering</span>
 
--   <span class="af-status af-status--engineering">Engineering</span>
-    **3D implicit creep relaxation**
+The hot-wall case performs a thermal/thermoelastic finite-element workflow and
+then an explicitly identified local creep assessment. It demonstrates how the
+software distinguishes a global field solution from a material-point or
+assessment-level model.
 
-    Global isothermal power-law creep with quadrature state, physical-time
-    cutback, standard creep output, energy evidence, and serial restart.
+```bash
+python examples/creep_hot_wall_assessment.py
+```
 
-    [:octicons-mark-github-16: Source](https://github.com/haoming-luo/agentfem/blob/main/examples/implicit_creep_relaxation_3d.py)
+[Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/creep_hot_wall_assessment.py)
 
-</div>
+## Elasticity surrogate campaign
 
-## Simulation to learning
+<span class="af-status af-status--release">Release</span>
 
-<div class="grid cards" markdown>
+The campaign varies declared parameters, runs the same finite-element model,
+records failures and evidence, creates an accepted scientific dataset, trains
+a surrogate, checks its applicability domain, and retains an FEM fallback.
 
--   <span class="af-status af-status--release">Release</span>
-    **Elasticity surrogate campaign**
+```bash
+python examples/static_elasticity_surrogate_campaign.py
+```
 
-    Parameter sampling, repeated FEM runs, dataset acceptance, surrogate
-    validation, applicability guard, and FEM fallback.
+[Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_surrogate_campaign.py)
+· [Simulation to learning](../guide/simulation_to_learning.md)
 
-    [:octicons-mark-github-16: Source](https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_surrogate_campaign.py)
+## Reading an example
 
-</div>
-
-## Reading an example well
-
-Do not copy only the solver call. Read the study, regions, material assumptions,
-loads and constraints, output request, result policy, and benchmark evidence as
-one scientific workflow.
+Do not copy only the final solver call. Read the Study, dimensional assumption,
+mesh and regions, material data, loads and constraints, procedure, output
+request, result policy, and benchmark evidence as one scientific workflow.
+When adapting an example, any change to physics, discretization, material law,
+or loading may require new verification evidence.

@@ -1,140 +1,162 @@
----
-title: AgentFEM
-hide:
-  - navigation
-  - toc
-  - path
----
+# AgentFEM
 
-<section class="af-hero">
-  <div class="af-hero-copy">
-    <span class="af-kicker">OPEN-SOURCE · AI-NATIVE · FINITE ELEMENT COMPUTING</span>
-    <h1>Finite-element workflows that humans and agents can build together.</h1>
-    <p>
-      AgentFEM turns engineering intent into readable models, dependable
-      simulation workflows, inspectable results, and learning-ready data—without
-      hiding the numerical mechanics.
-    </p>
-    <div class="af-actions">
-      <a class="md-button md-button--primary" href="get_started/">Run your first simulation</a>
-      <a class="md-button" href="examples/">Explore examples</a>
-    </div>
-  </div>
-  <div class="af-hero-mark">
-    <img src="assets/images/AgentFEM_logo_transparent.png" alt="AgentFEM">
-  </div>
-</section>
+AgentFEM is an open-source platform for **AI-native finite-element computing**.
+It provides a readable engineering workflow for defining, solving, inspecting,
+and reusing finite-element models while keeping the numerical formulation and
+result evidence accessible.
 
-## Choose your path
+<div class="af-project-meta" markdown>
 
-<div class="grid cards af-paths" markdown>
-
--   **I solve engineering problems**
-
-    Build solid, thermal, dynamic, and time-dependent analyses through a
-    workflow that reads like finite-element modeling rather than backend glue.
-
-    [:octicons-arrow-right-24: Start as an engineer](get_started/index.md)
-
--   **I connect simulation and AI**
-
-    Run reproducible parameter campaigns, collect scientific datasets, connect
-    PyTorch or your own models, and retain a high-fidelity FEM fallback.
-
-    [:octicons-arrow-right-24: See simulation-to-learning](guide/simulation_to_learning.md)
-
--   **I build tools or operate as an agent**
-
-    Use the same public Python workflow and structured CLI as human users, with
-    machine-readable results, failures, documentation, and scientific evidence.
-
-    [:octicons-arrow-right-24: Open the agent entry](agents/index.md)
+[GitHub](https://github.com/haoming-luo/agentfem) ·
+[PyPI](https://pypi.org/project/agentfem/) ·
+[Installation](getting_started.md) ·
+[Examples](examples/index.md) ·
+[Python API](reference/api.md) ·
+[Apache-2.0 license](licensing.md)
 
 </div>
 
-## One workflow, several scales
+The public workflow follows the concepts used in an engineering analysis:
 
 ```text
 Study → Model → Mesh/Regions → Fields → Materials → Loads/Constraints
-      → Solution Step → Results/Verification → Campaign/Data/Learning
+      → Solution Step → Results/Verification
 ```
 
-The same model can support one engineering analysis, a distributed parameter
-campaign, a reusable dataset, or an agent-operated workflow. Advanced users can
-still reach UFL, DOLFINx, PETSc, MPI, and custom constitutive implementations.
+## Quick installation
 
-## What you can do today
+AgentFEM currently expects a compatible FEniCSx/PETSc/MPI environment. The
+recommended public-alpha installation is:
 
-<div class="grid cards af-capabilities" markdown>
+```bash
+mamba create -n agentfem-env -c conda-forge \
+  python=3.11 fenics-dolfinx=0.11 mpich mpi4py petsc4py h5py
+mamba activate agentfem-env
+python -m pip install --pre agentfem
+agentfem doctor
+```
 
--   **Readable engineering models**
+Windows users should currently use WSL2. Optional mesh, visualization, and
+machine-learning integrations are described in the
+[installation and platform guide](getting_started.md).
 
-    Studies, regions, materials, fields, loads, constraints, solution steps,
-    outputs, and verification remain explicit.
+## First finite-element model
 
--   **Linear and nonlinear solids**
+The following complete example solves a two-dimensional linear-elastic
+cantilever. The left boundary is fixed and a traction is applied on the right.
 
-    Linear elasticity, thermoelasticity, Neo-Hookean finite strain, mixed
-    displacement-pressure hyperelasticity, and a stateful small-strain J2 path.
+```python
+from mpi4py import MPI
 
--   **Heat, waves, and dynamics**
+from agentfem import fields, mesh, models, studies
+from agentfem.constitutive import elasticity
 
-    Steady and transient heat transfer, implicit structural dynamics, and
-    central-difference explicit wave workflows.
+study = studies.static_solid(
+    dimension=2,
+    assumption="plane_stress",
+)
+domain = mesh.rectangle(
+    (0.0, 0.0),
+    (1.0, 0.2),
+    (40, 8),
+    comm=MPI.COMM_WORLD,
+    cell_type="triangle",
+)
+model = models.create(study=study, mesh=domain, name="cantilever")
 
--   **Engineering results you can inspect**
+u = model.field(fields.displacement(domain, degree=1))
+model.material(
+    elasticity.isotropic_elastic(
+        young=210.0e9,
+        poisson=0.30,
+        density=7800.0,
+    )
+)
 
-    Unified fields, histories, resultants, progress, checkpoints, manifests,
-    quality policies, Golden benchmarks, and explicit failure states.
+left = mesh.face(domain, axis="x", value=0.0, name="left", tag=1)
+right = mesh.face(domain, axis="x", value=1.0, name="right", tag=2)
+model.fix(u, on=left)
+model.traction((0.0, -1.0e6), on=right)
 
--   **External meshes and parallel execution**
+model.check()
+result = model.step(target=u).solve_result(output="cantilever.xdmf")
+result.verify("engineering").require()
+result.write_manifest("cantilever.result.json")
 
-    XDMF, optional Gmsh and meshio routes, Abaqus quadratic tetrahedra and
-    equation constraints, PETSc, MPI, and distributed workflows.
+print(model.tree())
+print(result)
+```
 
--   **Simulation to learning**
+Save the code as `cantilever.py` and run:
 
-    Campaigns, accepted datasets, NumPy/PyTorch adapters, surrogate baselines,
-    applicability guards, and FEM fallback.
+```bash
+python cantilever.py
+```
 
-</div>
+The analysis produces displacement and standard stress/strain fields in
+XDMF/HDF5, together with a structured result manifest containing quantities,
+artifacts, solver evidence, and verification state. The repository's
+[release example](https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_2d.py)
+adds a Golden benchmark and explicit release-quality checks.
 
-## Flagship workflows
+## User guide
 
-<div class="grid cards" markdown>
+| Topic | Start here |
+| --- | --- |
+| Create and run an installed project | [Getting started](get_started/index.md) |
+| Linear, nonlinear, and thermoelastic solids | [Solid mechanics](guide/solid_mechanics.md) |
+| Steady and transient temperature problems | [Heat transfer](guide/heat_transfer.md) |
+| Standard and Explicit structural dynamics | [Dynamics and waves](guide/dynamics.md) |
+| Plasticity, creep, state, and cutback | [Creep and inelasticity](guide/creep_and_inelasticity.md) |
+| Meshes, regions, loads, and constraints | [Model definition](guide/model_setup.md) |
+| Fields, histories, output, and post-processing | [Results](guide/results.md) |
+| Campaigns, datasets, PyTorch, and surrogates | [Simulation to learning](guide/simulation_to_learning.md) |
 
--   **A clear first solid model**
+## Theory and reference
 
-    A small cantilever shows the complete public workflow without hiding the
-    finite-element concepts.
+Engineering definitions are part of the documentation contract. The
+[theory and conventions](reference/theory_and_conventions.md) page collects the
+governing equations, kinematic conventions, analysis-procedure distinctions,
+and links to the detailed material and output definitions. The
+[scientific function reference](reference/scientific_function_reference.md)
+is generated from reviewed knowledge cards and records formulas, assumptions,
+tests, benchmarks, consumers, and known limitations.
 
-    [:octicons-code-24: View the basic example](examples/index.md#linear-solid-mechanics)
+Use the reference according to the question being asked:
 
--   **Wave propagation with an inclusion**
+- [Theory and conventions](reference/theory_and_conventions.md) — governing
+  equations, measures, signs, and analysis assumptions.
+- [Output variables and field semantics](result_field_semantics.md) — meanings
+  of `U`, `S`, `E`, `LE`, `PE`, `CE`, `MISES`, energies, recovery, and
+  visualization fields.
+- [Scientific operator contracts](operator_contracts.md) — composition of
+  \(\mathbf{K}\), \(\mathbf{M}\), \(\mathbf{C}\), \(\mathbf{F}\), residuals,
+  and tangents.
+- [Python API](reference/api.md) — public signatures and call-level lookup.
+- [Examples](examples/index.md) — executable workflows and their numerical
+  maturity.
 
-    Explicit dynamics, heterogeneous material regions, boundary models, time
-    histories, and field output in one reproducible workflow.
+## Current scope
 
-    [:octicons-code-24: View the wave example](examples/index.md#waves-and-dynamics)
+| Area | Available workflow |
+| --- | --- |
+| Solid mechanics | Linear elasticity, thermoelasticity, compressible Neo-Hookean finite strain, mixed displacement-pressure hyperelasticity, and stateful small-strain J2 plasticity |
+| Heat transfer | Steady conduction and implicit transient heat transfer |
+| Dynamics | Newmark/generalized-\(\alpha\) implicit dynamics and central-difference explicit wave propagation |
+| Time-dependent materials | Global isothermal power-law creep plus reviewed material-point creep/damage tools |
+| Mesh and constraints | Structured/XDMF meshes, optional Gmsh and meshio routes, Abaqus C3D10 import, equation constraints, and distributed periodic workflows |
+| Results and verification | Standard fields, histories, resultants, progress, checkpoints, Golden benchmarks, and explicit quality policies |
+| Simulation and learning | Parameter campaigns, scientific datasets, NumPy/PyTorch adapters, surrogate baselines, applicability guards, and FEM fallback |
 
--   **Imported 3D periodic hyperelasticity**
+Capabilities with different maturity levels are identified in the relevant
+guide and example instead of being presented as equally complete.
 
-    Abaqus mesh and equation import, quadratic tetrahedra, distributed periodic
-    constraints, finite strain, homogenized response, and visualization output.
+## Humans and agents
 
-    [:octicons-code-24: View the periodic-cell example](examples/index.md#nonlinear-solids)
+AI-native does not mean replacing finite-element computation with AI. Humans,
+scripts, IDEs, future GUIs, and AI agents operate the same public model and
+structured result contract. Advanced users can still reach UFL, DOLFINx,
+PETSc, MPI, and custom constitutive implementations when a problem requires a
+lower layer.
 
-</div>
-
-## Built for useful openness
-
-AgentFEM is open at every layer: begin with a concise engineering workflow,
-inspect the scientific and numerical evidence, and descend into reusable
-operators or the FEniCSx kernel when a problem requires it.
-
-[Read the product roadmap](product_roadmap.md){ .md-button }
-[Browse the complete reference](reference/index.md){ .md-button }
-
-<div class="af-attribution">
 AgentFEM was initiated by Haoming Luo and open-sourced on GitHub in July 2026.
-</div>

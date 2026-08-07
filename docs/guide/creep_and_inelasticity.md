@@ -23,4 +23,4 @@ silently imply a validated global analysis procedure.
 - [Thermal stress and creep procedures](../solution_procedures_and_thermal_creep.md)
 - [Nonlinear materials](../nonlinear_materials.md)
 - [Scientific trust and verification](../scientific_verification.md)
-- [Example gallery](../examples/index.md#creep-and-time-dependent-solids)
+- [Implicit-creep example](../examples/index.md#implicit-creep-relaxation)

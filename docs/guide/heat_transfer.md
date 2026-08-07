@@ -26,4 +26,4 @@ robust transient checkpointing, and coupled thermo-mechanical state transfer.
 
 - [Thermal stress and creep procedures](../solution_procedures_and_thermal_creep.md)
 - [Results and post-processing](results.md)
-- [Example gallery](../examples/index.md#heat-transfer)
+- [Transient-heat example](../examples/index.md#transient-heat-transfer)

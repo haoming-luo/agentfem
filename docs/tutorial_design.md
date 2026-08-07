@@ -95,3 +95,10 @@ Recommended vocabulary:
 
 Beginner application tutorials should be written in operator-level language.
 Weak-form expressions remain available as the transparent lower layer.
+
+Every Level 1 tutorial should link to the governing equation, constitutive law,
+solution procedure, and output-variable definitions in the reference manual. A
+tutorial may explain the physical meaning required by the example, but should
+not duplicate a derivation that belongs in a stable theory page. This keeps the
+worked case readable while exposing assumptions and conventions at the point
+where professional users need them.

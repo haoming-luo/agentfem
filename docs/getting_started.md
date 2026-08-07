@@ -197,8 +197,13 @@ result = resumed.solve_result(output="restart/continuation.xdmf")
 ```
 
 The checkpoint detects incompatible procedures, time contracts, mesh/function
-layouts, missing shards, and corrupted shards before applying state. It is
-currently valid only for the same MPI size and mesh partition. The continued
+layouts, missing shards, and corrupted shards before applying state. Fast
+rank-local shards support the same MPI size and mesh partition. For supported
+nodal transient state, `save_checkpoint(..., portable=True)` or
+`checkpointing.every(..., portable=True)` additionally writes a verified
+coordinate-keyed state that can be restored with a different MPI partition or
+rank count. Constitutive integration-point state requires a separate portable
+cell/quadrature identity and is not implied by the nodal option. The continued
 field artifact starts at the checkpoint time and is labeled as a continuation
 segment; full histories and execution evidence remain attached to the result.
 

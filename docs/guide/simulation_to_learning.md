@@ -34,4 +34,4 @@ neural-network class.
 - [Results and campaigns](../results_and_campaigns.md)
 - [AI-native campaigns and learning](../ai_native_learning.md)
 - [Digital-twin direction](../digital_twin_direction.md)
-- [Example gallery](../examples/index.md#simulation-to-learning)
+- [Surrogate-campaign example](../examples/index.md#elasticity-surrogate-campaign)
