@@ -53,8 +53,13 @@ def test_site_navigation_uses_scientific_manual_structure():
     assert "navigation.instant" in config
     assert "navigation.instant.progress" in config
     assert "navigation.sections" in config
+    assert "navigation.indexes" not in config
     assert "search.suggest" in config
     assert "pymdownx.arithmatex" in config
+    assert "Overview: examples/index.md" in config
+    assert config.index("Mesh Interoperability: mesh_interoperability.md") < config.index(
+        "Results and Data:"
+    )
 
 
 def test_theory_reference_states_equations_and_result_locations():
@@ -78,6 +83,8 @@ def test_manual_layout_keeps_navigation_and_footer_visually_separate():
     assert ".md-footer-meta.md-typeset .md-social__link" in stylesheet
     assert "font-weight: inherit;" in stylesheet
     assert ".af-home-lead" in stylesheet
+    assert ".md-nav--primary > .md-nav__title" in stylesheet
+    assert "Desktop navigation grammar" in stylesheet
 
 
 def test_primary_navigation_preserves_its_scroll_position_between_pages():

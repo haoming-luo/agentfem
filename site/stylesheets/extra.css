@@ -428,6 +428,27 @@ mjx-container[jax="CHTML"][display="true"] {
 }
 
 @media screen and (min-width: 76.25em) {
+  /* Desktop navigation grammar: chapter label -> expandable group -> page. */
+  .md-nav--primary > .md-nav__title {
+    display: none;
+  }
+
+  .md-nav--primary > .md-nav__list > .md-nav__item--section {
+    margin-top: 1.2rem;
+  }
+
+  .md-nav--primary > .md-nav__list > .md-nav__item--section:first-child {
+    margin-top: 0;
+  }
+
+  .md-nav--primary > .md-nav__list > .md-nav__item--section > .md-nav__link {
+    color: var(--af-muted);
+    font-size: 0.65rem;
+    font-weight: 650;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+  }
+
   .md-footer__inner,
   .md-footer-meta__inner {
     width: min(54rem, calc(100% - 25rem));

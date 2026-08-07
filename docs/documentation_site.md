@@ -58,6 +58,13 @@ knowledge cards, and external links address their entries directly. When those
 indexes are split by domain, the original anchors must remain available through
 stable redirects rather than breaking existing human or agent references.
 
+The sidebar uses one visual grammar throughout: muted chapter labels organize
+the manual, bold rows with chevrons expand a subsection, and regular rows open
+pages. Every multi-page chapter exposes its landing page explicitly as
+`Overview`; a chapter name never changes meaning between a link and a label.
+The redundant desktop root label is hidden, while the mobile drawer retains its
+project header and home control.
+
 Footer previous/next links provide sequential reading. Numbered pagination is
 not added to ordinary manual pages because it hides context and makes technical
 search and citation less predictable.

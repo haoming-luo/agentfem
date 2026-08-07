@@ -33,7 +33,6 @@ theme:
     - navigation.instant
     - navigation.instant.progress
     - navigation.sections
-    - navigation.indexes
     - navigation.path
     - navigation.footer
     - navigation.top
@@ -93,12 +92,12 @@ nav:
   - Introduction: index.md
 
   - Getting Started:
-      - get_started/index.md
+      - Overview: get_started/index.md
       - Install and First Project: getting_started.md
       - For AI Agents: agents/index.md
 
   - User Guide:
-      - guide/index.md
+      - Overview: guide/index.md
       - Analysis Procedures:
           - Solid Mechanics: guide/solid_mechanics.md
           - Heat Transfer: guide/heat_transfer.md
@@ -106,6 +105,7 @@ nav:
           - Creep and Inelasticity: guide/creep_and_inelasticity.md
       - Model Definition:
           - Meshes, Loads, and Constraints: guide/model_setup.md
+          - Mesh Interoperability: mesh_interoperability.md
           - Engineering Workflows: engineering_workflows.md
       - Results and Data:
           - Results and Post-processing: guide/results.md
@@ -117,11 +117,11 @@ nav:
           - Thermal Stress and Creep Procedures: solution_procedures_and_thermal_creep.md
 
   - Examples:
-      - examples/index.md
+      - Overview: examples/index.md
       - Abaqus Periodic Cell: abaqus_periodic_cell.md
 
   - Theory and Reference:
-      - reference/index.md
+      - Overview: reference/index.md
       - Foundations:
           - Theory and Conventions: reference/theory_and_conventions.md
           - Operator Contracts: operator_contracts.md
@@ -131,10 +131,9 @@ nav:
           - Scientific Functions: reference/scientific_function_reference.md
           - Python API: reference/api.md
           - Module Map: module_map.md
-      - Mesh Interoperability: mesh_interoperability.md
 
   - Extending AgentFEM:
-      - extend/index.md
+      - Overview: extend/index.md
       - Agent and GUI Integration: agent_gui_integration.md
       - API Style: api_style.md
       - Extension Rules: extension_rules.md
@@ -142,7 +141,7 @@ nav:
       - AgentFEM Skill: agents/skill.md
 
   - Project:
-      - project/index.md
+      - Overview: project/index.md
       - Product Roadmap: product_roadmap.md
       - Trust and Operations:
           - trust/index.md
