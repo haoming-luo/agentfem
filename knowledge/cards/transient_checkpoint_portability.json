@@ -22,7 +22,7 @@
     "equations": [
       {
         "label": "portable degree-of-freedom key",
-        "expression": "k_i = (quantize(x_i; bounds, tolerance), component_i)",
+        "expression": "k_i=\\left(\\operatorname{quantize}(\\mathbf{x}_i;\\,\\mathbf{b},\\tau),\\,c_i\\right)",
         "description": "Physical coordinates and block component define a deterministic key; quantization absorbs mesh-construction roundoff without changing the field value."
       }
     ],

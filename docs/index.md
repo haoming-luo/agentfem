@@ -1,3 +1,7 @@
+<div class="af-home-logo">
+  <img src="assets/images/AgentFEM_logo_transparent.png" alt="AgentFEM logo">
+</div>
+
 # AgentFEM
 
 AgentFEM is an open-source platform for **AI-native finite-element computing**.

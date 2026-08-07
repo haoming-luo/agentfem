@@ -22,7 +22,7 @@
     "equations": [
       {
         "label": "weighted cell recovery",
-        "expression": "q_e = sum_p(w_p q_ep) / sum_p(w_p)",
+        "expression": "\\bar{q}_e=\\frac{\\sum_p w_p q_{ep}}{\\sum_p w_p}",
         "description": "Reference-cell quadrature weights form one DG0 value per cell; no neighbor contributes."
       }
     ],

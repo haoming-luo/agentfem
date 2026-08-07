@@ -24,12 +24,12 @@
     "equations": [
       {
         "label": "scientific dataset",
-        "expression": "D = {(p_i, q_i, provenance_i)} for successful reviewed cases i",
+        "expression": "\\mathcal{D}=\\{(\\mathbf{p}_i,\\mathbf{q}_i,\\pi_i)\\mid i\\in\\mathcal{I}_{\\mathrm{reviewed}}\\}",
         "description": "Parameters and quantities retain names, bounds, units, shapes, case identity, and evidence."
       },
       {
         "label": "guarded prediction",
-        "expression": "q(p) = surrogate(p) in-domain; otherwise FEM fallback(p) or rejection",
+        "expression": "\\widehat{\\mathbf{q}}(\\mathbf{p})=\\begin{cases}\\mathcal{S}(\\mathbf{p}), & \\mathbf{p}\\in\\mathcal{A},\\\\ \\mathcal{F}_{\\mathrm{FEM}}(\\mathbf{p})\\;\\text{or reject}, & \\mathbf{p}\\notin\\mathcal{A}.\\end{cases}",
         "description": "A learned model never silently extrapolates beyond its declared domain."
       }
     ],

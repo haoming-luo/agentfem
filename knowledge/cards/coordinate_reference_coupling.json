@@ -20,17 +20,17 @@
     "equations": [
       {
         "label": "local-to-global vector",
-        "expression": "v_global = Q^T v_local",
+        "expression": "\\mathbf{v}_{\\mathrm{global}}=\\mathbf{Q}^{T}\\mathbf{v}_{\\mathrm{local}}",
         "description": "Rows of Q are local basis vectors expressed in global components."
       },
       {
         "label": "rigid boundary motion",
-        "expression": "u(x) = u_RP + theta x (x - x_RP)",
+        "expression": "\\mathbf{u}(\\mathbf{x})=\\mathbf{u}_{\\mathrm{RP}}+\\boldsymbol{\\theta}\\times(\\mathbf{x}-\\mathbf{x}_{\\mathrm{RP}})",
         "description": "The prescribed displacement is evaluated on every constrained boundary dof."
       },
       {
         "label": "remote resultant",
-        "expression": "integral_Gamma t dGamma = F_RP; integral_Gamma (x-x_RP) x t dGamma = M_RP",
+        "expression": "\\int_{\\Gamma}\\mathbf{t}\\,d\\Gamma=\\mathbf{F}_{\\mathrm{RP}},\\qquad \\int_{\\Gamma}(\\mathbf{x}-\\mathbf{x}_{\\mathrm{RP}})\\times\\mathbf{t}\\,d\\Gamma=\\mathbf{M}_{\\mathrm{RP}}",
         "description": "The distributing traction preserves force and moment about the named point."
       }
     ],

@@ -13,12 +13,12 @@
     "equations": [
       {
         "label": "triangle mean ratio",
-        "expression": "q = 4 sqrt(3) A / sum_e l_e^2",
+        "expression": "q=\\frac{4\\sqrt{3}\\,A}{\\sum_e l_e^2}",
         "description": "The metric is dimensionless and normalized to one."
       },
       {
         "label": "tetrahedron mean ratio",
-        "expression": "q = 12 (3 V)^(2/3) / sum_e l_e^2",
+        "expression": "q=\\frac{12(3V)^{2/3}}{\\sum_e l_e^2}",
         "description": "Six edge lengths and absolute tetrahedron volume define the metric."
       }
     ],

@@ -30,22 +30,22 @@
     "equations": [
       {
         "label": "L2 projection",
-        "expression": "integral(Omega, q_h : v_h dx) = integral(Omega, q : v_h dx) for all v_h",
+        "expression": "\\int_{\\Omega}q_h:v_h\\,dx=\\int_{\\Omega}q:v_h\\,dx\\qquad\\forall v_h",
         "description": "DG0 projection returns the cell average of a scalar, vector, or tensor expression."
       },
       {
         "label": "strong-constraint reaction",
-        "expression": "R = K u - F",
+        "expression": "\\mathbf{R}=\\mathbf{K}\\mathbf{u}-\\mathbf{F}",
         "description": "At converged free degrees of freedom R is zero to solver tolerance; prescribed degrees retain reaction entries."
       },
       {
         "label": "global static force balance",
-        "expression": "r_balance = sum(R_strong) + sum(F_assembled)",
+        "expression": "\\mathbf{r}_{\\mathrm{balance}}=\\sum\\mathbf{R}_{\\mathrm{strong}}+\\sum\\mathbf{F}_{\\mathrm{assembled}}",
         "description": "The relative error is the residual norm divided by the larger external or reaction resultant norm."
       },
       {
         "label": "proportional linear work",
-        "expression": "W_ext = 0.5 u^T F + 0.5 R_c^T ubar, U = 0.5 u^T K u",
+        "expression": "W_{\\mathrm{ext}}=\\tfrac{1}{2}\\mathbf{u}^{T}\\mathbf{F}+\\tfrac{1}{2}\\mathbf{R}_{c}^{T}\\bar{\\mathbf{u}},\\qquad U=\\tfrac{1}{2}\\mathbf{u}^{T}\\mathbf{K}\\mathbf{u}",
         "description": "Natural loads and strong prescribed values are ramped proportionally from zero; the constrained residual supplies the conjugate prescribed-motion work."
       }
     ],

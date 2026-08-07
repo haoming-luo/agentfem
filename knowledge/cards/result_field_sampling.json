@@ -25,12 +25,12 @@
     "equations": [
       {
         "label": "finite-element point evaluation",
-        "expression": "u_h(x_p) = sum_a N_a(x_p) u_a",
+        "expression": "\\mathbf{u}_h(\\mathbf{x}_p)=\\sum_a N_a(\\mathbf{x}_p)\\mathbf{u}_a",
         "description": "The containing cell supplies the local basis functions and coefficients for the requested physical point."
       },
       {
         "label": "path coordinate",
-        "expression": "s_i = ||x_i - x_0||_2",
+        "expression": "s_i=\\lVert\\mathbf{x}_i-\\mathbf{x}_0\\rVert_2",
         "description": "Straight-path samples use physical distance as the standard result-history abscissa."
       }
     ],

@@ -141,6 +141,16 @@
   height: 0;
 }
 
+.af-home-logo {
+  margin: 0 0 1rem;
+}
+
+.af-home-logo img {
+  display: block;
+  height: auto;
+  width: 5.5rem;
+}
+
 .md-typeset {
   color: var(--af-ink);
   font-size: 0.84rem;
@@ -397,6 +407,10 @@ mjx-container[jax="CHTML"][display="true"] {
 }
 
 @media screen and (max-width: 48rem) {
+  .af-home-logo img {
+    width: 4.5rem;
+  }
+
   .md-content__inner {
     padding-top: 1.3rem;
   }

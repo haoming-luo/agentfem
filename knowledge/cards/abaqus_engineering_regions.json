@@ -18,7 +18,7 @@
     "equations": [
       {
         "label": "source-to-runtime node identity",
-        "expression": "selected(x_h) iff there exists a unique source node n such that ||x_h - x_n|| <= tolerance",
+        "expression": "\\operatorname{selected}(\\mathbf{x}_h) \\iff \\exists!\\, n:\\; \\lVert\\mathbf{x}_h-\\mathbf{x}_n\\rVert \\le \\mathrm{tol}",
         "description": "The coordinate match preserves explicit source-node identity, including high-order nodes; absence or ambiguity is an error rather than a geometric selection rule."
       }
     ],

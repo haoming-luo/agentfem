@@ -23,12 +23,12 @@
     "equations": [
       {
         "label": "mixed finite-strain potential",
-        "expression": "Pi = integral(psi_iso(F) - p(J-1) - p^2/(2 kappa)) dV - W_ext",
+        "expression": "\\Pi=\\int_{\\Omega_0}\\left[\\psi_{\\mathrm{iso}}(\\mathbf{F})-p(J-1)-\\frac{p^2}{2\\kappa}\\right]dV-\\mathcal{W}_{\\mathrm{ext}}",
         "description": "Automatic differentiation supplies the coupled residual and consistent Newton tangent."
       },
       {
         "label": "pressure constraint",
-        "expression": "p = -kappa (J-1)",
+        "expression": "p=-\\kappa(J-1)",
         "description": "Positive pressure denotes compression and DG0 creates one pressure value per cell."
       }
     ],

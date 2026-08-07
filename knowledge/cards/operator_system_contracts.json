@@ -25,22 +25,22 @@
     "equations": [
       {
         "label": "static system",
-        "expression": "K x = F",
+        "expression": "\\mathbf{K}\\mathbf{x}=\\mathbf{F}",
         "description": "A matrix-like stiffness/operator and compatible external vector define the supported static linear structure."
       },
       {
         "label": "first-order system",
-        "expression": "C x_dot + K x = F",
+        "expression": "\\mathbf{C}\\dot{\\mathbf{x}}+\\mathbf{K}\\mathbf{x}=\\mathbf{F}",
         "description": "Capacity/storage and diffusion/conduction operators define heat- and diffusion-like evolution."
       },
       {
         "label": "second-order system",
-        "expression": "M u_ddot + C u_dot + K u = F",
+        "expression": "\\mathbf{M}\\ddot{\\mathbf{u}}+\\mathbf{C}\\dot{\\mathbf{u}}+\\mathbf{K}\\mathbf{u}=\\mathbf{F}",
         "description": "Mass, damping, stiffness, and force remain visible independently of the chosen implicit or explicit procedure."
       },
       {
         "label": "nonlinear tangent",
-        "expression": "R(u) = 0; K_t = dR/du",
+        "expression": "\\mathbf{R}(\\mathbf{u})=\\mathbf{0},\\qquad \\mathbf{K}_{t}=\\frac{\\partial\\mathbf{R}}{\\partial\\mathbf{u}}",
         "description": "A named weak residual is differentiated by UFL and recorded as the source of its consistent tangent."
       }
     ],

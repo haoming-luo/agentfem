@@ -23,12 +23,12 @@
     "equations": [
       {
         "label": "observation operator",
-        "expression": "y_i = H_i[u_h] = u_h(x_i)",
+        "expression": "\\mathbf{y}_i=\\mathcal{H}_i[\\mathbf{u}_h]=\\mathbf{u}_h(\\mathbf{x}_i)",
         "description": "The same ordered physical coordinates are evaluated for every simulation and MPI partition."
       },
       {
         "label": "operator-learning map",
-        "expression": "G_theta: a(x) -> u(x)",
+        "expression": "\\mathcal{G}_{\\boldsymbol{\\theta}}:\\;a(\\mathbf{x})\\mapsto\\mathbf{u}(\\mathbf{x})",
         "description": "Input and output fields require explicit discretization, coordinate, component, and boundary encodings."
       }
     ],

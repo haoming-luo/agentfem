@@ -76,7 +76,7 @@ A known continuum-solid end force can be applied without a singular nodal load b
 **uniform reference traction**
 
 $$
-t0 = F_requested / measure(Gamma0)
+\mathbf{t}_0=\frac{\mathbf{F}_{\mathrm{requested}}}{|\Gamma_0|}
 $$
 
 The same constant traction is integrated over the selected reference edge or surface.
@@ -84,7 +84,7 @@ The same constant traction is integrated over the selected reference edge or sur
 **resultant contract**
 
 $$
-integral(Gamma0, t0 dGamma0) = F_requested
+\int_{\Gamma_0}\mathbf{t}_0\,d\Gamma_0=\mathbf{F}_{\mathrm{requested}}
 $$
 
 The boundary measure and verification integral are MPI-global.
@@ -175,7 +175,7 @@ K-R couples effective-stress creep flow to a scalar loss-of-integrity variable; 
 **K-R creep rate**
 
 $$
-epsilon_dot = A (q / sigma_ref)^n / (1 - omega)^n
+\dot{\varepsilon}_{\mathrm{cr}}=A\left(\frac{q}{\sigma_{\mathrm{ref}}}\right)^n(1-\omega)^{-n}
 $$
 
 Damage accelerates the equivalent creep rate through effective stress.
@@ -183,7 +183,7 @@ Damage accelerates the equivalent creep rate through effective stress.
 **K-R damage rate**
 
 $$
-omega_dot = B (q / sigma_ref)^m / (1 - omega)^phi
+\dot{\omega}=B\left(\frac{q}{\sigma_{\mathrm{ref}}}\right)^m(1-\omega)^{-\phi}
 $$
 
 The scalar damage state grows from zero toward a declared failure threshold.
@@ -191,7 +191,7 @@ The scalar damage state grows from zero toward a declared failure threshold.
 **modified theta projection**
 
 $$
-epsilon = epsilon_0 + A1(1-exp(-alpha t)) + B1(exp(alpha t)-1)
+\varepsilon(t)=\varepsilon_0+A_1\left[1-\exp(-\alpha t)\right]+B_1\left[\exp(\alpha t)-1\right]
 $$
 
 Primary and tertiary terms project a creep strain-time curve.
@@ -290,7 +290,7 @@ The creep increment is solved locally from the fully implicit Mises power-law eq
 **power-law flow**
 
 $$
-Delta gamma = Delta t A(t_{n+1}) (q_{n+1}/sigma_ref)^n
+\Delta\gamma=\Delta t\,A(t_{n+1})\left(\frac{q_{n+1}}{\sigma_{\mathrm{ref}}}\right)^n
 $$
 
 Backward Euler evaluates the time-hardening rate and equivalent stress at the increment end.
@@ -298,7 +298,7 @@ Backward Euler evaluates the time-hardening rate and equivalent stress at the in
 **local scalar corrector**
 
 $$
-q_{n+1} = q_trial - 3 G Delta gamma
+q_{n+1}=q_{\mathrm{trial}}-3G\,\Delta\gamma
 $$
 
 A safeguarded scalar Newton solve keeps the equivalent stress and creep increment nonnegative.
@@ -306,7 +306,7 @@ A safeguarded scalar Newton solve keeps the equivalent stress and creep incremen
 **global equilibrium**
 
 $$
-integral sigma(epsilon(u_{n+1}), CE_n, Delta t) : epsilon(v) dOmega = F_ext(t_{n+1}; v)
+\int_{\Omega}\boldsymbol{\sigma}\!\left(\boldsymbol{\varepsilon}(\mathbf{u}_{n+1}),\mathbf{CE}_n,\Delta t\right):\boldsymbol{\varepsilon}(\mathbf{v})\,d\Omega=\mathcal{F}_{\mathrm{ext}}(t_{n+1};\mathbf{v})
 $$
 
 The global Newton matrix consumes the analytical algorithmic consistent tangent of the same local update.
@@ -403,7 +403,7 @@ An elastic trial stress is projected radially onto a linearly hardened Mises sur
 **yield function**
 
 $$
-f_trial = q_trial - (sigma_y0 + H p_n)
+f_{\mathrm{trial}}=q_{\mathrm{trial}}-(\sigma_{y0}+Hp_n)
 $$
 
 A nonpositive trial value remains elastic.
@@ -411,7 +411,7 @@ A nonpositive trial value remains elastic.
 **plastic multiplier**
 
 $$
-Delta gamma = f_trial / (3 G + H)
+\Delta\gamma=\frac{f_{\mathrm{trial}}}{3G+H}
 $$
 
 Closed-form increment for associative J2 flow with linear isotropic hardening.
@@ -419,7 +419,7 @@ Closed-form increment for associative J2 flow with linear isotropic hardening.
 **global equilibrium**
 
 $$
-integral sigma(epsilon(u), state_n) : epsilon(v) dOmega = load_factor F_ext(v)
+\int_{\Omega}\boldsymbol{\sigma}\!\left(\boldsymbol{\varepsilon}(\mathbf{u}),\mathbf{s}_n\right):\boldsymbol{\varepsilon}(\mathbf{v})\,d\Omega=\lambda\,\mathcal{F}_{\mathrm{ext}}(\mathbf{v})
 $$
 
 Newton iterations use trial state based on the last committed increment.
@@ -519,7 +519,7 @@ The pressure field is a solved scientific unknown rather than metadata inferred 
 **mixed finite-strain potential**
 
 $$
-Pi = integral(psi_iso(F) - p(J-1) - p^2/(2 kappa)) dV - W_ext
+\Pi=\int_{\Omega_0}\left[\psi_{\mathrm{iso}}(\mathbf{F})-p(J-1)-\frac{p^2}{2\kappa}\right]dV-\mathcal{W}_{\mathrm{ext}}
 $$
 
 Automatic differentiation supplies the coupled residual and consistent Newton tangent.
@@ -527,7 +527,7 @@ Automatic differentiation supplies the coupled residual and consistent Newton ta
 **pressure constraint**
 
 $$
-p = -kappa (J-1)
+p=-\kappa(J-1)
 $$
 
 Positive pressure denotes compression and DG0 creates one pressure value per cell.
@@ -625,7 +625,7 @@ The operator layer preserves familiar finite-element systems and the nonlinear r
 **static system**
 
 $$
-K x = F
+\mathbf{K}\mathbf{x}=\mathbf{F}
 $$
 
 A matrix-like stiffness/operator and compatible external vector define the supported static linear structure.
@@ -633,7 +633,7 @@ A matrix-like stiffness/operator and compatible external vector define the suppo
 **first-order system**
 
 $$
-C x_dot + K x = F
+\mathbf{C}\dot{\mathbf{x}}+\mathbf{K}\mathbf{x}=\mathbf{F}
 $$
 
 Capacity/storage and diffusion/conduction operators define heat- and diffusion-like evolution.
@@ -641,7 +641,7 @@ Capacity/storage and diffusion/conduction operators define heat- and diffusion-l
 **second-order system**
 
 $$
-M u_ddot + C u_dot + K u = F
+\mathbf{M}\ddot{\mathbf{u}}+\mathbf{C}\dot{\mathbf{u}}+\mathbf{K}\mathbf{u}=\mathbf{F}
 $$
 
 Mass, damping, stiffness, and force remain visible independently of the chosen implicit or explicit procedure.
@@ -649,7 +649,7 @@ Mass, damping, stiffness, and force remain visible independently of the chosen i
 **nonlinear tangent**
 
 $$
-R(u) = 0; K_t = dR/du
+\mathbf{R}(\mathbf{u})=\mathbf{0},\qquad \mathbf{K}_{t}=\frac{\partial\mathbf{R}}{\partial\mathbf{u}}
 $$
 
 A named weak residual is differentiated by UFL and recorded as the source of its consistent tangent.
@@ -742,7 +742,7 @@ Source labels and official element-face numbering determine engineering regions;
 **source-to-runtime node identity**
 
 $$
-selected(x_h) iff there exists a unique source node n such that ||x_h - x_n|| <= tolerance
+\operatorname{selected}(\mathbf{x}_h) \iff \exists!\, n:\; \lVert\mathbf{x}_h-\mathbf{x}_n\rVert \le \mathrm{tol}
 $$
 
 The coordinate match preserves explicit source-node identity, including high-order nodes; absence or ambiguity is an error rather than a geometric selection rule.
@@ -833,7 +833,7 @@ Learning begins only after cases, declared quantities, provenance, failures, and
 **scientific dataset**
 
 $$
-D = {(p_i, q_i, provenance_i)} for successful reviewed cases i
+\mathcal{D}=\{(\mathbf{p}_i,\mathbf{q}_i,\pi_i)\mid i\in\mathcal{I}_{\mathrm{reviewed}}\}
 $$
 
 Parameters and quantities retain names, bounds, units, shapes, case identity, and evidence.
@@ -841,7 +841,7 @@ Parameters and quantities retain names, bounds, units, shapes, case identity, an
 **guarded prediction**
 
 $$
-q(p) = surrogate(p) in-domain; otherwise FEM fallback(p) or rejection
+\widehat{\mathbf{q}}(\mathbf{p})=\begin{cases}\mathcal{S}(\mathbf{p}), & \mathbf{p}\in\mathcal{A},\\ \mathcal{F}_{\mathrm{FEM}}(\mathbf{p})\;\text{or reject}, & \mathbf{p}\notin\mathcal{A}.\end{cases}
 $$
 
 A learned model never silently extrapolates beyond its declared domain.
@@ -939,7 +939,7 @@ A right-handed orthonormal basis makes component conventions explicit; remote re
 **local-to-global vector**
 
 $$
-v_global = Q^T v_local
+\mathbf{v}_{\mathrm{global}}=\mathbf{Q}^{T}\mathbf{v}_{\mathrm{local}}
 $$
 
 Rows of Q are local basis vectors expressed in global components.
@@ -947,7 +947,7 @@ Rows of Q are local basis vectors expressed in global components.
 **rigid boundary motion**
 
 $$
-u(x) = u_RP + theta x (x - x_RP)
+\mathbf{u}(\mathbf{x})=\mathbf{u}_{\mathrm{RP}}+\boldsymbol{\theta}\times(\mathbf{x}-\mathbf{x}_{\mathrm{RP}})
 $$
 
 The prescribed displacement is evaluated on every constrained boundary dof.
@@ -955,7 +955,7 @@ The prescribed displacement is evaluated on every constrained boundary dof.
 **remote resultant**
 
 $$
-integral_Gamma t dGamma = F_RP; integral_Gamma (x-x_RP) x t dGamma = M_RP
+\int_{\Gamma}\mathbf{t}\,d\Gamma=\mathbf{F}_{\mathrm{RP}},\qquad \int_{\Gamma}(\mathbf{x}-\mathbf{x}_{\mathrm{RP}})\times\mathbf{t}\,d\Gamma=\mathbf{M}_{\mathrm{RP}}
 $$
 
 The distributing traction preserves force and moment about the named point.
@@ -1044,7 +1044,7 @@ A scientific cell field is the quadrature-weighted mean of one constitutive inte
 **weighted cell recovery**
 
 $$
-q_e = sum_p(w_p q_ep) / sum_p(w_p)
+\bar{q}_e=\frac{\sum_p w_p q_{ep}}{\sum_p w_p}
 $$
 
 Reference-cell quadrature weights form one DG0 value per cell; no neighbor contributes.
@@ -1138,7 +1138,7 @@ A fixed physical observation operator separates the mesh used to solve each FEM 
 **observation operator**
 
 $$
-y_i = H_i[u_h] = u_h(x_i)
+\mathbf{y}_i=\mathcal{H}_i[\mathbf{u}_h]=\mathbf{u}_h(\mathbf{x}_i)
 $$
 
 The same ordered physical coordinates are evaluated for every simulation and MPI partition.
@@ -1146,7 +1146,7 @@ The same ordered physical coordinates are evaluated for every simulation and MPI
 **operator-learning map**
 
 $$
-G_theta: a(x) -> u(x)
+\mathcal{G}_{\boldsymbol{\theta}}:\;a(\mathbf{x})\mapsto\mathbf{u}(\mathbf{x})
 $$
 
 Input and output fields require explicit discretization, coordinate, component, and boundary encodings.
@@ -1242,7 +1242,7 @@ A finite-element field is evaluated inside a containing owned cell from its basi
 **finite-element point evaluation**
 
 $$
-u_h(x_p) = sum_a N_a(x_p) u_a
+\mathbf{u}_h(\mathbf{x}_p)=\sum_a N_a(\mathbf{x}_p)\mathbf{u}_a
 $$
 
 The containing cell supplies the local basis functions and coefficients for the requested physical point.
@@ -1250,7 +1250,7 @@ The containing cell supplies the local basis functions and coefficients for the 
 **path coordinate**
 
 $$
-s_i = ||x_i - x_0||_2
+s_i=\lVert\mathbf{x}_i-\mathbf{x}_0\rVert_2
 $$
 
 Straight-path samples use physical distance as the standard result-history abscissa.
@@ -1355,7 +1355,7 @@ A numerical result is accepted only through declared evidence; solver completion
 **reference contract**
 
 $$
-|q_h - q_ref| <= atol + rtol |q_ref|
+|q_h-q_{\mathrm{ref}}|\le \mathrm{atol}+\mathrm{rtol}\,|q_{\mathrm{ref}}|
 $$
 
 The reference, tolerance, and validity domain are stored with the decision.
@@ -1363,7 +1363,7 @@ The reference, tolerance, and validity domain are stored with the decision.
 **successive refinement**
 
 $$
-eta_h = ||q_h - q_h/2|| / max(||q_h/2||, tiny)
+\eta_h=\frac{\lVert q_h-q_{h/2}\rVert}{\max(\lVert q_{h/2}\rVert,\varepsilon_{\mathrm{tiny}})}
 $$
 
 A first convergence diagnostic; it is not silently presented as a full uncertainty estimate.
@@ -1455,7 +1455,7 @@ Simplex mean ratio compares physical area or volume with squared edge lengths an
 **triangle mean ratio**
 
 $$
-q = 4 sqrt(3) A / sum_e l_e^2
+q=\frac{4\sqrt{3}\,A}{\sum_e l_e^2}
 $$
 
 The metric is dimensionless and normalized to one.
@@ -1463,7 +1463,7 @@ The metric is dimensionless and normalized to one.
 **tetrahedron mean ratio**
 
 $$
-q = 12 (3 V)^(2/3) / sum_e l_e^2
+q=\frac{12(3V)^{2/3}}{\sum_e l_e^2}
 $$
 
 Six edge lengths and absolute tetrahedron volume define the metric.
@@ -1553,7 +1553,7 @@ A Study identifies the governing problem while a SolutionProcedure identifies ho
 **second-order system**
 
 $$
-M u_ddot + C u_dot + K u = F
+\mathbf{M}\ddot{\mathbf{u}}+\mathbf{C}\dot{\mathbf{u}}+\mathbf{K}\mathbf{u}=\mathbf{F}
 $$
 
 The same physical system may be solved by implicit Newmark, generalized-alpha, or explicit central difference.
@@ -1561,7 +1561,7 @@ The same physical system may be solved by implicit Newmark, generalized-alpha, o
 **generalized-alpha equilibrium**
 
 $$
-M a_(n+1-alpha_m) + C v_(n+1-alpha_f) + K u_(n+1-alpha_f) = F_(n+1-alpha_f)
+\mathbf{M}\mathbf{a}_{n+1-\alpha_m}+\mathbf{C}\mathbf{v}_{n+1-\alpha_f}+\mathbf{K}\mathbf{u}_{n+1-\alpha_f}=\mathbf{F}_{n+1-\alpha_f}
 $$
 
 Algorithmic parameters control stability, accuracy, and high-frequency dissipation.
@@ -1667,7 +1667,7 @@ A projected result field is defined by an L2 variational problem, while a strong
 **L2 projection**
 
 $$
-integral(Omega, q_h : v_h dx) = integral(Omega, q : v_h dx) for all v_h
+\int_{\Omega}q_h:v_h\,dx=\int_{\Omega}q:v_h\,dx\qquad\forall v_h
 $$
 
 DG0 projection returns the cell average of a scalar, vector, or tensor expression.
@@ -1675,7 +1675,7 @@ DG0 projection returns the cell average of a scalar, vector, or tensor expressio
 **strong-constraint reaction**
 
 $$
-R = K u - F
+\mathbf{R}=\mathbf{K}\mathbf{u}-\mathbf{F}
 $$
 
 At converged free degrees of freedom R is zero to solver tolerance; prescribed degrees retain reaction entries.
@@ -1683,7 +1683,7 @@ At converged free degrees of freedom R is zero to solver tolerance; prescribed d
 **global static force balance**
 
 $$
-r_balance = sum(R_strong) + sum(F_assembled)
+\mathbf{r}_{\mathrm{balance}}=\sum\mathbf{R}_{\mathrm{strong}}+\sum\mathbf{F}_{\mathrm{assembled}}
 $$
 
 The relative error is the residual norm divided by the larger external or reaction resultant norm.
@@ -1691,7 +1691,7 @@ The relative error is the residual norm divided by the larger external or reacti
 **proportional linear work**
 
 $$
-W_ext = 0.5 u^T F + 0.5 R_c^T ubar, U = 0.5 u^T K u
+W_{\mathrm{ext}}=\tfrac{1}{2}\mathbf{u}^{T}\mathbf{F}+\tfrac{1}{2}\mathbf{R}_{c}^{T}\bar{\mathbf{u}},\qquad U=\tfrac{1}{2}\mathbf{u}^{T}\mathbf{K}\mathbf{u}
 $$
 
 Natural loads and strong prescribed values are ramped proportionally from zero; the constrained residual supplies the conjugate prescribed-motion work.
@@ -1799,7 +1799,7 @@ Temperature is solved first when mechanical response does not materially feed ba
 **heat equation**
 
 $$
-rho c_p T_dot - div(k grad(T)) = Q
+\rho c_p\dot{T}-\nabla\!\cdot(k\nabla T)=Q
 $$
 
 Backward Euler advances the first-order thermal state.
@@ -1807,7 +1807,7 @@ Backward Euler advances the first-order thermal state.
 **thermal strain**
 
 $$
-epsilon_th = alpha (T - T_ref) I
+\boldsymbol{\varepsilon}_{\mathrm{th}}=\alpha(T-T_{\mathrm{ref}})\mathbf{I}
 $$
 
 The reference temperature and dimensional reduction are explicit material/Study inputs.
@@ -1815,7 +1815,7 @@ The reference temperature and dimensional reduction are explicit material/Study 
 **sequential stress equilibrium**
 
 $$
-K u = F_ext + integral (C:epsilon_th):epsilon(v) dOmega
+\mathbf{K}\mathbf{u}=\mathbf{F}_{\mathrm{ext}}+\int_{\Omega}(\mathbb{C}:\boldsymbol{\varepsilon}_{\mathrm{th}}):\boldsymbol{\varepsilon}(\mathbf{v})\,d\Omega
 $$
 
 The thermal contribution remains a named inspectable vector operator.
@@ -1823,7 +1823,7 @@ The thermal contribution remains a named inspectable vector operator.
 **normalized Arrhenius factor**
 
 $$
-A(T) = A_ref exp[-Q/R (1/T - 1/T_ref)]
+A(T)=A_{\mathrm{ref}}\exp\!\left[-\frac{Q}{R}\left(\frac{1}{T}-\frac{1}{T_{\mathrm{ref}}}\right)\right]
 $$
 
 The local creep coefficient retains its fitted meaning at the declared reference temperature.
@@ -1918,7 +1918,7 @@ A restart state must identify physical degrees of freedom independently of rank-
 **portable degree-of-freedom key**
 
 $$
-k_i = (quantize(x_i; bounds, tolerance), component_i)
+k_i=\left(\operatorname{quantize}(\mathbf{x}_i;\,\mathbf{b},\tau),\,c_i\right)
 $$
 
 Physical coordinates and block component define a deterministic key; quantization absorbs mesh-construction roundoff without changing the field value.

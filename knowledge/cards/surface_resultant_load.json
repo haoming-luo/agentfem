@@ -19,12 +19,12 @@
     "equations": [
       {
         "label": "uniform reference traction",
-        "expression": "t0 = F_requested / measure(Gamma0)",
+        "expression": "\\mathbf{t}_0=\\frac{\\mathbf{F}_{\\mathrm{requested}}}{|\\Gamma_0|}",
         "description": "The same constant traction is integrated over the selected reference edge or surface."
       },
       {
         "label": "resultant contract",
-        "expression": "integral(Gamma0, t0 dGamma0) = F_requested",
+        "expression": "\\int_{\\Gamma_0}\\mathbf{t}_0\\,d\\Gamma_0=\\mathbf{F}_{\\mathrm{requested}}",
         "description": "The boundary measure and verification integral are MPI-global."
       }
     ],

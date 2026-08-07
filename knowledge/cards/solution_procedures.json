@@ -29,12 +29,12 @@
     "equations": [
       {
         "label": "second-order system",
-        "expression": "M u_ddot + C u_dot + K u = F",
+        "expression": "\\mathbf{M}\\ddot{\\mathbf{u}}+\\mathbf{C}\\dot{\\mathbf{u}}+\\mathbf{K}\\mathbf{u}=\\mathbf{F}",
         "description": "The same physical system may be solved by implicit Newmark, generalized-alpha, or explicit central difference."
       },
       {
         "label": "generalized-alpha equilibrium",
-        "expression": "M a_(n+1-alpha_m) + C v_(n+1-alpha_f) + K u_(n+1-alpha_f) = F_(n+1-alpha_f)",
+        "expression": "\\mathbf{M}\\mathbf{a}_{n+1-\\alpha_m}+\\mathbf{C}\\mathbf{v}_{n+1-\\alpha_f}+\\mathbf{K}\\mathbf{u}_{n+1-\\alpha_f}=\\mathbf{F}_{n+1-\\alpha_f}",
         "description": "Algorithmic parameters control stability, accuracy, and high-frequency dissipation."
       }
     ],

@@ -24,17 +24,17 @@
     "equations": [
       {
         "label": "power-law flow",
-        "expression": "Delta gamma = Delta t A(t_{n+1}) (q_{n+1}/sigma_ref)^n",
+        "expression": "\\Delta\\gamma=\\Delta t\\,A(t_{n+1})\\left(\\frac{q_{n+1}}{\\sigma_{\\mathrm{ref}}}\\right)^n",
         "description": "Backward Euler evaluates the time-hardening rate and equivalent stress at the increment end."
       },
       {
         "label": "local scalar corrector",
-        "expression": "q_{n+1} = q_trial - 3 G Delta gamma",
+        "expression": "q_{n+1}=q_{\\mathrm{trial}}-3G\\,\\Delta\\gamma",
         "description": "A safeguarded scalar Newton solve keeps the equivalent stress and creep increment nonnegative."
       },
       {
         "label": "global equilibrium",
-        "expression": "integral sigma(epsilon(u_{n+1}), CE_n, Delta t) : epsilon(v) dOmega = F_ext(t_{n+1}; v)",
+        "expression": "\\int_{\\Omega}\\boldsymbol{\\sigma}\\!\\left(\\boldsymbol{\\varepsilon}(\\mathbf{u}_{n+1}),\\mathbf{CE}_n,\\Delta t\\right):\\boldsymbol{\\varepsilon}(\\mathbf{v})\\,d\\Omega=\\mathcal{F}_{\\mathrm{ext}}(t_{n+1};\\mathbf{v})",
         "description": "The global Newton matrix consumes the analytical algorithmic consistent tangent of the same local update."
       }
     ],

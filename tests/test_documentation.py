@@ -74,3 +74,9 @@ def test_manual_layout_keeps_navigation_and_footer_visually_separate():
     assert "pointer-events: auto;" in stylesheet
     assert "width: min(54rem, calc(100% - 25rem));" in stylesheet
     assert ".md-footer-meta.md-typeset .md-social__link" in stylesheet
+
+
+def test_homepage_starts_with_the_project_logo():
+    homepage = (ROOT / "docs" / "index.md").read_text()
+    assert homepage.index('class="af-home-logo"') < homepage.index("# AgentFEM")
+    assert "assets/images/AgentFEM_logo_transparent.png" in homepage

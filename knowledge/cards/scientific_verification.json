@@ -27,12 +27,12 @@
     "equations": [
       {
         "label": "reference contract",
-        "expression": "|q_h - q_ref| <= atol + rtol |q_ref|",
+        "expression": "|q_h-q_{\\mathrm{ref}}|\\le \\mathrm{atol}+\\mathrm{rtol}\\,|q_{\\mathrm{ref}}|",
         "description": "The reference, tolerance, and validity domain are stored with the decision."
       },
       {
         "label": "successive refinement",
-        "expression": "eta_h = ||q_h - q_h/2|| / max(||q_h/2||, tiny)",
+        "expression": "\\eta_h=\\frac{\\lVert q_h-q_{h/2}\\rVert}{\\max(\\lVert q_{h/2}\\rVert,\\varepsilon_{\\mathrm{tiny}})}",
         "description": "A first convergence diagnostic; it is not silently presented as a full uncertainty estimate."
       }
     ],

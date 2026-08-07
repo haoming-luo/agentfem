@@ -24,22 +24,22 @@
     "equations": [
       {
         "label": "heat equation",
-        "expression": "rho c_p T_dot - div(k grad(T)) = Q",
+        "expression": "\\rho c_p\\dot{T}-\\nabla\\!\\cdot(k\\nabla T)=Q",
         "description": "Backward Euler advances the first-order thermal state."
       },
       {
         "label": "thermal strain",
-        "expression": "epsilon_th = alpha (T - T_ref) I",
+        "expression": "\\boldsymbol{\\varepsilon}_{\\mathrm{th}}=\\alpha(T-T_{\\mathrm{ref}})\\mathbf{I}",
         "description": "The reference temperature and dimensional reduction are explicit material/Study inputs."
       },
       {
         "label": "sequential stress equilibrium",
-        "expression": "K u = F_ext + integral (C:epsilon_th):epsilon(v) dOmega",
+        "expression": "\\mathbf{K}\\mathbf{u}=\\mathbf{F}_{\\mathrm{ext}}+\\int_{\\Omega}(\\mathbb{C}:\\boldsymbol{\\varepsilon}_{\\mathrm{th}}):\\boldsymbol{\\varepsilon}(\\mathbf{v})\\,d\\Omega",
         "description": "The thermal contribution remains a named inspectable vector operator."
       },
       {
         "label": "normalized Arrhenius factor",
-        "expression": "A(T) = A_ref exp[-Q/R (1/T - 1/T_ref)]",
+        "expression": "A(T)=A_{\\mathrm{ref}}\\exp\\!\\left[-\\frac{Q}{R}\\left(\\frac{1}{T}-\\frac{1}{T_{\\mathrm{ref}}}\\right)\\right]",
         "description": "The local creep coefficient retains its fitted meaning at the declared reference temperature."
       }
     ],

@@ -23,17 +23,17 @@
     "equations": [
       {
         "label": "yield function",
-        "expression": "f_trial = q_trial - (sigma_y0 + H p_n)",
+        "expression": "f_{\\mathrm{trial}}=q_{\\mathrm{trial}}-(\\sigma_{y0}+Hp_n)",
         "description": "A nonpositive trial value remains elastic."
       },
       {
         "label": "plastic multiplier",
-        "expression": "Delta gamma = f_trial / (3 G + H)",
+        "expression": "\\Delta\\gamma=\\frac{f_{\\mathrm{trial}}}{3G+H}",
         "description": "Closed-form increment for associative J2 flow with linear isotropic hardening."
       },
       {
         "label": "global equilibrium",
-        "expression": "integral sigma(epsilon(u), state_n) : epsilon(v) dOmega = load_factor F_ext(v)",
+        "expression": "\\int_{\\Omega}\\boldsymbol{\\sigma}\\!\\left(\\boldsymbol{\\varepsilon}(\\mathbf{u}),\\mathbf{s}_n\\right):\\boldsymbol{\\varepsilon}(\\mathbf{v})\\,d\\Omega=\\lambda\\,\\mathcal{F}_{\\mathrm{ext}}(\\mathbf{v})",
         "description": "Newton iterations use trial state based on the last committed increment."
       }
     ],

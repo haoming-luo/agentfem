@@ -21,17 +21,17 @@
     "equations": [
       {
         "label": "K-R creep rate",
-        "expression": "epsilon_dot = A (q / sigma_ref)^n / (1 - omega)^n",
+        "expression": "\\dot{\\varepsilon}_{\\mathrm{cr}}=A\\left(\\frac{q}{\\sigma_{\\mathrm{ref}}}\\right)^n(1-\\omega)^{-n}",
         "description": "Damage accelerates the equivalent creep rate through effective stress."
       },
       {
         "label": "K-R damage rate",
-        "expression": "omega_dot = B (q / sigma_ref)^m / (1 - omega)^phi",
+        "expression": "\\dot{\\omega}=B\\left(\\frac{q}{\\sigma_{\\mathrm{ref}}}\\right)^m(1-\\omega)^{-\\phi}",
         "description": "The scalar damage state grows from zero toward a declared failure threshold."
       },
       {
         "label": "modified theta projection",
-        "expression": "epsilon = epsilon_0 + A1(1-exp(-alpha t)) + B1(exp(alpha t)-1)",
+        "expression": "\\varepsilon(t)=\\varepsilon_0+A_1\\left[1-\\exp(-\\alpha t)\\right]+B_1\\left[\\exp(\\alpha t)-1\\right]",
         "description": "Primary and tertiary terms project a creep strain-time curve."
       }
     ],
