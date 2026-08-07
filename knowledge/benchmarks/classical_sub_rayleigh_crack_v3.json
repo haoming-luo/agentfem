@@ -7,6 +7,7 @@
   "purpose": "Reject numerical supershear claims unless the same implementation first reproduces stable classical Mode-I propagation below the Rayleigh limit.",
   "physics": "precracked compressible Neo-Hookean strip with a fixed-path bilinear Mode-I cohesive interface",
   "execution": {
+    "example": "tests/test_dynamic_fracture_benchmarks.py",
     "command": "python -m pytest -q tests/test_dynamic_fracture_benchmarks.py -k v3",
     "evidence": "The named strip is repeated with 40 and 60 interface facets, two explicit time-step scales, and zero versus small declared mass-proportional damping. Damping work is retained as a typed nonnegative dissipation channel."
   },

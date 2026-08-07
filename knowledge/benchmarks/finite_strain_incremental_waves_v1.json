@@ -7,6 +7,7 @@
   "purpose": "Freeze the material tangent and reference/current direction conventions used to judge wave propagation about a homogeneous prestrained state.",
   "physics": "compressible Neo-Hookean small-on-large elastodynamics",
   "execution": {
+    "example": "tests/test_dynamic_fracture_benchmarks.py",
     "command": "python -m pytest -q tests/test_dynamic_fracture_benchmarks.py -k v1",
     "evidence": "The analytical dP/dF and acoustic tensor are tested independently. A finite-strain Explicit strip then measures direct longitudinal-wave arrival at zero and ten-percent held prestrain; 40-to-80-cell refinement reduces the arrival-speed error and the fine cases remain within two percent."
   },

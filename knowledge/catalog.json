@@ -29,6 +29,13 @@
       "title": "Static-elasticity campaign to guarded surrogate pipeline"
     },
     {
+      "id": "agentfem.benchmark.classical_sub_rayleigh_crack_v3",
+      "physics": "precracked compressible Neo-Hookean strip with a fixed-path bilinear Mode-I cohesive interface",
+      "source": "knowledge/benchmarks/classical_sub_rayleigh_crack_v3.json",
+      "status": "experimental_v3_guardrail_automated",
+      "title": "Classical sub-Rayleigh cohesive crack guardrail"
+    },
+    {
       "id": "agentfem.benchmark.creep_abaqus_constant_stress",
       "physics": "three-dimensional small-strain Mises time-hardening power-law creep",
       "source": "knowledge/benchmarks/creep_abaqus_constant_stress.json",
@@ -50,11 +57,25 @@
       "title": "Sequential hot-wall creep assessment release contract"
     },
     {
+      "id": "agentfem.benchmark.dynamic_fracture_energy_v2",
+      "physics": "Total-Lagrangian Neo-Hookean dynamics with optional Mode-I cohesive separation",
+      "source": "knowledge/benchmarks/dynamic_fracture_energy_v2.json",
+      "status": "experimental_v2_automated",
+      "title": "Finite-strain and cohesive dynamic energy closure"
+    },
+    {
       "id": "agentfem.benchmark.elasticity_foundation",
       "physics": "two- and three-dimensional small-strain linear elasticity",
       "source": "knowledge/benchmarks/elasticity_foundation.json",
       "status": "automated",
       "title": "Foundational small-strain elasticity verification"
+    },
+    {
+      "id": "agentfem.benchmark.finite_strain_incremental_waves_v1",
+      "physics": "compressible Neo-Hookean small-on-large elastodynamics",
+      "source": "knowledge/benchmarks/finite_strain_incremental_waves_v1.json",
+      "status": "experimental_v1_automated",
+      "title": "Neo-Hookean small-on-large wave oracle"
     },
     {
       "id": "agentfem.benchmark.implicit_creep_relaxation",
