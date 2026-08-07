@@ -2115,6 +2115,11 @@ def _record_transient_history(
     if monitor is not None:
         if isinstance(step, FirstOrderTransientStep):
             values.update(monitor.evaluate(step.current))
+        elif not store and hasattr(monitor, "advance"):
+            monitor.advance(
+                displacement=step.state.u,
+                velocity=step.state.v,
+            )
         elif hasattr(monitor, "evaluate"):
             values.update(
                 monitor.evaluate(

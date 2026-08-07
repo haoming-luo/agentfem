@@ -4286,6 +4286,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>Small-on-large bulk-wave modes about one homogeneous deformation.</td>
 </tr>
 <tr>
+<td>class</td>
+<td><code>PrincipalSurfaceWaveSpeed</code></td>
+<td>Reference-coordinate principal surface-wave secular solution.</td>
+</tr>
+<tr>
 <td>function</td>
 <td><code>neo_hookean_material_tangent(deformation_gradient, material: hyperelasticity.NeoHookeanProperties) -&gt; np.ndarray</code></td>
 <td>Return <code>A[i,J,k,L] = dP[i,J]/dF[k,L]</code> for the declared energy.</td>
@@ -4294,6 +4299,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>incremental_wave_speeds(deformation_gradient, direction, material: hyperelasticity.NeoHookeanProperties, *, direction_configuration: str = 'current') -&gt; IncrementalWaveSpeeds</code></td>
 <td>Return homogeneous small-on-large bulk-wave speeds.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>principal_surface_wave_speed(deformation_gradient, material: hyperelasticity.NeoHookeanProperties, *, propagation_axis: int = 0, scan_points: int = 320) -&gt; PrincipalSurfaceWaveSpeed</code></td>
+<td>Solve the 2D small-on-large principal surface-wave secular problem.</td>
 </tr>
 <tr>
 <td>function</td>

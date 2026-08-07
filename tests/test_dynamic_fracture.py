@@ -259,6 +259,48 @@ def test_incremental_acoustic_tensor_recovers_unstretched_bulk_modes():
     assert modes.summary()["rayleigh_speed"] is None
 
 
+def test_principal_surface_wave_solver_recovers_classical_rayleigh_speed():
+    material = constitutive.neo_hookean(
+        young=1.0e6,
+        poisson=0.25,
+        density=1000.0,
+    )
+    classical = fracture.isotropic_reference_wave_speeds(material)
+    surface = fracture.principal_surface_wave_speed(np.eye(2), material)
+    assert surface.speed == pytest.approx(classical.rayleigh, rel=1.0e-8)
+    assert surface.limiting_bulk_speed == pytest.approx(classical.shear)
+    assert surface.secular_residual < 1.0e-8
+    assert np.all(np.imag(surface.attenuation_roots) > 0.0)
+
+
+def test_principal_surface_wave_solver_tracks_plane_stress_prestrain():
+    material = constitutive.neo_hookean_plane_stress(
+        young=1.0e6,
+        poisson=0.49,
+        density=1000.0,
+    )
+    transverse_then_axial = (
+        constitutive.plane_stress_uniaxial_deformation_gradient(1.12, material)
+    )
+    F = np.diag(np.diag(transverse_then_axial)[::-1])
+    undeformed = fracture.principal_surface_wave_speed(np.eye(2), material)
+    prestrained = fracture.principal_surface_wave_speed(F, material)
+    assert 0.0 < prestrained.speed < prestrained.limiting_bulk_speed
+    assert prestrained.speed != pytest.approx(undeformed.speed)
+    assert prestrained.secular_residual < 1.0e-8
+
+    with pytest.raises(ValueError, match="diagonal deformation"):
+        fracture.principal_surface_wave_speed(
+            np.array(((1.0, 0.1), (0.0, 1.0))),
+            material,
+        )
+    with pytest.raises(ValueError, match="not traction-free"):
+        fracture.principal_surface_wave_speed(
+            transverse_then_axial,
+            material,
+        )
+
+
 def test_prestrained_wave_direction_is_explicitly_pulled_back_and_pushed_forward():
     material = constitutive.neo_hookean(
         young=1.0e6,
@@ -465,6 +507,46 @@ def test_explicit_history_cadence_keeps_initial_periodic_and_final_records():
     ]
     assert step.summary()["history_every"] == 2
     assert step.summary()["history_evaluation_every"] == 1
+
+
+def test_explicit_history_uses_lightweight_advance_between_energy_snapshots():
+    model, displacement, material = _dynamic_neo_hookean_model()
+
+    class StatefulMonitor:
+        advances = 0
+        evaluations = 0
+
+        def advance(self, **_kwargs):
+            self.advances += 1
+            return {"path_state": float(self.advances)}
+
+        def evaluate(self, **kwargs):
+            self.evaluations += 1
+            values = self.advance(**kwargs)
+            return {
+                "path_state": values["path_state"],
+                "energy_snapshots": float(self.evaluations),
+            }
+
+    step = model.finite_strain_explicit_dynamics_step(
+        target=displacement,
+        material=material,
+        dt=1.0e-7,
+        steps=5,
+        history_every=2,
+        progress=False,
+    )
+    monitor = StatefulMonitor()
+    step.history_monitor = monitor
+    step.run()
+    assert monitor.advances == 6
+    assert monitor.evaluations == 4
+    assert [record["path_state"] for record in step.history_records] == [
+        1.0,
+        3.0,
+        5.0,
+        6.0,
+    ]
 
 
 def test_finite_strain_explicit_rejects_unimplemented_plane_stress():

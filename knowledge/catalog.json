@@ -113,6 +113,13 @@
       "title": "Nonuniform three-dimensional J2 bending path"
     },
     {
+      "id": "agentfem.benchmark.jmps_weak_interface_convergence_v4",
+      "physics": "near-incompressible finite-strain plane-stress Neo-Hookean strip with ten or more cells through the height, homogeneous preload, smooth remote impact, a fixed bilinear Mode-I cohesive interface, and a precrack",
+      "source": "knowledge/benchmarks/jmps_weak_interface_convergence_v4.json",
+      "status": "experimental_v4_2d_convergence_executable",
+      "title": "Two-dimensional weak-interface supershear convergence contract"
+    },
+    {
       "id": "agentfem.benchmark.jmps_weak_interface_transition_v4",
       "physics": "near-incompressible finite-strain plane-stress Neo-Hookean strip with homogeneous preload, smooth remote impact, a fixed zero-thickness bilinear Mode-I interface, and a precrack",
       "source": "knowledge/benchmarks/jmps_weak_interface_transition_v4.json",
@@ -210,6 +217,7 @@
         "agentfem.constitutive.plane_stress_first_piola_value",
         "agentfem.fracture.neo_hookean_material_tangent",
         "agentfem.fracture.incremental_wave_speeds",
+        "agentfem.fracture.principal_surface_wave_speed",
         "agentfem.models.Model.step"
       ],
       "related_cards": [

@@ -25,7 +25,7 @@
     "The no-fracture relative energy error decreases under 40-to-80-cell refinement."
   ],
   "limitations": [
-    "The returned modes are bulk waves; a prestrained Rayleigh speed requires a separate surface-wave secular solution.",
+    "The bulk-wave API remains separate from the principal traction-free surface-wave secular solver; a normally loaded weak interface is not silently treated as a free Rayleigh surface.",
     "The two-dimensional implementation follows the current plane-strain constitutive restriction.",
     "Loss of positive definiteness is reported as loss of strong ellipticity, not regularized."
   ]

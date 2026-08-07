@@ -72,9 +72,40 @@ def test_v4_case_smoke_exposes_plane_stress_preload_impact_and_bulk_modes():
         impact_rise_time=0.002,
     )
     assert result.preload_energy_jump == pytest.approx(0.0)
+    assert result.transverse_cells == 2
     assert 0.0 < result.preload_ligament_traction_ratio < 1.0
     assert result.pressure_wave_speed > result.shear_wave_speed
     assert result.impact_displacement == pytest.approx(0.002)
     assert result.summary()["loading"] == (
         "homogeneous_prestrain_then_remote_impact"
     )
+
+
+def test_v4_strip_accepts_independent_even_transverse_resolution():
+    result = benchmarks.prestressed_weak_interface_separation(
+        label="v4_2d_mesh_smoke",
+        cells=30,
+        transverse_cells=4,
+        total_time=0.002,
+        axial_strain=0.12,
+        strength=150.0,
+        fracture_energy=1.0,
+        initial_stiffness=1.0e5,
+    )
+    assert result.cells == 30
+    assert result.transverse_cells == 4
+
+    with pytest.raises(ValueError, match="even integer"):
+        benchmarks.prestressed_weak_interface_separation(
+            cells=30,
+            transverse_cells=3,
+        )
+
+
+def test_v4_convergence_contract_validates_controls_before_long_runs():
+    with pytest.raises(ValueError, match="spatial_speed_tolerance"):
+        benchmarks.jmps_weak_interface_convergence_v4(
+            spatial_speed_tolerance=0.0,
+        )
+    with pytest.raises(ValueError, match="history_every"):
+        benchmarks.jmps_weak_interface_convergence_v4(history_every=0)

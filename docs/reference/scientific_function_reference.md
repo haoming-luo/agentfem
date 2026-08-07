@@ -50,6 +50,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | `agentfem.benchmark.j2_global_restart` | Three-dimensional J2 path, physical cutback, cyclic amplitude, energy, and restart equivalence | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_regression |
 | `agentfem.benchmark.j2_multielement_patch` | Multi-element global J2 plasticity patch | three-dimensional small-strain rate-independent J2 plasticity with linear isotropic hardening | automated |
 | `agentfem.benchmark.j2_nonuniform_bending` | Nonuniform three-dimensional J2 bending path | three-dimensional small-strain Mises plasticity with linear isotropic hardening under displacement-controlled bending | automated_regression |
+| `agentfem.benchmark.jmps_weak_interface_convergence_v4` | Two-dimensional weak-interface supershear convergence contract | near-incompressible finite-strain plane-stress Neo-Hookean strip with ten or more cells through the height, homogeneous preload, smooth remote impact, a fixed bilinear Mode-I cohesive interface, and a precrack | experimental_v4_2d_convergence_executable |
 | `agentfem.benchmark.jmps_weak_interface_transition_v4` | Prestressed weak-interface crack-to-supershear-to-spall mechanism ladder | near-incompressible finite-strain plane-stress Neo-Hookean strip with homogeneous preload, smooth remote impact, a fixed zero-thickness bilinear Mode-I interface, and a precrack | experimental_v4_mechanism_executable |
 | `agentfem.benchmark.linear_static_cantilever` | Two-dimensional linear-static cantilever | small-strain isotropic linear elasticity in plane strain | numerical_regression |
 | `agentfem.benchmark.neo_hookean_release` | Compressible Neo-Hookean finite-strain release contract | compressible Neo-Hookean hyperelasticity | automated_regression |
@@ -290,6 +291,7 @@ Enforces P33=0 through a positive local thickness stretch and uses the same cond
 - `agentfem.constitutive.plane_stress_first_piola_value`
 - `agentfem.fracture.neo_hookean_material_tangent`
 - `agentfem.fracture.incremental_wave_speeds`
+- `agentfem.fracture.principal_surface_wave_speed`
 - `agentfem.models.Model.step`
 
 ### Scientific contract
@@ -342,7 +344,8 @@ The same local condition is differentiated for small-on-large acoustic analysis.
 #### Limitations
 
 - Local plane-stress condensation does not by itself prove freedom from in-plane volumetric locking on arbitrary meshes.
-- A thin-three-dimensional comparison, general mixed or F-bar Explicit route, and prestrained surface-wave secular solution remain open validation gates.
+- A thin-three-dimensional comparison and general mixed or F-bar Explicit route remain open validation gates.
+- The surface-wave solver is restricted to a principal, traction-free half-space base state; it deliberately rejects a normally loaded weak interface.
 
 ### Minimal example
 
@@ -362,6 +365,7 @@ step = model.step(target=u, material=material, steps=100)
 **Benchmarks**
 
 - `agentfem.benchmark.jmps_weak_interface_transition_v4`
+- `agentfem.benchmark.jmps_weak_interface_convergence_v4`
 
 **Validation rules**
 

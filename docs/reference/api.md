@@ -138,8 +138,10 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `DynamicEnergyLedger` | Accepted-frame external work and mechanical-energy closure. |
 | class | `IsotropicWaveSpeeds` | Reference small-on-zero wave speeds for one isotropic material. |
 | class | `IncrementalWaveSpeeds` | Small-on-large bulk-wave modes about one homogeneous deformation. |
+| class | `PrincipalSurfaceWaveSpeed` | Reference-coordinate principal surface-wave secular solution. |
 | function | `neo_hookean_material_tangent(deformation_gradient, material: hyperelasticity.NeoHookeanProperties) -> np.ndarray` | Return ``A[i,J,k,L] = dP[i,J]/dF[k,L]`` for the declared energy. |
 | function | `incremental_wave_speeds(deformation_gradient, direction, material: hyperelasticity.NeoHookeanProperties, *, direction_configuration: str = 'current') -> IncrementalWaveSpeeds` | Return homogeneous small-on-large bulk-wave speeds. |
+| function | `principal_surface_wave_speed(deformation_gradient, material: hyperelasticity.NeoHookeanProperties, *, propagation_axis: int = 0, scan_points: int = 320) -> PrincipalSurfaceWaveSpeed` | Solve the 2D small-on-large principal surface-wave secular problem. |
 | function | `isotropic_reference_wave_speeds(material: hyperelasticity.NeoHookeanProperties) -> IsotropicWaveSpeeds` | Return unstretched 3D isotropic ``c_d``, ``c_s``, and ``c_R``. |
 | class | `StableTimeIncrement` | Visible body/interface estimate for central difference. |
 | class | `CohesiveCrackHistory` | Crack-front position and window-fitted speed on a fixed path. |

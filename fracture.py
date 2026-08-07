@@ -655,11 +655,16 @@ class DynamicEnergyLedger:
             self._previous_prescribed_force,
         ) = self._sample(self.state.u, self.state.a)
 
-    def evaluate(self, *, displacement, velocity) -> dict[str, float]:
-        values = self.energy.evaluate(
-            displacement=displacement,
-            velocity=velocity,
-        )
+    def advance(self, *, displacement, velocity=None) -> dict[str, float]:
+        """Advance accepted-increment work without assembling an energy snapshot.
+
+        External work is path dependent and therefore consumes every accepted
+        increment.  Bulk strain and kinetic energies are state functions and
+        only need evaluation when a history frame is retained.  Keeping these
+        two responsibilities separate preserves cadence-independent work while
+        avoiding repeated finite-element energy assembly between saved frames.
+        """
+
         current, natural, prescribed_force = self._sample(
             displacement,
             self.state.a,
@@ -679,10 +684,23 @@ class DynamicEnergyLedger:
         self._previous_displacement = current
         self._previous_natural_force = natural
         self._previous_prescribed_force = prescribed_force
+        external = self._natural_work + self._prescribed_work
+        return {
+            "natural_load_work": self._natural_work,
+            "prescribed_motion_work": self._prescribed_work,
+            "external_work": external,
+        }
+
+    def evaluate(self, *, displacement, velocity) -> dict[str, float]:
+        values = self.energy.evaluate(
+            displacement=displacement,
+            velocity=velocity,
+        )
+        work = self.advance(displacement=displacement, velocity=velocity)
         accounted = self._accounted(values)
         if self._initial_accounted_energy is None:
             self._initial_accounted_energy = accounted
-        external = self._natural_work + self._prescribed_work
+        external = work["external_work"]
         balance = self._initial_accounted_energy + external - accounted
         scale = max(
             abs(self._initial_accounted_energy),
@@ -690,11 +708,9 @@ class DynamicEnergyLedger:
             abs(accounted),
             np.finfo(float).eps,
         )
+        values.update(work)
         values.update(
             {
-                "natural_load_work": self._natural_work,
-                "prescribed_motion_work": self._prescribed_work,
-                "external_work": external,
                 "initial_accounted_energy": self._initial_accounted_energy,
                 "total_accounted_energy": accounted,
                 "energy_balance_error": balance,
@@ -754,6 +770,37 @@ class IncrementalWaveSpeeds:
             "deformation_jacobian": self.deformation_jacobian,
             "density_measure": "reference",
             "rayleigh_speed": None,
+        }
+
+
+@dataclass(frozen=True)
+class PrincipalSurfaceWaveSpeed:
+    """Reference-coordinate principal surface-wave secular solution."""
+
+    speed: float
+    limiting_bulk_speed: float
+    speed_ratio: float
+    attenuation_roots: np.ndarray
+    secular_residual: float
+    propagation_axis: int
+    depth_axis: int
+    configuration: str = "prestrained_reference"
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "principal_small_on_large_surface_wave_speed",
+            "speed": self.speed,
+            "limiting_bulk_speed": self.limiting_bulk_speed,
+            "speed_ratio": self.speed_ratio,
+            "attenuation_roots": [
+                {"real": float(value.real), "imag": float(value.imag)}
+                for value in self.attenuation_roots
+            ],
+            "secular_residual": self.secular_residual,
+            "propagation_axis": self.propagation_axis,
+            "depth_axis": self.depth_axis,
+            "configuration": self.configuration,
+            "method": "reference_total_lagrangian_stroh_decay",
         }
 
 
@@ -909,6 +956,162 @@ def incremental_wave_speeds(
         current_direction=np.asarray(current_direction, dtype=float),
         direction_configuration=configuration,
         deformation_jacobian=deformation_jacobian,
+    )
+
+
+def principal_surface_wave_speed(
+    deformation_gradient,
+    material: hyperelasticity.NeoHookeanProperties,
+    *,
+    propagation_axis: int = 0,
+    scan_points: int = 320,
+) -> PrincipalSurfaceWaveSpeed:
+    """Solve the 2D small-on-large principal surface-wave secular problem.
+
+    The homogeneous deformation must be diagonal in the supplied coordinate
+    system.  A harmonic incremental displacement propagates along one
+    principal reference axis and decays into the other.  The admissible speed
+    makes the two decaying partial waves satisfy zero incremental nominal
+    traction.  The returned speed is measured per reference length and uses
+    the reference density, consistently with :func:`incremental_wave_speeds`.
+
+    This is a local half-space oracle.  It does not by itself assert that a
+    finite preloaded strip, a newly released crack face, or a thin 3D sheet has
+    reached that idealized state.
+    """
+
+    if material.density is None:
+        raise ValueError("Surface-wave speed requires material density.")
+    F = np.asarray(deformation_gradient, dtype=float)
+    if F.shape != (2, 2) or not np.all(np.isfinite(F)):
+        raise ValueError("principal surface waves require one finite 2x2 F.")
+    scale = max(1.0, float(np.linalg.norm(F)))
+    if np.linalg.norm(F - np.diag(np.diag(F))) > 1.0e-12 * scale:
+        raise ValueError(
+            "principal_surface_wave_speed requires a diagonal deformation "
+            "gradient; rotate a principal state into its principal basis first."
+        )
+    axis = int(propagation_axis)
+    if axis not in {0, 1}:
+        raise ValueError("propagation_axis must be 0 or 1.")
+    points = int(scan_points)
+    if points < 80:
+        raise ValueError("scan_points must be at least 80.")
+    depth = 1 - axis
+    if isinstance(material, hyperelasticity.PlaneStressNeoHookeanProperties):
+        first_piola = hyperelasticity.plane_stress_first_piola_value(F, material)
+    else:
+        jacobian = float(np.linalg.det(F))
+        first_piola = (
+            float(material.mu) * F
+            + (float(material.lambda_) * np.log(jacobian) - float(material.mu))
+            * np.linalg.inv(F).T
+        )
+    base_traction = np.asarray(first_piola[:, depth], dtype=float)
+    traction_scale = max(float(material.young), float(np.linalg.norm(first_piola)))
+    if np.linalg.norm(base_traction) > 1.0e-8 * traction_scale:
+        raise ValueError(
+            "The selected principal half-space surface is not traction-free "
+            "in the base state. A loaded-interface incremental-wave problem "
+            "requires its own boundary condition and must not be labelled a "
+            "Rayleigh surface-wave reference."
+        )
+    tangent = neo_hookean_material_tangent(F, material)
+    Q = tangent[:, axis, :, axis]
+    C = tangent[:, axis, :, depth] + tangent[:, depth, :, axis]
+    T = tangent[:, depth, :, depth]
+    R = tangent[:, depth, :, axis]
+    density = float(material.density)
+    identity = np.eye(2)
+
+    bulk = incremental_wave_speeds(
+        F,
+        identity[axis],
+        material,
+        direction_configuration="reference",
+    )
+    limiting = float(bulk.slowest)
+
+    def secular(speed: float):
+        D = Q - density * float(speed) ** 2 * identity
+        companion = np.block(
+            [
+                [np.zeros((2, 2)), identity],
+                [-np.linalg.solve(T, D), -np.linalg.solve(T, C)],
+            ]
+        )
+        roots, vectors = np.linalg.eig(companion)
+        tolerance = 1.0e-9 * max(1.0, float(np.max(np.abs(roots))))
+        selected = np.flatnonzero(np.imag(roots) > tolerance)
+        if selected.size != 2:
+            return np.inf, np.empty(0, dtype=complex)
+        selected = selected[np.argsort(np.imag(roots[selected]))]
+        selected_roots = np.asarray(roots[selected], dtype=complex)
+        columns = []
+        for index in selected:
+            amplitude = vectors[:2, index]
+            traction = (R + roots[index] * T) @ amplitude
+            columns.append(traction)
+        traction_matrix = np.column_stack(columns)
+        separation = abs(selected_roots[1] - selected_roots[0])
+        scale = (
+            float(np.linalg.norm(columns[0]))
+            * float(np.linalg.norm(columns[1]))
+            * max(separation, np.finfo(float).eps)
+        )
+        # The ordinary two-partial-wave determinant contains the attenuation
+        # root difference as a removable factor. Dividing it out prevents a
+        # repeated propagation root from masquerading as a traction-free
+        # surface mode; the same regularized secular equation remains valid in
+        # the double-root limit.
+        determinant = (
+            traction_matrix[0, 0] * traction_matrix[1, 1]
+            - traction_matrix[0, 1] * traction_matrix[1, 0]
+        )
+        residual = float(abs(determinant) / max(scale, np.finfo(float).eps))
+        return residual, selected_roots
+
+    speeds = np.linspace(0.25 * limiting, 0.999 * limiting, points)
+    residuals = np.asarray([secular(value)[0] for value in speeds])
+    finite = np.isfinite(residuals)
+    if np.count_nonzero(finite) < 3:
+        raise RuntimeError("No two decaying partial waves were found below c_s.")
+    candidate = int(np.nanargmin(np.where(finite, residuals, np.nan)))
+    if candidate == 0 or candidate == points - 1:
+        raise RuntimeError(
+            "The surface-wave residual minimum lies on the search boundary."
+        )
+    left = float(speeds[candidate - 1])
+    right = float(speeds[candidate + 1])
+    ratio = 0.5 * (np.sqrt(5.0) - 1.0)
+    x1 = right - ratio * (right - left)
+    x2 = left + ratio * (right - left)
+    f1 = secular(x1)[0]
+    f2 = secular(x2)[0]
+    for _ in range(80):
+        if f1 > f2:
+            left, x1, f1 = x1, x2, f2
+            x2 = left + ratio * (right - left)
+            f2 = secular(x2)[0]
+        else:
+            right, x2, f2 = x2, x1, f1
+            x1 = right - ratio * (right - left)
+            f1 = secular(x1)[0]
+    speed = 0.5 * (left + right)
+    residual, roots = secular(speed)
+    if not np.isfinite(residual) or residual > 1.0e-7:
+        raise RuntimeError(
+            "The principal surface-wave secular solve did not converge; "
+            f"normalized traction residual={residual:.6g}."
+        )
+    return PrincipalSurfaceWaveSpeed(
+        speed=float(speed),
+        limiting_bulk_speed=limiting,
+        speed_ratio=float(speed / limiting),
+        attenuation_roots=roots,
+        secular_residual=residual,
+        propagation_axis=axis,
+        depth_axis=depth,
     )
 
 
@@ -1417,12 +1620,14 @@ __all__ = [
     "FiniteStrainCohesiveEnergyMonitor",
     "FiniteStrainCohesiveResidual",
     "IsotropicWaveSpeeds",
+    "PrincipalSurfaceWaveSpeed",
     "StableTimeIncrement",
     "estimate_stable_time_increment",
     "cohesive_crack_tip",
     "crack_tip_history",
     "finite_strain_internal_force",
     "isotropic_reference_wave_speeds",
+    "principal_surface_wave_speed",
     "minimum_cell_nodal_spacing",
     "mach_cone_angle",
     "separation_regime",

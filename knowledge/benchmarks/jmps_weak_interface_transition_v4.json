@@ -28,7 +28,8 @@
   "limitations": [
     "This is a JMPS-inspired numerical mechanism benchmark, not curve-level reproduction of the publication's unpublished input deck or parameters.",
     "The two-dimensional membrane uses local P33=0 condensation; general near-incompressible locking control and a thin-three-dimensional cross-check remain future gates.",
-    "The Rayleigh value is the unstretched isotropic reference. A prestrained surface-wave secular solution has not yet been implemented.",
+    "The Rayleigh value remains the unstretched isotropic reference. The principal prestrained surface-wave solver correctly requires a traction-free base surface, whereas this weak interface carries normal preload before release.",
+    "The inexpensive mechanism ladder retains two cells through the height; the separate two-dimensional convergence contract uses 30x10 and 40x14 meshes with a lower non-spalling impact.",
     "The paired-facet cohesive assembler is currently serial. MPI ownership and portable interface-state identity remain required for distributed V4 runs."
   ],
   "golden": {

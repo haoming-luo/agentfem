@@ -121,6 +121,7 @@ class WeakInterfaceTransitionBenchmark:
 
     label: str
     cells: int
+    transverse_cells: int
     axial_strain: float
     strength: float
     fracture_energy: float
@@ -155,6 +156,7 @@ class WeakInterfaceTransitionBenchmark:
             "kind": "jmps_weak_interface_transition_v4_case",
             "label": self.label,
             "cells": self.cells,
+            "transverse_cells": self.transverse_cells,
             "kinematics": "finite_strain_plane_stress",
             "loading": (
                 "homogeneous_prestrain_then_remote_impact"
@@ -219,6 +221,35 @@ class WeakInterfaceTransitionSuite:
                 "spall_like": self.spall_like.summary(),
             },
             "claim_scope": "JMPS-inspired numerical mechanism benchmark",
+            "publication_curve_reproduction": False,
+        }
+
+
+@dataclass(frozen=True)
+class WeakInterfaceConvergenceStudy:
+    """Two-dimensional mesh and time-step evidence for one V4 mechanism."""
+
+    baseline: WeakInterfaceTransitionBenchmark
+    spatial_refined: WeakInterfaceTransitionBenchmark
+    temporal_refined: WeakInterfaceTransitionBenchmark
+    spatial_speed_change: float
+    temporal_speed_change: float
+    accepted: bool
+    acceptance_failures: tuple[str, ...]
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "jmps_weak_interface_transition_v4_convergence",
+            "accepted": self.accepted,
+            "acceptance_failures": self.acceptance_failures,
+            "spatial_speed_change": self.spatial_speed_change,
+            "temporal_speed_change": self.temporal_speed_change,
+            "cases": {
+                "baseline": self.baseline.summary(),
+                "spatial_refined": self.spatial_refined.summary(),
+                "temporal_refined": self.temporal_refined.summary(),
+            },
+            "claim_scope": "two-dimensional supershear mechanism convergence",
             "publication_curve_reproduction": False,
         }
 
@@ -712,6 +743,7 @@ def prestressed_weak_interface_separation(
     *,
     label: str = "v4_candidate",
     cells: int = 60,
+    transverse_cells: int = 2,
     length: float = 3.0,
     height: float = 1.0,
     precrack_length: float = 0.5,
@@ -741,6 +773,15 @@ def prestressed_weak_interface_separation(
     selected_cells = int(cells)
     if selected_cells < 30:
         raise ValueError("The V4 strip requires at least 30 interface cells.")
+    selected_transverse_cells = int(transverse_cells)
+    if (
+        selected_transverse_cells < 2
+        or selected_transverse_cells % 2 != 0
+    ):
+        raise ValueError(
+            "transverse_cells must be an even integer of at least two so the "
+            "weak interface lies on a complete mesh row."
+        )
     selected_length = float(length)
     selected_height = float(height)
     selected_precrack = float(precrack_length)
@@ -770,36 +811,39 @@ def prestressed_weak_interface_separation(
         raise ValueError("impact_rise_time must lie in (0, total_time].")
 
     x = np.linspace(0.0, selected_length, selected_cells + 1)
-    coordinates = np.vstack(
-        (
-            np.column_stack((x, np.zeros_like(x))),
-            np.column_stack((x, np.full_like(x, 0.5 * selected_height))),
-            np.column_stack((x, np.full_like(x, selected_height))),
-        )
+    y = np.linspace(0.0, selected_height, selected_transverse_cells + 1)
+    coordinates = np.asarray(
+        [(x_value, y_value) for y_value in y for x_value in x],
+        dtype=float,
     )
     row = selected_cells + 1
-    bottom = []
-    top = []
-    for index in range(selected_cells):
-        bottom.append((index, index + 1, row + index + 1, row + index))
-        top.append(
+    cells_array = np.asarray(
+        [
             (
-                row + index,
-                row + index + 1,
-                2 * row + index + 1,
-                2 * row + index,
+                y_index * row + x_index,
+                y_index * row + x_index + 1,
+                (y_index + 1) * row + x_index + 1,
+                (y_index + 1) * row + x_index,
             )
-        )
-    cells_array = np.asarray((*bottom, *top), dtype=int)
-    interface_facets = np.asarray(
-        [(row + index, row + index + 1) for index in range(selected_cells)],
+            for y_index in range(selected_transverse_cells)
+            for x_index in range(selected_cells)
+        ],
         dtype=int,
     )
+    interface_row = selected_transverse_cells // 2
+    interface_facets = np.asarray(
+        [
+            (interface_row * row + index, interface_row * row + index + 1)
+            for index in range(selected_cells)
+        ],
+        dtype=int,
+    )
+    first_positive_cell = interface_row * selected_cells
     split = interfaces.split_conforming_line_interface(
         coordinates,
         cells_array,
         interface_facets,
-        positive_cells=np.arange(selected_cells, 2 * selected_cells),
+        positive_cells=np.arange(first_positive_cell, len(cells_array)),
     )
     domain = interfaces.create_dolfinx_split_mesh(split)
     model = models.create(
@@ -1038,6 +1082,7 @@ def prestressed_weak_interface_separation(
     return WeakInterfaceTransitionBenchmark(
         label=str(label),
         cells=selected_cells,
+        transverse_cells=selected_transverse_cells,
         axial_strain=selected_strain,
         strength=float(strength),
         fracture_energy=float(fracture_energy),
@@ -1147,6 +1192,97 @@ def jmps_weak_interface_transition_v4(
     )
 
 
+def jmps_weak_interface_convergence_v4(
+    *,
+    history_every: int = 20,
+    spatial_speed_tolerance: float = 0.10,
+    temporal_speed_tolerance: float = 0.02,
+) -> WeakInterfaceConvergenceStudy:
+    """Run the opt-in two-dimensional V4 supershear convergence contract.
+
+    Unlike the inexpensive two-cell-thick mechanism ladder, this study uses
+    near-isotropic quadrilateral meshes through the sheet height.  The impact
+    amplitude is intentionally lower: the stronger screening impact becomes
+    distributed spall as the transverse discretization is resolved.  The
+    contract distinguishes preservation of the physical regime from numerical
+    convergence of the reported propagation speed.
+    """
+
+    spatial_tolerance = float(spatial_speed_tolerance)
+    temporal_tolerance = float(temporal_speed_tolerance)
+    if not 0.0 < spatial_tolerance < 1.0:
+        raise ValueError("spatial_speed_tolerance must lie in (0, 1).")
+    if not 0.0 < temporal_tolerance < 1.0:
+        raise ValueError("temporal_speed_tolerance must lie in (0, 1).")
+    selected_history_every = int(history_every)
+    if selected_history_every <= 0:
+        raise ValueError("history_every must be positive.")
+    common = {
+        "total_time": 0.1,
+        "axial_strain": 0.12,
+        "strength": 150.0,
+        "fracture_energy": 1.0,
+        "initial_stiffness": 1.0e5,
+        "history_every": selected_history_every,
+        "impact_displacement": 0.01,
+        "impact_rise_time": 0.015,
+    }
+    baseline = prestressed_weak_interface_separation(
+        label="v4_convergence_baseline",
+        cells=30,
+        transverse_cells=10,
+        time_step_scale=0.8,
+        **common,
+    )
+    spatial = prestressed_weak_interface_separation(
+        label="v4_convergence_spatial",
+        cells=40,
+        transverse_cells=14,
+        time_step_scale=0.8,
+        **common,
+    )
+    temporal = prestressed_weak_interface_separation(
+        label="v4_convergence_temporal",
+        cells=30,
+        transverse_cells=10,
+        time_step_scale=0.4,
+        **common,
+    )
+    spatial_change = abs(
+        spatial.maximum_fitted_speed - baseline.maximum_fitted_speed
+    ) / max(abs(spatial.maximum_fitted_speed), np.finfo(float).eps)
+    temporal_change = abs(
+        temporal.maximum_fitted_speed - baseline.maximum_fitted_speed
+    ) / max(abs(temporal.maximum_fitted_speed), np.finfo(float).eps)
+    failures: list[str] = []
+    for result in (baseline, spatial, temporal):
+        if result.regime != "supershear":
+            failures.append(f"{result.label} does not preserve supershear.")
+        if result.maximum_simultaneous_failed_fraction >= 0.1:
+            failures.append(f"{result.label} is not a resolved contiguous front.")
+        if result.final_relative_energy_error >= 0.005:
+            failures.append(f"{result.label} exceeds the 0.5-percent energy gate.")
+    if spatial_change >= spatial_tolerance:
+        failures.append(
+            "Spatial refinement changes fitted speed by "
+            f"{spatial_change:.3%}, above {spatial_tolerance:.3%}."
+        )
+    if temporal_change >= temporal_tolerance:
+        failures.append(
+            "Time-step refinement changes fitted speed by "
+            f"{temporal_change:.3%}, above {temporal_tolerance:.3%}."
+        )
+    return WeakInterfaceConvergenceStudy(
+        baseline=baseline,
+        spatial_refined=spatial,
+        temporal_refined=temporal,
+        spatial_speed_change=spatial_change,
+        temporal_speed_change=temporal_change,
+        accepted=not failures,
+        acceptance_failures=tuple(failures),
+    )
+
+
 def _equilibrated_plane_stress_interface_preload(
     *,
     total_axial_strain: float,
@@ -1218,9 +1354,11 @@ __all__ = [
     "WaveArrivalBenchmark",
     "WeakInterfaceTransitionBenchmark",
     "WeakInterfaceTransitionSuite",
+    "WeakInterfaceConvergenceStudy",
     "cohesive_energy_balance",
     "classical_cohesive_crack",
     "finite_strain_wave_arrival",
     "jmps_weak_interface_transition_v4",
+    "jmps_weak_interface_convergence_v4",
     "prestressed_weak_interface_separation",
 ]

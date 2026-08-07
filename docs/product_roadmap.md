@@ -242,16 +242,21 @@ The first four promotion gates now have executable experimental evidence:
 4. V4 a near-incompressible plane-stress, preloaded weak-interface mechanism
    ladder separating crack-like propagation, a resolved `c_s < v < c_d`
    front, and distributed spall-like separation under smooth remote impact.
+5. an opt-in V4 two-dimensional convergence contract preserving supershear
+   across 30x10 and 40x14 meshes and a halved time increment, with spatial and
+   temporal fitted-speed changes of 7.25% and 0.24%, respectively.
 
 These are scoped named benchmarks, not universal validation. V1--V3 remain
 the compressible plane-strain guardrails; V4 is an experimental 2D membrane
 mechanism gate. The next promotion work is:
 
-5. mesh/time-step/impact-history convergence of the V4 ladder, a prestrained
-   surface-wave secular solution, and a thin-3D counterpart;
-6. Abaqus/Gmsh internal-surface ingestion, deterministic MPI facet ownership,
+6. a third proportional V4 mesh, impact-history family, loaded-interface wave
+   reference, and thin-3D counterpart; the principal traction-free
+   prestrained surface-wave secular oracle is implemented and independently
+   checked;
+7. Abaqus/Gmsh internal-surface ingestion, deterministic MPI facet ownership,
    and portable interface-state identity;
-7. author-deck/parameter acquisition for curve-level JMPS 2025 reproduction,
+8. author-deck/parameter acquisition for curve-level JMPS 2025 reproduction,
    followed by separated calibration and retained Science 2023 Dryad
    prediction cases.
 

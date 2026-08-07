@@ -12,6 +12,7 @@
     "agentfem.constitutive.plane_stress_first_piola_value",
     "agentfem.fracture.neo_hookean_material_tangent",
     "agentfem.fracture.incremental_wave_speeds",
+    "agentfem.fracture.principal_surface_wave_speed",
     "agentfem.models.Model.step"
   ],
   "implementation": [
@@ -64,7 +65,8 @@
     ],
     "limitations": [
       "Local plane-stress condensation does not by itself prove freedom from in-plane volumetric locking on arbitrary meshes.",
-      "A thin-three-dimensional comparison, general mixed or F-bar Explicit route, and prestrained surface-wave secular solution remain open validation gates."
+      "A thin-three-dimensional comparison and general mixed or F-bar Explicit route remain open validation gates.",
+      "The surface-wave solver is restricted to a principal, traction-free half-space base state; it deliberately rejects a normally loaded weak interface."
     ]
   },
   "usage": {
@@ -80,7 +82,8 @@
       "tests/test_dynamic_fracture_benchmarks.py"
     ],
     "benchmarks": [
-      "agentfem.benchmark.jmps_weak_interface_transition_v4"
+      "agentfem.benchmark.jmps_weak_interface_transition_v4",
+      "agentfem.benchmark.jmps_weak_interface_convergence_v4"
     ],
     "validation_rules": [
       "Require positive thickness stretch and P33 closure.",

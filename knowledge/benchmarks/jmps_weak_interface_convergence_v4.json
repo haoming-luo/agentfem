@@ -1,0 +1,61 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.jmps_weak_interface_convergence_v4",
+  "title": "Two-dimensional weak-interface supershear convergence contract",
+  "status": "experimental_v4_2d_convergence_executable",
+  "purpose": "Require the supershear mechanism, energy closure, and fitted front speed to survive proportional in-plane mesh refinement and explicit time-step refinement.",
+  "physics": "near-incompressible finite-strain plane-stress Neo-Hookean strip with ten or more cells through the height, homogeneous preload, smooth remote impact, a fixed bilinear Mode-I cohesive interface, and a precrack",
+  "execution": {
+    "example": "benchmarks/dynamic_fracture.py",
+    "command": "python -c \"from agentfem import benchmarks; print(benchmarks.jmps_weak_interface_convergence_v4().summary())\"",
+    "evidence": "The opt-in public benchmark compares a 30x10 baseline, a near-proportional 40x14 spatial refinement, and a 30x10 run with the stable time increment halved. It is kept outside per-commit CI because the complete local run takes several minutes."
+  },
+  "observables": [
+    "Resolved supershear classification and fitted speed normalized by the prestrained reference-coordinate shear speed.",
+    "Interface and transverse cell counts, stable time increment, simultaneous failure fraction, and rapid distributed-failure fraction.",
+    "Complete bulk, kinetic, cohesive, prescribed-work, and energy-balance ledger at retained frames.",
+    "Relative fitted-speed changes under proportional spatial refinement and time-step halving."
+  ],
+  "acceptance": [
+    "All three runs remain supershear with fewer than ten percent of intact facets failing in one increment.",
+    "Every run closes the complete energy ledger within 0.5 percent.",
+    "The 30x10 to 40x14 fitted-speed change remains below ten percent.",
+    "Halving the 30x10 time increment changes fitted speed by less than two percent."
+  ],
+  "limitations": [
+    "The accepted contract establishes two-dimensional mechanism convergence, not publication-parameter or curve-level reproduction.",
+    "The spatial speed difference is about seven percent; a third proportional mesh remains necessary for an asymptotic convergence-rate claim.",
+    "The local plane-stress membrane still requires a thin-three-dimensional cross-check and an independent near-incompressibility study.",
+    "The V4 interface is normally preloaded and therefore cannot use the traction-free principal surface-wave oracle as a prestrained Rayleigh boundary."
+  ],
+  "golden": {
+    "reference_version": "v4-2d-convergence-2026-08-08",
+    "quantities": [
+      {
+        "name": "shear_speed_ratios",
+        "expected": [1.2918787119, 1.2046006255, 1.2949750183],
+        "relative_tolerance": 0.03,
+        "absolute_tolerance": 0.02,
+        "unit": null,
+        "description": "Baseline, spatially refined, and temporally refined fitted-front speed ratios."
+      },
+      {
+        "name": "relative_speed_changes",
+        "expected": [0.0724539607, 0.0023910163],
+        "relative_tolerance": 0.1,
+        "absolute_tolerance": 0.002,
+        "unit": null,
+        "description": "Spatial and temporal fitted-speed changes used by the convergence gate."
+      },
+      {
+        "name": "relative_energy_errors",
+        "expected": [0.0001874622, 0.0002428566, 0.0000628840],
+        "relative_tolerance": 0.2,
+        "absolute_tolerance": 0.00005,
+        "unit": null,
+        "description": "Final complete-ledger energy errors for the three convergence runs."
+      }
+    ]
+  }
+}

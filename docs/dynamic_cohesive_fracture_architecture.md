@@ -176,9 +176,14 @@ current-configuration convention.
 
 The Rayleigh speed of a prestrained, incrementally anisotropic half-space is
 not obtained reliably by inserting one effective modulus into the classical
-isotropic formula.  AgentFEM will first validate directional incremental bulk
-waves.  Prestrained surface-wave speed requires a separately verified secular
-or Stroh solution before it is used as a regime boundary.
+isotropic formula. `fracture.principal_surface_wave_speed()` now solves the
+reference Total-Lagrangian Stroh decay problem for a principal, traction-free
+2D half-space. It recovers the classical isotropic Rayleigh speed and removes
+the repeated-attenuation-root factor before accepting a secular root. It also
+rejects a base surface carrying nominal traction. This distinction matters:
+the V4 cohesive interface carries normal preload before release, so the
+traction-free oracle is evidence for the wave implementation but is not
+silently substituted as that interface's prestrained crack-speed boundary.
 
 ## Energy ledger
 
@@ -366,6 +371,41 @@ the authors' dimensions, exact cohesive law and parameters, impact history,
 mesh sequence, and post-processing convention, followed by mesh/time-step
 convergence and a thin-3D check. The immutable evidence and tolerances live in
 `knowledge/benchmarks/jmps_weak_interface_transition_v4.json`.
+
+### Two-dimensional V4 convergence contract
+
+`benchmarks.jmps_weak_interface_convergence_v4()` is the opt-in promotion
+contract beyond the inexpensive two-cell-thick mechanism ladder. It uses a
+30x10 near-isotropic baseline, a 40x14 proportional spatial refinement, and a
+30x10 run with the explicit increment halved. A lower smooth impact is used
+because the screening impact becomes distributed spall when transverse wave
+propagation is resolved.
+
+All three runs remain resolved supershear. The fitted speed changes by 7.25%
+under spatial refinement and 0.24% when the time increment is halved; final
+complete-ledger energy errors remain below 0.025%. This passes the declared
+10% spatial and 2% temporal gates. It establishes mechanism-level 2D
+convergence, while a third proportional mesh, thin-3D comparison, and author
+parameters remain necessary for publication-curve reproduction. The complete
+contract takes several minutes and belongs in scheduled benchmark CI rather
+than the per-commit smoke suite.
+
+The transient lifecycle now advances path-dependent external work at every
+accepted increment but assembles bulk and kinetic energy only at retained
+history frames. Thus `history_every` reduces expensive state-function
+assembly without changing the integrated work or final energy balance.
+
+The next performance pass is deliberately evidence-driven:
+
+1. profile bulk residual assembly, cohesive state evaluation, vector scatter,
+   and history work separately on the accepted 30x10 case;
+2. reuse PETSc work vectors and NumPy facet buffers across increments;
+3. batch cohesive quadrature/state updates without changing commit/rollback
+   boundaries;
+4. retain the short construction smoke per commit and run the six-minute
+   convergence contract in scheduled or release-gate CI;
+5. optimize MPI ownership only after the serial facet kernel has a stable
+   state identity and benchmark trace.
 
 ## Inputs to request from the authors
 

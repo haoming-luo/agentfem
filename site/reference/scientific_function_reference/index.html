@@ -8696,6 +8696,12 @@ the compact machine-readable <code>knowledge/catalog.json</code>.</p>
 <td>automated_regression</td>
 </tr>
 <tr>
+<td><code>agentfem.benchmark.jmps_weak_interface_convergence_v4</code></td>
+<td>Two-dimensional weak-interface supershear convergence contract</td>
+<td>near-incompressible finite-strain plane-stress Neo-Hookean strip with ten or more cells through the height, homogeneous preload, smooth remote impact, a fixed bilinear Mode-I cohesive interface, and a precrack</td>
+<td>experimental_v4_2d_convergence_executable</td>
+</tr>
+<tr>
 <td><code>agentfem.benchmark.jmps_weak_interface_transition_v4</code></td>
 <td>Prestressed weak-interface crack-to-supershear-to-spall mechanism ladder</td>
 <td>near-incompressible finite-strain plane-stress Neo-Hookean strip with homogeneous preload, smooth remote impact, a fixed zero-thickness bilinear Mode-I interface, and a precrack</td>
@@ -9004,6 +9010,7 @@ the compact machine-readable <code>knowledge/catalog.json</code>.</p>
 <li><code>agentfem.constitutive.plane_stress_first_piola_value</code></li>
 <li><code>agentfem.fracture.neo_hookean_material_tangent</code></li>
 <li><code>agentfem.fracture.incremental_wave_speeds</code></li>
+<li><code>agentfem.fracture.principal_surface_wave_speed</code></li>
 <li><code>agentfem.models.Model.step</code></li>
 </ul>
 <h3 id="scientific-contract_2">Scientific contract<a class="headerlink" href="#scientific-contract_2" title="Permanent link">&para;</a></h3>
@@ -9074,7 +9081,8 @@ P_{33}(F_{\alpha\beta},\lambda_3)=\partial\psi/\partial\lambda_3=0,\quad \lambda
 <h4 id="limitations_2">Limitations<a class="headerlink" href="#limitations_2" title="Permanent link">&para;</a></h4>
 <ul>
 <li>Local plane-stress condensation does not by itself prove freedom from in-plane volumetric locking on arbitrary meshes.</li>
-<li>A thin-three-dimensional comparison, general mixed or F-bar Explicit route, and prestrained surface-wave secular solution remain open validation gates.</li>
+<li>A thin-three-dimensional comparison and general mixed or F-bar Explicit route remain open validation gates.</li>
+<li>The surface-wave solver is restricted to a principal, traction-free half-space base state; it deliberately rejects a normally loaded weak interface.</li>
 </ul>
 <h3 id="minimal-example_2">Minimal example<a class="headerlink" href="#minimal-example_2" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">study</span> <span class="o">=</span> <span class="n">studies</span><span class="o">.</span><span class="n">dynamic_solid</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">assumption</span><span class="o">=</span><span class="s1">&#39;plane_stress&#39;</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;explicit&#39;</span><span class="p">)</span>
@@ -9090,6 +9098,7 @@ P_{33}(F_{\alpha\beta},\lambda_3)=\partial\psi/\partial\lambda_3=0,\quad \lambda
 <p><strong>Benchmarks</strong></p>
 <ul>
 <li><code>agentfem.benchmark.jmps_weak_interface_transition_v4</code></li>
+<li><code>agentfem.benchmark.jmps_weak_interface_convergence_v4</code></li>
 </ul>
 <p><strong>Validation rules</strong></p>
 <ul>
