@@ -626,6 +626,23 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `magnitude_stats(function, *, on = None, name: str \| None = None) -> FieldStats` | Return distributed magnitude statistics for a scalar or vector field. |
 | function | `field_stats(function, *, on = None, name: str \| None = None) -> FieldStats` | Alias for ``magnitude_stats`` for application-level diagnostics. |
 
+## `agentfem.extensions`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `ExtensionError` | An installed extension could not be discovered or activated safely. |
+| class | `ExtensionSpec` | Identity and compatibility contract published by one extension. |
+| class | `Extension` | One loadable extension and its side-effect-free registration callback. |
+| class | `ExtensionDescriptor` | Package metadata visible without importing extension code. |
+| class | `ExtensionContext` | Staging area exposed to an extension during activation. |
+| class | `LoadedExtension` | Activated identity and the capabilities registered into this process. |
+| function | `discover_extensions() -> tuple[ExtensionDescriptor, ...]` | Return installed extension metadata without importing extension code. |
+| function | `extension_status() -> dict[str, object]` | Return the machine-facing installed and activated extension inventory. |
+| function | `loaded_extensions() -> tuple[LoadedExtension, ...]` | Return activated extensions in stable name order. |
+| function | `missing_extensions(names) -> tuple[str, ...]` | Return required names that are not advertised by installed packages. |
+| function | `load_extension(name: str) -> LoadedExtension` | Explicitly import, validate, and activate one installed extension. |
+| function | `load_extensions(names) -> tuple[LoadedExtension, ...]` | Activate required extensions in declaration order. |
+
 ## `agentfem.ir`
 
 | Kind | Public object | Purpose |

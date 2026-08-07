@@ -87,6 +87,10 @@ Optional integrations must remain behind lazy imports with actionable missing-
 dependency messages. MPI-sensitive changes should be exercised with at least
 two ranks.
 
+See [`docs/development_testing.md`](docs/development_testing.md) for the
+targeted, serial, MPI, CI, and release validation layers. Full remote CI remains
+the merge evidence even when targeted local tests make development faster.
+
 ## Commercial Extensions
 
 The open-source AgentFEM core is Apache-2.0 licensed. Commercial services,

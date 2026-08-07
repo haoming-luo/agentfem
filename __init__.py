@@ -17,6 +17,7 @@ from . import dependencies
 from . import diagnostics
 from . import fields
 from . import elements
+from . import extensions
 from . import forms
 from . import io
 from . import ir
@@ -69,6 +70,7 @@ PUBLIC_WORKFLOW_MODULES = (
     "upgrades",
     "io",
     "diagnostics",
+    "extensions",
     "ir",
     "campaigns",
     "checkpointing",
@@ -103,6 +105,7 @@ __all__ = [
     "diagnostics",
     "fields",
     "elements",
+    "extensions",
     "forms",
     "io",
     "ir",

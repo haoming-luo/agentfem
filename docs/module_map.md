@@ -46,6 +46,7 @@ This map links FEM concepts to the current Python modules.
 | Structured validation issues and reports | `validation.py` |
 | Scientific trust, claims, and convergence evidence | `verification.py` |
 | Backend descriptors, registry, and lowering adapters | `backends/` |
+| Explicit installed/private package discovery and staged registration | `extensions.py` |
 | Typed/JSON parameters, sampling, campaign plans, resumable case execution | `campaigns/` |
 | Scientific dataset schemas, arrays, provenance, splits, and FEM-field export | `datasets/` |
 | Surrogate/ROM models, validation, applicability, observation grids, neural-operator/PINN contracts | `surrogates/` |

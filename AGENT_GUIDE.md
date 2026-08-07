@@ -134,6 +134,11 @@ finite-element simulation with AgentFEM.
   and `docs/agent_gui_integration.md`. Keep `case.py` as modeling truth, use
   `project.current_run()` for artifacts, publish a `SimulationResult`, and
   consume versioned JSON instead of scraping terminal prose.
+- Installed private extensions: run `agentfem extensions --json` before
+  accepting a project's `[extensions].required` list. Treat every extension as
+  trusted executable code; a missing package is not permission to install an
+  unknown distribution. Keep private products in separate repositories and
+  integrate them through the versioned extension API.
 - AF-IR and repair: inspect `ir/` and `validation.py`. Treat AF-IR 0.1 as an
   experimental record, not as proof of backend-neutral executability.
 - Backend work: inspect `backends/` and
@@ -184,6 +189,6 @@ AgentFEM currently focuses on a dependable DOLFINx/PETSc path: linear
 elasticity, implicit and explicit linear structural dynamics, implicit heat
 transfer, sequential thermoelasticity, a bounded Neo-Hookean nonlinear solve,
 result/campaign/data flow, external mesh conversion, and deliberately staged
-path-dependent material tools. The first global J2 provider is serial-only;
-Arrhenius power-law creep is still a local law. Product depth and verification
+path-dependent material tools. The first global J2 and Arrhenius power-law
+creep providers are serial-only foundations. Product depth and verification
 take priority over adding material names or backend abstractions.

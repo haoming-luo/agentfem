@@ -98,9 +98,12 @@ def test_capability_command_is_json_serializable(capsys):
     assert record["schema"] == "agentfem.capabilities"
     assert "upgrade" in record["commands"]
     assert "verify" in record["commands"]
+    assert "extensions" in record["commands"]
     assert "project" in record["public_modules"]
+    assert "extensions" in record["public_modules"]
     assert "provenance" in record["public_modules"]
     assert any(item["name"] == "linear_elasticity" for item in record["constitutive"])
+    assert record["extensions"]["schema"] == "agentfem.extensions"
 
 
 def test_upgrade_report_is_location_aware_and_does_not_rewrite_case(tmp_path):
@@ -143,7 +146,7 @@ def test_upgrade_can_apply_only_safe_metadata_and_write_plan(tmp_path):
         ]
     ) == 0
 
-    assert 'schema_version = "0.1.0"' in config.read_text(encoding="utf-8")
+    assert 'schema_version = "0.2.0"' in config.read_text(encoding="utf-8")
     assert config.with_suffix(".toml.bak").read_text(encoding="utf-8") == original
     saved = json.loads((tmp_path / "upgrade.json").read_text(encoding="utf-8"))
     assert saved["schema"] == "agentfem.upgrade-report"
@@ -171,7 +174,7 @@ def test_safe_upgrade_replaces_an_older_operational_schema(tmp_path):
     changed = upgrades.apply_safe_metadata(project.ProjectConfig.load(tmp_path))
 
     assert changed
-    assert 'schema_version="0.1.0"' in config.read_text(encoding="utf-8")
+    assert 'schema_version="0.2.0"' in config.read_text(encoding="utf-8")
 
 
 def test_upgrade_scans_project_modules_but_ignores_generated_outputs(tmp_path):
@@ -187,7 +190,7 @@ def test_upgrade_scans_project_modules_but_ignores_generated_outputs(tmp_path):
         encoding="utf-8",
     )
     (tmp_path / "agentfem.toml").write_text(
-        "[project]\nname='modules'\nentrypoint='case.py'\nschema_version='0.1.0'\n",
+        "[project]\nname='modules'\nentrypoint='case.py'\nschema_version='0.2.0'\n",
         encoding="utf-8",
     )
 

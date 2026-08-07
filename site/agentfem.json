@@ -52,6 +52,7 @@
     "upgrades",
     "io",
     "diagnostics",
+    "extensions",
     "ir",
     "campaigns",
     "checkpointing",

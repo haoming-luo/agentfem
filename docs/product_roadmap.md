@@ -40,6 +40,7 @@ core, results, verification, and documentation have priority.
 | Scientific trust and provenance | integrated foundation | computed/converged/verified/validated vocabulary; exploratory/engineering/release policies; automatic runtime checks; explicit claims and applicability domains; coarse-to-fine convergence evidence; automatically sealed result manifests and artifact hashes; attested tagged distributions; learning-data quality gates; orientation metamorphic regression | optional signed result identities, representative-family evidence inheritance, hole-stress and T-stiffener cliff families, GCI, and external-deck reproductions remain |
 | Campaign-to-learning flow | workflow integrated | deterministic cases, resumable evidence, failure-aware dataset gate, reproducible train/validation workflow, ridge/POD/PyTorch adapters, applicability guard and FEM fallback; MPI-safe structured observation grids with units, layout, and geometry masks | no graph/basis field encoder, scheduler executor, active-learning governance, or calibrated epistemic uncertainty |
 | Platform/install boundary | release foundation | Linux CI, macOS developer verification, WSL2 recommended for Windows, exact interpreter/import/distribution identity, versioned project schema, source-aware upgrade reports, Gmsh/meshio optional adapters | native Windows remains experimental; semantic Python migrations require human or agent review; AgentFEM is not yet a conda-forge package |
+| Open-core extension boundary | integrated foundation | lazy Python entry-point discovery, explicit activation, API compatibility, staged provider/backend/material registration, project requirements, CLI inventory, and execution provenance | no arbitrary hook bus; new registration kinds require a stable public consumer and conflict semantics |
 
 The same table is queryable in code through
 `constitutive.capabilities()` and `benchmarks.list_benchmarks()`.
@@ -81,6 +82,8 @@ an agent, user, or README from confusing these levels.
   command; keep optional authorship signatures as a later compatible layer;
 - JSON-configured and Python-configured campaigns producing the same dataset;
 - serial, MPI, docs, package, and example release gates;
+- keep private workflow/material products in independent distributions using
+  the explicit extension contract rather than long-lived core branches;
 - clear solver convergence/failure evidence;
 - reject Study/material/procedure combinations during model validation when no
   registered executable provider can consume them;

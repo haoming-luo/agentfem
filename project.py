@@ -21,7 +21,7 @@ from typing import Mapping
 
 PROJECT_FILENAME = "agentfem.toml"
 PROJECT_SCHEMA = "agentfem.project"
-CURRENT_PROJECT_SCHEMA_VERSION = "0.1.0"
+CURRENT_PROJECT_SCHEMA_VERSION = "0.2.0"
 RUN_SCHEMA = "agentfem.run"
 
 _ENV_PROJECT_ROOT = "AGENTFEM_PROJECT_ROOT"
@@ -55,6 +55,7 @@ class ProjectConfig:
     name: str
     entrypoint: Path
     output_directory: Path
+    extensions: tuple[str, ...] = ()
     schema_version: str = CURRENT_PROJECT_SCHEMA_VERSION
     created_with: str | None = None
 
@@ -67,15 +68,22 @@ class ProjectConfig:
         record = tomllib.loads(config_path.read_text(encoding="utf-8"))
         project = record.get("project", {})
         run = record.get("run", {})
+        extension_record = record.get("extensions", {})
         root = config_path.parent
         name = _safe_name(project.get("name", root.name), label="project.name")
         entrypoint = root / project.get("entrypoint", "case.py")
         output_directory = root / run.get("output_directory", "outputs")
+        required_extensions = extension_record.get("required", [])
+        if not isinstance(required_extensions, list) or not all(
+            isinstance(item, str) and item.strip() for item in required_extensions
+        ):
+            raise ValueError("extensions.required must be an array of non-empty names.")
         return cls(
             root=root,
             name=name,
             entrypoint=entrypoint.resolve(),
             output_directory=output_directory.resolve(),
+            extensions=tuple(required_extensions),
             schema_version=str(
                 project.get("schema_version", CURRENT_PROJECT_SCHEMA_VERSION)
             ),
@@ -116,6 +124,15 @@ class ProjectConfig:
                 f"Project schema {self.schema_version} is newer than this runtime "
                 f"supports ({CURRENT_PROJECT_SCHEMA_VERSION})."
             )
+        if self.extensions:
+            from .extensions import missing_extensions
+
+            missing = missing_extensions(self.extensions)
+            if missing:
+                errors.append(
+                    "Required AgentFEM extensions are not installed: "
+                    + ", ".join(missing)
+                )
         return tuple(errors)
 
     def summary(self) -> dict[str, object]:
@@ -127,6 +144,7 @@ class ProjectConfig:
             "root": str(self.root),
             "entrypoint": str(self.entrypoint),
             "output_directory": str(self.output_directory),
+            "extensions": self.extensions,
         }
 
 
@@ -233,6 +251,8 @@ class RunContext:
         }
 
     def summary(self) -> dict[str, object]:
+        from .extensions import loaded_extensions
+
         return {
             "schema": RUN_SCHEMA,
             "schema_version": "0.1.0",
@@ -242,6 +262,9 @@ class RunContext:
             "output_directory": str(self.output_directory),
             "result_manifest": str(self.manifest_path),
             "execution_record": str(self.execution_path),
+            "extensions": tuple(
+                item.as_dict() for item in loaded_extensions()
+            ),
         }
 
     def write_execution(

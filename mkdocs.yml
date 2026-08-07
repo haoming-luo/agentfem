@@ -137,6 +137,7 @@ nav:
       - Agent and GUI Integration: agent_gui_integration.md
       - API Style: api_style.md
       - Extension Rules: extension_rules.md
+      - Private Products and Extensions: extensions_and_private_products.md
       - Abaqus User Materials: abaqus_user_material_bridge.md
       - AgentFEM Skill: agents/skill.md
 
@@ -156,6 +157,7 @@ nav:
           - AgentFEM 0.2.0a1: release_0.2.0a1.md
           - 26 August 2026 Release Gate: release_2026_08_26.md
           - Publishing: publishing.md
+          - Development and Verification: development_testing.md
       - Engineering Notes:
           - Engineering Notes Index: project/engineering_notes.md
           - Architecture Review: architecture_review.md

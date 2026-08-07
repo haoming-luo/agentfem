@@ -14,6 +14,7 @@ scientific meaning.
 | New field or engineering quantity | `results/` with scientific/presentation semantics |
 | New mesh format | `mesh/` conversion plus provenance and fixtures |
 | New agent/GUI client | public Python API or structured CLI only |
+| Private product or workflow pack | separate package using `agentfem.extensions` |
 
 ## Extension rule
 
@@ -25,6 +26,7 @@ placing a one-off example helper inside the core package.
 
 - [API style](../api_style.md)
 - [Extension rules](../extension_rules.md)
+- [Extension packages and private products](../extensions_and_private_products.md)
 - [Module map](../module_map.md)
 - [Agent and GUI integration](../agent_gui_integration.md)
 - [Abaqus user-material bridge](../abaqus_user_material_bridge.md)

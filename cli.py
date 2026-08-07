@@ -18,6 +18,7 @@ import traceback
 from mpi4py import MPI
 
 from . import __version__
+from . import extensions
 from . import platforms
 from . import provenance
 from . import upgrades
@@ -218,6 +219,7 @@ def _command_run(args) -> int:
     if check["status"] != "passed":
         _emit(check, as_json=args.json, human="Project check failed:\n" + "\n".join(check["errors"]))
         return 2
+    extensions.load_extensions(project.extensions)
     context = _run_context(project, args.run_id, args.output)
     previous_environment = {key: os.environ.get(key) for key in context.environment()}
     os.environ.update(context.environment())
@@ -416,6 +418,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     capabilities = sub.add_parser("capabilities", help="Return machine-readable runtime capabilities.")
     capabilities.add_argument("--json", action="store_true")
+    extension_command = sub.add_parser(
+        "extensions",
+        help="List installed extensions or explicitly activate selected packages.",
+    )
+    extension_command.add_argument("--load", action="append", default=[])
+    extension_command.add_argument("--json", action="store_true")
     return parser
 
 
@@ -453,6 +461,21 @@ def main(argv: list[str] | None = None) -> int:
             return _command_inspect(args)
         if args.command == "verify":
             return _command_verify(args)
+        if args.command == "extensions":
+            extensions.load_extensions(args.load)
+            record = extensions.extension_status()
+            installed = record["installed"]
+            human = "Installed AgentFEM extensions:\n" + (
+                "\n".join(
+                    f"  - {item['name']} "
+                    f"({item['distribution'] or 'unknown package'})"
+                    for item in installed
+                )
+                if installed
+                else "  <none>"
+            )
+            _emit(record, as_json=args.json, human=human)
+            return 0
         if args.command == "capabilities":
             from . import constitutive, public_api
             record = {
@@ -469,6 +492,7 @@ def main(argv: list[str] | None = None) -> int:
                     "run",
                     "inspect",
                     "verify",
+                    "extensions",
                 ),
                 "public_modules": public_api(),
                 "templates": _templates(),
@@ -476,6 +500,7 @@ def main(argv: list[str] | None = None) -> int:
                 "constitutive": tuple(
                     item.as_dict() for item in constitutive.capabilities()
                 ),
+                "extensions": extensions.extension_status(),
             }
             _emit(record, as_json=args.json, human=_json(record))
             return 0

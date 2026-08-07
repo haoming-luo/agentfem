@@ -1894,6 +1894,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agentfemextensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.extensions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agentfemir" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2173,6 +2184,34 @@
     
   
     Extension Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extensions_and_private_products/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Private Products and Extensions
   
 
     
@@ -2758,6 +2797,34 @@
     
   
     Publishing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development_testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development and Verification
   
 
     
@@ -3418,6 +3485,17 @@
     <span class="md-ellipsis">
       
         agentfem.diagnostics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agentfemextensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.extensions
       
     </span>
   </a>
@@ -6337,6 +6415,78 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>field_stats(function, *, on = None, name: str \| None = None) -&gt; FieldStats</code></td>
 <td>Alias for <code>magnitude_stats</code> for application-level diagnostics.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="agentfemextensions"><code>agentfem.extensions</code><a class="headerlink" href="#agentfemextensions" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Public object</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>class</td>
+<td><code>ExtensionError</code></td>
+<td>An installed extension could not be discovered or activated safely.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ExtensionSpec</code></td>
+<td>Identity and compatibility contract published by one extension.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>Extension</code></td>
+<td>One loadable extension and its side-effect-free registration callback.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ExtensionDescriptor</code></td>
+<td>Package metadata visible without importing extension code.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ExtensionContext</code></td>
+<td>Staging area exposed to an extension during activation.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>LoadedExtension</code></td>
+<td>Activated identity and the capabilities registered into this process.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>discover_extensions() -&gt; tuple[ExtensionDescriptor, ...]</code></td>
+<td>Return installed extension metadata without importing extension code.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>extension_status() -&gt; dict[str, object]</code></td>
+<td>Return the machine-facing installed and activated extension inventory.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>loaded_extensions() -&gt; tuple[LoadedExtension, ...]</code></td>
+<td>Return activated extensions in stable name order.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>missing_extensions(names) -&gt; tuple[str, ...]</code></td>
+<td>Return required names that are not advertised by installed packages.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>load_extension(name: str) -&gt; LoadedExtension</code></td>
+<td>Explicitly import, validate, and activate one installed extension.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>load_extensions(names) -&gt; tuple[LoadedExtension, ...]</code></td>
+<td>Activate required extensions in declaration order.</td>
 </tr>
 </tbody>
 </table>

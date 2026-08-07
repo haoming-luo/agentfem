@@ -37,6 +37,7 @@ REQUIRED_WHEEL_MEMBERS = (
     "agentfem/results/recovery.py",
     "agentfem/cli.py",
     "agentfem/project.py",
+    "agentfem/extensions.py",
     "agentfem/upgrades.py",
     "agentfem/py.typed",
     "agentfem/templates/static-solid/case.py",

@@ -284,4 +284,6 @@ defect inspection, and simulation analysis for power-generation equipment.
 AgentFEM is licensed under the Apache License, Version 2.0. The open-source core
 can be used in research, education, and commercial settings under that license.
 Commercial services, validated industrial workflows, hosted products, and
-proprietary extensions may be developed separately.
+proprietary extensions may be developed separately through the explicit,
+versioned [`agentfem.extensions`](docs/extensions_and_private_products.md)
+package boundary.

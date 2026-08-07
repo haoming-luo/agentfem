@@ -17,6 +17,8 @@ and project-format changes.
 - preserve the distinction between execution and scientific verification;
 - route reusable finite-element functionality to the correct module;
 - upgrade older projects without silently rewriting scientific intent.
+- inspect declared private extensions without automatically executing or
+  installing untrusted packages.
 
 The skill complements the machine-readable `/agentfem.json` manifest and
 scientific `knowledge/catalog.json`; it does not replace the public API or the

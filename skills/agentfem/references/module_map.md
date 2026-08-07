@@ -50,6 +50,8 @@
 - `validation.py`: structured issue codes, paths, hints, and reports
 - `verification.py`: scientific claims, trust levels, and convergence evidence
 - `backends/`: backend descriptors and advanced lowering adapters
+- `extensions.py`: explicit installed/private package discovery and staged
+  provider, backend, and material registration
 - `campaigns/`: typed parameters, deterministic sampling, case plans,
   resumable execution, and MPI-aware persistence
 - `datasets/`: unit/shape-aware learning data and case provenance

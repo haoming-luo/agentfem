@@ -27,6 +27,11 @@ The open-source license cannot be withdrawn from versions that have already
 been released. Future separate products or modules can use different licensing
 when they are kept outside the Apache-2.0 core.
 
+Private products should normally live in a separate repository and Python
+distribution, depend on a released AgentFEM version range, and integrate
+through the explicit `agentfem.extensions` entry-point contract. See
+[Extension packages and private products](extensions_and_private_products.md).
+
 ## Optional dependencies
 
 The Apache-2.0 license describes AgentFEM's own source and release artifacts;

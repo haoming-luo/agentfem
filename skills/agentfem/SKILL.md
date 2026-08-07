@@ -41,8 +41,9 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   `problems`, `procedures`, `results`, `solvers`, `steps`, `time`, `io`, `campaigns`, `datasets`, and
   `surrogates`.
 - Treat `ir` and `validation` as public inspection/record interfaces. Treat
-  `backends` as an advanced extension boundary. FEniCSx is the only production
-  backend in the current release.
+  `backends` as an advanced numerical boundary and `extensions` as the explicit
+  installed-package boundary. FEniCSx is the only production backend in the
+  current release.
 - Prefer `step = model.step(target=u)` when a model has a Study and registered
   materials, constraints, and loads. New analysis/material families belong in
   a registered step provider; do not add one public model method per material.
@@ -73,8 +74,9 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   whether a law is FEM-integrated, material-point verified, or a
   postprocessor; never infer a global solver from a material-point update.
 - Stateful materials must use quadrature-owned committed/trial state and prove
-  rollback plus restart equivalence. The current global J2 route is 3D small
-  strain; Arrhenius creep remains material-point only.
+  rollback plus restart equivalence. The current global J2 and Arrhenius
+  power-law creep routes are serial, 3D, small-strain foundations with declared
+  limits; other creep laws remain material-point or assessment consumers.
 - Prefer sequential heat-transfer then thermal-stress analysis when coupling
   is one way. Do not claim fully coupled thermo-mechanics unless temperature
   and mechanics are solved in one consistent nonlinear system.
@@ -127,6 +129,9 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   progress frames.
 - In an installed project, run `agentfem doctor --json`,
   `agentfem check --json`, and `agentfem upgrade --json` before execution.
+  If `[extensions].required` is declared, inspect it with
+  `agentfem extensions --json`; do not install or activate an untrusted package
+  merely to make a project check pass. Required extensions are executable code.
   Never apply a `semantic_review=true` migration without inspecting regions,
   loads, constraints, materials, forms, output meaning, and verification. Use
   `project.current_run()` and
@@ -168,3 +173,6 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
 
 Before adding a public helper, read `references/extension_rules.md`. If the new
 helper is application-specific, keep it in the application package.
+Private material libraries and domain products belong in separate packages
+using the versioned `agentfem.extensions` entry point, not in a long-lived
+private branch of the open core.
