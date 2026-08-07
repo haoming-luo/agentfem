@@ -76,6 +76,18 @@ def test_manual_layout_keeps_navigation_and_footer_visually_separate():
     assert ".md-footer-meta.md-typeset .md-social__link" in stylesheet
 
 
+def test_primary_navigation_preserves_its_scroll_position_between_pages():
+    config = (ROOT / "mkdocs.yml").read_text()
+    script = (
+        ROOT / "docs" / "javascripts" / "navigation-state.js"
+    ).read_text()
+    assert "javascripts/navigation-state.js" in config
+    assert ".md-sidebar--primary .md-sidebar__scrollwrap" in script
+    assert "sessionStorage" in script
+    assert "pagehide" in script
+    assert ".md-sidebar--primary a.md-nav__link" in script
+
+
 def test_homepage_starts_with_the_project_logo():
     homepage = (ROOT / "docs" / "index.md").read_text()
     assert homepage.index('class="af-home-logo"') < homepage.index("# AgentFEM")
