@@ -3150,10 +3150,11 @@ semantics, nonlinear controls, and output.</p>
 · <a href="../reference/theory_and_conventions/#compressible-neo-hookean-finite-strain">Finite-strain theory</a></p>
 <h2 id="implicit-creep-relaxation">Implicit creep relaxation<a class="headerlink" href="#implicit-creep-relaxation" title="Permanent link">&para;</a></h2>
 <p><span class="af-status af-status--engineering">Engineering</span></p>
-<p>A three-dimensional isothermal power-law creep problem exercises quadrature
-state, backward-Euler constitutive integration, analytical consistent tangent,
+<p>A three-dimensional power-law creep problem exercises quadrature state,
+backward-Euler constitutive integration, analytical consistent tangent,
 physical-time automatic incrementation, rollback/cutback, creep output, energy
-evidence, and restart.</p>
+evidence, and restart. The same global step can consume a prescribed
+temperature field through the Arrhenius material factory.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>examples/implicit_creep_relaxation_3d.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/implicit_creep_relaxation_3d.py">Source code</a>

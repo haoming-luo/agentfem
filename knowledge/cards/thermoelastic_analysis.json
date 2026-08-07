@@ -89,12 +89,12 @@
     ],
     "applicability": [
       "Thermal gradients and thermal stress in laboratory and power-plant component models when one-way coupling is adequate.",
-      "Preparing temperature histories for future global creep integration."
+      "Preparing temperature fields for global Arrhenius creep integration."
     ],
     "limitations": [
       "No monolithic fully coupled temperature-displacement solve.",
       "No convection/radiation convenience boundary in this card.",
-      "Arrhenius creep remains a material-point capability until it consumes global quadrature state."
+      "Global Arrhenius creep accepts a prescribed scalar or finite-element temperature; automatic transient-history transfer is not yet provided."
     ]
   },
   "usage": {

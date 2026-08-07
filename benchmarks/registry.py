@@ -115,6 +115,22 @@ _BENCHMARKS = (
         status="release_regression",
     ),
     BenchmarkSpec(
+        identifier="c3d10h_periodic_cell",
+        capability="mixed_neo_hookean",
+        level="workflow",
+        reference="knowledge/benchmarks/c3d10h_periodic_cell.json",
+        criterion=(
+            "a topology-preserving C3D10-to-C3D10H source derivation selects "
+            "P2/DG0 mixed periodic equilibrium and satisfies its versioned "
+            "stress, volume, positive-J, and equation-mismatch contract"
+        ),
+        automated_test=(
+            "tests/test_abaqus_interop.py -k derivation; "
+            "tests/test_engineering_workflows.py -k mixed_hybrid_affine"
+        ),
+        status="manual_large_mesh_release_regression",
+    ),
+    BenchmarkSpec(
         identifier="j2_radial_return",
         capability="j2_plasticity",
         level="material_point",
@@ -153,6 +169,20 @@ _BENCHMARKS = (
         automated_test=(
             "tests/test_p1_platform.py::"
             "test_global_j2_multielement_patch_matches_the_uniaxial_golden"
+        ),
+    ),
+    BenchmarkSpec(
+        identifier="j2_nonuniform_bending",
+        capability="j2_plasticity",
+        level="finite_element",
+        reference="knowledge/benchmarks/j2_nonuniform_bending.json",
+        criterion=(
+            "a displacement-controlled 3D cantilever retains simultaneous "
+            "elastic/plastic points, nonuniform PEEQ, and work-energy closure"
+        ),
+        automated_test=(
+            "tests/test_p1_platform.py::"
+            "test_global_j2_nonuniform_bending_path_localizes_plastic_state"
         ),
     ),
     BenchmarkSpec(
@@ -219,6 +249,20 @@ _BENCHMARKS = (
             "tests/test_p1_platform.py -k official_abaqus_constant_stress"
         ),
         status="external_verification",
+    ),
+    BenchmarkSpec(
+        identifier="arrhenius_global_creep",
+        capability="power_law_creep",
+        level="finite_element",
+        reference="knowledge/benchmarks/arrhenius_global_creep.json",
+        criterion=(
+            "a nonuniform finite-element temperature field is consumed at the "
+            "creep quadrature identity and produces traceable nonuniform CEEQ"
+        ),
+        automated_test=(
+            "tests/test_p1_platform.py::"
+            "test_global_arrhenius_creep_consumes_nonuniform_temperature_field"
+        ),
     ),
     BenchmarkSpec(
         identifier="creep_damage_material_paths",

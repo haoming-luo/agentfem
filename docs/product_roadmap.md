@@ -29,12 +29,12 @@ core, results, verification, and documentation have priority.
 | Linear elasticity | FEM-integrated | 2D plane stress/strain and 3D isotropic solids; regional materials; displacement-only steps; one-call U/S/E/MISES output with opt-in SENER and explicit processing metadata; named-boundary reactions; automatic assembled external-force/strong-reaction equilibrium evidence; serial/MPI patch evidence | external structural convergence, integration-point export/recovery, axisymmetry, mixed incompressibility, beams/shells, and affine/weak reactions remain |
 | Thermoelasticity | FEM-integrated | steady/implicit-transient heat transfer, regional multi-material conductivity and capacity, amplitude-driven sources/ambient conditions, and sequential isotropic thermal stress in 2D/3D | no property tables or monolithic two-way coupling |
 | Structural dynamics | FEM-integrated foundation | central difference, Newmark, and generalized-alpha through `dynamic_solid`; model-owned constraints and amplitude loads enter both Standard and Explicit paths; shared field output, mechanical-energy histories, integrity-checked pause/checkpoint/restart, truthful continuation output, and opt-in nodal checkpoint portability across MPI rank counts | implicit route is linear; portable NPZ is root-gathered and stateful quadrature portability is separate |
-| Neo-Hookean solids | FEM-integrated | compressible displacement route plus monolithic P2/DG0 constant-pressure mixed route; 3D and 2D plane strain; automatic/fixed increments, consistent Newton tangent, cutback/rollback, positive-J acceptance; explicit C3D10H source-formulation dispatch | one material; mixed affine-periodic MPC, 2D plane-stress local solve, locking/convergence suite, and external load-path benchmark remain |
-| J2 plasticity | FEM-integrated foundation | 3D shared quadrature transaction, analytical tangent, natural/displacement loading, non-monotone tabular amplitude, global Newton, physical-increment cutback, cumulative serial restart, traceable quadrature S/PE/PEEQ/MISES plus weighted DG0 recovery and nodal RF results, prescribed-work/energy histories, analytical and Abaqus states, and multi-element patch evidence | linear isotropic hardening, serial single-material small strain only; no plane stress, multi-region driver, MPI-portable quadrature restart, or nonuniform external structural benchmark |
-| Creep and creep damage | FEM-integrated power-law foundation + local damage assessment | 3D isothermal power-law backward Euler with shared quadrature state, analytical tangent, automatic physical-time cutback, CE/CEEQ/S/MISES/RF plus weighted DG0 recovery, dissipation and serial restart; official Abaqus constant-stress external contract; local Arrhenius, K-R, Sinh, modified-theta and hot-wall assessment | global route is serial/single-material/isothermal; no temperature-field coupling, external component validation, or damage regularization |
+| Neo-Hookean solids | FEM-integrated | compressible displacement route plus monolithic P2/DG0 constant-pressure mixed route; 3D and 2D plane strain; automatic/fixed increments, consistent Newton tangent, cutback/rollback, positive-J acceptance; topology-preserving C3D10-to-C3D10H derivation; serial mixed affine-periodic solve and large-mesh Golden contract | one material; distributed mixed affine-periodic MPC, 2D plane-stress local solve, locking/Cook convergence suite, and independent external-code comparison remain |
+| J2 plasticity | FEM-integrated foundation | 3D shared quadrature transaction, analytical tangent, natural/displacement loading, non-monotone tabular amplitude, global Newton, physical-increment cutback, cumulative serial restart, traceable quadrature S/PE/PEEQ/MISES plus weighted DG0 recovery and nodal RF results, prescribed-work/energy histories, analytical and Abaqus states, homogeneous multi-element evidence, and nonuniform bending regression | linear isotropic hardening, serial single-material small strain only; no plane stress, multi-region driver, MPI-portable quadrature restart, or nonuniform external structural benchmark |
+| Creep and creep damage | FEM-integrated power-law foundation + local damage assessment | 3D power-law backward Euler with shared quadrature state, analytical tangent, automatic physical-time cutback, CE/CEEQ/S/MISES/RF plus weighted DG0 recovery, dissipation and serial restart; scalar/field Arrhenius temperature consumed at quadrature points; official Abaqus constant-stress external contract; local K-R, Sinh, modified-theta and hot-wall assessment | global route is serial/single-material; no automatic transient thermal-history transfer, external component validation, or damage regularization |
 | Stress-life fatigue | postprocessor | Basquin/tabulated S-N, rainflow, Goodman, Miner assessment from named result histories | no multiaxial critical-plane method |
 | External CAE mesh | integrated Abaqus path + conversion interface | generic meshio conversion; SHA-256 conversion identity/cache invalidation; Abaqus node labels; NSET node regions; exterior SURFACE facet reconstruction for C3D4/C3D10/C3D8 families; verified C3D10 import; C3D10H mixed-pressure provider; linear equation parsing; simplex quality preflight | assembly-instance label scope, free/internal surfaces, more element families, mixed-topology solve domains, Jacobian quality for tensor-product cells, and full solver-deck semantics remain |
-| Abaqus periodic equations | serial + two-rank FEM-integrated | exact chained affine elimination, distributed `dolfinx_mpc`, and 3D Neo-Hookean load path | AMG near-nullspace transfer, reactions, and scaling studies remain |
+| Abaqus periodic equations | serial + two-rank displacement; serial mixed | exact chained affine elimination, distributed displacement `dolfinx_mpc`, 3D Neo-Hookean load path, and mixed P2/DG0 serial reduction that leaves pressure dofs independent | distributed mixed-space MPC, AMG near-nullspace transfer, reactions, and scaling studies remain |
 | Abaqus user-material bridge | interface contract | solver-neutral material-point input/output and migration specification | no compiled adapter or quadrature-state global driver |
 | Result/data flow | integrated foundation | declarative field/history/diagnostic/presentation plans; shared accepted-increment history and probe requests across heat, Standard, and Explicit procedures; serial compact single-grid XDMF/HDF5 plus collective MPI single-dataset PVD/PVTU presentation carrying point and cell fields; engineering-default U/S/E/MISES; explicit weighted integration-point-to-DG0 recovery; one structured event trace; atomic checkpoint cadence/retention and opt-in cross-rank nodal restart; strong-BC resultants, nonzero prescribed-motion work and energy closure; verification reports and trust-gated learning bridge | compact MPI single-grid/VTKHDF, direct quadrature export, smooth material-domain nodal recovery, affine/weak reactions, stateful quadrature portability, and broader conservation balances remain |
 | Scientific trust and provenance | integrated foundation | computed/converged/verified/validated vocabulary; exploratory/engineering/release policies; automatic runtime checks; explicit claims and applicability domains; coarse-to-fine convergence evidence; automatically sealed result manifests and artifact hashes; attested tagged distributions; learning-data quality gates; orientation metamorphic regression | optional signed result identities, representative-family evidence inheritance, hole-stress and T-stiffener cliff families, GCI, and external-deck reproductions remain |
@@ -129,13 +129,18 @@ the first release.
   restart, stable state identity, and published Abaqus homogeneous uniaxial
   verification to multi-region ownership, projected visualization fields,
   cross-partition MPI restart, and full external-deck reproduction;
+- retain the implemented nonuniform 3D bending regression for partial yielding, state
+  recovery, prescribed work, and energy closure; use the official Abaqus
+  notched-beam case as the leading external candidate, but claim equivalence
+  only after a 3D-extruded monotonic/isotropic subset or verified plane-strain
+  return map matches its geometry, mesh, loading, and reported response;
 - add reaction, internal/external work, and energy-balance histories with
   verified strong, weak, and affine-MPC definitions; proportional nonzero
   strong-Dirichlet work is implemented, while weak and affine duals remain;
-- implement the C3D10H analogue as a constant-pressure mixed/hybrid finite-
-  strain procedure, then gate it with incompressible patch tests, Cook's
-  membrane convergence, locking diagnostics, finite-deformation element paths,
-  and periodic-MPC compatibility; do not infer it from `tetra10` topology;
+- extend the implemented C3D10H constant-pressure mixed/hybrid procedure and
+  serial periodic-MPC workflow to distributed mixed spaces, then add Cook's
+  membrane convergence, locking diagnostics, and an independent external-code
+  element path; continue to keep formulation identity separate from `tetra10`;
 - then add tabulated hardening, kinematic hardening, and finite-strain
   plasticity only when driven by real applications.
 
@@ -149,12 +154,12 @@ than depend on Abaqus interfaces directly.
 
 ### P2: time-dependent materials and life
 
-- harden the implemented global isothermal power-law step with time-step
+- harden the implemented global power-law step with time-step
   convergence, multi-element paths, natural-load work/energy balance, and an
   external benchmark;
-- make Arrhenius temperature dependence consume accepted temperature fields
-  at the same quadrature identity; keep Sinh and K-R as separate material
-  consumers rather than one flag-heavy solver;
+- transfer accepted transient temperature histories into creep increments
+  without hiding interpolation or time alignment; keep Sinh and K-R as
+  separate material consumers rather than one flag-heavy solver;
 - treat sequential temperature-to-creep as the first useful power-component
   route; add monolithic coupling only for cases with material heat generation
   or meaningful mechanical feedback;
@@ -174,16 +179,17 @@ The first global creep promotion has the following gate status:
 3. **implemented for power-law flow:** global/local failure or excessive CEEQ
    increment causes atomic rollback and deterministic cutback; damage remains
    outside the global driver;
-4. **implemented in serial except temperature:** restart retains physical time,
-   next increment, displacement, CE/CEEQ, energy/dissipation, events, and schema;
+4. **implemented in serial:** restart retains physical time, next increment,
+   displacement, CE/CEEQ, temperature identity, energy/dissipation, events,
+   and schema;
 5. **partially implemented:** constant-stress material checks, one-element
    relaxation, consistent tangent, forced cutback, Golden observables, restart
    equivalence, and the official Abaqus held-stress case pass; time-step
    convergence, multi-element nonuniform paths, and an external component case
    remain;
-6. **method decision retained:** add Arrhenius field coupling next; add
-   K-R/Liu--Murakami damage only after near-failure control and mesh-dependence
-   policy are explicit.
+6. **method decision retained:** automate transient thermal-history transfer
+   next; add K-R/Liu--Murakami damage only after near-failure control and
+   mesh-dependence policy are explicit.
 
 ### Shared transient and MPI state identity
 

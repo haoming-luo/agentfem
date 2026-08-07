@@ -184,9 +184,7 @@ class AbaqusPeriodicConstraint:
     name: str = "abaqus_periodic_cell"
 
     def __post_init__(self) -> None:
-        function = field_api.unwrap(self.target)
-        space = function.function_space
-        block_size = int(space.dofmap.index_map_bs)
+        _, space, _, block_size = self._displacement_layout()
         F = _deformation_gradient(self.deformation_gradient, block_size)
         if len(self.reference_nodes) != block_size:
             raise ValueError(
@@ -199,6 +197,35 @@ class AbaqusPeriodicConstraint:
             raise ValueError("AbaqusPeriodicConstraint.tolerance must be positive.")
         object.__setattr__(self, "deformation_gradient", F)
         object.__setattr__(self, "reference_nodes", tuple(int(node) for node in self.reference_nodes))
+
+    @property
+    def is_mixed(self) -> bool:
+        """Whether pressure dofs share the constrained solution vector."""
+
+        return getattr(self.target, "kind", None) == "displacement_pressure"
+
+    def _displacement_layout(self):
+        """Return full field, collapsed displacement space, and parent map."""
+
+        if self.is_mixed:
+            function = self.target.value
+            collapsed, maps = self.target.space.sub(0).collapse()
+            parent_map = np.asarray(
+                maps[0] if isinstance(maps, (list, tuple)) else maps,
+                dtype=PETSc.IntType,
+            )
+            block_size = int(collapsed.dofmap.index_map_bs)
+            return function, collapsed, parent_map, block_size
+        function = field_api.unwrap(self.target)
+        space = function.function_space
+        block_size = int(space.dofmap.index_map_bs)
+        # The local coefficient vector contains owned and ghost dofs.  The
+        # affine predictor must update both before scatter_forward(); using
+        # only index_map.size_local breaks the coordinate/value alignment in
+        # distributed displacement spaces.
+        local_size = int(function.x.array.size)
+        parent_map = np.arange(local_size, dtype=PETSc.IntType)
+        return function, space, parent_map, block_size
 
     @property
     def control_nodes(self) -> tuple[int, ...]:
@@ -236,16 +263,19 @@ class AbaqusPeriodicConstraint:
 
         if not np.isfinite(load_factor) or load_factor < 0.0:
             raise ValueError("load_factor must be finite and non-negative.")
-        function = field_api.unwrap(self.target)
+        function, displacement_space, parent_map, block_size = (
+            self._displacement_layout()
+        )
         space = function.function_space
         if space.mesh.comm.size != 1:
             raise RuntimeError(
                 "Explicit AffineReduction is a serial backend. "
                 "Use distributed_reduction() under MPI."
             )
-        block_size = int(space.dofmap.index_map_bs)
-        dof_coordinates = np.asarray(space.tabulate_dof_coordinates(), dtype=float)
-        full_size = int(space.dofmap.index_map.size_local * block_size)
+        dof_coordinates = np.asarray(
+            displacement_space.tabulate_dof_coordinates(), dtype=float
+        )
+        full_size = int(function.x.array.size)
         node_to_block = _match_nodes_to_dof_blocks(
             self.nodes,
             dof_coordinates,
@@ -256,10 +286,22 @@ class AbaqusPeriodicConstraint:
         relations: dict[int, dict[int, float]] = {}
         for equation in self.equations.equations:
             slave_term = equation.terms[0]
-            slave = _scalar_dof(slave_term.node, slave_term.dof, node_to_block, block_size)
+            collapsed_slave = _scalar_dof(
+                slave_term.node,
+                slave_term.dof,
+                node_to_block,
+                block_size,
+            )
+            slave = int(parent_map[collapsed_slave])
             dependency: dict[int, float] = {}
             for term in equation.terms[1:]:
-                dof = _scalar_dof(term.node, term.dof, node_to_block, block_size)
+                collapsed_dof = _scalar_dof(
+                    term.node,
+                    term.dof,
+                    node_to_block,
+                    block_size,
+                )
+                dof = int(parent_map[collapsed_dof])
                 dependency[dof] = dependency.get(dof, 0.0) - (
                     term.coefficient / slave_term.coefficient
                 )
@@ -272,7 +314,8 @@ class AbaqusPeriodicConstraint:
             displacement = (F - np.eye(block_size)) @ coordinate
             block = node_to_block[label]
             for component in range(block_size):
-                prescribed[block * block_size + component] = float(displacement[component])
+                parent_dof = int(parent_map[block * block_size + component])
+                prescribed[parent_dof] = float(displacement[component])
         conflicts = set(relations) & set(prescribed)
         if conflicts:
             raise ValueError(
@@ -281,8 +324,41 @@ class AbaqusPeriodicConstraint:
             )
         return _build_reduction(full_size, relations, prescribed)
 
+    def initial_reduced_values(
+        self,
+        reduction: AffineReduction,
+        deformation_gradient,
+    ) -> np.ndarray:
+        """Sample affine displacement while initializing pressure to zero."""
+
+        _, displacement_space, parent_map, block_size = self._displacement_layout()
+        F = _deformation_gradient(deformation_gradient, block_size)
+        coordinates = np.asarray(
+            displacement_space.tabulate_dof_coordinates(), dtype=float
+        )
+        parent_to_displacement = {
+            int(parent): local for local, parent in enumerate(parent_map)
+        }
+        values = np.zeros(reduction.reduced_size, dtype=PETSc.ScalarType)
+        for index, full_dof in enumerate(reduction.independent_full_dofs):
+            local = parent_to_displacement.get(int(full_dof))
+            if local is None:
+                continue
+            block, component = divmod(local, block_size)
+            values[index] = ((F - np.eye(block_size)) @ coordinates[block])[
+                component
+            ]
+        return values
+
     def distributed_reduction(self) -> DistributedAffineReduction:
         """Build an ownership-aware correction MPC from ``*EQUATION`` data."""
+
+        if self.is_mixed:
+            raise NotImplementedError(
+                "Distributed affine MPC for a mixed displacement-pressure "
+                "space is not yet implemented. Run this C3D10H periodic route "
+                "in serial; ordinary C3D10 displacement MPC remains parallel."
+            )
 
         try:
             import dolfinx_mpc
@@ -401,24 +477,31 @@ class AbaqusPeriodicConstraint:
     ) -> None:
         """Add the macroscopic affine predictor between two load factors."""
 
-        function = field_api.unwrap(self.target)
-        space = function.function_space
-        block_size = int(space.dofmap.index_map_bs)
-        coordinates = np.asarray(space.tabulate_dof_coordinates(), dtype=float)
-        values = function.x.array.reshape(-1, block_size)
-        if values.shape[0] != coordinates.shape[0]:
-            raise RuntimeError("Displacement values and dof coordinates do not align.")
+        function, displacement_space, parent_map, block_size = (
+            self._displacement_layout()
+        )
+        coordinates = np.asarray(
+            displacement_space.tabulate_dof_coordinates(), dtype=float
+        )
         delta = float(target_factor) - float(start_factor)
-        values[:] += delta * (
+        increment = delta * (
             coordinates[:, :block_size]
             @ (self.deformation_gradient - np.eye(block_size)).T
         )
+        flattened = increment.reshape(-1)
+        if flattened.size != parent_map.size:
+            raise RuntimeError("Displacement values and dof coordinates do not align.")
+        function.x.array[parent_map] += flattened
         function.x.scatter_forward()
 
     def mismatch(self, load_factor: float = 1.0) -> float:
         """Return the maximum absolute original ``*EQUATION`` residual."""
 
-        function = field_api.unwrap(self.target)
+        function = (
+            self.target.collapsed_displacement()
+            if self.is_mixed
+            else field_api.unwrap(self.target)
+        )
         space = function.function_space
         block_size = int(space.dofmap.index_map_bs)
         labels = _equation_node_labels(self.equations)
@@ -464,7 +547,10 @@ class AbaqusPeriodicConstraint:
             "reference_nodes": self.reference_nodes,
             "target_deformation_gradient": self.deformation_gradient.tolist(),
             "reference_cell_volume": self.reference_cell_volume,
-            "supports_parallel": _dolfinx_mpc_available(),
+            "unknown_layout": (
+                "mixed_displacement_pressure" if self.is_mixed else "displacement"
+            ),
+            "supports_parallel": _dolfinx_mpc_available() and not self.is_mixed,
         }
 
 

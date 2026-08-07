@@ -324,6 +324,8 @@ class AffineLoadIncrementInfo:
     increment: int = 0
     attempt: int = 1
     start_load_factor: float = 0.0
+    message: str = ""
+    checks: dict[str, object] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -339,6 +341,8 @@ class AffineLoadIncrementInfo:
             "accepted_step_lengths": self.accepted_step_lengths,
             "reduced_dofs": self.reduced_dofs,
             "equation_mismatch": self.equation_mismatch,
+            "message": self.message,
+            "checks": dict(self.checks),
         }
 
 
@@ -627,6 +631,7 @@ def solve_affine_nonlinear_path(
     output_factors=(),
     options: AffineNewtonOptions | NewtonSolverOptions | None = None,
     on_increment=None,
+    acceptance_check=None,
     reporter=None,
     step_name: str = "affine_nonlinear",
     step_number: int = 1,
@@ -652,7 +657,11 @@ def solve_affine_nonlinear_path(
     function = solution.value if hasattr(solution, "value") else solution
     space = function.function_space
     block_size = int(space.dofmap.index_map_bs)
-    coordinates = np.asarray(space.tabulate_dof_coordinates(), dtype=float)
+    coordinates = (
+        None
+        if hasattr(constraint, "initial_reduced_values")
+        else np.asarray(space.tabulate_dof_coordinates(), dtype=float)
+    )
     if space.mesh.comm.size > 1:
         return _solve_distributed_affine_nonlinear_path(
             residual,
@@ -663,6 +672,7 @@ def solve_affine_nonlinear_path(
             required_factors=required_factors,
             options=selected,
             on_increment=on_increment,
+            acceptance_check=acceptance_check,
             reporter=reporter,
             step_name=step_name,
             step_number=step_number,
@@ -735,11 +745,17 @@ def solve_affine_nonlinear_path(
         reduction = constraint.reduction(factor)
         T = reduction.matrix(function.function_space.mesh.comm)
         current_F = constraint.deformation_gradient_at(factor)
-        current_affine = reduction.initial_reduced_values(
-            coordinates,
-            current_F,
-            block_size=block_size,
-        )
+        if hasattr(constraint, "initial_reduced_values"):
+            current_affine = constraint.initial_reduced_values(
+                reduction,
+                current_F,
+            )
+        else:
+            current_affine = reduction.initial_reduced_values(
+                coordinates,
+                current_F,
+                block_size=block_size,
+            )
         if previous_reduced is None:
             reduced_values = current_affine.copy()
         else:
@@ -865,6 +881,18 @@ def solve_affine_nonlinear_path(
             )
             converged = current_norm <= threshold
 
+        checks = {}
+        acceptance_message = ""
+        if converged and acceptance_check is not None:
+            checks = dict(acceptance_check())
+            if not bool(checks.get("accepted", True)):
+                converged = False
+                acceptance_message = str(
+                    checks.get(
+                        "message",
+                        "increment failed its physical acceptance check",
+                    )
+                )
         if reduced_tangent is not None:
             reduced_tangent.destroy()
         mismatch = float(constraint.mismatch(factor))
@@ -880,6 +908,8 @@ def solve_affine_nonlinear_path(
             increment=increment_number,
             attempt=attempt_number,
             start_load_factor=accepted_factor,
+            message=acceptance_message,
+            checks=checks,
         )
         attempt_history.append(increment_info)
         T.destroy()
@@ -1012,6 +1042,7 @@ def _solve_distributed_affine_nonlinear_path(
     required_factors,
     options,
     on_increment,
+    acceptance_check,
     reporter,
     step_name,
     step_number,
@@ -1195,6 +1226,18 @@ def _solve_distributed_affine_nonlinear_path(
             )
             converged = current_norm <= threshold
 
+        checks = {}
+        acceptance_message = ""
+        if converged and acceptance_check is not None:
+            checks = dict(acceptance_check())
+            if not bool(checks.get("accepted", True)):
+                converged = False
+                acceptance_message = str(
+                    checks.get(
+                        "message",
+                        "increment failed its physical acceptance check",
+                    )
+                )
         mismatch = float(constraint.mismatch(factor))
         increment_info = AffineLoadIncrementInfo(
             load_factor=factor,
@@ -1208,6 +1251,8 @@ def _solve_distributed_affine_nonlinear_path(
             increment=increment_number,
             attempt=attempt_number,
             start_load_factor=accepted_factor,
+            message=acceptance_message,
+            checks=checks,
         )
         attempt_history.append(increment_info)
         if converged:

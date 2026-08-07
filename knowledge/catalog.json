@@ -1,6 +1,20 @@
 {
   "benchmarks": [
     {
+      "id": "agentfem.benchmark.arrhenius_global_creep",
+      "physics": "three-dimensional small-strain Mises power-law creep with a prescribed nonuniform Arrhenius temperature field",
+      "source": "knowledge/benchmarks/arrhenius_global_creep.json",
+      "status": "automated_regression",
+      "title": "Nonuniform-temperature global Arrhenius creep patch"
+    },
+    {
+      "id": "agentfem.benchmark.c3d10h_periodic_cell",
+      "physics": "three-dimensional near-incompressible mixed Neo-Hookean periodic homogenization",
+      "source": "knowledge/benchmarks/c3d10h_periodic_cell.json",
+      "status": "manual_release_regression",
+      "title": "Imported C3D10H near-incompressible periodic cell"
+    },
+    {
       "id": "agentfem.benchmark.cae_reliability_cliffs",
       "physics": "cross-cutting finite-element verification",
       "source": "knowledge/benchmarks/cae_reliability_cliffs.json",
@@ -69,6 +83,13 @@
       "source": "knowledge/benchmarks/j2_multielement_patch.json",
       "status": "automated",
       "title": "Multi-element global J2 plasticity patch"
+    },
+    {
+      "id": "agentfem.benchmark.j2_nonuniform_bending",
+      "physics": "three-dimensional small-strain Mises plasticity with linear isotropic hardening under displacement-controlled bending",
+      "source": "knowledge/benchmarks/j2_nonuniform_bending.json",
+      "status": "automated_regression",
+      "title": "Nonuniform three-dimensional J2 bending path"
     },
     {
       "id": "agentfem.benchmark.linear_static_cantilever",
@@ -149,7 +170,7 @@
       ],
       "source": "knowledge/cards/creep_damage_assessment.json",
       "status": "supported",
-      "summary": "Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, kept distinct from the implemented global isothermal power-law creep route.",
+      "summary": "Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, kept distinct from the implemented global isothermal/Arrhenius power-law creep route.",
       "title": "Creep damage and modified-theta assessment"
     },
     {
@@ -158,6 +179,7 @@
       "public_api": [
         "agentfem.studies.creep_solid",
         "agentfem.constitutive.isotropic_power_law",
+        "agentfem.constitutive.isotropic_arrhenius_power_law",
         "agentfem.constitutive.IsotropicPowerLawCreepMaterial",
         "agentfem.constitutive.CreepQuadratureState",
         "agentfem.models.Model.step"
@@ -169,7 +191,7 @@
       ],
       "source": "knowledge/cards/global_implicit_creep.json",
       "status": "supported",
-      "summary": "Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, atomic rollback, serial restart, and standard creep fields.",
+      "summary": "Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, optional scalar or field-driven Arrhenius temperature dependence, atomic rollback, serial restart, and standard creep fields.",
       "title": "Global implicit power-law creep"
     },
     {
@@ -186,7 +208,7 @@
       ],
       "source": "knowledge/cards/j2_global_plasticity.json",
       "status": "supported",
-      "summary": "Three-dimensional Mises plasticity with linear isotropic hardening, a shared quadrature transaction, analytical algorithmic tangent, cyclic amplitude paths, physical-increment cutback, cumulative serial restart, standard fields, and work/energy histories.",
+      "summary": "Three-dimensional Mises plasticity with linear isotropic hardening, a shared quadrature transaction, analytical algorithmic tangent, cyclic amplitude paths, physical-increment cutback, cumulative serial restart, standard fields, and work/energy histories verified on homogeneous and nonuniform structural paths.",
       "title": "Global small-strain J2 plasticity"
     },
     {

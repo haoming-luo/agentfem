@@ -565,6 +565,24 @@ class CreepQuadratureState:
         )
         return np.asarray(evaluated).reshape((-1, 3, 3))
 
+    def evaluate_scalar(self, expression) -> np.ndarray:
+        """Evaluate a scalar field at the creep quadrature identity."""
+
+        selected = getattr(expression, "value", expression)
+        topology = self.domain.topology
+        cell_dim = topology.dim
+        topology.create_connectivity(cell_dim, cell_dim)
+        index_map = topology.index_map(cell_dim)
+        cells = np.arange(
+            index_map.size_local + index_map.num_ghosts,
+            dtype=np.int32,
+        )
+        evaluated = fem.Expression(selected, self.stress.points).eval(
+            self.domain,
+            cells,
+        )
+        return np.asarray(evaluated, dtype=float).reshape(-1)
+
     def update(
         self,
         strain_values,
@@ -572,6 +590,7 @@ class CreepQuadratureState:
         *,
         time_start: float,
         time_end: float,
+        temperature_values=None,
     ) -> dict[str, float | int]:
         """Update trial creep state, stress, and tangent from committed state."""
 
@@ -591,6 +610,17 @@ class CreepQuadratureState:
         maximum_increment = 0.0
         maximum_local_iterations = 0
         active_points = 0
+        temperatures = None
+        if temperature_values is not None:
+            temperatures = np.asarray(temperature_values, dtype=float).reshape(-1)
+            if len(temperatures) != len(strains):
+                raise ValueError(
+                    "Temperature and creep quadrature layouts do not match."
+                )
+            if np.any(~np.isfinite(temperatures)) or np.any(temperatures <= 0.0):
+                raise ValueError(
+                    "Arrhenius quadrature temperatures must be positive kelvin values."
+                )
         for index, strain in enumerate(strains):
             old = ImplicitCreepState(committed_ce[index], committed_ceeq[index])
             update = material.update(
@@ -598,6 +628,9 @@ class CreepQuadratureState:
                 time_start=time_start,
                 time_end=time_end,
                 state=old,
+                temperature=(
+                    None if temperatures is None else float(temperatures[index])
+                ),
             )
             stresses[index] = update.stress
             tangents[index] = update.algorithmic_tangent
@@ -618,6 +651,12 @@ class CreepQuadratureState:
             "creeping_points": active_points,
             "maximum_creep_increment": maximum_increment,
             "maximum_local_iterations": maximum_local_iterations,
+            "minimum_temperature": (
+                None if temperatures is None else float(np.min(temperatures))
+            ),
+            "maximum_temperature": (
+                None if temperatures is None else float(np.max(temperatures))
+            ),
         }
 
     def refresh_response(

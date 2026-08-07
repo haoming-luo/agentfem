@@ -5,7 +5,7 @@
   "title": "Creep damage and modified-theta assessment",
   "kind": "material",
   "status": "supported",
-  "summary": "Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, kept distinct from the implemented global isothermal power-law creep route.",
+  "summary": "Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, kept distinct from the implemented global isothermal/Arrhenius power-law creep route.",
   "public_api": [
     "agentfem.constitutive.KachanovRabotnovCreep",
     "agentfem.constitutive.CreepDamageState",
@@ -91,7 +91,7 @@
       "Reference updates for future global damage and Sinh consumers."
     ],
     "limitations": [
-      "K-R damage and Sinh flow do not yet enter global equilibrium, adaptive time stepping, or restartable quadrature state; the separate isothermal power-law model does.",
+      "K-R damage and Sinh flow do not yet enter global equilibrium, adaptive time stepping, or restartable quadrature state; the separate isothermal/Arrhenius power-law model does.",
       "Local softening/damage is not mesh regularized.",
       "No Liu-Murakami multiaxial damage law is claimed in this release."
     ]

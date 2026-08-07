@@ -3236,8 +3236,9 @@ f_{\mathrm{trial}}
 \Delta\gamma=\frac{f_{\mathrm{trial}}}{3G+H}
 \quad\text{when }f_{\mathrm{trial}}&gt;0.
 \]</div>
-<p>The supported global creep route is three-dimensional, small-strain,
-isothermal Mises power-law creep. Backward Euler solves</p>
+<p>The supported global creep route is three-dimensional, small-strain Mises
+power-law creep. It may be isothermal or consume a positive scalar/field
+temperature through a normalized Arrhenius coefficient. Backward Euler solves</p>
 <div class="arithmatex">\[
 \Delta\gamma
 =\Delta t\,A(t_{n+1})
@@ -3245,6 +3246,8 @@ isothermal Mises power-law creep. Backward Euler solves</p>
 \qquad
 q_{n+1}=q_{\mathrm{trial}}-3G\Delta\gamma.
 \]</div>
+<p>For the temperature-dependent route, (A) is evaluated at every creep
+quadrature point from the prescribed absolute temperature (T).</p>
 <p>For both routes, quadrature state remains trial state during global Newton
 iterations. Stress, plastic/creep strain, equivalent inelastic strain, and the
 next-increment state are committed atomically only after the full increment is

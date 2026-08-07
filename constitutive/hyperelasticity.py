@@ -262,6 +262,35 @@ def mixed_strain_energy_density(
     )
 
 
+def mixed_first_piola(
+    displacement,
+    pressure,
+    properties: MixedNeoHookeanProperties,
+):
+    """Return first Piola stress for the mixed Neo-Hookean potential."""
+
+    F = deformation_gradient(displacement)
+    dimension = int(F.ufl_shape[0])
+    J = ufl.det(F)
+    invariant = ufl.tr(F.T * F)
+    inverse_transpose = ufl.inv(F).T
+    isochoric = properties.mu * J ** (-2.0 / dimension) * (
+        F - invariant / dimension * inverse_transpose
+    )
+    return isochoric - pressure * J * inverse_transpose
+
+
+def mixed_cauchy_stress(
+    displacement,
+    pressure,
+    properties: MixedNeoHookeanProperties,
+):
+    """Return Cauchy stress for the mixed Neo-Hookean potential."""
+
+    F = deformation_gradient(displacement)
+    return mixed_first_piola(displacement, pressure, properties) * F.T / ufl.det(F)
+
+
 def first_piola_from_gradient(F, properties: NeoHookeanProperties):
     """Return the first Piola stress ``P = d psi / d F`` analytically."""
 

@@ -2981,7 +2981,7 @@ promote a material-point formula to a finite-element solver.</p>
 <tr>
 <td>Large-deformation porous cell</td>
 <td><code>examples/abaqus_c3d10_periodic_cell/</code></td>
-<td>C3D10 import, equations, Neo-Hookean path, homogenized/deformed output</td>
+<td>C3D10/MPI and C3D10H/serial routes, exact equations, mixed pressure, Golden homogenization, deformed output</td>
 </tr>
 <tr>
 <td>High-temperature creep route</td>
@@ -2989,9 +2989,9 @@ promote a material-point formula to a finite-element solver.</p>
 <td>thermoelastic FEM plus explicitly local K-R/modified-theta assessment</td>
 </tr>
 <tr>
-<td>Global isothermal creep</td>
+<td>Global power-law creep</td>
 <td><code>examples/implicit_creep_relaxation_3d.py</code></td>
-<td>backward Euler, shared quadrature state, real cutback, standard fields, dissipation, restart and Golden relaxation</td>
+<td>backward Euler, shared quadrature state, real cutback, standard fields, optional Arrhenius temperature input, dissipation, restart and Golden relaxation</td>
 </tr>
 <tr>
 <td>Simulation to learning</td>
@@ -3039,6 +3039,10 @@ They are curated and gated rather than duplicated under new names.</p>
   Golden observables with named tolerances; process exit alone is not evidence.</li>
 <li>Wave-inclusion and Neo-Hookean release paths carry small automated Golden
   contracts in addition to their larger demonstration workflows.</li>
+<li>The imported porous-cell workflow carries a versioned C3D10H large-mesh
+  contract: topology-preserving source derivation, P2/DG0 provider dispatch,
+  positive <code>J</code>, equation mismatch, homogenized stress, and separate
+  <code>PRESSURE</code>/first-Piola <code>P</code> fields.</li>
 <li>Scientific results distinguish <code>computed</code>, <code>converged</code>, <code>verified</code>, and
   <code>validated</code>; a campaign can require accepted scientific evidence before
   training, independently of artifact-integrity verification.</li>
@@ -3086,7 +3090,8 @@ They are curated and gated rather than duplicated under new names.</p>
 </ul>
 <h2 id="explicitly-not-release-claims">Explicitly not release claims<a class="headerlink" href="#explicitly-not-release-claims" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Temperature-coupled global creep, global creep damage, and structural rupture prediction.</li>
+<li>Automatic transient-temperature-history transfer, global creep damage, and
+  structural rupture prediction.</li>
 <li>Mesh-objective localized damage or creep crack growth.</li>
 <li>Portable MPI restart for quadrature material state.</li>
 <li>General UMAT/UHYPER binary compatibility.</li>

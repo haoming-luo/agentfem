@@ -21,6 +21,7 @@ from agentfem import (
     studies,
 )
 from agentfem.step_providers import step_capability
+from agentfem.mesh import abaqus
 
 
 def test_mixed_hybrid_unknown_has_one_constant_pressure_value_per_cell():
@@ -70,7 +71,83 @@ def test_mixed_hybrid_zero_state_solves_with_subspace_constraints():
 
     assert problem.last_solve_info.converged
     assert np.max(np.abs(unknown.value.x.array)) == pytest.approx(0.0)
-    assert tuple(result.fields) == ("U", "P")
+    assert tuple(result.fields) == ("U", "PRESSURE")
+
+
+def test_mixed_hybrid_affine_periodic_reduction_keeps_pressure_independent(tmp_path):
+    domain = mesh.cuboid(
+        (0, 0, 0), (1, 1, 1), (1, 1, 1),
+        comm=MPI.COMM_SELF, cell_type="tetrahedron",
+    )
+    model = models.create(
+        study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain,
+    )
+    unknown = model.field(fields.displacement_pressure(domain))
+    material = model.material(
+        constitutive.mixed_neo_hookean(young=1.0e6, poisson=0.499),
+    )
+    nodes = abaqus.AbaqusNodeTable(
+        labels=np.asarray((1, 2, 3, 4)),
+        coordinates=np.asarray(
+            ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0),
+             (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
+        ),
+    )
+    periodicity = constraints.abaqus_periodic_cell(
+        unknown,
+        nodes=nodes,
+        equations=abaqus.AbaqusEquationSet(()),
+        deformation_gradient=np.eye(3),
+        anchor_node=1,
+        reference_nodes=(2, 3, 4),
+    )
+    output = results.output_plan(
+        tmp_path,
+        field=results.field_output(
+            "U", "P", "PRESSURE", "S", "J",
+            configuration="reference",
+            backend="xdmf",
+        ),
+        requests=(results.periodic_cell_history(periodicity),),
+        presentation=None,
+        basename="mixed_periodic",
+    )
+
+    reduction = periodicity.reduction()
+    _, pressure_maps = unknown.space.sub(1).collapse()
+    pressure_parent_dofs = set(
+        np.asarray(pressure_maps[0], dtype=int).tolist()
+    )
+    assert pressure_parent_dofs <= set(
+        reduction.independent_full_dofs.astype(int).tolist()
+    )
+
+    problem = model.step(
+        target=unknown,
+        material=material,
+        constraints=periodicity,
+        increments=1,
+        output=output,
+        progress=False,
+    )
+    result = problem.solve_result()
+    result = output.finalize(
+        model=model,
+        step=problem,
+        result=result,
+        target=unknown.collapsed_displacement(name="U"),
+        material=material,
+    )
+
+    assert problem.last_solve_info.converged
+    assert all(
+        item.checks["minimum_quadrature_J"] > 0.0
+        for item in problem.last_solve_info.increments
+    )
+    assert set(result.fields) == {"U", "PRESSURE", "P", "S", "J"}
+    assert np.max(np.abs(unknown.value.x.array)) == pytest.approx(0.0)
+    assert (tmp_path / "mixed_periodic.xdmf").exists()
+    assert "homogenized_first_piola_stress" in result.histories
 
 
 def test_distributing_coupling_preserves_force_and_moment_resultants():

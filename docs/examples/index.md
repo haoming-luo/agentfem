@@ -83,10 +83,11 @@ semantics, nonlinear controls, and output.
 
 <span class="af-status af-status--engineering">Engineering</span>
 
-A three-dimensional isothermal power-law creep problem exercises quadrature
-state, backward-Euler constitutive integration, analytical consistent tangent,
+A three-dimensional power-law creep problem exercises quadrature state,
+backward-Euler constitutive integration, analytical consistent tangent,
 physical-time automatic incrementation, rollback/cutback, creep output, energy
-evidence, and restart.
+evidence, and restart. The same global step can consume a prescribed
+temperature field through the Arrhenius material factory.
 
 ```bash
 python examples/implicit_creep_relaxation_3d.py

@@ -120,6 +120,7 @@ class IsotropicPowerLawCreepMaterial:
     elastic: ElasticIsotropicProperties
     creep: "PowerLawCreep"
     name: str = "isotropic power-law creep material"
+    temperature_dependence: "ArrheniusPowerLawCreep | None" = None
 
     @property
     def young(self) -> float:
@@ -187,6 +188,7 @@ class IsotropicPowerLawCreepMaterial:
         state: ImplicitCreepState | None = None,
         tolerance: float = 1.0e-12,
         maximum_iterations: int = 30,
+        temperature: float | None = None,
     ) -> ImplicitCreepUpdate:
         """Integrate one strain-driven creep increment by backward Euler."""
 
@@ -204,6 +206,19 @@ class IsotropicPowerLawCreepMaterial:
         if tolerance <= 0.0 or maximum_iterations <= 0:
             raise ValueError("Local tolerance and maximum_iterations must be positive.")
         old = ImplicitCreepState() if state is None else state
+        if self.temperature_dependence is None:
+            if temperature is not None:
+                raise ValueError(
+                    "temperature was supplied to an isothermal creep material."
+                )
+            creep_law = self.creep
+        else:
+            if temperature is None:
+                raise ValueError(
+                    "Arrhenius creep requires an absolute temperature at every "
+                    "integration point."
+                )
+            creep_law = self.temperature_dependence.at_temperature(temperature)
         elastic_trial = strain - old.creep_strain
         trial_stress = (
             2.0 * self.shear_modulus * deviatoric(elastic_trial)
@@ -221,13 +236,13 @@ class IsotropicPowerLawCreepMaterial:
             )
 
         upper = q_trial / (3.0 * self.shear_modulus)
-        increment = min(dt * self.creep.equivalent_rate(q_trial, end), upper)
+        increment = min(dt * creep_law.equivalent_rate(q_trial, end), upper)
         lower = 0.0
         iterations = 0
         converged = False
         for iterations in range(1, maximum_iterations + 1):
             q = max(0.0, q_trial - 3.0 * self.shear_modulus * increment)
-            rate = self.creep.equivalent_rate(q, end)
+            rate = creep_law.equivalent_rate(q, end)
             residual = increment - dt * rate
             scale = max(1.0, upper, abs(increment), dt * rate)
             if abs(residual) <= tolerance * scale:
@@ -240,7 +255,7 @@ class IsotropicPowerLawCreepMaterial:
             rate_derivative = (
                 0.0
                 if q <= 0.0 or rate == 0.0
-                else self.creep.stress_exponent * rate / q
+                else creep_law.stress_exponent * rate / q
             )
             derivative = 1.0 + 3.0 * self.shear_modulus * dt * rate_derivative
             candidate = increment - residual / derivative
@@ -259,11 +274,11 @@ class IsotropicPowerLawCreepMaterial:
         reduction = q / q_trial
         pressure = np.trace(trial_stress) * np.eye(3) / 3.0
         stress = pressure + reduction * trial_deviator
-        rate = self.creep.equivalent_rate(q, end)
+        rate = creep_law.equivalent_rate(q, end)
         rate_derivative = (
             0.0
             if q <= 0.0 or rate == 0.0
-            else self.creep.stress_exponent * rate / q
+            else creep_law.stress_exponent * rate / q
         )
         d_increment_d_qtrial = (
             0.0
@@ -307,6 +322,11 @@ class IsotropicPowerLawCreepMaterial:
             "model": "isotropic_power_law_creep",
             "elastic": self.elastic.as_dict(),
             "creep": self.creep.as_dict(),
+            "temperature_dependence": (
+                None
+                if self.temperature_dependence is None
+                else self.temperature_dependence.as_dict()
+            ),
             "integration": "backward_euler",
             "algorithmic_tangent": "analytical_consistent",
             "maturity": "fem_integrated_foundation",
@@ -991,6 +1011,48 @@ class ArrheniusPowerLawCreep:
             "maturity": "material_point_verified",
             "fem_quadrature_driver": False,
         }
+
+
+def isotropic_arrhenius_power_law(
+    *,
+    young: float,
+    poisson: float,
+    density: float,
+    coefficient: float,
+    stress_exponent: float,
+    activation_energy: float,
+    reference_temperature: float,
+    time_exponent: float = 0.0,
+    reference_stress: float = 1.0,
+    reference_time: float = 1.0,
+    gas_constant: float = 8.31446261815324,
+    name: str = "isotropic Arrhenius power-law creep",
+) -> IsotropicPowerLawCreepMaterial:
+    """Create elasticity plus a globally consumable Arrhenius creep law."""
+
+    elastic = ElasticIsotropicProperties(
+        name=f"{name} elastic",
+        young=young,
+        density=density,
+        poisson=poisson,
+    )
+    dependence = ArrheniusPowerLawCreep(
+        coefficient=coefficient,
+        stress_exponent=stress_exponent,
+        activation_energy=activation_energy,
+        reference_temperature=reference_temperature,
+        time_exponent=time_exponent,
+        reference_stress=reference_stress,
+        reference_time=reference_time,
+        gas_constant=gas_constant,
+        name=f"{name} creep law",
+    )
+    return IsotropicPowerLawCreepMaterial(
+        elastic=elastic,
+        creep=dependence.at_temperature(reference_temperature),
+        temperature_dependence=dependence,
+        name=name,
+    )
 
 
 def integrate_stress_history(

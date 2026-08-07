@@ -5,7 +5,7 @@
   "title": "Global small-strain J2 plasticity",
   "kind": "material",
   "status": "supported",
-  "summary": "Three-dimensional Mises plasticity with linear isotropic hardening, a shared quadrature transaction, analytical algorithmic tangent, cyclic amplitude paths, physical-increment cutback, cumulative serial restart, standard fields, and work/energy histories.",
+  "summary": "Three-dimensional Mises plasticity with linear isotropic hardening, a shared quadrature transaction, analytical algorithmic tangent, cyclic amplitude paths, physical-increment cutback, cumulative serial restart, standard fields, and work/energy histories verified on homogeneous and nonuniform structural paths.",
   "public_api": [
     "agentfem.constitutive.J2LinearIsotropicHardening",
     "agentfem.constitutive.J2QuadratureState",
@@ -96,7 +96,8 @@
     ],
     "applicability": [
       "Monotone or reviewed tabular cyclic small-strain 3D solid loading within the implemented isotropic-hardening law.",
-      "Laboratory-scale regression and research workflows requiring inspectable state."
+      "Laboratory-scale regression and research workflows requiring inspectable state.",
+      "Nonuniform displacement-controlled structures with simultaneous elastic and plastic integration points."
     ],
     "limitations": [
       "The first global provider is serial-only and has no plane-stress local constraint, finite-strain plasticity, kinematic hardening, or multi-region driver.",
@@ -117,7 +118,8 @@
     ],
     "benchmarks": [
       "agentfem.benchmark.j2_global_restart",
-      "agentfem.benchmark.j2_multielement_patch"
+      "agentfem.benchmark.j2_multielement_patch",
+      "agentfem.benchmark.j2_nonuniform_bending"
     ],
     "validation_rules": [
       "Reject non-3D and multi-rank global use.",

@@ -8250,6 +8250,18 @@ the compact machine-readable <code>knowledge/catalog.json</code>.</p>
 </thead>
 <tbody>
 <tr>
+<td><code>agentfem.benchmark.arrhenius_global_creep</code></td>
+<td>Nonuniform-temperature global Arrhenius creep patch</td>
+<td>three-dimensional small-strain Mises power-law creep with a prescribed nonuniform Arrhenius temperature field</td>
+<td>automated_regression</td>
+</tr>
+<tr>
+<td><code>agentfem.benchmark.c3d10h_periodic_cell</code></td>
+<td>Imported C3D10H near-incompressible periodic cell</td>
+<td>three-dimensional near-incompressible mixed Neo-Hookean periodic homogenization</td>
+<td>manual_release_regression</td>
+</tr>
+<tr>
 <td><code>agentfem.benchmark.cae_reliability_cliffs</code></td>
 <td>CAE reliability cliffs: orientation, discretization, and reference applicability</td>
 <td>cross-cutting finite-element verification</td>
@@ -8308,6 +8320,12 @@ the compact machine-readable <code>knowledge/catalog.json</code>.</p>
 <td>Multi-element global J2 plasticity patch</td>
 <td>three-dimensional small-strain rate-independent J2 plasticity with linear isotropic hardening</td>
 <td>automated</td>
+</tr>
+<tr>
+<td><code>agentfem.benchmark.j2_nonuniform_bending</code></td>
+<td>Nonuniform three-dimensional J2 bending path</td>
+<td>three-dimensional small-strain Mises plasticity with linear isotropic hardening under displacement-controlled bending</td>
+<td>automated_regression</td>
 </tr>
 <tr>
 <td><code>agentfem.benchmark.linear_static_cantilever</code></td>
@@ -8463,7 +8481,7 @@ the compact machine-readable <code>knowledge/catalog.json</code>.</p>
 <strong>Kind:</strong> <code>material</code><br>
 <strong>Status:</strong> <code>supported</code><br>
 <strong>Source card:</strong> <code>knowledge/cards/creep_damage_assessment.json</code></p>
-<p>Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, kept distinct from the implemented global isothermal power-law creep route.</p>
+<p>Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, kept distinct from the implemented global isothermal/Arrhenius power-law creep route.</p>
 <h3 id="public-api_1">Public API<a class="headerlink" href="#public-api_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>agentfem.constitutive.KachanovRabotnovCreep</code></li>
@@ -8570,7 +8588,7 @@ the compact machine-readable <code>knowledge/catalog.json</code>.</p>
 </ul>
 <h4 id="limitations_1">Limitations<a class="headerlink" href="#limitations_1" title="Permanent link">&para;</a></h4>
 <ul>
-<li>K-R damage and Sinh flow do not yet enter global equilibrium, adaptive time stepping, or restartable quadrature state; the separate isothermal power-law model does.</li>
+<li>K-R damage and Sinh flow do not yet enter global equilibrium, adaptive time stepping, or restartable quadrature state; the separate isothermal/Arrhenius power-law model does.</li>
 <li>Local softening/damage is not mesh regularized.</li>
 <li>No Liu-Murakami multiaxial damage law is claimed in this release.</li>
 </ul>
@@ -8604,11 +8622,12 @@ the compact machine-readable <code>knowledge/catalog.json</code>.</p>
 <strong>Kind:</strong> <code>material</code><br>
 <strong>Status:</strong> <code>supported</code><br>
 <strong>Source card:</strong> <code>knowledge/cards/global_implicit_creep.json</code></p>
-<p>Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, atomic rollback, serial restart, and standard creep fields.</p>
+<p>Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, optional scalar or field-driven Arrhenius temperature dependence, atomic rollback, serial restart, and standard creep fields.</p>
 <h3 id="public-api_2">Public API<a class="headerlink" href="#public-api_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>agentfem.studies.creep_solid</code></li>
 <li><code>agentfem.constitutive.isotropic_power_law</code></li>
+<li><code>agentfem.constitutive.isotropic_arrhenius_power_law</code></li>
 <li><code>agentfem.constitutive.IsotropicPowerLawCreepMaterial</code></li>
 <li><code>agentfem.constitutive.CreepQuadratureState</code></li>
 <li><code>agentfem.models.Model.step</code></li>
@@ -8653,6 +8672,12 @@ q_{n+1}=q_{\mathrm{trial}}-3G\,\Delta\gamma
 <td>time</td>
 <td>Normalized increment sizes map to physical time; amplitudes are evaluated in physical time.</td>
 </tr>
+<tr>
+<td>temperature</td>
+<td>positive scalar or scalar finite-element field</td>
+<td>absolute temperature in kelvin</td>
+<td>Required for an Arrhenius material and evaluated at the same quadrature identity as creep state.</td>
+</tr>
 </tbody>
 </table>
 <h4 id="outputs_2">Outputs<a class="headerlink" href="#outputs_2" title="Permanent link">&para;</a></h4>
@@ -8684,11 +8709,17 @@ q_{n+1}=q_{\mathrm{trial}}-3G\,\Delta\gamma
 <td>time, iterations, strain, and energy</td>
 <td>Accepted times, maximum creep increment, local/global iterations, elastic energy, and creep dissipation.</td>
 </tr>
+<tr>
+<td>TEMP and temperature evidence</td>
+<td>input field plus accepted-increment extrema</td>
+<td>kelvin</td>
+<td>Records the prescribed temperature field and the integration-point range actually consumed by Arrhenius updates.</td>
+</tr>
 </tbody>
 </table>
 <h4 id="assumptions_2">Assumptions<a class="headerlink" href="#assumptions_2" title="Permanent link">&para;</a></h4>
 <ul>
-<li>Small strain, three spatial dimensions, isotropic elasticity, associative Mises creep, and isothermal material properties.</li>
+<li>Small strain, three spatial dimensions, isotropic elasticity, and associative Mises creep; temperature changes the Arrhenius rate but not elastic properties.</li>
 <li>Quasi-static equilibrium; inertia is not part of this procedure.</li>
 <li>One material covers the current convenience-step domain.</li>
 </ul>
@@ -8701,17 +8732,17 @@ q_{n+1}=q_{\mathrm{trial}}-3G\,\Delta\gamma
 </ul>
 <h4 id="applicability_2">Applicability<a class="headerlink" href="#applicability_2" title="Permanent link">&para;</a></h4>
 <ul>
-<li>Isothermal three-dimensional research and engineering studies governed by a calibrated Mises power-law creep relation.</li>
+<li>Isothermal or prescribed-temperature three-dimensional studies governed by a calibrated Mises power-law creep relation.</li>
 <li>Stress-relaxation and creep-deformation workflows requiring inspectable state, cutback, and restart evidence.</li>
 </ul>
 <h4 id="limitations_2">Limitations<a class="headerlink" href="#limitations_2" title="Permanent link">&para;</a></h4>
 <ul>
 <li>The provider and checkpoint are serial-only and do not yet support multiple material regions.</li>
-<li>Temperature-field interpolation, Arrhenius coupling, damage, and mesh regularization are not part of this global route.</li>
+<li>Automatic transfer and time alignment of a transient thermal history, damage, and mesh regularization are not part of this global route.</li>
 <li>External component or code-standard validation remains required before application-specific qualification.</li>
 </ul>
 <h3 id="minimal-example_2">Minimal example<a class="headerlink" href="#minimal-example_2" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">Create</span> <span class="n">studies</span><span class="o">.</span><span class="n">creep_solid</span><span class="p">(),</span> <span class="n">register</span> <span class="n">constitutive</span><span class="o">.</span><span class="n">isotropic_power_law</span><span class="p">(</span><span class="o">...</span><span class="p">),</span> <span class="n">add</span> <span class="n">supports</span> <span class="ow">and</span> <span class="n">loads</span><span class="p">,</span> <span class="n">then</span> <span class="n">call</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">,</span> <span class="n">material</span><span class="o">=</span><span class="n">steel</span><span class="p">,</span> <span class="n">duration</span><span class="o">=...</span><span class="p">,</span> <span class="n">incrementation</span><span class="o">=</span><span class="n">steps</span><span class="o">.</span><span class="n">automatic</span><span class="p">())</span><span class="o">.</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">Create</span> <span class="n">studies</span><span class="o">.</span><span class="n">creep_solid</span><span class="p">(),</span> <span class="n">register</span> <span class="n">constitutive</span><span class="o">.</span><span class="n">isotropic_power_law</span><span class="p">(</span><span class="o">...</span><span class="p">)</span> <span class="ow">or</span> <span class="n">isotropic_arrhenius_power_law</span><span class="p">(</span><span class="o">...</span><span class="p">),</span> <span class="n">add</span> <span class="n">supports</span> <span class="ow">and</span> <span class="n">loads</span><span class="p">,</span> <span class="n">then</span> <span class="n">call</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">,</span> <span class="n">material</span><span class="o">=</span><span class="n">steel</span><span class="p">,</span> <span class="n">duration</span><span class="o">=...</span><span class="p">,</span> <span class="n">incrementation</span><span class="o">=</span><span class="n">steps</span><span class="o">.</span><span class="n">automatic</span><span class="p">(),</span> <span class="n">temperature</span><span class="o">=</span><span class="n">T</span><span class="p">)</span><span class="o">.</span>
 </code></pre></div>
 <h3 id="verification_2">Verification<a class="headerlink" href="#verification_2" title="Permanent link">&para;</a></h3>
 <p><strong>Tests</strong></p>
@@ -8721,12 +8752,14 @@ q_{n+1}=q_{\mathrm{trial}}-3G\,\Delta\gamma
 <p><strong>Benchmarks</strong></p>
 <ul>
 <li><code>agentfem.benchmark.implicit_creep_relaxation</code></li>
+<li><code>agentfem.benchmark.arrhenius_global_creep</code></li>
 </ul>
 <p><strong>Validation rules</strong></p>
 <ul>
 <li>Reject non-3D, multi-rank, nonpositive-duration, or incompatible material use.</li>
 <li>Verify the analytical tangent independently against a centered material-point derivative.</li>
 <li>Commit shared transaction state only after a globally accepted physical-time increment.</li>
+<li>Evaluate and record positive kelvin temperatures at the creep quadrature identity for every attempted increment.</li>
 <li>Restore displacement, CE, CEEQ, physical time, next increment, histories, energies, and events from a compatible checkpoint.</li>
 </ul>
 <h3 id="references_2">References<a class="headerlink" href="#references_2" title="Permanent link">&para;</a></h3>
@@ -8740,7 +8773,7 @@ q_{n+1}=q_{\mathrm{trial}}-3G\,\Delta\gamma
 <strong>Kind:</strong> <code>material</code><br>
 <strong>Status:</strong> <code>supported</code><br>
 <strong>Source card:</strong> <code>knowledge/cards/j2_global_plasticity.json</code></p>
-<p>Three-dimensional Mises plasticity with linear isotropic hardening, a shared quadrature transaction, analytical algorithmic tangent, cyclic amplitude paths, physical-increment cutback, cumulative serial restart, standard fields, and work/energy histories.</p>
+<p>Three-dimensional Mises plasticity with linear isotropic hardening, a shared quadrature transaction, analytical algorithmic tangent, cyclic amplitude paths, physical-increment cutback, cumulative serial restart, standard fields, and work/energy histories verified on homogeneous and nonuniform structural paths.</p>
 <h3 id="public-api_3">Public API<a class="headerlink" href="#public-api_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>agentfem.constitutive.J2LinearIsotropicHardening</code></li>
@@ -8850,6 +8883,7 @@ f_{\mathrm{trial}}=q_{\mathrm{trial}}-(\sigma_{y0}+Hp_n)
 <ul>
 <li>Monotone or reviewed tabular cyclic small-strain 3D solid loading within the implemented isotropic-hardening law.</li>
 <li>Laboratory-scale regression and research workflows requiring inspectable state.</li>
+<li>Nonuniform displacement-controlled structures with simultaneous elastic and plastic integration points.</li>
 </ul>
 <h4 id="limitations_3">Limitations<a class="headerlink" href="#limitations_3" title="Permanent link">&para;</a></h4>
 <ul>
@@ -8870,6 +8904,7 @@ f_{\mathrm{trial}}=q_{\mathrm{trial}}-(\sigma_{y0}+Hp_n)
 <ul>
 <li><code>agentfem.benchmark.j2_global_restart</code></li>
 <li><code>agentfem.benchmark.j2_multielement_patch</code></li>
+<li><code>agentfem.benchmark.j2_nonuniform_bending</code></li>
 </ul>
 <p><strong>Validation rules</strong></p>
 <ul>
@@ -8939,10 +8974,10 @@ p=-\kappa(J-1)
 </thead>
 <tbody>
 <tr>
-<td>U and P</td>
+<td>U, PRESSURE, and P</td>
 <td>mixed finite-element solution with collapsible displacement and pressure fields</td>
 <td>length and pressure</td>
-<td>Both primary fields retain explicit names and can be exported or inspected independently.</td>
+<td>U and PRESSURE are primary fields; P is the derived first-Piola tensor. The names remain distinct in one output dataset.</td>
 </tr>
 </tbody>
 </table>
@@ -8964,7 +8999,7 @@ p=-\kappa(J-1)
 <h4 id="limitations_4">Limitations<a class="headerlink" href="#limitations_4" title="Permanent link">&para;</a></h4>
 <ul>
 <li>This is an AgentFEM variational analogue, not a byte-for-byte reproduction of Abaqus internal hybrid elements.</li>
-<li>Mixed affine-periodic MPC, multiple finite-strain material regions, and an external locking benchmark remain release gates.</li>
+<li>Distributed mixed affine-periodic MPC, multiple finite-strain material regions, and an external locking benchmark remain release gates.</li>
 </ul>
 <h3 id="minimal-example_4">Minimal example<a class="headerlink" href="#minimal-example_4" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">unknown</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">fields</span><span class="o">.</span><span class="n">displacement_pressure</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>
@@ -8981,7 +9016,7 @@ p=-\kappa(J-1)
 </ul>
 <p><strong>Benchmarks</strong></p>
 <ul>
-<li>None declared.</li>
+<li><code>agentfem.benchmark.c3d10h_periodic_cell</code></li>
 </ul>
 <p><strong>Validation rules</strong></p>
 <ul>
@@ -8989,9 +9024,11 @@ p=-\kappa(J-1)
 <li>Reject displacement-only consumption of known C3D10H source semantics.</li>
 <li>Solve the constrained zero state and recover exactly zero displacement and pressure.</li>
 <li>Reject any accepted increment with non-positive quadrature-point J.</li>
+<li>Preserve every pressure dof as an independent reduced unknown under serial affine-periodic constraints.</li>
 </ul>
 <h3 id="references_4">References<a class="headerlink" href="#references_4" title="Permanent link">&para;</a></h3>
 <ul>
+<li>Abaqus three-dimensional solid element library: C3D10H constant-pressure hybrid tetrahedron: <code>https://docs.software.vt.edu/abaqusv2024/English/SIMACAEELMRefMap/simaelm-r-3delem.htm</code></li>
 <li>Abaqus hybrid incompressible solid formulation: <code>https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-hybridincompress.htm</code></li>
 <li>DOLFINx mixed function-space API: <code>https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.html</code></li>
 </ul>
@@ -10455,13 +10492,13 @@ A(T)=A_{\mathrm{ref}}\exp\!\left[-\frac{Q}{R}\left(\frac{1}{T}-\frac{1}{T_{\math
 <h4 id="applicability_16">Applicability<a class="headerlink" href="#applicability_16" title="Permanent link">&para;</a></h4>
 <ul>
 <li>Thermal gradients and thermal stress in laboratory and power-plant component models when one-way coupling is adequate.</li>
-<li>Preparing temperature histories for future global creep integration.</li>
+<li>Preparing temperature fields for global Arrhenius creep integration.</li>
 </ul>
 <h4 id="limitations_16">Limitations<a class="headerlink" href="#limitations_16" title="Permanent link">&para;</a></h4>
 <ul>
 <li>No monolithic fully coupled temperature-displacement solve.</li>
 <li>No convection/radiation convenience boundary in this card.</li>
-<li>Arrhenius creep remains a material-point capability until it consumes global quadrature state.</li>
+<li>Global Arrhenius creep accepts a prescribed scalar or finite-element temperature; automatic transient-history transfer is not yet provided.</li>
 </ul>
 <h3 id="minimal-example_16">Minimal example<a class="headerlink" href="#minimal-example_16" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">Solve</span> <span class="n">a</span> <span class="n">heat</span><span class="o">-</span><span class="n">transfer</span> <span class="n">Model</span> <span class="k">with</span> <span class="n">the</span> <span class="n">shared</span> <span class="n">material</span><span class="p">,</span> <span class="n">then</span> <span class="k">pass</span> <span class="n">its</span> <span class="n">Temperature</span> <span class="n">field</span> <span class="n">to</span> <span class="n">mechanics</span><span class="o">.</span><span class="n">thermal_expansion</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">temperature</span><span class="p">)</span> <span class="ow">in</span> <span class="n">a</span> <span class="n">solid</span><span class="o">-</span><span class="n">mechanics</span> <span class="n">Model</span><span class="o">.</span>

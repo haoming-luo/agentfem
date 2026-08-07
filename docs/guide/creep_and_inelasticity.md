@@ -7,10 +7,12 @@ global finite-element contract.
 
 ## Current boundary
 
-- 3D isothermal global power-law creep with backward Euler, shared quadrature
-  state, analytical tangent, physical-time cutback, creep fields, dissipation,
-  and serial restart;
-- Kachanov–Rabotnov, Sinh, Arrhenius, and related relations at explicitly marked
+- 3D global power-law creep with backward Euler, shared quadrature state,
+  analytical tangent, physical-time cutback, creep fields, dissipation, and
+  serial restart;
+- optional scalar or finite-element temperature input consumed at creep
+  integration points by a normalized Arrhenius rate law;
+- Kachanov–Rabotnov, Sinh, and related relations at explicitly marked
   material-point/evaluation maturity unless a global consumer is present;
 - modified-theta projection as a curve-assessment tool;
 - small-strain J2 plasticity through a stateful global route.

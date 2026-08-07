@@ -23,6 +23,7 @@ from .creep import (
     SinhCreep,
     integrate_stress_history,
     isotropic_power_law,
+    isotropic_arrhenius_power_law,
 )
 from .elasticity import (
     AnisotropicElasticMaterial2D,
@@ -147,6 +148,7 @@ __all__ = [
     "thermoelastic_stress",
     "integrate_stress_history",
     "isotropic_power_law",
+    "isotropic_arrhenius_power_law",
     "life_scale_factor",
     "damage_from_history",
     "goodman_amplitude",

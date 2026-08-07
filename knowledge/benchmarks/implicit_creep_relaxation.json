@@ -54,8 +54,8 @@
   },
   "limitations": [
     "This homogeneous bar is an analytical and regression benchmark, not external component validation.",
-    "The current global provider is isothermal, serial, single-material, small-strain, and three-dimensional.",
+    "This benchmark is isothermal; the global provider is serial, single-material, small-strain, and three-dimensional.",
     "The checkpoint requires the same serial mesh and degree-of-freedom layout.",
-    "Kachanov-Rabotnov damage, Sinh flow, and Arrhenius field coupling are not consumed by this global driver."
+    "Kachanov-Rabotnov damage and Sinh flow are not consumed by this global driver; Arrhenius field consumption has a separate regression."
   ]
 }

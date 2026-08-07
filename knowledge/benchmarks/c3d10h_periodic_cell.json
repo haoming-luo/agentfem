@@ -1,0 +1,70 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.c3d10h_periodic_cell",
+  "title": "Imported C3D10H near-incompressible periodic cell",
+  "status": "manual_release_regression",
+  "purpose": "Verify that a C3D10 source mesh can be reproducibly re-declared as C3D10H without changing nodes or connectivity, and that the imported hybrid identity selects AgentFEM's P2-displacement/DG0-pressure finite-strain route with exact Abaqus *EQUATION constraints.",
+  "physics": "three-dimensional near-incompressible mixed Neo-Hookean periodic homogenization",
+  "execution": {
+    "command": "python examples/abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py --element-type C3D10H --stretch 1.001 --poisson 0.499 --output examples_output/c3d10h_smoke",
+    "example": "examples/abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py",
+    "evidence": "The versioned source contains 14,942 nodes and 8,781 C3D10 elements. AgentFEM changes only the matching TYPE= keyword, records both SHA-256 identities, imports the same tetra10 geometry, solves 8,781 independent DG0 pressure unknowns beside quadratic displacement, and writes U, PRESSURE, P, S, LE, J, MISES, SENER, F, and EVOL to one time series."
+  },
+  "observables": [
+    "The source and derived meshes differ only in one C3D10 to C3D10H element declaration.",
+    "The conversion manifest retains C3D10H hybrid/constant-pressure identity beside tetra10 geometry.",
+    "All 4,212 Abaqus equation constraints have zero reported mismatch at accepted increments.",
+    "Every accepted state has positive quadrature-point deformation Jacobian.",
+    "The mixed pressure field is a solved DG0 field and is not confused with first-Piola stress P.",
+    "The two homogenized first-Piola reconstructions agree within tolerance."
+  ],
+  "acceptance": [
+    "Three automatic increments reach load factor one and every increment converges.",
+    "The derived source retains 14,942 nodes and 8,781 tetra10 cells.",
+    "The minimum sampled J remains positive and periodic equation mismatch remains below 1e-10.",
+    "Versioned homogenized stress and volume observables satisfy the Golden tolerances."
+  ],
+  "golden": {
+    "reference_version": "c3d10h-periodic-nu0499-stretch1001-1",
+    "quantities": [
+      {
+        "name": "homogenized_first_piola_stress",
+        "expected": [0.5531142260585655, -0.0006636956284032983, -0.00040385712140553063, -0.0006627013279445501, -0.28481020916358846, 0.00033128420316908236, -0.0004032520920734518, 0.00033128420316951414, -0.28625966623505067],
+        "relative_tolerance": 5e-6,
+        "absolute_tolerance": 2e-8,
+        "unit": "consistent stress unit",
+        "description": "Row-major first-Piola tensor from a solid-volume integral normalized by the complete periodic-cell reference volume."
+      },
+      {
+        "name": "solid_reference_fraction",
+        "expected": 0.9003159912260181,
+        "relative_tolerance": 1e-10,
+        "absolute_tolerance": 1e-12,
+        "unit": null,
+        "description": "Versioned solid fraction of the imported porous cell."
+      },
+      {
+        "name": "minimum_quadrature_J",
+        "expected": 0.9976484765915496,
+        "relative_tolerance": 5e-6,
+        "absolute_tolerance": 1e-8,
+        "unit": null,
+        "description": "Minimum degree-four quadrature sample at final load factor."
+      },
+      {
+        "name": "periodic_equation_max_error",
+        "expected": 0.0,
+        "relative_tolerance": 0.0,
+        "absolute_tolerance": 1e-10,
+        "unit": "length",
+        "description": "Maximum residual of the imported Abaqus equation set."
+      }
+    ]
+  },
+  "limitations": [
+    "This is an AgentFEM mixed variational analogue and does not assert byte-for-byte equivalence with Abaqus internal C3D10H implementation.",
+    "The mixed affine-periodic route is serial in this release; the displacement-only C3D10 route supports dolfinx_mpc under MPI.",
+    "The Golden response uses the documented Neo-Hookean substitution, not the unavailable original USER MATERIAL and MPC,USER subroutines."
+  ]
+}

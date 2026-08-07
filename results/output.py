@@ -117,6 +117,7 @@ class FieldOutput:
                 snapshot.solution,
                 material,
                 variables=cell_variables,
+                pressure=getattr(snapshot, "fields", {}).get("PRESSURE"),
             )
             per_frame_fields.append(fields)
 

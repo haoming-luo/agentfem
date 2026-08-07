@@ -162,8 +162,9 @@ f_{\mathrm{trial}}
 \quad\text{when }f_{\mathrm{trial}}>0.
 \]
 
-The supported global creep route is three-dimensional, small-strain,
-isothermal Mises power-law creep. Backward Euler solves
+The supported global creep route is three-dimensional, small-strain Mises
+power-law creep. It may be isothermal or consume a positive scalar/field
+temperature through a normalized Arrhenius coefficient. Backward Euler solves
 
 \[
 \Delta\gamma
@@ -172,6 +173,9 @@ isothermal Mises power-law creep. Backward Euler solves
 \qquad
 q_{n+1}=q_{\mathrm{trial}}-3G\Delta\gamma.
 \]
+
+For the temperature-dependent route, (A) is evaluated at every creep
+quadrature point from the prescribed absolute temperature (T).
 
 For both routes, quadrature state remains trial state during global Newton
 iterations. Stress, plastic/creep strain, equivalent inelastic strain, and the

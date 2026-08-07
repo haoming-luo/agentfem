@@ -190,6 +190,20 @@ def test_golden_contracts_become_explicit_release_claims():
     )
 
 
+def test_c3d10h_periodic_cell_golden_is_machine_readable():
+    golden = benchmarks.golden_benchmark(
+        "agentfem.benchmark.c3d10h_periodic_cell"
+    )
+
+    assert golden.reference_version == "c3d10h-periodic-nu0499-stretch1001-1"
+    assert {item.name for item in golden.quantities} == {
+        "homogenized_first_piola_stress",
+        "solid_reference_fraction",
+        "minimum_quadrature_J",
+        "periodic_equation_max_error",
+    }
+
+
 def _oriented_cantilever(*, rotated: bool) -> tuple[object, float]:
     if rotated:
         lower, upper, cells = (-0.2, 0.0), (0.0, 1.0), (4, 20)

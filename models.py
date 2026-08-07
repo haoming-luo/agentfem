@@ -1684,6 +1684,38 @@ class Model:
                 if output is not None and hasattr(output, "required_factors")
                 else ()
             )
+
+            def affine_finite_strain_acceptance():
+                from .results import finite_strain_diagnostics, integral
+
+                diagnostics = finite_strain_diagnostics(
+                    target,
+                    quadrature_degree=2,
+                )
+                minimum_j = float(diagnostics["minimum_quadrature_J"])
+                return {
+                    "accepted": bool(minimum_j > 0.0),
+                    "minimum_quadrature_J": minimum_j,
+                    "maximum_quadrature_J": float(
+                        diagnostics["maximum_quadrature_J"]
+                    ),
+                    "recoverable_strain_energy": float(
+                        integral(
+                            hyperelasticity.strain_energy_density(
+                                target.value,
+                                properties,
+                            ),
+                            measure=selected_measure,
+                            comm=_domain(self.mesh).comm,
+                        )
+                    ),
+                    "message": (
+                        "deformation Jacobian became non-positive"
+                        if minimum_j <= 0.0
+                        else ""
+                    ),
+                }
+
             problem = problems.affine_nonlinear(
                 residual,
                 target.value,
@@ -1693,6 +1725,7 @@ class Model:
                 solver_options=solver_options,
                 output_every=selected_output_every,
                 output_factors=output_factors,
+                acceptance_check=affine_finite_strain_acceptance,
                 progress=progress,
                 status_file=status_file,
                 name=name,
@@ -1797,6 +1830,7 @@ class Model:
         incrementation=None,
         increments: int | None = None,
         load_factors=None,
+        output=None,
         output_every: int | None = None,
         progress=True,
         status_file=None,
@@ -1873,6 +1907,18 @@ class Model:
         selected_constraints = _as_tuple(
             self.constraints if constraints is None else constraints
         )
+        affine_constraints = [
+            item
+            for item in selected_constraints
+            if isinstance(item, constraint_api.AbaqusPeriodicConstraint)
+        ]
+        if output is not None and output_every is not None:
+            raise ValueError("Pass output=... or output_every=..., not both.")
+        selected_output_every = (
+            getattr(output, "every", None)
+            if output is not None
+            else (1 if output_every is None else int(output_every))
+        )
         from . import steps as step_api
 
         selected_incrementation = step_api.normalize(
@@ -1914,30 +1960,65 @@ class Model:
                 ),
             }
 
-        problem = problems.incremental_nonlinear(
-            residual,
-            w,
-            factor=load_factor,
-            value_path=constraint_api.prescribed_value_path(selected_constraints),
-            update_load=self._time_update_callback(include_constraints=False),
-            acceptance_check=mixed_acceptance,
-            jacobian=jacobian,
-            incrementation=selected_incrementation,
-            constraints=selected_constraints,
-            solver_options=solver_options,
-            output_every=1 if output_every is None else int(output_every),
-            progress=progress,
-            status_file=status_file,
-            name=name,
-            petsc_options_prefix=petsc_options_prefix,
-        )
+        if affine_constraints:
+            if len(affine_constraints) != 1 or len(selected_constraints) != 1:
+                raise ValueError(
+                    "The mixed affine hyperelastic path requires exactly one "
+                    "AbaqusPeriodicConstraint and no separate Dirichlet constraints."
+                )
+            if self.loads:
+                raise NotImplementedError(
+                    "Natural loads are not yet combined with the mixed affine "
+                    "periodic path; prescribe the macroscopic deformation gradient."
+                )
+            output_factors = (
+                output.required_factors()
+                if output is not None and hasattr(output, "required_factors")
+                else ()
+            )
+            problem = problems.affine_nonlinear(
+                residual,
+                w,
+                jacobian=jacobian,
+                constraint=affine_constraints[0],
+                incrementation=selected_incrementation,
+                solver_options=solver_options,
+                output_every=selected_output_every,
+                output_factors=output_factors,
+                acceptance_check=mixed_acceptance,
+                progress=progress,
+                status_file=status_file,
+                name=name,
+            )
+        else:
+            problem = problems.incremental_nonlinear(
+                residual,
+                w,
+                factor=load_factor,
+                value_path=constraint_api.prescribed_value_path(selected_constraints),
+                update_load=self._time_update_callback(include_constraints=False),
+                acceptance_check=mixed_acceptance,
+                jacobian=jacobian,
+                incrementation=selected_incrementation,
+                constraints=selected_constraints,
+                solver_options=solver_options,
+                output_every=selected_output_every,
+                progress=progress,
+                status_file=status_file,
+                name=name,
+                petsc_options_prefix=petsc_options_prefix,
+            )
         problem.primary_fields = {
             "U": target.displacement,
-            "P": target.pressure,
+            "PRESSURE": target.pressure,
         }
         problem.result_field_factory = lambda: (
             target.collapsed_displacement(name="U"),
-            target.collapsed_pressure(name="P"),
+            target.collapsed_pressure(name="PRESSURE"),
+        )
+        problem.snapshot_field_factory = lambda: (
+            target.collapsed_displacement(name="U"),
+            {"PRESSURE": target.collapsed_pressure(name="PRESSURE")},
         )
         return self.add_step(problem)
 
@@ -2055,6 +2136,7 @@ class Model:
         progress=True,
         status_file=None,
         amplitude=None,
+        temperature=None,
         name: str = "implicit_creep",
     ):
         """Create a global 3D small-strain implicit creep step.
@@ -2130,6 +2212,7 @@ class Model:
             progress=progress,
             status_file=status_file,
             amplitude=amplitude,
+            temperature=temperature,
             name=name,
         )
         return self.add_step(step)

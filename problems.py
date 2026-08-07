@@ -386,6 +386,7 @@ class IncrementalNonlinearVariationalProblem:
     petsc_options_prefix: str = "agentfem_incremental_nonlinear_"
     procedure: object | None = None
     result_field_factory: object | None = None
+    snapshot_field_factory: object | None = None
     last_solve_info: NonlinearLoadPathInfo | None = field(default=None, init=False)
     snapshots: list = field(default_factory=list, init=False)
     execution_events: list = field(default_factory=list, init=False)
@@ -430,7 +431,14 @@ class IncrementalNonlinearVariationalProblem:
                 reporter.emit(event)
 
         self.snapshots.clear()
-        self.snapshots.append(_load_snapshot(0, 0.0, self.solution))
+        self.snapshots.append(
+            _load_snapshot(
+                0,
+                0.0,
+                self.solution,
+                field_factory=self.snapshot_field_factory,
+            )
+        )
         history: list[NonlinearLoadIncrementInfo] = []
         attempts: list[NonlinearLoadIncrementInfo] = []
         accepted_factor = 0.0
@@ -546,6 +554,7 @@ class IncrementalNonlinearVariationalProblem:
                             factor,
                             self.solution,
                             solve_info=solve_info,
+                            field_factory=self.snapshot_field_factory,
                         )
                     )
                 emit(
@@ -738,6 +747,9 @@ class AffineNonlinearVariationalProblem:
     step_number: int = 1
     name: str = "affine_nonlinear_problem"
     procedure: object | None = None
+    result_field_factory: object | None = None
+    snapshot_field_factory: object | None = None
+    acceptance_check: object | None = None
     last_solve_info: object | None = field(default=None, init=False)
     snapshots: list = field(default_factory=list, init=False)
 
@@ -745,7 +757,15 @@ class AffineNonlinearVariationalProblem:
         if self.output_every is not None and self.output_every <= 0:
             raise ValueError("Affine nonlinear output_every must be positive.")
         self.snapshots.clear()
-        self.snapshots.append(_load_snapshot(0, 0.0, self.solution, zero=True))
+        self.snapshots.append(
+            _load_snapshot(
+                0,
+                0.0,
+                self.solution,
+                zero=True,
+                field_factory=self.snapshot_field_factory,
+            )
+        )
 
         def capture(index, factor, solution, solve_info):
             save_by_increment = (
@@ -763,6 +783,7 @@ class AffineNonlinearVariationalProblem:
                         factor,
                         solution,
                         solve_info=solve_info,
+                        field_factory=self.snapshot_field_factory,
                     )
                 )
 
@@ -787,6 +808,7 @@ class AffineNonlinearVariationalProblem:
             output_factors=self.output_factors,
             options=self.solver_options,
             on_increment=capture,
+            acceptance_check=self.acceptance_check,
             reporter=reporter,
             step_name=self.name,
             step_number=self.step_number,
@@ -798,14 +820,30 @@ class AffineNonlinearVariationalProblem:
         from .results import from_solution
 
         solution = self.solve()
-        return from_solution(
-            solution,
+        generated = (
+            () if self.result_field_factory is None
+            else tuple(self.result_field_factory())
+        )
+        primary = solution if not generated else generated[0]
+        result = from_solution(
+            primary,
             name=self.name,
             metadata={
                 "problem": self.summary(),
                 "solve": self.last_solve_info.as_dict(),
             },
         )
+        for field in generated[1:]:
+            result.add_field(
+                getattr(field, "name", type(field).__name__),
+                field,
+                processing={
+                    "method": "primary_mixed_finite_element_subfield",
+                    "representation": "collapsed_finite_element_dofs",
+                    "postprocessed": False,
+                },
+            )
+        return result
 
     def summary(self) -> dict[str, object]:
         return {
@@ -2456,6 +2494,7 @@ def affine_nonlinear(
     solver_options: AffineNewtonOptions | NewtonSolverOptions | None = None,
     output_every: int | None = 1,
     output_factors=(),
+    acceptance_check=None,
     progress=True,
     status_file=None,
     name: str = "affine_nonlinear",
@@ -2480,6 +2519,7 @@ def affine_nonlinear(
             None if output_every is None else int(output_every)
         ),
         output_factors=tuple(float(value) for value in output_factors),
+        acceptance_check=acceptance_check,
         progress=progress,
         status_file=status_file,
         name=name,
@@ -2495,12 +2535,14 @@ class LoadIncrementSnapshot:
     load_factor: float
     solution: object
     solve_info: object | None = None
+    fields: dict[str, object] = field(default_factory=dict)
 
     def summary(self) -> dict[str, object]:
         return {
             "index": self.index,
             "load_factor": self.load_factor,
             "solution": getattr(self.solution, "name", type(self.solution).__name__),
+            "fields": tuple(self.fields),
             "solve": (
                 None
                 if self.solve_info is None
@@ -2516,8 +2558,13 @@ def _load_snapshot(
     *,
     solve_info=None,
     zero: bool = False,
+    field_factory=None,
 ) -> LoadIncrementSnapshot:
-    selected = solution.value if hasattr(solution, "value") else solution
+    auxiliary = {}
+    if field_factory is None:
+        selected = solution.value if hasattr(solution, "value") else solution
+    else:
+        selected, auxiliary = field_factory()
     copied = fem.Function(
         selected.function_space,
         name=getattr(selected, "name", "Solution"),
@@ -2525,11 +2572,22 @@ def _load_snapshot(
     if not zero:
         copied.x.array[:] = selected.x.array
         copied.x.scatter_forward()
+    copied_fields = {}
+    for name, value in dict(auxiliary).items():
+        field_copy = fem.Function(
+            value.function_space,
+            name=getattr(value, "name", str(name)),
+        )
+        if not zero:
+            field_copy.x.array[:] = value.x.array
+            field_copy.x.scatter_forward()
+        copied_fields[str(name)] = field_copy
     return LoadIncrementSnapshot(
         index=int(index),
         load_factor=float(load_factor),
         solution=copied,
         solve_info=solve_info,
+        fields=copied_fields,
     )
 
 

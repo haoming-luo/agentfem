@@ -166,14 +166,20 @@ The neutral conversion makes topology selection and any set loss visible in a
 manifest. Labels and equations are retained separately because generic mesh
 conversion cannot preserve every periodic-constraint requirement.
 
-The current source declares `C3D10`, so the example uses quadratic geometry,
-P2 displacement, and a displacement-based compressible Neo-Hookean law. If a
-source deck declares `C3D10H`, meshio can still carry its `tetra10` geometry,
-but the `H` denotes a hybrid constant-pressure element with an additional
-element variable. AgentFEM records that distinction and the current
-displacement-only hyperelastic step refuses to label it equivalent. The
-planned hybrid route will be a separately benchmarked formulation, not a file-
-name alias.
+The checked-in source declares `C3D10`. The default route therefore uses
+quadratic geometry, P2 displacement, and a displacement-based compressible
+Neo-Hookean law. With `--element-type C3D10H`, AgentFEM changes only that
+element declaration in a derived source, records both file identities, and
+uses its monolithic P2/DG0 mixed formulation. The DG0 field contributes one
+independent pressure unknown per cell. `tetra10` remains only the shared
+geometry; source formulation and solver provider stay explicit.
+
+The large-mesh release smoke uses `nu=0.499` and stretch `1.001`. It verifies
+14,942 source nodes, 8,781 cells and pressure unknowns, all 4,212 equations,
+positive quadrature-point `J`, the separate `PRESSURE` and first-Piola `P`
+fields, and a versioned homogenized response. This mixed affine-MPC path is
+serial in the current release; the C3D10 displacement route has the tested
+two-rank `dolfinx_mpc` backend.
 
 ## Evidence and Failure Checks
 

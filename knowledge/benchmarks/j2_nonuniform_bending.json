@@ -1,0 +1,31 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.j2_nonuniform_bending",
+  "title": "Nonuniform three-dimensional J2 bending path",
+  "status": "automated_regression",
+  "purpose": "Verify that the global J2 transaction, consistent tangent, prescribed-motion work, energy accounting, and result recovery remain coherent when a structural model contains elastic and plastified integration points simultaneously.",
+  "physics": "three-dimensional small-strain Mises plasticity with linear isotropic hardening under displacement-controlled bending",
+  "execution": {
+    "command": "python -m pytest -q tests/test_p1_platform.py::test_global_j2_nonuniform_bending_path_localizes_plastic_state",
+    "example": "examples/j2_plasticity_3d.py",
+    "evidence": "A slender tetrahedral cantilever is clamped at one end and translated transversely at the other through eight accepted increments, producing a mixed elastic/plastic integration-point state."
+  },
+  "observables": [
+    "Minimum, maximum, and range of committed equivalent plastic strain.",
+    "Number of plastified integration points relative to the complete quadrature identity.",
+    "Prescribed-motion external work, internal energy, and their balance error.",
+    "Quadrature S/PE/PEEQ/MISES plus recovered cell fields and nodal RF."
+  ],
+  "acceptance": [
+    "The complete displacement path converges.",
+    "Some but not all integration points are plastic at the final state.",
+    "PEEQ is nonuniform and remains nonnegative.",
+    "External work and internal energy are positive and their relative difference remains below eight percent for the declared eight-increment path."
+  ],
+  "limitations": [
+    "This is an internal structural regression rather than an independent external validation.",
+    "The coarse cantilever is designed to exercise state localization and energy plumbing, not to report a converged beam response.",
+    "The official Abaqus notched-beam comparison remains a separate external benchmark gate."
+  ]
+}

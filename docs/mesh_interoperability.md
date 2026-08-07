@@ -174,7 +174,10 @@ so meshio maps both to `tetra10`. AgentFEM now preserves the source keyword
 identity beside the neutral mesh. For `C3D10H` the conversion manifest records
 the hybrid constant-pressure formulation and its one additional element
 pressure variable, and emits a warning that XDMF contains topology rather than
-that pressure formulation.
+that pressure formulation. This identity follows the
+[Abaqus three-dimensional solid element library](https://docs.software.vt.edu/abaqusv2024/English/SIMACAEELMRefMap/simaelm-r-3delem.htm),
+which distinguishes C3D10H from the linear-pressure C3D10HS and C3D10MH
+families.
 
 AgentFEM now provides an explicit mixed route:
 
@@ -186,6 +189,22 @@ material = model.material(
 model.fix(unknown.displacement, on=support)
 step = model.step(target=unknown, material=material)
 ```
+
+For controlled same-mesh studies, a large source file need not be copied and
+edited by hand:
+
+```python
+evidence = mesh.abaqus.derive_element_formulation(
+    "cell.dat",
+    "output/mesh/cell_C3D10H.dat",
+    source_type="C3D10",
+    target_type="C3D10H",
+)
+```
+
+The helper accepts only known equal-topology/equal-connectivity families,
+changes matching `*ELEMENT, TYPE=` values only, and writes a validated
+provenance sidecar consumed by the conversion manifest.
 
 The monolithic solution has quadratic displacement and one independent
 constant pressure value per cell. The provider consumes known `C3D10H`
@@ -203,8 +222,9 @@ a claim that neutral conversion reproduces Abaqus internal element code.
 - high-order topology compatibility remains format-specific; Abaqus `C3D10` /
   meshio `tetra10` / DOLFINx quadratic tetrahedral geometry is now covered by
   a real import and nonlinear example;
-- the C3D10H constant-pressure route is solved explicitly; other hybrid and
-  enhanced suffixes remain source evidence until a matching provider exists;
+- the C3D10H constant-pressure route, including serial affine-periodic
+  equations, is solved explicitly; its distributed mixed-MPC extension and
+  other hybrid/enhanced suffixes remain separate provider obligations;
 - ANSYS CDB support depends on the installed reader and is not claimed merely
   from the file extension.
 

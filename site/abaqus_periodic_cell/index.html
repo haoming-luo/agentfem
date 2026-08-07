@@ -3245,14 +3245,19 @@ depend on re-averaging visualization samples.</p>
 <p>The neutral conversion makes topology selection and any set loss visible in a
 manifest. Labels and equations are retained separately because generic mesh
 conversion cannot preserve every periodic-constraint requirement.</p>
-<p>The current source declares <code>C3D10</code>, so the example uses quadratic geometry,
-P2 displacement, and a displacement-based compressible Neo-Hookean law. If a
-source deck declares <code>C3D10H</code>, meshio can still carry its <code>tetra10</code> geometry,
-but the <code>H</code> denotes a hybrid constant-pressure element with an additional
-element variable. AgentFEM records that distinction and the current
-displacement-only hyperelastic step refuses to label it equivalent. The
-planned hybrid route will be a separately benchmarked formulation, not a file-
-name alias.</p>
+<p>The checked-in source declares <code>C3D10</code>. The default route therefore uses
+quadratic geometry, P2 displacement, and a displacement-based compressible
+Neo-Hookean law. With <code>--element-type C3D10H</code>, AgentFEM changes only that
+element declaration in a derived source, records both file identities, and
+uses its monolithic P2/DG0 mixed formulation. The DG0 field contributes one
+independent pressure unknown per cell. <code>tetra10</code> remains only the shared
+geometry; source formulation and solver provider stay explicit.</p>
+<p>The large-mesh release smoke uses <code>nu=0.499</code> and stretch <code>1.001</code>. It verifies
+14,942 source nodes, 8,781 cells and pressure unknowns, all 4,212 equations,
+positive quadrature-point <code>J</code>, the separate <code>PRESSURE</code> and first-Piola <code>P</code>
+fields, and a versioned homogenized response. This mixed affine-MPC path is
+serial in the current release; the C3D10 displacement route has the tested
+two-rank <code>dolfinx_mpc</code> backend.</p>
 <h2 id="evidence-and-failure-checks">Evidence and Failure Checks<a class="headerlink" href="#evidence-and-failure-checks" title="Permanent link">&para;</a></h2>
 <p>A credible run should report:</p>
 <ul>

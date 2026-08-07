@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from agentfem import mesh as mesh_api
+from agentfem.mesh import abaqus
 from agentfem.mesh import formats
 
 
@@ -243,3 +244,43 @@ def test_c3d10h_conversion_keeps_hybrid_identity_beside_tetra10(tmp_path):
     assert formats.reusable_conversion(
         source, tmp_path / "hybrid.xdmf", cell_type="tetra10",
     ) is None
+
+
+def test_c3d10h_conversion_keeps_formulation_derivation_provenance(tmp_path):
+    pytest.importorskip("meshio")
+    source = tmp_path / "one_tet.inp"
+    source.write_text(
+        "\n".join(
+            (
+                "*Node",
+                "1, 0., 0., 0.",
+                "2, 1., 0., 0.",
+                "3, 0., 1., 0.",
+                "4, 0., 0., 1.",
+                "5, .5, 0., 0.",
+                "6, .5, .5, 0.",
+                "7, 0., .5, 0.",
+                "8, 0., 0., .5",
+                "9, .5, 0., .5",
+                "10, 0., .5, .5",
+                "*Element, type=C3D10, elset=SOLID",
+                "1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+            )
+        ),
+        encoding="utf-8",
+    )
+    derived = tmp_path / "one_tet_hybrid.inp"
+    abaqus.derive_element_formulation(
+        source, derived, source_type="C3D10", target_type="C3D10H",
+    )
+
+    conversion = formats.convert_abaqus_inp_to_xdmf(
+        derived, tmp_path / "derived.xdmf", cell_type="tetra10",
+    )
+
+    provenance = conversion.source_metadata[
+        "abaqus_element_formulation_derivation"
+    ]
+    assert provenance["source_type"] == "C3D10"
+    assert provenance["target_type"] == "C3D10H"
+    assert provenance["nodes_and_connectivity_preserved"] is True

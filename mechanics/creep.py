@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from hashlib import sha256
 import json
 from pathlib import Path
 
@@ -42,6 +43,8 @@ class CreepIncrementInfo:
     creeping_points: int
     maximum_creep_increment: float
     maximum_local_iterations: int
+    minimum_temperature: float | None = None
+    maximum_temperature: float | None = None
     rejection_reason: str | None = None
 
     def as_dict(self) -> dict[str, object]:
@@ -66,6 +69,8 @@ class CreepIncrementInfo:
                 self.maximum_creep_increment
             ),
             "maximum_local_iterations": self.maximum_local_iterations,
+            "minimum_temperature": self.minimum_temperature,
+            "maximum_temperature": self.maximum_temperature,
             "rejection_reason": self.rejection_reason,
         }
 
@@ -97,6 +102,16 @@ class CreepIncrementInfo:
                 else float(record["maximum_creep_increment"])
             ),
             maximum_local_iterations=int(record["maximum_local_iterations"]),
+            minimum_temperature=(
+                None
+                if record.get("minimum_temperature") is None
+                else float(record["minimum_temperature"])
+            ),
+            maximum_temperature=(
+                None
+                if record.get("maximum_temperature") is None
+                else float(record["maximum_temperature"])
+            ),
             rejection_reason=record.get("rejection_reason"),
         )
 
@@ -167,6 +182,7 @@ class ImplicitCreepStep:
     tangent_form: object
     load_factor: object
     amplitude: amplitudes.Amplitude
+    temperature: object | None
     bcs: tuple[object, ...]
     prescribed_values: tuple[tuple[object, np.ndarray, object], ...]
     time_dependent_constraints: tuple[object, ...]
@@ -191,6 +207,15 @@ class ImplicitCreepStep:
         self.duration = float(self.duration)
         if not np.isfinite(self.duration) or self.duration <= 0.0:
             raise ValueError("Implicit creep duration must be finite and positive.")
+        requires_temperature = self.material.temperature_dependence is not None
+        if requires_temperature and self.temperature is None:
+            raise ValueError(
+                "Temperature-dependent creep requires temperature=... in kelvin."
+            )
+        if not requires_temperature and self.temperature is not None:
+            raise ValueError(
+                "temperature=... was supplied to an isothermal creep material."
+            )
 
     @property
     def accepted_factor(self) -> float:
@@ -409,6 +434,8 @@ class ImplicitCreepStep:
             "creeping_points": 0,
             "maximum_creep_increment": 0.0,
             "maximum_local_iterations": 0,
+            "minimum_temperature": None,
+            "maximum_temperature": None,
         }
         converged = False
         rejection_reason = None
@@ -420,6 +447,7 @@ class ImplicitCreepStep:
                     self.material,
                     time_start=start_time,
                     time_end=end_time,
+                    temperature_values=self._temperature_values(),
                 )
             except RuntimeError as exc:
                 rejection_reason = str(exc)
@@ -501,6 +529,8 @@ class ImplicitCreepStep:
             creeping_points=int(update_info["creeping_points"]),
             maximum_creep_increment=float(update_info["maximum_creep_increment"]),
             maximum_local_iterations=int(update_info["maximum_local_iterations"]),
+            minimum_temperature=update_info["minimum_temperature"],
+            maximum_temperature=update_info["maximum_temperature"],
             rejection_reason=rejection_reason,
         )
 
@@ -526,6 +556,7 @@ class ImplicitCreepStep:
                     self.material,
                     time_start=time_start,
                     time_end=time_end,
+                    temperature_values=self._temperature_values(),
                 )
             except RuntimeError:
                 alpha *= options.line_search_reduction
@@ -579,6 +610,40 @@ class ImplicitCreepStep:
             )
         for constraint in self.time_dependent_constraints:
             constraint.update(physical_time)
+
+    def _temperature_values(self):
+        if self.temperature is None:
+            return None
+        selected = getattr(self.temperature, "value", self.temperature)
+        if hasattr(selected, "function_space"):
+            return self.state.evaluate_scalar(selected)
+        scalar = np.asarray(selected, dtype=float)
+        if scalar.size != 1:
+            raise ValueError(
+                "Creep temperature must be a scalar or scalar finite-element field."
+            )
+        value = float(scalar.reshape(-1)[0])
+        return np.full(len(self.state.stress.values), value, dtype=float)
+
+    def _temperature_summary(self) -> dict[str, object] | None:
+        values = self._temperature_values()
+        if values is None:
+            return None
+        canonical = np.ascontiguousarray(values, dtype=np.float64)
+        selected = getattr(self.temperature, "value", self.temperature)
+        return {
+            "kind": (
+                "finite_element_field"
+                if hasattr(selected, "function_space")
+                else "constant"
+            ),
+            "unit": "K",
+            "minimum": float(np.min(values)),
+            "maximum": float(np.max(values)),
+            "quadrature_value_count": int(canonical.size),
+            "quadrature_values_sha256": sha256(canonical.tobytes()).hexdigest(),
+            "field_name": getattr(selected, "name", None),
+        }
 
     def _record_energy(self, time: float, old_state) -> None:
         mechanical_strain = elasticity.strain(self.solution) - self.state.creep_strain.function
@@ -695,6 +760,12 @@ class ImplicitCreepStep:
                 json.dumps(self._checkpoint_identity(), sort_keys=True)
             )
             if stored_identity != current_identity:
+                if stored_identity.get("temperature") != current_identity.get(
+                    "temperature"
+                ):
+                    raise ValueError(
+                        "Creep checkpoint temperature field identity differs."
+                    )
                 raise ValueError(
                     "Creep checkpoint material, duration, increment control, "
                     "quadrature state, or mesh/function layout differs."
@@ -758,6 +829,7 @@ class ImplicitCreepStep:
             "equivalent_creep_strain": function_partition_identity(
                 self.state.equivalent_creep_strain.function
             ),
+            "temperature": self._temperature_summary(),
         }
 
     def solve_result(self):
@@ -839,19 +911,60 @@ class ImplicitCreepStep:
             },
             kind="diagnostic",
         )
+        temperature_values = self._temperature_values()
+        if temperature_values is not None:
+            selected_temperature = getattr(
+                self.temperature, "value", self.temperature
+            )
+            if hasattr(selected_temperature, "function_space"):
+                result.add_field(
+                    "TEMP",
+                    selected_temperature,
+                    unit="K",
+                    description="Temperature field consumed by Arrhenius creep.",
+                    processing={
+                        "method": "quadrature_interpolation_for_constitutive_update",
+                        "postprocessed": False,
+                    },
+                )
+            result.add_quantities(
+                {
+                    "minimum_creep_temperature": float(np.min(temperature_values)),
+                    "maximum_creep_temperature": float(np.max(temperature_values)),
+                },
+                units={
+                    "minimum_creep_temperature": "K",
+                    "maximum_creep_temperature": "K",
+                },
+                kind="diagnostic",
+            )
         if self.accepted_increments:
             times = np.asarray([item.end_time for item in self.accepted_increments])
+            increment_histories = {
+                "newton_iterations": [
+                    item.iterations for item in self.accepted_increments
+                ],
+                "maximum_creep_increment": [
+                    item.maximum_creep_increment for item in self.accepted_increments
+                ],
+                "maximum_local_iterations": [
+                    item.maximum_local_iterations for item in self.accepted_increments
+                ],
+            }
+            if self.material.temperature_dependence is not None:
+                increment_histories.update(
+                    {
+                        "minimum_creep_temperature": [
+                            item.minimum_temperature for item in self.accepted_increments
+                        ],
+                        "maximum_creep_temperature": [
+                            item.maximum_temperature for item in self.accepted_increments
+                        ],
+                    }
+                )
             result.add_histories(
                 times,
-                {
-                    "newton_iterations": [item.iterations for item in self.accepted_increments],
-                    "maximum_creep_increment": [
-                        item.maximum_creep_increment for item in self.accepted_increments
-                    ],
-                    "maximum_local_iterations": [
-                        item.maximum_local_iterations for item in self.accepted_increments
-                    ],
-                },
+                increment_histories,
                 abscissa_name="time",
                 abscissa_unit="s",
             )
@@ -890,6 +1003,7 @@ class ImplicitCreepStep:
             "incrementation": self.incrementation.summary(),
             "solver": self.solver_options.summary(),
             "amplitude": self.amplitude.summary(),
+            "temperature": self._temperature_summary(),
             "last_solve": (
                 None if self.last_solve_info is None else self.last_solve_info.as_dict()
             ),
@@ -953,6 +1067,7 @@ def implicit_creep_step(
     progress=True,
     status_file=None,
     amplitude=None,
+    temperature=None,
     name: str = "implicit_creep",
 ) -> ImplicitCreepStep:
     """Build the first global 3D implicit power-law creep step."""
@@ -1028,6 +1143,7 @@ def implicit_creep_step(
         tangent_form=fem.form(jacobian),
         load_factor=load_factor,
         amplitude=selected_amplitude,
+        temperature=temperature,
         bcs=tuple(selected_bcs),
         prescribed_values=tuple(prescribed_values),
         time_dependent_constraints=tuple(time_dependent_constraints),

@@ -12,6 +12,11 @@ What is preserved and tested:
 - three-dimensional finite-deformation kinematics;
 - incremental nonlinear equilibrium and inspectable convergence evidence.
 
+The same source geometry can also be exercised as `C3D10H`. AgentFEM derives
+a second Abaqus source by changing only the matching `TYPE=C3D10` declaration,
+records both SHA-256 identities, and selects a monolithic P2-displacement/DG0-
+pressure route. Nodes and connectivity are not regenerated.
+
 What is deliberately changed:
 
 - `geom.inp` uses `*USER MATERIAL`; its implementation is not in this folder;
@@ -32,6 +37,18 @@ Run the visible finite-deformation case with:
 ```bash
 python agentfem_periodic_hyperelastic.py --stretch 1.20
 ```
+
+Run the near-incompressible C3D10H verification route with:
+
+```bash
+python agentfem_periodic_hyperelastic.py \
+  --element-type C3D10H --poisson 0.499 --stretch 1.001
+```
+
+The C3D10H command is currently serial. Its release regression verifies the
+same 14,942 nodes and 8,781 connectivities, 8,781 independent cell-pressure
+unknowns, all imported equations, positive `J`, and versioned homogenized
+stress. The ordinary C3D10 route remains available under MPI.
 
 Run one distributed simulation across two MPI ranks with:
 
@@ -64,7 +81,7 @@ The complete output contract is declared once:
 output = results.output_plan(
     output_directory,
     field=results.field_output(
-        "U", "S", "E", "EVOL", "F", "P", "MISES", "J", "SENER",
+        "U", "S", "E", "EVOL", "F", "P", "PRESSURE", "MISES", "J", "SENER",
         every="increment",
         configuration="deformed",
         backend="xdmf",
@@ -82,13 +99,16 @@ output = results.output_plan(
 For finite strain, the conventional request `E` resolves to spatial
 logarithmic strain `LE`. Green--Lagrange strain is available explicitly as
 `GREEN`; it is not mislabeled as Abaqus `E`.
+For the mixed route, `PRESSURE` is the independent positive-in-compression
+DG0 unknown; `P` remains the first-Piola stress tensor. They are intentionally
+different names.
 
 In serial, the default plan writes one logical ParaView result dataset:
 
 - `periodic_cell.xdmf`: the small temporal index;
 - `periodic_cell.h5`: compressed topology, retained reference coordinates,
   deformed geometry at every frame, `U`, `UMAG`, `S`, `LE`, `EVOL`, `F`, `P`,
-  `MISES`, `J`, and `SENER`.
+  `PRESSURE` when applicable, `MISES`, `J`, and `SENER`.
 
 Open the XDMF in ParaView to play the actual deformation and switch fields
 without a Warp filter or multi-block selection. No directory of per-frame VTU
@@ -135,6 +155,11 @@ For topology it explicitly asks meshio to parse the custom-extension `.dat`
 file as Abaqus syntax, writes a documented XDMF/HDF5 conversion, and lets
 DOLFINx read that converted mesh. The workflow is therefore an explicit source
 → neutral mesh → DOLFINx pipeline, not a hidden native Abaqus reader.
+
+For C3D10H, the derived `.dat` and adjacent `.formulation.json` are placed in
+the output mesh directory. The conversion manifest retains the derivation,
+the hybrid source identity, and the warning that neutral `tetra10` topology
+alone does not supply a pressure formulation.
 
 Serial execution uses AgentFEM's explicit affine transformation. MPI execution
 flattens the same chained equation graph to independent masters, maps Abaqus

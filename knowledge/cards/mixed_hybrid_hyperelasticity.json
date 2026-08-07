@@ -42,10 +42,10 @@
     ],
     "outputs": [
       {
-        "name": "U and P",
+        "name": "U, PRESSURE, and P",
         "type": "mixed finite-element solution with collapsible displacement and pressure fields",
         "unit_role": "length and pressure",
-        "description": "Both primary fields retain explicit names and can be exported or inspected independently."
+        "description": "U and PRESSURE are primary fields; P is the derived first-Piola tensor. The names remain distinct in one output dataset."
       }
     ],
     "assumptions": [
@@ -62,24 +62,29 @@
     ],
     "limitations": [
       "This is an AgentFEM variational analogue, not a byte-for-byte reproduction of Abaqus internal hybrid elements.",
-      "Mixed affine-periodic MPC, multiple finite-strain material regions, and an external locking benchmark remain release gates."
+      "Distributed mixed affine-periodic MPC, multiple finite-strain material regions, and an external locking benchmark remain release gates."
     ]
   },
   "usage": {
     "minimal_example": "unknown = model.field(fields.displacement_pressure(domain))\nmaterial = model.material(constitutive.mixed_neo_hookean(young=1e6, poisson=0.499))\nmodel.fix(unknown.displacement, on=support)\nstep = model.step(target=unknown, material=material)",
-    "examples": ["tests/test_engineering_workflows.py"]
+    "examples": ["examples/abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py", "tests/test_engineering_workflows.py"]
   },
   "verification": {
     "tests": ["tests/test_engineering_workflows.py", "tests/test_abaqus_interop.py", "tests/test_mesh_formats.py"],
-    "benchmarks": [],
+    "benchmarks": ["agentfem.benchmark.c3d10h_periodic_cell"],
     "validation_rules": [
       "Require the verified P2/DG0 pair for the constant-pressure provider.",
       "Reject displacement-only consumption of known C3D10H source semantics.",
       "Solve the constrained zero state and recover exactly zero displacement and pressure.",
-      "Reject any accepted increment with non-positive quadrature-point J."
+      "Reject any accepted increment with non-positive quadrature-point J.",
+      "Preserve every pressure dof as an independent reduced unknown under serial affine-periodic constraints."
     ]
   },
   "references": [
+    {
+      "title": "Abaqus three-dimensional solid element library: C3D10H constant-pressure hybrid tetrahedron",
+      "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAEELMRefMap/simaelm-r-3delem.htm"
+    },
     {
       "title": "Abaqus hybrid incompressible solid formulation",
       "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-hybridincompress.htm"

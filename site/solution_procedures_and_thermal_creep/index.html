@@ -3053,9 +3053,9 @@ A(T)=A_{\mathrm{ref}}
 \left(\frac{1}{T}-\frac{1}{T_{\mathrm{ref}}}\right)\right].
 \]</div>
 <p>The implementation uses the equivalent exponent form in code; all
-temperatures are absolute. The first global route deliberately starts one
-step earlier: isothermal three-dimensional Mises power-law creep. It now
-provides:</p>
+temperatures are absolute. The global three-dimensional Mises power-law route
+now accepts either an isothermal material or a scalar/finite-element
+temperature input for the normalized Arrhenius law. It provides:</p>
 <ul>
 <li>committed/trial <code>CE</code> and <code>CEEQ</code> at every quadrature point;</li>
 <li>a safeguarded backward-Euler local scalar solve over <span class="arithmatex">\(\Delta t\)</span>;</li>
@@ -3064,6 +3064,8 @@ provides:</p>
   maximum-creep-increment failure;</li>
 <li>fixed or automatic physical-time increments, dissipation history, and
   serial checkpoint/restart;</li>
+<li>integration-point temperature consumption, <code>TEMP</code> output, increment-wise
+  temperature evidence, and temperature identity in checkpoints;</li>
 <li>a three-dimensional homogeneous stress-relaxation Golden contract.</li>
 </ul>
 <p>This is implemented by reusing <code>QuadratureTransaction</code>; creep does not own a
@@ -3071,17 +3073,19 @@ second private state store. Checkpoint recovery reconstructs accepted stress
 from displacement and committed <code>CE</code> without advancing a fictitious time
 increment. The route follows the same consistent-linearization principle that
 underpins robust Newton convergence in inelastic finite elements.</p>
-<p>The Arrhenius, Sinh, and Kachanov--Rabotnov relations remain material-point
-capabilities. Promoting one isothermal power-law branch does not silently
-promote temperature interpolation, damage, mesh regularization, or structural
-rupture prediction.</p>
+<p>Arrhenius power-law creep is therefore a global consumer, while Sinh and
+Kachanov--Rabotnov remain material-point capabilities. A prescribed
+temperature field is not yet an automatic transfer of an entire transient
+thermal history, and it does not silently promote damage, mesh regularization,
+or structural rupture prediction.</p>
 <h2 id="current-boundary-and-next-gates">Current boundary and next gates<a class="headerlink" href="#current-boundary-and-next-gates" title="Permanent link">&para;</a></h2>
 <p>Implemented now:</p>
 <ul>
 <li>explicit central difference and implicit Newmark/generalized-<span class="arithmatex">\(\alpha\)</span>;</li>
 <li>implicit-Euler heat transfer as a model-owned Step;</li>
 <li>sequential isotropic thermal expansion as a visible vector operator;</li>
-<li>normalized Arrhenius temperature dependence at material-point level;</li>
+<li>normalized Arrhenius temperature dependence at material-point and global
+  integration-point level;</li>
 <li>global 3D J2 quadrature state with analytical tangent and serial restart.</li>
 <li>cumulative J2 restart history, analytical uniaxial Golden verification,
   quadrature S/PE/PEEQ/MISES and nodal RF result fields, cyclic amplitude, physical-increment cutback,
@@ -3090,9 +3094,10 @@ rupture prediction.</p>
   and modified-theta curve projection;</li>
 <li>a sequential hot-wall FEM-to-creep assessment example with explicit
   calibration and maturity boundaries.</li>
-<li>global isothermal 3D power-law creep with backward Euler, analytical
-  tangent, shared transaction, automatic cutback, CE/CEEQ/S/MISES/RF,
-  dissipation history, serial restart, and a relaxation Golden contract.</li>
+<li>global 3D power-law creep with backward Euler, analytical tangent, shared
+  transaction, automatic cutback, CE/CEEQ/S/MISES/RF/TEMP, prescribed
+  Arrhenius temperature fields, dissipation history, serial restart, and a
+  relaxation Golden contract.</li>
 </ul>
 <p>Next gates:</p>
 <ol>
@@ -3101,8 +3106,8 @@ rupture prediction.</p>
    result manifest across heat, implicit dynamics, and explicit dynamics;</li>
 <li>portable MPI state identity based on global cells/material regions rather
    than a rank-local array layout;</li>
-<li>extend global creep from the isothermal power-law foundation to
-   temperature-field interpolation and Arrhenius rate data;</li>
+<li>connect accepted transient heat-transfer histories to creep increments
+   through an explicit field-transfer contract;</li>
 <li>add multi-element and external power-component benchmarks, then MPI-stable
    global quadrature identity;</li>
 <li>introduce K-R/Liu--Murakami damage only with near-failure time control and

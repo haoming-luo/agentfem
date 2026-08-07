@@ -8,8 +8,11 @@ constraints still need: Abaqus node labels and ``*EQUATION`` terms.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha256
 from itertools import product
+import json
 from pathlib import Path
+import re
 import numpy as np
 
 
@@ -170,6 +173,150 @@ class AbaqusElementDefinition:
             "additional_pressure_variables": self.additional_pressure_variables,
             "additional_displacement_variables": self.additional_displacement_variables,
         }
+
+
+@dataclass(frozen=True)
+class AbaqusElementFormulationDerivation:
+    """Evidence for a topology-preserving Abaqus element-keyword rewrite.
+
+    Abaqus element suffixes can change the numerical formulation without
+    changing nodes or connectivity.  The derivation record makes that narrow
+    source transformation explicit and reproducible instead of asking users
+    to duplicate and hand-edit a large mesh file.
+    """
+
+    source_path: Path
+    derived_path: Path
+    source_type: str
+    target_type: str
+    rewritten_declarations: int
+    source_sha256: str
+    derived_sha256: str
+    manifest_path: Path
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "abaqus_element_formulation_derivation",
+            "source_path": str(self.source_path),
+            "derived_path": str(self.derived_path),
+            "source_type": self.source_type,
+            "target_type": self.target_type,
+            "rewritten_declarations": self.rewritten_declarations,
+            "topology_preserved": True,
+            "nodes_and_connectivity_preserved": True,
+            "source_sha256": self.source_sha256,
+            "derived_sha256": self.derived_sha256,
+            "manifest_path": str(self.manifest_path),
+        }
+
+
+def derive_element_formulation(
+    source: str | Path,
+    destination: str | Path,
+    *,
+    source_type: str,
+    target_type: str,
+) -> AbaqusElementFormulationDerivation:
+    """Derive an Abaqus mesh by changing only matching ``TYPE=`` values.
+
+    This helper is intentionally narrower than a generic text replacement.
+    It accepts only element types with the same known topology and node count,
+    preserves every non-keyword byte, and writes a provenance sidecar.  A
+    ``C3D10`` mesh can therefore become a scientifically explicit ``C3D10H``
+    source while retaining exactly the same geometry and connectivity.
+    """
+
+    source_path = Path(source)
+    derived_path = Path(destination)
+    if source_path.resolve() == derived_path.resolve():
+        raise ValueError("The derived Abaqus mesh must not overwrite its source.")
+    selected_source = str(source_type).strip().upper()
+    selected_target = str(target_type).strip().upper()
+    source_definition = describe_element_type(selected_source)
+    target_definition = describe_element_type(selected_target)
+    if (
+        source_definition.topology is None
+        or target_definition.topology is None
+        or source_definition.topology != target_definition.topology
+        or _element_node_count(selected_source) != _element_node_count(selected_target)
+    ):
+        raise ValueError(
+            "Element formulation derivation requires known element types with "
+            "identical topology and connectivity size."
+        )
+
+    original = source_path.read_bytes()
+    type_option = re.compile(rb"(?i)(\bTYPE\s*=\s*)([A-Z0-9]+)")
+    rewritten = 0
+    output_lines: list[bytes] = []
+    for raw in original.splitlines(keepends=True):
+        stripped = raw.lstrip()
+        if not stripped.startswith(b"*") or stripped.startswith(b"**"):
+            output_lines.append(raw)
+            continue
+        keyword = stripped.split(b",", 1)[0].strip().upper()
+        if keyword != b"*ELEMENT":
+            output_lines.append(raw)
+            continue
+
+        def replace(match: re.Match[bytes]) -> bytes:
+            nonlocal rewritten
+            declared = match.group(2).decode("ascii").upper()
+            if declared != selected_source:
+                return match.group(0)
+            rewritten += 1
+            return match.group(1) + selected_target.encode("ascii")
+
+        output_lines.append(type_option.sub(replace, raw, count=1))
+    if rewritten == 0:
+        raise ValueError(
+            f"No *ELEMENT declaration with TYPE={selected_source} was found in "
+            f"{source_path}."
+        )
+
+    derived = b"".join(output_lines)
+    derived_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = derived_path.with_name(f".{derived_path.name}.tmp")
+    temporary.write_bytes(derived)
+    temporary.replace(derived_path)
+    manifest_path = derived_path.with_suffix(
+        derived_path.suffix + ".formulation.json"
+    )
+    record = AbaqusElementFormulationDerivation(
+        source_path=source_path,
+        derived_path=derived_path,
+        source_type=selected_source,
+        target_type=selected_target,
+        rewritten_declarations=rewritten,
+        source_sha256=sha256(original).hexdigest(),
+        derived_sha256=sha256(derived).hexdigest(),
+        manifest_path=manifest_path,
+    )
+    manifest_path.write_text(
+        json.dumps(record.summary(), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return record
+
+
+def read_element_formulation_derivation(
+    source: str | Path,
+) -> dict[str, object] | None:
+    """Read and validate an adjacent formulation-derivation sidecar."""
+
+    source_path = Path(source)
+    manifest_path = source_path.with_suffix(
+        source_path.suffix + ".formulation.json"
+    )
+    if not manifest_path.exists():
+        return None
+    record = json.loads(manifest_path.read_text(encoding="utf-8"))
+    actual = sha256(source_path.read_bytes()).hexdigest()
+    if record.get("derived_sha256") != actual:
+        raise ValueError(
+            f"Abaqus formulation derivation manifest is stale for {source_path}."
+        )
+    return dict(record)
 
 
 @dataclass(frozen=True)

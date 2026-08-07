@@ -33,6 +33,8 @@ the compact machine-readable `knowledge/catalog.json`.
 
 | Stable ID | Title | Physics | Status |
 | --- | --- | --- | --- |
+| `agentfem.benchmark.arrhenius_global_creep` | Nonuniform-temperature global Arrhenius creep patch | three-dimensional small-strain Mises power-law creep with a prescribed nonuniform Arrhenius temperature field | automated_regression |
+| `agentfem.benchmark.c3d10h_periodic_cell` | Imported C3D10H near-incompressible periodic cell | three-dimensional near-incompressible mixed Neo-Hookean periodic homogenization | manual_release_regression |
 | `agentfem.benchmark.cae_reliability_cliffs` | CAE reliability cliffs: orientation, discretization, and reference applicability | cross-cutting finite-element verification | partial_automated_suite |
 | `agentfem.benchmark.campaign_surrogate_pipeline` | Static-elasticity campaign to guarded surrogate pipeline | parameterized small-strain isotropic linear elasticity | executable_integration |
 | `agentfem.benchmark.creep_abaqus_constant_stress` | Official Abaqus time-hardening constant-stress creep case | three-dimensional small-strain Mises time-hardening power-law creep | automated_external_verification |
@@ -43,6 +45,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | `agentfem.benchmark.j2_abaqus_rate_independent` | Published Abaqus rate-independent Mises plasticity uniaxial state | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_external_verification |
 | `agentfem.benchmark.j2_global_restart` | Three-dimensional J2 path, physical cutback, cyclic amplitude, energy, and restart equivalence | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_regression |
 | `agentfem.benchmark.j2_multielement_patch` | Multi-element global J2 plasticity patch | three-dimensional small-strain rate-independent J2 plasticity with linear isotropic hardening | automated |
+| `agentfem.benchmark.j2_nonuniform_bending` | Nonuniform three-dimensional J2 bending path | three-dimensional small-strain Mises plasticity with linear isotropic hardening under displacement-controlled bending | automated_regression |
 | `agentfem.benchmark.linear_static_cantilever` | Two-dimensional linear-static cantilever | small-strain isotropic linear elasticity in plane strain | numerical_regression |
 | `agentfem.benchmark.neo_hookean_release` | Compressible Neo-Hookean finite-strain release contract | compressible Neo-Hookean hyperelasticity | automated_regression |
 | `agentfem.benchmark.operator_contracts` | Operator role, system, and residual-linearization contracts | backend-facing finite-element operator algebra | automated |
@@ -159,7 +162,7 @@ model.surface_force((0.0, -50000.0), on=loaded)
 **Status:** `supported`<br>
 **Source card:** `knowledge/cards/creep_damage_assessment.json`
 
-Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, kept distinct from the implemented global isothermal power-law creep route.
+Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, kept distinct from the implemented global isothermal/Arrhenius power-law creep route.
 
 ### Public API
 
@@ -232,7 +235,7 @@ Primary and tertiary terms project a creep strain-time curve.
 
 #### Limitations
 
-- K-R damage and Sinh flow do not yet enter global equilibrium, adaptive time stepping, or restartable quadrature state; the separate isothermal power-law model does.
+- K-R damage and Sinh flow do not yet enter global equilibrium, adaptive time stepping, or restartable quadrature state; the separate isothermal/Arrhenius power-law model does.
 - Local softening/damage is not mesh regularized.
 - No Liu-Murakami multiaxial damage law is claimed in this release.
 
@@ -273,12 +276,13 @@ Create KachanovRabotnovCreep with traceable parameters, advance CreepDamageState
 **Status:** `supported`<br>
 **Source card:** `knowledge/cards/global_implicit_creep.json`
 
-Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, atomic rollback, serial restart, and standard creep fields.
+Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, optional scalar or field-driven Arrhenius temperature dependence, atomic rollback, serial restart, and standard creep fields.
 
 ### Public API
 
 - `agentfem.studies.creep_solid`
 - `agentfem.constitutive.isotropic_power_law`
+- `agentfem.constitutive.isotropic_arrhenius_power_law`
 - `agentfem.constitutive.IsotropicPowerLawCreepMaterial`
 - `agentfem.constitutive.CreepQuadratureState`
 - `agentfem.models.Model.step`
@@ -317,6 +321,7 @@ The global Newton matrix consumes the analytical algorithmic consistent tangent 
 | --- | --- | --- | --- |
 | elastic and creep parameters | E, nu, density, A, n, optional time exponent and reference scales | one declared consistent stress-time system | Use isotropic_power_law to keep instantaneous elasticity and creep flow in one material record. |
 | physical duration and increment controls | positive duration plus fixed or automatic incrementation | time | Normalized increment sizes map to physical time; amplitudes are evaluated in physical time. |
+| temperature | positive scalar or scalar finite-element field | absolute temperature in kelvin | Required for an Arrhenius material and evaluated at the same quadrature identity as creep state. |
 
 #### Outputs
 
@@ -325,10 +330,11 @@ The global Newton matrix consumes the analytical algorithmic consistent tangent 
 | S and MISES | quadrature tensor and scalar fields | stress | Accepted constitutive stress and its von Mises invariant. |
 | CE and CEEQ | committed quadrature state | strain | Creep strain tensor and accumulated equivalent creep strain. |
 | time, Newton, local-update and dissipation histories | structured histories and execution events | time, iterations, strain, and energy | Accepted times, maximum creep increment, local/global iterations, elastic energy, and creep dissipation. |
+| TEMP and temperature evidence | input field plus accepted-increment extrema | kelvin | Records the prescribed temperature field and the integration-point range actually consumed by Arrhenius updates. |
 
 #### Assumptions
 
-- Small strain, three spatial dimensions, isotropic elasticity, associative Mises creep, and isothermal material properties.
+- Small strain, three spatial dimensions, isotropic elasticity, and associative Mises creep; temperature changes the Arrhenius rate but not elastic properties.
 - Quasi-static equilibrium; inertia is not part of this procedure.
 - One material covers the current convenience-step domain.
 
@@ -341,19 +347,19 @@ The global Newton matrix consumes the analytical algorithmic consistent tangent 
 
 #### Applicability
 
-- Isothermal three-dimensional research and engineering studies governed by a calibrated Mises power-law creep relation.
+- Isothermal or prescribed-temperature three-dimensional studies governed by a calibrated Mises power-law creep relation.
 - Stress-relaxation and creep-deformation workflows requiring inspectable state, cutback, and restart evidence.
 
 #### Limitations
 
 - The provider and checkpoint are serial-only and do not yet support multiple material regions.
-- Temperature-field interpolation, Arrhenius coupling, damage, and mesh regularization are not part of this global route.
+- Automatic transfer and time alignment of a transient thermal history, damage, and mesh regularization are not part of this global route.
 - External component or code-standard validation remains required before application-specific qualification.
 
 ### Minimal example
 
 ```python
-Create studies.creep_solid(), register constitutive.isotropic_power_law(...), add supports and loads, then call model.step(target=u, material=steel, duration=..., incrementation=steps.automatic()).
+Create studies.creep_solid(), register constitutive.isotropic_power_law(...) or isotropic_arrhenius_power_law(...), add supports and loads, then call model.step(target=u, material=steel, duration=..., incrementation=steps.automatic(), temperature=T).
 ```
 
 ### Verification
@@ -365,12 +371,14 @@ Create studies.creep_solid(), register constitutive.isotropic_power_law(...), ad
 **Benchmarks**
 
 - `agentfem.benchmark.implicit_creep_relaxation`
+- `agentfem.benchmark.arrhenius_global_creep`
 
 **Validation rules**
 
 - Reject non-3D, multi-rank, nonpositive-duration, or incompatible material use.
 - Verify the analytical tangent independently against a centered material-point derivative.
 - Commit shared transaction state only after a globally accepted physical-time increment.
+- Evaluate and record positive kelvin temperatures at the creep quadrature identity for every attempted increment.
 - Restore displacement, CE, CEEQ, physical time, next increment, histories, energies, and events from a compatible checkpoint.
 
 ### References
@@ -387,7 +395,7 @@ Create studies.creep_solid(), register constitutive.isotropic_power_law(...), ad
 **Status:** `supported`<br>
 **Source card:** `knowledge/cards/j2_global_plasticity.json`
 
-Three-dimensional Mises plasticity with linear isotropic hardening, a shared quadrature transaction, analytical algorithmic tangent, cyclic amplitude paths, physical-increment cutback, cumulative serial restart, standard fields, and work/energy histories.
+Three-dimensional Mises plasticity with linear isotropic hardening, a shared quadrature transaction, analytical algorithmic tangent, cyclic amplitude paths, physical-increment cutback, cumulative serial restart, standard fields, and work/energy histories verified on homogeneous and nonuniform structural paths.
 
 ### Public API
 
@@ -458,6 +466,7 @@ Newton iterations use trial state based on the last committed increment.
 
 - Monotone or reviewed tabular cyclic small-strain 3D solid loading within the implemented isotropic-hardening law.
 - Laboratory-scale regression and research workflows requiring inspectable state.
+- Nonuniform displacement-controlled structures with simultaneous elastic and plastic integration points.
 
 #### Limitations
 
@@ -482,6 +491,7 @@ Register J2LinearIsotropicHardening in a 3D nonlinear_static Model, add supports
 
 - `agentfem.benchmark.j2_global_restart`
 - `agentfem.benchmark.j2_multielement_patch`
+- `agentfem.benchmark.j2_nonuniform_bending`
 
 **Validation rules**
 
@@ -542,7 +552,7 @@ Positive pressure denotes compression and DG0 creates one pressure value per cel
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
-| U and P | mixed finite-element solution with collapsible displacement and pressure fields | length and pressure | Both primary fields retain explicit names and can be exported or inspected independently. |
+| U, PRESSURE, and P | mixed finite-element solution with collapsible displacement and pressure fields | length and pressure | U and PRESSURE are primary fields; P is the derived first-Piola tensor. The names remain distinct in one output dataset. |
 
 #### Assumptions
 
@@ -562,7 +572,7 @@ Positive pressure denotes compression and DG0 creates one pressure value per cel
 #### Limitations
 
 - This is an AgentFEM variational analogue, not a byte-for-byte reproduction of Abaqus internal hybrid elements.
-- Mixed affine-periodic MPC, multiple finite-strain material regions, and an external locking benchmark remain release gates.
+- Distributed mixed affine-periodic MPC, multiple finite-strain material regions, and an external locking benchmark remain release gates.
 
 ### Minimal example
 
@@ -583,7 +593,7 @@ step = model.step(target=unknown, material=material)
 
 **Benchmarks**
 
-- None declared.
+- `agentfem.benchmark.c3d10h_periodic_cell`
 
 **Validation rules**
 
@@ -591,9 +601,11 @@ step = model.step(target=unknown, material=material)
 - Reject displacement-only consumption of known C3D10H source semantics.
 - Solve the constrained zero state and recover exactly zero displacement and pressure.
 - Reject any accepted increment with non-positive quadrature-point J.
+- Preserve every pressure dof as an independent reduced unknown under serial affine-periodic constraints.
 
 ### References
 
+- Abaqus three-dimensional solid element library: C3D10H constant-pressure hybrid tetrahedron: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEELMRefMap/simaelm-r-3delem.htm`
 - Abaqus hybrid incompressible solid formulation: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-hybridincompress.htm`
 - DOLFINx mixed function-space API: `https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.html`
 
@@ -1858,13 +1870,13 @@ The local creep coefficient retains its fitted meaning at the declared reference
 #### Applicability
 
 - Thermal gradients and thermal stress in laboratory and power-plant component models when one-way coupling is adequate.
-- Preparing temperature histories for future global creep integration.
+- Preparing temperature fields for global Arrhenius creep integration.
 
 #### Limitations
 
 - No monolithic fully coupled temperature-displacement solve.
 - No convection/radiation convenience boundary in this card.
-- Arrhenius creep remains a material-point capability until it consumes global quadrature state.
+- Global Arrhenius creep accepts a prescribed scalar or finite-element temperature; automatic transient-history transfer is not yet provided.
 
 ### Minimal example
 

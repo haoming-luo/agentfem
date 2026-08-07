@@ -2934,10 +2934,12 @@ rollback, restart, output, and benchmark evidence as part of the material's
 global finite-element contract.</p>
 <h2 id="current-boundary">Current boundary<a class="headerlink" href="#current-boundary" title="Permanent link">&para;</a></h2>
 <ul>
-<li>3D isothermal global power-law creep with backward Euler, shared quadrature
-  state, analytical tangent, physical-time cutback, creep fields, dissipation,
-  and serial restart;</li>
-<li>Kachanov–Rabotnov, Sinh, Arrhenius, and related relations at explicitly marked
+<li>3D global power-law creep with backward Euler, shared quadrature state,
+  analytical tangent, physical-time cutback, creep fields, dissipation, and
+  serial restart;</li>
+<li>optional scalar or finite-element temperature input consumed at creep
+  integration points by a normalized Arrhenius rate law;</li>
+<li>Kachanov–Rabotnov, Sinh, and related relations at explicitly marked
   material-point/evaluation maturity unless a global consumer is present;</li>
 <li>modified-theta projection as a curve-assessment tool;</li>
 <li>small-strain J2 plasticity through a stateful global route.</li>

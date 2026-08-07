@@ -63,9 +63,9 @@ A(T)=A_{\mathrm{ref}}
 \]
 
 The implementation uses the equivalent exponent form in code; all
-temperatures are absolute. The first global route deliberately starts one
-step earlier: isothermal three-dimensional Mises power-law creep. It now
-provides:
+temperatures are absolute. The global three-dimensional Mises power-law route
+now accepts either an isothermal material or a scalar/finite-element
+temperature input for the normalized Arrhenius law. It provides:
 
 - committed/trial `CE` and `CEEQ` at every quadrature point;
 - a safeguarded backward-Euler local scalar solve over \(\Delta t\);
@@ -74,6 +74,8 @@ provides:
   maximum-creep-increment failure;
 - fixed or automatic physical-time increments, dissipation history, and
   serial checkpoint/restart;
+- integration-point temperature consumption, `TEMP` output, increment-wise
+  temperature evidence, and temperature identity in checkpoints;
 - a three-dimensional homogeneous stress-relaxation Golden contract.
 
 This is implemented by reusing `QuadratureTransaction`; creep does not own a
@@ -82,10 +84,11 @@ from displacement and committed `CE` without advancing a fictitious time
 increment. The route follows the same consistent-linearization principle that
 underpins robust Newton convergence in inelastic finite elements.
 
-The Arrhenius, Sinh, and Kachanov--Rabotnov relations remain material-point
-capabilities. Promoting one isothermal power-law branch does not silently
-promote temperature interpolation, damage, mesh regularization, or structural
-rupture prediction.
+Arrhenius power-law creep is therefore a global consumer, while Sinh and
+Kachanov--Rabotnov remain material-point capabilities. A prescribed
+temperature field is not yet an automatic transfer of an entire transient
+thermal history, and it does not silently promote damage, mesh regularization,
+or structural rupture prediction.
 
 ## Current boundary and next gates
 
@@ -94,7 +97,8 @@ Implemented now:
 - explicit central difference and implicit Newmark/generalized-\(\alpha\);
 - implicit-Euler heat transfer as a model-owned Step;
 - sequential isotropic thermal expansion as a visible vector operator;
-- normalized Arrhenius temperature dependence at material-point level;
+- normalized Arrhenius temperature dependence at material-point and global
+  integration-point level;
 - global 3D J2 quadrature state with analytical tangent and serial restart.
 - cumulative J2 restart history, analytical uniaxial Golden verification,
   quadrature S/PE/PEEQ/MISES and nodal RF result fields, cyclic amplitude, physical-increment cutback,
@@ -103,9 +107,10 @@ Implemented now:
   and modified-theta curve projection;
 - a sequential hot-wall FEM-to-creep assessment example with explicit
   calibration and maturity boundaries.
-- global isothermal 3D power-law creep with backward Euler, analytical
-  tangent, shared transaction, automatic cutback, CE/CEEQ/S/MISES/RF,
-  dissipation history, serial restart, and a relaxation Golden contract.
+- global 3D power-law creep with backward Euler, analytical tangent, shared
+  transaction, automatic cutback, CE/CEEQ/S/MISES/RF/TEMP, prescribed
+  Arrhenius temperature fields, dissipation history, serial restart, and a
+  relaxation Golden contract.
 
 Next gates:
 
@@ -114,8 +119,8 @@ Next gates:
    result manifest across heat, implicit dynamics, and explicit dynamics;
 2. portable MPI state identity based on global cells/material regions rather
    than a rank-local array layout;
-3. extend global creep from the isothermal power-law foundation to
-   temperature-field interpolation and Arrhenius rate data;
+3. connect accepted transient heat-transfer histories to creep increments
+   through an explicit field-transfer contract;
 4. add multi-element and external power-component benchmarks, then MPI-stable
    global quadrature identity;
 5. introduce K-R/Liu--Murakami damage only with near-failure time control and

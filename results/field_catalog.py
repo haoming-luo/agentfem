@@ -22,6 +22,13 @@ _VARIABLES = {
     "U": FieldVariable("U", "Displacement", "nodes", "vector", "Displacement"),
     "S": FieldVariable("S", "CauchyStress", "cells", "symmetric_tensor", "Cauchy stress"),
     "P": FieldVariable("P", "FirstPiolaStress", "cells", "tensor", "First Piola stress"),
+    "PRESSURE": FieldVariable(
+        "PRESSURE",
+        "Pressure",
+        "cells",
+        "scalar",
+        "Independent mixed pressure; positive in compression",
+    ),
     "F": FieldVariable("F", "DeformationGradient", "cells", "tensor", "Deformation gradient"),
     "LE": FieldVariable("LE", "LogarithmicStrain", "cells", "symmetric_tensor", "Spatial logarithmic strain"),
     "GREEN": FieldVariable("GREEN", "GreenLagrangeStrain", "cells", "symmetric_tensor", "Green--Lagrange strain"),

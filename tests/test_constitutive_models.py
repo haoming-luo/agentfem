@@ -484,6 +484,32 @@ def test_power_law_creep_matches_constant_stress_and_relaxation_solutions():
     assert 0.0 < relaxed < stress
 
 
+def test_arrhenius_material_update_accelerates_with_temperature():
+    material = constitutive.isotropic_arrhenius_power_law(
+        young=200.0e3,
+        poisson=0.3,
+        density=1.0,
+        coefficient=1.0e-8,
+        stress_exponent=3.0,
+        activation_energy=200.0e3,
+        reference_temperature=800.0,
+        reference_stress=100.0,
+    )
+    strain = np.diag((0.002, -0.001, -0.001))
+
+    reference = material.update(
+        strain, time_start=0.0, time_end=1.0, temperature=800.0,
+    )
+    hot = material.update(
+        strain, time_start=0.0, time_end=1.0, temperature=900.0,
+    )
+
+    assert hot.equivalent_increment > reference.equivalent_increment > 0.0
+    assert material.as_dict()["temperature_dependence"]["model"] == (
+        "arrhenius_mises_power_law_creep"
+    )
+
+
 def test_mises_creep_tensor_increment_is_deviatoric_and_has_requested_equivalent():
     law = creep.PowerLawCreep(
         coefficient=1.0e-8,

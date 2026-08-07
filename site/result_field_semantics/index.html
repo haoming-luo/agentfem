@@ -3091,6 +3091,11 @@ recovery remain roadmap items. A naive global continuous projection is
 intentionally not presented as a standard smoothing method because it can
 erase real jumps at material interfaces and obscure singular or poorly
 converged regions.</p>
+<p>Mixed finite-strain output uses two unambiguous names: <code>PRESSURE</code> is the
+independent cellwise pressure unknown (positive in compression), while <code>P</code> is
+the first-Piola stress tensor derived from displacement and pressure. Both can
+be written beside <code>U</code>, <code>S</code>, <code>LE</code>, <code>J</code>, and energy fields in the same compact
+time series.</p>
 <h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="https://docs.software.vt.edu/abaqusv2024/English/SIMACAECAERefMap/simacae-c-conconceptlimits.htm">Abaqus: understanding contour limits</a></li>

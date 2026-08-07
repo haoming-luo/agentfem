@@ -449,6 +449,9 @@ def convert_abaqus_inp_to_xdmf(
         "abaqus_element_definitions": [item.summary() for item in definitions],
         "abaqus_model_semantics": semantics.summary(),
     }
+    derivation = abaqus.read_element_formulation_derivation(input_path)
+    if derivation is not None:
+        abaqus_metadata["abaqus_element_formulation_derivation"] = derivation
     warnings = ()
     if any(item.is_hybrid for item in definitions):
         warnings = (

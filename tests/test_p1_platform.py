@@ -430,6 +430,26 @@ def test_global_j2_multielement_patch_matches_the_uniaxial_golden():
     assert abs(final_balance) / final_internal < 0.03
 
 
+def test_global_j2_nonuniform_bending_path_localizes_plastic_state():
+    """Exercise assembly and state recovery on a nonuniform structural path."""
+
+    step, _ = _j2_nonuniform_bending_patch()
+    simulation = step.solve_result()
+    peeq = step.state.equivalent_plastic_strain.values.reshape(-1)
+
+    assert step.last_solve_info.completed_step
+    assert np.max(peeq) > 1.0e-4
+    assert np.min(peeq) == pytest.approx(0.0, abs=1.0e-14)
+    assert np.ptp(peeq) > 1.0e-4
+    assert 0 < simulation.quantity("plastic_integration_points") < peeq.size
+    assert simulation.histories["external_work"].latest > 0.0
+    assert simulation.histories["internal_energy"].latest > 0.0
+    relative_balance = abs(simulation.histories["energy_balance_error"].latest) / (
+        simulation.histories["internal_energy"].latest
+    )
+    assert relative_balance < 0.08
+
+
 def test_global_j2_proportionally_applies_prescribed_displacement():
     step, displacement = _j2_displacement_patch()
     step.solve(until=0.5)
@@ -811,7 +831,12 @@ def _j2_patch():
     return step, displacement
 
 
-def _creep_relaxation_patch(*, incrementation=None):
+def _creep_relaxation_patch(
+    *,
+    incrementation=None,
+    arrhenius_temperature_range=None,
+    duration: float = 10.0,
+):
     """Homogeneous 3D constant-strain relaxation with free contraction."""
 
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
@@ -821,16 +846,35 @@ def _creep_relaxation_patch(*, incrementation=None):
         name="power_law_creep_relaxation",
     )
     displacement = model.field(fields.displacement(domain))
+    material_factory = (
+        constitutive.isotropic_power_law
+        if arrhenius_temperature_range is None
+        else constitutive.isotropic_arrhenius_power_law
+    )
+    material_options = {}
+    if arrhenius_temperature_range is not None:
+        material_options.update(
+            activation_energy=120.0e3,
+            reference_temperature=800.0,
+        )
     material = model.material(
-        constitutive.isotropic_power_law(
+        material_factory(
             young=200.0e3,
             poisson=0.3,
             density=1.0,
             coefficient=1.0e-6,
             stress_exponent=3.0,
             reference_stress=100.0,
+            **material_options,
         )
     )
+    temperature = None
+    if arrhenius_temperature_range is not None:
+        lower, upper = map(float, arrhenius_temperature_range)
+        temperature = model.field(fields.temperature(domain, value=lower))
+        temperature.value.interpolate(
+            lambda x: lower + (upper - lower) * x[0]
+        )
     model.fix(
         displacement,
         on=mesh.face(domain, axis="x", value=0.0, name="left", tag=1),
@@ -858,7 +902,7 @@ def _creep_relaxation_patch(*, incrementation=None):
     step = model.step(
         target=displacement,
         material=material,
-        duration=10.0,
+        duration=duration,
         incrementation=(steps.fixed(10) if incrementation is None else incrementation),
         solver_options=solvers.newton(
             relative_tolerance=1.0e-9,
@@ -867,8 +911,47 @@ def _creep_relaxation_patch(*, incrementation=None):
             line_search="backtracking",
         ),
         progress=False,
+        temperature=temperature,
     )
     return step, displacement
+
+
+def test_global_arrhenius_creep_consumes_nonuniform_temperature_field(tmp_path):
+    step, _ = _creep_relaxation_patch(
+        arrhenius_temperature_range=(800.0, 900.0),
+        duration=1.0,
+        incrementation=steps.fixed(2),
+    )
+
+    simulation = step.solve_result()
+
+    assert step.last_solve_info.completed_step
+    assert "TEMP" in simulation.fields
+    minimum = simulation.quantity("minimum_creep_temperature")
+    maximum = simulation.quantity("maximum_creep_temperature")
+    assert 800.0 < minimum < 850.0 < maximum < 900.0
+    assert minimum + maximum == pytest.approx(1700.0)
+    assert all(
+        item.minimum_temperature == pytest.approx(minimum)
+        and item.maximum_temperature == pytest.approx(maximum)
+        for item in step.accepted_increments
+    )
+    assert simulation.histories["minimum_creep_temperature"].latest == pytest.approx(
+        minimum
+    )
+    assert simulation.histories["maximum_creep_temperature"].latest == pytest.approx(
+        maximum
+    )
+    assert np.ptp(step.state.equivalent_creep_strain.values) > 0.0
+
+    checkpoint = step.save_checkpoint(tmp_path / "arrhenius_creep.npz")
+    incompatible, _ = _creep_relaxation_patch(
+        arrhenius_temperature_range=(810.0, 910.0),
+        duration=1.0,
+        incrementation=steps.fixed(2),
+    )
+    with pytest.raises(ValueError, match="temperature.*differs"):
+        incompatible.load_checkpoint(checkpoint)
 
 
 def _creep_external_abaqus_constant_stress_patch():
@@ -1031,6 +1114,58 @@ def _j2_uniaxial_patch(*, amplitude=None, incrementation=None, cells=(1, 1, 1)):
             relative_tolerance=1.0e-9,
             absolute_tolerance=1.0e-10,
             maximum_iterations=20,
+            line_search="backtracking",
+        ),
+        progress=False,
+    )
+    return step, displacement
+
+
+def _j2_nonuniform_bending_patch():
+    """Slender 3D cantilever driven into a mixed elastic/plastic state."""
+
+    domain = dolfinx_mesh.create_box(
+        MPI.COMM_SELF,
+        [np.zeros(3), np.array((4.0, 1.0, 0.5))],
+        [8, 2, 1],
+        cell_type=dolfinx_mesh.CellType.tetrahedron,
+    )
+    model = models.create(
+        study=studies.nonlinear_static(
+            physics="solid_mechanics",
+            dimension=3,
+        ),
+        mesh=domain,
+        name="j2_nonuniform_bending",
+    )
+    displacement = model.field(fields.displacement(domain))
+    material = model.material(
+        constitutive.J2LinearIsotropicHardening(
+            young=200.0e3,
+            poisson=0.3,
+            yield_stress=200.0,
+            hardening_modulus=2.0e3,
+        )
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="x", value=0.0, name="clamped", tag=1),
+        value=0.0,
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="x", value=4.0, name="driven", tag=2),
+        component=1,
+        value=0.02,
+    )
+    step = model.step(
+        target=displacement,
+        material=material,
+        incrementation=steps.fixed(8),
+        solver_options=solvers.newton(
+            relative_tolerance=1.0e-8,
+            absolute_tolerance=1.0e-9,
+            maximum_iterations=25,
             line_search="backtracking",
         ),
         progress=False,

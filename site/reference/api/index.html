@@ -4187,7 +4187,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>implicit_creep_step(*, displacement, material, duration: float, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'implicit_creep') -&gt; ImplicitCreepStep</code></td>
+<td><code>implicit_creep_step(*, displacement, material, duration: float, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, temperature = None, name: str = 'implicit_creep') -&gt; ImplicitCreepStep</code></td>
 <td>Build the first global 3D implicit power-law creep step.</td>
 </tr>
 <tr>
@@ -4301,6 +4301,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>isotropic_power_law(*, young: float, poisson: float, density: float, coefficient: float, stress_exponent: float, time_exponent: float = 0.0, reference_stress: float = 1.0, reference_time: float = 1.0, name: str = 'isotropic power-law creep') -&gt; IsotropicPowerLawCreepMaterial</code></td>
 <td>Create one Abaqus-style material record with elastic and creep data.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>isotropic_arrhenius_power_law(*, young: float, poisson: float, density: float, coefficient: float, stress_exponent: float, activation_energy: float, reference_temperature: float, time_exponent: float = 0.0, reference_stress: float = 1.0, reference_time: float = 1.0, gas_constant: float = 8.31446261815324, name: str = 'isotropic Arrhenius power-law creep') -&gt; IsotropicPowerLawCreepMaterial</code></td>
+<td>Create elasticity plus a globally consumable Arrhenius creep law.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -5306,7 +5311,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>affine_nonlinear(residual, solution, *, jacobian, constraint, load_factors = None, incrementation = None, solver_options: AffineNewtonOptions \| NewtonSolverOptions \| None = None, output_every: int \| None = 1, output_factors = (), progress = True, status_file = None, name: str = 'affine_nonlinear') -&gt; AffineNonlinearVariationalProblem</code></td>
+<td><code>affine_nonlinear(residual, solution, *, jacobian, constraint, load_factors = None, incrementation = None, solver_options: AffineNewtonOptions \| NewtonSolverOptions \| None = None, output_every: int \| None = 1, output_factors = (), acceptance_check = None, progress = True, status_file = None, name: str = 'affine_nonlinear') -&gt; AffineNonlinearVariationalProblem</code></td>
 <td>Create a nonlinear problem reduced by an affine constraint map.</td>
 </tr>
 <tr>
@@ -5706,12 +5711,12 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>finite_strain_cell_fields(displacement, properties, *, variables = ('F', 'E', 'GREEN', 'P', 'S', 'MISES', 'J', 'SENER', 'EVOL')) -&gt; tuple[object, ...]</code></td>
+<td><code>finite_strain_cell_fields(displacement, properties, *, variables = ('F', 'E', 'GREEN', 'P', 'S', 'MISES', 'J', 'SENER', 'EVOL'), pressure = None) -&gt; tuple[object, ...]</code></td>
 <td>Create requested standard P0 finite-strain cell fields.</td>
 </tr>
 <tr>
 <td>function</td>
-<td><code>homogenize_periodic_cell(displacement, properties, *, macro_deformation_gradient, cell_reference_volume: float, load_factor: float) -&gt; HomogenizedFrame</code></td>
+<td><code>homogenize_periodic_cell(displacement, properties, *, pressure = None, macro_deformation_gradient, cell_reference_volume: float, load_factor: float) -&gt; HomogenizedFrame</code></td>
 <td>Return volume-normalized macroscopic finite-strain response.</td>
 </tr>
 <tr>
@@ -5978,7 +5983,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>solve_affine_nonlinear_path(residual_form, jacobian_form, solution, constraint, *, load_factors = None, incrementation = None, output_factors = (), options: AffineNewtonOptions \| NewtonSolverOptions \| None = None, on_increment = None, reporter = None, step_name: str = 'affine_nonlinear', step_number: int = 1) -&gt; tuple[object, AffineLoadPathInfo]</code></td>
+<td><code>solve_affine_nonlinear_path(residual_form, jacobian_form, solution, constraint, *, load_factors = None, incrementation = None, output_factors = (), options: AffineNewtonOptions \| NewtonSolverOptions \| None = None, on_increment = None, acceptance_check = None, reporter = None, step_name: str = 'affine_nonlinear', step_number: int = 1) -&gt; tuple[object, AffineLoadPathInfo]</code></td>
 <td>Solve a nonlinear path under <code>u = T q + u_bar</code> constraints.</td>
 </tr>
 </tbody>

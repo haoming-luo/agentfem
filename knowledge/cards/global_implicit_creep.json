@@ -5,10 +5,11 @@
   "title": "Global implicit power-law creep",
   "kind": "material",
   "status": "supported",
-  "summary": "Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, atomic rollback, serial restart, and standard creep fields.",
+  "summary": "Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, optional scalar or field-driven Arrhenius temperature dependence, atomic rollback, serial restart, and standard creep fields.",
   "public_api": [
     "agentfem.studies.creep_solid",
     "agentfem.constitutive.isotropic_power_law",
+    "agentfem.constitutive.isotropic_arrhenius_power_law",
     "agentfem.constitutive.IsotropicPowerLawCreepMaterial",
     "agentfem.constitutive.CreepQuadratureState",
     "agentfem.models.Model.step"
@@ -50,6 +51,12 @@
         "type": "positive duration plus fixed or automatic incrementation",
         "unit_role": "time",
         "description": "Normalized increment sizes map to physical time; amplitudes are evaluated in physical time."
+      },
+      {
+        "name": "temperature",
+        "type": "positive scalar or scalar finite-element field",
+        "unit_role": "absolute temperature in kelvin",
+        "description": "Required for an Arrhenius material and evaluated at the same quadrature identity as creep state."
       }
     ],
     "outputs": [
@@ -70,10 +77,16 @@
         "type": "structured histories and execution events",
         "unit_role": "time, iterations, strain, and energy",
         "description": "Accepted times, maximum creep increment, local/global iterations, elastic energy, and creep dissipation."
+      },
+      {
+        "name": "TEMP and temperature evidence",
+        "type": "input field plus accepted-increment extrema",
+        "unit_role": "kelvin",
+        "description": "Records the prescribed temperature field and the integration-point range actually consumed by Arrhenius updates."
       }
     ],
     "assumptions": [
-      "Small strain, three spatial dimensions, isotropic elasticity, associative Mises creep, and isothermal material properties.",
+      "Small strain, three spatial dimensions, isotropic elasticity, and associative Mises creep; temperature changes the Arrhenius rate but not elastic properties.",
       "Quasi-static equilibrium; inertia is not part of this procedure.",
       "One material covers the current convenience-step domain."
     ],
@@ -84,17 +97,17 @@
       "Checkpoint restore reconstructs stress from accepted strain and CE without advancing a fictitious time increment."
     ],
     "applicability": [
-      "Isothermal three-dimensional research and engineering studies governed by a calibrated Mises power-law creep relation.",
+      "Isothermal or prescribed-temperature three-dimensional studies governed by a calibrated Mises power-law creep relation.",
       "Stress-relaxation and creep-deformation workflows requiring inspectable state, cutback, and restart evidence."
     ],
     "limitations": [
       "The provider and checkpoint are serial-only and do not yet support multiple material regions.",
-      "Temperature-field interpolation, Arrhenius coupling, damage, and mesh regularization are not part of this global route.",
+      "Automatic transfer and time alignment of a transient thermal history, damage, and mesh regularization are not part of this global route.",
       "External component or code-standard validation remains required before application-specific qualification."
     ]
   },
   "usage": {
-    "minimal_example": "Create studies.creep_solid(), register constitutive.isotropic_power_law(...), add supports and loads, then call model.step(target=u, material=steel, duration=..., incrementation=steps.automatic()).",
+    "minimal_example": "Create studies.creep_solid(), register constitutive.isotropic_power_law(...) or isotropic_arrhenius_power_law(...), add supports and loads, then call model.step(target=u, material=steel, duration=..., incrementation=steps.automatic(), temperature=T).",
     "examples": [
       "examples/implicit_creep_relaxation_3d.py"
     ]
@@ -104,12 +117,14 @@
       "tests/test_p1_platform.py"
     ],
     "benchmarks": [
-      "agentfem.benchmark.implicit_creep_relaxation"
+      "agentfem.benchmark.implicit_creep_relaxation",
+      "agentfem.benchmark.arrhenius_global_creep"
     ],
     "validation_rules": [
       "Reject non-3D, multi-rank, nonpositive-duration, or incompatible material use.",
       "Verify the analytical tangent independently against a centered material-point derivative.",
       "Commit shared transaction state only after a globally accepted physical-time increment.",
+      "Evaluate and record positive kelvin temperatures at the creep quadrature identity for every attempted increment.",
       "Restore displacement, CE, CEEQ, physical time, next increment, histories, energies, and events from a compatible checkpoint."
     ]
   },

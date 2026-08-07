@@ -109,6 +109,12 @@ intentionally not presented as a standard smoothing method because it can
 erase real jumps at material interfaces and obscure singular or poorly
 converged regions.
 
+Mixed finite-strain output uses two unambiguous names: `PRESSURE` is the
+independent cellwise pressure unknown (positive in compression), while `P` is
+the first-Piola stress tensor derived from displacement and pressure. Both can
+be written beside `U`, `S`, `LE`, `J`, and energy fields in the same compact
+time series.
+
 ## References
 
 - [Abaqus: understanding contour limits](https://docs.software.vt.edu/abaqusv2024/English/SIMACAECAERefMap/simacae-c-conconceptlimits.htm)

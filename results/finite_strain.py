@@ -52,6 +52,7 @@ def finite_strain_cell_fields(
     properties,
     *,
     variables=("F", "E", "GREEN", "P", "S", "MISES", "J", "SENER", "EVOL"),
+    pressure=None,
 ) -> tuple[object, ...]:
     """Create requested standard P0 finite-strain cell fields.
 
@@ -66,9 +67,26 @@ def finite_strain_cell_fields(
     F = hyperelasticity.deformation_gradient(function)
     E = hyperelasticity.green_lagrange_strain(function)
     J = ufl.det(F)
-    P = hyperelasticity.first_piola(function, properties)
-    sigma = hyperelasticity.cauchy_stress(function, properties)
-    psi = hyperelasticity.strain_energy_density(function, properties)
+    if isinstance(properties, hyperelasticity.MixedNeoHookeanProperties):
+        if pressure is None:
+            raise ValueError(
+                "Mixed finite-strain output requires the independent pressure field."
+            )
+        pressure_function = getattr(pressure, "value", pressure)
+        P = hyperelasticity.mixed_first_piola(
+            function, pressure_function, properties
+        )
+        sigma = hyperelasticity.mixed_cauchy_stress(
+            function, pressure_function, properties
+        )
+        psi = hyperelasticity.mixed_strain_energy_density(
+            function, pressure_function, properties
+        )
+    else:
+        pressure_function = None
+        P = hyperelasticity.first_piola(function, properties)
+        sigma = hyperelasticity.cauchy_stress(function, properties)
+        psi = hyperelasticity.strain_energy_density(function, properties)
     identity = ufl.Identity(F.ufl_shape[0])
     deviator = sigma - ufl.tr(sigma) / 3.0 * identity
     von_mises = ufl.sqrt(1.5 * ufl.inner(deviator, deviator))
@@ -89,6 +107,12 @@ def finite_strain_cell_fields(
             field = _cell_sample(E, domain, variable.key)
         elif variable.key == "P":
             field = _cell_sample(P, domain, variable.key)
+        elif variable.key == "PRESSURE":
+            if pressure_function is None:
+                raise ValueError(
+                    "PRESSURE is available only for a mixed displacement-pressure material."
+                )
+            field = _cell_sample(pressure_function, domain, variable.key)
         elif variable.key == "S":
             field = _cell_sample(sigma, domain, variable.key)
         elif variable.key == "MISES":
@@ -111,6 +135,7 @@ def homogenize_periodic_cell(
     displacement,
     properties,
     *,
+    pressure=None,
     macro_deformation_gradient,
     cell_reference_volume: float,
     load_factor: float,
@@ -133,9 +158,25 @@ def homogenize_periodic_cell(
 
     F = hyperelasticity.deformation_gradient(function)
     J = ufl.det(F)
-    P = hyperelasticity.first_piola(function, properties)
-    sigma = hyperelasticity.cauchy_stress(function, properties)
-    psi = hyperelasticity.strain_energy_density(function, properties)
+    if isinstance(properties, hyperelasticity.MixedNeoHookeanProperties):
+        if pressure is None:
+            raise ValueError(
+                "Mixed periodic homogenization requires the independent pressure field."
+            )
+        pressure_function = getattr(pressure, "value", pressure)
+        P = hyperelasticity.mixed_first_piola(
+            function, pressure_function, properties
+        )
+        sigma = hyperelasticity.mixed_cauchy_stress(
+            function, pressure_function, properties
+        )
+        psi = hyperelasticity.mixed_strain_energy_density(
+            function, pressure_function, properties
+        )
+    else:
+        P = hyperelasticity.first_piola(function, properties)
+        sigma = hyperelasticity.cauchy_stress(function, properties)
+        psi = hyperelasticity.strain_energy_density(function, properties)
     reference_solid_volume = float(integral(ufl.as_ufl(1.0), measure=dx))
     current_solid_volume = float(integral(J, measure=dx))
     Pbar = np.asarray(integral(P, measure=dx), dtype=float) / cell_reference_volume
@@ -178,6 +219,7 @@ def homogenize_periodic_path(
         homogenize_periodic_cell(
             snapshot.solution,
             properties,
+            pressure=getattr(snapshot, "fields", {}).get("PRESSURE"),
             macro_deformation_gradient=constraint.deformation_gradient_at(
                 snapshot.load_factor
             ),

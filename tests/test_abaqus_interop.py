@@ -59,6 +59,68 @@ def test_abaqus_element_reader_preserves_c3d10h_formulation_identity(tmp_path):
     assert definitions[0].additional_pressure_variables == 1
 
 
+def test_c3d10h_derivation_changes_only_element_formulation_keyword(tmp_path):
+    source = tmp_path / "quadratic.dat"
+    source.write_text(
+        "\n".join(
+            (
+                "*Heading",
+                "*Node",
+                "1, 0., 0., 0.",
+                "*Element, type=C3D10, elset=SOLID",
+                "1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+                "*Elset, elset=KEEP_C3D10_TEXT",
+                "1",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    derived = tmp_path / "quadratic_c3d10h.dat"
+
+    evidence = abaqus.derive_element_formulation(
+        source,
+        derived,
+        source_type="C3D10",
+        target_type="C3D10H",
+    )
+
+    source_lines = source.read_text(encoding="utf-8").splitlines()
+    derived_lines = derived.read_text(encoding="utf-8").splitlines()
+    changed = [
+        (before, after)
+        for before, after in zip(source_lines, derived_lines)
+        if before != after
+    ]
+    assert changed == [
+        (
+            "*Element, type=C3D10, elset=SOLID",
+            "*Element, type=C3D10H, elset=SOLID",
+        )
+    ]
+    assert abaqus.read_element_table(source).elements[0].connectivity == (
+        abaqus.read_element_table(derived).elements[0].connectivity
+    )
+    assert evidence.rewritten_declarations == 1
+    assert evidence.source_sha256 != evidence.derived_sha256
+    assert abaqus.read_element_formulation_derivation(derived)[
+        "topology_preserved"
+    ] is True
+
+
+def test_element_formulation_derivation_rejects_topology_change(tmp_path):
+    source = tmp_path / "mesh.inp"
+    source.write_text("*Element, type=C3D10\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="identical topology"):
+        abaqus.derive_element_formulation(
+            source,
+            tmp_path / "bad.inp",
+            source_type="C3D10",
+            target_type="C3D8",
+        )
+
+
 def test_abaqus_element_table_preserves_connectivity_and_official_face_order(tmp_path):
     source = tmp_path / "solid.inp"
     source.write_text(
