@@ -12,6 +12,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | --- | --- | --- | --- |
 | [`agentfem.load.surface_resultant`](#agentfem-load-surface_resultant) | Uniform boundary traction from a requested resultant force | workflow | supported |
 | [`agentfem.material.creep_damage_assessment`](#agentfem-material-creep_damage_assessment) | Creep damage and modified-theta assessment | material | supported |
+| [`agentfem.material.finite_strain_plane_stress`](#agentfem-material-finite_strain_plane_stress) | Locally condensed finite-strain plane-stress Neo-Hookean membrane | material | experimental |
 | [`agentfem.material.global_implicit_creep`](#agentfem-material-global_implicit_creep) | Global implicit power-law creep | material | supported |
 | [`agentfem.material.j2_global_plasticity`](#agentfem-material-j2_global_plasticity) | Global small-strain J2 plasticity | material | supported |
 | [`agentfem.material.mixed_hybrid_hyperelasticity`](#agentfem-material-mixed_hybrid_hyperelasticity) | Constant-pressure mixed Neo-Hookean solid | material | supported |
@@ -49,6 +50,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | `agentfem.benchmark.j2_global_restart` | Three-dimensional J2 path, physical cutback, cyclic amplitude, energy, and restart equivalence | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_regression |
 | `agentfem.benchmark.j2_multielement_patch` | Multi-element global J2 plasticity patch | three-dimensional small-strain rate-independent J2 plasticity with linear isotropic hardening | automated |
 | `agentfem.benchmark.j2_nonuniform_bending` | Nonuniform three-dimensional J2 bending path | three-dimensional small-strain Mises plasticity with linear isotropic hardening under displacement-controlled bending | automated_regression |
+| `agentfem.benchmark.jmps_weak_interface_transition_v4` | Prestressed weak-interface crack-to-supershear-to-spall mechanism ladder | near-incompressible finite-strain plane-stress Neo-Hookean strip with homogeneous preload, smooth remote impact, a fixed zero-thickness bilinear Mode-I interface, and a precrack | experimental_v4_mechanism_executable |
 | `agentfem.benchmark.linear_static_cantilever` | Two-dimensional linear-static cantilever | small-strain isotropic linear elasticity in plane strain | numerical_regression |
 | `agentfem.benchmark.neo_hookean_release` | Compressible Neo-Hookean finite-strain release contract | compressible Neo-Hookean hyperelasticity | automated_regression |
 | `agentfem.benchmark.operator_contracts` | Operator role, system, and residual-linearization contracts | backend-facing finite-element operator algebra | automated |
@@ -269,6 +271,108 @@ Create KachanovRabotnovCreep with traceable parameters, advance CreepDamageState
 - Constitutive equations for creep rupture: `doi:10.1016/0001-6160(77)90135-3`
 - Damage localization of conventional creep damage models and proposition of a new model: `doi:10.1299/jsmea.41.57`
 - Modified theta projection equation for high-temperature creep curves: `https://pmc.ncbi.nlm.nih.gov/articles/PMC6838921/`
+
+<a id="agentfem-material-finite_strain_plane_stress"></a>
+
+## Locally condensed finite-strain plane-stress Neo-Hookean membrane
+
+**Stable ID:** `agentfem.material.finite_strain_plane_stress`<br>
+**Kind:** `material`<br>
+**Status:** `experimental`<br>
+**Source card:** `knowledge/cards/finite_strain_plane_stress.json`
+
+Enforces P33=0 through a positive local thickness stretch and uses the same condensed energy, in-plane first-Piola stress, and Schur-complement tangent in static and Explicit finite-strain workflows.
+
+### Public API
+
+- `agentfem.constitutive.neo_hookean_plane_stress`
+- `agentfem.constitutive.plane_stress_thickness_stretch_value`
+- `agentfem.constitutive.plane_stress_first_piola_value`
+- `agentfem.fracture.neo_hookean_material_tangent`
+- `agentfem.fracture.incremental_wave_speeds`
+- `agentfem.models.Model.step`
+
+### Scientific contract
+
+A thin two-dimensional hyperelastic membrane is reduced from the three-dimensional compressible Neo-Hookean energy by solving a positive out-of-plane stretch at each material point such that P33 vanishes.
+
+**local plane-stress condition**
+
+$$
+P_{33}(F_{\alpha\beta},\lambda_3)=\partial\psi/\partial\lambda_3=0,\quad \lambda_3>0
+$$
+
+The thickness stretch is an eliminated local variable, not a prescribed Poisson estimate.
+
+**condensed membrane tangent**
+
+$$
+\bar A_{\alpha\beta\gamma\delta}=A_{\alpha\beta\gamma\delta}-A_{\alpha\beta33}A_{3333}^{-1}A_{33\gamma\delta}
+$$
+
+The same local condition is differentiated for small-on-large acoustic analysis.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| in-plane deformation gradient and material | positive-J 2x2 tensor and PlaneStressNeoHookeanProperties | dimensionless and stress | The material supplies E, nu, and optional reference density. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| thickness stretch, condensed energy, P, and tangent | local scalar, scalar density, in-plane tensor, and fourth-order tensor | dimensionless, energy density, and stress | All outputs satisfy the same local P33=0 reduction. |
+
+#### Assumptions
+
+- A homogeneous through-thickness membrane response with no transverse shear is appropriate.
+- The three-dimensional parent material is compressible Neo-Hookean with finite bulk modulus.
+
+#### Conventions
+
+- The two-dimensional Study must declare assumption='plane_stress'.
+- J means the complete three-dimensional determinant including the condensed thickness stretch.
+- Incremental wave speeds use the reference density and a declared reference/current propagation direction.
+
+#### Applicability
+
+- Thin hyperelastic sheets, plane-stress parameter studies, and the experimental weak-interface dynamic-fracture route.
+
+#### Limitations
+
+- Local plane-stress condensation does not by itself prove freedom from in-plane volumetric locking on arbitrary meshes.
+- A thin-three-dimensional comparison, general mixed or F-bar Explicit route, and prestrained surface-wave secular solution remain open validation gates.
+
+### Minimal example
+
+```python
+study = studies.dynamic_solid(dimension=2, assumption='plane_stress', method='explicit')
+material = model.material(constitutive.neo_hookean_plane_stress(young=1000, poisson=0.49, density=1))
+step = model.step(target=u, material=material, steps=100)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_dynamic_fracture.py`
+- `tests/test_dynamic_fracture_benchmarks.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.jmps_weak_interface_transition_v4`
+
+**Validation rules**
+
+- Require positive thickness stretch and P33 closure.
+- Compare the Schur-complement tangent with finite differences of the condensed first-Piola response.
+- Reject a plane-strain material under a plane-stress Study and vice versa.
+- Keep general near-incompressible locking claims outside this material's evidence scope.
+
+### References
+
+- Wang, Fineberg, and Needleman (2025), transition from crack-type to supershear-type to spall-type dynamics: `https://doi.org/10.1016/j.jmps.2025.106213`
 
 <a id="agentfem-material-global_implicit_creep"></a>
 

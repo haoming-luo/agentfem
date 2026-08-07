@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from math import exp, pi, sin
+from math import cos, exp, pi, sin
 
 import numpy as np
 
@@ -99,6 +99,50 @@ def ramp(
             "end_value": end_value,
             "start_time": start_time,
             "end_time": end_time,
+        },
+    )
+
+
+def smooth_step(
+    start_value: float = 0.0,
+    end_value: float = 1.0,
+    *,
+    start_time: float = 0.0,
+    end_time: float = 1.0,
+    name: str = "smooth_step",
+) -> Amplitude:
+    """Create a clipped half-cosine transition with zero endpoint slopes.
+
+    This is useful when a prescribed motion must begin without injecting the
+    velocity discontinuity of a piecewise-linear ramp.
+    """
+
+    if end_time <= start_time:
+        raise ValueError("smooth_step requires end_time > start_time.")
+    start_value = float(start_value)
+    end_value = float(end_value)
+    start_time = float(start_time)
+    end_time = float(end_time)
+
+    def evaluate(time: float) -> float:
+        if time <= start_time:
+            return start_value
+        if time >= end_time:
+            return end_value
+        alpha = (time - start_time) / (end_time - start_time)
+        blend = 0.5 * (1.0 - cos(pi * alpha))
+        return (1.0 - blend) * start_value + blend * end_value
+
+    return Amplitude(
+        name=name,
+        value=evaluate,
+        kind="smooth_step",
+        metadata={
+            "start_value": start_value,
+            "end_value": end_value,
+            "start_time": start_time,
+            "end_time": end_time,
+            "endpoint_slopes": "zero",
         },
     )
 

@@ -8,6 +8,7 @@ from math import ceil, isfinite
 import numpy as np
 from mpi4py import MPI
 
+from .. import amplitudes
 from .. import constitutive
 from .. import constraints
 from .. import fields
@@ -111,6 +112,114 @@ class ClassicalCrackBenchmark:
             "maximum_simultaneous_failed_fraction": (
                 self.maximum_simultaneous_failed_fraction
             ),
+        }
+
+
+@dataclass(frozen=True)
+class WeakInterfaceTransitionBenchmark:
+    """One prestressed thin-sheet case in the JMPS V4 mechanism ladder."""
+
+    label: str
+    cells: int
+    axial_strain: float
+    strength: float
+    fracture_energy: float
+    cohesive_length: float
+    normalized_cohesive_length: float
+    time_increment: float
+    propagated_length: float
+    maximum_fitted_speed: float
+    rayleigh_wave_speed: float
+    shear_wave_speed: float
+    pressure_wave_speed: float
+    rayleigh_speed_ratio: float
+    shear_speed_ratio: float
+    pressure_speed_ratio: float
+    failed_ligament_fraction: float
+    maximum_simultaneous_failed_fraction: float
+    rapid_failed_fraction: float
+    crack_speed_fit_window: int
+    spall_time_window: float
+    maximum_ligament_traction_ratio: float
+    regime: str
+    final_relative_energy_error: float
+    preload_energy_jump: float
+    release_acceleration_norm: float
+    preload_ligament_traction_ratio: float
+    preload_interface_opening: float
+    impact_displacement: float
+    impact_rise_time: float
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "jmps_weak_interface_transition_v4_case",
+            "label": self.label,
+            "cells": self.cells,
+            "kinematics": "finite_strain_plane_stress",
+            "loading": (
+                "homogeneous_prestrain_then_remote_impact"
+                if self.impact_displacement
+                else "homogeneous_prestrain_then_precrack_release"
+            ),
+            "axial_strain": self.axial_strain,
+            "strength": self.strength,
+            "fracture_energy": self.fracture_energy,
+            "cohesive_length": self.cohesive_length,
+            "normalized_cohesive_length": self.normalized_cohesive_length,
+            "time_increment": self.time_increment,
+            "propagated_length": self.propagated_length,
+            "maximum_fitted_speed": self.maximum_fitted_speed,
+            "rayleigh_wave_speed": self.rayleigh_wave_speed,
+            "rayleigh_speed_convention": "unstretched_isotropic_reference",
+            "shear_wave_speed": self.shear_wave_speed,
+            "shear_speed_convention": "prestrained_acoustic_tensor_reference",
+            "pressure_wave_speed": self.pressure_wave_speed,
+            "pressure_speed_convention": "prestrained_acoustic_tensor_reference",
+            "rayleigh_speed_ratio": self.rayleigh_speed_ratio,
+            "shear_speed_ratio": self.shear_speed_ratio,
+            "pressure_speed_ratio": self.pressure_speed_ratio,
+            "failed_ligament_fraction": self.failed_ligament_fraction,
+            "maximum_simultaneous_failed_fraction": (
+                self.maximum_simultaneous_failed_fraction
+            ),
+            "rapid_failed_fraction": self.rapid_failed_fraction,
+            "crack_speed_fit_window": self.crack_speed_fit_window,
+            "spall_time_window": self.spall_time_window,
+            "maximum_ligament_traction_ratio": self.maximum_ligament_traction_ratio,
+            "regime": self.regime,
+            "final_relative_energy_error": self.final_relative_energy_error,
+            "preload_energy_jump": self.preload_energy_jump,
+            "release_acceleration_norm": self.release_acceleration_norm,
+            "preload_ligament_traction_ratio": self.preload_ligament_traction_ratio,
+            "preload_interface_opening": self.preload_interface_opening,
+            "impact_displacement": self.impact_displacement,
+            "impact_rise_time": self.impact_rise_time,
+            "maturity": "experimental_v4_mechanism_case",
+        }
+
+
+@dataclass(frozen=True)
+class WeakInterfaceTransitionSuite:
+    """Auditable crack-like to supershear to spall-like V4 mechanism gate."""
+
+    crack_like: WeakInterfaceTransitionBenchmark
+    supershear: WeakInterfaceTransitionBenchmark
+    spall_like: WeakInterfaceTransitionBenchmark
+    accepted: bool
+    acceptance_failures: tuple[str, ...]
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "jmps_weak_interface_transition_v4_suite",
+            "accepted": self.accepted,
+            "acceptance_failures": self.acceptance_failures,
+            "cases": {
+                "crack_like": self.crack_like.summary(),
+                "supershear": self.supershear.summary(),
+                "spall_like": self.spall_like.summary(),
+            },
+            "claim_scope": "JMPS-inspired numerical mechanism benchmark",
+            "publication_curve_reproduction": False,
         }
 
 
@@ -599,6 +708,494 @@ def classical_cohesive_crack(
     )
 
 
+def prestressed_weak_interface_separation(
+    *,
+    label: str = "v4_candidate",
+    cells: int = 60,
+    length: float = 3.0,
+    height: float = 1.0,
+    precrack_length: float = 0.5,
+    axial_strain: float = 0.12,
+    strength: float = 10.0,
+    fracture_energy: float = 0.1,
+    initial_stiffness: float = 10_000.0,
+    young: float = 1000.0,
+    poisson: float = 0.49,
+    density: float = 1.0,
+    total_time: float = 0.2,
+    time_step_scale: float = 0.8,
+    damping: float = 0.0,
+    history_every: int = 1,
+    impact_displacement: float = 0.0,
+    impact_rise_time: float | None = None,
+) -> WeakInterfaceTransitionBenchmark:
+    """Drive a precrack through a prestressed plane-stress weak interface.
+
+    This is the reusable V4 mechanism case.  The body is first placed in a
+    homogeneous uniaxial plane-stress state.  The precrack is then declared
+    fully separated.  Its release alone, or a smooth remote impact prescribed
+    after release, drives the dynamics. Crack speed is measured in reference
+    coordinates and compared with the prestrained acoustic-tensor bulk modes.
+    """
+
+    selected_cells = int(cells)
+    if selected_cells < 30:
+        raise ValueError("The V4 strip requires at least 30 interface cells.")
+    selected_length = float(length)
+    selected_height = float(height)
+    selected_precrack = float(precrack_length)
+    selected_strain = float(axial_strain)
+    selected_time = float(total_time)
+    if not 0.0 < selected_precrack < selected_length:
+        raise ValueError("precrack_length must lie inside the interface.")
+    if selected_height <= 0.0 or selected_length <= 0.0:
+        raise ValueError("length and height must be positive.")
+    if selected_strain <= 0.0:
+        raise ValueError("V4 axial_strain must be positive.")
+    if selected_time <= 0.0:
+        raise ValueError("total_time must be positive.")
+    if not 0.0 < float(time_step_scale) <= 1.0:
+        raise ValueError("time_step_scale must lie in (0, 1].")
+    if not isfinite(float(damping)) or float(damping) < 0.0:
+        raise ValueError("damping must be finite and nonnegative.")
+    selected_impact = float(impact_displacement)
+    if not isfinite(selected_impact) or selected_impact < 0.0:
+        raise ValueError("impact_displacement must be finite and nonnegative.")
+    selected_rise = (
+        0.0 if selected_impact == 0.0 and impact_rise_time is None
+        else 0.1 * selected_time if impact_rise_time is None
+        else float(impact_rise_time)
+    )
+    if selected_impact > 0.0 and not 0.0 < selected_rise <= selected_time:
+        raise ValueError("impact_rise_time must lie in (0, total_time].")
+
+    x = np.linspace(0.0, selected_length, selected_cells + 1)
+    coordinates = np.vstack(
+        (
+            np.column_stack((x, np.zeros_like(x))),
+            np.column_stack((x, np.full_like(x, 0.5 * selected_height))),
+            np.column_stack((x, np.full_like(x, selected_height))),
+        )
+    )
+    row = selected_cells + 1
+    bottom = []
+    top = []
+    for index in range(selected_cells):
+        bottom.append((index, index + 1, row + index + 1, row + index))
+        top.append(
+            (
+                row + index,
+                row + index + 1,
+                2 * row + index + 1,
+                2 * row + index,
+            )
+        )
+    cells_array = np.asarray((*bottom, *top), dtype=int)
+    interface_facets = np.asarray(
+        [(row + index, row + index + 1) for index in range(selected_cells)],
+        dtype=int,
+    )
+    split = interfaces.split_conforming_line_interface(
+        coordinates,
+        cells_array,
+        interface_facets,
+        positive_cells=np.arange(selected_cells, 2 * selected_cells),
+    )
+    domain = interfaces.create_dolfinx_split_mesh(split)
+    model = models.create(
+        study=studies.dynamic_solid(
+            dimension=2,
+            assumption="plane_stress",
+            method="explicit",
+        ),
+        mesh=domain,
+        name=f"prestressed_weak_interface_{label}",
+    )
+    displacement = model.field(fields.displacement(domain))
+    material = model.material(
+        constitutive.neo_hookean_plane_stress(
+            young=float(young),
+            poisson=float(poisson),
+            density=float(density),
+        )
+    )
+    deformation_gradient, preload_opening, preload_traction = (
+        _equilibrated_plane_stress_interface_preload(
+            total_axial_strain=selected_strain,
+            height=selected_height,
+            interface_stiffness=float(initial_stiffness),
+            material=material,
+        )
+    )
+    if preload_traction >= float(strength):
+        raise ValueError(
+            "The requested homogeneous preload already reaches the cohesive "
+            f"strength ({preload_traction:.6g} >= {float(strength):.6g}). "
+            "Increase strength or reduce axial_strain before dynamic release."
+        )
+    model.constraint(
+        constraints.component_dirichlet(
+            displacement,
+            0,
+            on=lambda point: np.isclose(point[0], 0.0),
+            value=0.0,
+            name="preload_lateral_origin",
+        )
+    )
+    model.constraint(
+        constraints.component_dirichlet(
+            displacement,
+            1,
+            on=lambda point: np.isclose(point[1], 0.0),
+            value=0.0,
+            name="preload_bottom_hold",
+        )
+    )
+    preload_top = (
+        (deformation_gradient[1, 1] - 1.0) * selected_height
+        + preload_opening
+    )
+    if selected_impact:
+        top_constraint = constraints.time_dependent_component_dirichlet(
+            displacement,
+            1,
+            on=lambda point: np.isclose(point[1], selected_height),
+            amplitude=amplitudes.smooth_step(
+                preload_top,
+                preload_top + selected_impact,
+                start_time=0.0,
+                end_time=selected_rise,
+                name="remote_impact_motion",
+            ),
+            name="remote_impact_top",
+        )
+        top_constraint.update(0.0)
+    else:
+        top_constraint = constraints.component_dirichlet(
+            displacement,
+            1,
+            on=lambda point: np.isclose(point[1], selected_height),
+            value=preload_top,
+            name="preload_top_hold",
+        )
+    model.constraint(top_constraint)
+    law = interfaces.bilinear_cohesive(
+        strength=float(strength),
+        fracture_energy=float(fracture_energy),
+        initial_stiffness=float(initial_stiffness),
+    )
+    cohesive = fracture.mode_i_cohesive_force(
+        split,
+        displacement,
+        law,
+        normal_hint=(0.0, 1.0),
+    )
+    nodal_displacement = np.column_stack(
+        (
+            (deformation_gradient[0, 0] - 1.0) * split.coordinates[:, 0],
+            (deformation_gradient[1, 1] - 1.0) * split.coordinates[:, 1],
+        )
+    )
+    positive_nodes = np.unique(split.cells[split.positive_cells].reshape(-1))
+    nodal_displacement[positive_nodes, 1] += preload_opening
+    displacement_blocks = displacement.value.x.array.reshape((-1, 2))
+    displacement_blocks[cohesive.node_to_block_dof] = nodal_displacement
+    displacement.value.x.scatter_forward()
+    facet_centers = np.mean(split.coordinates[split.negative_facets, 0], axis=1)
+    precracked = facet_centers <= selected_precrack
+    cohesive.assembler.initialize_precrack(np.flatnonzero(precracked))
+    provisional = model.finite_strain_explicit_dynamics_step(
+        target=displacement,
+        material=material,
+        cohesive_force=cohesive,
+        dt="auto",
+        steps=1,
+        progress=False,
+        mass_damping=damping,
+        name=f"{label}_stability_probe",
+    )
+    dt = float(time_step_scale) * provisional.dt
+    increments = int(ceil(selected_time / dt))
+    dt = selected_time / increments
+    step = model.finite_strain_explicit_dynamics_step(
+        target=displacement,
+        material=material,
+        cohesive_force=cohesive,
+        dt=dt,
+        steps=increments,
+        print_every=1,
+        history_every=history_every,
+        progress=False,
+        mass_damping=damping,
+        name=f"{label}_dynamic_release",
+    )
+    initial_energy_values = step.history_monitor.energy.evaluate(
+        displacement=displacement,
+        velocity=step.state.v,
+    )
+    source_energy = float(
+        initial_energy_values.get(
+            "accounted_internal_kinetic_energy",
+            initial_energy_values.get("total_mechanical_energy"),
+        )
+    )
+    transfer = step.initialize_from_preload(
+        displacement,
+        source_step=f"{label}_homogeneous_preload",
+        mode="release",
+        source_energy=source_energy,
+    )
+    cohesive_residual = step.residual.base if damping else step.residual
+    initial_response = cohesive_residual.cohesive.current_response()
+    times = [0.0]
+    damage_frames = [np.max(initial_response.damage, axis=1)]
+    traction_ratios = [
+        float(np.max(np.abs(initial_response.traction[~precracked])) / law.strength)
+        if np.any(~precracked)
+        else 0.0
+    ]
+
+    def collect(info, _state) -> None:
+        response = cohesive_residual.cohesive.current_response()
+        times.append(float(info.time))
+        damage_frames.append(np.max(response.damage, axis=1))
+        traction_ratios.append(
+            float(np.max(np.abs(response.traction[~precracked])) / law.strength)
+            if np.any(~precracked)
+            else 0.0
+        )
+
+    step.run(progress=collect)
+    modes = fracture.incremental_wave_speeds(
+        deformation_gradient,
+        (1.0, 0.0),
+        material,
+        direction_configuration="reference",
+    )
+    shear_speed = float(modes.reference_speeds[0])
+    pressure_speed = float(modes.reference_speeds[-1])
+    interface_spacing = selected_length / selected_cells
+    minimum_fit_time = 3.0 * interface_spacing / shear_speed
+    fit_window = max(7, int(ceil(minimum_fit_time / dt)) + 1)
+    if fit_window % 2 == 0:
+        fit_window += 1
+    crack = fracture.crack_tip_history(
+        times,
+        facet_centers,
+        damage_frames,
+        threshold=0.95,
+        fit_window=fit_window,
+    )
+    finite = crack.speed[np.isfinite(crack.speed)]
+    maximum_speed = 0.0 if finite.size == 0 else float(np.max(finite))
+    initial_length = float(crack.position[0])
+    final_length = float(crack.position[-1])
+    rayleigh_speed = float(
+        fracture.isotropic_reference_wave_speeds(material).rayleigh
+    )
+    failed = np.asarray(damage_frames) >= 0.95
+    ligament = ~precracked
+    ligament_count = max(1, int(np.count_nonzero(ligament)))
+    newly_failed = np.count_nonzero(
+        (failed[1:] & ~failed[:-1])[:, ligament],
+        axis=1,
+    )
+    simultaneous = (
+        0.0
+        if newly_failed.size == 0
+        else float(np.max(newly_failed) / ligament_count)
+    )
+    failed_fraction = float(np.count_nonzero(failed[-1, ligament]) / ligament_count)
+    first_failure_time = np.full(selected_cells, np.inf, dtype=float)
+    for frame_index, time_value in enumerate(times):
+        newly_observed = failed[frame_index] & np.isinf(first_failure_time)
+        first_failure_time[newly_observed] = float(time_value)
+    spall_time_window = selected_height / shear_speed
+    finite_failure_times = first_failure_time[ligament]
+    finite_failure_times = finite_failure_times[np.isfinite(finite_failure_times)]
+    rapid_failed_fraction = 0.0
+    for start in finite_failure_times:
+        count = np.count_nonzero(
+            (finite_failure_times >= start)
+            & (finite_failure_times <= start + spall_time_window)
+        )
+        rapid_failed_fraction = max(
+            rapid_failed_fraction,
+            float(count / ligament_count),
+        )
+    maximum_traction_ratio = float(max(traction_ratios))
+    regime = fracture.separation_regime(
+        crack_speed=maximum_speed,
+        rayleigh_wave_speed=rayleigh_speed,
+        shear_wave_speed=shear_speed,
+        failed_fraction=failed_fraction,
+        simultaneous_failed_fraction=simultaneous,
+        rapid_failed_fraction=rapid_failed_fraction,
+        ligament_traction_ratio=maximum_traction_ratio,
+        pressure_wave_speed=pressure_speed,
+    )
+    cohesive_length = law.characteristic_length(float(young))
+    return WeakInterfaceTransitionBenchmark(
+        label=str(label),
+        cells=selected_cells,
+        axial_strain=selected_strain,
+        strength=float(strength),
+        fracture_energy=float(fracture_energy),
+        cohesive_length=cohesive_length,
+        normalized_cohesive_length=cohesive_length / selected_height,
+        time_increment=dt,
+        propagated_length=max(0.0, final_length - initial_length),
+        maximum_fitted_speed=maximum_speed,
+        rayleigh_wave_speed=rayleigh_speed,
+        shear_wave_speed=shear_speed,
+        pressure_wave_speed=pressure_speed,
+        rayleigh_speed_ratio=maximum_speed / rayleigh_speed,
+        shear_speed_ratio=maximum_speed / shear_speed,
+        pressure_speed_ratio=maximum_speed / pressure_speed,
+        failed_ligament_fraction=failed_fraction,
+        maximum_simultaneous_failed_fraction=simultaneous,
+        rapid_failed_fraction=rapid_failed_fraction,
+        crack_speed_fit_window=fit_window,
+        spall_time_window=spall_time_window,
+        maximum_ligament_traction_ratio=maximum_traction_ratio,
+        regime=regime,
+        final_relative_energy_error=float(
+            step.history_records[-1]["relative_energy_balance_error"]
+        ),
+        preload_energy_jump=(
+            0.0
+            if transfer.relative_energy_jump is None
+            else float(transfer.relative_energy_jump)
+        ),
+        release_acceleration_norm=float(transfer.acceleration_norm),
+        preload_ligament_traction_ratio=preload_traction / float(strength),
+        preload_interface_opening=preload_opening,
+        impact_displacement=selected_impact,
+        impact_rise_time=selected_rise,
+    )
+
+
+def jmps_weak_interface_transition_v4(
+    *,
+    cells: int = 30,
+    total_time: float = 0.1,
+    history_every: int = 5,
+) -> WeakInterfaceTransitionSuite:
+    """Run the first fixed, executable JMPS-inspired V4 mechanism ladder.
+
+    The three cases deliberately separate a crack-like release, a remote
+    impact that produces a resolved intersonic front, and weak-interface
+    parameters that produce distributed spall-like separation. This is a
+    numerical mechanism gate, not a fit to unpublished author parameters.
+    """
+
+    common = {
+        "cells": int(cells),
+        "total_time": float(total_time),
+        "axial_strain": 0.12,
+        "initial_stiffness": 1.0e5,
+        "history_every": int(history_every),
+    }
+    crack_like = prestressed_weak_interface_separation(
+        label="crack_like",
+        strength=150.0,
+        fracture_energy=1.0,
+        **common,
+    )
+    supershear = prestressed_weak_interface_separation(
+        label="supershear",
+        strength=150.0,
+        fracture_energy=1.0,
+        impact_displacement=0.04,
+        impact_rise_time=0.015,
+        **common,
+    )
+    spall_like = prestressed_weak_interface_separation(
+        label="spall_like",
+        strength=115.0,
+        fracture_energy=2.0,
+        impact_displacement=0.04,
+        impact_rise_time=0.015,
+        **common,
+    )
+    failures: list[str] = []
+    if crack_like.regime != "sub_rayleigh_crack_like":
+        failures.append("The release-only endpoint is not crack-like/sub-Rayleigh.")
+    if supershear.regime != "supershear":
+        failures.append("The impact endpoint does not contain a resolved supershear front.")
+    if not 1.05 < supershear.shear_speed_ratio < 0.95 * (
+        supershear.pressure_wave_speed / supershear.shear_wave_speed
+    ):
+        failures.append("The supershear front is not cleanly between c_s and c_d.")
+    if supershear.maximum_simultaneous_failed_fraction >= 0.1:
+        failures.append("The supershear endpoint fails too many facets simultaneously.")
+    if spall_like.regime != "spall_like":
+        failures.append("The weak-interface endpoint is not classified as spall-like.")
+    if spall_like.rapid_failed_fraction < 0.8:
+        failures.append("The spall-like endpoint lacks rapid distributed separation.")
+    for result in (crack_like, supershear, spall_like):
+        if result.final_relative_energy_error > 0.005:
+            failures.append(f"{result.label} exceeds the 0.5-percent energy gate.")
+        if result.preload_energy_jump > 1.0e-12:
+            failures.append(f"{result.label} introduces a preload-transfer energy jump.")
+    return WeakInterfaceTransitionSuite(
+        crack_like=crack_like,
+        supershear=supershear,
+        spall_like=spall_like,
+        accepted=not failures,
+        acceptance_failures=tuple(failures),
+    )
+
+
+def _equilibrated_plane_stress_interface_preload(
+    *,
+    total_axial_strain: float,
+    height: float,
+    interface_stiffness: float,
+    material,
+):
+    """Solve homogeneous bulk/interface compatibility before crack release."""
+
+    extension = float(total_axial_strain) * float(height)
+    stiffness = float(interface_stiffness)
+    if stiffness <= 0.0:
+        raise ValueError("interface_stiffness must be positive.")
+
+    def state(axial_stretch: float):
+        gradient = constitutive.plane_stress_uniaxial_deformation_gradient(
+            axial_stretch,
+            material,
+        )
+        traction = float(
+            constitutive.plane_stress_first_piola_value(gradient, material)[1, 1]
+        )
+        opening = traction / stiffness
+        residual = (axial_stretch - 1.0) * float(height) + opening - extension
+        return residual, gradient, opening, traction
+
+    lower = 1.0
+    upper = 1.0 + float(total_axial_strain)
+    lower_value = state(lower)[0]
+    upper_value = state(upper)[0]
+    if lower_value > 0.0 or upper_value < 0.0:
+        raise RuntimeError("Could not bracket the homogeneous cohesive preload state.")
+    selected = None
+    for _ in range(80):
+        middle = 0.5 * (lower + upper)
+        candidate = state(middle)
+        selected = candidate
+        if abs(candidate[0]) <= 1.0e-13 * max(1.0, abs(extension)):
+            break
+        if candidate[0] < 0.0:
+            lower = middle
+        else:
+            upper = middle
+    if selected is None:
+        raise RuntimeError("The cohesive preload solve did not start.")
+    _, gradient, opening, traction = selected
+    return gradient, float(opening), float(traction)
+
+
 def _quadratic_peak_time(times, magnitude, index: int) -> float:
     """Refine a sampled local maximum without changing the arrival signal."""
 
@@ -619,7 +1216,11 @@ __all__ = [
     "CohesiveEnergyBenchmark",
     "ClassicalCrackBenchmark",
     "WaveArrivalBenchmark",
+    "WeakInterfaceTransitionBenchmark",
+    "WeakInterfaceTransitionSuite",
     "cohesive_energy_balance",
     "classical_cohesive_crack",
     "finite_strain_wave_arrival",
+    "jmps_weak_interface_transition_v4",
+    "prestressed_weak_interface_separation",
 ]

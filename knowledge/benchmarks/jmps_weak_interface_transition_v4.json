@@ -1,0 +1,63 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.jmps_weak_interface_transition_v4",
+  "title": "Prestressed weak-interface crack-to-supershear-to-spall mechanism ladder",
+  "status": "experimental_v4_mechanism_executable",
+  "purpose": "Require independently observable crack-like, resolved supershear, and distributed spall-like responses before using AgentFEM for the JMPS 2025 weak-interface transition problem.",
+  "physics": "near-incompressible finite-strain plane-stress Neo-Hookean strip with homogeneous preload, smooth remote impact, a fixed zero-thickness bilinear Mode-I interface, and a precrack",
+  "execution": {
+    "example": "tests/test_dynamic_fracture_benchmarks.py",
+    "command": "python -c \"from agentfem import benchmarks; print(benchmarks.jmps_weak_interface_transition_v4().summary())\"",
+    "evidence": "The public benchmark runs three 30-facet cases through the same finite-strain Explicit lifecycle and reports preload transfer, acoustic-tensor bulk modes, crack-front fitting, distributed-failure timing, and the complete energy ledger. A short construction and integration smoke test remains in the default test suite."
+  },
+  "observables": [
+    "Threshold-interpolated crack position and a fit window spanning at least three interface cells at the prestrained shear-wave speed.",
+    "Unstretched reference Rayleigh speed and prestrained reference-coordinate shear and pressure bulk-wave speeds.",
+    "Per-increment simultaneous failure, failure accumulated within one specimen-thickness shear-wave time, and peak intact-ligament traction ratio.",
+    "Bulk, kinetic, cohesive recoverable, cohesive dissipated, prescribed-motion work, and relative energy-balance channels.",
+    "Preload interface opening, traction ratio, free-force release acceleration, and transfer energy jump."
+  ],
+  "acceptance": [
+    "The release-only endpoint remains crack-like and below the declared reference Rayleigh boundary.",
+    "The impact endpoint has a fitted front above 1.05 c_s and below 0.95 c_d while fewer than ten percent of ligament facets fail in one increment.",
+    "The weak-interface endpoint fails at least eighty percent of the ligament within one thickness shear-wave time and is classified spall-like.",
+    "Every endpoint has relative energy-balance error at or below 0.5 percent and zero preload-transfer energy jump within 1e-12.",
+    "A fitted speed above c_d is never labelled supershear; it is either supported by distributed spall evidence or marked unresolved discrete failure."
+  ],
+  "limitations": [
+    "This is a JMPS-inspired numerical mechanism benchmark, not curve-level reproduction of the publication's unpublished input deck or parameters.",
+    "The two-dimensional membrane uses local P33=0 condensation; general near-incompressible locking control and a thin-three-dimensional cross-check remain future gates.",
+    "The Rayleigh value is the unstretched isotropic reference. A prestrained surface-wave secular solution has not yet been implemented.",
+    "The paired-facet cohesive assembler is currently serial. MPI ownership and portable interface-state identity remain required for distributed V4 runs."
+  ],
+  "golden": {
+    "reference_version": "v4-mechanism-2026-08-08",
+    "quantities": [
+      {
+        "name": "shear_speed_ratios",
+        "expected": [0.9129191788, 1.1007386736, 10.0721998704],
+        "relative_tolerance": 0.05,
+        "absolute_tolerance": 0.02,
+        "unit": null,
+        "description": "Crack-like, resolved-supershear, and spall-like apparent-front speed ratios; the last value is deliberately not interpreted as a crack speed."
+      },
+      {
+        "name": "rapid_failed_fractions",
+        "expected": [0.36, 0.4, 1.0],
+        "relative_tolerance": 0.1,
+        "absolute_tolerance": 0.05,
+        "unit": null,
+        "description": "Fractions of the intact ligament failing within one thickness shear-wave time."
+      },
+      {
+        "name": "relative_energy_errors",
+        "expected": [0.0003035485, 0.0017610584, 0.0022661631],
+        "relative_tolerance": 0.15,
+        "absolute_tolerance": 0.0005,
+        "unit": null,
+        "description": "Final complete-ledger relative energy errors for the three mechanism endpoints."
+      }
+    ]
+  }
+}

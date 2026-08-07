@@ -1,0 +1,102 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.material.finite_strain_plane_stress",
+  "title": "Locally condensed finite-strain plane-stress Neo-Hookean membrane",
+  "kind": "material",
+  "status": "experimental",
+  "summary": "Enforces P33=0 through a positive local thickness stretch and uses the same condensed energy, in-plane first-Piola stress, and Schur-complement tangent in static and Explicit finite-strain workflows.",
+  "public_api": [
+    "agentfem.constitutive.neo_hookean_plane_stress",
+    "agentfem.constitutive.plane_stress_thickness_stretch_value",
+    "agentfem.constitutive.plane_stress_first_piola_value",
+    "agentfem.fracture.neo_hookean_material_tangent",
+    "agentfem.fracture.incremental_wave_speeds",
+    "agentfem.models.Model.step"
+  ],
+  "implementation": [
+    "constitutive/hyperelasticity.py",
+    "fracture.py",
+    "models.py",
+    "step_providers.py"
+  ],
+  "science": {
+    "statement": "A thin two-dimensional hyperelastic membrane is reduced from the three-dimensional compressible Neo-Hookean energy by solving a positive out-of-plane stretch at each material point such that P33 vanishes.",
+    "equations": [
+      {
+        "label": "local plane-stress condition",
+        "expression": "P_{33}(F_{\\alpha\\beta},\\lambda_3)=\\partial\\psi/\\partial\\lambda_3=0,\\quad \\lambda_3>0",
+        "description": "The thickness stretch is an eliminated local variable, not a prescribed Poisson estimate."
+      },
+      {
+        "label": "condensed membrane tangent",
+        "expression": "\\bar A_{\\alpha\\beta\\gamma\\delta}=A_{\\alpha\\beta\\gamma\\delta}-A_{\\alpha\\beta33}A_{3333}^{-1}A_{33\\gamma\\delta}",
+        "description": "The same local condition is differentiated for small-on-large acoustic analysis."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "in-plane deformation gradient and material",
+        "type": "positive-J 2x2 tensor and PlaneStressNeoHookeanProperties",
+        "unit_role": "dimensionless and stress",
+        "description": "The material supplies E, nu, and optional reference density."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "thickness stretch, condensed energy, P, and tangent",
+        "type": "local scalar, scalar density, in-plane tensor, and fourth-order tensor",
+        "unit_role": "dimensionless, energy density, and stress",
+        "description": "All outputs satisfy the same local P33=0 reduction."
+      }
+    ],
+    "assumptions": [
+      "A homogeneous through-thickness membrane response with no transverse shear is appropriate.",
+      "The three-dimensional parent material is compressible Neo-Hookean with finite bulk modulus."
+    ],
+    "conventions": [
+      "The two-dimensional Study must declare assumption='plane_stress'.",
+      "J means the complete three-dimensional determinant including the condensed thickness stretch.",
+      "Incremental wave speeds use the reference density and a declared reference/current propagation direction."
+    ],
+    "applicability": [
+      "Thin hyperelastic sheets, plane-stress parameter studies, and the experimental weak-interface dynamic-fracture route."
+    ],
+    "limitations": [
+      "Local plane-stress condensation does not by itself prove freedom from in-plane volumetric locking on arbitrary meshes.",
+      "A thin-three-dimensional comparison, general mixed or F-bar Explicit route, and prestrained surface-wave secular solution remain open validation gates."
+    ]
+  },
+  "usage": {
+    "minimal_example": "study = studies.dynamic_solid(dimension=2, assumption='plane_stress', method='explicit')\nmaterial = model.material(constitutive.neo_hookean_plane_stress(young=1000, poisson=0.49, density=1))\nstep = model.step(target=u, material=material, steps=100)",
+    "examples": [
+      "tests/test_dynamic_fracture.py",
+      "benchmarks/dynamic_fracture.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_dynamic_fracture.py",
+      "tests/test_dynamic_fracture_benchmarks.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.jmps_weak_interface_transition_v4"
+    ],
+    "validation_rules": [
+      "Require positive thickness stretch and P33 closure.",
+      "Compare the Schur-complement tangent with finite differences of the condensed first-Piola response.",
+      "Reject a plane-strain material under a plane-stress Study and vice versa.",
+      "Keep general near-incompressible locking claims outside this material's evidence scope."
+    ]
+  },
+  "references": [
+    {
+      "title": "Wang, Fineberg, and Needleman (2025), transition from crack-type to supershear-type to spall-type dynamics",
+      "locator": "https://doi.org/10.1016/j.jmps.2025.106213"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.solution_procedures",
+    "agentfem.material.mixed_hybrid_hyperelasticity"
+  ]
+}

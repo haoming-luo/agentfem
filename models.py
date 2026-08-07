@@ -9,6 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from numbers import Integral
 
+import numpy as np
+
 from . import constraints as constraint_api
 from . import loads as load_api
 from .step_providers import (
@@ -1607,13 +1609,6 @@ class Model:
         )
         if hasattr(self.study, "require"):
             self.study.require(analysis="nonlinear_static", physics="solid_mechanics")
-        if getattr(self.study, "dimension", None) == 2 and getattr(
-            self.study, "assumption", None
-        ) != "plane_strain":
-            raise NotImplementedError(
-                "The Neo-Hookean 2D convenience step currently represents "
-                "plane strain only; plane stress requires a local thickness-stretch solve."
-            )
         if material is None:
             if len(self.materials) != 1:
                 raise ValueError(
@@ -1628,6 +1623,21 @@ class Model:
             raise TypeError(
                 "model.hyperelastic_step requires NeoHookeanProperties."
             )
+        if getattr(self.study, "dimension", None) == 2:
+            required_assumption = (
+                "plane_stress"
+                if isinstance(
+                    properties,
+                    hyperelasticity.PlaneStressNeoHookeanProperties,
+                )
+                else "plane_strain"
+            )
+            if getattr(self.study, "assumption", None) != required_assumption:
+                raise ValueError(
+                    "The study and Neo-Hookean reduction disagree: "
+                    f"study assumption={getattr(self.study, 'assumption', None)!r}, "
+                    f"material requires {required_assumption!r}."
+                )
         selected_measure = measure
         if selected_measure is None:
             selected_measure = (
@@ -2332,6 +2342,7 @@ class Model:
         update_load=None,
         save_every: int | None = None,
         print_every: int | None = None,
+        history_every: int = 1,
         progress=True,
         status_file=None,
         checkpoint=None,
@@ -2346,21 +2357,16 @@ class Model:
         from . import fracture
         from . import problems
         from . import time as time_api
-        from .constitutive.hyperelasticity import NeoHookeanProperties
+        from .constitutive.hyperelasticity import (
+            NeoHookeanProperties,
+            PlaneStressNeoHookeanProperties,
+        )
 
         self.check(target=target, step_options={"material": material})
         if hasattr(self.study, "require"):
             self.study.require(
                 analysis="second_order_dynamics",
                 physics="solid_mechanics",
-            )
-        if getattr(self.study, "dimension", None) == 2 and getattr(
-            self.study, "assumption", None
-        ) != "plane_strain":
-            raise NotImplementedError(
-                "Finite-strain Explicit currently supports 2D plane strain or 3D. "
-                "A thin-sheet claim requires the planned plane-stress local solve "
-                "or a thin 3D model."
             )
         record = (
             _single_material(self, "model.finite_strain_explicit_dynamics_step")
@@ -2372,6 +2378,18 @@ class Model:
             raise TypeError(
                 "finite_strain_explicit_dynamics_step requires NeoHookeanProperties."
             )
+        if getattr(self.study, "dimension", None) == 2:
+            required_assumption = (
+                "plane_stress"
+                if isinstance(properties, PlaneStressNeoHookeanProperties)
+                else "plane_strain"
+            )
+            if getattr(self.study, "assumption", None) != required_assumption:
+                raise ValueError(
+                    "The study and finite-strain material reduction disagree: "
+                    f"study assumption={getattr(self.study, 'assumption', None)!r}, "
+                    f"material requires {required_assumption!r}."
+                )
         if properties.density is None:
             raise ValueError("Finite-strain Explicit requires material density.")
         selected_measure = (
@@ -2391,7 +2409,24 @@ class Model:
                 measure=selected_measure,
             )
         )
-        wave_speeds = fracture.isotropic_reference_wave_speeds(properties)
+        if isinstance(properties, PlaneStressNeoHookeanProperties):
+            reference_gradient = np.eye(2)
+            membrane_modes = (
+                fracture.incremental_wave_speeds(
+                    reference_gradient,
+                    direction,
+                    properties,
+                    direction_configuration="reference",
+                )
+                for direction in ((1.0, 0.0), (0.0, 1.0))
+            )
+            body_screening_speed = max(
+                float(mode.reference_speeds[-1]) for mode in membrane_modes
+            )
+        else:
+            body_screening_speed = fracture.isotropic_reference_wave_speeds(
+                properties
+            ).pressure
         interface_stability = (
             {}
             if cohesive_force is None
@@ -2401,7 +2436,7 @@ class Model:
             characteristic_length=fracture.minimum_cell_nodal_spacing(
                 _domain(self.mesh)
             ),
-            dilatational_speed=wave_speeds.pressure,
+            dilatational_speed=body_screening_speed,
             safety_factor=stability_safety,
             **interface_stability,
         )
@@ -2486,6 +2521,7 @@ class Model:
             steps=steps,
             save_every=save_every,
             print_every=print_every,
+            history_every=history_every,
             progress=progress,
             status_file=status_file,
             checkpoint_policy=checkpoint,

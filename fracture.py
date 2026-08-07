@@ -773,6 +773,43 @@ def neo_hookean_material_tangent(
     J = float(np.linalg.det(F))
     if J <= 0.0:
         raise ValueError("Incremental material tangent requires det(F) > 0.")
+    if isinstance(
+        material,
+        hyperelasticity.PlaneStressNeoHookeanProperties,
+    ):
+        if F.shape != (2, 2):
+            raise ValueError("Plane-stress material tangent requires one 2x2 F.")
+        thickness = hyperelasticity.plane_stress_thickness_stretch_value(
+            F,
+            material,
+        )
+        full_gradient = np.eye(3)
+        full_gradient[:2, :2] = F
+        full_gradient[2, 2] = thickness
+        full = _neo_hookean_material_tangent_core(full_gradient, material)
+        denominator = float(full[2, 2, 2, 2])
+        if denominator <= 0.0:
+            raise ValueError(
+                "Plane-stress local thickness mode has a non-positive tangent."
+            )
+        condensed = full[:2, :2, :2, :2].copy()
+        condensed -= np.einsum(
+            "ij,kl->ijkl",
+            full[:2, :2, 2, 2],
+            full[2, 2, :2, :2],
+        ) / denominator
+        return condensed
+    return _neo_hookean_material_tangent_core(F, material)
+
+
+def _neo_hookean_material_tangent_core(
+    deformation_gradient,
+    material: hyperelasticity.NeoHookeanProperties,
+) -> np.ndarray:
+    """Return the unconstrained tangent for one 2D or 3D gradient."""
+
+    F = np.asarray(deformation_gradient, dtype=float)
+    J = float(np.linalg.det(F))
     inverse_transpose = np.linalg.inv(F).T
     dimension = F.shape[0]
     identity = np.eye(dimension)
@@ -855,6 +892,14 @@ def incremental_wave_speeds(
             "is too close to the numerical tolerance."
         )
     reference_speeds = np.sqrt(eigenvalues / float(material.density))
+    deformation_jacobian = float(np.linalg.det(F))
+    if isinstance(
+        material,
+        hyperelasticity.PlaneStressNeoHookeanProperties,
+    ):
+        deformation_jacobian *= (
+            hyperelasticity.plane_stress_thickness_stretch_value(F, material)
+        )
     return IncrementalWaveSpeeds(
         speeds=np.asarray(reference_speeds * speed_scale, dtype=float),
         reference_speeds=np.asarray(reference_speeds, dtype=float),
@@ -863,7 +908,7 @@ def incremental_wave_speeds(
         reference_direction=np.asarray(reference_direction, dtype=float),
         current_direction=np.asarray(current_direction, dtype=float),
         direction_configuration=configuration,
-        deformation_jacobian=float(np.linalg.det(F)),
+        deformation_jacobian=deformation_jacobian,
     )
 
 
@@ -953,20 +998,34 @@ class PreloadTransferReport:
 
     mode: str
     residual_force_norm: float
+    total_force_norm: float
+    constrained_force_norm: float
     acceleration_norm: float
     force_tolerance: float
     equilibrium_accepted: bool
     initial_velocity: str
+    source_step: str | None = None
+    destination_step: str | None = None
+    source_energy: float | None = None
+    destination_energy: float | None = None
+    relative_energy_jump: float | None = None
 
     def summary(self) -> dict[str, object]:
         return {
             "kind": "preload_to_explicit_state_transfer",
             "mode": self.mode,
             "residual_force_norm": self.residual_force_norm,
+            "total_force_norm": self.total_force_norm,
+            "constrained_force_norm": self.constrained_force_norm,
             "acceleration_norm": self.acceleration_norm,
             "force_tolerance": self.force_tolerance,
             "equilibrium_accepted": self.equilibrium_accepted,
             "initial_velocity": self.initial_velocity,
+            "source_step": self.source_step,
+            "destination_step": self.destination_step,
+            "source_energy": self.source_energy,
+            "destination_energy": self.destination_energy,
+            "relative_energy_jump": self.relative_energy_jump,
         }
 
 
@@ -980,6 +1039,10 @@ def transfer_preload_to_explicit(
     mode: str = "equilibrium",
     force_tolerance: float = 1.0e-8,
     acceleration_projection=None,
+    energy_monitor=None,
+    source_energy: float | None = None,
+    source_step: str | None = None,
+    destination_step: str | None = None,
 ) -> PreloadTransferReport:
     """Initialize ``u/v/a`` consistently from a quasi-static preload state.
 
@@ -1010,7 +1073,7 @@ def transfer_preload_to_explicit(
 
     vector = operators.assemble_vector(residual)
     try:
-        force_norm = float(vector.norm())
+        total_force_norm = float(vector.norm())
         inverse = mass.inv_mass if hasattr(mass, "inv_mass") else np.asarray(mass)
         dofs.assign_owned(state.a_next, -vector.array * inverse)
     finally:
@@ -1021,10 +1084,46 @@ def transfer_preload_to_explicit(
         acceleration_projection(state.a_next)
     state.a.assign(state.a_next)
     acceleration = field_api.unwrap(state.a)
-    local_squared = float(np.dot(dofs.owned_array(acceleration), dofs.owned_array(acceleration)))
+    owned_acceleration = np.asarray(dofs.owned_array(acceleration), dtype=float)
+    local_squared = float(np.dot(owned_acceleration, owned_acceleration))
     acceleration_norm = sqrt(
         acceleration.function_space.mesh.comm.allreduce(local_squared, op=MPI.SUM)
     )
+    if hasattr(mass, "mass"):
+        diagonal = np.asarray(mass.mass, dtype=float)[: owned_acceleration.size]
+    else:
+        selected_inverse = np.asarray(inverse, dtype=float)[: owned_acceleration.size]
+        diagonal = np.divide(
+            1.0,
+            selected_inverse,
+            out=np.zeros_like(selected_inverse),
+            where=selected_inverse != 0.0,
+        )
+    free_force = diagonal * owned_acceleration
+    local_force_squared = float(np.dot(free_force, free_force))
+    force_norm = sqrt(
+        acceleration.function_space.mesh.comm.allreduce(
+            local_force_squared,
+            op=MPI.SUM,
+        )
+    )
+    constrained_force_norm = sqrt(
+        max(0.0, total_force_norm**2 - force_norm**2)
+    )
+    destination_energy = None
+    if energy_monitor is not None:
+        energy_values = energy_monitor.evaluate(
+            displacement=state.u,
+            velocity=state.v,
+        )
+        destination_energy = _accounted_energy_value(energy_values)
+    selected_source_energy = (
+        None if source_energy is None else float(source_energy)
+    )
+    relative_energy_jump = None
+    if selected_source_energy is not None and destination_energy is not None:
+        scale = max(abs(selected_source_energy), abs(destination_energy), 1.0e-30)
+        relative_energy_jump = abs(destination_energy - selected_source_energy) / scale
     accepted = force_norm <= tolerance
     if selected_mode == "equilibrium" and not accepted:
         raise RuntimeError(
@@ -1035,10 +1134,32 @@ def transfer_preload_to_explicit(
     return PreloadTransferReport(
         mode=selected_mode,
         residual_force_norm=force_norm,
+        total_force_norm=total_force_norm,
+        constrained_force_norm=constrained_force_norm,
         acceleration_norm=acceleration_norm,
         force_tolerance=tolerance,
         equilibrium_accepted=accepted,
         initial_velocity=velocity_label,
+        source_step=None if source_step is None else str(source_step),
+        destination_step=(
+            None if destination_step is None else str(destination_step)
+        ),
+        source_energy=selected_source_energy,
+        destination_energy=destination_energy,
+        relative_energy_jump=relative_energy_jump,
+    )
+
+
+def _accounted_energy_value(values: dict[str, float]) -> float:
+    for key in (
+        "accounted_internal_kinetic_energy",
+        "total_mechanical_energy",
+    ):
+        if key in values:
+            return float(values[key])
+    raise ValueError(
+        "The preload transfer energy monitor does not expose an accounted "
+        "mechanical-energy channel."
     )
 
 
@@ -1156,6 +1277,9 @@ def separation_regime(
     failed_fraction: float,
     simultaneous_failed_fraction: float,
     spall_fraction: float = 0.8,
+    rapid_failed_fraction: float | None = None,
+    ligament_traction_ratio: float | None = None,
+    pressure_wave_speed: float | None = None,
 ) -> str:
     """Classify one frame with explicit crack-speed and spall evidence."""
 
@@ -1164,12 +1288,27 @@ def separation_regime(
     shear = float(shear_wave_speed)
     failed = float(failed_fraction)
     simultaneous = float(simultaneous_failed_fraction)
+    rapid = simultaneous if rapid_failed_fraction is None else float(rapid_failed_fraction)
+    traction_ratio = (
+        None if ligament_traction_ratio is None else float(ligament_traction_ratio)
+    )
+    pressure = None if pressure_wave_speed is None else float(pressure_wave_speed)
     threshold = float(spall_fraction)
     if not 0.0 < rayleigh < shear:
         raise ValueError("Wave speeds must satisfy 0 < c_R < c_s.")
-    if not all(0.0 <= value <= 1.0 for value in (failed, simultaneous, threshold)):
+    if not all(
+        0.0 <= value <= 1.0
+        for value in (failed, simultaneous, rapid, threshold)
+    ):
         raise ValueError("Failure fractions must lie in [0, 1].")
-    if failed >= threshold and simultaneous >= threshold:
+    if traction_ratio is not None and (
+        not isfinite(traction_ratio) or traction_ratio < 0.0
+    ):
+        raise ValueError("ligament_traction_ratio must be finite and nonnegative.")
+    if pressure is not None and (not isfinite(pressure) or pressure <= shear):
+        raise ValueError("pressure_wave_speed must be finite and greater than c_s.")
+    traction_reached = traction_ratio is None or traction_ratio >= 0.95
+    if failed >= threshold and rapid >= threshold and traction_reached:
         return "spall_like"
     if not isfinite(speed):
         return "unresolved"
@@ -1177,6 +1316,16 @@ def separation_regime(
         return "sub_rayleigh_crack_like"
     if speed <= shear:
         return "trans_rayleigh"
+    if (
+        pressure is not None
+        and speed > pressure
+        and failed >= threshold
+        and rapid >= 0.5 * threshold
+        and traction_reached
+    ):
+        return "spall_like"
+    if pressure is not None and speed > pressure:
+        return "unresolved_discrete_failure"
     return "supershear"
 
 

@@ -57,3 +57,24 @@ def test_v3_classical_crack_remains_sub_rayleigh_under_refinement_and_damping():
     assert abs(smaller_dt.speed_ratio - fine.speed_ratio) < 0.02
     assert abs(damped.speed_ratio - coarse.speed_ratio) < 0.02
     assert damped.numerical_damping_dissipation > 0.0
+
+
+def test_v4_case_smoke_exposes_plane_stress_preload_impact_and_bulk_modes():
+    result = benchmarks.prestressed_weak_interface_separation(
+        label="v4_smoke",
+        cells=30,
+        total_time=0.004,
+        axial_strain=0.12,
+        strength=150.0,
+        fracture_energy=1.0,
+        initial_stiffness=1.0e5,
+        impact_displacement=0.002,
+        impact_rise_time=0.002,
+    )
+    assert result.preload_energy_jump == pytest.approx(0.0)
+    assert 0.0 < result.preload_ligament_traction_ratio < 1.0
+    assert result.pressure_wave_speed > result.shear_wave_speed
+    assert result.impact_displacement == pytest.approx(0.002)
+    assert result.summary()["loading"] == (
+        "homogeneous_prestrain_then_remote_impact"
+    )

@@ -73,6 +73,32 @@ class NeoHookeanProperties:
         }
 
 
+@dataclass(frozen=True)
+class PlaneStressNeoHookeanProperties(NeoHookeanProperties):
+    """Compressible Neo-Hookean membrane with locally relaxed thickness.
+
+    The in-plane deformation is embedded in a three-dimensional diagonal
+    deformation gradient.  At every evaluation the thickness stretch is
+    condensed by enforcing ``P33 = 0``.  This is a finite-strain plane-stress
+    reduction, not the two-dimensional plane-strain energy with renamed
+    metadata.
+    """
+
+    name: str = "plane-stress compressible Neo-Hookean"
+
+    def as_dict(self) -> dict[str, object]:
+        values = super().as_dict()
+        values.update(
+            {
+                "model": "plane_stress_compressible_neo_hookean",
+                "two_dimensional_assumption": "plane_stress",
+                "thickness_condition": "P33=0_local_condensation",
+                "maturity": "experimental_verified_homogeneous_paths",
+            }
+        )
+        return values
+
+
 def neo_hookean(
     *,
     young: float,
@@ -83,6 +109,23 @@ def neo_hookean(
     """Create a compressible Neo-Hookean material."""
 
     return NeoHookeanProperties(
+        young=young,
+        poisson=poisson,
+        density=density,
+        name=name,
+    )
+
+
+def neo_hookean_plane_stress(
+    *,
+    young: float,
+    poisson: float,
+    density: float | None = None,
+    name: str = "plane-stress compressible Neo-Hookean",
+) -> PlaneStressNeoHookeanProperties:
+    """Create a finite-strain plane-stress Neo-Hookean membrane material."""
+
+    return PlaneStressNeoHookeanProperties(
         young=young,
         poisson=poisson,
         density=density,
@@ -224,6 +267,20 @@ def strain_energy_density_from_gradient(
 ):
     """Return compressible Neo-Hookean energy density from ``F``."""
 
+    if isinstance(properties, PlaneStressNeoHookeanProperties):
+        if tuple(F.ufl_shape) != (2, 2):
+            raise ValueError(
+                "PlaneStressNeoHookeanProperties requires one 2x2 gradient."
+            )
+        thickness = plane_stress_thickness_stretch_from_gradient(F, properties)
+        in_plane_jacobian = ufl.det(F)
+        jacobian = in_plane_jacobian * thickness
+        invariant = ufl.tr(F.T * F) + thickness**2
+        return (
+            0.5 * properties.mu * (invariant - 3.0)
+            - properties.mu * ufl.ln(jacobian)
+            + 0.5 * properties.lambda_ * ufl.ln(jacobian) ** 2
+        )
     dimension = F.ufl_shape[0]
     C = F.T * F
     J = ufl.det(F)
@@ -294,6 +351,13 @@ def mixed_cauchy_stress(
 def first_piola_from_gradient(F, properties: NeoHookeanProperties):
     """Return the first Piola stress ``P = d psi / d F`` analytically."""
 
+    if isinstance(properties, PlaneStressNeoHookeanProperties):
+        variable = ufl.variable(F)
+        return ufl.diff(
+            strain_energy_density_from_gradient(variable, properties),
+            variable,
+        )
+
     inverse_transpose = ufl.inv(F).T
     J = ufl.det(F)
     return (
@@ -316,7 +380,176 @@ def cauchy_stress(displacement, properties: NeoHookeanProperties):
 
     F = deformation_gradient(displacement)
     J = ufl.det(F)
+    if isinstance(properties, PlaneStressNeoHookeanProperties):
+        J *= plane_stress_thickness_stretch_from_gradient(F, properties)
     return (1.0 / J) * first_piola_from_gradient(F, properties) * F.T
+
+
+def plane_stress_thickness_stretch_from_gradient(
+    F,
+    properties: PlaneStressNeoHookeanProperties,
+    *,
+    iterations: int = 3,
+):
+    """Return the local thickness stretch satisfying ``P33 = 0``.
+
+    Newton iterations are embedded in the UFL expression.  The initial value
+    is the infinitesimal plane-stress contraction continued multiplicatively.
+    Three iterations give tight closure on the verified deformation range
+    without creating an impractically large generated UFL kernel.  The
+    independent numerical material-point oracle iterates to tolerance.
+    """
+
+    if not isinstance(properties, PlaneStressNeoHookeanProperties):
+        raise TypeError(
+            "plane_stress_thickness_stretch_from_gradient requires "
+            "PlaneStressNeoHookeanProperties."
+        )
+    if tuple(F.ufl_shape) != (2, 2):
+        raise ValueError("Finite-strain plane stress requires one 2x2 gradient.")
+    count = int(iterations)
+    if count <= 0:
+        raise ValueError("Plane-stress local iterations must be positive.")
+    in_plane_jacobian = ufl.det(F)
+    exponent = -properties.poisson / (1.0 - properties.poisson)
+    thickness = in_plane_jacobian**exponent
+    for _ in range(count):
+        residual = (
+            properties.mu * (thickness**2 - 1.0)
+            + properties.lambda_ * ufl.ln(in_plane_jacobian * thickness)
+        )
+        derivative = (
+            2.0 * properties.mu * thickness
+            + properties.lambda_ / thickness
+        )
+        candidate = thickness - residual / derivative
+        thickness = ufl.conditional(
+            ufl.gt(candidate, 0.0),
+            candidate,
+            0.5 * thickness,
+        )
+    return thickness
+
+
+def plane_stress_out_of_plane_first_piola_from_gradient(
+    F,
+    properties: PlaneStressNeoHookeanProperties,
+):
+    """Return the condensed ``P33`` residual for diagnostics and tests."""
+
+    thickness = plane_stress_thickness_stretch_from_gradient(F, properties)
+    jacobian = ufl.det(F) * thickness
+    return (
+        properties.mu * (thickness - 1.0 / thickness)
+        + properties.lambda_ * ufl.ln(jacobian) / thickness
+    )
+
+
+def plane_stress_thickness_stretch_value(
+    deformation_gradient,
+    properties: PlaneStressNeoHookeanProperties,
+    *,
+    tolerance: float = 1.0e-12,
+    maximum_iterations: int = 30,
+) -> float:
+    """Solve the local ``P33=0`` condition for one numerical 2x2 ``F``."""
+
+    if not isinstance(properties, PlaneStressNeoHookeanProperties):
+        raise TypeError(
+            "plane_stress_thickness_stretch_value requires "
+            "PlaneStressNeoHookeanProperties."
+        )
+    F = np.asarray(deformation_gradient, dtype=float)
+    if F.shape != (2, 2) or not np.all(np.isfinite(F)):
+        raise ValueError("Plane-stress deformation_gradient must be finite 2x2.")
+    in_plane_jacobian = float(np.linalg.det(F))
+    if in_plane_jacobian <= 0.0:
+        raise ValueError("Plane-stress condensation requires det(F2) > 0.")
+    selected_tolerance = float(tolerance)
+    if not isfinite(selected_tolerance) or selected_tolerance <= 0.0:
+        raise ValueError("Plane-stress tolerance must be finite and positive.")
+    count = int(maximum_iterations)
+    if count <= 0:
+        raise ValueError("maximum_iterations must be positive.")
+    exponent = -properties.poisson / (1.0 - properties.poisson)
+    thickness = in_plane_jacobian**exponent
+    scale = max(abs(properties.mu), abs(properties.lambda_), 1.0)
+    for _ in range(count):
+        residual = (
+            properties.mu * (thickness**2 - 1.0)
+            + properties.lambda_ * log(in_plane_jacobian * thickness)
+        )
+        if abs(residual) <= selected_tolerance * scale:
+            return float(thickness)
+        derivative = (
+            2.0 * properties.mu * thickness
+            + properties.lambda_ / thickness
+        )
+        candidate = thickness - residual / derivative
+        if not isfinite(candidate) or candidate <= 0.0:
+            candidate = 0.5 * thickness
+        thickness = candidate
+    raise RuntimeError(
+        "Plane-stress thickness condensation did not converge within "
+        f"{count} iterations."
+    )
+
+
+def plane_stress_first_piola_value(
+    deformation_gradient,
+    properties: PlaneStressNeoHookeanProperties,
+) -> np.ndarray:
+    """Return the condensed numerical in-plane first Piola stress."""
+
+    F = np.asarray(deformation_gradient, dtype=float)
+    thickness = plane_stress_thickness_stretch_value(F, properties)
+    inverse_transpose = np.linalg.inv(F).T
+    jacobian = float(np.linalg.det(F)) * thickness
+    return (
+        properties.mu * (F - inverse_transpose)
+        + properties.lambda_ * np.log(jacobian) * inverse_transpose
+    )
+
+
+def plane_stress_uniaxial_deformation_gradient(
+    axial_stretch: float,
+    properties: PlaneStressNeoHookeanProperties,
+    *,
+    tolerance: float = 1.0e-12,
+    maximum_iterations: int = 30,
+) -> np.ndarray:
+    """Return homogeneous uniaxial ``F2`` with traction-free lateral faces.
+
+    Isotropy makes the in-plane lateral and condensed thickness stretches
+    equal.  The returned gradient therefore satisfies both ``P11=0`` and the
+    local ``P33=0`` plane-stress condition.
+    """
+
+    if not isinstance(properties, PlaneStressNeoHookeanProperties):
+        raise TypeError(
+            "plane_stress_uniaxial_deformation_gradient requires "
+            "PlaneStressNeoHookeanProperties."
+        )
+    axial = float(axial_stretch)
+    if not isfinite(axial) or axial <= 0.0:
+        raise ValueError("axial_stretch must be finite and positive.")
+    selected_tolerance = float(tolerance)
+    lateral = axial ** (-properties.poisson)
+    scale = max(abs(properties.mu), abs(properties.lambda_), 1.0)
+    for _ in range(int(maximum_iterations)):
+        residual = (
+            properties.mu * (lateral**2 - 1.0)
+            + properties.lambda_ * log(lateral**2 * axial)
+        )
+        if abs(residual) <= selected_tolerance * scale:
+            return np.diag((float(lateral), axial))
+        derivative = (
+            2.0 * properties.mu * lateral
+            + 2.0 * properties.lambda_ / lateral
+        )
+        candidate = lateral - residual / derivative
+        lateral = candidate if isfinite(candidate) and candidate > 0.0 else 0.5 * lateral
+    raise RuntimeError("Uniaxial plane-stress lateral contraction did not converge.")
 
 
 def internal_virtual_work(

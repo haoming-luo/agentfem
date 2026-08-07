@@ -16,6 +16,19 @@ def _right(x):
     return np.isclose(x[0], 1.0)
 
 
+def test_smooth_step_has_clipped_values_and_zero_endpoint_slopes():
+    history = amplitudes.smooth_step(
+        2.0, 5.0, start_time=1.0, end_time=3.0,
+    )
+    assert history(0.0) == pytest.approx(2.0)
+    assert history(4.0) == pytest.approx(5.0)
+    assert history(2.0) == pytest.approx(3.5)
+    epsilon = 1.0e-6
+    assert (history(1.0 + epsilon) - history(1.0)) / epsilon < 1.0e-5
+    assert (history(3.0) - history(3.0 - epsilon)) / epsilon < 1.0e-5
+    assert history.summary()["metadata"]["endpoint_slopes"] == "zero"
+
+
 def test_cuboid_is_the_three_dimensional_structured_mesh_factory():
     domain = mesh.cuboid(
         (0.0, 0.0, 0.0),

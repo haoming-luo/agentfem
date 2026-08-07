@@ -113,6 +113,13 @@
       "title": "Nonuniform three-dimensional J2 bending path"
     },
     {
+      "id": "agentfem.benchmark.jmps_weak_interface_transition_v4",
+      "physics": "near-incompressible finite-strain plane-stress Neo-Hookean strip with homogeneous preload, smooth remote impact, a fixed zero-thickness bilinear Mode-I interface, and a precrack",
+      "source": "knowledge/benchmarks/jmps_weak_interface_transition_v4.json",
+      "status": "experimental_v4_mechanism_executable",
+      "title": "Prestressed weak-interface crack-to-supershear-to-spall mechanism ladder"
+    },
+    {
       "id": "agentfem.benchmark.linear_static_cantilever",
       "physics": "small-strain isotropic linear elasticity in plane strain",
       "source": "knowledge/benchmarks/linear_static_cantilever.json",
@@ -193,6 +200,26 @@
       "status": "supported",
       "summary": "Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, kept distinct from the implemented global isothermal/Arrhenius power-law creep route.",
       "title": "Creep damage and modified-theta assessment"
+    },
+    {
+      "id": "agentfem.material.finite_strain_plane_stress",
+      "kind": "material",
+      "public_api": [
+        "agentfem.constitutive.neo_hookean_plane_stress",
+        "agentfem.constitutive.plane_stress_thickness_stretch_value",
+        "agentfem.constitutive.plane_stress_first_piola_value",
+        "agentfem.fracture.neo_hookean_material_tangent",
+        "agentfem.fracture.incremental_wave_speeds",
+        "agentfem.models.Model.step"
+      ],
+      "related_cards": [
+        "agentfem.workflow.solution_procedures",
+        "agentfem.material.mixed_hybrid_hyperelasticity"
+      ],
+      "source": "knowledge/cards/finite_strain_plane_stress.json",
+      "status": "experimental",
+      "summary": "Enforces P33=0 through a positive local thickness stretch and uses the same condensed energy, in-plane first-Piola stress, and Schur-complement tangent in static and Explicit finite-strain workflows.",
+      "title": "Locally condensed finite-strain plane-stress Neo-Hookean membrane"
     },
     {
       "id": "agentfem.material.global_implicit_creep",

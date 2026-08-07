@@ -90,6 +90,14 @@ class BilinearCohesiveLaw:
             else self.compression_stiffness
         )
 
+    def characteristic_length(self, elastic_modulus: float) -> float:
+        """Return the declared cohesive length ``E*Gamma/strength^2``."""
+
+        modulus = float(elastic_modulus)
+        if not isfinite(modulus) or modulus <= 0.0:
+            raise ValueError("elastic_modulus must be finite and positive.")
+        return modulus * self.fracture_energy / self.strength**2
+
     def envelope_traction(self, opening) -> np.ndarray:
         """Return the monotonic tensile envelope traction."""
 
@@ -205,6 +213,7 @@ class BilinearCohesiveLaw:
             "compression_stiffness": self.closure_stiffness,
             "peak_opening": self.peak_opening,
             "failure_opening": self.failure_opening,
+            "characteristic_length_definition": "E*Gamma/strength^2",
             "state": ["maximum_opening", "damage", "dissipated_energy"],
             "maturity": "experimental_material_point",
         }

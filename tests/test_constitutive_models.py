@@ -200,6 +200,51 @@ def test_neo_hookean_model_step_solves_a_displacement_controlled_patch():
     )
 
 
+def test_plane_stress_neo_hookean_standard_step_uses_condensed_membrane_energy():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    model = models.create(
+        study=studies.static_solid(
+            dimension=2,
+            assumption="plane_stress",
+            nonlinear=True,
+        ),
+        mesh=domain,
+        name="plane_stress_hyperelastic_patch",
+    )
+    displacement = model.field(fields.displacement(domain))
+    material = model.material(
+        hyperelasticity.neo_hookean_plane_stress(
+            young=2.0e6,
+            poisson=0.49,
+        )
+    )
+    model.clamp(
+        displacement,
+        on=mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left"),
+    )
+    model.prescribe(
+        displacement,
+        0.02,
+        component=0,
+        on=mesh.boundary(domain, lambda x: np.isclose(x[0], 1.0), name="right"),
+    )
+    step = model.step(target=displacement, material=material, progress=False)
+    step.solve()
+
+    assert step.last_solve_info.converged
+    assert min(
+        item.checks["minimum_quadrature_J"]
+        for item in step.last_solve_info.increments
+    ) > 0.0
+    assert float(np.max(displacement.value.x.array)) == pytest.approx(0.02)
+
+
 def test_neo_hookean_standard_path_rolls_back_and_cuts_back_failed_attempt(monkeypatch):
     domain = mesh.rectangle(
         (0.0, 0.0),

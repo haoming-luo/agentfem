@@ -129,12 +129,15 @@ an explicit formulation: pressure has no ordinary inertial equation and the
 current mixed solve is monolithic.  It must not be attached to central
 difference merely because it avoids locking statically.
 
-The first computational benchmark may use a measured, mildly compressible
-material only when its bulk response is documented.  A trusted research route
-then requires one separately verified choice, most likely an F-bar/selective
-volumetric treatment or a deliberately designed stabilized explicit `u-p`
-scheme.  Artificially lowering bulk modulus to obtain the desired crack speed
-is forbidden.
+The V4 mechanism route now uses a local finite-strain plane-stress reduction
+at `nu=0.49`. At every material point a positive thickness stretch is solved
+such that `P33=0`; the in-plane stress, energy, and Schur-condensed acoustic
+tangent all derive from that same condition. This is the correct membrane
+reduction for the named two-dimensional route, but it is not by itself a
+general proof against in-plane volumetric locking. A trusted broader route
+still requires an F-bar/selective-volumetric treatment or a deliberately
+designed stabilized explicit `u-p` scheme. Artificially lowering bulk modulus
+to obtain the desired crack speed remains forbidden.
 
 The current 2D Neo-Hookean implementation is plane strain.  A thin-sheet claim
 requires either:
@@ -144,8 +147,8 @@ requires either:
   or
 - a thin three-dimensional solid model.
 
-Both should eventually exist: 2D for parameter exploration and thin 3D for a
-geometry-assumption check.
+The first option is now implemented and locally verified. Thin 3D remains the
+required geometry-assumption cross-check.
 
 ## Preload and step transition
 
@@ -308,8 +311,8 @@ The weekend foundation is intentionally narrower than a supershear claim:
 
 This slice is still `experimental`. The dof adapter is serial-only; interface
 mesh splitting is not yet wired to Abaqus/Gmsh import; MPC/contact/weak-constraint
-work requires dedicated dual variables; plane stress, near-incompressibility,
-and the prestrained surface-wave secular problem remain implementation gates.
+work requires dedicated dual variables; general near-incompressibility and the
+prestrained surface-wave secular problem remain implementation gates.
 
 ### Automated V1--V3 guardrails
 
@@ -329,10 +332,40 @@ The first named verification ladder is now executable:
   declared mass-proportional damping perturbation. Damping work is a typed
   energy channel and final balance errors remain below ``5e-4``.
 
-This is V3 for the named compressible plane-strain cohesive strip, not a
-general dynamic-fracture validation. It is not evidence of supershear, a
-prestrained Rayleigh solution, near-incompressible behavior, or the
-Science/JMPS configurations. Those claims remain behind later gates.
+This remains V3 for the named compressible plane-strain cohesive strip, not a
+general dynamic-fracture validation. Supershear claims are evaluated by the
+separate V4 mechanism gate below.
+
+### Executable V4 mechanism gate
+
+`benchmarks.jmps_weak_interface_transition_v4()` now runs three cases through
+one public finite-strain Explicit lifecycle:
+
+1. a homogeneous 12% plane-stress preload followed by precrack release gives
+   a contiguous crack-like front at approximately `0.96 c_R`;
+2. the same body and interface with a zero-slope smooth remote impact gives a
+   resolved front at approximately `1.10 c_s` and `0.56 c_d`, while no more
+   than 4% of the ligament fails in one increment;
+3. a weaker, larger-cohesive-length interface under the same impact fails
+   across the ligament within one thickness shear-wave time and is classified
+   `spall_like`, rather than assigning physical meaning to its super-dilatational
+   apparent front speed.
+
+Every case transfers preload without an energy jump and closes the complete
+energy ledger within 0.5% at the declared 30-facet mechanism resolution. The
+crack-speed fit window spans at least three interface cells at the prestrained
+shear-wave speed. The classifier also rejects an apparent speed above `c_d`
+as `unresolved_discrete_failure` unless independent distributed-spall evidence
+is present.
+
+This is an **experimental V4 numerical mechanism benchmark**. It establishes
+the crack-like/supershear/spall distinction in the intended architecture; it
+does not claim curve-level reproduction of Wang, Fineberg, and Needleman's
+unpublished input deck. Promotion to publication reproduction still requires
+the authors' dimensions, exact cohesive law and parameters, impact history,
+mesh sequence, and post-processing convention, followed by mesh/time-step
+convergence and a thin-3D check. The immutable evidence and tolerances live in
+`knowledge/benchmarks/jmps_weak_interface_transition_v4.json`.
 
 ## Inputs to request from the authors
 

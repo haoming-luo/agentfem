@@ -334,21 +334,30 @@ def _lower_transient_heat(model, request: StepRequest):
 
 
 def _accept_neo_hookean(model, request: StepRequest) -> bool:
-    from .constitutive.hyperelasticity import NeoHookeanProperties
+    from .constitutive.hyperelasticity import (
+        NeoHookeanProperties,
+        PlaneStressNeoHookeanProperties,
+    )
 
     study = getattr(model, "study", None)
+    material = _selected_material(model, request)
+    required_assumption = (
+        "plane_stress"
+        if isinstance(material, PlaneStressNeoHookeanProperties)
+        else "plane_strain"
+    )
     supported_kinematics = (
         getattr(study, "dimension", None) == 3
         or (
             getattr(study, "dimension", None) == 2
-            and getattr(study, "assumption", None) == "plane_strain"
+            and getattr(study, "assumption", None) == required_assumption
         )
     )
     return (
         getattr(study, "physics", None) == "solid_mechanics"
         and _is_vector_target(request.target)
         and supported_kinematics
-        and isinstance(_selected_material(model, request), NeoHookeanProperties)
+        and isinstance(material, NeoHookeanProperties)
     )
 
 
@@ -507,7 +516,10 @@ def _accept_explicit_dynamics(model, request: StepRequest) -> bool:
 
 
 def _accept_finite_strain_explicit_dynamics(model, request: StepRequest) -> bool:
-    from .constitutive.hyperelasticity import NeoHookeanProperties
+    from .constitutive.hyperelasticity import (
+        NeoHookeanProperties,
+        PlaneStressNeoHookeanProperties,
+    )
 
     study = getattr(model, "study", None)
     method = request.options.get("method") or getattr(
@@ -515,14 +527,19 @@ def _accept_finite_strain_explicit_dynamics(model, request: StepRequest) -> bool
         "preferred_procedure",
         None,
     )
+    material = _selected_material(model, request)
+    required_assumption = (
+        "plane_stress"
+        if isinstance(material, PlaneStressNeoHookeanProperties)
+        else "plane_strain"
+    )
     supported_kinematics = (
         getattr(study, "dimension", None) == 3
         or (
             getattr(study, "dimension", None) == 2
-            and getattr(study, "assumption", None) == "plane_strain"
+            and getattr(study, "assumption", None) == required_assumption
         )
     )
-    material = _selected_material(model, request)
     return (
         request.target is not None
         and _is_vector_target(request.target)

@@ -229,6 +229,29 @@ def _owned_dirichlet_dofs(bcs) -> np.ndarray:
     return np.unique(np.asarray(selected, dtype=np.int64))
 
 
+def project_homogeneous_kinematics(
+    field,
+    *,
+    prescribed: Iterable[object] = (),
+    constraints: Iterable[object] = (),
+) -> None:
+    """Project a velocity or acceleration onto active kinematic constraints.
+
+    Strong prescribed displacement degrees of freedom receive zero velocity
+    or acceleration at a held step transition.  Other reusable constraint
+    objects, such as an explicit periodic projection, are then applied using
+    the same path as the central-difference integrator.
+    """
+
+    function = fields.unwrap(field)
+    bcs = _collect_bcs(tuple(prescribed), None)
+    selected = _owned_dirichlet_dofs(bcs)
+    if selected.size:
+        function.x.array[selected] = 0.0
+        function.x.scatter_forward()
+    _apply_constraints(tuple(constraints), field)
+
+
 def _prescribed_kinematics(prescribed, *, time, dt: float):
     """Resolve midpoint velocity, acceleration, and whole-step velocity.
 

@@ -6,9 +6,13 @@ from .dynamic_fracture import (
     CohesiveEnergyBenchmark,
     ClassicalCrackBenchmark,
     WaveArrivalBenchmark,
+    WeakInterfaceTransitionBenchmark,
+    WeakInterfaceTransitionSuite,
     cohesive_energy_balance,
     classical_cohesive_crack,
     finite_strain_wave_arrival,
+    jmps_weak_interface_transition_v4,
+    prestressed_weak_interface_separation,
 )
 
 __all__ = [
@@ -20,8 +24,12 @@ __all__ = [
     "WaveArrivalBenchmark",
     "CohesiveEnergyBenchmark",
     "ClassicalCrackBenchmark",
+    "WeakInterfaceTransitionBenchmark",
+    "WeakInterfaceTransitionSuite",
     "classical_cohesive_crack",
     "cohesive_energy_balance",
     "finite_strain_wave_arrival",
+    "jmps_weak_interface_transition_v4",
+    "prestressed_weak_interface_separation",
     "list_benchmarks",
 ]

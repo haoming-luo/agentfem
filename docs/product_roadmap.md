@@ -231,7 +231,7 @@ screening, preload transfer, crack observations, restart state, a complete
 strong-Dirichlet/natural-load energy ledger, and an analytical small-on-large
 wave oracle.  All remain experimental.
 
-The first three promotion gates now have automated experimental evidence:
+The first four promotion gates now have executable experimental evidence:
 
 1. V1 finite-element arrival times under several homogeneous prestrains,
    checked against the acoustic tensor and mesh refinement;
@@ -239,17 +239,21 @@ The first three promotion gates now have automated experimental evidence:
    prescribed separation and exact cohesive dissipation;
 3. V3 a classical sub-Rayleigh cohesive crack guardrail before any supershear
    exploration, repeated across mesh, time-step, and declared damping changes.
+4. V4 a near-incompressible plane-stress, preloaded weak-interface mechanism
+   ladder separating crack-like propagation, a resolved `c_s < v < c_d`
+   front, and distributed spall-like separation under smooth remote impact.
 
-These are scoped V1--V3 benchmarks for the named plane-strain compressible
-models, not universal validation. The next gates are:
+These are scoped named benchmarks, not universal validation. V1--V3 remain
+the compressible plane-strain guardrails; V4 is an experimental 2D membrane
+mechanism gate. The next promotion work is:
 
-4. smooth quasi-static preload-to-dynamic-release equivalence, followed by a
-   verified near-incompressible route and finite-strain plane stress or thin
-   3D counterpart;
-5. Abaqus/Gmsh internal-surface ingestion, deterministic MPI facet ownership,
+5. mesh/time-step/impact-history convergence of the V4 ladder, a prestrained
+   surface-wave secular solution, and a thin-3D counterpart;
+6. Abaqus/Gmsh internal-surface ingestion, deterministic MPI facet ownership,
    and portable interface-state identity;
-6. only then the JMPS 2025 mode-transition benchmark and retained Science 2023
-   Dryad prediction cases.
+7. author-deck/parameter acquisition for curve-level JMPS 2025 reproduction,
+   followed by separated calibration and retained Science 2023 Dryad
+   prediction cases.
 
 The governing decisions and evidence boundaries live in
 `docs/dynamic_cohesive_fracture_architecture.md`.  Phase field, free crack

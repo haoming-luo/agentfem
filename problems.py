@@ -1145,6 +1145,7 @@ class ExplicitDynamicsStep:
     update_load: object | None = None
     save_every: int | None = None
     print_every: int | None = None
+    history_every: int = 1
     procedure: object | None = None
     history_monitor: object | None = None
     stability: object | None = None
@@ -1160,6 +1161,51 @@ class ExplicitDynamicsStep:
     completed_steps: int = field(default=0, init=False)
     history_records: list[dict[str, float]] = field(default_factory=list, init=False)
     checkpoints: list[object] = field(default_factory=list, init=False)
+
+    def initialize_from_preload(
+        self,
+        displacement,
+        *,
+        source_step=None,
+        initial_velocity=None,
+        mode: str = "equilibrium",
+        force_tolerance: float = 1.0e-8,
+        source_energy: float | None = None,
+    ):
+        """Transfer a quasi-static configuration into this Explicit step.
+
+        Reactions at held strong constraints are excluded from the free-force
+        equilibrium norm.  The transfer uses the step's own mass, residual,
+        constraint projection, and energy monitor so the public workflow does
+        not need to reconstruct solver plumbing.
+        """
+
+        from . import fracture
+        from .time import explicit as explicit_time
+
+        monitor = getattr(self.history_monitor, "energy", None)
+
+        def project(field) -> None:
+            explicit_time.project_homogeneous_kinematics(
+                field,
+                prescribed=self.prescribed,
+                constraints=self.constraints,
+            )
+
+        return fracture.transfer_preload_to_explicit(
+            displacement,
+            state=self.state,
+            mass=self.integrator.mass,
+            residual=self.residual,
+            initial_velocity=initial_velocity,
+            mode=mode,
+            force_tolerance=force_tolerance,
+            acceleration_projection=project,
+            energy_monitor=monitor,
+            source_energy=source_energy,
+            source_step=getattr(source_step, "name", source_step),
+            destination_step=self.name,
+        )
 
     def run(
         self,
@@ -1335,6 +1381,8 @@ class ExplicitDynamicsStep:
             "completed_steps": self.completed_steps,
             "save_every": self.save_every,
             "print_every": _print_interval(self.print_every, self.steps),
+            "history_every": self.history_every,
+            "history_evaluation_every": 1,
             "checkpoint_policy": (
                 None
                 if self.checkpoint_policy is None
@@ -1981,7 +2029,9 @@ def _accept_transient_increment(
 
     step.completed_steps = int(info.index)
     step.accepted_times.append(float(info.time))
-    _record_transient_history(step, info.time)
+    history_every = int(getattr(step, "history_every", 1))
+    store_history = info.index % history_every == 0 or info.index == step.steps
+    _record_transient_history(step, info.time, store=store_history)
     _report_transient_increment(
         reporter,
         selected_progress,
@@ -2036,13 +2086,25 @@ def _transient_stop_step(step, until_step: int | None) -> int:
     return stop
 
 
-def _record_transient_history(step, time_value: float) -> None:
+def _record_transient_history(
+    step,
+    time_value: float,
+    *,
+    store: bool = True,
+) -> None:
+    """Advance history monitors every increment and store at their cadence.
+
+    Stateful scientific ledgers, notably external work, must consume every
+    accepted increment. ``history_every`` controls retained records only; it
+    must never change the computed balance merely by changing output cadence.
+    """
+
     monitor = getattr(step, "history_monitor", None)
     requests = tuple(getattr(step, "history_requests", ()))
     if monitor is None and not requests:
         return
     selected_time = float(time_value)
-    if step.history_records and np.isclose(
+    if store and step.history_records and np.isclose(
         step.history_records[-1]["time"],
         selected_time,
     ):
@@ -2062,6 +2124,8 @@ def _record_transient_history(step, time_value: float) -> None:
             )
         else:
             values.update(monitor(step, selected_time))
+    if not store:
+        return
     for request in requests:
         if not hasattr(request, "evaluate_transient"):
             raise TypeError(
@@ -2798,6 +2862,7 @@ def explicit_dynamics(
     update_load=None,
     save_every: int | None = None,
     print_every: int | None = None,
+    history_every: int = 1,
     progress=True,
     status_file=None,
     checkpoint_policy=None,
@@ -2812,6 +2877,8 @@ def explicit_dynamics(
         raise ValueError("explicit_dynamics requires dt > 0.")
     if steps <= 0:
         raise ValueError("explicit_dynamics requires steps > 0.")
+    if int(history_every) <= 0:
+        raise ValueError("explicit_dynamics history_every must be positive.")
     from . import procedures
     from .diagnostics import MechanicalEnergyMonitor
 
@@ -2837,6 +2904,7 @@ def explicit_dynamics(
         steps=int(steps),
         save_every=None if save_every is None else int(save_every),
         print_every=None if print_every is None else int(print_every),
+        history_every=int(history_every),
         progress=progress,
         status_file=status_file,
         checkpoint_policy=checkpoint_policy,

@@ -317,6 +317,109 @@ def test_neo_hookean_material_tangent_matches_first_piola_finite_difference():
             )
 
 
+def test_plane_stress_thickness_condensation_and_tangent_are_consistent():
+    material = constitutive.neo_hookean_plane_stress(
+        young=1.0e6,
+        poisson=0.49,
+        density=1000.0,
+    )
+    F = np.array(((1.12, 0.03), (0.01, 1.07)))
+    thickness = constitutive.plane_stress_thickness_stretch_value(F, material)
+    jacobian = np.linalg.det(F) * thickness
+    p33 = (
+        material.mu * (thickness - 1.0 / thickness)
+        + material.lambda_ * np.log(jacobian) / thickness
+    )
+    assert thickness > 0.0
+    assert abs(p33) < 1.0e-7 * material.young
+    tangent = fracture.neo_hookean_material_tangent(F, material)
+    numerical = np.empty_like(tangent)
+    perturbation = 1.0e-6
+    for k in range(2):
+        for L in range(2):
+            plus = F.copy()
+            minus = F.copy()
+            plus[k, L] += perturbation
+            minus[k, L] -= perturbation
+            numerical[:, :, k, L] = (
+                constitutive.plane_stress_first_piola_value(plus, material)
+                - constitutive.plane_stress_first_piola_value(minus, material)
+            ) / (2.0 * perturbation)
+    np.testing.assert_allclose(tangent, numerical, rtol=2.0e-6, atol=1.0e-3)
+
+
+def test_plane_stress_ufl_condensation_closes_p33_for_affine_finite_strain():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    displacement = fields.displacement(domain)
+    displacement.value.interpolate(
+        lambda x: np.vstack(
+            (0.12 * x[0] + 0.03 * x[1], 0.01 * x[0] + 0.07 * x[1])
+        )
+    )
+    material = constitutive.neo_hookean_plane_stress(
+        young=1.0e6,
+        poisson=0.49,
+        density=1000.0,
+    )
+    gradient = ufl.Identity(2) + ufl.grad(displacement.value)
+    p33 = constitutive.plane_stress_out_of_plane_first_piola_from_gradient(
+        gradient,
+        material,
+    )
+    squared = fem.assemble_scalar(fem.form(p33**2 * ufl.dx))
+    assert np.sqrt(squared) < 1.0e-8 * material.young
+
+
+def test_plane_stress_neo_hookean_runs_through_public_explicit_provider():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    model = models.create(
+        study=studies.dynamic_solid(
+            dimension=2,
+            assumption="plane_stress",
+            method="explicit",
+        ),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    material = model.material(
+        constitutive.neo_hookean_plane_stress(
+            young=1.0e6,
+            poisson=0.49,
+            density=1000.0,
+        )
+    )
+    capability = step_capability(
+        model,
+        target=displacement,
+        options={"material": material, "dt": 1.0e-6, "steps": 1},
+    )
+    assert capability["supported"]
+    assert capability["provider"]["name"] == (
+        "neo_hookean_finite_strain_explicit_dynamics"
+    )
+    step = model.step(
+        target=displacement,
+        material=material,
+        dt=1.0e-6,
+        steps=1,
+        progress=False,
+    )
+    step.run()
+    assert step.history_records[-1]["bulk_strain_energy"] == pytest.approx(0.0)
+
+
 def test_finite_strain_explicit_can_select_a_visible_automatic_time_increment():
     model, displacement, material = _dynamic_neo_hookean_model()
     step = model.step(
@@ -329,6 +432,39 @@ def test_finite_strain_explicit_can_select_a_visible_automatic_time_increment():
     assert step.dt == pytest.approx(stability["selected"])
     assert stability["controller"] == "body"
     assert stability["maturity"] == "screening_estimate"
+
+
+def test_explicit_history_cadence_keeps_initial_periodic_and_final_records():
+    model, displacement, material = _dynamic_neo_hookean_model()
+
+    class CountingMonitor:
+        calls = 0
+
+        def evaluate(self, **_kwargs):
+            self.calls += 1
+            return {"evaluations": float(self.calls)}
+
+    step = model.finite_strain_explicit_dynamics_step(
+        target=displacement,
+        material=material,
+        dt=1.0e-7,
+        steps=5,
+        history_every=2,
+        progress=False,
+    )
+    monitor = CountingMonitor()
+    step.history_monitor = monitor
+    step.run()
+    np.testing.assert_allclose(
+        [record["time"] for record in step.history_records],
+        [0.0, 2.0e-7, 4.0e-7, 5.0e-7],
+    )
+    assert monitor.calls == 6
+    assert [record["evaluations"] for record in step.history_records] == [
+        1.0, 3.0, 5.0, 6.0,
+    ]
+    assert step.summary()["history_every"] == 2
+    assert step.summary()["history_evaluation_every"] == 1
 
 
 def test_finite_strain_explicit_rejects_unimplemented_plane_stress():
@@ -428,6 +564,16 @@ def test_separation_classification_requires_independent_spall_evidence():
         crack_speed=2.0,
         shear_wave_speed=1.0,
     ) == pytest.approx(np.pi / 6.0)
+    assert fracture.separation_regime(
+        crack_speed=3.0,
+        rayleigh_wave_speed=0.9,
+        shear_wave_speed=1.0,
+        pressure_wave_speed=2.0,
+        failed_fraction=0.95,
+        simultaneous_failed_fraction=0.2,
+        rapid_failed_fraction=0.5,
+        ligament_traction_ratio=1.0,
+    ) == "spall_like"
 
 
 def test_zero_preload_transfers_to_equilibrated_explicit_state():
@@ -454,6 +600,90 @@ def test_zero_preload_transfers_to_equilibrated_explicit_state():
     assert report.equilibrium_accepted
     assert report.acceleration_norm == pytest.approx(0.0)
     np.testing.assert_allclose(state.u.value.x.array, displacement.value.x.array)
+
+
+def test_explicit_step_transfers_held_prestrain_without_a_false_release():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (4, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    model = models.create(
+        study=studies.dynamic_solid(
+            dimension=2,
+            assumption="plane_strain",
+            method="explicit",
+        ),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    strain = 0.05
+    displacement.value.interpolate(
+        lambda x: np.vstack((np.zeros_like(x[0]), strain * x[1]))
+    )
+    material = model.material(
+        constitutive.neo_hookean(
+            young=1000.0,
+            poisson=0.25,
+            density=1.0,
+        )
+    )
+    model.constraint(
+        constraints.component_dirichlet(
+            displacement,
+            0,
+            on=lambda x: np.ones(x.shape[1], dtype=bool),
+            value=0.0,
+            name="held_lateral_kinematics",
+        )
+    )
+    model.constraint(
+        constraints.component_dirichlet(
+            displacement,
+            1,
+            on=lambda x: np.isclose(x[1], 0.0),
+            value=0.0,
+            name="held_bottom",
+        )
+    )
+    model.constraint(
+        constraints.component_dirichlet(
+            displacement,
+            1,
+            on=lambda x: np.isclose(x[1], 0.2),
+            value=strain * 0.2,
+            name="held_top",
+        )
+    )
+    step = model.finite_strain_explicit_dynamics_step(
+        target=displacement,
+        material=material,
+        dt=1.0e-4,
+        steps=2,
+        progress=False,
+        name="held_prestrain_release_check",
+    )
+    source_values = step.history_monitor.energy.evaluate(
+        displacement=displacement,
+        velocity=step.state.v,
+    )
+    source_energy = source_values["total_mechanical_energy"]
+    initial = displacement.value.x.array.copy()
+    report = step.initialize_from_preload(
+        displacement,
+        source_step="quasi_static_preload",
+        source_energy=source_energy,
+        force_tolerance=1.0e-9,
+    )
+    assert report.equilibrium_accepted
+    assert report.source_step == "quasi_static_preload"
+    assert report.destination_step == step.name
+    assert report.total_force_norm > report.residual_force_norm
+    assert report.relative_energy_jump == pytest.approx(0.0, abs=1.0e-14)
+    step.run()
+    np.testing.assert_allclose(step.state.u.value.x.array, initial, atol=1.0e-12)
 
 
 def test_preload_transfer_rejects_an_undeclared_force_release():
