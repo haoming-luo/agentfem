@@ -1663,6 +1663,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agentfemfracture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.fracture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agentfemmaterials" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1909,6 +1920,17 @@
     <span class="md-ellipsis">
       
         agentfem.ir
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agentfeminterfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.interfaces
       
     </span>
   </a>
@@ -3261,6 +3283,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agentfemfracture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.fracture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agentfemmaterials" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3507,6 +3540,17 @@
     <span class="md-ellipsis">
       
         agentfem.ir
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agentfeminterfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.interfaces
       
     </span>
   </a>
@@ -4171,6 +4215,143 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="agentfemfracture"><code>agentfem.fracture</code><a class="headerlink" href="#agentfemfracture" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Public object</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>function</td>
+<td><code>finite_strain_internal_force(displacement, test_function, material: hyperelasticity.NeoHookeanProperties, *, measure = ufl.dx, name: str = 'F_internal_finite_strain') -&gt; OperatorForm</code></td>
+<td>Return the current Total-Lagrangian Neo-Hookean internal force.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>FiniteStrainEnergyMonitor</code></td>
+<td>Accepted-frame kinetic and Neo-Hookean bulk energy monitor.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>DofMappedCohesiveForce(assembler, displacement, *, node_to_block_dof)</code></td>
+<td>Map the serial 2D cohesive facet kernel to vector finite-element dofs.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>p1_input_node_to_block_dof(displacement, *, number_of_input_nodes: int)</code></td>
+<td>Recover audited input-node identity for a first-order vector space.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>mode_i_cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law: interface_api.BilinearCohesiveLaw, *, normal_hint, thickness: float = 1.0, tolerance: float = 1e-10) -&gt; DofMappedCohesiveForce</code></td>
+<td>Build the executable Mode-I force directly from a split mesh contract.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>FiniteStrainCohesiveResidual(bulk, cohesive: DofMappedCohesiveForce)</code></td>
+<td>Assemble bulk UFL and paired-facet interface forces into one residual.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>MassProportionalDampingResidual(base, *, mass, velocity, coefficient: float, dt: float)</code></td>
+<td>Add <code>alpha M v_mid</code> with transactional dissipation accounting.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>DampingEnergyMonitor</code></td>
+<td>Add accepted viscous dissipation to an existing mechanical monitor.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>FiniteStrainCohesiveEnergyMonitor</code></td>
+<td>Typed accepted-frame energy for bulk plus cohesive dynamics.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>DynamicEnergyLedger</code></td>
+<td>Accepted-frame external work and mechanical-energy closure.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>IsotropicWaveSpeeds</code></td>
+<td>Reference small-on-zero wave speeds for one isotropic material.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>IncrementalWaveSpeeds</code></td>
+<td>Small-on-large bulk-wave modes about one homogeneous deformation.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>neo_hookean_material_tangent(deformation_gradient, material: hyperelasticity.NeoHookeanProperties) -&gt; np.ndarray</code></td>
+<td>Return <code>A[i,J,k,L] = dP[i,J]/dF[k,L]</code> for the declared energy.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>incremental_wave_speeds(deformation_gradient, direction, material: hyperelasticity.NeoHookeanProperties, *, direction_configuration: str = 'current') -&gt; IncrementalWaveSpeeds</code></td>
+<td>Return homogeneous small-on-large bulk-wave speeds.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>isotropic_reference_wave_speeds(material: hyperelasticity.NeoHookeanProperties) -&gt; IsotropicWaveSpeeds</code></td>
+<td>Return unstretched 3D isotropic <code>c_d</code>, <code>c_s</code>, and <code>c_R</code>.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>StableTimeIncrement</code></td>
+<td>Visible body/interface estimate for central difference.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CohesiveCrackHistory</code></td>
+<td>Crack-front position and window-fitted speed on a fixed path.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>PreloadTransferReport</code></td>
+<td>Evidence for a quasi-static displacement to Explicit state transfer.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>transfer_preload_to_explicit(preload_displacement, *, state, mass, residual, initial_velocity = None, mode: str = 'equilibrium', force_tolerance: float = 1e-08, acceleration_projection = None, energy_monitor = None, source_energy: float \| None = None, source_step: str \| None = None, destination_step: str \| None = None) -&gt; PreloadTransferReport</code></td>
+<td>Initialize <code>u/v/a</code> consistently from a quasi-static preload state.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>cohesive_crack_tip(path_coordinate, damage, *, threshold: float = 0.95, direction: str = 'increasing') -&gt; float</code></td>
+<td>Locate the contiguous crack front by interpolating a damage threshold.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>crack_tip_history(time_values, path_coordinate, damage_frames, *, threshold: float = 0.95, fit_window: int = 5, direction: str = 'increasing') -&gt; CohesiveCrackHistory</code></td>
+<td>Build a crack history without single-failed-element speed spikes.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>mach_cone_angle(*, crack_speed: float, shear_wave_speed: float) -&gt; float</code></td>
+<td>Return the ideal Mach angle <code>asin(c_s / v)</code> in radians.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>separation_regime(*, crack_speed: float, rayleigh_wave_speed: float, shear_wave_speed: float, failed_fraction: float, simultaneous_failed_fraction: float, spall_fraction: float = 0.8, rapid_failed_fraction: float \| None = None, ligament_traction_ratio: float \| None = None, pressure_wave_speed: float \| None = None) -&gt; str</code></td>
+<td>Classify one frame with explicit crack-speed and spall evidence.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>estimate_stable_time_increment(*, characteristic_length, dilatational_speed: float, safety_factor: float = 0.8, interface_stiffness: float \| None = None, interface_area: float \| None = None, negative_mass: float \| None = None, positive_mass: float \| None = None) -&gt; StableTimeIncrement</code></td>
+<td>Estimate explicit stability from body transit and interface oscillator.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>minimum_cell_nodal_spacing(domain) -&gt; float</code></td>
+<td>Return an MPI-global conservative spacing from cell geometry nodes.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="agentfemmaterials"><code>agentfem.materials</code><a class="headerlink" href="#agentfemmaterials" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4521,6 +4702,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>Compressible Neo-Hookean parameters derived from <code>E</code> and <code>nu</code>.</td>
 </tr>
 <tr>
+<td>class</td>
+<td><code>PlaneStressNeoHookeanProperties</code></td>
+<td>Compressible Neo-Hookean membrane with locally relaxed thickness.</td>
+</tr>
+<tr>
 <td>function</td>
 <td><code>kinematics(displacement) -&gt; FiniteStrainKinematics</code></td>
 <td>Return the standard finite-strain kinematic measures for <code>u</code>.</td>
@@ -4534,6 +4720,31 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>neo_hookean(*, young: float, poisson: float, density: float \| None = None, name: str = 'compressible Neo-Hookean') -&gt; NeoHookeanProperties</code></td>
 <td>Create a compressible Neo-Hookean material.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>neo_hookean_plane_stress(*, young: float, poisson: float, density: float \| None = None, name: str = 'plane-stress compressible Neo-Hookean') -&gt; PlaneStressNeoHookeanProperties</code></td>
+<td>Create a finite-strain plane-stress Neo-Hookean membrane material.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>plane_stress_first_piola_value(deformation_gradient, properties: PlaneStressNeoHookeanProperties) -&gt; np.ndarray</code></td>
+<td>Return the condensed numerical in-plane first Piola stress.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>plane_stress_out_of_plane_first_piola_from_gradient(F, properties: PlaneStressNeoHookeanProperties)</code></td>
+<td>Return the condensed <code>P33</code> residual for diagnostics and tests.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>plane_stress_thickness_stretch_value(deformation_gradient, properties: PlaneStressNeoHookeanProperties, *, tolerance: float = 1e-12, maximum_iterations: int = 30) -&gt; float</code></td>
+<td>Solve the local <code>P33=0</code> condition for one numerical 2x2 <code>F</code>.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>plane_stress_uniaxial_deformation_gradient(axial_stretch: float, properties: PlaneStressNeoHookeanProperties, *, tolerance: float = 1e-12, maximum_iterations: int = 30) -&gt; np.ndarray</code></td>
+<td>Return homogeneous uniaxial <code>F2</code> with traction-free lateral faces.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -4830,6 +5041,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>ramp(start_value: float = 0.0, end_value: float = 1.0, *, start_time: float = 0.0, end_time: float = 1.0, name: str = 'ramp') -&gt; Amplitude</code></td>
 <td>Create a clipped linear ramp amplitude.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>smooth_step(start_value: float = 0.0, end_value: float = 1.0, *, start_time: float = 0.0, end_time: float = 1.0, name: str = 'smooth_step') -&gt; Amplitude</code></td>
+<td>Create a clipped half-cosine transition with zero endpoint slopes.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -5409,7 +5625,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>explicit_dynamics(*, state, integrator, residual, stiffness = None, dt: float, steps: int, study = None, prescribed = (), constraints = (), update_load = None, save_every: int \| None = None, print_every: int \| None = None, progress = True, status_file = None, checkpoint_policy = None, name: str = 'explicit_dynamics') -&gt; ExplicitDynamicsStep</code></td>
+<td><code>explicit_dynamics(*, state, integrator, residual, stiffness = None, dt: float, steps: int, study = None, prescribed = (), constraints = (), update_load = None, save_every: int \| None = None, print_every: int \| None = None, history_every: int = 1, progress = True, status_file = None, checkpoint_policy = None, history_monitor = None, stability = None, name: str = 'explicit_dynamics') -&gt; ExplicitDynamicsStep</code></td>
 <td>Create a second-order explicit dynamics step.</td>
 </tr>
 <tr>
@@ -6542,6 +6758,88 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="agentfeminterfaces"><code>agentfem.interfaces</code><a class="headerlink" href="#agentfeminterfaces" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Public object</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>class</td>
+<td><code>CohesiveResponse</code></td>
+<td>One Mode-I traction--separation update.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>BilinearCohesiveLaw</code></td>
+<td>Irreversible bilinear Mode-I cohesive law.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CohesiveTransaction(law: BilinearCohesiveLaw, size: int)</code></td>
+<td>Trial/commit/rollback state for a batch of cohesive points.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>PairedLineFacets</code></td>
+<td>Deterministically paired zero-thickness line facets for a 2D mesh.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>SplitInterfaceMesh</code></td>
+<td>Array-level result of splitting one conforming 2D interface path.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>create_dolfinx_split_mesh(split: SplitInterfaceMesh, *, comm = None, cell_type: str \| None = None, input_order: str = 'counterclockwise')</code></td>
+<td>Create the first executable DOLFINx mesh for a split 2D interface.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CohesiveFacetResponse</code></td>
+<td>Trial force and energy from a batch of paired 2D facets.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ModeICohesiveFacetAssembler(topology: PairedLineFacets, law: BilinearCohesiveLaw, *, number_of_nodes: int, thickness: float = 1.0)</code></td>
+<td>Two-point line integration for a fixed-path 2D Mode-I interface.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>pair_coincident_line_facets(coordinates, negative_facets, positive_facets, *, normal_hint, tolerance: float = 1e-10) -&gt; PairedLineFacets</code></td>
+<td>Pair coincident two-node line facets with a declared normal direction.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>split_conforming_line_interface(coordinates, cells, interface_facets, *, positive_cells) -&gt; SplitInterfaceMesh</code></td>
+<td>Duplicate nodes on a declared conforming 2D cell interface.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CohesiveSurface</code></td>
+<td>Public description of a fixed-path zero-thickness interface.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>bilinear_cohesive(*, strength: float, fracture_energy: float, initial_stiffness: float, compression_stiffness: float \| None = None, name: str = 'bilinear Mode-I cohesive law') -&gt; BilinearCohesiveLaw</code></td>
+<td>Create a bilinear Mode-I cohesive law.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>cohesive_surface(*, law: BilinearCohesiveLaw, mode: str = 'normal', name: str = 'cohesive surface') -&gt; CohesiveSurface</code></td>
+<td>Declare a fixed-path zero-thickness cohesive interface.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>cohesive_characteristic_length(*, young: float, fracture_energy: float, strength: float) -&gt; float</code></td>
+<td>Return the declared scale <code>E * Gamma / strength**2</code>.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="agentfemcampaigns"><code>agentfem.campaigns</code><a class="headerlink" href="#agentfemcampaigns" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -6681,7 +6979,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>save_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, completed_steps: int, state: dict[str, object], accepted_times = (), execution_events = (), history_records = (), portable: bool = False)</code></td>
+<td><code>save_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, completed_steps: int, state: dict[str, object], accepted_times = (), execution_events = (), history_records = (), auxiliary_state: dict[str, object] \| None = None, portable: bool = False)</code></td>
 <td>Write a transient restart, optionally with partition-independent state.</td>
 </tr>
 <tr>
