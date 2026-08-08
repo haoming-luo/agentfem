@@ -129,7 +129,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `finite_strain_internal_force(displacement, test_function, material: hyperelasticity.NeoHookeanProperties, *, measure = ufl.dx, name: str = 'F_internal_finite_strain') -> OperatorForm` | Return the current Total-Lagrangian Neo-Hookean internal force. |
 | class | `FiniteStrainEnergyMonitor` | Accepted-frame kinetic and Neo-Hookean bulk energy monitor. |
 | class | `DofMappedCohesiveForce(assembler, displacement, *, node_to_block_dof)` | Map the serial 2D cohesive facet kernel to vector finite-element dofs. |
-| class | `DistributedDofMappedCohesiveForce(assembler, displacement, *, input_node_to_block_dof, input_node_owned, global_topology, global_facet_indices)` | MPI reference assembler for a physical-keyed split interface. |
+| class | `DistributedDofMappedCohesiveForce(assembler, displacement, *, input_node_to_block_dof, input_node_owned, global_topology, global_facet_indices, local_input_nodes = None)` | MPI assembler for a physical-keyed split interface. |
 | function | `p1_input_node_to_block_dof(displacement, *, number_of_input_nodes: int)` | Recover the complete serial input-node to block-DOF map. |
 | function | `mode_i_cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law: interface_api.BilinearCohesiveLaw, *, normal_hint, thickness: float = 1.0, tolerance: float = 1e-10) -> DofMappedCohesiveForce \| DistributedDofMappedCohesiveForce` | Build the executable Mode-I force directly from a split mesh contract. |
 | class | `FiniteStrainCohesiveResidual(bulk, cohesive: DofMappedCohesiveForce \| DistributedDofMappedCohesiveForce)` | Assemble bulk UFL and paired-facet interface forces into one residual. |
@@ -723,6 +723,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ModeICohesiveFacetAssembler(topology: PairedLineFacets, law: BilinearCohesiveLaw, *, number_of_nodes: int, thickness: float = 1.0)` | Two-point line integration for a fixed-path 2D Mode-I interface. |
 | function | `pair_coincident_line_facets(coordinates, negative_facets, positive_facets, *, normal_hint, tolerance: float = 1e-10) -> PairedLineFacets` | Pair coincident two-node line facets with a declared normal direction. |
 | function | `split_conforming_line_interface(coordinates, cells, interface_facets, *, positive_cells) -> SplitInterfaceMesh` | Duplicate nodes on a declared conforming 2D cell interface. |
+| function | `split_conforming_cell_interface(coordinates, cells, *, positive_cells) -> SplitInterfaceMesh` | Split the internal edge separating two declared 2D cell partitions. |
 | class | `CohesiveSurface` | Public description of a fixed-path zero-thickness interface. |
 | function | `bilinear_cohesive(*, strength: float, fracture_energy: float, initial_stiffness: float, compression_stiffness: float \| None = None, name: str = 'bilinear Mode-I cohesive law') -> BilinearCohesiveLaw` | Create a bilinear Mode-I cohesive law. |
 | function | `cohesive_surface(*, law: BilinearCohesiveLaw, mode: str = 'normal', name: str = 'cohesive surface') -> CohesiveSurface` | Declare a fixed-path zero-thickness cohesive interface. |

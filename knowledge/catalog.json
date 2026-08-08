@@ -60,8 +60,8 @@
       "id": "agentfem.benchmark.distributed_cohesive_force",
       "physics": "Two-dimensional Mode-I bilinear cohesive interface in finite-strain Explicit dynamics",
       "source": "knowledge/benchmarks/distributed_cohesive_force.json",
-      "status": "experimental_mpi_reference_automated",
-      "title": "Two-rank fixed-path cohesive force and portable restart"
+      "status": "experimental_mpi_sparse_automated",
+      "title": "Two-rank sparse fixed-path cohesive force and portable restart"
     },
     {
       "id": "agentfem.benchmark.dynamic_fracture_energy_v2",
@@ -400,6 +400,7 @@
       "kind": "workflow",
       "public_api": [
         "agentfem.interfaces.create_dolfinx_split_mesh",
+        "agentfem.interfaces.split_conforming_cell_interface",
         "agentfem.fracture.mode_i_cohesive_force",
         "agentfem.fracture.DistributedDofMappedCohesiveForce",
         "agentfem.fracture.FiniteStrainCohesiveResidual"
@@ -411,8 +412,8 @@
       ],
       "source": "knowledge/cards/distributed_cohesive_force.json",
       "status": "experimental",
-      "summary": "Partitions a split two-dimensional interface, exchanges independently owned traces by durable input-node identity, evaluates every physical facet on exactly one balanced deterministic rank, and accumulates equal-and-opposite force only into owned displacement entries.",
-      "title": "Physical-keyed cohesive force assembly across MPI ranks"
+      "summary": "Recovers a split two-dimensional interface from declared cell sides, builds one durable input-node owner schedule, exchanges only required remote traces and force contributions, evaluates every physical facet on exactly one balanced deterministic rank, and writes only owned displacement entries.",
+      "title": "Sparse physical-keyed cohesive force assembly across MPI ranks"
     },
     {
       "id": "agentfem.workflow.dynamic_fracture_v5_evidence",

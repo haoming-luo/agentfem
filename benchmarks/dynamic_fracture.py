@@ -612,10 +612,9 @@ def cohesive_energy_balance(
         ],
         dtype=float,
     )
-    split = interfaces.split_conforming_line_interface(
+    split = interfaces.split_conforming_cell_interface(
         coordinates,
         np.array([[0, 1, 2, 3], [3, 2, 4, 5]], dtype=int),
-        [[3, 2]],
         positive_cells=[1],
     )
     domain = interfaces.create_dolfinx_split_mesh(split)
@@ -760,14 +759,9 @@ def classical_cohesive_crack(
             )
         )
     cells_array = np.asarray((*bottom, *top), dtype=int)
-    interface_facets = np.asarray(
-        [(row + index, row + index + 1) for index in range(selected_cells)],
-        dtype=int,
-    )
-    split = interfaces.split_conforming_line_interface(
+    split = interfaces.split_conforming_cell_interface(
         coordinates,
         cells_array,
-        interface_facets,
         positive_cells=np.arange(selected_cells, 2 * selected_cells),
     )
     domain = interfaces.create_dolfinx_split_mesh(split)
@@ -1021,18 +1015,10 @@ def prestressed_weak_interface_separation(
         dtype=int,
     )
     interface_row = selected_transverse_cells // 2
-    interface_facets = np.asarray(
-        [
-            (interface_row * row + index, interface_row * row + index + 1)
-            for index in range(selected_cells)
-        ],
-        dtype=int,
-    )
     first_positive_cell = interface_row * selected_cells
-    split = interfaces.split_conforming_line_interface(
+    split = interfaces.split_conforming_cell_interface(
         coordinates,
         cells_array,
-        interface_facets,
         positive_cells=np.arange(first_positive_cell, len(cells_array)),
     )
     domain = interfaces.create_dolfinx_split_mesh(split)

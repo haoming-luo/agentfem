@@ -296,3 +296,88 @@ def test_split_interface_rejects_a_path_that_does_not_separate_declared_sides():
             np.array([[0, 2]]),
             positive_cells=[],
         )
+
+
+def test_split_cell_interface_recovers_partition_boundary_without_manual_facets():
+    coordinates = np.array(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [2.0, 0.0],
+            [0.0, 1.0],
+            [1.0, 1.0],
+            [2.0, 1.0],
+        ]
+    )
+    cells = np.array([[0, 1, 4, 3], [1, 2, 5, 4]])
+
+    split = interfaces.split_conforming_cell_interface(
+        coordinates,
+        cells,
+        positive_cells=[1],
+    )
+
+    np.testing.assert_array_equal(split.negative_facets, [[1, 4]])
+    np.testing.assert_allclose(
+        split.coordinates[split.negative_facets],
+        split.coordinates[split.positive_facets],
+    )
+    assert set(split.cells[0]).isdisjoint(split.positive_facets.reshape(-1))
+    assert set(split.positive_facets.reshape(-1)).issubset(set(split.cells[1]))
+
+
+def test_split_cell_interface_rejects_non_manifold_connectivity():
+    coordinates = np.array(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [0.5, 1.0],
+            [0.5, -1.0],
+            [0.5, 0.5],
+        ]
+    )
+    cells = np.array([[0, 1, 2], [1, 0, 3], [0, 1, 4]])
+
+    with pytest.raises(ValueError, match="manifold mesh"):
+        interfaces.split_conforming_cell_interface(
+            coordinates,
+            cells,
+            positive_cells=[1],
+        )
+
+
+def test_split_cell_interface_supports_triangle_partitions():
+    coordinates = np.array(
+        [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]
+    )
+    cells = np.array([[0, 1, 2], [0, 2, 3]])
+
+    split = interfaces.split_conforming_cell_interface(
+        coordinates,
+        cells,
+        positive_cells=np.array([False, True]),
+    )
+
+    np.testing.assert_array_equal(split.negative_facets, [[0, 2]])
+    assert split.summary()["number_of_interface_facets"] == 1
+
+
+def test_split_cell_interface_rejects_disconnected_cell_partitions():
+    coordinates = np.array(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [0.0, 1.0],
+            [2.0, 0.0],
+            [3.0, 0.0],
+            [2.0, 1.0],
+        ]
+    )
+    cells = np.array([[0, 1, 2], [3, 4, 5]])
+
+    with pytest.raises(ValueError, match="do not share"):
+        interfaces.split_conforming_cell_interface(
+            coordinates,
+            cells,
+            positive_cells=[1],
+        )

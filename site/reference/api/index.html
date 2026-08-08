@@ -4355,8 +4355,8 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
-<td><code>DistributedDofMappedCohesiveForce(assembler, displacement, *, input_node_to_block_dof, input_node_owned, global_topology, global_facet_indices)</code></td>
-<td>MPI reference assembler for a physical-keyed split interface.</td>
+<td><code>DistributedDofMappedCohesiveForce(assembler, displacement, *, input_node_to_block_dof, input_node_owned, global_topology, global_facet_indices, local_input_nodes = None)</code></td>
+<td>MPI assembler for a physical-keyed split interface.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -7010,6 +7010,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>split_conforming_line_interface(coordinates, cells, interface_facets, *, positive_cells) -&gt; SplitInterfaceMesh</code></td>
 <td>Duplicate nodes on a declared conforming 2D cell interface.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>split_conforming_cell_interface(coordinates, cells, *, positive_cells) -&gt; SplitInterfaceMesh</code></td>
+<td>Split the internal edge separating two declared 2D cell partitions.</td>
 </tr>
 <tr>
 <td>class</td>

@@ -134,7 +134,11 @@ the writer rejects inconsistent owner/ghost histories. For a split mesh, the
 same `fracture.mode_i_cohesive_force(...)` call selects serial or MPI execution;
 `step.save_checkpoint(..., portable=True)` retains coincident independent
 nodal identities and cohesive history across rank-count changes. The MPI path
-is a dense correctness reference, not yet a large-interface scalability claim.
+uses a one-time physical-node owner schedule and sparse `MPI_Alltoallv`
+trace/force payloads. For conforming 2D cell regions,
+`interfaces.split_conforming_cell_interface(...)` derives the checked path
+without a hand-written facet list. This is not yet a 3D or extreme-scale
+neighbor-collective scalability claim.
 
 ## Design Principle
 

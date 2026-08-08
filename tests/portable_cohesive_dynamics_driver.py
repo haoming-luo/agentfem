@@ -36,10 +36,9 @@ def _split_strip():
         ],
         dtype=int,
     )
-    return interfaces.split_conforming_line_interface(
+    return interfaces.split_conforming_cell_interface(
         coordinates,
         cells,
-        [[4, 5], [5, 6], [6, 7]],
         positive_cells=[3, 4, 5],
     )
 

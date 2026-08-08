@@ -21,7 +21,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | [`agentfem.workflow.campaign_learning_pipeline`](#agentfem-workflow-campaign_learning_pipeline) | Simulation campaign to guarded learning workflow | workflow | supported |
 | [`agentfem.workflow.cohesive_state_portability`](#agentfem-workflow-cohesive_state_portability) | Physical-keyed cohesive state across MPI partitions | workflow | experimental |
 | [`agentfem.workflow.coordinate_reference_coupling`](#agentfem-workflow-coordinate_reference_coupling) | Local coordinates and reference-point continuum coupling | workflow | supported |
-| [`agentfem.workflow.distributed_cohesive_force`](#agentfem-workflow-distributed_cohesive_force) | Physical-keyed cohesive force assembly across MPI ranks | workflow | experimental |
+| [`agentfem.workflow.distributed_cohesive_force`](#agentfem-workflow-distributed_cohesive_force) | Sparse physical-keyed cohesive force assembly across MPI ranks | workflow | experimental |
 | [`agentfem.workflow.dynamic_fracture_v5_evidence`](#agentfem-workflow-dynamic_fracture_v5_evidence) | Publication-data evidence for dynamic cohesive fracture | workflow | experimental |
 | [`agentfem.workflow.integration_point_recovery`](#agentfem-workflow-integration_point_recovery) | Traceable integration-point field recovery | workflow | supported |
 | [`agentfem.workflow.observation_grid_learning`](#agentfem-workflow-observation_grid_learning) | Mesh-independent structured observation grids | workflow | supported |
@@ -45,7 +45,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | `agentfem.benchmark.creep_abaqus_constant_stress` | Official Abaqus time-hardening constant-stress creep case | three-dimensional small-strain Mises time-hardening power-law creep | automated_external_verification |
 | `agentfem.benchmark.creep_damage_material_paths` | Creep-damage material paths and curve projection | Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection | automated_regression |
 | `agentfem.benchmark.creep_hot_wall_release` | Sequential hot-wall creep assessment release contract | sequential transient heat conduction, plane-strain thermoelasticity, and local creep-damage assessment | automated_regression |
-| `agentfem.benchmark.distributed_cohesive_force` | Two-rank fixed-path cohesive force and portable restart | Two-dimensional Mode-I bilinear cohesive interface in finite-strain Explicit dynamics | experimental_mpi_reference_automated |
+| `agentfem.benchmark.distributed_cohesive_force` | Two-rank sparse fixed-path cohesive force and portable restart | Two-dimensional Mode-I bilinear cohesive interface in finite-strain Explicit dynamics | experimental_mpi_sparse_automated |
 | `agentfem.benchmark.dynamic_fracture_energy_v2` | Finite-strain and cohesive dynamic energy closure | Total-Lagrangian Neo-Hookean dynamics with optional Mode-I cohesive separation | experimental_v2_automated |
 | `agentfem.benchmark.elasticity_foundation` | Foundational small-strain elasticity verification | two- and three-dimensional small-strain linear elasticity | automated |
 | `agentfem.benchmark.finite_strain_incremental_waves_v1` | Neo-Hookean small-on-large wave oracle | compressible Neo-Hookean small-on-large elastodynamics | experimental_v1_automated |
@@ -1106,11 +1106,11 @@ The hash selects one rank from the sorted ranks on which the physical facet is v
 
 #### Applicability
 
-- Fixed-path two-dimensional Mode-I cohesive interfaces and the distributed reference force assembler using the same physical-key contract.
+- Fixed-path two-dimensional Mode-I cohesive interfaces and the distributed sparse-payload force assembler using the same physical-key contract.
 
 #### Limitations
 
-- Distributed residual assembly now exists as a dense-collective correctness reference; this state card alone is not a scalability claim.
+- Distributed residual assembly uses a sparse physical-node owner schedule; this state card alone is not an extreme-scale performance claim.
 - The root-gathered NPZ format is laboratory-scale, not an extreme-scale collective checkpoint backend.
 - Reversed facet orientation is intentionally incompatible until quadrature permutation is explicitly implemented.
 
@@ -1251,18 +1251,19 @@ local = coordinates.cartesian(x=(0,1), y=(-1,0)); rp = coordinates.reference_poi
 
 <a id="agentfem-workflow-distributed_cohesive_force"></a>
 
-## Physical-keyed cohesive force assembly across MPI ranks
+## Sparse physical-keyed cohesive force assembly across MPI ranks
 
 **Stable ID:** `agentfem.workflow.distributed_cohesive_force`<br>
 **Kind:** `workflow`<br>
 **Status:** `experimental`<br>
 **Source card:** `knowledge/cards/distributed_cohesive_force.json`
 
-Partitions a split two-dimensional interface, exchanges independently owned traces by durable input-node identity, evaluates every physical facet on exactly one balanced deterministic rank, and accumulates equal-and-opposite force only into owned displacement entries.
+Recovers a split two-dimensional interface from declared cell sides, builds one durable input-node owner schedule, exchanges only required remote traces and force contributions, evaluates every physical facet on exactly one balanced deterministic rank, and writes only owned displacement entries.
 
 ### Public API
 
 - `agentfem.interfaces.create_dolfinx_split_mesh`
+- `agentfem.interfaces.split_conforming_cell_interface`
 - `agentfem.fracture.mode_i_cohesive_force`
 - `agentfem.fracture.DistributedDofMappedCohesiveForce`
 - `agentfem.fracture.FiniteStrainCohesiveResidual`
@@ -1287,6 +1288,14 @@ $$
 
 Sorted physical facet keys distribute work reproducibly and give every rank a facet when the interface has at least as many facets as ranks.
 
+**interface-scaled communication payload**
+
+$$
+N_{\mathrm{payload},r}=d\,|\mathcal N_{\Gamma,r}^{\mathrm{remote}}|
+$$
+
+Each rank sends displacement traces and force contributions only for remote physical interface nodes required by its owned facets, rather than arrays proportional to all bulk nodes.
+
 #### Inputs
 
 | Name | Type | Unit role | Meaning |
@@ -1310,23 +1319,25 @@ Sorted physical facet keys distribute work reproducibly and give every rank a fa
 #### Conventions
 
 - Only owned input-node values are published; only owned displacement entries receive the globally reduced force.
+- The owner/request schedule is built once; accepted and attempted increments reuse numeric MPI_Alltoallv payload layouts.
+- Each facet owner compacts its local cohesive kernel to the physical interface nodes touched by its facets.
 - Facet state follows ordered physical geometry and quadrature, never rank-local DOF numbering.
 - Coincident independent nodal checkpoint keys append durable input-node identity to the quantized coordinate.
 
 #### Applicability
 
-- Laboratory-scale distributed fixed-path Mode-I finite-strain Explicit dynamics and cross-rank-count restart verification.
+- Distributed fixed-path Mode-I finite-strain Explicit dynamics, conforming 2D cell-partition interfaces, and cross-rank-count restart verification.
 
 #### Limitations
 
-- The correctness-first implementation uses dense displacement exchange and force all-reduction; a sparse neighbor schedule is required for large interfaces.
-- Mixed-mode, three-dimensional cohesive surfaces, contact after closure, and imported Abaqus/Gmsh internal surfaces are not yet covered.
+- The implementation uses sparse payloads on a communicator-wide Alltoallv schedule; extreme-scale neighborhood-collective performance is not yet benchmarked.
+- Mixed-mode, three-dimensional cohesive surfaces, contact after closure, and direct imported Abaqus/Gmsh internal-surface adapters are not yet covered.
 - MPI execution is experimental and does not promote the V4/V5 scientific benchmark to validated status.
 
 ### Minimal example
 
 ```python
-domain = interfaces.create_dolfinx_split_mesh(split, comm=MPI.COMM_WORLD); U = fields.displacement(domain); cohesive = fracture.mode_i_cohesive_force(split, U, law, normal_hint=(0, 1)); step = model.finite_strain_explicit_dynamics_step(target=U, material=material, cohesive_force=cohesive, dt=dt, steps=steps)
+split = interfaces.split_conforming_cell_interface(points, cells, positive_cells=upper_cells); domain = interfaces.create_dolfinx_split_mesh(split, comm=MPI.COMM_WORLD); U = fields.displacement(domain); cohesive = fracture.mode_i_cohesive_force(split, U, law, normal_hint=(0, 1)); step = model.finite_strain_explicit_dynamics_step(target=U, material=material, cohesive_force=cohesive, dt=dt, steps=steps)
 ```
 
 ### Verification
@@ -1344,7 +1355,11 @@ domain = interfaces.create_dolfinx_split_mesh(split, comm=MPI.COMM_WORLD); U = f
 **Validation rules**
 
 - Three physical facets are owned exactly once across two ranks and produce zero net interface force with the exact integrated tensile resultant.
+- A nonuniform interface spanning compression, elastic loading, and softening matches the serial kernel node by node and in both energy channels.
+- The execution summary reports sparse remote trace and force payloads bounded by required interface nodes rather than all mesh nodes.
+- The local assembler node count equals the scheduled interface-node count and is smaller than the split volume-node count in the acceptance mesh.
 - The public finite-strain Explicit step completes on two ranks with globally identical energy history.
+- The sparse communication schedule and nonuniform serial equivalence also pass when three facets are assigned across three MPI owners.
 - A two-rank partial Explicit calculation restarts on one rank and matches uninterrupted displacement and cohesive history.
 
 ### References
@@ -1440,7 +1455,7 @@ The implementation falls back to observed RMS only when the observed range is nu
 - The dependency-free XLSX reader exposes stored values and cached formula results; it does not execute Excel formulas or infer units.
 - No universal acceptance tolerance is imposed; the research protocol must justify observable-specific thresholds.
 - The V4 spatial speed gate is not yet converged below ten percent.
-- Physical-keyed cohesive state, force, energy, and cross-rank-count restart are implemented with dense collectives; sparse scalable exchange remains.
+- Physical-keyed cohesive state, force, energy, sparse interface payloads, and cross-rank-count restart are implemented; direct imported/3D interfaces and extreme-scale MPI profiling remain.
 - The plane-stress/thin-3D cross-check currently covers homogeneous affine deformation, not a full three-dimensional propagating crack.
 - The implemented publication registration is affine; nonlinear lens correction, segmentation, and coordinate uncertainty remain explicit research preprocessing.
 

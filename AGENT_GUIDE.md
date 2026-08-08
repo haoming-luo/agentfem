@@ -142,9 +142,12 @@ finite-element simulation with AgentFEM.
   `interfaces.load_portable_cohesive_state(...)`. Physical facet keys survive
   local order and MPI rank-count changes. `create_dolfinx_split_mesh(...,
   comm=...)` plus the unchanged `fracture.mode_i_cohesive_force(...)` factory
-  provides the experimental MPI reference force path. Portable transient
-  checkpoints also distinguish coincident independent nodes; do not describe
-  its dense collective exchange as a scalability result.
+  provides the experimental sparse-payload MPI force path. When positive-side
+  cell identities are known, prefer
+  `interfaces.split_conforming_cell_interface(...)` to a hand-written facet
+  list. Portable transient checkpoints also distinguish coincident independent
+  nodes. Do not infer 3D imported surfaces or extreme-scale performance from
+  this 2D owner-scheduled contract.
 - Installed projects and external frontends: read `docs/getting_started.md`
   and `docs/agent_gui_integration.md`. Keep `case.py` as modeling truth, use
   `project.current_run()` for artifacts, publish a `SimulationResult`, and

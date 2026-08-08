@@ -2,12 +2,13 @@
   "schema": "agentfem.scientific-function-card",
   "schema_version": "0.1.0",
   "id": "agentfem.workflow.distributed_cohesive_force",
-  "title": "Physical-keyed cohesive force assembly across MPI ranks",
+  "title": "Sparse physical-keyed cohesive force assembly across MPI ranks",
   "kind": "workflow",
   "status": "experimental",
-  "summary": "Partitions a split two-dimensional interface, exchanges independently owned traces by durable input-node identity, evaluates every physical facet on exactly one balanced deterministic rank, and accumulates equal-and-opposite force only into owned displacement entries.",
+  "summary": "Recovers a split two-dimensional interface from declared cell sides, builds one durable input-node owner schedule, exchanges only required remote traces and force contributions, evaluates every physical facet on exactly one balanced deterministic rank, and writes only owned displacement entries.",
   "public_api": [
     "agentfem.interfaces.create_dolfinx_split_mesh",
+    "agentfem.interfaces.split_conforming_cell_interface",
     "agentfem.fracture.mode_i_cohesive_force",
     "agentfem.fracture.DistributedDofMappedCohesiveForce",
     "agentfem.fracture.FiniteStrainCohesiveResidual"
@@ -29,6 +30,11 @@
         "label": "balanced deterministic facet owner",
         "expression": "r_f=\\operatorname{rank}_{\\mathrm{sorted}}(k_f)\\bmod N_r",
         "description": "Sorted physical facet keys distribute work reproducibly and give every rank a facet when the interface has at least as many facets as ranks."
+      },
+      {
+        "label": "interface-scaled communication payload",
+        "expression": "N_{\\mathrm{payload},r}=d\\,|\\mathcal N_{\\Gamma,r}^{\\mathrm{remote}}|",
+        "description": "Each rank sends displacement traces and force contributions only for remote physical interface nodes required by its owned facets, rather than arrays proportional to all bulk nodes."
       }
     ],
     "inputs": [
@@ -66,20 +72,22 @@
     ],
     "conventions": [
       "Only owned input-node values are published; only owned displacement entries receive the globally reduced force.",
+      "The owner/request schedule is built once; accepted and attempted increments reuse numeric MPI_Alltoallv payload layouts.",
+      "Each facet owner compacts its local cohesive kernel to the physical interface nodes touched by its facets.",
       "Facet state follows ordered physical geometry and quadrature, never rank-local DOF numbering.",
       "Coincident independent nodal checkpoint keys append durable input-node identity to the quantized coordinate."
     ],
     "applicability": [
-      "Laboratory-scale distributed fixed-path Mode-I finite-strain Explicit dynamics and cross-rank-count restart verification."
+      "Distributed fixed-path Mode-I finite-strain Explicit dynamics, conforming 2D cell-partition interfaces, and cross-rank-count restart verification."
     ],
     "limitations": [
-      "The correctness-first implementation uses dense displacement exchange and force all-reduction; a sparse neighbor schedule is required for large interfaces.",
-      "Mixed-mode, three-dimensional cohesive surfaces, contact after closure, and imported Abaqus/Gmsh internal surfaces are not yet covered.",
+      "The implementation uses sparse payloads on a communicator-wide Alltoallv schedule; extreme-scale neighborhood-collective performance is not yet benchmarked.",
+      "Mixed-mode, three-dimensional cohesive surfaces, contact after closure, and direct imported Abaqus/Gmsh internal-surface adapters are not yet covered.",
       "MPI execution is experimental and does not promote the V4/V5 scientific benchmark to validated status."
     ]
   },
   "usage": {
-    "minimal_example": "domain = interfaces.create_dolfinx_split_mesh(split, comm=MPI.COMM_WORLD); U = fields.displacement(domain); cohesive = fracture.mode_i_cohesive_force(split, U, law, normal_hint=(0, 1)); step = model.finite_strain_explicit_dynamics_step(target=U, material=material, cohesive_force=cohesive, dt=dt, steps=steps)",
+    "minimal_example": "split = interfaces.split_conforming_cell_interface(points, cells, positive_cells=upper_cells); domain = interfaces.create_dolfinx_split_mesh(split, comm=MPI.COMM_WORLD); U = fields.displacement(domain); cohesive = fracture.mode_i_cohesive_force(split, U, law, normal_hint=(0, 1)); step = model.finite_strain_explicit_dynamics_step(target=U, material=material, cohesive_force=cohesive, dt=dt, steps=steps)",
     "examples": [
       "tests/test_parallel_cohesive.py",
       "tests/portable_cohesive_dynamics_driver.py"
@@ -96,7 +104,11 @@
     ],
     "validation_rules": [
       "Three physical facets are owned exactly once across two ranks and produce zero net interface force with the exact integrated tensile resultant.",
+      "A nonuniform interface spanning compression, elastic loading, and softening matches the serial kernel node by node and in both energy channels.",
+      "The execution summary reports sparse remote trace and force payloads bounded by required interface nodes rather than all mesh nodes.",
+      "The local assembler node count equals the scheduled interface-node count and is smaller than the split volume-node count in the acceptance mesh.",
       "The public finite-strain Explicit step completes on two ranks with globally identical energy history.",
+      "The sparse communication schedule and nonuniform serial equivalence also pass when three facets are assigned across three MPI owners.",
       "A two-rank partial Explicit calculation restarts on one rank and matches uninterrupted displacement and cohesive history."
     ]
   },

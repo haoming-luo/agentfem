@@ -30,7 +30,7 @@
     "The two-dimensional membrane uses local P33=0 condensation. Its homogeneous response now matches an affine thin-three-dimensional FEM patch, but a full thin-3D fracture counterpart and general near-incompressible locking control remain future gates.",
     "The Rayleigh value remains the unstretched isotropic reference. The principal prestrained surface-wave solver correctly requires a traction-free base surface, whereas this weak interface carries normal preload before release.",
     "The inexpensive mechanism ladder retains two cells through the height; the separate two-dimensional convergence contract uses 30x10 and 40x14 meshes with a lower non-spalling impact.",
-    "A two-rank dense-collective cohesive reference assembler now closes physical ownership, force, energy, and cross-rank-count restart contracts. Sparse scalable exchange and a distributed V4 convergence study remain required before performance or publication claims."
+    "A two-rank sparse-payload cohesive assembler now closes physical ownership, node-wise serial equivalence, force, energy, and cross-rank-count restart contracts. Large-interface MPI profiling and a distributed V4 convergence study remain required before performance or publication claims."
   ],
   "golden": {
     "reference_version": "v4-mechanism-2026-08-08",

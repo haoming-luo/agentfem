@@ -35,10 +35,9 @@ def _split_strip():
         ],
         dtype=int,
     )
-    return interfaces.split_conforming_line_interface(
+    return interfaces.split_conforming_cell_interface(
         coordinates,
         cells,
-        [[4, 5], [5, 6], [6, 7]],
         positive_cells=[3, 4, 5],
     )
 
@@ -182,11 +181,121 @@ def test_distributed_cohesive_force_runs_through_public_explicit_step():
     assert step.completed_steps == 1
     assert step.residual.cohesive.summary()["global_facets"] == 3
     assert step.residual.summary()["maturity"] == (
-        "experimental_mpi_reference_consumer"
+        "experimental_mpi_sparse_consumer"
     )
     assert np.isfinite(step.history_records[-1]["energy_balance_error"])
     histories = comm.allgather(step.history_records)
     assert all(item == histories[0] for item in histories[1:])
+
+
+def test_distributed_cohesive_exchange_is_interface_sparse():
+    comm = MPI.COMM_WORLD
+    if comm.size not in {2, 3}:
+        pytest.skip("distributed cohesive schedule requires two or three ranks")
+    split = _split_strip()
+    domain = interfaces.create_dolfinx_split_mesh(split, comm=comm)
+    displacement = fields.displacement(domain)
+    cohesive = _distributed_force(split, displacement)
+
+    summary = cohesive.summary()
+    communication = summary["communication"]
+    assert summary["parallel_scope"] == "mpi_sparse_owner_exchange"
+    assert summary["force_exchange"] == "physical_input_nodes+sparse_alltoallv"
+    assert summary["local_assembly_layout"] == "interface_compact"
+    assert communication["rank_required_nodes"] <= len(cohesive.interface_nodes)
+    assert cohesive.assembler.number_of_nodes == communication["rank_required_nodes"]
+    assert cohesive.assembler.number_of_nodes < split.coordinates.shape[0]
+    assert communication["rank_remote_trace_nodes"] <= communication[
+        "rank_required_nodes"
+    ]
+    assert communication["rank_trace_values_per_exchange"] == (
+        communication["rank_remote_trace_nodes"] * 2
+    )
+    assert communication["rank_force_values_per_exchange"] == (
+        communication["rank_remote_trace_nodes"] * 2
+    )
+    assert communication["rank_trace_values_per_exchange"] < (
+        split.coordinates.shape[0] * 2
+    )
+    records = comm.allgather(communication)
+    assert any(item["rank_remote_trace_nodes"] > 0 for item in records)
+
+
+def test_sparse_exchange_matches_serial_nonuniform_interface_response():
+    comm = MPI.COMM_WORLD
+    if comm.size not in {2, 3}:
+        pytest.skip("distributed cohesive equivalence requires two or three ranks")
+    split = _split_strip()
+    domain = interfaces.create_dolfinx_split_mesh(split, comm=comm)
+    displacement = fields.displacement(domain)
+    cohesive = _distributed_force(split, displacement)
+    values_by_x = {
+        0.0: -0.25 * _law().peak_opening,
+        1.0 / 3.0: 0.50 * _law().peak_opening,
+        2.0 / 3.0: 1.50 * _law().peak_opening,
+        1.0: 0.75 * _law().failure_opening,
+    }
+    positive_nodes = set(int(value) for value in split.positive_facets.reshape(-1))
+    local_values = displacement.value.x.array.reshape((-1, 2))
+    prescribed = np.zeros((split.coordinates.shape[0], 2), dtype=float)
+    for node in positive_nodes:
+        x = float(split.coordinates[node, 0])
+        opening = values_by_x[min(values_by_x, key=lambda value: abs(value - x))]
+        prescribed[node, 1] = opening
+    for node in np.flatnonzero(cohesive.input_node_owned):
+        local_values[int(cohesive.node_to_block_dof[node])] = prescribed[int(node)]
+    displacement.value.x.scatter_forward()
+
+    zero = operators.OperatorForm(
+        name="zero_bulk",
+        expression=ufl.inner(
+            fem.Constant(domain, np.asarray((0.0, 0.0))), displacement.test
+        )
+        * ufl.dx,
+        kind="zero_bulk_force",
+        role="vector",
+        family="test",
+    )
+    residual = fracture.FiniteStrainCohesiveResidual(zero, cohesive)
+    vector = residual.assemble_vector()
+    try:
+        array = vector.array.reshape((-1, 2))
+        local_force = {
+            int(node): array[int(cohesive.node_to_block_dof[node])].copy()
+            for node in np.flatnonzero(cohesive.input_node_owned)
+            if int(node) in cohesive.interface_nodes
+        }
+        distributed = {}
+        for payload in comm.allgather(local_force):
+            distributed.update(payload)
+
+        topology = interfaces.pair_coincident_line_facets(
+            split.coordinates,
+            split.negative_facets,
+            split.positive_facets,
+            normal_hint=(0.0, 1.0),
+        )
+        reference_assembler = interfaces.ModeICohesiveFacetAssembler(
+            topology,
+            _law(),
+            number_of_nodes=split.coordinates.shape[0],
+        )
+        reference = reference_assembler.begin(prescribed)
+        for node in cohesive.interface_nodes:
+            np.testing.assert_allclose(
+                distributed[int(node)],
+                reference.internal_force[int(node)],
+                rtol=1.0e-13,
+                atol=1.0e-13,
+            )
+        response = cohesive.current_response()
+        assert response.stored_energy == pytest.approx(reference.stored_energy)
+        assert response.dissipated_energy == pytest.approx(
+            reference.dissipated_energy
+        )
+    finally:
+        vector.destroy()
+        residual.rollback()
 
 
 def test_distributed_cohesive_contract_rejects_rank_inconsistent_orientation():

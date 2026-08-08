@@ -3656,13 +3656,16 @@ physical key with the law, quadrature contract, size, and SHA-256 evidence.
 The same file is exercised by a two-rank write followed by a one-rank restore
 with a different facet order.</p>
 <p>The split bulk graph does not normally ghost the opposite interface trace:
-the duplicated sides are topologically disconnected. The MPI reference
-consumer therefore exchanges owned displacement values by durable input-node
-identity, evaluates each sorted physical facet key on one balanced owner,
-reduces the equal-and-opposite nodal force, and writes only owned displacement
-entries. A two-rank Explicit run and two-rank-to-one-rank transient restart
-exercise this complete path. Dense collectives make this a correctness
-reference, not yet the large-interface performance backend.</p>
+the duplicated sides are topologically disconnected. The MPI consumer builds
+one physical-node owner schedule, exchanges only the remote traces needed by
+locally owned facets, evaluates each sorted physical facet key on one balanced
+owner, and returns sparse nodal contributions to the displacement owner with
+numeric <code>MPI_Alltoallv</code>. Only owned displacement entries are written. Energy
+uses a scalar reduction; state remains physical-facet keyed. A two-rank
+Explicit run and two-rank-to-one-rank transient restart exercise this complete
+path, while a nonuniform compression/softening case compares every assembled
+node force with the serial kernel. This removes dense volume-node payloads; it
+does not yet claim an extreme-scale neighborhood-collective optimum.</p>
 <p><code>interfaces.BilinearCohesiveLaw</code> and <code>interfaces.CohesiveTransaction</code> are the
 first material-point implementation of this contract.  They are marked
 experimental until a paired-facet global consumer passes the verification
@@ -3681,6 +3684,12 @@ with independent displacement degrees of freedom.  The mesh adapter must:</p>
 <li>reject missing, duplicate, ambiguous, or noncoincident partners;</li>
 <li>assign every physical pair one balanced deterministic MPI owner.</li>
 </ol>
+<p>For a conforming two-dimensional mesh, the path can now be derived from a
+declared cell partition with <code>split_conforming_cell_interface(...)</code>. The
+positive cell region remains explicit, while shared manifold edges are
+recovered and checked automatically. This is the neutral lowering target for
+future Abaqus ELSET/SURFACE and Gmsh physical-group adapters; it is not yet a
+direct 3D imported-surface consumer.</p>
 <p>Because the split sides are topological exterior facets, a normal DOLFINx
 interior-facet <code>dS</code> form is not by itself the global cohesive element.  The
 current 2D consumer assembles paired-facet nodal forces explicitly and adds
@@ -3893,11 +3902,11 @@ the named benchmark and parameter range whose evidence is published.</p>
   by the numerical arrival-time benchmark below; it does not substitute for a
   prestrained Rayleigh secular solution.</li>
 </ul>
-<p>This slice is still <code>experimental</code>. The MPI dof adapter is a dense-collective
-reference rather than a sparse scalable exchange; interface mesh splitting is
-not yet wired to Abaqus/Gmsh import; MPC/contact/weak-constraint work requires
-dedicated dual variables; general near-incompressibility and full thin-3D
-fracture remain implementation gates.</p>
+<p>This slice is still <code>experimental</code>. The MPI dof adapter now uses a cached
+physical-owner schedule with sparse trace/force payloads, and conforming paths
+can be recovered from cell partitions. Direct Abaqus/Gmsh surface lowering,
+extreme-scale neighborhood-collective profiling, MPC/contact/weak-constraint
+work, general near-incompressibility, and full thin-3D fracture remain gates.</p>
 <h3 id="automated-v1-v3-guardrails">Automated V1--V3 guardrails<a class="headerlink" href="#automated-v1-v3-guardrails" title="Permanent link">&para;</a></h3>
 <p>The first named verification ladder is now executable:</p>
 <ul>
@@ -3983,9 +3992,9 @@ performance target.</p>
    changing constitutive or commit/rollback semantics;</li>
 <li>keep the short construction smoke per commit and run the roughly
    6.2-minute full refinement contract in scheduled or release-gate CI;</li>
-<li>replace the verified dense MPI reference exchange with a cached sparse
-   neighbor schedule while preserving its physical identity, force, energy,
-   restart, and benchmark contracts.</li>
+<li>profile the implemented cached sparse owner schedule on larger interfaces,
+   then evaluate a distributed-graph neighborhood collective without changing
+   its physical identity, force, energy, restart, or benchmark contracts.</li>
 </ol>
 <h3 id="v5-public-data-evidence-boundary">V5 public-data evidence boundary<a class="headerlink" href="#v5-public-data-evidence-boundary" title="Permanent link">&para;</a></h3>
 <p>V5 is now represented by reusable software contracts rather than a premature
@@ -4016,10 +4025,11 @@ attribute disagreement.</p>
 each saved frame. This closes the reproducibility and measurement plumbing
 needed to begin V5. It does not close the scientific gates. Remaining
 software-side blockers are full thin-three-dimensional fracture and general
-near-incompressibility validation, sparse scalable cohesive exchange,
-Abaqus/Gmsh internal-surface ingestion, and improved V4 spatial speed
-convergence. Affine publication registration, physical-keyed MPI force/state,
-and cross-rank-count cohesive restart now have executable contracts.</p>
+near-incompressibility validation, direct Abaqus/Gmsh internal-surface
+ingestion, extreme-scale neighborhood-collective profiling, and improved V4
+spatial speed convergence. Affine publication registration, cell-partition
+interface recovery, sparse physical-keyed MPI force/state, and cross-rank-count
+cohesive restart now have executable contracts.</p>
 <h2 id="inputs-to-request-from-the-authors">Inputs to request from the authors<a class="headerlink" href="#inputs-to-request-from-the-authors" title="Permanent link">&para;</a></h2>
 <p>Priority order:</p>
 <ol>

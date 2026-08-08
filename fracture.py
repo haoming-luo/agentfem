@@ -280,18 +280,220 @@ class DofMappedCohesiveForce:
         }
 
 
+class _SparseCohesiveExchange:
+    """One-time owner schedule for sparse interface trace and force exchange."""
+
+    def __init__(
+        self,
+        *,
+        comm,
+        input_node_to_block_dof,
+        input_node_owned,
+        required_nodes,
+        owned_interface_nodes,
+        block_size: int,
+    ):
+        self.comm = comm
+        self.mapping = np.asarray(input_node_to_block_dof, dtype=int)
+        self.owned = np.asarray(input_node_owned, dtype=bool)
+        self.required_nodes = np.asarray(required_nodes, dtype=int)
+        self.owned_interface_nodes = np.asarray(owned_interface_nodes, dtype=int)
+        self.block_size = int(block_size)
+        number_of_nodes = int(self.mapping.size)
+        if self.owned.shape != (number_of_nodes,):
+            raise ValueError("Sparse cohesive ownership has an incompatible shape.")
+        if np.any(self.required_nodes < 0) or np.any(
+            self.required_nodes >= number_of_nodes
+        ):
+            raise ValueError("Sparse cohesive schedule contains an invalid node id.")
+
+        owner_by_node = np.full(number_of_nodes, -1, dtype=int)
+        for rank, nodes in enumerate(
+            comm.allgather(np.flatnonzero(self.owned).astype(int).tolist())
+        ):
+            selected = np.asarray(nodes, dtype=int)
+            if np.any(owner_by_node[selected] >= 0):
+                raise RuntimeError("A cohesive input node has multiple MPI owners.")
+            owner_by_node[selected] = int(rank)
+        if np.any(owner_by_node[self.required_nodes] < 0):
+            raise RuntimeError("A required cohesive trace node has no MPI owner.")
+        self.owner_by_node = owner_by_node
+
+        requested_by_owner = []
+        for rank in range(comm.size):
+            if rank == comm.rank:
+                requested_by_owner.append(np.empty(0, dtype=int))
+            else:
+                requested_by_owner.append(
+                    self.required_nodes[owner_by_node[self.required_nodes] == rank]
+                )
+        incoming = comm.alltoall(
+            [nodes.astype(int).tolist() for nodes in requested_by_owner]
+        )
+        self.receive_nodes_by_owner = tuple(
+            np.asarray(nodes, dtype=int) for nodes in requested_by_owner
+        )
+        self.send_nodes_by_requester = tuple(
+            np.asarray(nodes, dtype=int) for nodes in incoming
+        )
+        for nodes in self.send_nodes_by_requester:
+            if nodes.size and (
+                np.any(~self.owned[nodes]) or np.any(self.mapping[nodes] < 0)
+            ):
+                raise RuntimeError(
+                    "Sparse cohesive schedule requested a node not owned locally."
+                )
+        self.local_required_owned = self.required_nodes[
+            owner_by_node[self.required_nodes] == int(comm.rank)
+        ]
+        position = np.full(number_of_nodes, -1, dtype=int)
+        position[self.owned_interface_nodes] = np.arange(
+            self.owned_interface_nodes.size, dtype=int
+        )
+        self.owned_position = position
+        required_position = np.full(number_of_nodes, -1, dtype=int)
+        required_position[self.required_nodes] = np.arange(
+            self.required_nodes.size, dtype=int
+        )
+        self.required_position = required_position
+
+    @staticmethod
+    def _counts(groups, components: int) -> tuple[np.ndarray, np.ndarray]:
+        counts = np.asarray(
+            [int(nodes.size) * int(components) for nodes in groups],
+            dtype=np.int32,
+        )
+        offsets = np.zeros_like(counts)
+        if counts.size > 1:
+            offsets[1:] = np.cumsum(counts[:-1], dtype=np.int32)
+        return counts, offsets
+
+    def _exchange(
+        self,
+        send_parts,
+        *,
+        send_groups,
+        receive_groups,
+        components: int,
+    ) -> np.ndarray:
+        selected_parts = [np.asarray(part, dtype=float).reshape(-1) for part in send_parts]
+        if len(selected_parts) != len(send_groups):
+            raise ValueError("Sparse cohesive send parts do not match the schedule.")
+        send_buffer = (
+            np.concatenate(selected_parts)
+            if any(part.size for part in selected_parts)
+            else np.empty(0, dtype=float)
+        )
+        send_counts, send_offsets = self._counts(send_groups, components)
+        if send_buffer.size != int(np.sum(send_counts)):
+            raise ValueError("Sparse cohesive send payload has the wrong size.")
+        receive_counts, receive_offsets = self._counts(receive_groups, components)
+        receive_buffer = np.empty(int(np.sum(receive_counts)), dtype=float)
+        self.comm.Alltoallv(
+            [send_buffer, send_counts, send_offsets, MPI.DOUBLE],
+            [receive_buffer, receive_counts, receive_offsets, MPI.DOUBLE],
+        )
+        return receive_buffer
+
+    def gather_owned_dof_values(self, dof_values) -> np.ndarray:
+        """Return only the global-node rows required by locally owned facets."""
+
+        values = np.asarray(dof_values, dtype=float)
+        if values.ndim != 2:
+            raise ValueError("Owned DOF values must be a 2D blocked array.")
+        result = np.zeros((self.required_nodes.size, values.shape[1]), dtype=float)
+        local = self.local_required_owned
+        result[self.required_position[local]] = values[self.mapping[local]]
+        send_parts = [
+            values[self.mapping[nodes]].reshape(-1)
+            if nodes.size
+            else np.empty(0, dtype=float)
+            for nodes in self.send_nodes_by_requester
+        ]
+        received = self._exchange(
+            send_parts,
+            send_groups=self.send_nodes_by_requester,
+            receive_groups=self.receive_nodes_by_owner,
+            components=int(values.shape[1]),
+        )
+        cursor = 0
+        components = int(values.shape[1])
+        for nodes in self.receive_nodes_by_owner:
+            count = int(nodes.size) * components
+            if count:
+                result[self.required_position[nodes]] = received[
+                    cursor : cursor + count
+                ].reshape((-1, components))
+            cursor += count
+        return result
+
+    def accumulate_to_owners(self, local_values) -> np.ndarray:
+        """Sum local facet contributions on the MPI owner of every node."""
+
+        values = np.asarray(local_values, dtype=float)
+        if values.ndim != 2 or values.shape[0] != self.required_nodes.size:
+            raise ValueError("Local cohesive force has an incompatible node layout.")
+        components = int(values.shape[1])
+        result = np.zeros(
+            (self.owned_interface_nodes.size, components), dtype=float
+        )
+        local = self.local_required_owned
+        np.add.at(
+            result,
+            self.owned_position[local],
+            values[self.required_position[local]],
+        )
+        send_parts = [
+            values[self.required_position[nodes]].reshape(-1)
+            if nodes.size
+            else np.empty(0, dtype=float)
+            for nodes in self.receive_nodes_by_owner
+        ]
+        received = self._exchange(
+            send_parts,
+            send_groups=self.receive_nodes_by_owner,
+            receive_groups=self.send_nodes_by_requester,
+            components=components,
+        )
+        cursor = 0
+        for nodes in self.send_nodes_by_requester:
+            count = int(nodes.size) * components
+            if count:
+                contribution = received[cursor : cursor + count].reshape(
+                    (-1, components)
+                )
+                np.add.at(result, self.owned_position[nodes], contribution)
+            cursor += count
+        return result
+
+    def summary(self) -> dict[str, int | str]:
+        remote = int(sum(nodes.size for nodes in self.receive_nodes_by_owner))
+        requesters = int(
+            sum(bool(nodes.size) for nodes in self.send_nodes_by_requester)
+        )
+        owners = int(sum(bool(nodes.size) for nodes in self.receive_nodes_by_owner))
+        return {
+            "kind": "sparse_cohesive_owner_schedule",
+            "rank_required_nodes": int(self.required_nodes.size),
+            "rank_remote_trace_nodes": remote,
+            "rank_owner_peers": owners,
+            "rank_requester_peers": requesters,
+            "rank_trace_values_per_exchange": remote * self.block_size,
+            "rank_force_values_per_exchange": remote * self.block_size,
+        }
+
+
 class DistributedDofMappedCohesiveForce:
-    """MPI reference assembler for a physical-keyed split interface.
+    """MPI assembler for a physical-keyed split interface.
 
     Split cohesive sides are topologically disconnected, so ordinary DOLFINx
     ghost cells do not necessarily expose both traces on one rank.  This
-    correctness-first adapter exchanges owned input-node values, evaluates
-    each physical facet on exactly one deterministic rank, and reduces the
-    resulting nodal force before writing only owned displacement entries.
-
-    The dense collectives are deliberately a laboratory-scale reference
-    implementation.  They establish state, force, energy, and restart
-    semantics for a later sparse neighbor-exchange backend.
+    adapter exchanges only the input-node traces required by locally owned
+    facets, evaluates each physical facet on exactly one deterministic rank,
+    and returns sparse force contributions to their node owners before writing
+    owned displacement entries.  The owner schedule is built once; time-step
+    exchange uses numeric ``MPI_Alltoallv`` payloads rather than dense vectors
+    proportional to all volume nodes.
     """
 
     def __init__(
@@ -303,6 +505,7 @@ class DistributedDofMappedCohesiveForce:
         input_node_owned,
         global_topology,
         global_facet_indices,
+        local_input_nodes=None,
     ):
         if not isinstance(assembler, interface_api.ModeICohesiveFacetAssembler):
             raise TypeError(
@@ -316,8 +519,19 @@ class DistributedDofMappedCohesiveForce:
         block_size = int(function.function_space.dofmap.index_map_bs)
         mapping = np.asarray(input_node_to_block_dof, dtype=int)
         owned = np.asarray(input_node_owned, dtype=bool)
-        if mapping.shape != (assembler.number_of_nodes,) or owned.shape != mapping.shape:
+        local_nodes = (
+            np.arange(assembler.number_of_nodes, dtype=int)
+            if local_input_nodes is None
+            else np.asarray(local_input_nodes, dtype=int)
+        )
+        if owned.shape != mapping.shape:
             raise ValueError("Distributed input-node maps have an incompatible shape.")
+        if local_nodes.shape != (assembler.number_of_nodes,):
+            raise ValueError("Local cohesive node layout and assembler differ.")
+        if np.any(local_nodes < 0) or np.any(local_nodes >= mapping.size):
+            raise ValueError("Local cohesive layout contains an invalid input node.")
+        if np.unique(local_nodes).size != local_nodes.size:
+            raise ValueError("Local cohesive input nodes must be unique.")
         if np.any(owned & (mapping < 0)):
             raise ValueError("Every owned input node must map to one local block dof.")
         if block_size != assembler.topology.normals.shape[1]:
@@ -329,6 +543,7 @@ class DistributedDofMappedCohesiveForce:
         self.displacement = function
         self.input_node_to_block_dof = mapping
         self.input_node_owned = owned
+        self.local_input_nodes = local_nodes
         self.global_topology = global_topology
         self.global_facet_indices = selected
         self.block_size = block_size
@@ -348,6 +563,14 @@ class DistributedDofMappedCohesiveForce:
         self.local_owned_interface_dofs = self.input_node_to_block_dof[
             self.local_owned_interface_nodes
         ].astype(int)
+        self.exchange = _SparseCohesiveExchange(
+            comm=self.comm,
+            input_node_to_block_dof=self.input_node_to_block_dof,
+            input_node_owned=self.input_node_owned,
+            required_nodes=self.local_input_nodes,
+            owned_interface_nodes=self.local_owned_interface_nodes,
+            block_size=self.block_size,
+        )
 
     @property
     def node_to_block_dof(self) -> np.ndarray:
@@ -366,27 +589,18 @@ class DistributedDofMappedCohesiveForce:
             selected,
             input_node_to_block_dof=self.input_node_to_block_dof,
             input_node_owned=self.input_node_owned,
+            local_input_nodes=self.local_input_nodes,
             global_topology=self.global_topology,
             global_facet_indices=self.global_facet_indices,
         )
 
-    def _global_displacement(self) -> np.ndarray:
+    def _required_displacement(self) -> np.ndarray:
         values = self.displacement.x.array.reshape((-1, self.block_size))
-        local_values = np.zeros(
-            (self.assembler.number_of_nodes, self.block_size), dtype=float
-        )
-        local_values[self.local_owned_interface_nodes] = values[
-            self.local_owned_interface_dofs
-        ]
-        global_values = np.empty_like(local_values)
-        self.comm.Allreduce(local_values, global_values, op=MPI.SUM)
-        return global_values
+        return self.exchange.gather_owned_dof_values(values)
 
-    def _globalize_response(self, local) -> interface_api.CohesiveFacetResponse:
-        force = np.empty_like(local.internal_force)
-        self.comm.Allreduce(local.internal_force, force, op=MPI.SUM)
+    def _globalize_energy(self, local) -> interface_api.CohesiveFacetResponse:
         return interface_api.CohesiveFacetResponse(
-            internal_force=force,
+            internal_force=local.internal_force,
             opening=local.opening,
             traction=local.traction,
             damage=local.damage,
@@ -399,15 +613,15 @@ class DistributedDofMappedCohesiveForce:
         )
 
     def begin(self):
-        local = self.assembler.begin(self._global_displacement())
-        return self._globalize_response(local)
+        local = self.assembler.begin(self._required_displacement())
+        return self._globalize_energy(local)
 
     def add_to_vector(self, vector) -> None:
         response = self.begin()
         array = vector.array.reshape((-1, self.block_size))
-        array[self.local_owned_interface_dofs] += response.internal_force[
-            self.local_owned_interface_nodes
-        ]
+        array[self.local_owned_interface_dofs] += self.exchange.accumulate_to_owners(
+            response.internal_force
+        )
 
     def commit(self) -> None:
         self.assembler.commit()
@@ -431,7 +645,7 @@ class DistributedDofMappedCohesiveForce:
 
     def current_response(self):
         if self.assembler.last_committed_response is not None:
-            return self._globalize_response(self.assembler.last_committed_response)
+            return self._globalize_energy(self.assembler.last_committed_response)
         response = self.begin()
         self.rollback()
         return response
@@ -443,13 +657,19 @@ class DistributedDofMappedCohesiveForce:
             "kind": "distributed_dof_mapped_cohesive_force",
             "interface": self.global_topology.summary(),
             "law": self.assembler.law.summary(),
-            "parallel_scope": "mpi_dense_collective_reference",
+            "parallel_scope": "mpi_sparse_owner_exchange",
             "rank_count": int(self.comm.size),
             "local_owned_facets": local,
             "global_facets": global_count,
-            "force_exchange": "owned_input_nodes+dense_allreduce",
+            "force_exchange": "physical_input_nodes+sparse_alltoallv",
+            "local_assembly_layout": (
+                "interface_compact"
+                if self.local_input_nodes.size < self.input_node_to_block_dof.size
+                else "input_node_complete"
+            ),
+            "communication": self.exchange.summary(),
             "restart_identity": self.global_topology.identity(),
-            "maturity": "experimental_reference_consumer",
+            "maturity": "experimental_sparse_mpi_consumer",
         }
 
     def snapshot(self) -> dict[str, object]:
@@ -519,27 +739,22 @@ class DistributedDofMappedCohesiveForce:
             mass.mass if hasattr(mass, "mass") else mass,
             dtype=float,
         ).reshape((-1, self.block_size))
-        local_mass = np.zeros(self.assembler.number_of_nodes, dtype=float)
-        local_mass[self.local_owned_interface_nodes] = diagonal[
-            self.local_owned_interface_dofs, 0
-        ]
-        masses = np.empty_like(local_mass)
-        self.comm.Allreduce(local_mass, masses, op=MPI.SUM)
-        if np.any(masses[self.interface_nodes] <= 0.0):
+        masses = self.exchange.gather_owned_dof_values(diagonal[:, :1]).reshape(-1)
+        if np.any(masses <= 0.0):
             raise RuntimeError("Distributed cohesive stability lacks nodal masses.")
         negative = np.asarray(
-            masses[self.global_topology.negative_nodes.reshape(-1)]
+            masses[self.assembler.topology.negative_nodes.reshape(-1)]
         )
         positive = np.asarray(
-            masses[self.global_topology.positive_nodes.reshape(-1)]
+            masses[self.assembler.topology.positive_nodes.reshape(-1)]
         )
         return {
             "interface_stiffness": float(self.assembler.law.initial_stiffness),
             "interface_area": float(
                 np.min(self.global_topology.lengths) * self.assembler.thickness
             ),
-            "negative_mass": float(np.min(negative)),
-            "positive_mass": float(np.min(positive)),
+            "negative_mass": float(self.comm.allreduce(np.min(negative), op=MPI.MIN)),
+            "positive_mass": float(self.comm.allreduce(np.min(positive), op=MPI.MIN)),
         }
 
 
@@ -706,9 +921,16 @@ def mode_i_cohesive_force(
         [owner_by_key[key] for key in topology.facet_keys], dtype=int
     )
     selected = np.flatnonzero(owners == int(comm.rank))
+    global_negative = topology.negative_nodes[selected]
+    global_positive = topology.positive_nodes[selected]
+    local_input_nodes = np.unique(
+        np.concatenate((global_negative.reshape(-1), global_positive.reshape(-1)))
+    ).astype(int)
+    global_to_local = np.full(split.coordinates.shape[0], -1, dtype=int)
+    global_to_local[local_input_nodes] = np.arange(local_input_nodes.size, dtype=int)
     local_topology = interface_api.PairedLineFacets(
-        negative_nodes=topology.negative_nodes[selected],
-        positive_nodes=topology.positive_nodes[selected],
+        negative_nodes=global_to_local[global_negative],
+        positive_nodes=global_to_local[global_positive],
         normals=topology.normals[selected],
         lengths=topology.lengths[selected],
         tolerance=topology.tolerance,
@@ -717,7 +939,7 @@ def mode_i_cohesive_force(
     assembler = interface_api.ModeICohesiveFacetAssembler(
         local_topology,
         law,
-        number_of_nodes=split.coordinates.shape[0],
+        number_of_nodes=local_input_nodes.size,
         thickness=thickness,
     )
     return DistributedDofMappedCohesiveForce(
@@ -725,6 +947,7 @@ def mode_i_cohesive_force(
         displacement,
         input_node_to_block_dof=mapping,
         input_node_owned=owned,
+        local_input_nodes=local_input_nodes,
         global_topology=topology,
         global_facet_indices=selected,
     )
@@ -790,7 +1013,7 @@ class FiniteStrainCohesiveResidual:
                 self.cohesive.summary(),
             ),
             "maturity": (
-                "experimental_mpi_reference_consumer"
+                "experimental_mpi_sparse_consumer"
                 if parallel
                 else "experimental_serial_global_consumer"
             ),

@@ -3310,15 +3310,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#physical-keyed-cohesive-force-assembly-across-mpi-ranks" class="md-nav__link">
+  <a href="#sparse-physical-keyed-cohesive-force-assembly-across-mpi-ranks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Physical-keyed cohesive force assembly across MPI ranks
+        Sparse physical-keyed cohesive force assembly across MPI ranks
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Physical-keyed cohesive force assembly across MPI ranks">
+    <nav class="md-nav" aria-label="Sparse physical-keyed cohesive force assembly across MPI ranks">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -7763,15 +7763,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#physical-keyed-cohesive-force-assembly-across-mpi-ranks" class="md-nav__link">
+  <a href="#sparse-physical-keyed-cohesive-force-assembly-across-mpi-ranks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Physical-keyed cohesive force assembly across MPI ranks
+        Sparse physical-keyed cohesive force assembly across MPI ranks
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Physical-keyed cohesive force assembly across MPI ranks">
+    <nav class="md-nav" aria-label="Sparse physical-keyed cohesive force assembly across MPI ranks">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -9517,7 +9517,7 @@ the compact machine-readable <code>knowledge/catalog.json</code>.</p>
 </tr>
 <tr>
 <td><a href="#agentfem-workflow-distributed_cohesive_force"><code>agentfem.workflow.distributed_cohesive_force</code></a></td>
-<td>Physical-keyed cohesive force assembly across MPI ranks</td>
+<td>Sparse physical-keyed cohesive force assembly across MPI ranks</td>
 <td>workflow</td>
 <td>experimental</td>
 </tr>
@@ -9644,9 +9644,9 @@ the compact machine-readable <code>knowledge/catalog.json</code>.</p>
 </tr>
 <tr>
 <td><code>agentfem.benchmark.distributed_cohesive_force</code></td>
-<td>Two-rank fixed-path cohesive force and portable restart</td>
+<td>Two-rank sparse fixed-path cohesive force and portable restart</td>
 <td>Two-dimensional Mode-I bilinear cohesive interface in finite-strain Explicit dynamics</td>
-<td>experimental_mpi_reference_automated</td>
+<td>experimental_mpi_sparse_automated</td>
 </tr>
 <tr>
 <td><code>agentfem.benchmark.dynamic_fracture_energy_v2</code></td>
@@ -10986,11 +10986,11 @@ r_f=R_f[H(k_f)\bmod |R_f|]
 </ul>
 <h4 id="applicability_9">Applicability<a class="headerlink" href="#applicability_9" title="Permanent link">&para;</a></h4>
 <ul>
-<li>Fixed-path two-dimensional Mode-I cohesive interfaces and the distributed reference force assembler using the same physical-key contract.</li>
+<li>Fixed-path two-dimensional Mode-I cohesive interfaces and the distributed sparse-payload force assembler using the same physical-key contract.</li>
 </ul>
 <h4 id="limitations_9">Limitations<a class="headerlink" href="#limitations_9" title="Permanent link">&para;</a></h4>
 <ul>
-<li>Distributed residual assembly now exists as a dense-collective correctness reference; this state card alone is not a scalability claim.</li>
+<li>Distributed residual assembly uses a sparse physical-node owner schedule; this state card alone is not an extreme-scale performance claim.</li>
 <li>The root-gathered NPZ format is laboratory-scale, not an extreme-scale collective checkpoint backend.</li>
 <li>Reversed facet orientation is intentionally incompatible until quadrature permutation is explicitly implemented.</li>
 </ul>
@@ -11133,15 +11133,16 @@ r_f=R_f[H(k_f)\bmod |R_f|]
 <li>Abaqus distributing coupling constraints: <code>https://docs.software.vt.edu/abaqusv2024/English/SIMACAECSTRefMap/simacst-c-coupling.htm</code></li>
 </ul>
 <p><a id="agentfem-workflow-distributed_cohesive_force"></a></p>
-<h2 id="physical-keyed-cohesive-force-assembly-across-mpi-ranks">Physical-keyed cohesive force assembly across MPI ranks<a class="headerlink" href="#physical-keyed-cohesive-force-assembly-across-mpi-ranks" title="Permanent link">&para;</a></h2>
+<h2 id="sparse-physical-keyed-cohesive-force-assembly-across-mpi-ranks">Sparse physical-keyed cohesive force assembly across MPI ranks<a class="headerlink" href="#sparse-physical-keyed-cohesive-force-assembly-across-mpi-ranks" title="Permanent link">&para;</a></h2>
 <p><strong>Stable ID:</strong> <code>agentfem.workflow.distributed_cohesive_force</code><br>
 <strong>Kind:</strong> <code>workflow</code><br>
 <strong>Status:</strong> <code>experimental</code><br>
 <strong>Source card:</strong> <code>knowledge/cards/distributed_cohesive_force.json</code></p>
-<p>Partitions a split two-dimensional interface, exchanges independently owned traces by durable input-node identity, evaluates every physical facet on exactly one balanced deterministic rank, and accumulates equal-and-opposite force only into owned displacement entries.</p>
+<p>Recovers a split two-dimensional interface from declared cell sides, builds one durable input-node owner schedule, exchanges only required remote traces and force contributions, evaluates every physical facet on exactly one balanced deterministic rank, and writes only owned displacement entries.</p>
 <h3 id="public-api_11">Public API<a class="headerlink" href="#public-api_11" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>agentfem.interfaces.create_dolfinx_split_mesh</code></li>
+<li><code>agentfem.interfaces.split_conforming_cell_interface</code></li>
 <li><code>agentfem.fracture.mode_i_cohesive_force</code></li>
 <li><code>agentfem.fracture.DistributedDofMappedCohesiveForce</code></li>
 <li><code>agentfem.fracture.FiniteStrainCohesiveResidual</code></li>
@@ -11158,6 +11159,11 @@ r_f=R_f[H(k_f)\bmod |R_f|]
 r_f=\operatorname{rank}_{\mathrm{sorted}}(k_f)\bmod N_r
 \]</div>
 <p>Sorted physical facet keys distribute work reproducibly and give every rank a facet when the interface has at least as many facets as ranks.</p>
+<p><strong>interface-scaled communication payload</strong></p>
+<div class="arithmatex">\[
+N_{\mathrm{payload},r}=d\,|\mathcal N_{\Gamma,r}^{\mathrm{remote}}|
+\]</div>
+<p>Each rank sends displacement traces and force contributions only for remote physical interface nodes required by its owned facets, rather than arrays proportional to all bulk nodes.</p>
 <h4 id="inputs_11">Inputs<a class="headerlink" href="#inputs_11" title="Permanent link">&para;</a></h4>
 <table>
 <thead>
@@ -11217,21 +11223,23 @@ r_f=\operatorname{rank}_{\mathrm{sorted}}(k_f)\bmod N_r
 <h4 id="conventions_11">Conventions<a class="headerlink" href="#conventions_11" title="Permanent link">&para;</a></h4>
 <ul>
 <li>Only owned input-node values are published; only owned displacement entries receive the globally reduced force.</li>
+<li>The owner/request schedule is built once; accepted and attempted increments reuse numeric MPI_Alltoallv payload layouts.</li>
+<li>Each facet owner compacts its local cohesive kernel to the physical interface nodes touched by its facets.</li>
 <li>Facet state follows ordered physical geometry and quadrature, never rank-local DOF numbering.</li>
 <li>Coincident independent nodal checkpoint keys append durable input-node identity to the quantized coordinate.</li>
 </ul>
 <h4 id="applicability_11">Applicability<a class="headerlink" href="#applicability_11" title="Permanent link">&para;</a></h4>
 <ul>
-<li>Laboratory-scale distributed fixed-path Mode-I finite-strain Explicit dynamics and cross-rank-count restart verification.</li>
+<li>Distributed fixed-path Mode-I finite-strain Explicit dynamics, conforming 2D cell-partition interfaces, and cross-rank-count restart verification.</li>
 </ul>
 <h4 id="limitations_11">Limitations<a class="headerlink" href="#limitations_11" title="Permanent link">&para;</a></h4>
 <ul>
-<li>The correctness-first implementation uses dense displacement exchange and force all-reduction; a sparse neighbor schedule is required for large interfaces.</li>
-<li>Mixed-mode, three-dimensional cohesive surfaces, contact after closure, and imported Abaqus/Gmsh internal surfaces are not yet covered.</li>
+<li>The implementation uses sparse payloads on a communicator-wide Alltoallv schedule; extreme-scale neighborhood-collective performance is not yet benchmarked.</li>
+<li>Mixed-mode, three-dimensional cohesive surfaces, contact after closure, and direct imported Abaqus/Gmsh internal-surface adapters are not yet covered.</li>
 <li>MPI execution is experimental and does not promote the V4/V5 scientific benchmark to validated status.</li>
 </ul>
 <h3 id="minimal-example_11">Minimal example<a class="headerlink" href="#minimal-example_11" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">domain</span> <span class="o">=</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">create_dolfinx_split_mesh</span><span class="p">(</span><span class="n">split</span><span class="p">,</span> <span class="n">comm</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">);</span> <span class="n">U</span> <span class="o">=</span> <span class="n">fields</span><span class="o">.</span><span class="n">displacement</span><span class="p">(</span><span class="n">domain</span><span class="p">);</span> <span class="n">cohesive</span> <span class="o">=</span> <span class="n">fracture</span><span class="o">.</span><span class="n">mode_i_cohesive_force</span><span class="p">(</span><span class="n">split</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">law</span><span class="p">,</span> <span class="n">normal_hint</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">));</span> <span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">finite_strain_explicit_dynamics_step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">U</span><span class="p">,</span> <span class="n">material</span><span class="o">=</span><span class="n">material</span><span class="p">,</span> <span class="n">cohesive_force</span><span class="o">=</span><span class="n">cohesive</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="n">steps</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">split</span> <span class="o">=</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">split_conforming_cell_interface</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">cells</span><span class="p">,</span> <span class="n">positive_cells</span><span class="o">=</span><span class="n">upper_cells</span><span class="p">);</span> <span class="n">domain</span> <span class="o">=</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">create_dolfinx_split_mesh</span><span class="p">(</span><span class="n">split</span><span class="p">,</span> <span class="n">comm</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">);</span> <span class="n">U</span> <span class="o">=</span> <span class="n">fields</span><span class="o">.</span><span class="n">displacement</span><span class="p">(</span><span class="n">domain</span><span class="p">);</span> <span class="n">cohesive</span> <span class="o">=</span> <span class="n">fracture</span><span class="o">.</span><span class="n">mode_i_cohesive_force</span><span class="p">(</span><span class="n">split</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">law</span><span class="p">,</span> <span class="n">normal_hint</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">));</span> <span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">finite_strain_explicit_dynamics_step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">U</span><span class="p">,</span> <span class="n">material</span><span class="o">=</span><span class="n">material</span><span class="p">,</span> <span class="n">cohesive_force</span><span class="o">=</span><span class="n">cohesive</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="n">steps</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="verification_11">Verification<a class="headerlink" href="#verification_11" title="Permanent link">&para;</a></h3>
 <p><strong>Tests</strong></p>
@@ -11247,7 +11255,11 @@ r_f=\operatorname{rank}_{\mathrm{sorted}}(k_f)\bmod N_r
 <p><strong>Validation rules</strong></p>
 <ul>
 <li>Three physical facets are owned exactly once across two ranks and produce zero net interface force with the exact integrated tensile resultant.</li>
+<li>A nonuniform interface spanning compression, elastic loading, and softening matches the serial kernel node by node and in both energy channels.</li>
+<li>The execution summary reports sparse remote trace and force payloads bounded by required interface nodes rather than all mesh nodes.</li>
+<li>The local assembler node count equals the scheduled interface-node count and is smaller than the split volume-node count in the acceptance mesh.</li>
 <li>The public finite-strain Explicit step completes on two ranks with globally identical energy history.</li>
+<li>The sparse communication schedule and nonuniform serial equivalence also pass when three facets are assigned across three MPI owners.</li>
 <li>A two-rank partial Explicit calculation restarts on one rank and matches uninterrupted displacement and cohesive history.</li>
 </ul>
 <h3 id="references_11">References<a class="headerlink" href="#references_11" title="Permanent link">&para;</a></h3>
@@ -11387,7 +11399,7 @@ r_f=\operatorname{rank}_{\mathrm{sorted}}(k_f)\bmod N_r
 <li>The dependency-free XLSX reader exposes stored values and cached formula results; it does not execute Excel formulas or infer units.</li>
 <li>No universal acceptance tolerance is imposed; the research protocol must justify observable-specific thresholds.</li>
 <li>The V4 spatial speed gate is not yet converged below ten percent.</li>
-<li>Physical-keyed cohesive state, force, energy, and cross-rank-count restart are implemented with dense collectives; sparse scalable exchange remains.</li>
+<li>Physical-keyed cohesive state, force, energy, sparse interface payloads, and cross-rank-count restart are implemented; direct imported/3D interfaces and extreme-scale MPI profiling remain.</li>
 <li>The plane-stress/thin-3D cross-check currently covers homogeneous affine deformation, not a full three-dimensional propagating crack.</li>
 <li>The implemented publication registration is affine; nonlinear lens correction, segmentation, and coordinate uncertainty remain explicit research preprocessing.</li>
 </ul>

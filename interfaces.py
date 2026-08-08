@@ -884,6 +884,78 @@ def split_conforming_line_interface(
     )
 
 
+def split_conforming_cell_interface(
+    coordinates,
+    cells,
+    *,
+    positive_cells,
+) -> SplitInterfaceMesh:
+    """Split the internal edge separating two declared 2D cell partitions.
+
+    This engineering adapter derives the conforming line facets from cell
+    connectivity instead of asking a user or mesh importer to enumerate every
+    edge twice.  ``positive_cells`` retains the important physical decision:
+    which material/region side receives the duplicated nodes.  Triangles and
+    perimeter-ordered quadrilaterals are supported; non-manifold edges and an
+    empty partition interface are rejected before a solver mesh is created.
+    """
+
+    points = _finite_array(coordinates, name="coordinates")
+    connectivity = np.asarray(cells, dtype=int)
+    selected = np.asarray(positive_cells)
+    if points.ndim != 2 or points.shape[1] != 2:
+        raise ValueError("Cell-interface recovery currently requires 2D coordinates.")
+    if connectivity.ndim != 2 or connectivity.shape[1] not in {3, 4}:
+        raise ValueError(
+            "Cell-interface recovery supports one triangle or quadrilateral block."
+        )
+    if np.any(connectivity < 0) or np.any(connectivity >= points.shape[0]):
+        raise ValueError("Cell connectivity contains an invalid node number.")
+    if selected.dtype == bool:
+        if selected.shape != (connectivity.shape[0],):
+            raise ValueError("Boolean positive_cells mask has the wrong shape.")
+        positive_mask = selected.copy()
+    else:
+        positive_mask = np.zeros(connectivity.shape[0], dtype=bool)
+        indices = np.asarray(selected, dtype=int)
+        if np.any(indices < 0) or np.any(indices >= connectivity.shape[0]):
+            raise ValueError("positive_cells contains an out-of-range cell index.")
+        positive_mask[indices] = True
+    if not np.any(positive_mask) or np.all(positive_mask):
+        raise ValueError("Interface recovery requires cells on both declared sides.")
+
+    edge_owners: dict[tuple[int, int], list[int]] = {}
+    for cell_index, cell in enumerate(connectivity):
+        for local in range(cell.size):
+            edge = tuple(sorted((int(cell[local]), int(cell[(local + 1) % cell.size]))))
+            edge_owners.setdefault(edge, []).append(int(cell_index))
+    non_manifold = {
+        edge: owners for edge, owners in edge_owners.items() if len(owners) > 2
+    }
+    if non_manifold:
+        edge, owners = next(iter(non_manifold.items()))
+        raise ValueError(
+            "Cell-interface recovery requires a manifold mesh; "
+            f"edge {edge} has {len(owners)} incident cells."
+        )
+    interface = [
+        edge
+        for edge, owners in edge_owners.items()
+        if len(owners) == 2
+        and bool(positive_mask[owners[0]]) != bool(positive_mask[owners[1]])
+    ]
+    if not interface:
+        raise ValueError(
+            "The declared cell partitions do not share a conforming internal edge."
+        )
+    return split_conforming_line_interface(
+        points,
+        connectivity,
+        np.asarray(sorted(interface), dtype=int),
+        positive_cells=positive_mask,
+    )
+
+
 @dataclass(frozen=True)
 class CohesiveSurface:
     """Public description of a fixed-path zero-thickness interface."""
@@ -995,4 +1067,5 @@ __all__ = [
     "pair_coincident_line_facets",
     "save_portable_cohesive_state",
     "split_conforming_line_interface",
+    "split_conforming_cell_interface",
 ]
