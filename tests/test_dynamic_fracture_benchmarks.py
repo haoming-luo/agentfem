@@ -1,6 +1,9 @@
+from types import SimpleNamespace
+
 import pytest
 
 from agentfem import benchmarks
+from agentfem.benchmarks import dynamic_fracture as fracture_benchmarks
 
 
 def test_v1_prestrained_wave_arrival_converges_to_acoustic_tensor():
@@ -76,8 +79,21 @@ def test_v4_case_smoke_exposes_plane_stress_preload_impact_and_bulk_modes():
     assert 0.0 < result.preload_ligament_traction_ratio < 1.0
     assert result.pressure_wave_speed > result.shear_wave_speed
     assert result.impact_displacement == pytest.approx(0.002)
+    assert result.crack_speed_fit_length == pytest.approx(0.3)
     assert result.summary()["loading"] == (
         "homogeneous_prestrain_then_remote_impact"
+    )
+    stages = result.performance["stages"]
+    assert stages["bulk_residual_assembly"]["calls"] > 0
+    assert stages["cohesive_force_assembly"]["calls"] > 0
+    # The accepted residual is reused by the reaction/work ledger. Only the
+    # initial state needs one additional assembly; history cadence must not
+    # double the nonlinear bulk work.
+    assert stages["bulk_residual_assembly"]["calls"] == (
+        stages["residual_assembly"]["calls"] + 1
+    )
+    assert stages["cohesive_force_assembly"]["calls"] == (
+        stages["residual_assembly"]["calls"] + 1
     )
 
 
@@ -109,3 +125,31 @@ def test_v4_convergence_contract_validates_controls_before_long_runs():
         )
     with pytest.raises(ValueError, match="history_every"):
         benchmarks.jmps_weak_interface_convergence_v4(history_every=0)
+
+
+def test_v4_refinement_separates_mechanism_from_speed_convergence(monkeypatch):
+    speeds = iter((10.0, 9.3, 8.4, 9.98))
+
+    def synthetic_case(**kwargs):
+        return SimpleNamespace(
+            label=kwargs["label"],
+            maximum_fitted_speed=next(speeds),
+            regime="supershear",
+            maximum_simultaneous_failed_fraction=0.02,
+            final_relative_energy_error=1.0e-4,
+        )
+
+    monkeypatch.setattr(
+        fracture_benchmarks,
+        "prestressed_weak_interface_separation",
+        synthetic_case,
+    )
+    study = fracture_benchmarks.jmps_weak_interface_convergence_v4()
+    assert study.mechanism_preserved
+    assert not study.speed_converged
+    assert not study.accepted
+    assert study.fine_spatial_speed_change > study.spatial_speed_change
+    assert any(
+        "not yet asymptotically converged" in message
+        for message in study.acceptance_failures
+    )

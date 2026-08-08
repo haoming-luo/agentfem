@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from time import perf_counter
 
 import numpy as np
 
@@ -45,6 +46,11 @@ class ExplicitDynamicsIntegrator:
     parameters: NewmarkParameters
     method: str = "central_difference"
     name: str = "explicit_dynamics"
+    last_residual_owned: np.ndarray | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
 
     @property
     def inv_mass(self) -> np.ndarray:
@@ -127,8 +133,11 @@ class ExplicitDynamicsIntegrator:
         formula-level scripts.
         """
 
+        increment_started = perf_counter()
+        ledger = getattr(self, "performance", None)
         prescribed_values = tuple(prescribed)
         active_constraints = tuple(constraints) + tuple(projections)
+        kinematics_started = perf_counter()
         if time is not None:
             for item in prescribed_values:
                 if hasattr(item, "update"):
@@ -155,7 +164,22 @@ class ExplicitDynamicsIntegrator:
             component=0,
         )
         _apply_constraints(active_constraints, self.state.v_mid)
+        if ledger is not None:
+            ledger.add(
+                "kinematic_prediction_and_constraints",
+                perf_counter() - kinematics_started,
+            )
+        self.last_residual_owned = None
+        residual_started = perf_counter()
         residual = operators.assemble_vector(residual_operator)
+        if ledger is not None:
+            ledger.add("residual_assembly", perf_counter() - residual_started)
+        owned = dofs.owned_size(self.state.a_next)
+        self.last_residual_owned = np.asarray(
+            residual.array[:owned],
+            dtype=float,
+        ).copy()
+        state_started = perf_counter()
         try:
             self.solve_acceleration(residual)
         finally:
@@ -174,6 +198,9 @@ class ExplicitDynamicsIntegrator:
         )
         _apply_constraints(active_constraints, self.state.v_next)
         self.advance_velocity_acceleration()
+        if ledger is not None:
+            ledger.add("acceleration_and_state_update", perf_counter() - state_started)
+            ledger.add("explicit_increment", perf_counter() - increment_started)
 
     def summary(self) -> dict[str, object]:
         """Return an agent-readable integration summary."""

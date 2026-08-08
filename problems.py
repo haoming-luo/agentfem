@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from time import perf_counter
 from types import SimpleNamespace
 import warnings
 
@@ -16,6 +17,7 @@ from . import assembly
 from . import fields
 from . import spaces
 from . import time
+from .diagnostics import PerformanceLedger
 from .kernel import dofs
 from .solvers import (
     AffineNewtonOptions,
@@ -1161,6 +1163,10 @@ class ExplicitDynamicsStep:
     completed_steps: int = field(default=0, init=False)
     history_records: list[dict[str, float]] = field(default_factory=list, init=False)
     checkpoints: list[object] = field(default_factory=list, init=False)
+    performance: PerformanceLedger = field(
+        default_factory=PerformanceLedger,
+        init=False,
+    )
 
     def initialize_from_preload(
         self,
@@ -1228,7 +1234,11 @@ class ExplicitDynamicsStep:
         selected_progress = self.progress if progress is None else progress
         if self.completed_steps >= self.steps:
             return self
+        run_started = perf_counter()
+        self.integrator.performance = self.performance
+        _bind_performance_ledger(self.residual, self.performance)
         if self.completed_steps == 0:
+            self.performance.reset()
             self.execution_events.clear()
             self.accepted_times.clear()
             self.history_records.clear()
@@ -1275,6 +1285,7 @@ class ExplicitDynamicsStep:
                     selected_comm,
                 )
             _emit_transient_completed(reporter, self)
+            self.performance.add("run_wall", perf_counter() - run_started)
             return self
 
         if domain is None:
@@ -1294,6 +1305,7 @@ class ExplicitDynamicsStep:
                 if info.should_save:
                     xdmf.write_fields(info.time, *output_fields)
         _emit_transient_completed(reporter, self)
+        self.performance.add("run_wall", perf_counter() - run_started)
         return self
 
     def solve(self):
@@ -1349,6 +1361,7 @@ class ExplicitDynamicsStep:
             path,
             {"displacement": self.state.u, "velocity": self.state.v, "acceleration": self.state.a},
         )
+        self.integrator.last_residual_owned = None
 
     def _advance_one(self, t: float) -> None:
         if self.update_load is not None:
@@ -1383,6 +1396,7 @@ class ExplicitDynamicsStep:
             "print_every": _print_interval(self.print_every, self.steps),
             "history_every": self.history_every,
             "history_evaluation_every": 1,
+            "performance": self.performance.summary(),
             "checkpoint_policy": (
                 None
                 if self.checkpoint_policy is None
@@ -2112,23 +2126,37 @@ def _record_transient_history(
             monitor.restore(step.history_records[-1])
         return
     values = {}
+    monitor_started = perf_counter()
     if monitor is not None:
         if isinstance(step, FirstOrderTransientStep):
             values.update(monitor.evaluate(step.current))
-        elif not store and hasattr(monitor, "advance"):
-            monitor.advance(
-                displacement=step.state.u,
-                velocity=step.state.v,
-            )
-        elif hasattr(monitor, "evaluate"):
-            values.update(
-                monitor.evaluate(
-                    displacement=step.state.u,
-                    velocity=step.state.v,
-                )
-            )
         else:
-            values.update(monitor(step, selected_time))
+            monitor_kwargs = {
+                "displacement": step.state.u,
+                "velocity": step.state.v,
+            }
+            if getattr(monitor, "accepts_accepted_residual", False):
+                monitor_kwargs["residual_owned"] = (
+                    None
+                    if step.completed_steps == 0
+                    else getattr(
+                        step.integrator,
+                        "last_residual_owned",
+                        None,
+                    )
+                )
+            if not store and hasattr(monitor, "advance"):
+                monitor.advance(**monitor_kwargs)
+            elif hasattr(monitor, "evaluate"):
+                values.update(monitor.evaluate(**monitor_kwargs))
+            else:
+                values.update(monitor(step, selected_time))
+    performance = getattr(step, "performance", None)
+    if monitor is not None and performance is not None:
+        performance.add(
+            "history_snapshot" if store else "history_advance",
+            perf_counter() - monitor_started,
+        )
     if not store:
         return
     for request in requests:
@@ -2162,6 +2190,26 @@ def _record_transient_history(
             )
     if len(frame) > 1:
         step.history_records.append(frame)
+
+
+def _bind_performance_ledger(consumer, ledger, visited=None) -> None:
+    """Attach one timing ledger to nested solver consumers without ownership."""
+
+    if consumer is None:
+        return
+    selected_visited = set() if visited is None else visited
+    identity = id(consumer)
+    if identity in selected_visited:
+        return
+    selected_visited.add(identity)
+    try:
+        consumer.performance = ledger
+    except (AttributeError, TypeError):
+        pass
+    for name in ("base", "bulk", "cohesive", "energy"):
+        nested = getattr(consumer, name, None)
+        if nested is not None:
+            _bind_performance_ledger(nested, ledger, selected_visited)
 
 
 def _configure_transient_history(step, requests) -> None:

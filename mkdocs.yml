@@ -114,6 +114,7 @@ nav:
       - Nonlinear and Coupled Workflows:
           - Nonlinear Materials: nonlinear_materials.md
           - Nonlinear Solid Architecture: nonlinear_solid_architecture.md
+          - Dynamic Cohesive Fracture: dynamic_cohesive_fracture_architecture.md
           - Thermal Stress and Creep Procedures: solution_procedures_and_thermal_creep.md
 
   - Examples:

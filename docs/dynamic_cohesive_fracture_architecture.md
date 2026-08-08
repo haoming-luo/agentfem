@@ -374,37 +374,46 @@ convergence and a thin-3D check. The immutable evidence and tolerances live in
 
 ### Two-dimensional V4 convergence contract
 
-`benchmarks.jmps_weak_interface_convergence_v4()` is the opt-in promotion
+`benchmarks.jmps_weak_interface_convergence_v4()` is the opt-in refinement
 contract beyond the inexpensive two-cell-thick mechanism ladder. It uses a
-30x10 near-isotropic baseline, a 40x14 proportional spatial refinement, and a
-30x10 run with the explicit increment halved. A lower smooth impact is used
-because the screening impact becomes distributed spall when transverse wave
-propagation is resolved.
+30x10 near-isotropic baseline, 40x14 and 60x20 near-proportional spatial
+refinements, and a 30x10 run with the explicit increment halved. A lower
+smooth impact is used because the screening impact becomes distributed spall
+when transverse wave propagation is resolved.
 
-All three runs remain resolved supershear. The fitted speed changes by 7.25%
-under spatial refinement and 0.24% when the time increment is halved; final
-complete-ledger energy errors remain below 0.025%. This passes the declared
-10% spatial and 2% temporal gates. It establishes mechanism-level 2D
-convergence, while a third proportional mesh, thin-3D comparison, and author
-parameters remain necessary for publication-curve reproduction. The complete
-contract takes several minutes and belongs in scheduled benchmark CI rather
-than the per-commit smoke suite.
+All four runs preserve a resolved supershear regime, fewer than ten percent of
+the intact facets fail in one increment, and final complete-ledger energy
+errors remain below 0.034%. Time-step sensitivity is only 0.24%. Crack speed
+is evaluated over the same physical length of 0.3 in every spatial case,
+spanning three, four, and six interface facets rather than shrinking with the
+mesh. The fitted-speed changes decrease from 13.02% to 10.73%, but neither
+passes the declared 10% spatial gate. AgentFEM therefore reports
+`mechanism_preserved=True` but `speed_converged=False`, and the overall
+promotion gate remains false. This distinction is deliberate: repeated
+observation of a regime and a decreasing refinement change are useful
+evidence, but they are not yet an asymptotic crack speed. A cohesive-zone
+resolution study, thin-3D comparison, and author parameters remain necessary
+before publication-curve reproduction.
 
-The transient lifecycle now advances path-dependent external work at every
+The transient lifecycle advances path-dependent external work at every
 accepted increment but assembles bulk and kinetic energy only at retained
-history frames. Thus `history_every` reduces expensive state-function
-assembly without changing the integrated work or final energy balance.
+history frames. It also reuses the accepted explicit residual when evaluating
+prescribed-motion work. On the fixed 30x6 profiling case this reduces bulk
+residual assemblies from 345 to 173 while preserving the speed, failure, and
+energy observables bit for bit; local wall time fell from about 31.84 s to
+16.07 s. Rank-local timing evidence is exposed in the Step and benchmark
+summaries. The profile also shows that cohesive force assembly is below 0.1%
+of wall time; finite-strain UFL/PETSc bulk residual assembly is the next
+performance target.
 
-The next performance pass is deliberately evidence-driven:
+The next performance work is therefore:
 
-1. profile bulk residual assembly, cohesive state evaluation, vector scatter,
-   and history work separately on the accepted 30x10 case;
-2. reuse PETSc work vectors and NumPy facet buffers across increments;
-3. batch cohesive quadrature/state updates without changing commit/rollback
-   boundaries;
-4. retain the short construction smoke per commit and run the six-minute
-   convergence contract in scheduled or release-gate CI;
-5. optimize MPI ownership only after the serial facet kernel has a stable
+1. retain the residual-reuse count as a per-commit regression;
+2. investigate compiled-form/vector reuse around the bulk residual without
+   changing constitutive or commit/rollback semantics;
+3. keep the short construction smoke per commit and run the roughly
+   6.2-minute full refinement contract in scheduled or release-gate CI;
+4. optimize MPI ownership only after the serial facet kernel has a stable
    state identity and benchmark trace.
 
 ## Inputs to request from the authors

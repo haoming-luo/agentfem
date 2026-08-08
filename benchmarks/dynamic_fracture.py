@@ -140,6 +140,7 @@ class WeakInterfaceTransitionBenchmark:
     maximum_simultaneous_failed_fraction: float
     rapid_failed_fraction: float
     crack_speed_fit_window: int
+    crack_speed_fit_length: float
     spall_time_window: float
     maximum_ligament_traction_ratio: float
     regime: str
@@ -150,6 +151,7 @@ class WeakInterfaceTransitionBenchmark:
     preload_interface_opening: float
     impact_displacement: float
     impact_rise_time: float
+    performance: dict[str, object]
 
     def summary(self) -> dict[str, object]:
         return {
@@ -186,6 +188,7 @@ class WeakInterfaceTransitionBenchmark:
             ),
             "rapid_failed_fraction": self.rapid_failed_fraction,
             "crack_speed_fit_window": self.crack_speed_fit_window,
+            "crack_speed_fit_length": self.crack_speed_fit_length,
             "spall_time_window": self.spall_time_window,
             "maximum_ligament_traction_ratio": self.maximum_ligament_traction_ratio,
             "regime": self.regime,
@@ -196,6 +199,7 @@ class WeakInterfaceTransitionBenchmark:
             "preload_interface_opening": self.preload_interface_opening,
             "impact_displacement": self.impact_displacement,
             "impact_rise_time": self.impact_rise_time,
+            "performance": self.performance,
             "maturity": "experimental_v4_mechanism_case",
         }
 
@@ -231,9 +235,13 @@ class WeakInterfaceConvergenceStudy:
 
     baseline: WeakInterfaceTransitionBenchmark
     spatial_refined: WeakInterfaceTransitionBenchmark
+    spatial_fine: WeakInterfaceTransitionBenchmark
     temporal_refined: WeakInterfaceTransitionBenchmark
     spatial_speed_change: float
+    fine_spatial_speed_change: float
     temporal_speed_change: float
+    mechanism_preserved: bool
+    speed_converged: bool
     accepted: bool
     acceptance_failures: tuple[str, ...]
 
@@ -243,13 +251,17 @@ class WeakInterfaceConvergenceStudy:
             "accepted": self.accepted,
             "acceptance_failures": self.acceptance_failures,
             "spatial_speed_change": self.spatial_speed_change,
+            "fine_spatial_speed_change": self.fine_spatial_speed_change,
             "temporal_speed_change": self.temporal_speed_change,
+            "mechanism_preserved": self.mechanism_preserved,
+            "speed_converged": self.speed_converged,
             "cases": {
                 "baseline": self.baseline.summary(),
                 "spatial_refined": self.spatial_refined.summary(),
+                "spatial_fine": self.spatial_fine.summary(),
                 "temporal_refined": self.temporal_refined.summary(),
             },
-            "claim_scope": "two-dimensional supershear mechanism convergence",
+            "claim_scope": "two-dimensional supershear refinement evidence",
             "publication_curve_reproduction": False,
         }
 
@@ -760,6 +772,7 @@ def prestressed_weak_interface_separation(
     history_every: int = 1,
     impact_displacement: float = 0.0,
     impact_rise_time: float | None = None,
+    speed_fit_length: float | None = None,
 ) -> WeakInterfaceTransitionBenchmark:
     """Drive a precrack through a prestressed plane-stress weak interface.
 
@@ -809,6 +822,26 @@ def prestressed_weak_interface_separation(
     )
     if selected_impact > 0.0 and not 0.0 < selected_rise <= selected_time:
         raise ValueError("impact_rise_time must lie in (0, total_time].")
+    interface_spacing = selected_length / selected_cells
+    selected_fit_length = (
+        3.0 * interface_spacing
+        if speed_fit_length is None
+        else float(speed_fit_length)
+    )
+    minimum_fit_length = 3.0 * interface_spacing
+    fit_tolerance = 32.0 * np.finfo(float).eps * max(
+        1.0,
+        selected_length,
+    )
+    if (
+        not isfinite(selected_fit_length)
+        or selected_fit_length + fit_tolerance < minimum_fit_length
+        or selected_fit_length > selected_length - selected_precrack
+    ):
+        raise ValueError(
+            "speed_fit_length must be finite, span at least three interface "
+            "facets, and remain inside the intact ligament."
+        )
 
     x = np.linspace(0.0, selected_length, selected_cells + 1)
     y = np.linspace(0.0, selected_height, selected_transverse_cells + 1)
@@ -1018,8 +1051,7 @@ def prestressed_weak_interface_separation(
     )
     shear_speed = float(modes.reference_speeds[0])
     pressure_speed = float(modes.reference_speeds[-1])
-    interface_spacing = selected_length / selected_cells
-    minimum_fit_time = 3.0 * interface_spacing / shear_speed
+    minimum_fit_time = selected_fit_length / shear_speed
     fit_window = max(7, int(ceil(minimum_fit_time / dt)) + 1)
     if fit_window % 2 == 0:
         fit_window += 1
@@ -1101,6 +1133,7 @@ def prestressed_weak_interface_separation(
         maximum_simultaneous_failed_fraction=simultaneous,
         rapid_failed_fraction=rapid_failed_fraction,
         crack_speed_fit_window=fit_window,
+        crack_speed_fit_length=selected_fit_length,
         spall_time_window=spall_time_window,
         maximum_ligament_traction_ratio=maximum_traction_ratio,
         regime=regime,
@@ -1117,6 +1150,7 @@ def prestressed_weak_interface_separation(
         preload_interface_opening=preload_opening,
         impact_displacement=selected_impact,
         impact_rise_time=selected_rise,
+        performance=step.performance.summary(),
     )
 
 
@@ -1226,6 +1260,10 @@ def jmps_weak_interface_convergence_v4(
         "history_every": selected_history_every,
         "impact_displacement": 0.01,
         "impact_rise_time": 0.015,
+        # Hold the physical observation scale fixed across meshes.  A
+        # mesh-dependent three-facet window would shrink under refinement and
+        # compare different maximum-speed observables.
+        "speed_fit_length": 0.3,
     }
     baseline = prestressed_weak_interface_separation(
         label="v4_convergence_baseline",
@@ -1238,6 +1276,13 @@ def jmps_weak_interface_convergence_v4(
         label="v4_convergence_spatial",
         cells=40,
         transverse_cells=14,
+        time_step_scale=0.8,
+        **common,
+    )
+    spatial_fine = prestressed_weak_interface_separation(
+        label="v4_convergence_spatial_fine",
+        cells=60,
+        transverse_cells=20,
         time_step_scale=0.8,
         **common,
     )
@@ -1254,30 +1299,58 @@ def jmps_weak_interface_convergence_v4(
     temporal_change = abs(
         temporal.maximum_fitted_speed - baseline.maximum_fitted_speed
     ) / max(abs(temporal.maximum_fitted_speed), np.finfo(float).eps)
+    fine_spatial_change = abs(
+        spatial_fine.maximum_fitted_speed - spatial.maximum_fitted_speed
+    ) / max(abs(spatial_fine.maximum_fitted_speed), np.finfo(float).eps)
     failures: list[str] = []
-    for result in (baseline, spatial, temporal):
+    mechanism_failures: list[str] = []
+    speed_failures: list[str] = []
+    for result in (baseline, spatial, spatial_fine, temporal):
         if result.regime != "supershear":
-            failures.append(f"{result.label} does not preserve supershear.")
+            mechanism_failures.append(
+                f"{result.label} does not preserve supershear."
+            )
         if result.maximum_simultaneous_failed_fraction >= 0.1:
-            failures.append(f"{result.label} is not a resolved contiguous front.")
+            mechanism_failures.append(
+                f"{result.label} is not a resolved contiguous front."
+            )
         if result.final_relative_energy_error >= 0.005:
-            failures.append(f"{result.label} exceeds the 0.5-percent energy gate.")
+            mechanism_failures.append(
+                f"{result.label} exceeds the 0.5-percent energy gate."
+            )
+    failures.extend(mechanism_failures)
     if spatial_change >= spatial_tolerance:
-        failures.append(
+        speed_failures.append(
             "Spatial refinement changes fitted speed by "
             f"{spatial_change:.3%}, above {spatial_tolerance:.3%}."
         )
     if temporal_change >= temporal_tolerance:
-        failures.append(
+        speed_failures.append(
             "Time-step refinement changes fitted speed by "
             f"{temporal_change:.3%}, above {temporal_tolerance:.3%}."
         )
+    if fine_spatial_change >= spatial_tolerance:
+        speed_failures.append(
+            "Second spatial refinement changes fitted speed by "
+            f"{fine_spatial_change:.3%}, above {spatial_tolerance:.3%}."
+        )
+    if fine_spatial_change >= spatial_change:
+        speed_failures.append(
+            "Successive spatial fitted-speed changes do not decrease "
+            f"({spatial_change:.3%} then {fine_spatial_change:.3%}); "
+            "the reported maximum speed is not yet asymptotically converged."
+        )
+    failures.extend(speed_failures)
     return WeakInterfaceConvergenceStudy(
         baseline=baseline,
         spatial_refined=spatial,
+        spatial_fine=spatial_fine,
         temporal_refined=temporal,
         spatial_speed_change=spatial_change,
+        fine_spatial_speed_change=fine_spatial_change,
         temporal_speed_change=temporal_change,
+        mechanism_preserved=not mechanism_failures,
+        speed_converged=not speed_failures,
         accepted=not failures,
         acceptance_failures=tuple(failures),
     )

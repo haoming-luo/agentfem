@@ -13,6 +13,10 @@
         <link rel="canonical" href="https://haoming-luo.github.io/agentfem/dynamic_cohesive_fracture_architecture/">
       
       
+        <link rel="prev" href="../nonlinear_solid_architecture/">
+      
+      
+        <link rel="next" href="../solution_procedures_and_thermal_creep/">
       
       
         
@@ -23,7 +27,7 @@
     
     
       
-        <title>Dynamic Cohesive Fracture Architecture - AgentFEM</title>
+        <title>Dynamic Cohesive Fracture - AgentFEM</title>
       
     
     
@@ -109,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Dynamic Cohesive Fracture Architecture
+              Dynamic Cohesive Fracture
             
           </span>
         </div>
@@ -428,8 +432,10 @@
       
   
   
+    
   
   
+  
     
     
     
@@ -440,11 +446,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
@@ -465,7 +471,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -959,6 +965,8 @@
                 
   
   
+    
+  
   
   
     
@@ -968,11 +976,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" checked>
         
           
           <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
@@ -993,7 +1001,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1055,6 +1063,335 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dynamic Cohesive Fracture
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dynamic Cohesive Fracture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#scientific-target-and-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scientific target and evidence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architectural-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architectural decision
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#state-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        State ownership
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interface-topology" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interface topology
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bulk-dynamics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bulk dynamics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#near-incompressibility-and-two-dimensional-reduction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Near incompressibility and two-dimensional reduction
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#preload-and-step-transition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Preload and step transition
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wave-speeds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wave speeds
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#energy-ledger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Energy ledger
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#crack-observations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Crack observations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification gates
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Verification gates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#v0-local-mathematics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        V0 -- local mathematics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v1-waves" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        V1 -- waves
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v2-energy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        V2 -- energy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v3-classical-fracture-guardrail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        V3 -- classical fracture guardrail
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v4v5-publications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        V4/V5 -- publications
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#first-30-hour-foundation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        First 30-hour foundation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="First 30-hour foundation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#implemented-in-the-first-foundation-slice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implemented in the first foundation slice
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#automated-v1-v3-guardrails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automated V1--V3 guardrails
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#executable-v4-mechanism-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Executable V4 mechanism gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#two-dimensional-v4-convergence-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two-dimensional V4 convergence contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inputs-to-request-from-the-authors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inputs to request from the authors
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -3070,6 +3407,64 @@
   
 
 
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href=".." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Introduction
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../guide/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    User Guide
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../nonlinear_materials/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Nonlinear and Coupled Workflows
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
               
               <article class="md-content__inner md-typeset">
                 
@@ -3410,33 +3805,42 @@ mesh sequence, and post-processing convention, followed by mesh/time-step
 convergence and a thin-3D check. The immutable evidence and tolerances live in
 <code>knowledge/benchmarks/jmps_weak_interface_transition_v4.json</code>.</p>
 <h3 id="two-dimensional-v4-convergence-contract">Two-dimensional V4 convergence contract<a class="headerlink" href="#two-dimensional-v4-convergence-contract" title="Permanent link">&para;</a></h3>
-<p><code>benchmarks.jmps_weak_interface_convergence_v4()</code> is the opt-in promotion
+<p><code>benchmarks.jmps_weak_interface_convergence_v4()</code> is the opt-in refinement
 contract beyond the inexpensive two-cell-thick mechanism ladder. It uses a
-30x10 near-isotropic baseline, a 40x14 proportional spatial refinement, and a
-30x10 run with the explicit increment halved. A lower smooth impact is used
-because the screening impact becomes distributed spall when transverse wave
-propagation is resolved.</p>
-<p>All three runs remain resolved supershear. The fitted speed changes by 7.25%
-under spatial refinement and 0.24% when the time increment is halved; final
-complete-ledger energy errors remain below 0.025%. This passes the declared
-10% spatial and 2% temporal gates. It establishes mechanism-level 2D
-convergence, while a third proportional mesh, thin-3D comparison, and author
-parameters remain necessary for publication-curve reproduction. The complete
-contract takes several minutes and belongs in scheduled benchmark CI rather
-than the per-commit smoke suite.</p>
-<p>The transient lifecycle now advances path-dependent external work at every
+30x10 near-isotropic baseline, 40x14 and 60x20 near-proportional spatial
+refinements, and a 30x10 run with the explicit increment halved. A lower
+smooth impact is used because the screening impact becomes distributed spall
+when transverse wave propagation is resolved.</p>
+<p>All four runs preserve a resolved supershear regime, fewer than ten percent of
+the intact facets fail in one increment, and final complete-ledger energy
+errors remain below 0.034%. Time-step sensitivity is only 0.24%. Crack speed
+is evaluated over the same physical length of 0.3 in every spatial case,
+spanning three, four, and six interface facets rather than shrinking with the
+mesh. The fitted-speed changes decrease from 13.02% to 10.73%, but neither
+passes the declared 10% spatial gate. AgentFEM therefore reports
+<code>mechanism_preserved=True</code> but <code>speed_converged=False</code>, and the overall
+promotion gate remains false. This distinction is deliberate: repeated
+observation of a regime and a decreasing refinement change are useful
+evidence, but they are not yet an asymptotic crack speed. A cohesive-zone
+resolution study, thin-3D comparison, and author parameters remain necessary
+before publication-curve reproduction.</p>
+<p>The transient lifecycle advances path-dependent external work at every
 accepted increment but assembles bulk and kinetic energy only at retained
-history frames. Thus <code>history_every</code> reduces expensive state-function
-assembly without changing the integrated work or final energy balance.</p>
-<p>The next performance pass is deliberately evidence-driven:</p>
+history frames. It also reuses the accepted explicit residual when evaluating
+prescribed-motion work. On the fixed 30x6 profiling case this reduces bulk
+residual assemblies from 345 to 173 while preserving the speed, failure, and
+energy observables bit for bit; local wall time fell from about 31.84 s to
+16.07 s. Rank-local timing evidence is exposed in the Step and benchmark
+summaries. The profile also shows that cohesive force assembly is below 0.1%
+of wall time; finite-strain UFL/PETSc bulk residual assembly is the next
+performance target.</p>
+<p>The next performance work is therefore:</p>
 <ol>
-<li>profile bulk residual assembly, cohesive state evaluation, vector scatter,
-   and history work separately on the accepted 30x10 case;</li>
-<li>reuse PETSc work vectors and NumPy facet buffers across increments;</li>
-<li>batch cohesive quadrature/state updates without changing commit/rollback
-   boundaries;</li>
-<li>retain the short construction smoke per commit and run the six-minute
-   convergence contract in scheduled or release-gate CI;</li>
+<li>retain the residual-reuse count as a per-commit regression;</li>
+<li>investigate compiled-form/vector reuse around the bulk residual without
+   changing constitutive or commit/rollback semantics;</li>
+<li>keep the short construction smoke per commit and run the roughly
+   6.2-minute full refinement contract in scheduled or release-gate CI;</li>
 <li>optimize MPI ownership only after the serial facet kernel has a stable
    state identity and benchmark trace.</li>
 </ol>
@@ -3484,6 +3888,44 @@ assembly without changing the integrated work or final energy balance.</p>
       
         <footer class="md-footer">
   
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../nonlinear_solid_architecture/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Nonlinear Solid Architecture">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Nonlinear Solid Architecture
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../solution_procedures_and_thermal_creep/" class="md-footer__link md-footer__link--next" aria-label="Next: Thermal Stress and Creep Procedures">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Thermal Stress and Creep Procedures
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
     
   
   <div class="md-footer-meta md-typeset">

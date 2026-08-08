@@ -242,18 +242,22 @@ The first four promotion gates now have executable experimental evidence:
 4. V4 a near-incompressible plane-stress, preloaded weak-interface mechanism
    ladder separating crack-like propagation, a resolved `c_s < v < c_d`
    front, and distributed spall-like separation under smooth remote impact.
-5. an opt-in V4 two-dimensional convergence contract preserving supershear
-   across 30x10 and 40x14 meshes and a halved time increment, with spatial and
-   temporal fitted-speed changes of 7.25% and 0.24%, respectively.
+5. an opt-in V4 two-dimensional refinement contract. Supershear and energy
+   closure persist across 30x10, 40x14, and 60x20 meshes and a halved time
+   increment. With a fixed physical fitting length, successive spatial speed
+   changes decrease from 13.02% to 10.73% but remain above the 10% gate.
+   Mechanism preservation therefore passes while fitted-speed convergence
+   remains explicitly false.
 
 These are scoped named benchmarks, not universal validation. V1--V3 remain
 the compressible plane-strain guardrails; V4 is an experimental 2D membrane
 mechanism gate. The next promotion work is:
 
-6. a third proportional V4 mesh, impact-history family, loaded-interface wave
-   reference, and thin-3D counterpart; the principal traction-free
-   prestrained surface-wave secular oracle is implemented and independently
-   checked;
+6. diagnose the remaining front-speed sensitivity using cohesive-zone
+   resolution and an alternative crack-tip observable, then add an impact-history
+   family, loaded-interface wave reference, and thin-3D counterpart; the
+   principal traction-free prestrained surface-wave secular oracle is
+   implemented and independently checked;
 7. Abaqus/Gmsh internal-surface ingestion, deterministic MPI facet ownership,
    and portable interface-state identity;
 8. author-deck/parameter acquisition for curve-level JMPS 2025 reproduction,

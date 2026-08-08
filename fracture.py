@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from itertools import combinations
 from math import isfinite, sqrt
+from time import perf_counter
 
 import numpy as np
 import ufl
@@ -129,11 +130,9 @@ class DofMappedCohesiveForce:
     def add_to_vector(self, vector) -> None:
         response = self.begin()
         array = vector.array.reshape((-1, self.block_size))
-        np.add.at(
-            array,
-            self.node_to_block_dof,
-            response.internal_force,
-        )
+        # The constructor proves this map is one-to-one. Direct indexed
+        # addition avoids the duplicate-index machinery in ``np.add.at``.
+        array[self.node_to_block_dof] += response.internal_force
 
     def commit(self) -> None:
         self.assembler.commit()
@@ -324,9 +323,19 @@ class FiniteStrainCohesiveResidual:
         self.cohesive = cohesive
 
     def assemble_vector(self):
+        ledger = getattr(self, "performance", None)
+        bulk_started = perf_counter()
         vector = operators.assemble_vector(self.bulk)
+        if ledger is not None:
+            ledger.add("bulk_residual_assembly", perf_counter() - bulk_started)
         try:
+            cohesive_started = perf_counter()
             self.cohesive.add_to_vector(vector)
+            if ledger is not None:
+                ledger.add(
+                    "cohesive_force_assembly",
+                    perf_counter() - cohesive_started,
+                )
         except Exception:
             vector.destroy()
             self.cohesive.rollback()
@@ -549,6 +558,7 @@ class DynamicEnergyLedger:
     _natural_work: float = 0.0
     _prescribed_work: float = 0.0
     _initial_accounted_energy: float | None = None
+    accepts_accepted_residual: bool = True
 
     def _owned_size(self, displacement) -> int:
         function = field_api.unwrap(displacement)
@@ -593,7 +603,7 @@ class DynamicEnergyLedger:
             else np.unique(np.asarray(selected, dtype=np.int64))
         )
 
-    def _sample(self, displacement, acceleration):
+    def _sample(self, displacement, acceleration, *, residual_owned=None):
         function = field_api.unwrap(displacement)
         acceleration_function = field_api.unwrap(acceleration)
         owned = self._owned_size(displacement)
@@ -602,11 +612,19 @@ class DynamicEnergyLedger:
         prescribed_force = np.zeros(owned, dtype=float)
         constrained = self._prescribed_dofs(displacement)
         if constrained.size:
-            try:
-                residual = self._assemble_owned(self.residual, displacement)
-            finally:
-                if hasattr(self.residual, "rollback"):
-                    self.residual.rollback()
+            if residual_owned is None:
+                try:
+                    residual = self._assemble_owned(self.residual, displacement)
+                finally:
+                    if hasattr(self.residual, "rollback"):
+                        self.residual.rollback()
+            else:
+                residual = np.asarray(residual_owned, dtype=float)
+                if residual.shape != (owned,):
+                    raise ValueError(
+                        "Accepted residual cache does not match the owned "
+                        "displacement layout."
+                    )
             diagonal = np.asarray(
                 self.mass.mass if hasattr(self.mass, "mass") else self.mass,
                 dtype=float,
@@ -655,7 +673,13 @@ class DynamicEnergyLedger:
             self._previous_prescribed_force,
         ) = self._sample(self.state.u, self.state.a)
 
-    def advance(self, *, displacement, velocity=None) -> dict[str, float]:
+    def advance(
+        self,
+        *,
+        displacement,
+        velocity=None,
+        residual_owned=None,
+    ) -> dict[str, float]:
         """Advance accepted-increment work without assembling an energy snapshot.
 
         External work is path dependent and therefore consumes every accepted
@@ -668,6 +692,7 @@ class DynamicEnergyLedger:
         current, natural, prescribed_force = self._sample(
             displacement,
             self.state.a,
+            residual_owned=residual_owned,
         )
         if self._previous_displacement is not None:
             increment = current - self._previous_displacement
@@ -691,12 +716,22 @@ class DynamicEnergyLedger:
             "external_work": external,
         }
 
-    def evaluate(self, *, displacement, velocity) -> dict[str, float]:
+    def evaluate(
+        self,
+        *,
+        displacement,
+        velocity,
+        residual_owned=None,
+    ) -> dict[str, float]:
         values = self.energy.evaluate(
             displacement=displacement,
             velocity=velocity,
         )
-        work = self.advance(displacement=displacement, velocity=velocity)
+        work = self.advance(
+            displacement=displacement,
+            velocity=velocity,
+            residual_owned=residual_owned,
+        )
         accounted = self._accounted(values)
         if self._initial_accounted_energy is None:
             self._initial_accounted_energy = accounted

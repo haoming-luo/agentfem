@@ -642,6 +642,7 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| class | `PerformanceLedger` | Low-overhead, rank-local timing evidence for one solver lifecycle. |
 | function | `comm_of(obj = None, default = MPI.COMM_WORLD)` | Return the MPI communicator associated with an object when possible. |
 | function | `is_root(obj = None, *, root: int = 0) -> bool` | Return whether the current MPI rank is the selected reporting rank. |
 | function | `print_on_root(obj, *args, root: int = 0, flush: bool = True, **kwargs) -> None` | Print a message only on the selected MPI root rank. |

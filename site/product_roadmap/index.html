@@ -1071,6 +1071,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../dynamic_cohesive_fracture_architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dynamic Cohesive Fracture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../solution_procedures_and_thermal_creep/" class="md-nav__link">
         
   
@@ -3513,18 +3541,22 @@ wave oracle.  All remain experimental.</p>
 <li>V4 a near-incompressible plane-stress, preloaded weak-interface mechanism
    ladder separating crack-like propagation, a resolved <code>c_s &lt; v &lt; c_d</code>
    front, and distributed spall-like separation under smooth remote impact.</li>
-<li>an opt-in V4 two-dimensional convergence contract preserving supershear
-   across 30x10 and 40x14 meshes and a halved time increment, with spatial and
-   temporal fitted-speed changes of 7.25% and 0.24%, respectively.</li>
+<li>an opt-in V4 two-dimensional refinement contract. Supershear and energy
+   closure persist across 30x10, 40x14, and 60x20 meshes and a halved time
+   increment. With a fixed physical fitting length, successive spatial speed
+   changes decrease from 13.02% to 10.73% but remain above the 10% gate.
+   Mechanism preservation therefore passes while fitted-speed convergence
+   remains explicitly false.</li>
 </ol>
 <p>These are scoped named benchmarks, not universal validation. V1--V3 remain
 the compressible plane-strain guardrails; V4 is an experimental 2D membrane
 mechanism gate. The next promotion work is:</p>
 <ol>
-<li>a third proportional V4 mesh, impact-history family, loaded-interface wave
-   reference, and thin-3D counterpart; the principal traction-free
-   prestrained surface-wave secular oracle is implemented and independently
-   checked;</li>
+<li>diagnose the remaining front-speed sensitivity using cohesive-zone
+   resolution and an alternative crack-tip observable, then add an impact-history
+   family, loaded-interface wave reference, and thin-3D counterpart; the
+   principal traction-free prestrained surface-wave secular oracle is
+   implemented and independently checked;</li>
 <li>Abaqus/Gmsh internal-surface ingestion, deterministic MPI facet ownership,
    and portable interface-state identity;</li>
 <li>author-deck/parameter acquisition for curve-level JMPS 2025 reproduction,

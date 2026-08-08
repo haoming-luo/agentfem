@@ -15,6 +15,49 @@ from . import fields as field_api
 from .kernel import dofs
 
 
+@dataclass
+class PerformanceLedger:
+    """Low-overhead, rank-local timing evidence for one solver lifecycle."""
+
+    seconds: dict[str, float] = field(default_factory=dict)
+    counts: dict[str, int] = field(default_factory=dict)
+
+    def add(self, name: str, elapsed: float) -> None:
+        selected = str(name).strip()
+        value = float(elapsed)
+        if not selected:
+            raise ValueError("Performance timing name cannot be empty.")
+        if not np.isfinite(value) or value < 0.0:
+            raise ValueError("Performance timing must be finite and nonnegative.")
+        self.seconds[selected] = self.seconds.get(selected, 0.0) + value
+        self.counts[selected] = self.counts.get(selected, 0) + 1
+
+    def reset(self) -> None:
+        self.seconds.clear()
+        self.counts.clear()
+
+    def summary(self) -> dict[str, object]:
+        wall = float(self.seconds.get("run_wall", 0.0))
+        stages = {}
+        for name in sorted(self.seconds):
+            elapsed = float(self.seconds[name])
+            count = int(self.counts[name])
+            stages[name] = {
+                "seconds": elapsed,
+                "calls": count,
+                "seconds_per_call": elapsed / count,
+                "fraction_of_run_wall": (
+                    None if wall <= 0.0 else elapsed / wall
+                ),
+            }
+        return {
+            "kind": "rank_local_solver_performance",
+            "run_wall_seconds": wall,
+            "stages": stages,
+            "interpretation": "nested stages may overlap and must not be summed",
+        }
+
+
 def comm_of(obj=None, default=MPI.COMM_WORLD):
     """Return the MPI communicator associated with an object when possible."""
 

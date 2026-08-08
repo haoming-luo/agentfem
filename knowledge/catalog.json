@@ -116,8 +116,8 @@
       "id": "agentfem.benchmark.jmps_weak_interface_convergence_v4",
       "physics": "near-incompressible finite-strain plane-stress Neo-Hookean strip with ten or more cells through the height, homogeneous preload, smooth remote impact, a fixed bilinear Mode-I cohesive interface, and a precrack",
       "source": "knowledge/benchmarks/jmps_weak_interface_convergence_v4.json",
-      "status": "experimental_v4_2d_convergence_executable",
-      "title": "Two-dimensional weak-interface supershear convergence contract"
+      "status": "experimental_v4_2d_mechanism_preserved",
+      "title": "Two-dimensional weak-interface supershear refinement contract"
     },
     {
       "id": "agentfem.benchmark.jmps_weak_interface_transition_v4",

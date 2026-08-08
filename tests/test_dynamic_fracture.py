@@ -8,6 +8,7 @@ from agentfem import (
     amplitudes,
     constitutive,
     constraints,
+    diagnostics,
     fields,
     fracture,
     mesh,
@@ -60,6 +61,19 @@ def test_neo_hookean_explicit_selects_finite_strain_provider_not_linear_elastici
     )
 
 
+def test_performance_ledger_reports_rank_local_nested_stages():
+    ledger = diagnostics.PerformanceLedger()
+    ledger.add("run_wall", 2.0)
+    ledger.add("residual_assembly", 0.5)
+    ledger.add("residual_assembly", 0.25)
+    summary = ledger.summary()
+    assert summary["run_wall_seconds"] == pytest.approx(2.0)
+    residual = summary["stages"]["residual_assembly"]
+    assert residual["calls"] == 2
+    assert residual["seconds_per_call"] == pytest.approx(0.375)
+    assert residual["fraction_of_run_wall"] == pytest.approx(0.375)
+
+
 def test_finite_strain_explicit_reports_constitutive_not_quadratic_energy():
     model, displacement, material = _dynamic_neo_hookean_model()
     displacement.value.interpolate(
@@ -80,6 +94,9 @@ def test_finite_strain_explicit_reports_constitutive_not_quadratic_energy():
     assert "natural_load_work" in step.history_records[-1]
     assert "prescribed_motion_work" in step.history_records[-1]
     assert "energy_balance_error" in step.history_records[-1]
+    performance = step.summary()["performance"]
+    assert performance["stages"]["explicit_increment"]["calls"] == 1
+    assert performance["stages"]["residual_assembly"]["seconds"] > 0.0
 
 
 def test_explicit_prescribed_amplitude_sets_displacement_velocity_and_acceleration():
