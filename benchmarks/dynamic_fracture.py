@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from math import ceil, isfinite
 
 import numpy as np
+from dolfinx import fem
 from mpi4py import MPI
+import ufl
 
 from .. import amplitudes
 from .. import constitutive
@@ -48,6 +50,46 @@ class WaveArrivalBenchmark:
             "cells": self.cells,
             "maximum_relative_energy_error": self.maximum_relative_energy_error,
             "coordinate_measure": "reference",
+        }
+
+
+@dataclass(frozen=True)
+class ThinThreeDimensionalCrossCheck:
+    """Plane-stress condensation versus an affine thin-3D FEM patch."""
+
+    axial_stretch: float
+    lateral_stretch: float
+    thickness_stretch: float
+    reference_thickness: float
+    cells: tuple[int, int, int]
+    jacobian: float
+    plane_stress_first_piola: np.ndarray
+    thin_3d_first_piola: np.ndarray
+    plane_stress_energy_density: float
+    thin_3d_energy_density: float
+    maximum_relative_stress_error: float
+    relative_energy_error: float
+    traction_free_stress_ratio: float
+    accepted: bool
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "plane_stress_thin_3d_neo_hookean_crosscheck",
+            "axial_stretch": self.axial_stretch,
+            "lateral_stretch": self.lateral_stretch,
+            "thickness_stretch": self.thickness_stretch,
+            "reference_thickness": self.reference_thickness,
+            "cells": self.cells,
+            "jacobian": self.jacobian,
+            "plane_stress_first_piola": self.plane_stress_first_piola.tolist(),
+            "thin_3d_first_piola": self.thin_3d_first_piola.tolist(),
+            "plane_stress_energy_density": self.plane_stress_energy_density,
+            "thin_3d_energy_density": self.thin_3d_energy_density,
+            "maximum_relative_stress_error": self.maximum_relative_stress_error,
+            "relative_energy_error": self.relative_energy_error,
+            "traction_free_stress_ratio": self.traction_free_stress_ratio,
+            "accepted": self.accepted,
+            "claim_scope": "homogeneous_affine_geometry_assumption_crosscheck",
         }
 
 
@@ -266,6 +308,118 @@ class WeakInterfaceConvergenceStudy:
             "claim_scope": "two-dimensional supershear refinement evidence",
             "publication_curve_reproduction": False,
         }
+
+
+def plane_stress_thin_3d_crosscheck(
+    *,
+    axial_stretch: float = 1.12,
+    reference_thickness: float = 0.02,
+    cells=(2, 2, 1),
+    young: float = 1.0e6,
+    poisson: float = 0.49,
+    density: float = 1000.0,
+    tolerance: float = 1.0e-9,
+) -> ThinThreeDimensionalCrossCheck:
+    """Compare condensed 2D membrane response with a thin 3D FEM patch.
+
+    The three-dimensional cuboid carries the same homogeneous principal
+    stretches as the local plane-stress solution.  Its volume-averaged UFL
+    first-Piola stress and strain energy must recover the condensed values and
+    zero transverse nominal tractions.  This is a geometry/formulation patch
+    test, not a thin-3D fracture simulation or a locking study.
+    """
+
+    axial = float(axial_stretch)
+    thickness = float(reference_thickness)
+    selected_cells = tuple(int(value) for value in cells)
+    selected_tolerance = float(tolerance)
+    if not isfinite(axial) or axial <= 0.0:
+        raise ValueError("axial_stretch must be finite and positive.")
+    if not isfinite(thickness) or thickness <= 0.0:
+        raise ValueError("reference_thickness must be finite and positive.")
+    if len(selected_cells) != 3 or any(value <= 0 for value in selected_cells):
+        raise ValueError("cells must contain three positive integers.")
+    if not isfinite(selected_tolerance) or selected_tolerance <= 0.0:
+        raise ValueError("tolerance must be finite and positive.")
+    membrane = constitutive.neo_hookean_plane_stress(
+        young=young,
+        poisson=poisson,
+        density=density,
+    )
+    bulk = constitutive.neo_hookean(
+        young=young,
+        poisson=poisson,
+        density=density,
+    )
+    F2 = constitutive.plane_stress_uniaxial_deformation_gradient(axial, membrane)
+    thickness_stretch = constitutive.plane_stress_thickness_stretch_value(
+        F2,
+        membrane,
+    )
+    F3 = np.diag((F2[0, 0], F2[1, 1], thickness_stretch))
+    domain = mesh.cuboid(
+        (0.0, 0.0, 0.0),
+        (1.0, 1.0, thickness),
+        selected_cells,
+        comm=MPI.COMM_SELF,
+        cell_type="hexahedron",
+    )
+    displacement = fields.displacement(domain)
+    gradient = F3 - np.eye(3)
+    displacement.value.interpolate(lambda x: gradient @ x[:3])
+    displacement.value.x.scatter_forward()
+    P = constitutive.hyperelasticity.first_piola(displacement.value, bulk)
+    energy = constitutive.hyperelasticity.strain_energy_density(
+        displacement.value,
+        bulk,
+    )
+    volume = float(fem.assemble_scalar(fem.form(1.0 * ufl.dx(domain=domain))))
+    average = np.asarray(
+        [
+            fem.assemble_scalar(fem.form(P[i, j] * ufl.dx(domain=domain))) / volume
+            for i in range(3)
+            for j in range(3)
+        ],
+        dtype=float,
+    ).reshape((3, 3))
+    average_energy = float(
+        fem.assemble_scalar(fem.form(energy * ufl.dx(domain=domain))) / volume
+    )
+    condensed = constitutive.plane_stress_first_piola_value(F2, membrane)
+    condensed_energy = constitutive.hyperelasticity.principal_energy_density(
+        np.diag(F3),
+        bulk,
+    )
+    scale = max(float(np.max(np.abs(condensed))), float(young) * 1.0e-15)
+    stress_error = float(np.max(np.abs(average[:2, :2] - condensed)) / scale)
+    energy_scale = max(abs(condensed_energy), float(young) * 1.0e-15)
+    energy_error = abs(average_energy - condensed_energy) / energy_scale
+    traction_free = average.copy()
+    traction_free[1, 1] = 0.0
+    traction_free_ratio = float(np.max(np.abs(traction_free)) / scale)
+    jacobian = float(np.linalg.det(F3))
+    accepted = (
+        jacobian > 0.0
+        and stress_error <= selected_tolerance
+        and energy_error <= selected_tolerance
+        and traction_free_ratio <= selected_tolerance
+    )
+    return ThinThreeDimensionalCrossCheck(
+        axial_stretch=axial,
+        lateral_stretch=float(F2[0, 0]),
+        thickness_stretch=float(thickness_stretch),
+        reference_thickness=thickness,
+        cells=selected_cells,
+        jacobian=jacobian,
+        plane_stress_first_piola=condensed,
+        thin_3d_first_piola=average,
+        plane_stress_energy_density=float(condensed_energy),
+        thin_3d_energy_density=average_energy,
+        maximum_relative_stress_error=stress_error,
+        relative_energy_error=float(energy_error),
+        traction_free_stress_ratio=traction_free_ratio,
+        accepted=bool(accepted),
+    )
 
 
 def finite_strain_wave_arrival(
@@ -1484,6 +1638,7 @@ def _quadratic_peak_time(times, magnitude, index: int) -> float:
 __all__ = [
     "CohesiveEnergyBenchmark",
     "ClassicalCrackBenchmark",
+    "ThinThreeDimensionalCrossCheck",
     "WaveArrivalBenchmark",
     "WeakInterfaceTransitionBenchmark",
     "WeakInterfaceTransitionSuite",
@@ -1493,5 +1648,6 @@ __all__ = [
     "finite_strain_wave_arrival",
     "jmps_weak_interface_transition_v4",
     "jmps_weak_interface_convergence_v4",
+    "plane_stress_thin_3d_crosscheck",
     "prestressed_weak_interface_separation",
 ]

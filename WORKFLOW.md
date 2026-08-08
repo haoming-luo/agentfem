@@ -126,6 +126,13 @@ Dynamic-fracture research conditions can be exchanged through
 `fracture.DynamicFractureEvidenceBundle`; its seal proves artifact integrity,
 not scientific validation.
 
+For cohesive research restarts, use
+`interfaces.save_portable_cohesive_state(...)` and
+`interfaces.load_portable_cohesive_state(...)`. The accepted state follows an
+ordered physical facet key across facet order and MPI rank-count changes, and
+the writer rejects inconsistent owner/ghost histories. This is a portable
+state contract; the current cohesive force assembler itself remains serial.
+
 ## Design Principle
 
 The workflow should be easy for a human researcher to read and easy for an

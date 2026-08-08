@@ -1,0 +1,32 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.plane_stress_thin_3d_crosscheck",
+  "title": "Finite-strain plane-stress and thin-three-dimensional patch cross-check",
+  "status": "experimental_geometry_crosscheck_automated",
+  "purpose": "Independently check the local P33=0 membrane condensation against the same material and homogeneous deformation evaluated by a genuine three-dimensional finite-element cuboid.",
+  "physics": "compressible Neo-Hookean finite strain under homogeneous uniaxial stretch with traction-free lateral and thickness directions",
+  "execution": {
+    "example": "tests/test_dynamic_fracture_benchmarks.py",
+    "command": "python -c \"from agentfem import benchmarks; print(benchmarks.plane_stress_thin_3d_crosscheck().summary())\"",
+    "evidence": "A Q1 hexahedral thin cuboid is assigned the three-dimensional affine deformation recovered from the two-dimensional plane-stress local solve. Volume-averaged UFL first-Piola stress and energy are compared at two reference thicknesses and two cell layouts."
+  },
+  "observables": [
+    "Condensed in-plane first-Piola stress and thickness stretch.",
+    "Thin-three-dimensional volume-averaged first-Piola tensor and strain-energy density.",
+    "Deformation Jacobian and traction-free transverse stress ratio.",
+    "Relative in-plane stress and energy differences."
+  ],
+  "acceptance": [
+    "The deformation Jacobian remains positive.",
+    "The maximum in-plane nominal-stress difference is below 1e-10 relative.",
+    "The strain-energy-density difference is below 1e-10 relative.",
+    "All nominal stress components other than the loaded axial component remain below 1e-10 relative.",
+    "Changing reference thickness and through-thickness cell count does not change the homogeneous response."
+  ],
+  "limitations": [
+    "This is an affine patch and geometry-assumption cross-check, not a thin-three-dimensional crack simulation.",
+    "It does not establish general near-incompressible locking control on distorted or bending-dominated meshes.",
+    "It does not validate plane-stress reduction for arbitrary through-thickness gradients, inertia, cohesive fronts, or out-of-plane instability."
+  ]
+}

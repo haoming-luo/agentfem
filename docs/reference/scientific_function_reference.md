@@ -19,6 +19,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | [`agentfem.operator.system_contracts`](#agentfem-operator-system_contracts) | Finite-element operator and system contracts | operator | supported |
 | [`agentfem.workflow.abaqus_engineering_regions`](#agentfem-workflow-abaqus_engineering_regions) | Abaqus node sets and element-face surfaces as FEM regions | workflow | supported |
 | [`agentfem.workflow.campaign_learning_pipeline`](#agentfem-workflow-campaign_learning_pipeline) | Simulation campaign to guarded learning workflow | workflow | supported |
+| [`agentfem.workflow.cohesive_state_portability`](#agentfem-workflow-cohesive_state_portability) | Physical-keyed cohesive state across MPI partitions | workflow | experimental |
 | [`agentfem.workflow.coordinate_reference_coupling`](#agentfem-workflow-coordinate_reference_coupling) | Local coordinates and reference-point continuum coupling | workflow | supported |
 | [`agentfem.workflow.dynamic_fracture_v5_evidence`](#agentfem-workflow-dynamic_fracture_v5_evidence) | Publication-data evidence for dynamic cohesive fracture | workflow | experimental |
 | [`agentfem.workflow.integration_point_recovery`](#agentfem-workflow-integration_point_recovery) | Traceable integration-point field recovery | workflow | supported |
@@ -56,6 +57,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | `agentfem.benchmark.linear_static_cantilever` | Two-dimensional linear-static cantilever | small-strain isotropic linear elasticity in plane strain | numerical_regression |
 | `agentfem.benchmark.neo_hookean_release` | Compressible Neo-Hookean finite-strain release contract | compressible Neo-Hookean hyperelasticity | automated_regression |
 | `agentfem.benchmark.operator_contracts` | Operator role, system, and residual-linearization contracts | backend-facing finite-element operator algebra | automated |
+| `agentfem.benchmark.plane_stress_thin_3d_crosscheck` | Finite-strain plane-stress and thin-three-dimensional patch cross-check | compressible Neo-Hookean finite strain under homogeneous uniaxial stretch with traction-free lateral and thickness directions | experimental_geometry_crosscheck_automated |
 | `agentfem.benchmark.thermoelastic_free_expansion` | Plane-stress isotropic free thermal expansion | small-strain isotropic plane-stress thermoelasticity under uniform temperature change | automated_regression |
 | `agentfem.benchmark.transient_heat_release` | Implicit-Euler transient heat release regression | two-dimensional transient heat conduction with constant isotropic properties | numerical_regression |
 | `agentfem.benchmark.wave_release` | Explicit elastic-wave inclusion release contract | two-dimensional plane-strain linear elastodynamics | automated_regression |
@@ -1036,6 +1038,107 @@ dataset = report.require_dataset(quality='engineering'); training = surrogates.t
 
 - AgentFEM results and campaigns contract: `docs/results_and_campaigns.md`
 
+<a id="agentfem-workflow-cohesive_state_portability"></a>
+
+## Physical-keyed cohesive state across MPI partitions
+
+**Stable ID:** `agentfem.workflow.cohesive_state_portability`<br>
+**Kind:** `workflow`<br>
+**Status:** `experimental`<br>
+**Source card:** `knowledge/cards/cohesive_state_portability.json`
+
+Assigns every locally visible cohesive facet one deterministic MPI owner and saves committed quadrature state by ordered physical facet key, allowing a changed facet order or MPI rank count to recover the same irreversible state.
+
+### Public API
+
+- `agentfem.interfaces.deterministic_facet_ownership`
+- `agentfem.interfaces.save_portable_cohesive_state`
+- `agentfem.interfaces.load_portable_cohesive_state`
+- `agentfem.interfaces.FacetOwnership`
+
+### Scientific contract
+
+Irreversible interface state belongs to an oriented physical facet and quadrature point, not to a transient rank-local degree-of-freedom number.
+
+**physical state key**
+
+$$
+k_f=H(\operatorname{quantize}(\mathbf{X}_{f,1},\mathbf{X}_{f,2};\tau),\mathbf{N}_f,|\Gamma_f|,q)
+$$
+
+Ordered reference endpoints, normal orientation, length, tolerance, and quadrature contract define the restart identity.
+
+**deterministic visible owner**
+
+$$
+r_f=R_f[H(k_f)\bmod |R_f|]
+$$
+
+The hash selects one rank from the sorted ranks on which the physical facet is visible.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| paired physical facets | PairedLineFacets with ordered reference-geometry keys | reference geometry | Every local facet key is unique; ghost overlap across ranks is permitted. |
+| committed cohesive transaction | two quadrature-point maximum-opening values per facet and one law contract | opening length | Trial state must not be mistaken for accepted restart state. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| FacetOwnership | local ownership mask and global key-to-rank map | topology metadata | Provides one owner among the ranks able to assemble a visible facet. |
+| portable cohesive checkpoint | SHA-256 checked JSON manifest and keyed NPZ state | preserves cohesive law units | Restores local arrays in current facet order after verifying the global physical interface and law. |
+
+#### Assumptions
+
+- All ranks participate collectively and share the checkpoint filesystem.
+- Duplicate visibility denotes the same oriented physical facet; incompatible committed owner/ghost values are rejected before writing.
+- The current interface contains exactly the stored physical key set.
+
+#### Conventions
+
+- Facet orientation and quadrature order are identity-bearing.
+- Execution-local dof and rank numbers are not scientific state identity.
+- A changed partition may change the owner without changing the state key.
+
+#### Applicability
+
+- Fixed-path two-dimensional Mode-I cohesive interfaces and future distributed force assemblers using the same physical-key contract.
+
+#### Limitations
+
+- The current global paired-facet force assembler remains serial; this state contract does not claim distributed residual assembly.
+- The root-gathered NPZ format is laboratory-scale, not an extreme-scale collective checkpoint backend.
+- Reversed facet orientation is intentionally incompatible until quadrature permutation is explicitly implemented.
+
+### Minimal example
+
+```python
+ownership = interfaces.deterministic_facet_ownership(topology, comm=comm); manifest = interfaces.save_portable_cohesive_state('state', topology, transaction, comm=comm); interfaces.load_portable_cohesive_state(manifest, topology, transaction, comm=comm)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_interfaces.py`
+- `tests/portable_cohesive_checkpoint_driver.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Reject a changed law, missing/extra physical facet, corrupted archive, nonphysical legacy key, multiple owners, or inconsistent owner/ghost state.
+- Write with two ranks containing overlapping visible facets, then read with one rank in a different facet order and recover identical state.
+
+### References
+
+- AgentFEM dynamic cohesive fracture architecture: `docs/dynamic_cohesive_fracture_architecture.md`
+- DOLFINx parallel checkpointing demo: `https://docs.fenicsproject.org/dolfinx/main/python/demos/demo_checkpointing.html`
+
 <a id="agentfem-workflow-coordinate_reference_coupling"></a>
 
 ## Local coordinates and reference-point continuum coupling
@@ -1232,6 +1335,8 @@ The implementation falls back to observed RMS only when the observed range is nu
 - The dependency-free XLSX reader exposes stored values and cached formula results; it does not execute Excel formulas or infer units.
 - No universal acceptance tolerance is imposed; the research protocol must justify observable-specific thresholds.
 - Current paired-facet cohesive assembly is serial and the V4 spatial speed gate is not yet converged below ten percent.
+- Physical-keyed cohesive state can cross facet order and MPI rank count, but distributed cohesive force assembly is not yet implemented.
+- The plane-stress/thin-3D cross-check currently covers homogeneous affine deformation, not a full three-dimensional propagating crack.
 - The implemented publication registration is affine; nonlinear lens correction, segmentation, and coordinate uncertainty remain explicit research preprocessing.
 
 ### Minimal example

@@ -1,0 +1,109 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.cohesive_state_portability",
+  "title": "Physical-keyed cohesive state across MPI partitions",
+  "kind": "workflow",
+  "status": "experimental",
+  "summary": "Assigns every locally visible cohesive facet one deterministic MPI owner and saves committed quadrature state by ordered physical facet key, allowing a changed facet order or MPI rank count to recover the same irreversible state.",
+  "public_api": [
+    "agentfem.interfaces.deterministic_facet_ownership",
+    "agentfem.interfaces.save_portable_cohesive_state",
+    "agentfem.interfaces.load_portable_cohesive_state",
+    "agentfem.interfaces.FacetOwnership"
+  ],
+  "implementation": [
+    "cohesive_checkpoint.py",
+    "interfaces.py"
+  ],
+  "science": {
+    "statement": "Irreversible interface state belongs to an oriented physical facet and quadrature point, not to a transient rank-local degree-of-freedom number.",
+    "equations": [
+      {
+        "label": "physical state key",
+        "expression": "k_f=H(\\operatorname{quantize}(\\mathbf{X}_{f,1},\\mathbf{X}_{f,2};\\tau),\\mathbf{N}_f,|\\Gamma_f|,q)",
+        "description": "Ordered reference endpoints, normal orientation, length, tolerance, and quadrature contract define the restart identity."
+      },
+      {
+        "label": "deterministic visible owner",
+        "expression": "r_f=R_f[H(k_f)\\bmod |R_f|]",
+        "description": "The hash selects one rank from the sorted ranks on which the physical facet is visible."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "paired physical facets",
+        "type": "PairedLineFacets with ordered reference-geometry keys",
+        "unit_role": "reference geometry",
+        "description": "Every local facet key is unique; ghost overlap across ranks is permitted."
+      },
+      {
+        "name": "committed cohesive transaction",
+        "type": "two quadrature-point maximum-opening values per facet and one law contract",
+        "unit_role": "opening length",
+        "description": "Trial state must not be mistaken for accepted restart state."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "FacetOwnership",
+        "type": "local ownership mask and global key-to-rank map",
+        "unit_role": "topology metadata",
+        "description": "Provides one owner among the ranks able to assemble a visible facet."
+      },
+      {
+        "name": "portable cohesive checkpoint",
+        "type": "SHA-256 checked JSON manifest and keyed NPZ state",
+        "unit_role": "preserves cohesive law units",
+        "description": "Restores local arrays in current facet order after verifying the global physical interface and law."
+      }
+    ],
+    "assumptions": [
+      "All ranks participate collectively and share the checkpoint filesystem.",
+      "Duplicate visibility denotes the same oriented physical facet; incompatible committed owner/ghost values are rejected before writing.",
+      "The current interface contains exactly the stored physical key set."
+    ],
+    "conventions": [
+      "Facet orientation and quadrature order are identity-bearing.",
+      "Execution-local dof and rank numbers are not scientific state identity.",
+      "A changed partition may change the owner without changing the state key."
+    ],
+    "applicability": [
+      "Fixed-path two-dimensional Mode-I cohesive interfaces and future distributed force assemblers using the same physical-key contract."
+    ],
+    "limitations": [
+      "The current global paired-facet force assembler remains serial; this state contract does not claim distributed residual assembly.",
+      "The root-gathered NPZ format is laboratory-scale, not an extreme-scale collective checkpoint backend.",
+      "Reversed facet orientation is intentionally incompatible until quadrature permutation is explicitly implemented."
+    ]
+  },
+  "usage": {
+    "minimal_example": "ownership = interfaces.deterministic_facet_ownership(topology, comm=comm); manifest = interfaces.save_portable_cohesive_state('state', topology, transaction, comm=comm); interfaces.load_portable_cohesive_state(manifest, topology, transaction, comm=comm)",
+    "examples": ["tests/portable_cohesive_checkpoint_driver.py"]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_interfaces.py",
+      "tests/portable_cohesive_checkpoint_driver.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Reject a changed law, missing/extra physical facet, corrupted archive, nonphysical legacy key, multiple owners, or inconsistent owner/ghost state.",
+      "Write with two ranks containing overlapping visible facets, then read with one rank in a different facet order and recover identical state."
+    ]
+  },
+  "references": [
+    {
+      "title": "AgentFEM dynamic cohesive fracture architecture",
+      "locator": "docs/dynamic_cohesive_fracture_architecture.md"
+    },
+    {
+      "title": "DOLFINx parallel checkpointing demo",
+      "locator": "https://docs.fenicsproject.org/dolfinx/main/python/demos/demo_checkpointing.html"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.transient_checkpoint_portability",
+    "agentfem.workflow.dynamic_fracture_v5_evidence"
+  ]
+}

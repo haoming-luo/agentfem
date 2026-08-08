@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from mpi4py import MPI
 
 from agentfem import interfaces
 
@@ -79,6 +80,34 @@ def test_cohesive_transaction_commit_rollback_and_restart_are_atomic():
     restored = interfaces.CohesiveTransaction(_law(), size=2)
     restored.restore(snapshot)
     np.testing.assert_allclose(restored.committed_maximum, [0.1, 0.2])
+
+
+def test_portable_cohesive_state_round_trip_uses_physical_facet_identity(tmp_path):
+    _, topology = _one_segment_interface()
+    source = interfaces.CohesiveTransaction(_law(), size=2)
+    source.initialize([0.1, 0.2])
+    ownership = interfaces.deterministic_facet_ownership(
+        topology,
+        comm=MPI.COMM_SELF,
+    )
+    manifest = interfaces.save_portable_cohesive_state(
+        tmp_path / "interface",
+        topology,
+        source,
+        comm=MPI.COMM_SELF,
+    )
+    restored = interfaces.CohesiveTransaction(_law(), size=2)
+    metadata = interfaces.load_portable_cohesive_state(
+        manifest,
+        topology,
+        restored,
+        comm=MPI.COMM_SELF,
+    )
+
+    np.testing.assert_allclose(restored.committed_maximum, [0.1, 0.2])
+    assert ownership.summary()["global_facets"] == 1
+    assert metadata["reader_rank_count"] == 1
+    assert metadata["parallel_contract"] == "physical_facet_keyed_state"
 
 
 def test_cohesive_parameters_reject_an_impossible_bilinear_envelope():

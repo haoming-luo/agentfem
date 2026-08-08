@@ -104,6 +104,31 @@ def test_v4_case_smoke_exposes_plane_stress_preload_impact_and_bulk_modes():
     )
 
 
+def test_plane_stress_matches_thin_three_dimensional_affine_patch():
+    regular = benchmarks.plane_stress_thin_3d_crosscheck(
+        axial_stretch=1.12,
+        reference_thickness=0.02,
+        cells=(2, 2, 1),
+    )
+    thinner = benchmarks.plane_stress_thin_3d_crosscheck(
+        axial_stretch=1.12,
+        reference_thickness=0.005,
+        cells=(3, 2, 2),
+    )
+
+    for result in (regular, thinner):
+        assert result.accepted
+        assert result.jacobian > 0.0
+        assert result.maximum_relative_stress_error < 1.0e-10
+        assert result.relative_energy_error < 1.0e-10
+        assert result.traction_free_stress_ratio < 1.0e-10
+        assert result.lateral_stretch == pytest.approx(result.thickness_stretch)
+    assert thinner.thin_3d_first_piola[1, 1] == pytest.approx(
+        regular.thin_3d_first_piola[1, 1],
+        rel=1.0e-12,
+    )
+
+
 def test_v4_strip_accepts_independent_even_transverse_resolution():
     result = benchmarks.prestressed_weak_interface_separation(
         label="v4_2d_mesh_smoke",

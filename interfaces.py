@@ -913,19 +913,36 @@ def _finite_array(value, *, name: str) -> np.ndarray:
     return selected
 
 
+# Portable state lives in a separate module so the local cohesive material and
+# facet kernels remain independently testable.  Re-export it from the public
+# interface namespace because users should not need to know the storage owner.
+from .cohesive_checkpoint import (  # noqa: E402
+    COHESIVE_CHECKPOINT_SCHEMA,
+    FacetOwnership,
+    deterministic_facet_ownership,
+    load_portable_cohesive_state,
+    save_portable_cohesive_state,
+)
+
+
 __all__ = [
     "BilinearCohesiveLaw",
     "CohesiveResponse",
     "CohesiveSurface",
     "CohesiveTransaction",
+    "COHESIVE_CHECKPOINT_SCHEMA",
     "CohesiveFacetResponse",
     "ModeICohesiveFacetAssembler",
+    "FacetOwnership",
     "PairedLineFacets",
     "SplitInterfaceMesh",
     "bilinear_cohesive",
     "cohesive_characteristic_length",
     "cohesive_surface",
     "create_dolfinx_split_mesh",
+    "deterministic_facet_ownership",
+    "load_portable_cohesive_state",
     "pair_coincident_line_facets",
+    "save_portable_cohesive_state",
     "split_conforming_line_interface",
 ]

@@ -137,6 +137,11 @@ finite-element simulation with AgentFEM.
   as a partial field series even though the result retains full accepted-time
   and execution evidence. Do not change MPI size or mesh partition when loading
   the current partition-bound checkpoint.
+- Cohesive state portability: fixed-path cohesive transactions may instead use
+  `interfaces.save_portable_cohesive_state(...)` and
+  `interfaces.load_portable_cohesive_state(...)`. Physical facet keys survive
+  local order and MPI rank-count changes; the current distributed force
+  assembly is not implied by this state-only contract.
 - Installed projects and external frontends: read `docs/getting_started.md`
   and `docs/agent_gui_integration.md`. Keep `case.py` as modeling truth, use
   `project.current_run()` for artifacts, publish a `SimulationResult`, and

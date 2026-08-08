@@ -76,6 +76,9 @@ jobs:
         run: |
           mpirun -n 2 python tests/portable_checkpoint_driver.py write /tmp/agentfem-portable-heat
           python tests/portable_checkpoint_driver.py read /tmp/agentfem-portable-heat
+          mpirun -n 2 python tests/portable_cohesive_checkpoint_driver.py write /tmp/agentfem-portable-cohesive
+          python tests/portable_cohesive_checkpoint_driver.py read /tmp/agentfem-portable-cohesive
+          mpirun -n 2 python tests/portable_cohesive_checkpoint_driver.py reject-inconsistent /tmp/agentfem-inconsistent-cohesive
 
       - name: Run static FEniCSx smoke test
         run: python examples/static_elasticity_2d.py

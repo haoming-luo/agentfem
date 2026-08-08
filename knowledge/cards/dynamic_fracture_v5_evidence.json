@@ -115,6 +115,8 @@
       "The dependency-free XLSX reader exposes stored values and cached formula results; it does not execute Excel formulas or infer units.",
       "No universal acceptance tolerance is imposed; the research protocol must justify observable-specific thresholds.",
       "Current paired-facet cohesive assembly is serial and the V4 spatial speed gate is not yet converged below ten percent.",
+      "Physical-keyed cohesive state can cross facet order and MPI rank count, but distributed cohesive force assembly is not yet implemented.",
+      "The plane-stress/thin-3D cross-check currently covers homogeneous affine deformation, not a full three-dimensional propagating crack.",
       "The implemented publication registration is affine; nonlinear lens correction, segmentation, and coordinate uncertainty remain explicit research preprocessing."
     ]
   },
@@ -154,6 +156,7 @@
   ],
   "related_cards": [
     "agentfem.workflow.scientific_verification",
-    "agentfem.workflow.result_field_sampling"
+    "agentfem.workflow.result_field_sampling",
+    "agentfem.workflow.cohesive_state_portability"
   ]
 }

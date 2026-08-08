@@ -115,6 +115,21 @@ _BENCHMARKS = (
         status="release_regression",
     ),
     BenchmarkSpec(
+        identifier="plane_stress_thin_3d_crosscheck",
+        capability="neo_hookean_plane_stress",
+        level="finite_element",
+        reference="knowledge/benchmarks/plane_stress_thin_3d_crosscheck.json",
+        criterion=(
+            "condensed plane-stress nominal stress and energy match a thin "
+            "three-dimensional affine FEM patch with traction-free transverse stress"
+        ),
+        automated_test=(
+            "tests/test_dynamic_fracture_benchmarks.py::"
+            "test_plane_stress_matches_thin_three_dimensional_affine_patch"
+        ),
+        status="experimental_geometry_crosscheck",
+    ),
+    BenchmarkSpec(
         identifier="c3d10h_periodic_cell",
         capability="mixed_neo_hookean",
         level="workflow",

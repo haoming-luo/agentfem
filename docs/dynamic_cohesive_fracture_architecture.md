@@ -80,6 +80,15 @@ rejecting a different interface or law. The identity is orientation-sensitive
 by design; distributed ownership and cross-partition facet-state assembly are
 still required before MPI cohesive execution can be claimed.
 
+That identity now has a collective portable-state consumer. Facets visible on
+several ranks receive one deterministic owner chosen from the ranks that can
+assemble them. The accepted maximum-opening values are stored once per
+physical key with the law, quadrature contract, size, and SHA-256 evidence.
+The same file is exercised by a two-rank write followed by a one-rank restore
+with a different facet order. This closes state redistribution, but not the
+remaining distributed residual problem: interface forces must still be added
+to owned/ghost displacement entries exactly once and accumulated collectively.
+
 `interfaces.BilinearCohesiveLaw` and `interfaces.CohesiveTransaction` are the
 first material-point implementation of this contract.  They are marked
 experimental until a paired-facet global consumer passes the verification
@@ -155,8 +164,12 @@ requires either:
   or
 - a thin three-dimensional solid model.
 
-The first option is now implemented and locally verified. Thin 3D remains the
-required geometry-assumption cross-check.
+The first option is now implemented and locally verified. The first affine
+thin-3D cross-check is also executable: a true three-dimensional Q1 cuboid at
+two thickness/cell layouts recovers the condensed nominal stress and energy to
+near machine precision, including transverse zero traction. This validates the
+homogeneous reduction, not a three-dimensional crack front, bending,
+out-of-plane instability, or general near-incompressible locking behavior.
 
 ## Preload and step transition
 

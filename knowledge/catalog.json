@@ -148,6 +148,13 @@
       "title": "Operator role, system, and residual-linearization contracts"
     },
     {
+      "id": "agentfem.benchmark.plane_stress_thin_3d_crosscheck",
+      "physics": "compressible Neo-Hookean finite strain under homogeneous uniaxial stretch with traction-free lateral and thickness directions",
+      "source": "knowledge/benchmarks/plane_stress_thin_3d_crosscheck.json",
+      "status": "experimental_geometry_crosscheck_automated",
+      "title": "Finite-strain plane-stress and thin-three-dimensional patch cross-check"
+    },
+    {
       "id": "agentfem.benchmark.thermoelastic_free_expansion",
       "physics": "small-strain isotropic plane-stress thermoelasticity under uniform temperature change",
       "source": "knowledge/benchmarks/thermoelastic_free_expansion.json",
@@ -343,6 +350,24 @@
       "title": "Simulation campaign to guarded learning workflow"
     },
     {
+      "id": "agentfem.workflow.cohesive_state_portability",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.interfaces.deterministic_facet_ownership",
+        "agentfem.interfaces.save_portable_cohesive_state",
+        "agentfem.interfaces.load_portable_cohesive_state",
+        "agentfem.interfaces.FacetOwnership"
+      ],
+      "related_cards": [
+        "agentfem.workflow.transient_checkpoint_portability",
+        "agentfem.workflow.dynamic_fracture_v5_evidence"
+      ],
+      "source": "knowledge/cards/cohesive_state_portability.json",
+      "status": "experimental",
+      "summary": "Assigns every locally visible cohesive facet one deterministic MPI owner and saves committed quadrature state by ordered physical facet key, allowing a changed facet order or MPI rank count to recover the same irreversible state.",
+      "title": "Physical-keyed cohesive state across MPI partitions"
+    },
+    {
       "id": "agentfem.workflow.coordinate_reference_coupling",
       "kind": "workflow",
       "public_api": [
@@ -382,7 +407,8 @@
       ],
       "related_cards": [
         "agentfem.workflow.scientific_verification",
-        "agentfem.workflow.result_field_sampling"
+        "agentfem.workflow.result_field_sampling",
+        "agentfem.workflow.cohesive_state_portability"
       ],
       "source": "knowledge/cards/dynamic_fracture_v5_evidence.json",
       "status": "experimental",
