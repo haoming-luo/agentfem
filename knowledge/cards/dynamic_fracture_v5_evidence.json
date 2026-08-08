@@ -1,0 +1,137 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.dynamic_fracture_v5_evidence",
+  "title": "Publication-data evidence for dynamic cohesive fracture",
+  "kind": "workflow",
+  "status": "experimental",
+  "summary": "Pins public fracture observations by version and hash, preserves accepted cohesive-interface traces, estimates fronts from multiple physical observers, and compares curves, Mach angles, and rectilinear fields without turning one fitted case into a validation claim.",
+  "public_api": [
+    "agentfem.datasets.science_supershear_dryad_manifest",
+    "agentfem.datasets.science_supershear_v5_research_task",
+    "agentfem.datasets.read_xlsx_workbook",
+    "agentfem.fracture.CohesiveInterfaceTrace",
+    "agentfem.fracture.cohesive_front_ensemble",
+    "agentfem.fracture.compare_curve",
+    "agentfem.fracture.compare_mach_cone",
+    "agentfem.fracture.compare_rectilinear_field",
+    "agentfem.results.finite_strain_dynamic_cell_fields"
+  ],
+  "implementation": [
+    "datasets/external.py",
+    "fracture.py",
+    "results/finite_strain.py",
+    "benchmarks/dynamic_fracture.py",
+    "knowledge/external_data/science_supershear_dryad_v7.json"
+  ],
+  "science": {
+    "statement": "Publication comparison is a versioned transformation from immutable observations and converged simulation observables, with calibration separated from retained prediction conditions.",
+    "equations": [
+      {
+        "label": "Mach cone",
+        "expression": "\\theta_M=\\sin^{-1}(c_s/v)",
+        "description": "The observed cone angle is compared with the shear-wave and crack speeds using one declared prestrain and coordinate convention."
+      },
+      {
+        "label": "normalized field error",
+        "expression": "\\mathrm{NRMSE}=\\sqrt{N^{-1}\\sum_i(y_i^{\\mathrm{FEM}}-y_i^{\\mathrm{obs}})^2}/(y_{\\max}^{\\mathrm{obs}}-y_{\\min}^{\\mathrm{obs}})",
+        "description": "The implementation falls back to observed RMS only when the observed range is numerically zero."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "external dataset manifest",
+        "type": "version, DOI, license, roles, file sizes, and SHA-256 identities",
+        "unit_role": "metadata",
+        "description": "Binds local observations to one official repository version."
+      },
+      {
+        "name": "cohesive interface trace",
+        "type": "time by facet arrays of opening, traction, damage, and dissipated-energy density",
+        "unit_role": "model dependent and explicitly recorded",
+        "description": "Retains accepted interface states without conflating density with global integrated energy."
+      },
+      {
+        "name": "reference and simulation observables",
+        "type": "curves, scalar angles, or scalar rectilinear maps",
+        "unit_role": "must be harmonized before comparison",
+        "description": "Only overlapping coordinates are compared; extrapolated pixels are excluded."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "ExternalDatasetAudit",
+        "type": "missing, size mismatch, digest mismatch, and accepted status",
+        "unit_role": "evidence identity",
+        "description": "Stops silent use of a different or corrupted public dataset."
+      },
+      {
+        "name": "CohesiveFrontEnsemble",
+        "type": "multiple threshold-interpolated positions and window-fitted speeds",
+        "unit_role": "path coordinate and time",
+        "description": "Reports observer sensitivity rather than one favorable failed-element velocity."
+      },
+      {
+        "name": "ScientificComparison",
+        "type": "sample count, RMSE, NRMSE, correlation, overlap, and method metadata",
+        "unit_role": "same units as compared observable",
+        "description": "A common evidence record for curve, Mach-angle, and field-map comparisons."
+      }
+    ],
+    "assumptions": [
+      "Workbook units and coordinate conventions are reconstructed and reviewed before numeric comparison.",
+      "Calibration conditions and retained prediction conditions are frozen before parameter inference.",
+      "Simulation discretization, energy balance, and observer sensitivity are separately converged."
+    ],
+    "conventions": [
+      "Interface path coordinates and crack speeds use the declared reference configuration unless metadata says otherwise.",
+      "Damage is reduced by the facet quadrature maximum; opening, traction, and dissipated-energy density use facet quadrature means.",
+      "Rectilinear simulation fields are bilinearly interpolated to observed grid points only within their common domain."
+    ],
+    "applicability": [
+      "Science 2023 public supershear observations and future versioned dynamic-fracture datasets with equivalent curve or grid observables."
+    ],
+    "limitations": [
+      "The public Science observations are not a complete JMPS 2025 computational input deck.",
+      "The dependency-free XLSX reader exposes stored values and cached formula results; it does not execute Excel formulas or infer units.",
+      "No universal acceptance tolerance is imposed; the research protocol must justify observable-specific thresholds.",
+      "Current paired-facet cohesive assembly is serial and the V4 spatial speed gate is not yet converged below ten percent."
+    ]
+  },
+  "usage": {
+    "minimal_example": "manifest = datasets.science_supershear_dryad_manifest(); manifest.audit(data_dir).require(); case = benchmarks.prestressed_weak_interface_separation(retain_trace=True); fronts = fracture.cohesive_front_ensemble(case.trace)",
+    "examples": ["examples/science_supershear_v5_protocol.py"]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_external_datasets.py",
+      "tests/test_fracture_v5.py",
+      "tests/test_dynamic_fracture_benchmarks.py"
+    ],
+    "benchmarks": ["agentfem.benchmark.jmps_weak_interface_transition_v4"],
+    "validation_rules": [
+      "Reject unrecognized manifests, missing files, wrong sizes, and wrong hashes.",
+      "Round-trip cohesive traces without pickle and reject inconsistent array shape or time order.",
+      "Recover exact linear curves, Mach angles, and bilinear scalar fields in comparison tests.",
+      "Retain a trace from a real finite-strain cohesive Explicit smoke case."
+    ]
+  },
+  "references": [
+    {
+      "title": "Tensile cracks can shatter classical speed limits",
+      "locator": "https://doi.org/10.1126/science.adg7693"
+    },
+    {
+      "title": "Public data for Tensile cracks can shatter classical speed limits",
+      "locator": "https://doi.org/10.5061/dryad.7wm37pvz6"
+    },
+    {
+      "title": "Transition from crack-type to supershear-type to spall-type mode of separation under tensile loading",
+      "locator": "https://doi.org/10.1016/j.jmps.2025.106213"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.scientific_verification",
+    "agentfem.workflow.result_field_sampling"
+  ]
+}

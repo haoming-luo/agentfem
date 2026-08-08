@@ -73,6 +73,7 @@ def test_v4_case_smoke_exposes_plane_stress_preload_impact_and_bulk_modes():
         initial_stiffness=1.0e5,
         impact_displacement=0.002,
         impact_rise_time=0.002,
+        retain_trace=True,
     )
     assert result.preload_energy_jump == pytest.approx(0.0)
     assert result.transverse_cells == 2
@@ -82,6 +83,12 @@ def test_v4_case_smoke_exposes_plane_stress_preload_impact_and_bulk_modes():
     assert result.crack_speed_fit_length == pytest.approx(0.3)
     assert result.summary()["loading"] == (
         "homogeneous_prestrain_then_remote_impact"
+    )
+    assert result.trace is not None
+    assert result.trace.time.size == result.trace.damage.shape[0]
+    assert result.trace.path_coordinate.size == 30
+    assert result.trace.summary()["metadata"]["facet_reduction"]["damage"] == (
+        "quadrature_maximum"
     )
     stages = result.performance["stages"]
     assert stages["bulk_residual_assembly"]["calls"] > 0

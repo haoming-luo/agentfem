@@ -152,6 +152,7 @@ class WeakInterfaceTransitionBenchmark:
     impact_displacement: float
     impact_rise_time: float
     performance: dict[str, object]
+    trace: fracture.CohesiveInterfaceTrace | None = None
 
     def summary(self) -> dict[str, object]:
         return {
@@ -200,6 +201,7 @@ class WeakInterfaceTransitionBenchmark:
             "impact_displacement": self.impact_displacement,
             "impact_rise_time": self.impact_rise_time,
             "performance": self.performance,
+            "trace": None if self.trace is None else self.trace.summary(),
             "maturity": "experimental_v4_mechanism_case",
         }
 
@@ -773,6 +775,7 @@ def prestressed_weak_interface_separation(
     impact_displacement: float = 0.0,
     impact_rise_time: float | None = None,
     speed_fit_length: float | None = None,
+    retain_trace: bool = False,
 ) -> WeakInterfaceTransitionBenchmark:
     """Drive a precrack through a prestressed plane-stress weak interface.
 
@@ -1024,8 +1027,29 @@ def prestressed_weak_interface_separation(
     )
     cohesive_residual = step.residual.base if damping else step.residual
     initial_response = cohesive_residual.cohesive.current_response()
+    initial_point_response = (
+        cohesive.assembler.material_point_response(initial_response)
+        if retain_trace
+        else None
+    )
     times = [0.0]
     damage_frames = [np.max(initial_response.damage, axis=1)]
+    opening_frames = (
+        [np.mean(initial_response.opening, axis=1)] if retain_trace else None
+    )
+    traction_frames = (
+        [np.mean(initial_response.traction, axis=1)] if retain_trace else None
+    )
+    dissipation_frames = (
+        [
+            np.mean(
+                initial_point_response.dissipated_energy.reshape((-1, 2)),
+                axis=1,
+            )
+        ]
+        if retain_trace
+        else None
+    )
     traction_ratios = [
         float(np.max(np.abs(initial_response.traction[~precracked])) / law.strength)
         if np.any(~precracked)
@@ -1036,6 +1060,16 @@ def prestressed_weak_interface_separation(
         response = cohesive_residual.cohesive.current_response()
         times.append(float(info.time))
         damage_frames.append(np.max(response.damage, axis=1))
+        if retain_trace:
+            point_response = cohesive.assembler.material_point_response(response)
+            opening_frames.append(np.mean(response.opening, axis=1))
+            traction_frames.append(np.mean(response.traction, axis=1))
+            dissipation_frames.append(
+                np.mean(
+                    point_response.dissipated_energy.reshape((-1, 2)),
+                    axis=1,
+                )
+            )
         traction_ratios.append(
             float(np.max(np.abs(response.traction[~precracked])) / law.strength)
             if np.any(~precracked)
@@ -1111,6 +1145,31 @@ def prestressed_weak_interface_separation(
         pressure_wave_speed=pressure_speed,
     )
     cohesive_length = law.characteristic_length(float(young))
+    trace = None
+    if retain_trace:
+        trace = fracture.CohesiveInterfaceTrace(
+            time=np.asarray(times),
+            path_coordinate=facet_centers,
+            opening=np.asarray(opening_frames),
+            traction=np.asarray(traction_frames),
+            damage=np.asarray(damage_frames),
+            dissipated_energy_density=np.asarray(dissipation_frames),
+            metadata={
+                "benchmark": "prestressed_weak_interface_separation",
+                "label": str(label),
+                "spatial_configuration": "reference",
+                "path_coordinate": "interface_facet_center_x",
+                "facet_reduction": {
+                    "opening": "quadrature_mean",
+                    "traction": "quadrature_mean",
+                    "damage": "quadrature_maximum",
+                    "dissipated_energy_density": "quadrature_mean",
+                },
+                "strength": float(strength),
+                "fracture_energy": float(fracture_energy),
+                "precrack_length": selected_precrack,
+            },
+        )
     return WeakInterfaceTransitionBenchmark(
         label=str(label),
         cells=selected_cells,
@@ -1151,6 +1210,7 @@ def prestressed_weak_interface_separation(
         impact_displacement=selected_impact,
         impact_rise_time=selected_rise,
         performance=step.performance.summary(),
+        trace=trace,
     )
 
 

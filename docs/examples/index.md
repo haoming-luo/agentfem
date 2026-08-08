@@ -16,6 +16,15 @@ problem-specific qualification.
 | [Abaqus periodic hyperelastic cell](#abaqus-periodic-hyperelastic-cell) | Imported 3D quadratic mesh, equations, finite strain | Engineering |
 | [Implicit creep relaxation](#implicit-creep-relaxation) | 3D power-law creep, global/local Newton and cutback | Engineering |
 | [Elasticity surrogate campaign](#elasticity-surrogate-campaign) | Repeated FEM, accepted dataset, surrogate and fallback | Release |
+| [Science supershear data protocol](#science-supershear-data-protocol) | Public-data identity, XLSX inspection, research handoff | Experimental |
+
+## Science supershear data protocol
+
+`examples/science_supershear_v5_protocol.py` verifies the pinned Dryad file
+identities and inventories the public Science 2023 crack-speed, wave-speed,
+Mach-cone, material-response, and SED/KED workbooks. It is the data boundary
+for the [Science Supershear V5 protocol](../research/science_supershear_v5.md),
+not a parameter fit disguised as an example.
 
 ## 2D static elasticity
 

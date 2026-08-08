@@ -560,6 +560,25 @@ class ModeICohesiveFacetAssembler:
         self.state.commit()
         self._trial = None
 
+    def material_point_response(
+        self,
+        response: CohesiveFacetResponse | None = None,
+    ) -> CohesiveResponse:
+        """Recover current per-quadrature-point constitutive quantities.
+
+        ``CohesiveFacetResponse`` intentionally stores interface-integrated
+        energies for global balance.  Research field output needs the local
+        energy densities instead; this method preserves that distinction.
+        """
+
+        selected = self.last_committed_response if response is None else response
+        if selected is None:
+            raise RuntimeError("No cohesive facet response is available.")
+        return self.law.update(
+            np.asarray(selected.opening, dtype=float).reshape(-1),
+            self.state.committed_maximum,
+        )
+
     def rollback(self) -> None:
         self.state.rollback()
         self._trial = None

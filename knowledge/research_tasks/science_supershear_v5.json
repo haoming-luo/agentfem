@@ -1,0 +1,109 @@
+{
+  "schema": "agentfem.research-task",
+  "schema_version": "0.1.0",
+  "id": "agentfem.research.science_supershear_v5",
+  "title": "Independent V5 study of tensile supershear fracture",
+  "status": "ready_for_research_execution",
+  "objective": "Use the pinned public Science 2023 observations and AgentFEM's finite-strain cohesive Explicit route to determine which crack-speed, Mach-cone, wave-speed, displacement/strain, and SED/KED observations can be reproduced without unpublished author inputs.",
+  "claim_boundary": "This task may establish agreement, disagreement, sensitivity, or an identified model gap. It must not infer unpublished parameters from a held-out prediction condition or describe the V4 mechanism benchmark as publication validation.",
+  "software_entrypoints": [
+    "agentfem.datasets.science_supershear_dryad_manifest",
+    "agentfem.datasets.read_xlsx_workbook",
+    "agentfem.benchmarks.prestressed_weak_interface_separation",
+    "agentfem.fracture.CohesiveInterfaceTrace",
+    "agentfem.fracture.cohesive_front_ensemble",
+    "agentfem.fracture.compare_curve",
+    "agentfem.fracture.compare_mach_cone",
+    "agentfem.fracture.compare_rectilinear_field",
+    "agentfem.results.finite_strain_cell_fields"
+  ],
+  "data": {
+    "manifest": "knowledge/external_data/science_supershear_dryad_v7.json",
+    "doi": "10.5061/dryad.7wm37pvz6",
+    "version_id": "235603",
+    "license": "CC0-1.0",
+    "download": "Use the official Dryad landing page; do not bypass bot protection. Run the manifest audit before interpreting a workbook.",
+    "minimum_roles": [
+      "material_response",
+      "wave_speed",
+      "fracture_energy",
+      "crack_speed",
+      "mach_cone",
+      "sed_ked_field"
+    ]
+  },
+  "work_packages": [
+    {
+      "id": "V5-A",
+      "name": "Data dictionary and units",
+      "tasks": [
+        "Audit every downloaded file against size and SHA-256.",
+        "Inspect every sheet and reconstruct variable names, units, coordinate conventions, normalization, and uncertainty from README and article context.",
+        "Write one immutable tidy-data conversion with tests; retain source workbook, sheet, cell range, and conversion metadata."
+      ],
+      "deliverables": ["data_dictionary.md", "tidy_public_observations.npz", "conversion_tests"]
+    },
+    {
+      "id": "V5-B",
+      "name": "Calibration and prediction split",
+      "tasks": [
+        "Before fitting, reserve at least one gel or weak-layer family and one SED/KED speed map as untouched prediction evidence.",
+        "Fit only independently measurable bulk response, density/wave speed, and fracture-energy information first.",
+        "Record every inferred cohesive parameter with bounds, identifiability evidence, and the observations it consumed."
+      ],
+      "deliverables": ["split.json", "parameter_ledger.json", "identifiability_report.md"]
+    },
+    {
+      "id": "V5-C",
+      "name": "Numerical convergence and observer sensitivity",
+      "tasks": [
+        "Run at least three spatial resolutions and two time-step safety factors with constant physical crack-speed fit length.",
+        "Resolve the cohesive length by multiple interface facets and report the ratio explicitly.",
+        "Use damage 0.50/0.75/0.95 plus opening or dissipation fronts; report speed spread instead of selecting the most favorable threshold.",
+        "Check energy balance, artificial damping, boundary reflections, preload transfer, and thin-sheet assumption before experimental comparison."
+      ],
+      "deliverables": ["convergence.json", "observer_sensitivity.json", "energy_balance.csv"]
+    },
+    {
+      "id": "V5-D",
+      "name": "Public-observation comparison",
+      "tasks": [
+        "Compare v/c_s histories and critical-prestrain trends with overlap, NRMSE, and visual residuals.",
+        "Compare measured and predicted Mach-cone angle using the same wave-speed convention.",
+        "Compare SED and KED maps on a declared common physical grid without using extrapolated pixels.",
+        "Compare uy/Eyy fields and radial strain profiles when their coordinate convention is unambiguous.",
+        "Evaluate the reserved gel/weak-layer and field-map conditions only after freezing parameters."
+      ],
+      "deliverables": ["comparison_summary.json", "figures", "residual_maps", "prediction_results.md"]
+    },
+    {
+      "id": "V5-E",
+      "name": "Model discrepancy and feedback",
+      "tasks": [
+        "Classify disagreement as data interpretation, parameter identifiability, discretization, constitutive law, cohesive law, two-dimensional reduction, loading/boundary condition, or software defect.",
+        "For every suspected software defect, provide a minimal reproducer, expected invariant, observed result, and affected version/commit.",
+        "Propose software changes only when they are reusable beyond this publication case."
+      ],
+      "deliverables": ["model_discrepancy.md", "agentfem_feedback.json", "minimal_reproducers"]
+    }
+  ],
+  "required_figures": [
+    "v/c_s versus time or position with observer band",
+    "Mach angle observed versus asin(c_s/v)",
+    "SED and KED observed/simulated/residual panels on common limits",
+    "mesh and time-step convergence",
+    "complete energy ledger",
+    "critical prestrain and retained-family prediction"
+  ],
+  "stop_conditions": [
+    "Stop a publication-level claim if units or coordinate meanings remain ambiguous.",
+    "Stop parameter fitting if the intended prediction condition has already been consumed.",
+    "Stop supershear interpretation if energy error, observer spread, or mesh sensitivity does not converge.",
+    "Report insufficient public information rather than silently inventing the JMPS input deck."
+  ],
+  "primary_references": [
+    "https://doi.org/10.1126/science.adg7693",
+    "https://doi.org/10.5061/dryad.7wm37pvz6",
+    "https://doi.org/10.1016/j.jmps.2025.106213"
+  ]
+}

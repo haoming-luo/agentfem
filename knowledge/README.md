@@ -10,6 +10,9 @@ source code rather than paraphrasing it.
 - `benchmarks/`: executable or reviewable physical/numerical evidence;
 - `decisions/`: architecture decision records explaining why durable choices
   were made;
+- `external_data/`: immutable identities for public scientific datasets;
+- `research_tasks/`: machine-readable handoffs that separate software
+  capability from a named research interpretation;
 - `schema/`: formal interchange schemas;
 - `catalog.json`: generated compact index for agents and tools.
 
@@ -30,6 +33,10 @@ It should provide:
 7. physical or numerical benchmark evidence where applicable;
 8. validation and AF-IR/capability consequences;
 9. Skill routing when an agent must make a scientific choice.
+
+Publication-facing work additionally needs an external-data manifest, a
+calibration/prediction split, and a research-task handoff. Public repository
+data is referenced and audited; it is not silently copied into the package.
 
 For analysis procedures, completion also requires structured execution
 evidence. Progress text, result histories, status files, and agent monitoring

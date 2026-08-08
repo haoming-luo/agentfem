@@ -145,10 +145,19 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `isotropic_reference_wave_speeds(material: hyperelasticity.NeoHookeanProperties) -> IsotropicWaveSpeeds` | Return unstretched 3D isotropic ``c_d``, ``c_s``, and ``c_R``. |
 | class | `StableTimeIncrement` | Visible body/interface estimate for central difference. |
 | class | `CohesiveCrackHistory` | Crack-front position and window-fitted speed on a fixed path. |
+| class | `InterfaceFrontHistory` | Front position and fitted speed for one declared interface signal. |
+| class | `CohesiveFrontEnsemble` | Crack-front evidence from multiple thresholds and physical signals. |
+| class | `CohesiveInterfaceTrace` | Portable accepted-frame record on one fixed cohesive interface. |
+| class | `ScientificComparison` | Common scalar evidence for a simulation-to-observation comparison. |
 | class | `PreloadTransferReport` | Evidence for a quasi-static displacement to Explicit state transfer. |
 | function | `transfer_preload_to_explicit(preload_displacement, *, state, mass, residual, initial_velocity = None, mode: str = 'equilibrium', force_tolerance: float = 1e-08, acceleration_projection = None, energy_monitor = None, source_energy: float \| None = None, source_step: str \| None = None, destination_step: str \| None = None) -> PreloadTransferReport` | Initialize ``u/v/a`` consistently from a quasi-static preload state. |
 | function | `cohesive_crack_tip(path_coordinate, damage, *, threshold: float = 0.95, direction: str = 'increasing') -> float` | Locate the contiguous crack front by interpolating a damage threshold. |
 | function | `crack_tip_history(time_values, path_coordinate, damage_frames, *, threshold: float = 0.95, fit_window: int = 5, direction: str = 'increasing') -> CohesiveCrackHistory` | Build a crack history without single-failed-element speed spikes. |
+| function | `interface_front_history(time_values, path_coordinate, signal_frames, *, signal: str, threshold: float, fit_window: int = 5, direction: str = 'increasing') -> InterfaceFrontHistory` | Track a contiguous interface front from any increasing damage signal. |
+| function | `cohesive_front_ensemble(trace: CohesiveInterfaceTrace, *, damage_thresholds = (0.5, 0.75, 0.95), opening_thresholds = (), dissipation_thresholds = (), fit_window: int = 5, direction: str = 'increasing') -> CohesiveFrontEnsemble` | Build observer-sensitivity evidence from a portable interface trace. |
+| function | `compare_curve(reference_coordinate, reference_values, simulation_coordinate, simulation_values, *, coordinate_name: str = 'coordinate', quantity_name: str = 'value') -> ScientificComparison` | Interpolate a simulated curve onto observed coordinates and compare. |
+| function | `compare_mach_cone(*, crack_speed: float, shear_wave_speed: float, observed_angle: float, unit: str = 'radian') -> ScientificComparison` | Compare an observed Mach angle with ``asin(c_s/v)``. |
+| function | `compare_rectilinear_field(reference_x, reference_y, reference_values, simulation_x, simulation_y, simulation_values, *, quantity_name: str = 'field') -> ScientificComparison` | Compare scalar maps after bilinear interpolation on their overlap. |
 | function | `mach_cone_angle(*, crack_speed: float, shear_wave_speed: float) -> float` | Return the ideal Mach angle ``asin(c_s / v)`` in radians. |
 | function | `separation_regime(*, crack_speed: float, rayleigh_wave_speed: float, shear_wave_speed: float, failed_fraction: float, simultaneous_failed_fraction: float, spall_fraction: float = 0.8, rapid_failed_fraction: float \| None = None, ligament_traction_ratio: float \| None = None, pressure_wave_speed: float \| None = None) -> str` | Classify one frame with explicit crack-speed and spall evidence. |
 | function | `estimate_stable_time_increment(*, characteristic_length, dilatational_speed: float, safety_factor: float = 0.8, interface_stiffness: float \| None = None, interface_area: float \| None = None, negative_mass: float \| None = None, positive_mass: float \| None = None) -> StableTimeIncrement` | Estimate explicit stability from body transit and interface oscillator. |
@@ -519,8 +528,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `add_execution_trace(result, events: Iterable[object]) -> tuple[dict[str, object], ...]` | Attach one complete execution trace and its standard histories. |
 | function | `execution_records(events: Iterable[object]) -> tuple[dict[str, object], ...]` | Normalize solver events without depending on a particular procedure. |
 | class | `HomogenizedFrame` | Macroscopic response reconstructed from one periodic-cell state. |
+| class | `LiveFiniteStrainCellFields` | Derived cell fields refreshed from active Explicit state at output time. |
+| function | `finite_strain_dynamic_cell_fields(displacement, velocity, properties, *, variables = ('SENER', 'KED', 'J'), pressure = None, density = None) -> LiveFiniteStrainCellFields` | Create reusable SED/KED/stress fields for Explicit saved frames. |
 | function | `finite_strain_diagnostics(displacement, *, constraint = None, quadrature_degree: int = 4) -> dict[str, object]` | Evaluate reusable physical checks for a finite-deformation solution. |
-| function | `finite_strain_cell_fields(displacement, properties, *, variables = ('F', 'E', 'GREEN', 'P', 'S', 'MISES', 'J', 'SENER', 'EVOL'), pressure = None) -> tuple[object, ...]` | Create requested standard P0 finite-strain cell fields. |
+| function | `finite_strain_cell_fields(displacement, properties, *, variables = ('F', 'E', 'GREEN', 'P', 'S', 'MISES', 'J', 'SENER', 'EVOL'), pressure = None, velocity = None, density = None) -> tuple[object, ...]` | Create requested standard P0 finite-strain cell fields. |
 | function | `homogenize_periodic_cell(displacement, properties, *, pressure = None, macro_deformation_gradient, cell_reference_volume: float, load_factor: float) -> HomogenizedFrame` | Return volume-normalized macroscopic finite-strain response. |
 | function | `homogenize_periodic_path(snapshots, properties, *, constraint) -> tuple[HomogenizedFrame, ...]` | Homogenize every saved state of an affine periodic-cell analysis. |
 | function | `write_homogenized_csv(path: str \| Path, frames) -> Path` | Write flattened macro tensors in a human-readable table. |
@@ -761,6 +772,14 @@ and evidence remain in the linked guides and scientific function reference.
 | --- | --- | --- |
 | class | `DatasetSplit` | Reproducible train/validation partition. |
 | class | `ScientificDataset` | A numeric dataset whose columns retain scientific meaning. |
+| class | `ExternalDatasetAudit` | Local evidence that downloaded public data matches its manifest. |
+| class | `ExternalDatasetManifest` | Versioned public dataset identity, scope, and local audit policy. |
+| class | `ExternalFile` | One immutable file identity in a public scientific dataset. |
+| class | `SpreadsheetSheet` | Rectangular values from one XLSX worksheet. |
+| class | `SpreadsheetWorkbook` | Dependency-free, read-only representation of one XLSX workbook. |
+| function | `read_xlsx_workbook(path: str \| Path) -> SpreadsheetWorkbook` | Read values and cached formula results from an XLSX without pandas. |
+| function | `science_supershear_dryad_manifest() -> ExternalDatasetManifest` | Return the pinned CC0 Dryad v7 manifest for Science 2023. |
+| function | `science_supershear_v5_research_task() -> dict[str, object]` | Return the installed machine-readable V5 research handoff. |
 | class | `Quantity` | One scalar, curve, vector, or sampled-field output contract. |
 | class | `Sample` | One successful simulation sample and its scientific lineage. |
 | function | `decode_quantities(quantities: tuple[Quantity, ...], row) -> dict[str, object]` | Restore one flattened numeric row to declared named quantities. |

@@ -120,6 +120,8 @@ nav:
   - Examples:
       - Overview: examples/index.md
       - Abaqus Periodic Cell: abaqus_periodic_cell.md
+      - Research Protocols:
+          - Science Supershear V5: research/science_supershear_v5.md
 
   - Theory and Reference:
       - Overview: reference/index.md

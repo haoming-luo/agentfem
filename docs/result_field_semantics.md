@@ -47,6 +47,8 @@ set `U/S/E/MISES`:
 | `E` | infinitesimal strain | discontinuous cell-average L2 projection |
 | `MISES` | immediately useful invariant of stress | invariant evaluated from the constitutive stress, then discontinuously projected |
 | `SENER` | strain-energy density | available but opt-in diagnostic field |
+| `V`, `A` | velocity and acceleration | nodal transient state fields |
+| `KED` | kinetic-energy density per reference volume | cell field computed as $\tfrac12\rho_0\mathbf{v}\cdot\mathbf{v}$ when velocity and density are supplied |
 
 `MISES` is deliberately materialized even though it can be derived from `S`:
 it gives users an immediate deformed stress contour in ordinary visualization

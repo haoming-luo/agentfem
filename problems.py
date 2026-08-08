@@ -1259,11 +1259,12 @@ class ExplicitDynamicsStep:
             start_step=self.completed_steps + 1,
             stop_step=stop_step,
         )
-        output_fields = tuple(fields) or (
+        selected_fields = fields or (
             self.state.u.value,
             self.state.v.value,
             self.state.a.value,
         )
+        output_fields, live_field_sets = _transient_output_fields(selected_fields)
         self.last_output = None if output is None else Path(output)
         self.last_output_fields = output_fields if output is not None else ()
         self.last_output_start_time = (
@@ -1291,6 +1292,7 @@ class ExplicitDynamicsStep:
         if domain is None:
             domain = self.state.u.function_space.mesh
         with io.XDMFTimeSeries(self.last_output, domain) as xdmf:
+            _refresh_transient_output_fields(live_field_sets)
             xdmf.write_fields(self.completed_steps * self.dt, *output_fields)
             for info in stepper:
                 self._advance_one(info.time)
@@ -1303,6 +1305,7 @@ class ExplicitDynamicsStep:
                     selected_comm,
                 )
                 if info.should_save:
+                    _refresh_transient_output_fields(live_field_sets)
                     xdmf.write_fields(info.time, *output_fields)
         _emit_transient_completed(reporter, self)
         self.performance.add("run_wall", perf_counter() - run_started)
@@ -3124,6 +3127,34 @@ def _save_interval(save_every: int | None, *, output, steps: int) -> int:
     if output is None:
         return 0
     return int(steps)
+
+
+def _transient_output_fields(selected):
+    """Flatten Functions and live derived-field groups for one writer."""
+
+    output = []
+    live = []
+
+    def visit(item):
+        if hasattr(item, "update") and hasattr(item, "fields"):
+            live.append(item)
+            for field in tuple(item.fields):
+                visit(field)
+        elif isinstance(item, (tuple, list)):
+            for nested in item:
+                visit(nested)
+        else:
+            output.append(fields.unwrap(item))
+
+    visit(selected)
+    if not output:
+        raise ValueError("Transient output requires at least one field.")
+    return tuple(output), tuple(live)
+
+
+def _refresh_transient_output_fields(live_field_sets) -> None:
+    for selected in live_field_sets:
+        selected.update()
 
 
 def _as_list(value) -> list:

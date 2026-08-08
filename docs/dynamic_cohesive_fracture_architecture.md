@@ -416,6 +416,41 @@ The next performance work is therefore:
 4. optimize MPI ownership only after the serial facet kernel has a stable
    state identity and benchmark trace.
 
+### V5 public-data evidence boundary
+
+V5 is now represented by reusable software contracts rather than a premature
+`validated=True` flag:
+
+- Dryad version `235603` is pinned by DOI, CC0 license, 26 file names, sizes,
+  SHA-256 identities, and scientific roles;
+- a dependency-free XLSX reader inventories stored values and cached formula
+  results without making pandas part of the FEM runtime;
+- the V4 case can retain accepted facet-center opening, traction, damage, and
+  dissipated-energy-density histories in a portable NPZ trace;
+- front ensembles combine damage, opening, and dissipation thresholds and
+  expose observer spread;
+- curve, Mach-angle, and rectilinear-field comparisons share RMSE, NRMSE,
+  correlation, overlap, and interpolation metadata;
+- standard result semantics now include nodal `V/A` and cell `KED`, alongside
+  finite-strain `SENER`.
+
+The executable data audit is
+`examples/science_supershear_v5_protocol.py`; the human protocol is
+`docs/research/science_supershear_v5.md`; and the exact machine handoff is
+`knowledge/research_tasks/science_supershear_v5.json`. The research analyst,
+not the solver, must reconstruct spreadsheet units, freeze calibration and
+prediction conditions, choose scientifically justified tolerances, and
+attribute disagreement.
+
+The explicit lifecycle also accepts a live derived-field group and refreshes
+`SENER/KED/J` or other supported finite-strain cell fields immediately before
+each saved frame. This closes the reproducibility and measurement plumbing
+needed to begin V5. It does not close the scientific gates. Remaining
+software-side blockers are a reviewed mapping from saved FEM fields to the
+publication's physical image coordinates, a thin-three-dimensional and
+general near-incompressibility cross-check, distributed cohesive
+ownership/checkpoint identity, and improved V4 spatial speed convergence.
+
 ## Inputs to request from the authors
 
 Priority order:

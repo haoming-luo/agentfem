@@ -47,6 +47,8 @@ from .recovery import (
 from .execution import add_execution_trace, execution_records
 from .finite_strain import (
     HomogenizedFrame,
+    LiveFiniteStrainCellFields,
+    finite_strain_dynamic_cell_fields,
     finite_strain_diagnostics,
     finite_strain_cell_fields,
     homogenize_periodic_cell,
@@ -107,6 +109,7 @@ __all__ = [
     "HistoryRequest",
     "HistoryResult",
     "HomogenizedFrame",
+    "LiveFiniteStrainCellFields",
     "OutputPlan",
     "PathSample",
     "StaticForceBalance",
@@ -130,6 +133,7 @@ __all__ = [
     "external_force_resultant",
     "integral",
     "finite_strain_cell_fields",
+    "finite_strain_dynamic_cell_fields",
     "finite_strain_diagnostics",
     "finite_strain_checks",
     "history",

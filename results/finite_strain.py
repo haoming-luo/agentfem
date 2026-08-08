@@ -47,12 +47,39 @@ class HomogenizedFrame:
         }
 
 
+@dataclass
+class LiveFiniteStrainCellFields:
+    """Derived cell fields refreshed from active Explicit state at output time."""
+
+    fields: tuple[object, ...]
+    _evaluators: tuple[object, ...]
+
+    def update(self) -> tuple[object, ...]:
+        for field, evaluator in zip(self.fields, self._evaluators, strict=True):
+            field.interpolate(evaluator)
+            field.x.scatter_forward()
+        return self.fields
+
+    def __iter__(self):
+        return iter(self.fields)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "live_finite_strain_cell_fields",
+            "variables": tuple(field.name for field in self.fields),
+            "update": "active_state_at_saved_explicit_frame",
+            "location": "DG0_cell_sample",
+        }
+
+
 def finite_strain_cell_fields(
     displacement,
     properties,
     *,
     variables=("F", "E", "GREEN", "P", "S", "MISES", "J", "SENER", "EVOL"),
     pressure=None,
+    velocity=None,
+    density=None,
 ) -> tuple[object, ...]:
     """Create requested standard P0 finite-strain cell fields.
 
@@ -91,10 +118,24 @@ def finite_strain_cell_fields(
     deviator = sigma - ufl.tr(sigma) / 3.0 * identity
     von_mises = ufl.sqrt(1.5 * ufl.inner(deviator, deviator))
     requested = resolve_field_variables(variables, finite_strain=True)
+    kinetic_density = None
+    if any(variable.key == "KED" for variable in requested):
+        if velocity is None:
+            raise ValueError("KED output requires the current velocity field.")
+        velocity_function = getattr(velocity, "value", velocity)
+        selected_density = (
+            getattr(properties, "density", None) if density is None else density
+        )
+        if selected_density is None:
+            raise ValueError("KED output requires a material or explicit density.")
+        kinetic_density = 0.5 * selected_density * ufl.inner(
+            velocity_function,
+            velocity_function,
+        )
     sampled_F = None
     fields = []
     for variable in requested:
-        if variable.key == "U":
+        if variable.key in {"U", "V", "A"}:
             continue
         if variable.key == "F":
             field = _cell_sample(F, domain, variable.key)
@@ -121,6 +162,8 @@ def finite_strain_cell_fields(
             field = _cell_sample(J, domain, variable.key)
         elif variable.key == "SENER":
             field = _cell_sample(psi, domain, variable.key)
+        elif variable.key == "KED":
+            field = _cell_sample(kinetic_density, domain, variable.key)
         elif variable.key == "EVOL":
             field = _current_element_volume(J, domain, name=variable.key)
         else:
@@ -129,6 +172,89 @@ def finite_strain_cell_fields(
             )
         fields.append(field)
     return tuple(fields)
+
+
+def finite_strain_dynamic_cell_fields(
+    displacement,
+    velocity,
+    properties,
+    *,
+    variables=("SENER", "KED", "J"),
+    pressure=None,
+    density=None,
+) -> LiveFiniteStrainCellFields:
+    """Create reusable SED/KED/stress fields for Explicit saved frames.
+
+    The returned object owns compiled DOLFINx expressions that reference the
+    active displacement and velocity Functions. ``ExplicitDynamicsStep``
+    recognizes it inside ``fields=`` and calls ``update()`` immediately before
+    every time-series write.
+    """
+
+    function = getattr(displacement, "value", displacement)
+    velocity_function = getattr(velocity, "value", velocity)
+    if velocity_function.function_space.mesh is not function.function_space.mesh:
+        raise ValueError("Dynamic displacement and velocity must share one mesh.")
+    domain = function.function_space.mesh
+    F = hyperelasticity.deformation_gradient(function)
+    green = hyperelasticity.green_lagrange_strain(function)
+    J = ufl.det(F)
+    if isinstance(properties, hyperelasticity.MixedNeoHookeanProperties):
+        if pressure is None:
+            raise ValueError("Mixed dynamic fields require the independent pressure.")
+        pressure_function = getattr(pressure, "value", pressure)
+        P = hyperelasticity.mixed_first_piola(function, pressure_function, properties)
+        sigma = hyperelasticity.mixed_cauchy_stress(function, pressure_function, properties)
+        psi = hyperelasticity.mixed_strain_energy_density(
+            function, pressure_function, properties
+        )
+    else:
+        P = hyperelasticity.first_piola(function, properties)
+        sigma = hyperelasticity.cauchy_stress(function, properties)
+        psi = hyperelasticity.strain_energy_density(function, properties)
+    selected_density = getattr(properties, "density", None) if density is None else density
+    kinetic = (
+        None
+        if selected_density is None
+        else 0.5 * selected_density * ufl.inner(velocity_function, velocity_function)
+    )
+    identity = ufl.Identity(F.ufl_shape[0])
+    deviator = sigma - ufl.tr(sigma) / 3.0 * identity
+    expressions = {
+        "F": F,
+        "GREEN": green,
+        "P": P,
+        "S": sigma,
+        "MISES": ufl.sqrt(1.5 * ufl.inner(deviator, deviator)),
+        "J": J,
+        "SENER": psi,
+        "KED": kinetic,
+    }
+    requested = resolve_field_variables(variables, finite_strain=True)
+    outputs = []
+    evaluators = []
+    for variable in requested:
+        if variable.location != "cells":
+            raise ValueError(
+                f"Live finite-strain derived fields require cell variables, got {variable.key}."
+            )
+        if variable.key not in expressions or expressions[variable.key] is None:
+            if variable.key == "KED":
+                raise ValueError("KED output requires a material or explicit density.")
+            raise NotImplementedError(
+                f"Live finite-strain output does not provide {variable.key!r}."
+            )
+        expression = expressions[variable.key]
+        shape = tuple(expression.ufl_shape)
+        element = ("DG", 0) if not shape else ("DG", 0, shape)
+        space = fem.functionspace(domain, element)
+        output = fem.Function(space, name=variable.key)
+        evaluator = fem.Expression(expression, space.element.interpolation_points)
+        outputs.append(output)
+        evaluators.append(evaluator)
+    live = LiveFiniteStrainCellFields(tuple(outputs), tuple(evaluators))
+    live.update()
+    return live
 
 
 def homogenize_periodic_cell(

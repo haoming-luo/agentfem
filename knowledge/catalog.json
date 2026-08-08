@@ -363,6 +363,29 @@
       "title": "Local coordinates and reference-point continuum coupling"
     },
     {
+      "id": "agentfem.workflow.dynamic_fracture_v5_evidence",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.datasets.science_supershear_dryad_manifest",
+        "agentfem.datasets.science_supershear_v5_research_task",
+        "agentfem.datasets.read_xlsx_workbook",
+        "agentfem.fracture.CohesiveInterfaceTrace",
+        "agentfem.fracture.cohesive_front_ensemble",
+        "agentfem.fracture.compare_curve",
+        "agentfem.fracture.compare_mach_cone",
+        "agentfem.fracture.compare_rectilinear_field",
+        "agentfem.results.finite_strain_dynamic_cell_fields"
+      ],
+      "related_cards": [
+        "agentfem.workflow.scientific_verification",
+        "agentfem.workflow.result_field_sampling"
+      ],
+      "source": "knowledge/cards/dynamic_fracture_v5_evidence.json",
+      "status": "experimental",
+      "summary": "Pins public fracture observations by version and hash, preserves accepted cohesive-interface traces, estimates fronts from multiple physical observers, and compares curves, Mach angles, and rectilinear fields without turning one fitted case into a validation claim.",
+      "title": "Publication-data evidence for dynamic cohesive fracture"
+    },
+    {
       "id": "agentfem.workflow.integration_point_recovery",
       "kind": "workflow",
       "public_api": [

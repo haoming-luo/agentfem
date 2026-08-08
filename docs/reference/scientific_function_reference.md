@@ -20,6 +20,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | [`agentfem.workflow.abaqus_engineering_regions`](#agentfem-workflow-abaqus_engineering_regions) | Abaqus node sets and element-face surfaces as FEM regions | workflow | supported |
 | [`agentfem.workflow.campaign_learning_pipeline`](#agentfem-workflow-campaign_learning_pipeline) | Simulation campaign to guarded learning workflow | workflow | supported |
 | [`agentfem.workflow.coordinate_reference_coupling`](#agentfem-workflow-coordinate_reference_coupling) | Local coordinates and reference-point continuum coupling | workflow | supported |
+| [`agentfem.workflow.dynamic_fracture_v5_evidence`](#agentfem-workflow-dynamic_fracture_v5_evidence) | Publication-data evidence for dynamic cohesive fracture | workflow | experimental |
 | [`agentfem.workflow.integration_point_recovery`](#agentfem-workflow-integration_point_recovery) | Traceable integration-point field recovery | workflow | supported |
 | [`agentfem.workflow.observation_grid_learning`](#agentfem-workflow-observation_grid_learning) | Mesh-independent structured observation grids | workflow | supported |
 | [`agentfem.workflow.result_field_sampling`](#agentfem-workflow-result_field_sampling) | MPI-safe point and path field sampling | workflow | supported |
@@ -1142,6 +1143,119 @@ local = coordinates.cartesian(x=(0,1), y=(-1,0)); rp = coordinates.reference_poi
 ### References
 
 - Abaqus distributing coupling constraints: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAECSTRefMap/simacst-c-coupling.htm`
+
+<a id="agentfem-workflow-dynamic_fracture_v5_evidence"></a>
+
+## Publication-data evidence for dynamic cohesive fracture
+
+**Stable ID:** `agentfem.workflow.dynamic_fracture_v5_evidence`<br>
+**Kind:** `workflow`<br>
+**Status:** `experimental`<br>
+**Source card:** `knowledge/cards/dynamic_fracture_v5_evidence.json`
+
+Pins public fracture observations by version and hash, preserves accepted cohesive-interface traces, estimates fronts from multiple physical observers, and compares curves, Mach angles, and rectilinear fields without turning one fitted case into a validation claim.
+
+### Public API
+
+- `agentfem.datasets.science_supershear_dryad_manifest`
+- `agentfem.datasets.science_supershear_v5_research_task`
+- `agentfem.datasets.read_xlsx_workbook`
+- `agentfem.fracture.CohesiveInterfaceTrace`
+- `agentfem.fracture.cohesive_front_ensemble`
+- `agentfem.fracture.compare_curve`
+- `agentfem.fracture.compare_mach_cone`
+- `agentfem.fracture.compare_rectilinear_field`
+- `agentfem.results.finite_strain_dynamic_cell_fields`
+
+### Scientific contract
+
+Publication comparison is a versioned transformation from immutable observations and converged simulation observables, with calibration separated from retained prediction conditions.
+
+**Mach cone**
+
+$$
+\theta_M=\sin^{-1}(c_s/v)
+$$
+
+The observed cone angle is compared with the shear-wave and crack speeds using one declared prestrain and coordinate convention.
+
+**normalized field error**
+
+$$
+\mathrm{NRMSE}=\sqrt{N^{-1}\sum_i(y_i^{\mathrm{FEM}}-y_i^{\mathrm{obs}})^2}/(y_{\max}^{\mathrm{obs}}-y_{\min}^{\mathrm{obs}})
+$$
+
+The implementation falls back to observed RMS only when the observed range is numerically zero.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| external dataset manifest | version, DOI, license, roles, file sizes, and SHA-256 identities | metadata | Binds local observations to one official repository version. |
+| cohesive interface trace | time by facet arrays of opening, traction, damage, and dissipated-energy density | model dependent and explicitly recorded | Retains accepted interface states without conflating density with global integrated energy. |
+| reference and simulation observables | curves, scalar angles, or scalar rectilinear maps | must be harmonized before comparison | Only overlapping coordinates are compared; extrapolated pixels are excluded. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| ExternalDatasetAudit | missing, size mismatch, digest mismatch, and accepted status | evidence identity | Stops silent use of a different or corrupted public dataset. |
+| CohesiveFrontEnsemble | multiple threshold-interpolated positions and window-fitted speeds | path coordinate and time | Reports observer sensitivity rather than one favorable failed-element velocity. |
+| ScientificComparison | sample count, RMSE, NRMSE, correlation, overlap, and method metadata | same units as compared observable | A common evidence record for curve, Mach-angle, and field-map comparisons. |
+
+#### Assumptions
+
+- Workbook units and coordinate conventions are reconstructed and reviewed before numeric comparison.
+- Calibration conditions and retained prediction conditions are frozen before parameter inference.
+- Simulation discretization, energy balance, and observer sensitivity are separately converged.
+
+#### Conventions
+
+- Interface path coordinates and crack speeds use the declared reference configuration unless metadata says otherwise.
+- Damage is reduced by the facet quadrature maximum; opening, traction, and dissipated-energy density use facet quadrature means.
+- Rectilinear simulation fields are bilinearly interpolated to observed grid points only within their common domain.
+
+#### Applicability
+
+- Science 2023 public supershear observations and future versioned dynamic-fracture datasets with equivalent curve or grid observables.
+
+#### Limitations
+
+- The public Science observations are not a complete JMPS 2025 computational input deck.
+- The dependency-free XLSX reader exposes stored values and cached formula results; it does not execute Excel formulas or infer units.
+- No universal acceptance tolerance is imposed; the research protocol must justify observable-specific thresholds.
+- Current paired-facet cohesive assembly is serial and the V4 spatial speed gate is not yet converged below ten percent.
+
+### Minimal example
+
+```python
+manifest = datasets.science_supershear_dryad_manifest(); manifest.audit(data_dir).require(); case = benchmarks.prestressed_weak_interface_separation(retain_trace=True); fronts = fracture.cohesive_front_ensemble(case.trace)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_external_datasets.py`
+- `tests/test_fracture_v5.py`
+- `tests/test_dynamic_fracture_benchmarks.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.jmps_weak_interface_transition_v4`
+
+**Validation rules**
+
+- Reject unrecognized manifests, missing files, wrong sizes, and wrong hashes.
+- Round-trip cohesive traces without pickle and reject inconsistent array shape or time order.
+- Recover exact linear curves, Mach angles, and bilinear scalar fields in comparison tests.
+- Retain a trace from a real finite-strain cohesive Explicit smoke case.
+
+### References
+
+- Tensile cracks can shatter classical speed limits: `https://doi.org/10.1126/science.adg7693`
+- Public data for Tensile cracks can shatter classical speed limits: `https://doi.org/10.5061/dryad.7wm37pvz6`
+- Transition from crack-type to supershear-type to spall-type mode of separation under tensile loading: `https://doi.org/10.1016/j.jmps.2025.106213`
 
 <a id="agentfem-workflow-integration_point_recovery"></a>
 

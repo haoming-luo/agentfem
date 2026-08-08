@@ -1,0 +1,183 @@
+{
+  "schema": "agentfem.external-scientific-dataset",
+  "schema_version": "0.1.0",
+  "dataset_id": "science-2023-supershear-dryad-v7",
+  "title": "Data for: Tensile cracks can shatter classical speed limits",
+  "doi": "10.5061/dryad.7wm37pvz6",
+  "version_id": "235603",
+  "license": "CC0-1.0",
+  "landing_page": "https://datadryad.org/dataset/doi:10.5061/dryad.7wm37pvz6",
+  "default_required_roles": [
+    "crack_speed",
+    "mach_cone",
+    "sed_ked_field",
+    "wave_speed",
+    "material_response"
+  ],
+  "metadata": {
+    "primary_article_doi": "10.1126/science.adg7693",
+    "publication_date": "2023-05-31",
+    "file_count": 26,
+    "declared_total_size": 5189692,
+    "download_policy": "Use the Dryad landing page. AgentFEM verifies local files but does not bypass repository bot protection.",
+    "claim_scope": "public experimental observations; not the JMPS 2025 computational input deck"
+  },
+  "files": [
+    {
+      "path": "1C_G_Measurement.xlsx",
+      "size": 11804,
+      "sha256": "dfe6c98021666099f863fdde365563d46f2f9b03a6c0ba5943f93d3443d48fbe",
+      "roles": ["fracture_energy"]
+    },
+    {
+      "path": "2A_Supershear_Crack_Speed.xlsx",
+      "size": 12321,
+      "sha256": "7c831cd7bfb5e9ea5968065125f4b47f0ed66d95993b9f69c4f52332e4ebb360",
+      "roles": ["crack_speed"]
+    },
+    {
+      "path": "2B_SED_Map_va_1.04cs.xlsx",
+      "size": 416936,
+      "sha256": "459c966d3f09ea6c93796aee000cac74d82c758d0c58ee6a8eeb9ba27aaddb27",
+      "roles": ["sed_field"]
+    },
+    {
+      "path": "2B_SED_Map_va_1.16cs.xlsx",
+      "size": 291133,
+      "sha256": "8f95307f36bd2cdf0c116d6c274d79318bf883c25c0c91647e95cf4e20d7fd25",
+      "roles": ["sed_field"]
+    },
+    {
+      "path": "2B_SED_Map_va_1.24cs.xlsx",
+      "size": 224570,
+      "sha256": "854ea9d1138c056ffc6f56e3fa37a91a8dd5fa666367448258e4c8d5b8fd3dbc",
+      "roles": ["sed_field"]
+    },
+    {
+      "path": "2B_SED_Map_va_1.31cs.xlsx",
+      "size": 392757,
+      "sha256": "a74209f837ea31bb11ccbc510263500108736d6b1b2311b0667403982d13af14",
+      "roles": ["sed_field"]
+    },
+    {
+      "path": "2C_Mach_Cone_Angle.xlsx",
+      "size": 9882,
+      "sha256": "7cee2f7ad41fc7607fe5906ae8aedf9e2fc03a3b61ced5414db1e63e5e42dbbc",
+      "roles": ["mach_cone"]
+    },
+    {
+      "path": "2D_Supershear_Oscillatory_Crack_Speed.xlsx",
+      "size": 10854,
+      "sha256": "730843af9e07748e72396d53d116933173fef6d5693dc11b0b2a3c8a683e15e7",
+      "roles": ["oscillatory_crack_speed"]
+    },
+    {
+      "path": "3C_Exx_Radial_dependence_va_1.04cs.xlsx",
+      "size": 59499,
+      "sha256": "04a1a62f53cba4356aaf5160c35880a7d9fbea3145d8f16ea124d301cad2de67",
+      "roles": ["strain_profile"]
+    },
+    {
+      "path": "3D_Exx_Radial_dependence_va_1.28cs.xlsx",
+      "size": 33373,
+      "sha256": "d7dfd751b292bdbdce985f7e887eacc673ab609439934061e323f7415304f7aa",
+      "roles": ["strain_profile"]
+    },
+    {
+      "path": "4_Supershear_crack_dynamics.xlsx",
+      "size": 13210,
+      "sha256": "ed5b0c9b4984c998068d5800f51ace5b1af7e5b681591c0a3f2819417e6e7e03",
+      "roles": ["critical_strain", "crack_dynamics"]
+    },
+    {
+      "path": "5_supershear_different_gels.xlsx",
+      "size": 14696,
+      "sha256": "f059eccb32738efe5f52b27381e4c7b60a87110ccbbdc080ee607f323e68da4d",
+      "roles": ["material_family", "critical_strain"]
+    },
+    {
+      "path": "README.md",
+      "size": 7302,
+      "sha256": "65753b04cadcb7fbddb91bdaec9d15ff15a473165e9f1d9e86d91f24cd8a5d9a",
+      "roles": ["metadata"]
+    },
+    {
+      "path": "S1_material_response.xlsx",
+      "size": 758561,
+      "sha256": "01d99ed350e13490ef0c99031c608995b301e9964de95f2a7e63d93b838198cc",
+      "roles": ["material_response"]
+    },
+    {
+      "path": "S2_SED_KED_Map_va_1.04cs.xlsx",
+      "size": 688085,
+      "sha256": "7b111dfa3b36e7f7a85c74dbdc331f79efbe07d21ba14083509094bd90bb66d4",
+      "roles": ["sed_ked_field"]
+    },
+    {
+      "path": "S2_SED_KED_Map_va_1.16cs.xlsx",
+      "size": 470019,
+      "sha256": "54b3c1df3d13a007dbd142e34412f64fec9ff32f7e5af27ca37ccda51034a17d",
+      "roles": ["sed_ked_field"]
+    },
+    {
+      "path": "S2_SED_KED_Map_va_1.24cs.xlsx",
+      "size": 371536,
+      "sha256": "bd04b58bfcd6674cd7e1cbe1e8527539b8d8919c77bd6dc66334b91b52ec8804",
+      "roles": ["sed_ked_field"]
+    },
+    {
+      "path": "S2_SED_KED_Map_va_1.31cs.xlsx",
+      "size": 522797,
+      "sha256": "daffd044978d8168684278a5f37c04b29eaa5f0ebe1ff64fca947559ec2f5ba7",
+      "roles": ["sed_ked_field"]
+    },
+    {
+      "path": "S3BandS3C_wave_speed.xlsx",
+      "size": 12302,
+      "sha256": "63b71d62189b6d47e6e84a241d4b3e0c4045f2809a9d955e94de6ad2aab0124a",
+      "roles": ["wave_speed"]
+    },
+    {
+      "path": "S4_va_Supershear_Oscillatory_Crack.xlsx",
+      "size": 13552,
+      "sha256": "464270b8aa4165fcb471683604342541c5481ff06ee1f405c99f406c632a639b",
+      "roles": ["oscillatory_crack_speed"]
+    },
+    {
+      "path": "S5_supershear_diff_weaklayer.xlsx",
+      "size": 11851,
+      "sha256": "e7576de61293007946edc5aaec9ee9ac58ed0249e1eb163ee268a21858870d4f",
+      "roles": ["weak_interface_family"]
+    },
+    {
+      "path": "S6_energy_scale.xlsx",
+      "size": 37534,
+      "sha256": "b6ed4a1629153fa84b4595b9e17a3b2b818a0d3a88f52520069666c96432e91e",
+      "roles": ["energy_scale"]
+    },
+    {
+      "path": "S7A_uy_map.xlsx",
+      "size": 467918,
+      "sha256": "d0109a0c5f40acaa0c354df9d134c785f8cf65009f1807ba5ff79c499480d8cf",
+      "roles": ["displacement_field"]
+    },
+    {
+      "path": "S7B_uy_map.xlsx",
+      "size": 301384,
+      "sha256": "868d86e734ab6674ffb5c65baeb1b23c41e010c3987670ea703ab1c6fedcc0fe",
+      "roles": ["displacement_field"]
+    },
+    {
+      "path": "S7B-Eyy_map.xlsx",
+      "size": 26429,
+      "sha256": "21802ceb355d01c87c7003388cb1a8e04ba9561c725a1d4b60bd206a2b31a7d5",
+      "roles": ["strain_field"]
+    },
+    {
+      "path": "S7C_G_L.xlsx",
+      "size": 9387,
+      "sha256": "66bb866c8a89eee2fe6f3d23b34355e6172d4d3405e6422b1c23bd694899bde5",
+      "roles": ["fracture_energy"]
+    }
+  ]
+}

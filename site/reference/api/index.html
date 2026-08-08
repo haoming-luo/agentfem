@@ -1243,6 +1243,91 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Research Protocols
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Research Protocols
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../research/science_supershear_v5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Science Supershear V5
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -4350,6 +4435,26 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>InterfaceFrontHistory</code></td>
+<td>Front position and fitted speed for one declared interface signal.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CohesiveFrontEnsemble</code></td>
+<td>Crack-front evidence from multiple thresholds and physical signals.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CohesiveInterfaceTrace</code></td>
+<td>Portable accepted-frame record on one fixed cohesive interface.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ScientificComparison</code></td>
+<td>Common scalar evidence for a simulation-to-observation comparison.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>PreloadTransferReport</code></td>
 <td>Evidence for a quasi-static displacement to Explicit state transfer.</td>
 </tr>
@@ -4367,6 +4472,31 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>crack_tip_history(time_values, path_coordinate, damage_frames, *, threshold: float = 0.95, fit_window: int = 5, direction: str = 'increasing') -&gt; CohesiveCrackHistory</code></td>
 <td>Build a crack history without single-failed-element speed spikes.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>interface_front_history(time_values, path_coordinate, signal_frames, *, signal: str, threshold: float, fit_window: int = 5, direction: str = 'increasing') -&gt; InterfaceFrontHistory</code></td>
+<td>Track a contiguous interface front from any increasing damage signal.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>cohesive_front_ensemble(trace: CohesiveInterfaceTrace, *, damage_thresholds = (0.5, 0.75, 0.95), opening_thresholds = (), dissipation_thresholds = (), fit_window: int = 5, direction: str = 'increasing') -&gt; CohesiveFrontEnsemble</code></td>
+<td>Build observer-sensitivity evidence from a portable interface trace.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>compare_curve(reference_coordinate, reference_values, simulation_coordinate, simulation_values, *, coordinate_name: str = 'coordinate', quantity_name: str = 'value') -&gt; ScientificComparison</code></td>
+<td>Interpolate a simulated curve onto observed coordinates and compare.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>compare_mach_cone(*, crack_speed: float, shear_wave_speed: float, observed_angle: float, unit: str = 'radian') -&gt; ScientificComparison</code></td>
+<td>Compare an observed Mach angle with <code>asin(c_s/v)</code>.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>compare_rectilinear_field(reference_x, reference_y, reference_values, simulation_x, simulation_y, simulation_values, *, quantity_name: str = 'field') -&gt; ScientificComparison</code></td>
+<td>Compare scalar maps after bilinear interpolation on their overlap.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -6037,13 +6167,23 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>Macroscopic response reconstructed from one periodic-cell state.</td>
 </tr>
 <tr>
+<td>class</td>
+<td><code>LiveFiniteStrainCellFields</code></td>
+<td>Derived cell fields refreshed from active Explicit state at output time.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>finite_strain_dynamic_cell_fields(displacement, velocity, properties, *, variables = ('SENER', 'KED', 'J'), pressure = None, density = None) -&gt; LiveFiniteStrainCellFields</code></td>
+<td>Create reusable SED/KED/stress fields for Explicit saved frames.</td>
+</tr>
+<tr>
 <td>function</td>
 <td><code>finite_strain_diagnostics(displacement, *, constraint = None, quadrature_degree: int = 4) -&gt; dict[str, object]</code></td>
 <td>Evaluate reusable physical checks for a finite-deformation solution.</td>
 </tr>
 <tr>
 <td>function</td>
-<td><code>finite_strain_cell_fields(displacement, properties, *, variables = ('F', 'E', 'GREEN', 'P', 'S', 'MISES', 'J', 'SENER', 'EVOL'), pressure = None) -&gt; tuple[object, ...]</code></td>
+<td><code>finite_strain_cell_fields(displacement, properties, *, variables = ('F', 'E', 'GREEN', 'P', 'S', 'MISES', 'J', 'SENER', 'EVOL'), pressure = None, velocity = None, density = None) -&gt; tuple[object, ...]</code></td>
 <td>Create requested standard P0 finite-strain cell fields.</td>
 </tr>
 <tr>
@@ -7076,6 +7216,46 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>class</td>
 <td><code>ScientificDataset</code></td>
 <td>A numeric dataset whose columns retain scientific meaning.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ExternalDatasetAudit</code></td>
+<td>Local evidence that downloaded public data matches its manifest.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ExternalDatasetManifest</code></td>
+<td>Versioned public dataset identity, scope, and local audit policy.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ExternalFile</code></td>
+<td>One immutable file identity in a public scientific dataset.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>SpreadsheetSheet</code></td>
+<td>Rectangular values from one XLSX worksheet.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>SpreadsheetWorkbook</code></td>
+<td>Dependency-free, read-only representation of one XLSX workbook.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>read_xlsx_workbook(path: str \| Path) -&gt; SpreadsheetWorkbook</code></td>
+<td>Read values and cached formula results from an XLSX without pandas.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>science_supershear_dryad_manifest() -&gt; ExternalDatasetManifest</code></td>
+<td>Return the pinned CC0 Dryad v7 manifest for Science 2023.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>science_supershear_v5_research_task() -&gt; dict[str, object]</code></td>
+<td>Return the installed machine-readable V5 research handoff.</td>
 </tr>
 <tr>
 <td>class</td>

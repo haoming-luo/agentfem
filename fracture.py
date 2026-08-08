@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from itertools import combinations
+import json
 from math import isfinite, sqrt
+from pathlib import Path
 from time import perf_counter
 
 import numpy as np
@@ -1231,6 +1233,200 @@ class CohesiveCrackHistory:
 
 
 @dataclass(frozen=True)
+class InterfaceFrontHistory:
+    """Front position and fitted speed for one declared interface signal."""
+
+    time: np.ndarray
+    position: np.ndarray
+    speed: np.ndarray
+    signal: str
+    threshold: float
+    fit_window: int
+    direction: str
+
+    def summary(self) -> dict[str, object]:
+        finite_speed = self.speed[np.isfinite(self.speed)]
+        return {
+            "kind": "interface_front_history",
+            "signal": self.signal,
+            "threshold": self.threshold,
+            "frames": int(self.time.size),
+            "fit_window": self.fit_window,
+            "direction": self.direction,
+            "maximum_speed": (
+                None if finite_speed.size == 0 else float(np.max(finite_speed))
+            ),
+            "method": "contiguous_threshold_interpolation_then_local_linear_fit",
+        }
+
+
+@dataclass(frozen=True)
+class CohesiveFrontEnsemble:
+    """Crack-front evidence from multiple thresholds and physical signals."""
+
+    histories: tuple[InterfaceFrontHistory, ...]
+
+    def __post_init__(self) -> None:
+        histories = tuple(self.histories)
+        if not histories:
+            raise ValueError("A cohesive front ensemble requires at least one history.")
+        reference = histories[0].time
+        if any(
+            history.time.shape != reference.shape
+            or not np.array_equal(history.time, reference)
+            for history in histories[1:]
+        ):
+            raise ValueError("All cohesive front histories must share exact frame times.")
+        object.__setattr__(self, "histories", histories)
+
+    @property
+    def time(self) -> np.ndarray:
+        return self.histories[0].time
+
+    @property
+    def median_position(self) -> np.ndarray:
+        return _nan_statistic(
+            np.asarray([item.position for item in self.histories]),
+            np.nanmedian,
+        )
+
+    @property
+    def median_speed(self) -> np.ndarray:
+        return _nan_statistic(
+            np.asarray([item.speed for item in self.histories]),
+            np.nanmedian,
+        )
+
+    def summary(self) -> dict[str, object]:
+        maxima = np.asarray(
+            [
+                np.nanmax(item.speed)
+                if np.any(np.isfinite(item.speed))
+                else np.nan
+                for item in self.histories
+            ],
+            dtype=float,
+        )
+        finite = maxima[np.isfinite(maxima)]
+        return {
+            "kind": "cohesive_front_ensemble",
+            "observers": [item.summary() for item in self.histories],
+            "maximum_speed_median": (
+                None if finite.size == 0 else float(np.median(finite))
+            ),
+            "maximum_speed_spread": (
+                None if finite.size == 0 else float(np.max(finite) - np.min(finite))
+            ),
+            "purpose": "observer_sensitivity_not_single_element_speed",
+        }
+
+
+@dataclass(frozen=True)
+class CohesiveInterfaceTrace:
+    """Portable accepted-frame record on one fixed cohesive interface."""
+
+    time: np.ndarray
+    path_coordinate: np.ndarray
+    opening: np.ndarray
+    traction: np.ndarray
+    damage: np.ndarray
+    dissipated_energy_density: np.ndarray
+    metadata: dict[str, object] | None = None
+
+    def __post_init__(self) -> None:
+        time = np.asarray(self.time, dtype=float)
+        coordinate = np.asarray(self.path_coordinate, dtype=float)
+        if time.ndim != 1 or time.size < 1 or np.any(~np.isfinite(time)):
+            raise ValueError("Cohesive trace time must be a finite 1D array.")
+        if time.size > 1 and np.any(np.diff(time) <= 0.0):
+            raise ValueError("Cohesive trace time must be strictly increasing.")
+        if coordinate.ndim != 1 or coordinate.size < 1 or np.any(~np.isfinite(coordinate)):
+            raise ValueError("Cohesive trace coordinates must be a finite 1D array.")
+        shape = (time.size, coordinate.size)
+        arrays = {}
+        for name in ("opening", "traction", "damage", "dissipated_energy_density"):
+            values = np.asarray(getattr(self, name), dtype=float)
+            if values.shape != shape or np.any(~np.isfinite(values)):
+                raise ValueError(f"Cohesive trace {name} must have shape {shape} and be finite.")
+            arrays[name] = values.copy()
+        object.__setattr__(self, "time", time.copy())
+        object.__setattr__(self, "path_coordinate", coordinate.copy())
+        for name, values in arrays.items():
+            object.__setattr__(self, name, values)
+        object.__setattr__(self, "metadata", dict(self.metadata or {}))
+
+    def write(self, path: str | Path) -> Path:
+        """Write a compact, dependency-free NPZ research artifact."""
+
+        location = Path(path)
+        if location.suffix.lower() != ".npz":
+            location = location.with_suffix(".npz")
+        location.parent.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(
+            location,
+            schema=np.asarray("agentfem.cohesive-interface-trace.v1"),
+            time=self.time,
+            path_coordinate=self.path_coordinate,
+            opening=self.opening,
+            traction=self.traction,
+            damage=self.damage,
+            dissipated_energy_density=self.dissipated_energy_density,
+            metadata_json=np.asarray(json.dumps(self.metadata, sort_keys=True)),
+        )
+        return location
+
+    @classmethod
+    def read(cls, path: str | Path) -> "CohesiveInterfaceTrace":
+        location = Path(path)
+        with np.load(location, allow_pickle=False) as archive:
+            schema = str(archive["schema"])
+            if schema != "agentfem.cohesive-interface-trace.v1":
+                raise ValueError(f"Unsupported cohesive trace schema {schema!r}.")
+            return cls(
+                time=archive["time"],
+                path_coordinate=archive["path_coordinate"],
+                opening=archive["opening"],
+                traction=archive["traction"],
+                damage=archive["damage"],
+                dissipated_energy_density=archive["dissipated_energy_density"],
+                metadata=json.loads(str(archive["metadata_json"])),
+            )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "cohesive_interface_trace",
+            "frames": int(self.time.size),
+            "interface_points": int(self.path_coordinate.size),
+            "time_interval": [float(self.time[0]), float(self.time[-1])],
+            "maximum_opening": float(np.max(self.opening)),
+            "maximum_damage": float(np.max(self.damage)),
+            "metadata": dict(self.metadata or {}),
+        }
+
+
+@dataclass(frozen=True)
+class ScientificComparison:
+    """Common scalar evidence for a simulation-to-observation comparison."""
+
+    kind: str
+    samples: int
+    root_mean_square_error: float
+    normalized_root_mean_square_error: float
+    correlation: float | None
+    metadata: dict[str, object] | None = None
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": self.kind,
+            "samples": self.samples,
+            "root_mean_square_error": self.root_mean_square_error,
+            "normalized_root_mean_square_error": self.normalized_root_mean_square_error,
+            "correlation": self.correlation,
+            "metadata": dict(self.metadata or {}),
+        }
+
+
+@dataclass(frozen=True)
 class PreloadTransferReport:
     """Evidence for a quasi-static displacement to Explicit state transfer."""
 
@@ -1495,6 +1691,341 @@ def crack_tip_history(
     )
 
 
+def interface_front_history(
+    time_values,
+    path_coordinate,
+    signal_frames,
+    *,
+    signal: str,
+    threshold: float,
+    fit_window: int = 5,
+    direction: str = "increasing",
+) -> InterfaceFrontHistory:
+    """Track a contiguous interface front from any increasing damage signal.
+
+    Suitable signals include damage, opening, and cumulative cohesive
+    dissipation.  The threshold carries the physical units of the signal.
+    """
+
+    times = np.asarray(time_values, dtype=float)
+    coordinate = np.asarray(path_coordinate, dtype=float)
+    frames = np.asarray(signal_frames, dtype=float)
+    selected_threshold = float(threshold)
+    label = str(signal).strip()
+    if not label:
+        raise ValueError("Interface front signal needs a nonempty name.")
+    if not isfinite(selected_threshold):
+        raise ValueError("Interface front threshold must be finite.")
+    if times.ndim != 1 or times.size < 2 or np.any(np.diff(times) <= 0.0):
+        raise ValueError("time_values must be a strictly increasing 1D array.")
+    if coordinate.ndim != 1 or coordinate.size < 2:
+        raise ValueError("path_coordinate must be a 1D array of size >= 2.")
+    if frames.shape != (times.size, coordinate.size) or np.any(~np.isfinite(frames)):
+        raise ValueError("signal_frames must be finite with shape (frames, path_points).")
+    window = int(fit_window)
+    if window < 3 or window % 2 == 0:
+        raise ValueError("fit_window must be an odd integer of at least three.")
+    position = np.asarray(
+        [
+            _contiguous_threshold_front(
+                coordinate,
+                frame,
+                threshold=selected_threshold,
+                direction=direction,
+            )
+            for frame in frames
+        ],
+        dtype=float,
+    )
+    return InterfaceFrontHistory(
+        time=times.copy(),
+        position=position,
+        speed=_window_fitted_speed(times, position, window),
+        signal=label,
+        threshold=selected_threshold,
+        fit_window=window,
+        direction=direction,
+    )
+
+
+def cohesive_front_ensemble(
+    trace: CohesiveInterfaceTrace,
+    *,
+    damage_thresholds=(0.5, 0.75, 0.95),
+    opening_thresholds=(),
+    dissipation_thresholds=(),
+    fit_window: int = 5,
+    direction: str = "increasing",
+) -> CohesiveFrontEnsemble:
+    """Build observer-sensitivity evidence from a portable interface trace."""
+
+    histories = []
+    for threshold in damage_thresholds:
+        selected = float(threshold)
+        if not 0.0 < selected < 1.0:
+            raise ValueError("Damage observer thresholds must lie in (0, 1).")
+        histories.append(
+            interface_front_history(
+                trace.time,
+                trace.path_coordinate,
+                trace.damage,
+                signal="damage",
+                threshold=selected,
+                fit_window=fit_window,
+                direction=direction,
+            )
+        )
+    for name, thresholds, values in (
+        ("opening", opening_thresholds, trace.opening),
+        ("dissipated_energy_density", dissipation_thresholds, trace.dissipated_energy_density),
+    ):
+        for threshold in thresholds:
+            histories.append(
+                interface_front_history(
+                    trace.time,
+                    trace.path_coordinate,
+                    values,
+                    signal=name,
+                    threshold=float(threshold),
+                    fit_window=fit_window,
+                    direction=direction,
+                )
+            )
+    return CohesiveFrontEnsemble(tuple(histories))
+
+
+def compare_curve(
+    reference_coordinate,
+    reference_values,
+    simulation_coordinate,
+    simulation_values,
+    *,
+    coordinate_name: str = "coordinate",
+    quantity_name: str = "value",
+) -> ScientificComparison:
+    """Interpolate a simulated curve onto observed coordinates and compare."""
+
+    reference_x, reference_y = _sorted_curve(
+        reference_coordinate, reference_values, name="reference"
+    )
+    simulation_x, simulation_y = _sorted_curve(
+        simulation_coordinate, simulation_values, name="simulation"
+    )
+    mask = (reference_x >= simulation_x[0]) & (reference_x <= simulation_x[-1])
+    if np.count_nonzero(mask) < 2:
+        raise ValueError("Curve comparison requires at least two overlapping samples.")
+    observed = reference_y[mask]
+    predicted = np.interp(reference_x[mask], simulation_x, simulation_y)
+    return _scientific_comparison(
+        observed,
+        predicted,
+        kind="curve_comparison",
+        metadata={
+            "coordinate": str(coordinate_name),
+            "quantity": str(quantity_name),
+            "interpolation": "simulation_linear_to_reference_coordinates",
+            "overlap": [float(reference_x[mask][0]), float(reference_x[mask][-1])],
+        },
+    )
+
+
+def compare_mach_cone(
+    *,
+    crack_speed: float,
+    shear_wave_speed: float,
+    observed_angle: float,
+    unit: str = "radian",
+) -> ScientificComparison:
+    """Compare an observed Mach angle with ``asin(c_s/v)``."""
+
+    selected_unit = str(unit).strip().lower()
+    if selected_unit not in {"radian", "degree"}:
+        raise ValueError("Mach-cone angle unit must be 'radian' or 'degree'.")
+    predicted = mach_cone_angle(
+        crack_speed=crack_speed,
+        shear_wave_speed=shear_wave_speed,
+    )
+    observed = float(observed_angle)
+    if selected_unit == "degree":
+        predicted = float(np.degrees(predicted))
+    if not isfinite(observed):
+        raise ValueError("Observed Mach-cone angle must be finite.")
+    error = abs(predicted - observed)
+    scale = max(abs(observed), np.finfo(float).eps)
+    return ScientificComparison(
+        kind="mach_cone_comparison",
+        samples=1,
+        root_mean_square_error=error,
+        normalized_root_mean_square_error=error / scale,
+        correlation=None,
+        metadata={
+            "unit": selected_unit,
+            "observed_angle": observed,
+            "predicted_angle": predicted,
+            "relation": "asin(shear_wave_speed/crack_speed)",
+        },
+    )
+
+
+def compare_rectilinear_field(
+    reference_x,
+    reference_y,
+    reference_values,
+    simulation_x,
+    simulation_y,
+    simulation_values,
+    *,
+    quantity_name: str = "field",
+) -> ScientificComparison:
+    """Compare scalar maps after bilinear interpolation on their overlap.
+
+    Arrays use image-style shape ``(len(y), len(x))``.  This deliberately
+    separates interpolation evidence from visualization and avoids a SciPy
+    dependency in the base installation.
+    """
+
+    rx, ry, observed = _rectilinear_field(
+        reference_x, reference_y, reference_values, name="reference"
+    )
+    sx, sy, simulated = _rectilinear_field(
+        simulation_x, simulation_y, simulation_values, name="simulation"
+    )
+    x_mask = (rx >= sx[0]) & (rx <= sx[-1])
+    y_mask = (ry >= sy[0]) & (ry <= sy[-1])
+    if np.count_nonzero(x_mask) < 2 or np.count_nonzero(y_mask) < 2:
+        raise ValueError("Field comparison requires a two-dimensional overlapping grid.")
+    selected_x = rx[x_mask]
+    selected_y = ry[y_mask]
+    along_x = np.asarray(
+        [np.interp(selected_x, sx, row) for row in simulated],
+        dtype=float,
+    )
+    predicted = np.asarray(
+        [np.interp(selected_y, sy, along_x[:, index]) for index in range(selected_x.size)],
+        dtype=float,
+    ).T
+    selected_observed = observed[np.ix_(y_mask, x_mask)]
+    return _scientific_comparison(
+        selected_observed.reshape(-1),
+        predicted.reshape(-1),
+        kind="rectilinear_field_comparison",
+        metadata={
+            "quantity": str(quantity_name),
+            "interpolation": "bilinear_simulation_to_reference_grid",
+            "overlap_bounds": [
+                [float(selected_x[0]), float(selected_x[-1])],
+                [float(selected_y[0]), float(selected_y[-1])],
+            ],
+            "overlap_shape": [int(selected_y.size), int(selected_x.size)],
+        },
+    )
+
+
+def _contiguous_threshold_front(coordinate, values, *, threshold, direction):
+    order = np.argsort(coordinate)
+    if direction == "decreasing":
+        order = order[::-1]
+    elif direction != "increasing":
+        raise ValueError("direction must be 'increasing' or 'decreasing'.")
+    x = np.asarray(coordinate, dtype=float)[order]
+    signal = np.asarray(values, dtype=float)[order]
+    active = signal >= threshold
+    if not active[0]:
+        return float("nan")
+    inactive = np.flatnonzero(~active)
+    if inactive.size == 0:
+        return float(x[-1])
+    right = int(inactive[0])
+    left = right - 1
+    denominator = signal[right] - signal[left]
+    if abs(denominator) <= np.finfo(float).eps:
+        return float(0.5 * (x[left] + x[right]))
+    fraction = (threshold - signal[left]) / denominator
+    return float(x[left] + fraction * (x[right] - x[left]))
+
+
+def _window_fitted_speed(times, position, window):
+    speed = np.full(np.asarray(times).shape, np.nan, dtype=float)
+    half = int(window) // 2
+    for index in range(len(times)):
+        start = max(0, index - half)
+        stop = min(len(times), index + half + 1)
+        valid = np.isfinite(position[start:stop])
+        if np.count_nonzero(valid) < 2:
+            continue
+        t = times[start:stop][valid]
+        x = position[start:stop][valid]
+        speed[index] = float(np.polyfit(t - np.mean(t), x, 1)[0])
+    return speed
+
+
+def _nan_statistic(values, statistic):
+    with np.errstate(invalid="ignore"):
+        return statistic(values, axis=0)
+
+
+def _sorted_curve(coordinate, values, *, name):
+    x = np.asarray(coordinate, dtype=float)
+    y = np.asarray(values, dtype=float)
+    if x.ndim != 1 or y.shape != x.shape or x.size < 2:
+        raise ValueError(f"{name} curve must contain equal 1D arrays of size >= 2.")
+    if np.any(~np.isfinite(x)) or np.any(~np.isfinite(y)):
+        raise ValueError(f"{name} curve must be finite.")
+    order = np.argsort(x)
+    x = x[order]
+    y = y[order]
+    if np.any(np.diff(x) <= 0.0):
+        raise ValueError(f"{name} curve coordinates must be unique.")
+    return x, y
+
+
+def _rectilinear_field(x, y, values, *, name):
+    selected_x = np.asarray(x, dtype=float)
+    selected_y = np.asarray(y, dtype=float)
+    field = np.asarray(values, dtype=float)
+    if (
+        selected_x.ndim != 1
+        or selected_y.ndim != 1
+        or selected_x.size < 2
+        or selected_y.size < 2
+        or field.shape != (selected_y.size, selected_x.size)
+    ):
+        raise ValueError(
+            f"{name} field must have shape (len(y), len(x)) on 1D axes."
+        )
+    if np.any(~np.isfinite(selected_x)) or np.any(~np.isfinite(selected_y)) or np.any(~np.isfinite(field)):
+        raise ValueError(f"{name} field and axes must be finite.")
+    x_order = np.argsort(selected_x)
+    y_order = np.argsort(selected_y)
+    selected_x = selected_x[x_order]
+    selected_y = selected_y[y_order]
+    if np.any(np.diff(selected_x) <= 0.0) or np.any(np.diff(selected_y) <= 0.0):
+        raise ValueError(f"{name} field axes must be unique.")
+    return selected_x, selected_y, field[np.ix_(y_order, x_order)]
+
+
+def _scientific_comparison(observed, predicted, *, kind, metadata):
+    observed_values = np.asarray(observed, dtype=float)
+    predicted_values = np.asarray(predicted, dtype=float)
+    difference = predicted_values - observed_values
+    rmse = float(np.sqrt(np.mean(difference**2)))
+    span = float(np.max(observed_values) - np.min(observed_values))
+    scale = span if span > np.finfo(float).eps else max(
+        float(np.sqrt(np.mean(observed_values**2))), np.finfo(float).eps
+    )
+    correlation = None
+    if observed_values.size >= 2 and np.std(observed_values) > 0.0 and np.std(predicted_values) > 0.0:
+        correlation = float(np.corrcoef(observed_values, predicted_values)[0, 1])
+    return ScientificComparison(
+        kind=kind,
+        samples=int(observed_values.size),
+        root_mean_square_error=rmse,
+        normalized_root_mean_square_error=rmse / scale,
+        correlation=correlation,
+        metadata=metadata,
+    )
+
+
 def mach_cone_angle(*, crack_speed: float, shear_wave_speed: float) -> float:
     """Return the ideal Mach angle ``asin(c_s / v)`` in radians."""
 
@@ -1649,7 +2180,10 @@ def minimum_cell_nodal_spacing(domain) -> float:
 
 __all__ = [
     "DofMappedCohesiveForce",
+    "CohesiveFrontEnsemble",
+    "CohesiveInterfaceTrace",
     "CohesiveCrackHistory",
+    "InterfaceFrontHistory",
     "PreloadTransferReport",
     "FiniteStrainEnergyMonitor",
     "FiniteStrainCohesiveEnergyMonitor",
@@ -1657,9 +2191,15 @@ __all__ = [
     "IsotropicWaveSpeeds",
     "PrincipalSurfaceWaveSpeed",
     "StableTimeIncrement",
+    "ScientificComparison",
+    "cohesive_front_ensemble",
+    "compare_curve",
+    "compare_mach_cone",
+    "compare_rectilinear_field",
     "estimate_stable_time_increment",
     "cohesive_crack_tip",
     "crack_tip_history",
+    "interface_front_history",
     "finite_strain_internal_force",
     "isotropic_reference_wave_speeds",
     "principal_surface_wave_speed",

@@ -20,6 +20,8 @@ class FieldVariable:
 
 _VARIABLES = {
     "U": FieldVariable("U", "Displacement", "nodes", "vector", "Displacement"),
+    "V": FieldVariable("V", "Velocity", "nodes", "vector", "Velocity"),
+    "A": FieldVariable("A", "Acceleration", "nodes", "vector", "Acceleration"),
     "S": FieldVariable("S", "CauchyStress", "cells", "symmetric_tensor", "Cauchy stress"),
     "P": FieldVariable("P", "FirstPiolaStress", "cells", "tensor", "First Piola stress"),
     "PRESSURE": FieldVariable(
@@ -58,6 +60,14 @@ _VARIABLES = {
         "scalar",
         "Strain-energy density",
         derived_from=("S", "E"),
+    ),
+    "KED": FieldVariable(
+        "KED",
+        "KineticEnergyDensity",
+        "cells",
+        "scalar",
+        "Kinetic-energy density per reference volume",
+        derived_from=("V",),
     ),
     "EVOL": FieldVariable("EVOL", "CurrentElementVolume", "cells", "scalar", "Current element volume"),
     "TEMP": FieldVariable("TEMP", "Temperature", "nodes", "scalar", "Temperature", ("NT",)),
