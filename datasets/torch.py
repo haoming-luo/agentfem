@@ -47,10 +47,13 @@ class FEMFieldSample:
     encoding: dict[str, object]
     metadata: dict[str, object]
     mask: np.ndarray | None = None
+    sampling_coordinates: np.ndarray | None = None
     comm: object | None = field(default=None, repr=False, compare=False)
 
     def write(self, path: str | Path) -> Path:
         output = Path(path)
+        if output.suffix.lower() != ".npz":
+            output = output.with_suffix(".npz")
         comm = self.comm
         is_writer = comm is None or comm.rank == 0
         if is_writer:
@@ -63,11 +66,39 @@ class FEMFieldSample:
         }
         if self.mask is not None:
             arrays["mask"] = np.asarray(self.mask, dtype=bool)
+        if self.sampling_coordinates is not None:
+            arrays["sampling_coordinates"] = np.asarray(
+                self.sampling_coordinates,
+                dtype=float,
+            )
         if is_writer:
             np.savez_compressed(output, **arrays)
         if comm is not None:
             comm.barrier()
         return output
+
+    @classmethod
+    def read(cls, path: str | Path) -> "FEMFieldSample":
+        """Read a dependency-free field sample written by :meth:`write`."""
+
+        with np.load(Path(path), allow_pickle=False) as archive:
+            files = set(archive.files)
+            return cls(
+                coordinates=np.asarray(archive["coordinates"], dtype=float),
+                values=np.asarray(archive["values"], dtype=float),
+                encoding=json.loads(str(archive["encoding_json"])),
+                metadata=json.loads(str(archive["metadata_json"])),
+                mask=(
+                    np.asarray(archive["mask"], dtype=bool)
+                    if "mask" in files
+                    else None
+                ),
+                sampling_coordinates=(
+                    np.asarray(archive["sampling_coordinates"], dtype=float)
+                    if "sampling_coordinates" in files
+                    else None
+                ),
+            )
 
     def torch(self, *, dtype: str = "float32", device: str = "cpu"):
         torch = _torch()
@@ -88,6 +119,12 @@ class FEMFieldSample:
             tensors["mask"] = torch.as_tensor(
                 self.mask,
                 dtype=torch.bool,
+                device=device,
+            )
+        if self.sampling_coordinates is not None:
+            tensors["sampling_coordinates"] = torch.as_tensor(
+                self.sampling_coordinates,
+                dtype=selected_dtype,
                 device=device,
             )
         return tensors
@@ -178,6 +215,8 @@ def fem_observation_sample(
     components=(),
     outside: str = "raise",
     fill_value: float = 0.0,
+    coordinate_map=None,
+    configuration: str = "reference",
 ) -> FEMFieldSample:
     """Sample a FEM field on a reusable structured observation grid.
 
@@ -195,11 +234,43 @@ def fem_observation_sample(
     selected_outside = str(outside).lower().replace("-", "_")
     if selected_outside not in {"raise", "mask"}:
         raise ValueError("fem_observation_sample outside must be 'raise' or 'mask'.")
-    coordinates = np.asarray(grid.points(), dtype=float)
+    observation_coordinates = np.asarray(grid.points(), dtype=float)
+    selected_configuration = str(configuration).strip().lower().replace("-", "_")
+    if selected_configuration not in {"reference", "current"}:
+        raise ValueError(
+            "fem_observation_sample configuration must be 'reference' or 'current'."
+        )
+    if coordinate_map is None:
+        sampling_coordinates = observation_coordinates
+        coordinate_map_summary = None
+    else:
+        if not hasattr(coordinate_map, "map_points") or not hasattr(
+            coordinate_map, "summary"
+        ):
+            raise TypeError(
+                "coordinate_map must provide map_points() and summary(); use "
+                "surrogates.AffineCoordinateMap for affine registration."
+            )
+        sampling_coordinates = np.asarray(
+            coordinate_map.map_points(observation_coordinates),
+            dtype=float,
+        )
+        coordinate_map_summary = coordinate_map.summary()
+        grid_unit = getattr(grid, "coordinate_unit", None)
+        source_unit = coordinate_map_summary.get("source_unit")
+        if grid_unit is not None and source_unit is not None and grid_unit != source_unit:
+            raise ValueError(
+                "Observation-grid coordinate unit and coordinate-map source unit differ."
+            )
+    geometric_dimension = int(selected.function_space.mesh.geometry.dim)
+    if sampling_coordinates.shape[1] != geometric_dimension:
+        raise ValueError(
+            "Mapped sampling coordinates must match the FEM mesh geometric dimension."
+        )
     values = np.asarray(
         results.sample_points(
             selected,
-            coordinates,
+            sampling_coordinates,
             missing="raise" if selected_outside == "raise" else "nan",
         )
     )
@@ -225,10 +296,12 @@ def fem_observation_sample(
             "outside": selected_outside,
             "fill_value": float(fill_value) if selected_outside == "mask" else None,
             "mask_semantics": "true_inside_mesh",
+            "configuration": selected_configuration,
+            "coordinate_map": coordinate_map_summary,
         },
     )
     return FEMFieldSample(
-        coordinates=coordinates,
+        coordinates=observation_coordinates,
         values=shaped_values,
         encoding=encoding.summary(),
         metadata={
@@ -238,8 +311,17 @@ def fem_observation_sample(
             "value_shape": value_shape,
             "point_count": grid.point_count,
             "inside_count": int(np.count_nonzero(mask)),
+            "configuration": selected_configuration,
+            "sampling_coordinates": (
+                "same_as_observation_coordinates"
+                if coordinate_map is None
+                else "mapped_to_model_coordinates"
+            ),
         },
         mask=mask if selected_outside == "mask" else None,
+        sampling_coordinates=(
+            None if coordinate_map is None else sampling_coordinates
+        ),
         comm=selected.function_space.mesh.comm,
     )
 

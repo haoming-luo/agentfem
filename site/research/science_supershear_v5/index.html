@@ -3218,10 +3218,52 @@ private research time loop:</p>
 <p>These functions report sample count, RMSE, range-normalized RMSE, correlation
 when defined, overlap, and interpolation convention. They are evidence tools,
 not acceptance thresholds chosen by the software.</p>
+<p>Publication panels and FEM meshes need not share an origin, axis orientation,
+or length scale. The registration is now an explicit scientific object rather
+than a plotting transform:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">registration</span> <span class="o">=</span> <span class="n">surrogates</span><span class="o">.</span><span class="n">AffineCoordinateMap</span><span class="p">(</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">matrix</span><span class="o">=</span><span class="n">observation_to_model_axes</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">offset</span><span class="o">=</span><span class="n">observation_to_model_origin</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">source_coordinate_system</span><span class="o">=</span><span class="s2">&quot;publication_panel&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">target_coordinate_system</span><span class="o">=</span><span class="s2">&quot;reference_mesh&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">source_unit</span><span class="o">=</span><span class="s2">&quot;mm&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">target_unit</span><span class="o">=</span><span class="s2">&quot;m&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="p">)</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="c1"># observation_grid records coordinate_unit=&quot;mm&quot;; the matrix carries the</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1"># reviewed mm-to-m scale and any axis/origin registration.</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="n">sample</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">fem_observation_sample</span><span class="p">(</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="n">SED</span><span class="p">,</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">observation_grid</span><span class="p">,</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="n">coordinate_map</span><span class="o">=</span><span class="n">registration</span><span class="p">,</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="n">configuration</span><span class="o">=</span><span class="s2">&quot;reference&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="n">outside</span><span class="o">=</span><span class="s2">&quot;mask&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="p">)</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="n">fem_map</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">RectilinearObservation</span><span class="o">.</span><span class="n">from_field_sample</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="n">field_fit</span> <span class="o">=</span> <span class="n">fracture</span><span class="o">.</span><span class="n">compare_rectilinear_observations</span><span class="p">(</span><span class="n">experiment_map</span><span class="p">,</span> <span class="n">fem_map</span><span class="p">)</span>
+</code></pre></div>
+<p>The comparison rejects mismatched units or reference/current configurations.
+Masked void and outside-domain values are excluded only when all bilinear
+contributors are valid, so a convenient fill value cannot silently improve a
+field error.</p>
+<p>One condition can be handed to another researcher or agent as a sealed package:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">bundle</span> <span class="o">=</span> <span class="n">fracture</span><span class="o">.</span><span class="n">DynamicFractureEvidenceBundle</span><span class="p">(</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">benchmark_id</span><span class="o">=</span><span class="n">condition_id</span><span class="p">,</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">trace</span><span class="o">=</span><span class="n">case</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">wave_speeds</span><span class="o">=</span><span class="n">wave_speeds</span><span class="p">,</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">energy_history</span><span class="o">=</span><span class="n">energy_columns</span><span class="p">,</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">comparisons</span><span class="o">=</span><span class="p">(</span><span class="n">speed_fit</span><span class="p">,</span> <span class="n">cone_fit</span><span class="p">,</span> <span class="n">field_fit</span><span class="p">),</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">artifacts</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;fields&quot;</span><span class="p">:</span> <span class="s2">&quot;fields.xdmf&quot;</span><span class="p">,</span> <span class="s2">&quot;SED&quot;</span><span class="p">:</span> <span class="s2">&quot;sed_map.npz&quot;</span><span class="p">},</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">)</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">manifest</span> <span class="o">=</span> <span class="n">bundle</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;evidence/condition_07&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>The package copies its declared artifacts and seals their bytes together with
+trace, energy channels, comparison records, and metadata. Integrity is checked
+before readback. This makes transfer reproducible; it is deliberately not an
+automatic validation decision.</p>
 <h2 id="obtain-and-audit-the-public-data">Obtain and audit the public data<a class="headerlink" href="#obtain-and-audit-the-public-data" title="Permanent link">&para;</a></h2>
 <p>Download the files from the official Dryad landing page. Repository bot
 protection must not be bypassed by an embedded scraper. Then run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>examples/science_supershear_v5_protocol.py<span class="w"> </span>path/to/downloaded/files
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>examples/science_supershear_v5_protocol.py<span class="w"> </span>path/to/downloaded/files
 </code></pre></div>
 <p>The command verifies the minimum V5 evidence roles and produces a workbook
 inventory. A failed hash, wrong size, or missing file stops the evidence
@@ -3267,8 +3309,11 @@ chain. The full versioned identity is in
 <p>This infrastructure makes an independent public-data study reproducible and
 reviewable. It does not create missing JMPS dimensions, loading histories,
 cohesive parameters, or mesh specifications. Thin-three-dimensional and
-general near-incompressible cross-checks, MPI cohesive ownership, and a
-reviewed publication-image coordinate map remain software roadmap items.</p>
+general near-incompressible cross-checks and MPI cohesive ownership remain
+software roadmap items. The first publication-image registration is
+implemented for reviewed affine maps; nonlinear optical calibration, image
+segmentation, and uncertainty propagation remain research processing rather
+than inferred software behavior.</p>
 
 
 

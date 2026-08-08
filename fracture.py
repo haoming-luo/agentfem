@@ -20,6 +20,7 @@ from . import operators
 from .constitutive import hyperelasticity
 from .operators.core import OperatorForm
 from .kernel import dofs
+from .fracture_evidence import DynamicFractureEvidenceBundle
 
 
 def finite_strain_internal_force(
@@ -155,36 +156,54 @@ class DofMappedCohesiveForce:
             "interface": self.assembler.topology.summary(),
             "law": self.assembler.law.summary(),
             "parallel_scope": "serial_experimental",
+            "restart_identity": self.assembler.topology.identity(),
         }
 
     def snapshot(self) -> dict[str, object]:
         return {
-            "schema": "agentfem.dof-mapped-cohesive-force.v1",
+            "schema": "agentfem.dof-mapped-cohesive-force.v2",
             "node_to_block_dof": self.node_to_block_dof.tolist(),
             "negative_nodes": self.assembler.topology.negative_nodes.tolist(),
             "positive_nodes": self.assembler.topology.positive_nodes.tolist(),
+            "interface_identity": self.assembler.topology.identity(),
+            "dof_map_role": "execution_local_not_state_identity",
             "law": self.assembler.law.summary(),
             "state": self.assembler.state.snapshot(),
         }
 
     def restore(self, snapshot: dict[str, object]) -> None:
-        if snapshot.get("schema") != "agentfem.dof-mapped-cohesive-force.v1":
+        schema = snapshot.get("schema")
+        if schema not in {
+            "agentfem.dof-mapped-cohesive-force.v1",
+            "agentfem.dof-mapped-cohesive-force.v2",
+        }:
             raise ValueError("Unsupported cohesive dof-state schema.")
-        checks = {
-            "node-to-dof map": (
-                snapshot.get("node_to_block_dof"),
-                self.node_to_block_dof.tolist(),
-            ),
-            "negative facet topology": (
-                snapshot.get("negative_nodes"),
-                self.assembler.topology.negative_nodes.tolist(),
-            ),
-            "positive facet topology": (
-                snapshot.get("positive_nodes"),
-                self.assembler.topology.positive_nodes.tolist(),
-            ),
-            "cohesive law": (snapshot.get("law"), self.assembler.law.summary()),
-        }
+        if schema == "agentfem.dof-mapped-cohesive-force.v1":
+            checks = {
+                "node-to-dof map": (
+                    snapshot.get("node_to_block_dof"),
+                    self.node_to_block_dof.tolist(),
+                ),
+                "negative facet topology": (
+                    snapshot.get("negative_nodes"),
+                    self.assembler.topology.negative_nodes.tolist(),
+                ),
+                "positive facet topology": (
+                    snapshot.get("positive_nodes"),
+                    self.assembler.topology.positive_nodes.tolist(),
+                ),
+                "cohesive law": (snapshot.get("law"), self.assembler.law.summary()),
+            }
+        else:
+            # Dof numbers are execution-local.  Irreversible state follows the
+            # ordered physical interface identity and cohesive law instead.
+            checks = {
+                "physical interface identity": (
+                    snapshot.get("interface_identity"),
+                    self.assembler.topology.identity(),
+                ),
+                "cohesive law": (snapshot.get("law"), self.assembler.law.summary()),
+            }
         for label, (stored, current) in checks.items():
             if stored != current:
                 raise ValueError(
@@ -1876,6 +1895,8 @@ def compare_rectilinear_field(
     simulation_values,
     *,
     quantity_name: str = "field",
+    reference_mask=None,
+    simulation_mask=None,
 ) -> ScientificComparison:
     """Compare scalar maps after bilinear interpolation on their overlap.
 
@@ -1905,9 +1926,36 @@ def compare_rectilinear_field(
         dtype=float,
     ).T
     selected_observed = observed[np.ix_(y_mask, x_mask)]
+    valid = np.ones(selected_observed.shape, dtype=bool)
+    if reference_mask is not None:
+        reference_valid = np.asarray(reference_mask, dtype=bool)
+        if reference_valid.shape != observed.shape:
+            raise ValueError("reference_mask must match reference_values.")
+        valid &= reference_valid[np.ix_(y_mask, x_mask)]
+    if simulation_mask is not None:
+        simulation_valid = np.asarray(simulation_mask, dtype=bool)
+        if simulation_valid.shape != simulated.shape:
+            raise ValueError("simulation_mask must match simulation_values.")
+        mask_along_x = np.asarray(
+            [np.interp(selected_x, sx, row.astype(float)) for row in simulation_valid],
+            dtype=float,
+        )
+        mask_on_reference = np.asarray(
+            [
+                np.interp(selected_y, sy, mask_along_x[:, index])
+                for index in range(selected_x.size)
+            ],
+            dtype=float,
+        ).T
+        # A comparison point is valid only when every bilinear contributor is
+        # in the physical domain.  This prevents void fill values from entering
+        # a field error silently.
+        valid &= mask_on_reference >= 1.0 - 64.0 * np.finfo(float).eps
+    if np.count_nonzero(valid) < 2:
+        raise ValueError("Field comparison requires at least two valid samples.")
     return _scientific_comparison(
-        selected_observed.reshape(-1),
-        predicted.reshape(-1),
+        selected_observed[valid],
+        predicted[valid],
         kind="rectilinear_field_comparison",
         metadata={
             "quantity": str(quantity_name),
@@ -1917,7 +1965,89 @@ def compare_rectilinear_field(
                 [float(selected_y[0]), float(selected_y[-1])],
             ],
             "overlap_shape": [int(selected_y.size), int(selected_x.size)],
+            "valid_samples": int(np.count_nonzero(valid)),
+            "mask_policy": "all_bilinear_contributors_inside",
         },
+    )
+
+
+def compare_rectilinear_observations(
+    reference,
+    simulation,
+    *,
+    quantity_name: str | None = None,
+) -> ScientificComparison:
+    """Compare two portable rectilinear observations with semantic checks."""
+
+    reference_quantity = str(getattr(reference, "quantity", "field"))
+    simulation_quantity = str(getattr(simulation, "quantity", "field"))
+    selected_quantity = str(quantity_name or reference_quantity)
+    if quantity_name is None and reference_quantity != simulation_quantity:
+        raise ValueError(
+            "Rectilinear observation quantities differ; pass quantity_name only "
+            "after reviewing the intended comparison."
+        )
+    reference_unit = getattr(reference, "unit", None)
+    simulation_unit = getattr(simulation, "unit", None)
+    if reference_unit != simulation_unit:
+        raise ValueError(
+            "Rectilinear observation units differ; convert them explicitly before comparison."
+        )
+    reference_coordinate_unit = getattr(reference, "coordinate_unit", None)
+    simulation_coordinate_unit = getattr(simulation, "coordinate_unit", None)
+    if reference_coordinate_unit != simulation_coordinate_unit:
+        raise ValueError(
+            "Rectilinear observation coordinate units differ; convert coordinates "
+            "explicitly before comparison."
+        )
+    reference_configuration = getattr(reference, "configuration", None)
+    simulation_configuration = getattr(simulation, "configuration", None)
+    if reference_configuration != simulation_configuration:
+        raise ValueError(
+            "Rectilinear observation configurations differ; provide an explicit "
+            "reference/current coordinate registration before comparison."
+        )
+    reference_system = getattr(reference, "coordinate_system", None)
+    simulation_system = getattr(simulation, "coordinate_system", None)
+    if reference_system != simulation_system:
+        raise ValueError(
+            "Rectilinear observation coordinate systems differ; register both "
+            "observations to one reviewed coordinate system before comparison."
+        )
+    reference_names = tuple(getattr(reference, "coordinate_names", ("x", "y")))
+    simulation_names = tuple(getattr(simulation, "coordinate_names", ("x", "y")))
+    if reference_names != simulation_names:
+        raise ValueError(
+            "Rectilinear observation coordinate names differ; reorder the axes explicitly."
+        )
+    comparison = compare_rectilinear_field(
+        reference.x,
+        reference.y,
+        reference.values,
+        simulation.x,
+        simulation.y,
+        simulation.values,
+        quantity_name=selected_quantity,
+        reference_mask=getattr(reference, "mask", None),
+        simulation_mask=getattr(simulation, "mask", None),
+    )
+    metadata = dict(comparison.metadata or {})
+    metadata.update(
+        {
+            "unit": reference_unit,
+            "coordinate_unit": reference_coordinate_unit,
+            "configuration": reference_configuration,
+            "coordinate_system": reference_system,
+            "coordinate_names": reference_names,
+        }
+    )
+    return ScientificComparison(
+        kind=comparison.kind,
+        samples=comparison.samples,
+        root_mean_square_error=comparison.root_mean_square_error,
+        normalized_root_mean_square_error=comparison.normalized_root_mean_square_error,
+        correlation=comparison.correlation,
+        metadata=metadata,
     )
 
 
@@ -2179,6 +2309,7 @@ def minimum_cell_nodal_spacing(domain) -> float:
 
 
 __all__ = [
+    "DynamicFractureEvidenceBundle",
     "DofMappedCohesiveForce",
     "CohesiveFrontEnsemble",
     "CohesiveInterfaceTrace",
@@ -2196,6 +2327,7 @@ __all__ = [
     "compare_curve",
     "compare_mach_cone",
     "compare_rectilinear_field",
+    "compare_rectilinear_observations",
     "estimate_stable_time_increment",
     "cohesive_crack_tip",
     "crack_tip_history",

@@ -107,6 +107,13 @@ finite-element simulation with AgentFEM.
   semantics.
   For field-learning data, create a fixed `surrogates.ObservationGrid` and call
   `datasets.fem_observation_sample`; preserve its units, layout, and mask.
+  When observations and the FEM mesh use different axes or origins, pass an
+  explicit `surrogates.AffineCoordinateMap`; for publication maps convert the
+  result to `datasets.RectilinearObservation` before comparison. Never infer a
+  transpose, unit conversion, or reference/current transformation from a
+  figure. A `fracture.DynamicFractureEvidenceBundle` is the portable handoff
+  for one fracture condition, but its provenance seal is not a validation
+  claim.
   Distinguish
   execution status from
   `result.trust_level`, apply a named quality policy for routine checks, and

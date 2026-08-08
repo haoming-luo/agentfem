@@ -157,7 +157,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `cohesive_front_ensemble(trace: CohesiveInterfaceTrace, *, damage_thresholds = (0.5, 0.75, 0.95), opening_thresholds = (), dissipation_thresholds = (), fit_window: int = 5, direction: str = 'increasing') -> CohesiveFrontEnsemble` | Build observer-sensitivity evidence from a portable interface trace. |
 | function | `compare_curve(reference_coordinate, reference_values, simulation_coordinate, simulation_values, *, coordinate_name: str = 'coordinate', quantity_name: str = 'value') -> ScientificComparison` | Interpolate a simulated curve onto observed coordinates and compare. |
 | function | `compare_mach_cone(*, crack_speed: float, shear_wave_speed: float, observed_angle: float, unit: str = 'radian') -> ScientificComparison` | Compare an observed Mach angle with ``asin(c_s/v)``. |
-| function | `compare_rectilinear_field(reference_x, reference_y, reference_values, simulation_x, simulation_y, simulation_values, *, quantity_name: str = 'field') -> ScientificComparison` | Compare scalar maps after bilinear interpolation on their overlap. |
+| function | `compare_rectilinear_field(reference_x, reference_y, reference_values, simulation_x, simulation_y, simulation_values, *, quantity_name: str = 'field', reference_mask = None, simulation_mask = None) -> ScientificComparison` | Compare scalar maps after bilinear interpolation on their overlap. |
+| function | `compare_rectilinear_observations(reference, simulation, *, quantity_name: str \| None = None) -> ScientificComparison` | Compare two portable rectilinear observations with semantic checks. |
 | function | `mach_cone_angle(*, crack_speed: float, shear_wave_speed: float) -> float` | Return the ideal Mach angle ``asin(c_s / v)`` in radians. |
 | function | `separation_regime(*, crack_speed: float, rayleigh_wave_speed: float, shear_wave_speed: float, failed_fraction: float, simultaneous_failed_fraction: float, spall_fraction: float = 0.8, rapid_failed_fraction: float \| None = None, ligament_traction_ratio: float \| None = None, pressure_wave_speed: float \| None = None) -> str` | Classify one frame with explicit crack-speed and spall evidence. |
 | function | `estimate_stable_time_increment(*, characteristic_length, dilatational_speed: float, safety_factor: float = 0.8, interface_stiffness: float \| None = None, interface_area: float \| None = None, negative_mass: float \| None = None, positive_mass: float \| None = None) -> StableTimeIncrement` | Estimate explicit stability from body transit and interface oscillator. |
@@ -783,10 +784,11 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `Quantity` | One scalar, curve, vector, or sampled-field output contract. |
 | class | `Sample` | One successful simulation sample and its scientific lineage. |
 | function | `decode_quantities(quantities: tuple[Quantity, ...], row) -> dict[str, object]` | Restore one flattened numeric row to declared named quantities. |
+| class | `RectilinearObservation` | One scalar field on explicit physical ``x``/``y`` axes. |
 | class | `FEMFieldSample` | One FEM field representation with coordinates and scientific encoding. |
 | class | `TorchDatasetBundle` | PyTorch dataset plus the schema needed to interpret its columns. |
 | function | `fem_field_sample(function, encoding) -> FEMFieldSample` | Export owned nodal coefficients for external neural/PINN tooling. |
-| function | `fem_observation_sample(function, grid, *, name: str \| None = None, unit: str \| None = None, role: str = 'output', components = (), outside: str = 'raise', fill_value: float = 0.0) -> FEMFieldSample` | Sample a FEM field on a reusable structured observation grid. |
+| function | `fem_observation_sample(function, grid, *, name: str \| None = None, unit: str \| None = None, role: str = 'output', components = (), outside: str = 'raise', fill_value: float = 0.0, coordinate_map = None, configuration: str = 'reference') -> FEMFieldSample` | Sample a FEM field on a reusable structured observation grid. |
 | function | `to_torch(dataset: ScientificDataset, *, normalized_inputs: bool = True, dtype: str = 'float32', device: str = 'cpu') -> TorchDatasetBundle` | Expose a validated campaign dataset as a PyTorch ``TensorDataset``. |
 
 ## `agentfem.surrogates`
@@ -804,13 +806,14 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `RidgeSurrogate` | Multi-output ridge regression baseline. |
 | class | `TrainedPODRidge` | Fitted POD-ridge field/curve surrogate. |
 | class | `TrainedRidge` | Fitted ridge surrogate with named prediction and validation methods. |
+| class | `AffineCoordinateMap` | Explicit affine map from observation coordinates to model coordinates. |
 | class | `FieldEncoding` | How a physical field becomes a machine-learning tensor. |
 | class | `NeuralOperatorSpec` | Function-to-function learning contract for an external trainer. |
 | class | `ObservationGrid` | Mesh-independent Cartesian coordinates for field learning and sensing. |
 | class | `PhysicsCondition` | Boundary, initial, interface, or observation condition in a loss. |
 | class | `PhysicsResidual` | One explicit differentiable residual used in a physics loss. |
 | class | `PINNSpec` | Physics-informed training contract for selected explicit residuals. |
-| function | `regular_grid(*, bounds, shape, axis_names = None, coordinate_system: str = 'cartesian', order: str = 'C') -> ObservationGrid` | Create an evenly spaced observation grid from physical bounds. |
+| function | `regular_grid(*, bounds, shape, axis_names = None, coordinate_system: str = 'cartesian', order: str = 'C', coordinate_unit: str \| None = None) -> ObservationGrid` | Create an evenly spaced observation grid from physical bounds. |
 | class | `TorchMLPSurrogate` | Configurable dense-network baseline for parameter-to-QoI learning. |
 | class | `TrainedTorchMLP` | In-memory trained PyTorch adapter. |
 | class | `PINNTrainingRecord` | In-memory training evidence without serializing a PyTorch pickle. |

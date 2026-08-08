@@ -13,6 +13,118 @@ import numpy as np
 
 
 @dataclass(frozen=True)
+class AffineCoordinateMap:
+    """Explicit affine map from observation coordinates to model coordinates.
+
+    Field observations, publication images, experiments, and a finite-element
+    mesh often use different origins, axes, or length units.  This record keeps
+    that registration outside plotting code.  For row-wise points ``q`` the
+    convention is ``x_model = q @ matrix.T + offset``.
+    """
+
+    matrix: np.ndarray
+    offset: np.ndarray
+    source_coordinate_system: str = "observation"
+    target_coordinate_system: str = "model"
+    source_unit: str | None = None
+    target_unit: str | None = None
+
+    def __post_init__(self) -> None:
+        matrix = np.asarray(self.matrix, dtype=float)
+        offset = np.asarray(self.offset, dtype=float).reshape(-1)
+        if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
+            raise ValueError("AffineCoordinateMap.matrix must be square.")
+        if matrix.shape[0] not in {1, 2, 3}:
+            raise ValueError("AffineCoordinateMap supports one, two, or three dimensions.")
+        if offset.shape != (matrix.shape[0],):
+            raise ValueError("AffineCoordinateMap.offset dimension must match matrix.")
+        if np.any(~np.isfinite(matrix)) or np.any(~np.isfinite(offset)):
+            raise ValueError("AffineCoordinateMap coefficients must be finite.")
+        determinant = float(np.linalg.det(matrix))
+        if not np.isfinite(determinant) or abs(determinant) <= np.finfo(float).eps:
+            raise ValueError("AffineCoordinateMap.matrix must be invertible.")
+        source = str(self.source_coordinate_system).strip()
+        target = str(self.target_coordinate_system).strip()
+        if not source or not target:
+            raise ValueError("AffineCoordinateMap coordinate-system names must not be empty.")
+        object.__setattr__(self, "matrix", matrix.copy())
+        object.__setattr__(self, "offset", offset.copy())
+        object.__setattr__(self, "source_coordinate_system", source)
+        object.__setattr__(self, "target_coordinate_system", target)
+        source_unit = None if self.source_unit is None else str(self.source_unit).strip()
+        target_unit = None if self.target_unit is None else str(self.target_unit).strip()
+        if source_unit == "" or target_unit == "":
+            raise ValueError("AffineCoordinateMap units must not be empty strings.")
+        object.__setattr__(self, "source_unit", source_unit)
+        object.__setattr__(self, "target_unit", target_unit)
+
+    @classmethod
+    def identity(
+        cls,
+        dimension: int,
+        *,
+        coordinate_system: str = "cartesian",
+        unit: str | None = None,
+    ) -> "AffineCoordinateMap":
+        selected = int(dimension)
+        if selected not in {1, 2, 3}:
+            raise ValueError("AffineCoordinateMap dimension must be one, two, or three.")
+        return cls(
+            np.eye(selected),
+            np.zeros(selected),
+            source_coordinate_system=coordinate_system,
+            target_coordinate_system=coordinate_system,
+            source_unit=unit,
+            target_unit=unit,
+        )
+
+    @property
+    def dimension(self) -> int:
+        return int(self.matrix.shape[0])
+
+    def map_points(self, points) -> np.ndarray:
+        """Map row-wise observation points into model coordinates."""
+
+        selected = np.asarray(points, dtype=float)
+        if selected.ndim == 1:
+            selected = selected.reshape((1, -1))
+        if selected.ndim != 2 or selected.shape[1] != self.dimension:
+            raise ValueError(
+                "AffineCoordinateMap points must have shape "
+                f"(count, {self.dimension})."
+            )
+        if np.any(~np.isfinite(selected)):
+            raise ValueError("AffineCoordinateMap points must be finite.")
+        return selected @ self.matrix.T + self.offset
+
+    def inverse(self) -> "AffineCoordinateMap":
+        """Return the exact inverse map with source and target exchanged."""
+
+        inverse = np.linalg.inv(self.matrix)
+        return AffineCoordinateMap(
+            inverse,
+            -inverse @ self.offset,
+            source_coordinate_system=self.target_coordinate_system,
+            target_coordinate_system=self.source_coordinate_system,
+            source_unit=self.target_unit,
+            target_unit=self.source_unit,
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "affine_coordinate_map",
+            "convention": "target = source @ matrix.T + offset",
+            "dimension": self.dimension,
+            "matrix": self.matrix.tolist(),
+            "offset": self.offset.tolist(),
+            "source_coordinate_system": self.source_coordinate_system,
+            "target_coordinate_system": self.target_coordinate_system,
+            "source_unit": self.source_unit,
+            "target_unit": self.target_unit,
+        }
+
+
+@dataclass(frozen=True)
 class ObservationGrid:
     """Mesh-independent Cartesian coordinates for field learning and sensing."""
 
@@ -20,6 +132,7 @@ class ObservationGrid:
     axis_names: tuple[str, ...]
     coordinate_system: str = "cartesian"
     order: str = "C"
+    coordinate_unit: str | None = None
 
     def __post_init__(self) -> None:
         axes = tuple(np.asarray(axis, dtype=float).reshape(-1) for axis in self.axes)
@@ -44,6 +157,12 @@ class ObservationGrid:
         object.__setattr__(self, "axis_names", names)
         object.__setattr__(self, "coordinate_system", str(self.coordinate_system))
         object.__setattr__(self, "order", selected_order)
+        coordinate_unit = (
+            None if self.coordinate_unit is None else str(self.coordinate_unit).strip()
+        )
+        if coordinate_unit == "":
+            raise ValueError("ObservationGrid.coordinate_unit must not be empty.")
+        object.__setattr__(self, "coordinate_unit", coordinate_unit)
 
     @classmethod
     def from_axes(cls, **axes):
@@ -71,6 +190,7 @@ class ObservationGrid:
         return {
             "kind": "observation_grid",
             "coordinate_system": self.coordinate_system,
+            "coordinate_unit": self.coordinate_unit,
             "axis_names": self.axis_names,
             "axes": {
                 name: axis.tolist()
@@ -89,6 +209,7 @@ def regular_grid(
     axis_names=None,
     coordinate_system: str = "cartesian",
     order: str = "C",
+    coordinate_unit: str | None = None,
 ) -> ObservationGrid:
     """Create an evenly spaced observation grid from physical bounds."""
 
@@ -109,6 +230,7 @@ def regular_grid(
         names,
         coordinate_system=coordinate_system,
         order=order,
+        coordinate_unit=coordinate_unit,
     )
 
 
@@ -356,6 +478,7 @@ class PINNSpec:
 
 
 __all__ = [
+    "AffineCoordinateMap",
     "FieldEncoding",
     "NeuralOperatorSpec",
     "ObservationGrid",

@@ -12,6 +12,7 @@ from .external import (
     science_supershear_v5_research_task,
 )
 from .schema import Quantity, Sample, decode_quantities
+from .observations import RectilinearObservation
 from .torch import (
     FEMFieldSample,
     TorchDatasetBundle,
@@ -27,6 +28,7 @@ __all__ = [
     "ExternalFile",
     "FEMFieldSample",
     "Quantity",
+    "RectilinearObservation",
     "Sample",
     "ScientificDataset",
     "SpreadsheetSheet",

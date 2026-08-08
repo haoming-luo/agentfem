@@ -72,6 +72,14 @@ partly advance interface damage.  Checkpoints bind state arrays to a stable
 interface-pair identity, quadrature rule, law schema, mesh fingerprint, and
 physical time.
 
+The first executable identity now hashes ordered reference-facet geometry,
+normal orientation, length, and the quadrature contract. DOLFINx block-dof
+numbers are recorded only as execution metadata and are no longer treated as
+scientific state identity. This permits a valid serial dof renumbering while
+rejecting a different interface or law. The identity is orientation-sensitive
+by design; distributed ownership and cross-partition facet-state assembly are
+still required before MPI cohesive execution can be claimed.
+
 `interfaces.BilinearCohesiveLaw` and `interfaces.CohesiveTransaction` are the
 first material-point implementation of this contract.  They are marked
 experimental until a paired-facet global consumer passes the verification
@@ -257,6 +265,14 @@ finite-difference crack speed.
 - JMPS parameter trends and separation-mode transitions first;
 - Science Dryad field and history comparisons second;
 - calibration cases and retained prediction cases remain distinct.
+
+The V5 exchange product is a sealed
+`DynamicFractureEvidenceBundle`: accepted interface trace, wave-speed
+convention, complete energy columns, comparison records, and copied field or
+report artifacts. Its provenance seal establishes byte integrity, not
+scientific acceptance. Publication/FEM coordinate registration is an explicit
+`AffineCoordinateMap`; rectilinear comparisons reject unit/configuration
+mismatch and preserve domain masks.
 
 Until V0--V3 pass, the feature is `experimental`.  `validated` is reserved for
 the named benchmark and parameter range whose evidence is published.

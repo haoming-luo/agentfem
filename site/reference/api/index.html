@@ -4495,8 +4495,13 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>compare_rectilinear_field(reference_x, reference_y, reference_values, simulation_x, simulation_y, simulation_values, *, quantity_name: str = 'field') -&gt; ScientificComparison</code></td>
+<td><code>compare_rectilinear_field(reference_x, reference_y, reference_values, simulation_x, simulation_y, simulation_values, *, quantity_name: str = 'field', reference_mask = None, simulation_mask = None) -&gt; ScientificComparison</code></td>
 <td>Compare scalar maps after bilinear interpolation on their overlap.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>compare_rectilinear_observations(reference, simulation, *, quantity_name: str \| None = None) -&gt; ScientificComparison</code></td>
+<td>Compare two portable rectilinear observations with semantic checks.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -7274,6 +7279,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>RectilinearObservation</code></td>
+<td>One scalar field on explicit physical <code>x</code>/<code>y</code> axes.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>FEMFieldSample</code></td>
 <td>One FEM field representation with coordinates and scientific encoding.</td>
 </tr>
@@ -7289,7 +7299,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>fem_observation_sample(function, grid, *, name: str \| None = None, unit: str \| None = None, role: str = 'output', components = (), outside: str = 'raise', fill_value: float = 0.0) -&gt; FEMFieldSample</code></td>
+<td><code>fem_observation_sample(function, grid, *, name: str \| None = None, unit: str \| None = None, role: str = 'output', components = (), outside: str = 'raise', fill_value: float = 0.0, coordinate_map = None, configuration: str = 'reference') -&gt; FEMFieldSample</code></td>
 <td>Sample a FEM field on a reusable structured observation grid.</td>
 </tr>
 <tr>
@@ -7366,6 +7376,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>AffineCoordinateMap</code></td>
+<td>Explicit affine map from observation coordinates to model coordinates.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>FieldEncoding</code></td>
 <td>How a physical field becomes a machine-learning tensor.</td>
 </tr>
@@ -7396,7 +7411,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>regular_grid(*, bounds, shape, axis_names = None, coordinate_system: str = 'cartesian', order: str = 'C') -&gt; ObservationGrid</code></td>
+<td><code>regular_grid(*, bounds, shape, axis_names = None, coordinate_system: str = 'cartesian', order: str = 'C', coordinate_unit: str \| None = None) -&gt; ObservationGrid</code></td>
 <td>Create an evenly spaced observation grid from physical bounds.</td>
 </tr>
 <tr>

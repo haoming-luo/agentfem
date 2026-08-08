@@ -10,6 +10,7 @@ semantics testable before it is used in a dynamic fracture calculation.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha256
 from math import isfinite
 
 import numpy as np
@@ -309,6 +310,39 @@ class PairedLineFacets:
     normals: np.ndarray
     lengths: np.ndarray
     tolerance: float
+    facet_keys: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        negative = np.asarray(self.negative_nodes, dtype=np.int64)
+        positive = np.asarray(self.positive_nodes, dtype=np.int64)
+        normals = np.asarray(self.normals, dtype=float)
+        lengths = np.asarray(self.lengths, dtype=float).reshape(-1)
+        tolerance = float(self.tolerance)
+        if negative.ndim != 2 or negative.shape[1] != 2:
+            raise ValueError("PairedLineFacets negative_nodes must have shape (facets, 2).")
+        if positive.shape != negative.shape:
+            raise ValueError("PairedLineFacets positive_nodes must match negative_nodes.")
+        if normals.shape[0] != negative.shape[0] or normals.ndim != 2:
+            raise ValueError("PairedLineFacets normals must provide one vector per facet.")
+        if (
+            lengths.shape != (negative.shape[0],)
+            or np.any(~np.isfinite(lengths))
+            or np.any(lengths <= 0.0)
+        ):
+            raise ValueError("PairedLineFacets lengths must be positive per facet.")
+        if np.any(~np.isfinite(normals)):
+            raise ValueError("PairedLineFacets normals must be finite.")
+        if not isfinite(tolerance) or tolerance <= 0.0:
+            raise ValueError("PairedLineFacets tolerance must be finite and positive.")
+        keys = tuple(str(value) for value in self.facet_keys)
+        if keys and (len(keys) != negative.shape[0] or len(set(keys)) != len(keys)):
+            raise ValueError("PairedLineFacets facet_keys must be unique per facet.")
+        object.__setattr__(self, "negative_nodes", negative.copy())
+        object.__setattr__(self, "positive_nodes", positive.copy())
+        object.__setattr__(self, "normals", normals.copy())
+        object.__setattr__(self, "lengths", lengths.copy())
+        object.__setattr__(self, "tolerance", tolerance)
+        object.__setattr__(self, "facet_keys", keys)
 
     @property
     def number_of_facets(self) -> int:
@@ -326,6 +360,49 @@ class PairedLineFacets:
             "reference_length": float(np.sum(self.lengths)),
             "pairing_tolerance": self.tolerance,
             "dof_sides": "independent",
+            "state_identity": self.identity(),
+        }
+
+    def identity(self) -> dict[str, object]:
+        """Return the durable identity used by irreversible interface state.
+
+        Physical keys created by :func:`pair_coincident_line_facets` are
+        independent of DOLFINx dof numbering.  Directly constructed legacy
+        topologies retain an explicit node-order-scoped fallback.
+        """
+
+        if self.facet_keys:
+            keys = self.facet_keys
+            scope = "ordered_reference_facet_geometry"
+        else:
+            keys = tuple(
+                ":".join(str(int(value)) for value in (*negative, *positive))
+                for negative, positive in zip(
+                    self.negative_nodes,
+                    self.positive_nodes,
+                    strict=True,
+                )
+            )
+            scope = "legacy_node_order"
+        digest = sha256()
+        for key in keys:
+            digest.update(key.encode("utf-8"))
+            digest.update(b"\0")
+        digest.update(
+            np.rint(self.normals / self.tolerance).astype("<i8").tobytes()
+        )
+        digest.update(
+            np.rint(self.lengths / self.tolerance).astype("<i8").tobytes()
+        )
+        return {
+            "schema": "agentfem.cohesive-interface-identity.v1",
+            "sha256": digest.hexdigest(),
+            "scope": scope,
+            "number_of_facets": self.number_of_facets,
+            "quadrature_points_per_facet": 2,
+            "pairing_tolerance": self.tolerance,
+            "facet_keys": list(keys),
+            "orientation_sensitive": True,
         }
 
 
@@ -657,12 +734,18 @@ def pair_coincident_line_facets(
     hint = hint / np.linalg.norm(hint)
     signs = np.where(np.einsum("fd,d->f", normals, hint) >= 0.0, 1.0, -1.0)
     normals *= signs[:, None]
+    quantized = np.rint(points[negative] / float(tolerance)).astype("<i8")
+    facet_keys = tuple(
+        sha256(np.ascontiguousarray(item).tobytes()).hexdigest()
+        for item in quantized
+    )
     return PairedLineFacets(
         negative_nodes=negative.copy(),
         positive_nodes=ordered_positive,
         normals=normals,
         lengths=lengths,
         tolerance=float(tolerance),
+        facet_keys=facet_keys,
     )
 
 

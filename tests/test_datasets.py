@@ -192,6 +192,54 @@ def test_structured_observation_grid_exports_fno_ready_field_and_mask(tmp_path):
         np.testing.assert_array_equal(saved["mask"], sample.mask)
 
 
+def test_observation_coordinate_map_and_rectilinear_contract_round_trip(tmp_path):
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.5),
+        (4, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    temperature = fields.temperature(domain)
+    temperature.value.interpolate(lambda x: 100.0 + 10.0 * x[0] + x[1])
+    grid = surrogates.regular_grid(
+        bounds=((0.0, 2.0), (0.0, 1.0)),
+        shape=(5, 3),
+        coordinate_system="publication_panel",
+        coordinate_unit="mm",
+    )
+    registration = surrogates.AffineCoordinateMap(
+        matrix=np.diag((0.5, 0.5)),
+        offset=np.zeros(2),
+        source_coordinate_system="publication_panel",
+        target_coordinate_system="reference_mesh",
+        source_unit="mm",
+        target_unit="mm",
+    )
+    sample = datasets.fem_observation_sample(
+        temperature,
+        grid,
+        unit="K",
+        coordinate_map=registration,
+        configuration="current",
+    )
+    path = sample.write(tmp_path / "registered_field")
+    assert path.suffix == ".npz"
+    restored = datasets.FEMFieldSample.read(path)
+    observation = datasets.RectilinearObservation.from_field_sample(restored)
+    observation_path = observation.write(tmp_path / "publication_field")
+    restored_observation = datasets.RectilinearObservation.read(observation_path)
+
+    np.testing.assert_allclose(restored.sampling_coordinates[:, 0], 0.5 * restored.coordinates[:, 0])
+    np.testing.assert_allclose(sample.values[-1, -1], 110.5)
+    assert observation.values.shape == (3, 5)
+    assert observation.configuration == "current"
+    assert observation.coordinate_system == "publication_panel"
+    assert observation.coordinate_unit == "mm"
+    np.testing.assert_allclose(restored_observation.values, observation.values)
+    assert restored_observation.summary()["valid_samples"] == 15
+
+
 def test_observation_grid_rejects_ambiguous_or_invalid_axes():
     with pytest.raises(ValueError, match="strictly increasing"):
         surrogates.ObservationGrid.from_axes(x=(0.0, 0.5, 0.5))

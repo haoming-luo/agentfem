@@ -118,6 +118,14 @@ For a collection of related cases, continue with:
 - Surrogate/ROM baselines, validation, applicability guards, and
   neural-operator/PINN contracts: `surrogates/`
 
+For publication or sensor-aligned field evidence, use one
+`surrogates.AffineCoordinateMap` with `datasets.fem_observation_sample`, then
+convert to `datasets.RectilinearObservation`. Do not hide axis, scale,
+reference/current configuration, or outside-domain masks in plotting code.
+Dynamic-fracture research conditions can be exchanged through
+`fracture.DynamicFractureEvidenceBundle`; its seal proves artifact integrity,
+not scientific validation.
+
 ## Design Principle
 
 The workflow should be easy for a human researcher to read and easy for an

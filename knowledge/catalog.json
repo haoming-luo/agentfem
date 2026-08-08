@@ -374,6 +374,10 @@
         "agentfem.fracture.compare_curve",
         "agentfem.fracture.compare_mach_cone",
         "agentfem.fracture.compare_rectilinear_field",
+        "agentfem.fracture.compare_rectilinear_observations",
+        "agentfem.fracture.DynamicFractureEvidenceBundle",
+        "agentfem.surrogates.AffineCoordinateMap",
+        "agentfem.datasets.RectilinearObservation",
         "agentfem.results.finite_strain_dynamic_cell_fields"
       ],
       "related_cards": [
@@ -408,8 +412,10 @@
       "kind": "workflow",
       "public_api": [
         "agentfem.surrogates.ObservationGrid",
+        "agentfem.surrogates.AffineCoordinateMap",
         "agentfem.surrogates.regular_grid",
         "agentfem.datasets.fem_observation_sample",
+        "agentfem.datasets.RectilinearObservation",
         "agentfem.surrogates.FieldEncoding",
         "agentfem.surrogates.NeuralOperatorSpec"
       ],

@@ -15,11 +15,17 @@
     "agentfem.fracture.compare_curve",
     "agentfem.fracture.compare_mach_cone",
     "agentfem.fracture.compare_rectilinear_field",
+    "agentfem.fracture.compare_rectilinear_observations",
+    "agentfem.fracture.DynamicFractureEvidenceBundle",
+    "agentfem.surrogates.AffineCoordinateMap",
+    "agentfem.datasets.RectilinearObservation",
     "agentfem.results.finite_strain_dynamic_cell_fields"
   ],
   "implementation": [
     "datasets/external.py",
+    "datasets/observations.py",
     "fracture.py",
+    "fracture_evidence.py",
     "results/finite_strain.py",
     "benchmarks/dynamic_fracture.py",
     "knowledge/external_data/science_supershear_dryad_v7.json"
@@ -56,6 +62,12 @@
         "type": "curves, scalar angles, or scalar rectilinear maps",
         "unit_role": "must be harmonized before comparison",
         "description": "Only overlapping coordinates are compared; extrapolated pixels are excluded."
+      },
+      {
+        "name": "coordinate registration",
+        "type": "explicit affine observation-to-model map with units and configuration",
+        "unit_role": "coordinate units",
+        "description": "Records axis rotation, scale, and origin instead of hiding them in plotting code."
       }
     ],
     "outputs": [
@@ -76,6 +88,12 @@
         "type": "sample count, RMSE, NRMSE, correlation, overlap, and method metadata",
         "unit_role": "same units as compared observable",
         "description": "A common evidence record for curve, Mach-angle, and field-map comparisons."
+      },
+      {
+        "name": "DynamicFractureEvidenceBundle",
+        "type": "sealed manifest plus trace, energy channels, comparisons, and copied artifacts",
+        "unit_role": "preserved from every constituent",
+        "description": "Provides one self-contained handoff to another researcher or agent; byte integrity is not an automatic validation claim."
       }
     ],
     "assumptions": [
@@ -87,6 +105,7 @@
       "Interface path coordinates and crack speeds use the declared reference configuration unless metadata says otherwise.",
       "Damage is reduced by the facet quadrature maximum; opening, traction, and dissipated-energy density use facet quadrature means.",
       "Rectilinear simulation fields are bilinearly interpolated to observed grid points only within their common domain."
+      ,"A masked comparison accepts a point only when every contributing simulation grid point and the observed point are inside their declared domains."
     ],
     "applicability": [
       "Science 2023 public supershear observations and future versioned dynamic-fracture datasets with equivalent curve or grid observables."
@@ -95,11 +114,12 @@
       "The public Science observations are not a complete JMPS 2025 computational input deck.",
       "The dependency-free XLSX reader exposes stored values and cached formula results; it does not execute Excel formulas or infer units.",
       "No universal acceptance tolerance is imposed; the research protocol must justify observable-specific thresholds.",
-      "Current paired-facet cohesive assembly is serial and the V4 spatial speed gate is not yet converged below ten percent."
+      "Current paired-facet cohesive assembly is serial and the V4 spatial speed gate is not yet converged below ten percent.",
+      "The implemented publication registration is affine; nonlinear lens correction, segmentation, and coordinate uncertainty remain explicit research preprocessing."
     ]
   },
   "usage": {
-    "minimal_example": "manifest = datasets.science_supershear_dryad_manifest(); manifest.audit(data_dir).require(); case = benchmarks.prestressed_weak_interface_separation(retain_trace=True); fronts = fracture.cohesive_front_ensemble(case.trace)",
+    "minimal_example": "manifest = datasets.science_supershear_dryad_manifest(); manifest.audit(data_dir).require(); sample = datasets.fem_observation_sample(SED, grid, coordinate_map=registration); field = datasets.RectilinearObservation.from_field_sample(sample); bundle = fracture.DynamicFractureEvidenceBundle(benchmark_id=case_id, trace=trace, wave_speeds=speeds, energy_history=energy)",
     "examples": ["examples/science_supershear_v5_protocol.py"]
   },
   "verification": {
@@ -113,7 +133,9 @@
       "Reject unrecognized manifests, missing files, wrong sizes, and wrong hashes.",
       "Round-trip cohesive traces without pickle and reject inconsistent array shape or time order.",
       "Recover exact linear curves, Mach angles, and bilinear scalar fields in comparison tests.",
-      "Retain a trace from a real finite-strain cohesive Explicit smoke case."
+      "Retain a trace from a real finite-strain cohesive Explicit smoke case.",
+      "Exclude masked void fill values and reject unit or configuration mismatch.",
+      "Round-trip a sealed evidence directory and reject one corrupted artifact."
     ]
   },
   "references": [

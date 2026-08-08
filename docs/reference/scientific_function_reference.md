@@ -1165,6 +1165,10 @@ Pins public fracture observations by version and hash, preserves accepted cohesi
 - `agentfem.fracture.compare_curve`
 - `agentfem.fracture.compare_mach_cone`
 - `agentfem.fracture.compare_rectilinear_field`
+- `agentfem.fracture.compare_rectilinear_observations`
+- `agentfem.fracture.DynamicFractureEvidenceBundle`
+- `agentfem.surrogates.AffineCoordinateMap`
+- `agentfem.datasets.RectilinearObservation`
 - `agentfem.results.finite_strain_dynamic_cell_fields`
 
 ### Scientific contract
@@ -1194,6 +1198,7 @@ The implementation falls back to observed RMS only when the observed range is nu
 | external dataset manifest | version, DOI, license, roles, file sizes, and SHA-256 identities | metadata | Binds local observations to one official repository version. |
 | cohesive interface trace | time by facet arrays of opening, traction, damage, and dissipated-energy density | model dependent and explicitly recorded | Retains accepted interface states without conflating density with global integrated energy. |
 | reference and simulation observables | curves, scalar angles, or scalar rectilinear maps | must be harmonized before comparison | Only overlapping coordinates are compared; extrapolated pixels are excluded. |
+| coordinate registration | explicit affine observation-to-model map with units and configuration | coordinate units | Records axis rotation, scale, and origin instead of hiding them in plotting code. |
 
 #### Outputs
 
@@ -1202,6 +1207,7 @@ The implementation falls back to observed RMS only when the observed range is nu
 | ExternalDatasetAudit | missing, size mismatch, digest mismatch, and accepted status | evidence identity | Stops silent use of a different or corrupted public dataset. |
 | CohesiveFrontEnsemble | multiple threshold-interpolated positions and window-fitted speeds | path coordinate and time | Reports observer sensitivity rather than one favorable failed-element velocity. |
 | ScientificComparison | sample count, RMSE, NRMSE, correlation, overlap, and method metadata | same units as compared observable | A common evidence record for curve, Mach-angle, and field-map comparisons. |
+| DynamicFractureEvidenceBundle | sealed manifest plus trace, energy channels, comparisons, and copied artifacts | preserved from every constituent | Provides one self-contained handoff to another researcher or agent; byte integrity is not an automatic validation claim. |
 
 #### Assumptions
 
@@ -1214,6 +1220,7 @@ The implementation falls back to observed RMS only when the observed range is nu
 - Interface path coordinates and crack speeds use the declared reference configuration unless metadata says otherwise.
 - Damage is reduced by the facet quadrature maximum; opening, traction, and dissipated-energy density use facet quadrature means.
 - Rectilinear simulation fields are bilinearly interpolated to observed grid points only within their common domain.
+- A masked comparison accepts a point only when every contributing simulation grid point and the observed point are inside their declared domains.
 
 #### Applicability
 
@@ -1225,11 +1232,12 @@ The implementation falls back to observed RMS only when the observed range is nu
 - The dependency-free XLSX reader exposes stored values and cached formula results; it does not execute Excel formulas or infer units.
 - No universal acceptance tolerance is imposed; the research protocol must justify observable-specific thresholds.
 - Current paired-facet cohesive assembly is serial and the V4 spatial speed gate is not yet converged below ten percent.
+- The implemented publication registration is affine; nonlinear lens correction, segmentation, and coordinate uncertainty remain explicit research preprocessing.
 
 ### Minimal example
 
 ```python
-manifest = datasets.science_supershear_dryad_manifest(); manifest.audit(data_dir).require(); case = benchmarks.prestressed_weak_interface_separation(retain_trace=True); fronts = fracture.cohesive_front_ensemble(case.trace)
+manifest = datasets.science_supershear_dryad_manifest(); manifest.audit(data_dir).require(); sample = datasets.fem_observation_sample(SED, grid, coordinate_map=registration); field = datasets.RectilinearObservation.from_field_sample(sample); bundle = fracture.DynamicFractureEvidenceBundle(benchmark_id=case_id, trace=trace, wave_speeds=speeds, energy_history=energy)
 ```
 
 ### Verification
@@ -1250,6 +1258,8 @@ manifest = datasets.science_supershear_dryad_manifest(); manifest.audit(data_dir
 - Round-trip cohesive traces without pickle and reject inconsistent array shape or time order.
 - Recover exact linear curves, Mach angles, and bilinear scalar fields in comparison tests.
 - Retain a trace from a real finite-strain cohesive Explicit smoke case.
+- Exclude masked void fill values and reject unit or configuration mismatch.
+- Round-trip a sealed evidence directory and reject one corrupted artifact.
 
 ### References
 
@@ -1363,8 +1373,10 @@ Samples serial or distributed FEM fields on stable Cartesian coordinates and exp
 ### Public API
 
 - `agentfem.surrogates.ObservationGrid`
+- `agentfem.surrogates.AffineCoordinateMap`
 - `agentfem.surrogates.regular_grid`
 - `agentfem.datasets.fem_observation_sample`
+- `agentfem.datasets.RectilinearObservation`
 - `agentfem.surrogates.FieldEncoding`
 - `agentfem.surrogates.NeuralOperatorSpec`
 
@@ -1380,6 +1392,14 @@ $$
 
 The same ordered physical coordinates are evaluated for every simulation and MPI partition.
 
+**coordinate registration**
+
+$$
+\mathbf{x}_{model}=\mathbf{A}\mathbf{x}_{obs}+\mathbf{b}
+$$
+
+A reviewed affine map records axis orientation, scale, and origin between observation and model coordinates.
+
 **operator-learning map**
 
 $$
@@ -1394,12 +1414,14 @@ Input and output fields require explicit discretization, coordinate, component, 
 | --- | --- | --- | --- |
 | observation grid | one to three strictly increasing Cartesian axes | physical coordinate units | Defines shape, order, coordinate system, and stable point identities. |
 | finite-element field | scalar, vector, or tensor DOLFINx Function | field dependent | May be distributed; ownership is resolved collectively. |
+| optional affine coordinate map | invertible one-, two-, or three-dimensional matrix and offset | explicit source and target coordinate units | Maps publication, sensor, or laboratory coordinates to model sampling coordinates. |
 
 #### Outputs
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | FEMFieldSample | coordinates, structured values, scientific FieldEncoding, metadata, and optional mask | declared field and coordinate units | Portable NPZ or optional PyTorch tensors without prescribing a network architecture. |
+| RectilinearObservation | two physical axes, image-layout scalar values, mask, units, and configuration | declared field and coordinate units | Provides an unambiguous publication/experiment comparison layout and dependency-free NPZ exchange. |
 
 #### Assumptions
 
@@ -1412,6 +1434,7 @@ Input and output fields require explicit discretization, coordinate, component, 
 - Stored values use grid axes followed by field-component axes.
 - C array order is the default and is recorded.
 - A true mask entry denotes a point inside the finite-element mesh.
+- FEMFieldSample stores observation coordinates and, when registered, the distinct model sampling coordinates.
 
 #### Applicability
 
@@ -1421,12 +1444,13 @@ Input and output fields require explicit discretization, coordinate, component, 
 
 - Graph and reduced-basis encodings are not yet executable.
 - No production neural-operator trainer is bundled.
+- Coordinate registration is currently affine; non-affine optical calibration needs an external reviewed transform.
 - Online sensor ingestion, assimilation, and uncertainty updating remain external future services.
 
 ### Minimal example
 
 ```python
-grid = surrogates.regular_grid(bounds=((0,L),(0,H)), shape=(128,64)); sample = datasets.fem_observation_sample(U, grid, unit='m', outside='mask')
+grid = surrogates.regular_grid(bounds=((0,L),(0,H)), shape=(128,64)); registration = surrogates.AffineCoordinateMap(matrix=A, offset=b); sample = datasets.fem_observation_sample(U, grid, unit='m', outside='mask', coordinate_map=registration); image = datasets.RectilinearObservation.from_field_sample(sample)
 ```
 
 ### Verification
@@ -1445,6 +1469,7 @@ grid = surrogates.regular_grid(bounds=((0,L),(0,H)), shape=(128,64)); sample = d
 - Reject non-monotone axes, inconsistent bounds/shapes, and unknown outside policies.
 - Compare analytical affine fields on serial and two-rank meshes.
 - Preserve the same value bytes on every MPI rank.
+- Round-trip mapped sampling coordinates and explicit rectilinear layout.
 
 ### References
 

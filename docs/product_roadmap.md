@@ -259,8 +259,10 @@ mechanism gate. The next promotion work is:
    family, loaded-interface wave reference, and thin-3D counterpart; the
    principal traction-free prestrained surface-wave secular oracle is
    implemented and independently checked;
-7. Abaqus/Gmsh internal-surface ingestion, deterministic MPI facet ownership,
-   and portable interface-state identity;
+7. Abaqus/Gmsh internal-surface ingestion and deterministic MPI facet
+   ownership. Ordered physical interface identity now replaces local dof
+   numbering in the serial checkpoint path; cross-partition state distribution
+   and ownership remain the promotion gate;
 8. author-deck/parameter acquisition for curve-level JMPS 2025 reproduction,
    followed by separated calibration and retained Science 2023 Dryad
    prediction cases.

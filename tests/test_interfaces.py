@@ -126,6 +126,23 @@ def test_paired_facets_recover_node_permutation_and_declared_normal():
     np.testing.assert_array_equal(topology.positive_nodes, [[2, 3]])
     np.testing.assert_allclose(topology.normals, [[0.0, 1.0]])
     np.testing.assert_allclose(topology.lengths, [1.0])
+    identity = topology.identity()
+    assert identity["scope"] == "ordered_reference_facet_geometry"
+    assert identity["orientation_sensitive"] is True
+    assert len(identity["sha256"]) == 64
+
+
+def test_paired_facet_identity_uses_physical_geometry_not_node_numbers():
+    coordinates, topology = _one_segment_interface()
+    permutation = np.array([2, 3, 0, 1])
+    inverse = np.argsort(permutation)
+    renumbered = interfaces.pair_coincident_line_facets(
+        coordinates[permutation],
+        negative_facets=inverse[np.array([[0, 1]])],
+        positive_facets=inverse[np.array([[2, 3]])],
+        normal_hint=(0.0, 1.0),
+    )
+    assert renumbered.identity() == topology.identity()
 
 
 def test_mode_i_facet_kernel_produces_equal_opposite_force_and_exact_energy():

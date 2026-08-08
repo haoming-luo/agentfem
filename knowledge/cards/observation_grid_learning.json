@@ -8,14 +8,17 @@
   "summary": "Samples serial or distributed FEM fields on stable Cartesian coordinates and exports explicit axes, array layout, units, components, and optional geometry masks for external neural-operator and digital-twin workflows.",
   "public_api": [
     "agentfem.surrogates.ObservationGrid",
+    "agentfem.surrogates.AffineCoordinateMap",
     "agentfem.surrogates.regular_grid",
     "agentfem.datasets.fem_observation_sample",
+    "agentfem.datasets.RectilinearObservation",
     "agentfem.surrogates.FieldEncoding",
     "agentfem.surrogates.NeuralOperatorSpec"
   ],
   "implementation": [
     "surrogates/physics.py",
     "datasets/torch.py",
+    "datasets/observations.py",
     "results/quantities.py"
   ],
   "science": {
@@ -25,6 +28,11 @@
         "label": "observation operator",
         "expression": "\\mathbf{y}_i=\\mathcal{H}_i[\\mathbf{u}_h]=\\mathbf{u}_h(\\mathbf{x}_i)",
         "description": "The same ordered physical coordinates are evaluated for every simulation and MPI partition."
+      },
+      {
+        "label": "coordinate registration",
+        "expression": "\\mathbf{x}_{model}=\\mathbf{A}\\mathbf{x}_{obs}+\\mathbf{b}",
+        "description": "A reviewed affine map records axis orientation, scale, and origin between observation and model coordinates."
       },
       {
         "label": "operator-learning map",
@@ -44,6 +52,12 @@
         "type": "scalar, vector, or tensor DOLFINx Function",
         "unit_role": "field dependent",
         "description": "May be distributed; ownership is resolved collectively."
+      },
+      {
+        "name": "optional affine coordinate map",
+        "type": "invertible one-, two-, or three-dimensional matrix and offset",
+        "unit_role": "explicit source and target coordinate units",
+        "description": "Maps publication, sensor, or laboratory coordinates to model sampling coordinates."
       }
     ],
     "outputs": [
@@ -52,6 +66,12 @@
         "type": "coordinates, structured values, scientific FieldEncoding, metadata, and optional mask",
         "unit_role": "declared field and coordinate units",
         "description": "Portable NPZ or optional PyTorch tensors without prescribing a network architecture."
+      },
+      {
+        "name": "RectilinearObservation",
+        "type": "two physical axes, image-layout scalar values, mask, units, and configuration",
+        "unit_role": "declared field and coordinate units",
+        "description": "Provides an unambiguous publication/experiment comparison layout and dependency-free NPZ exchange."
       }
     ],
     "assumptions": [
@@ -63,6 +83,7 @@
       "Stored values use grid axes followed by field-component axes.",
       "C array order is the default and is recorded.",
       "A true mask entry denotes a point inside the finite-element mesh."
+      ,"FEMFieldSample stores observation coordinates and, when registered, the distinct model sampling coordinates."
     ],
     "applicability": [
       "FNO-style structured-grid datasets, sensor-aligned digital-twin data, field comparison, and mesh-family campaigns."
@@ -70,11 +91,12 @@
     "limitations": [
       "Graph and reduced-basis encodings are not yet executable.",
       "No production neural-operator trainer is bundled.",
+      "Coordinate registration is currently affine; non-affine optical calibration needs an external reviewed transform.",
       "Online sensor ingestion, assimilation, and uncertainty updating remain external future services."
     ]
   },
   "usage": {
-    "minimal_example": "grid = surrogates.regular_grid(bounds=((0,L),(0,H)), shape=(128,64)); sample = datasets.fem_observation_sample(U, grid, unit='m', outside='mask')",
+    "minimal_example": "grid = surrogates.regular_grid(bounds=((0,L),(0,H)), shape=(128,64)); registration = surrogates.AffineCoordinateMap(matrix=A, offset=b); sample = datasets.fem_observation_sample(U, grid, unit='m', outside='mask', coordinate_map=registration); image = datasets.RectilinearObservation.from_field_sample(sample)",
     "examples": ["examples/static_elasticity_surrogate_campaign.py"]
   },
   "verification": {
@@ -83,7 +105,8 @@
     "validation_rules": [
       "Reject non-monotone axes, inconsistent bounds/shapes, and unknown outside policies.",
       "Compare analytical affine fields on serial and two-rank meshes.",
-      "Preserve the same value bytes on every MPI rank."
+      "Preserve the same value bytes on every MPI rank.",
+      "Round-trip mapped sampling coordinates and explicit rectilinear layout."
     ]
   },
   "references": [

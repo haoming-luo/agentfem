@@ -69,6 +69,56 @@ These functions report sample count, RMSE, range-normalized RMSE, correlation
 when defined, overlap, and interpolation convention. They are evidence tools,
 not acceptance thresholds chosen by the software.
 
+Publication panels and FEM meshes need not share an origin, axis orientation,
+or length scale. The registration is now an explicit scientific object rather
+than a plotting transform:
+
+```python
+registration = surrogates.AffineCoordinateMap(
+    matrix=observation_to_model_axes,
+    offset=observation_to_model_origin,
+    source_coordinate_system="publication_panel",
+    target_coordinate_system="reference_mesh",
+    source_unit="mm",
+    target_unit="m",
+)
+# observation_grid records coordinate_unit="mm"; the matrix carries the
+# reviewed mm-to-m scale and any axis/origin registration.
+sample = datasets.fem_observation_sample(
+    SED,
+    observation_grid,
+    coordinate_map=registration,
+    configuration="reference",
+    outside="mask",
+)
+fem_map = datasets.RectilinearObservation.from_field_sample(sample)
+field_fit = fracture.compare_rectilinear_observations(experiment_map, fem_map)
+```
+
+The comparison rejects mismatched units or reference/current configurations.
+Masked void and outside-domain values are excluded only when all bilinear
+contributors are valid, so a convenient fill value cannot silently improve a
+field error.
+
+One condition can be handed to another researcher or agent as a sealed package:
+
+```python
+bundle = fracture.DynamicFractureEvidenceBundle(
+    benchmark_id=condition_id,
+    trace=case.trace,
+    wave_speeds=wave_speeds,
+    energy_history=energy_columns,
+    comparisons=(speed_fit, cone_fit, field_fit),
+    artifacts={"fields": "fields.xdmf", "SED": "sed_map.npz"},
+)
+manifest = bundle.write("evidence/condition_07")
+```
+
+The package copies its declared artifacts and seals their bytes together with
+trace, energy channels, comparison records, and metadata. Integrity is checked
+before readback. This makes transfer reproducible; it is deliberately not an
+automatic validation decision.
+
 ## Obtain and audit the public data
 
 Download the files from the official Dryad landing page. Repository bot
@@ -126,5 +176,8 @@ The machine-readable assignment and exact deliverables are in
 This infrastructure makes an independent public-data study reproducible and
 reviewable. It does not create missing JMPS dimensions, loading histories,
 cohesive parameters, or mesh specifications. Thin-three-dimensional and
-general near-incompressible cross-checks, MPI cohesive ownership, and a
-reviewed publication-image coordinate map remain software roadmap items.
+general near-incompressible cross-checks and MPI cohesive ownership remain
+software roadmap items. The first publication-image registration is
+implemented for reviewed affine maps; nonlinear optical calibration, image
+segmentation, and uncertainty propagation remain research processing rather
+than inferred software behavior.

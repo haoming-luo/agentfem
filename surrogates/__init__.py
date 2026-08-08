@@ -22,6 +22,7 @@ from .linear import (
     TrainedRidge,
 )
 from .physics import (
+    AffineCoordinateMap,
     FieldEncoding,
     NeuralOperatorSpec,
     ObservationGrid,
@@ -35,6 +36,7 @@ from .pinn_torch import PINNTrainingRecord, TorchPINNAdapter
 from .training import SurrogateTrainingRun, train
 
 __all__ = [
+    "AffineCoordinateMap",
     "BoxApplicabilityDomain",
     "FieldEncoding",
     "GuardedSurrogate",

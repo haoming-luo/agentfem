@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from mpi4py import MPI
 
-from agentfem import constitutive, fields, fracture, mesh, models, results, studies
+from agentfem import constitutive, datasets, fields, fracture, mesh, models, results, studies
 
 
 def _trace():
@@ -76,6 +76,87 @@ def test_curve_mach_cone_and_rectilinear_field_comparisons():
     )
     assert comparison.samples == reference_x.size * reference_y.size
     assert comparison.normalized_root_mean_square_error < 1.0e-14
+
+
+def test_masked_observations_compare_without_void_fill_values():
+    x = np.linspace(0.0, 1.0, 5)
+    y = np.linspace(0.0, 1.0, 4)
+    values = y[:, None] + x[None, :]
+    mask = np.ones_like(values, dtype=bool)
+    mask[:, -1] = False
+    reference = datasets.RectilinearObservation(
+        x=x,
+        y=y,
+        values=values,
+        quantity="SED",
+        unit="J/m^3",
+        mask=mask,
+    )
+    simulation = datasets.RectilinearObservation(
+        x=x,
+        y=y,
+        values=np.where(mask, values, 1.0e12),
+        quantity="SED",
+        unit="J/m^3",
+        mask=mask,
+    )
+    comparison = fracture.compare_rectilinear_observations(reference, simulation)
+    assert comparison.normalized_root_mean_square_error < 1.0e-14
+    assert comparison.samples == int(np.count_nonzero(mask))
+
+    incompatible = datasets.RectilinearObservation(
+        x=x,
+        y=y,
+        values=values,
+        quantity="SED",
+        unit="J/m^3",
+        coordinate_unit="mm",
+    )
+    with pytest.raises(ValueError, match="coordinate units differ"):
+        fracture.compare_rectilinear_observations(reference, incompatible)
+
+
+def test_dynamic_fracture_evidence_bundle_is_self_contained_and_sealed(tmp_path):
+    trace = _trace()
+    comparison = fracture.compare_curve(
+        trace.time,
+        1.25 * trace.time,
+        trace.time,
+        1.25 * trace.time,
+        quantity_name="crack_speed",
+    )
+    field = datasets.RectilinearObservation(
+        x=np.linspace(0.0, 1.0, 3),
+        y=np.linspace(0.0, 0.5, 2),
+        values=np.arange(6, dtype=float).reshape((2, 3)),
+        quantity="SED",
+        unit="J/m^3",
+    ).write(tmp_path / "sed_field")
+    bundle = fracture.DynamicFractureEvidenceBundle(
+        benchmark_id="science_2023_condition_a",
+        trace=trace,
+        wave_speeds={"c_s": 1.0, "c_R": 0.92, "c_d": 2.0},
+        energy_history={
+            "time": trace.time,
+            "kinetic_energy": np.linspace(0.0, 1.0, trace.time.size),
+            "bulk_strain_energy": np.linspace(1.0, 0.5, trace.time.size),
+            "cohesive_fracture_dissipation": np.linspace(0.0, 0.5, trace.time.size),
+        },
+        comparisons=(comparison,),
+        artifacts={"SED": field},
+        metadata={"calibration_role": "prediction"},
+    )
+    manifest = bundle.write(tmp_path / "evidence")
+    restored = fracture.DynamicFractureEvidenceBundle.read(manifest)
+
+    assert restored.benchmark_id == bundle.benchmark_id
+    assert restored.summary()["energy_frames"] == trace.time.size
+    assert restored.comparisons[0].root_mean_square_error == pytest.approx(0.0)
+    assert restored.artifacts["SED"].is_file()
+
+    restored.artifacts["SED"].write_bytes(b"corrupt")
+    with pytest.raises(ValueError, match="integrity failed"):
+        fracture.DynamicFractureEvidenceBundle.read(manifest)
 
 
 def test_finite_strain_ked_is_a_standard_cell_field():

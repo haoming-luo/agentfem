@@ -330,10 +330,22 @@ def test_cohesive_residual_snapshot_restores_state_and_rejects_other_topology():
         [0.1, 0.2],
     )
 
-    _, incompatible = make(np.array([1, 0, 2, 3]))
+    # Version 2 follows physical interface identity, not execution-local dof
+    # numbering, so a valid renumbering restores the same irreversible state.
+    renumbered_assembler, renumbered = make(np.array([1, 0, 2, 3]))
+    renumbered.restore(snapshot)
+    np.testing.assert_allclose(
+        renumbered_assembler.state.committed_maximum,
+        [0.1, 0.2],
+    )
+
+    # Legacy version 1 remains readable and retains its original strict map.
+    legacy = dict(snapshot)
+    legacy["cohesive"] = dict(snapshot["cohesive"])
+    legacy["cohesive"]["schema"] = "agentfem.dof-mapped-cohesive-force.v1"
     import pytest
     with pytest.raises(ValueError, match="node-to-dof map differs"):
-        incompatible.restore(snapshot)
+        renumbered.restore(legacy)
 
 
 def test_shared_transient_checkpoint_restores_cohesive_auxiliary_state(tmp_path):

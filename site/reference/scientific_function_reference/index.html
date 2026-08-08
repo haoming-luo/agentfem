@@ -10428,6 +10428,10 @@ p=-\kappa(J-1)
 <li><code>agentfem.fracture.compare_curve</code></li>
 <li><code>agentfem.fracture.compare_mach_cone</code></li>
 <li><code>agentfem.fracture.compare_rectilinear_field</code></li>
+<li><code>agentfem.fracture.compare_rectilinear_observations</code></li>
+<li><code>agentfem.fracture.DynamicFractureEvidenceBundle</code></li>
+<li><code>agentfem.surrogates.AffineCoordinateMap</code></li>
+<li><code>agentfem.datasets.RectilinearObservation</code></li>
 <li><code>agentfem.results.finite_strain_dynamic_cell_fields</code></li>
 </ul>
 <h3 id="scientific-contract_10">Scientific contract<a class="headerlink" href="#scientific-contract_10" title="Permanent link">&para;</a></h3>
@@ -10471,6 +10475,12 @@ p=-\kappa(J-1)
 <td>must be harmonized before comparison</td>
 <td>Only overlapping coordinates are compared; extrapolated pixels are excluded.</td>
 </tr>
+<tr>
+<td>coordinate registration</td>
+<td>explicit affine observation-to-model map with units and configuration</td>
+<td>coordinate units</td>
+<td>Records axis rotation, scale, and origin instead of hiding them in plotting code.</td>
+</tr>
 </tbody>
 </table>
 <h4 id="outputs_10">Outputs<a class="headerlink" href="#outputs_10" title="Permanent link">&para;</a></h4>
@@ -10502,6 +10512,12 @@ p=-\kappa(J-1)
 <td>same units as compared observable</td>
 <td>A common evidence record for curve, Mach-angle, and field-map comparisons.</td>
 </tr>
+<tr>
+<td>DynamicFractureEvidenceBundle</td>
+<td>sealed manifest plus trace, energy channels, comparisons, and copied artifacts</td>
+<td>preserved from every constituent</td>
+<td>Provides one self-contained handoff to another researcher or agent; byte integrity is not an automatic validation claim.</td>
+</tr>
 </tbody>
 </table>
 <h4 id="assumptions_10">Assumptions<a class="headerlink" href="#assumptions_10" title="Permanent link">&para;</a></h4>
@@ -10515,6 +10531,7 @@ p=-\kappa(J-1)
 <li>Interface path coordinates and crack speeds use the declared reference configuration unless metadata says otherwise.</li>
 <li>Damage is reduced by the facet quadrature maximum; opening, traction, and dissipated-energy density use facet quadrature means.</li>
 <li>Rectilinear simulation fields are bilinearly interpolated to observed grid points only within their common domain.</li>
+<li>A masked comparison accepts a point only when every contributing simulation grid point and the observed point are inside their declared domains.</li>
 </ul>
 <h4 id="applicability_10">Applicability<a class="headerlink" href="#applicability_10" title="Permanent link">&para;</a></h4>
 <ul>
@@ -10526,9 +10543,10 @@ p=-\kappa(J-1)
 <li>The dependency-free XLSX reader exposes stored values and cached formula results; it does not execute Excel formulas or infer units.</li>
 <li>No universal acceptance tolerance is imposed; the research protocol must justify observable-specific thresholds.</li>
 <li>Current paired-facet cohesive assembly is serial and the V4 spatial speed gate is not yet converged below ten percent.</li>
+<li>The implemented publication registration is affine; nonlinear lens correction, segmentation, and coordinate uncertainty remain explicit research preprocessing.</li>
 </ul>
 <h3 id="minimal-example_10">Minimal example<a class="headerlink" href="#minimal-example_10" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">manifest</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">science_supershear_dryad_manifest</span><span class="p">();</span> <span class="n">manifest</span><span class="o">.</span><span class="n">audit</span><span class="p">(</span><span class="n">data_dir</span><span class="p">)</span><span class="o">.</span><span class="n">require</span><span class="p">();</span> <span class="n">case</span> <span class="o">=</span> <span class="n">benchmarks</span><span class="o">.</span><span class="n">prestressed_weak_interface_separation</span><span class="p">(</span><span class="n">retain_trace</span><span class="o">=</span><span class="kc">True</span><span class="p">);</span> <span class="n">fronts</span> <span class="o">=</span> <span class="n">fracture</span><span class="o">.</span><span class="n">cohesive_front_ensemble</span><span class="p">(</span><span class="n">case</span><span class="o">.</span><span class="n">trace</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">manifest</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">science_supershear_dryad_manifest</span><span class="p">();</span> <span class="n">manifest</span><span class="o">.</span><span class="n">audit</span><span class="p">(</span><span class="n">data_dir</span><span class="p">)</span><span class="o">.</span><span class="n">require</span><span class="p">();</span> <span class="n">sample</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">fem_observation_sample</span><span class="p">(</span><span class="n">SED</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">coordinate_map</span><span class="o">=</span><span class="n">registration</span><span class="p">);</span> <span class="n">field</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">RectilinearObservation</span><span class="o">.</span><span class="n">from_field_sample</span><span class="p">(</span><span class="n">sample</span><span class="p">);</span> <span class="n">bundle</span> <span class="o">=</span> <span class="n">fracture</span><span class="o">.</span><span class="n">DynamicFractureEvidenceBundle</span><span class="p">(</span><span class="n">benchmark_id</span><span class="o">=</span><span class="n">case_id</span><span class="p">,</span> <span class="n">trace</span><span class="o">=</span><span class="n">trace</span><span class="p">,</span> <span class="n">wave_speeds</span><span class="o">=</span><span class="n">speeds</span><span class="p">,</span> <span class="n">energy_history</span><span class="o">=</span><span class="n">energy</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="verification_10">Verification<a class="headerlink" href="#verification_10" title="Permanent link">&para;</a></h3>
 <p><strong>Tests</strong></p>
@@ -10547,6 +10565,8 @@ p=-\kappa(J-1)
 <li>Round-trip cohesive traces without pickle and reject inconsistent array shape or time order.</li>
 <li>Recover exact linear curves, Mach angles, and bilinear scalar fields in comparison tests.</li>
 <li>Retain a trace from a real finite-strain cohesive Explicit smoke case.</li>
+<li>Exclude masked void fill values and reject unit or configuration mismatch.</li>
+<li>Round-trip a sealed evidence directory and reject one corrupted artifact.</li>
 </ul>
 <h3 id="references_10">References<a class="headerlink" href="#references_10" title="Permanent link">&para;</a></h3>
 <ul>
@@ -10669,8 +10689,10 @@ p=-\kappa(J-1)
 <h3 id="public-api_12">Public API<a class="headerlink" href="#public-api_12" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>agentfem.surrogates.ObservationGrid</code></li>
+<li><code>agentfem.surrogates.AffineCoordinateMap</code></li>
 <li><code>agentfem.surrogates.regular_grid</code></li>
 <li><code>agentfem.datasets.fem_observation_sample</code></li>
+<li><code>agentfem.datasets.RectilinearObservation</code></li>
 <li><code>agentfem.surrogates.FieldEncoding</code></li>
 <li><code>agentfem.surrogates.NeuralOperatorSpec</code></li>
 </ul>
@@ -10681,6 +10703,11 @@ p=-\kappa(J-1)
 \mathbf{y}_i=\mathcal{H}_i[\mathbf{u}_h]=\mathbf{u}_h(\mathbf{x}_i)
 \]</div>
 <p>The same ordered physical coordinates are evaluated for every simulation and MPI partition.</p>
+<p><strong>coordinate registration</strong></p>
+<div class="arithmatex">\[
+\mathbf{x}_{model}=\mathbf{A}\mathbf{x}_{obs}+\mathbf{b}
+\]</div>
+<p>A reviewed affine map records axis orientation, scale, and origin between observation and model coordinates.</p>
 <p><strong>operator-learning map</strong></p>
 <div class="arithmatex">\[
 \mathcal{G}_{\boldsymbol{\theta}}:\;a(\mathbf{x})\mapsto\mathbf{u}(\mathbf{x})
@@ -10709,6 +10736,12 @@ p=-\kappa(J-1)
 <td>field dependent</td>
 <td>May be distributed; ownership is resolved collectively.</td>
 </tr>
+<tr>
+<td>optional affine coordinate map</td>
+<td>invertible one-, two-, or three-dimensional matrix and offset</td>
+<td>explicit source and target coordinate units</td>
+<td>Maps publication, sensor, or laboratory coordinates to model sampling coordinates.</td>
+</tr>
 </tbody>
 </table>
 <h4 id="outputs_12">Outputs<a class="headerlink" href="#outputs_12" title="Permanent link">&para;</a></h4>
@@ -10728,6 +10761,12 @@ p=-\kappa(J-1)
 <td>declared field and coordinate units</td>
 <td>Portable NPZ or optional PyTorch tensors without prescribing a network architecture.</td>
 </tr>
+<tr>
+<td>RectilinearObservation</td>
+<td>two physical axes, image-layout scalar values, mask, units, and configuration</td>
+<td>declared field and coordinate units</td>
+<td>Provides an unambiguous publication/experiment comparison layout and dependency-free NPZ exchange.</td>
+</tr>
 </tbody>
 </table>
 <h4 id="assumptions_12">Assumptions<a class="headerlink" href="#assumptions_12" title="Permanent link">&para;</a></h4>
@@ -10741,6 +10780,7 @@ p=-\kappa(J-1)
 <li>Stored values use grid axes followed by field-component axes.</li>
 <li>C array order is the default and is recorded.</li>
 <li>A true mask entry denotes a point inside the finite-element mesh.</li>
+<li>FEMFieldSample stores observation coordinates and, when registered, the distinct model sampling coordinates.</li>
 </ul>
 <h4 id="applicability_12">Applicability<a class="headerlink" href="#applicability_12" title="Permanent link">&para;</a></h4>
 <ul>
@@ -10750,10 +10790,11 @@ p=-\kappa(J-1)
 <ul>
 <li>Graph and reduced-basis encodings are not yet executable.</li>
 <li>No production neural-operator trainer is bundled.</li>
+<li>Coordinate registration is currently affine; non-affine optical calibration needs an external reviewed transform.</li>
 <li>Online sensor ingestion, assimilation, and uncertainty updating remain external future services.</li>
 </ul>
 <h3 id="minimal-example_12">Minimal example<a class="headerlink" href="#minimal-example_12" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">surrogates</span><span class="o">.</span><span class="n">regular_grid</span><span class="p">(</span><span class="n">bounds</span><span class="o">=</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span><span class="n">L</span><span class="p">),(</span><span class="mi">0</span><span class="p">,</span><span class="n">H</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span><span class="mi">64</span><span class="p">));</span> <span class="n">sample</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">fem_observation_sample</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s1">&#39;m&#39;</span><span class="p">,</span> <span class="n">outside</span><span class="o">=</span><span class="s1">&#39;mask&#39;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">surrogates</span><span class="o">.</span><span class="n">regular_grid</span><span class="p">(</span><span class="n">bounds</span><span class="o">=</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span><span class="n">L</span><span class="p">),(</span><span class="mi">0</span><span class="p">,</span><span class="n">H</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span><span class="mi">64</span><span class="p">));</span> <span class="n">registration</span> <span class="o">=</span> <span class="n">surrogates</span><span class="o">.</span><span class="n">AffineCoordinateMap</span><span class="p">(</span><span class="n">matrix</span><span class="o">=</span><span class="n">A</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">b</span><span class="p">);</span> <span class="n">sample</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">fem_observation_sample</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s1">&#39;m&#39;</span><span class="p">,</span> <span class="n">outside</span><span class="o">=</span><span class="s1">&#39;mask&#39;</span><span class="p">,</span> <span class="n">coordinate_map</span><span class="o">=</span><span class="n">registration</span><span class="p">);</span> <span class="n">image</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">RectilinearObservation</span><span class="o">.</span><span class="n">from_field_sample</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="verification_12">Verification<a class="headerlink" href="#verification_12" title="Permanent link">&para;</a></h3>
 <p><strong>Tests</strong></p>
@@ -10770,6 +10811,7 @@ p=-\kappa(J-1)
 <li>Reject non-monotone axes, inconsistent bounds/shapes, and unknown outside policies.</li>
 <li>Compare analytical affine fields on serial and two-rank meshes.</li>
 <li>Preserve the same value bytes on every MPI rank.</li>
+<li>Round-trip mapped sampling coordinates and explicit rectilinear layout.</li>
 </ul>
 <h3 id="references_12">References<a class="headerlink" href="#references_12" title="Permanent link">&para;</a></h3>
 <ul>
