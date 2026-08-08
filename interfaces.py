@@ -426,6 +426,29 @@ class SplitInterfaceMesh:
             "independent_sides": True,
         }
 
+    def identity(self) -> dict[str, object]:
+        """Return the rank-independent audited array identity."""
+
+        digest = sha256()
+        for values in (
+            self.coordinates,
+            self.cells,
+            self.negative_facets,
+            self.positive_facets,
+            self.positive_cells,
+        ):
+            selected = np.ascontiguousarray(values)
+            digest.update(str(selected.dtype).encode("ascii"))
+            digest.update(np.asarray(selected.shape, dtype="<i8").tobytes())
+            digest.update(selected.tobytes())
+        for source, target in sorted(self.original_to_duplicate.items()):
+            digest.update(np.asarray((source, target), dtype="<i8").tobytes())
+        return {
+            "schema": "agentfem.split-interface-mesh-identity.v1",
+            "sha256": digest.hexdigest(),
+            **self.summary(),
+        }
+
 
 def create_dolfinx_split_mesh(
     split: SplitInterfaceMesh,
@@ -443,24 +466,25 @@ def create_dolfinx_split_mesh(
     perimeter whereas the Basix reference quadrilateral uses tensor-product
     vertex order.
 
-    The first cohesive global consumer is serial by design.  Distributed
-    interface ownership needs a separate, tested identity contract; silently
-    partitioning coincident interface nodes here would make restart and
-    irreversible state ambiguous.
+    In MPI, rank zero supplies the audited global arrays and DOLFINx
+    partitions them with SCOTCH.  Split interfaces are disconnected in the
+    bulk-cell adjacency graph, so the cohesive force adapter must communicate
+    the two sides explicitly by input-node and physical-facet identity.
     """
 
     import basix.ufl
     import ufl
+    from dolfinx import graph as dolfinx_graph
     from dolfinx import mesh as dolfinx_mesh
     from mpi4py import MPI
 
     if not isinstance(split, SplitInterfaceMesh):
         raise TypeError("create_dolfinx_split_mesh requires SplitInterfaceMesh.")
     selected_comm = MPI.COMM_SELF if comm is None else comm
-    if selected_comm.size != 1:
-        raise NotImplementedError(
-            "Split cohesive mesh execution is serial-only until deterministic "
-            "distributed facet ownership and state identity are verified."
+    identities = selected_comm.allgather(split.identity())
+    if any(identity != identities[0] for identity in identities[1:]):
+        raise ValueError(
+            "Every MPI rank must provide the same audited SplitInterfaceMesh."
         )
     nodes_per_cell = int(split.cells.shape[1])
     inferred = {3: "triangle", 4: "quadrilateral"}.get(nodes_per_cell)
@@ -486,17 +510,43 @@ def create_dolfinx_split_mesh(
         1,
         shape=(2,),
     )
+    input_cells = cells if selected_comm.rank == 0 else np.empty(
+        (0, cells.shape[1]), dtype=np.int64
+    )
+    input_coordinates = (
+        np.asarray(split.coordinates, dtype=float)
+        if selected_comm.rank == 0
+        else np.empty((0, 2), dtype=float)
+    )
+    partitioner = None
+    if selected_comm.size > 1:
+        # SCOTCH handles the disconnected bulk graph created by duplicating
+        # cohesive-interface nodes, including small laboratory meshes for
+        # which the default ParMETIS path may have an empty adjacency graph.
+        try:
+            partitioner = dolfinx_mesh.create_cell_partitioner(
+                dolfinx_graph.partitioner_scotch(),
+                dolfinx_mesh.GhostMode.shared_facet,
+                2,
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                "Distributed split-interface meshes require a DOLFINx build "
+                "with SCOTCH partitioning support."
+            ) from exc
     domain = dolfinx_mesh.create_mesh(
         selected_comm,
-        cells,
+        input_cells,
         ufl.Mesh(coordinate_element),
-        np.asarray(split.coordinates, dtype=float),
+        input_coordinates,
+        partitioner=partitioner,
     )
     # The input indices are the durable bridge from the audited array mesh to
     # the solver mesh, including two distinct ids at coincident coordinates.
     expected = set(range(split.coordinates.shape[0]))
     retained = set(np.asarray(domain.geometry.input_global_indices, dtype=int))
-    if retained != expected:
+    global_retained = set().union(*selected_comm.allgather(retained))
+    if global_retained != expected:
         raise RuntimeError(
             "DOLFINx did not retain every split input-node identity; cohesive "
             "DOF recovery would be unsafe."

@@ -5,7 +5,7 @@
   "title": "Portable transient checkpoint state",
   "kind": "workflow",
   "status": "supported",
-  "summary": "Adds an opt-in coordinate-keyed nodal state beside fast MPI rank shards so a supported transient analysis can restart with a different MPI partition or rank count.",
+  "summary": "Adds an opt-in physical-node-keyed state beside fast MPI rank shards so a supported transient analysis can restart with a different MPI partition or rank count, including split interfaces with coincident independent nodes.",
   "public_api": [
     "agentfem.checkpointing.every",
     "agentfem.checkpointing.save_transient_checkpoint",
@@ -22,8 +22,8 @@
     "equations": [
       {
         "label": "portable degree-of-freedom key",
-        "expression": "k_i=\\left(\\operatorname{quantize}(\\mathbf{x}_i;\\,\\mathbf{b},\\tau),\\,c_i\\right)",
-        "description": "Physical coordinates and block component define a deterministic key; quantization absorbs mesh-construction roundoff without changing the field value."
+        "expression": "k_i=\\left(\\operatorname{quantize}(\\mathbf{x}_i;\\,\\mathbf{b},\\tau),\\,c_i[,\\,n_i]\\right)",
+        "description": "Physical coordinates and block component define the usual deterministic key. When independent nodes share a coordinate, the durable source input-node identity n_i disambiguates them; quantization absorbs mesh-construction roundoff without changing the field value."
       }
     ],
     "inputs": [
@@ -49,7 +49,8 @@
     "conventions": [
       "Portable state is opt-in through checkpointing.every(..., portable=True) or save_checkpoint(..., portable=True).",
       "File size and SHA-256 are checked before state restoration.",
-      "The manifest records both rank-local and partition-independent identities."
+      "The manifest records both rank-local and partition-independent identities.",
+      "Coincident split-interface nodes are keyed by durable source input-node identity rather than being merged by coordinate."
     ],
     "applicability": [
       "Explicit structural dynamics, implicit structural dynamics, and first-order transient heat state composed of nodal finite-element Functions."
@@ -70,13 +71,15 @@
     "tests": [
       "tests/test_transient_restart.py",
       "tests/test_parallel_transient.py",
-      "tests/portable_checkpoint_driver.py"
+      "tests/portable_checkpoint_driver.py",
+      "tests/portable_cohesive_dynamics_driver.py"
     ],
     "benchmarks": [],
     "validation_rules": [
       "Reject a changed field schema or physical mesh identity.",
       "Reject missing, truncated, or checksum-mismatched state files.",
-      "Verify a two-rank write followed by a one-rank continuation against an uninterrupted one-rank solution."
+      "Verify a two-rank write followed by a one-rank continuation against an uninterrupted one-rank solution.",
+      "Verify the same two-rank-to-one-rank continuation for a split-interface Explicit step with coincident independent nodes and physical-facet cohesive history."
     ]
   },
   "references": [

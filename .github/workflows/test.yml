@@ -70,7 +70,7 @@ jobs:
         run: python -m pytest
 
       - name: Run distributed constraint and result tests
-        run: mpirun -n 2 python -m pytest tests/test_parallel_affine.py tests/test_parallel_cli.py tests/test_parallel_mesh_semantics.py tests/test_parallel_mixed.py tests/test_parallel_results.py tests/test_parallel_transient.py
+        run: mpirun -n 2 python -m pytest tests/test_parallel_affine.py tests/test_parallel_cli.py tests/test_parallel_cohesive.py tests/test_parallel_mesh_semantics.py tests/test_parallel_mixed.py tests/test_parallel_results.py tests/test_parallel_transient.py
 
       - name: Verify checkpoint portability across MPI rank counts
         run: |
@@ -79,6 +79,8 @@ jobs:
           mpirun -n 2 python tests/portable_cohesive_checkpoint_driver.py write /tmp/agentfem-portable-cohesive
           python tests/portable_cohesive_checkpoint_driver.py read /tmp/agentfem-portable-cohesive
           mpirun -n 2 python tests/portable_cohesive_checkpoint_driver.py reject-inconsistent /tmp/agentfem-inconsistent-cohesive
+          mpirun -n 2 python tests/portable_cohesive_dynamics_driver.py write /tmp/agentfem-portable-cohesive-dynamics
+          python tests/portable_cohesive_dynamics_driver.py read /tmp/agentfem-portable-cohesive-dynamics
 
       - name: Run static FEniCSx smoke test
         run: python examples/static_elasticity_2d.py

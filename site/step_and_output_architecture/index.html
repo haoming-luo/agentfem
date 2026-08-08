@@ -3455,12 +3455,14 @@ implicit-Euler heat transfer—consume the same policy object:</p>
 </code></pre></div>
 <p><code>checkpointing.every(..., portable=True)</code> or
 <code>step.save_checkpoint(..., portable=True)</code> additionally writes a global,
-coordinate-keyed nodal state. It can be read with a different MPI partition or
-rank count; a two-rank heat state is automatically tested by continuation on
-one rank. The default remains the smaller rank-sharded format. Portable state
-uses bounds-scaled integer coordinate keys to absorb partition-dependent mesh
-construction roundoff while retaining a global connectivity identity. The
-current NPZ implementation is suitable for laboratory-scale restart; a
+physical-node-keyed nodal state. It can be read with a different MPI partition
+or rank count; two-rank heat and split-interface Explicit states are
+automatically tested by continuation on one rank. The default remains the
+smaller rank-sharded format. Portable state uses bounds-scaled integer
+coordinate keys to absorb partition-dependent mesh-construction roundoff while
+retaining a global connectivity identity. Coincident but independent interface
+nodes are disambiguated by durable source input-node identity. The current NPZ
+implementation is suitable for laboratory-scale restart; a
 collective HDF5 implementation is the later scale path. J2 and creep
 quadrature state still require stable cell-and-point keys before they can use
 the same portability claim.</p>

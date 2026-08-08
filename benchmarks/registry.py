@@ -130,6 +130,21 @@ _BENCHMARKS = (
         status="experimental_geometry_crosscheck",
     ),
     BenchmarkSpec(
+        identifier="distributed_cohesive_force",
+        capability="dynamic_cohesive_fracture",
+        level="workflow",
+        reference="knowledge/benchmarks/distributed_cohesive_force.json",
+        criterion=(
+            "two MPI ranks assemble every physical interface facet once, close "
+            "force and energy, and restart the split-interface Explicit state on one rank"
+        ),
+        automated_test=(
+            "tests/test_parallel_cohesive.py; "
+            "tests/portable_cohesive_dynamics_driver.py"
+        ),
+        status="experimental_mpi_reference",
+    ),
+    BenchmarkSpec(
         identifier="c3d10h_periodic_cell",
         capability="mixed_neo_hookean",
         level="workflow",

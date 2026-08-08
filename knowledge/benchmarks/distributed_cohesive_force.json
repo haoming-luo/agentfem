@@ -1,0 +1,31 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.distributed_cohesive_force",
+  "title": "Two-rank fixed-path cohesive force and portable restart",
+  "status": "experimental_mpi_reference_automated",
+  "purpose": "Prove that disconnected split-interface traces can be coupled without duplicated force or rank-local state identity, and that the accepted Explicit state can change MPI rank count.",
+  "physics": "Two-dimensional Mode-I bilinear cohesive interface in finite-strain Explicit dynamics",
+  "execution": {
+    "example": "tests/test_parallel_cohesive.py",
+    "command": "mpirun -n 2 python -m pytest tests/test_parallel_cohesive.py",
+    "evidence": "Three interface facets cross two disconnected bulk partitions; two ranks write the partial transient and one rank continues it."
+  },
+  "observables": [
+    "Global equal-and-opposite interface force and exact integrated positive-side resultant.",
+    "Global cohesive stored energy and one physical owner per facet.",
+    "Identical structured Explicit energy history on every rank.",
+    "One-rank restarted displacement and irreversible maximum-opening state relative to an uninterrupted reference."
+  ],
+  "acceptance": [
+    "The total cohesive force is zero to 1e-12 absolute and the positive-side resultant equals strength times reference interface length.",
+    "The global stored energy equals the exact elastic triangular area at peak opening.",
+    "Every physical facet appears exactly once in the distributed snapshot.",
+    "Two-rank-to-one-rank continuation matches displacement and cohesive history to 1e-11 relative."
+  ],
+  "limitations": [
+    "Dense collective exchange is a correctness reference, not a scalability result.",
+    "The benchmark covers blocked P1 displacement, two-node 2D facets, and Mode I only.",
+    "It does not validate the JMPS/Science crack-speed observations or a full thin-three-dimensional crack."
+  ]
+}

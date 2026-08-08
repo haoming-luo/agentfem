@@ -1,0 +1,118 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.distributed_cohesive_force",
+  "title": "Physical-keyed cohesive force assembly across MPI ranks",
+  "kind": "workflow",
+  "status": "experimental",
+  "summary": "Partitions a split two-dimensional interface, exchanges independently owned traces by durable input-node identity, evaluates every physical facet on exactly one balanced deterministic rank, and accumulates equal-and-opposite force only into owned displacement entries.",
+  "public_api": [
+    "agentfem.interfaces.create_dolfinx_split_mesh",
+    "agentfem.fracture.mode_i_cohesive_force",
+    "agentfem.fracture.DistributedDofMappedCohesiveForce",
+    "agentfem.fracture.FiniteStrainCohesiveResidual"
+  ],
+  "implementation": [
+    "interfaces.py",
+    "fracture.py",
+    "checkpointing.py"
+  ],
+  "science": {
+    "statement": "The two sides of a zero-thickness interface may belong to disconnected bulk partitions; interface residuals must therefore follow physical pair identity rather than assuming ordinary cell ghosts expose both displacement traces.",
+    "equations": [
+      {
+        "label": "paired interface virtual work",
+        "expression": "\\delta W_{\\mathrm{coh}}=\\sum_{f\\in\\Gamma_c}\\int_{\\Gamma_f} t_n(\\llbracket u\\rrbracket_n,\\kappa_f)\\,\\llbracket\\delta u\\rrbracket_n\\,\\mathrm d\\Gamma",
+        "description": "Every physical facet contributes once; its positive and negative nodal forces are equal and opposite."
+      },
+      {
+        "label": "balanced deterministic facet owner",
+        "expression": "r_f=\\operatorname{rank}_{\\mathrm{sorted}}(k_f)\\bmod N_r",
+        "description": "Sorted physical facet keys distribute work reproducibly and give every rank a facet when the interface has at least as many facets as ranks."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "split interface mesh",
+        "type": "SplitInterfaceMesh",
+        "unit_role": "reference geometry",
+        "description": "Coincident sides retain independent input-node identities and explicit positive/negative facet pairing."
+      },
+      {
+        "name": "Mode-I cohesive law and displacement",
+        "type": "BilinearCohesiveLaw and blocked P1 vector Function",
+        "unit_role": "consistent mechanical units",
+        "description": "The same public factory selects serial or MPI execution from the mesh communicator."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "distributed cohesive residual",
+        "type": "owned PETSc vector contributions plus transactional facet state",
+        "unit_role": "force and opening length",
+        "description": "Bulk and cohesive forces enter one Explicit residual without duplicate ghost accumulation."
+      },
+      {
+        "name": "portable transient restart",
+        "type": "coordinate/input-node-keyed nodal state plus physical-facet-keyed cohesive history",
+        "unit_role": "preserves field and law units",
+        "description": "A two-rank split-interface Explicit step is continued on one rank and compared with an uninterrupted reference."
+      }
+    ],
+    "assumptions": [
+      "The current reference route uses a two-dimensional, two-node fixed-path interface and a blocked first-order displacement field.",
+      "All ranks construct the same audited SplitInterfaceMesh and participate in collective force, energy, snapshot, and restart operations.",
+      "The interface contains at least one physical facet per MPI rank."
+    ],
+    "conventions": [
+      "Only owned input-node values are published; only owned displacement entries receive the globally reduced force.",
+      "Facet state follows ordered physical geometry and quadrature, never rank-local DOF numbering.",
+      "Coincident independent nodal checkpoint keys append durable input-node identity to the quantized coordinate."
+    ],
+    "applicability": [
+      "Laboratory-scale distributed fixed-path Mode-I finite-strain Explicit dynamics and cross-rank-count restart verification."
+    ],
+    "limitations": [
+      "The correctness-first implementation uses dense displacement exchange and force all-reduction; a sparse neighbor schedule is required for large interfaces.",
+      "Mixed-mode, three-dimensional cohesive surfaces, contact after closure, and imported Abaqus/Gmsh internal surfaces are not yet covered.",
+      "MPI execution is experimental and does not promote the V4/V5 scientific benchmark to validated status."
+    ]
+  },
+  "usage": {
+    "minimal_example": "domain = interfaces.create_dolfinx_split_mesh(split, comm=MPI.COMM_WORLD); U = fields.displacement(domain); cohesive = fracture.mode_i_cohesive_force(split, U, law, normal_hint=(0, 1)); step = model.finite_strain_explicit_dynamics_step(target=U, material=material, cohesive_force=cohesive, dt=dt, steps=steps)",
+    "examples": [
+      "tests/test_parallel_cohesive.py",
+      "tests/portable_cohesive_dynamics_driver.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_parallel_cohesive.py",
+      "tests/portable_cohesive_dynamics_driver.py",
+      "tests/test_global_cohesive_residual.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.distributed_cohesive_force"
+    ],
+    "validation_rules": [
+      "Three physical facets are owned exactly once across two ranks and produce zero net interface force with the exact integrated tensile resultant.",
+      "The public finite-strain Explicit step completes on two ranks with globally identical energy history.",
+      "A two-rank partial Explicit calculation restarts on one rank and matches uninterrupted displacement and cohesive history."
+    ]
+  },
+  "references": [
+    {
+      "title": "AgentFEM dynamic cohesive fracture architecture",
+      "locator": "docs/dynamic_cohesive_fracture_architecture.md"
+    },
+    {
+      "title": "DOLFINx mesh creation and partitioning API",
+      "locator": "https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.mesh.html"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.cohesive_state_portability",
+    "agentfem.workflow.dynamic_fracture_v5_evidence",
+    "agentfem.workflow.transient_checkpoint_portability"
+  ]
+}

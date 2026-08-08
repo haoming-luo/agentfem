@@ -69,10 +69,10 @@
       "A changed partition may change the owner without changing the state key."
     ],
     "applicability": [
-      "Fixed-path two-dimensional Mode-I cohesive interfaces and future distributed force assemblers using the same physical-key contract."
+      "Fixed-path two-dimensional Mode-I cohesive interfaces and the distributed reference force assembler using the same physical-key contract."
     ],
     "limitations": [
-      "The current global paired-facet force assembler remains serial; this state contract does not claim distributed residual assembly.",
+      "Distributed residual assembly now exists as a dense-collective correctness reference; this state card alone is not a scalability claim.",
       "The root-gathered NPZ format is laboratory-scale, not an extreme-scale collective checkpoint backend.",
       "Reversed facet orientation is intentionally incompatible until quadrature permutation is explicitly implemented."
     ]
@@ -104,6 +104,7 @@
   ],
   "related_cards": [
     "agentfem.workflow.transient_checkpoint_portability",
-    "agentfem.workflow.dynamic_fracture_v5_evidence"
+    "agentfem.workflow.dynamic_fracture_v5_evidence",
+    "agentfem.workflow.distributed_cohesive_force"
   ]
 }

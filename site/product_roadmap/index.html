@@ -3365,14 +3365,14 @@ core, results, verification, and documentation have priority.</p>
 <tr>
 <td>Neo-Hookean solids</td>
 <td>FEM-integrated</td>
-<td>compressible displacement route plus monolithic P2/DG0 constant-pressure mixed route; 3D, 2D plane strain, and locally condensed finite-strain plane stress; automatic/fixed increments, consistent Newton tangent, cutback/rollback, positive-J acceptance; topology-preserving C3D10-to-C3D10H derivation; serial mixed affine-periodic solve and large-mesh Golden contract</td>
-<td>one material; distributed mixed affine-periodic MPC, general explicit locking control, thin-3D cross-check, Cook convergence suite, and independent external-code comparison remain</td>
+<td>compressible displacement route plus monolithic P2/DG0 constant-pressure mixed route; 3D, 2D plane strain, and locally condensed finite-strain plane stress; automatic/fixed increments, consistent Newton tangent, cutback/rollback, positive-J acceptance; topology-preserving C3D10-to-C3D10H derivation; serial mixed affine-periodic solve, large-mesh Golden contract, and homogeneous affine plane-stress/thin-3D FEM cross-check</td>
+<td>one material; distributed mixed affine-periodic MPC, general explicit locking control, full thin-3D fracture, Cook convergence suite, and independent external-code comparison remain</td>
 </tr>
 <tr>
 <td>Dynamic cohesive fracture</td>
 <td>experimental V4 mechanism + V5 evidence foundation</td>
-<td>finite-strain plane-stress Explicit, prestrain transfer, fixed-path Mode-I cohesive transaction, complete energy ledger, V0--V3 guardrails, crack/supershear/spall V4 mechanism ladder, physical-length refinement contract, portable interface trace, multi-observer crack fronts, live SENER/KED/J saved fields, pinned Science Dryad manifest, XLSX inspection, and curve/Mach-angle/field comparison contracts</td>
-<td>V4 front speed remains above the ten-percent spatial gate; cohesive assembly is serial; publication-image coordinate mapping, distributed state identity, thin-3D/general incompressibility, and independent V5 research comparison remain</td>
+<td>finite-strain plane-stress Explicit, prestrain transfer, fixed-path Mode-I cohesive transaction, complete energy ledger, V0--V3 guardrails, crack/supershear/spall V4 mechanism ladder, physical-length refinement contract, portable interface trace, multi-observer crack fronts, live SENER/KED/J saved fields, pinned Science Dryad manifest, affine publication-coordinate registration, sealed evidence bundle, physical-key MPI state and force assembly, and two-rank-to-one-rank cohesive Explicit restart</td>
+<td>V4 front speed remains above the ten-percent spatial gate; MPI force exchange is a dense laboratory reference; full thin-3D fracture/general incompressibility and independent V5 research comparison remain</td>
 </tr>
 <tr>
 <td>J2 plasticity</td>
@@ -3607,11 +3607,13 @@ step coordinate. Acceptance requires:</p>
 </ul>
 <p>This work is urgent after the first release but must not be advertised from a
 rank-local array serialization prototype. The first nodal-state slice is now
-implemented: an opt-in coordinate-keyed NPZ written with two MPI ranks is
-continued on one rank and checked against an uninterrupted reference. It is a
-laboratory-scale bridge, not the final collective HDF5 path. The cell,
-quadrature-point, material-region, and state-layout keys needed by J2/creep
-remain the next identity gate.</p>
+implemented: an opt-in physical-node-keyed NPZ written with two MPI ranks is
+continued on one rank and checked against an uninterrupted reference.
+Coincident independent nodes use durable source-node identity, and
+physical-facet-keyed cohesive history follows the same two-rank-to-one-rank
+continuation test. This is a laboratory-scale bridge, not the final collective
+HDF5 path. The cell, quadrature-point, material-region, and state-layout keys
+needed by J2/creep remain the next identity gate.</p>
 <h3 id="experimental-finite-strain-dynamic-fracture">Experimental finite-strain dynamic fracture<a class="headerlink" href="#experimental-finite-strain-dynamic-fracture" title="Permanent link">&para;</a></h3>
 <p>The first target is deliberately fixed-path rather than a generic fracture
 framework: prestrained compressible Neo-Hookean dynamics plus a zero-thickness
@@ -3645,13 +3647,15 @@ mechanism gate. The next promotion work is:</p>
 <ol>
 <li>diagnose the remaining front-speed sensitivity using cohesive-zone
    resolution and an alternative crack-tip observable, then add an impact-history
-   family, loaded-interface wave reference, and thin-3D counterpart; the
-   principal traction-free prestrained surface-wave secular oracle is
+   family, loaded-interface wave reference, and full thin-3D fracture
+   counterpart. The principal traction-free prestrained surface-wave secular
+   oracle and homogeneous affine plane-stress/thin-3D FEM cross-check are
    implemented and independently checked;</li>
-<li>Abaqus/Gmsh internal-surface ingestion and deterministic MPI facet
-   ownership. Ordered physical interface identity now replaces local dof
-   numbering in the serial checkpoint path; cross-partition state distribution
-   and ownership remain the promotion gate;</li>
+<li>Abaqus/Gmsh internal-surface ingestion and sparse distributed cohesive
+   exchange. Ordered physical interface identity, balanced facet ownership,
+   owned-node force accumulation, globally reduced energy, coincident-node
+   portable fields, and two-rank-to-one-rank Explicit continuation are now
+   implemented as a dense correctness reference;</li>
 <li>author-deck/parameter acquisition for curve-level JMPS 2025 reproduction,
    followed by separated calibration and retained Science 2023 Dryad
    prediction cases.</li>

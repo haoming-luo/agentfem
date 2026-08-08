@@ -57,6 +57,13 @@
       "title": "Sequential hot-wall creep assessment release contract"
     },
     {
+      "id": "agentfem.benchmark.distributed_cohesive_force",
+      "physics": "Two-dimensional Mode-I bilinear cohesive interface in finite-strain Explicit dynamics",
+      "source": "knowledge/benchmarks/distributed_cohesive_force.json",
+      "status": "experimental_mpi_reference_automated",
+      "title": "Two-rank fixed-path cohesive force and portable restart"
+    },
+    {
       "id": "agentfem.benchmark.dynamic_fracture_energy_v2",
       "physics": "Total-Lagrangian Neo-Hookean dynamics with optional Mode-I cohesive separation",
       "source": "knowledge/benchmarks/dynamic_fracture_energy_v2.json",
@@ -360,7 +367,8 @@
       ],
       "related_cards": [
         "agentfem.workflow.transient_checkpoint_portability",
-        "agentfem.workflow.dynamic_fracture_v5_evidence"
+        "agentfem.workflow.dynamic_fracture_v5_evidence",
+        "agentfem.workflow.distributed_cohesive_force"
       ],
       "source": "knowledge/cards/cohesive_state_portability.json",
       "status": "experimental",
@@ -388,6 +396,25 @@
       "title": "Local coordinates and reference-point continuum coupling"
     },
     {
+      "id": "agentfem.workflow.distributed_cohesive_force",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.interfaces.create_dolfinx_split_mesh",
+        "agentfem.fracture.mode_i_cohesive_force",
+        "agentfem.fracture.DistributedDofMappedCohesiveForce",
+        "agentfem.fracture.FiniteStrainCohesiveResidual"
+      ],
+      "related_cards": [
+        "agentfem.workflow.cohesive_state_portability",
+        "agentfem.workflow.dynamic_fracture_v5_evidence",
+        "agentfem.workflow.transient_checkpoint_portability"
+      ],
+      "source": "knowledge/cards/distributed_cohesive_force.json",
+      "status": "experimental",
+      "summary": "Partitions a split two-dimensional interface, exchanges independently owned traces by durable input-node identity, evaluates every physical facet on exactly one balanced deterministic rank, and accumulates equal-and-opposite force only into owned displacement entries.",
+      "title": "Physical-keyed cohesive force assembly across MPI ranks"
+    },
+    {
       "id": "agentfem.workflow.dynamic_fracture_v5_evidence",
       "kind": "workflow",
       "public_api": [
@@ -408,7 +435,8 @@
       "related_cards": [
         "agentfem.workflow.scientific_verification",
         "agentfem.workflow.result_field_sampling",
-        "agentfem.workflow.cohesive_state_portability"
+        "agentfem.workflow.cohesive_state_portability",
+        "agentfem.workflow.distributed_cohesive_force"
       ],
       "source": "knowledge/cards/dynamic_fracture_v5_evidence.json",
       "status": "experimental",
@@ -595,7 +623,7 @@
       ],
       "source": "knowledge/cards/transient_checkpoint_portability.json",
       "status": "supported",
-      "summary": "Adds an opt-in coordinate-keyed nodal state beside fast MPI rank shards so a supported transient analysis can restart with a different MPI partition or rank count.",
+      "summary": "Adds an opt-in physical-node-keyed state beside fast MPI rank shards so a supported transient analysis can restart with a different MPI partition or rank count, including split interfaces with coincident independent nodes.",
       "title": "Portable transient checkpoint state"
     }
   ],

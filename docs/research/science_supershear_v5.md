@@ -177,9 +177,10 @@ This infrastructure makes an independent public-data study reproducible and
 reviewable. It does not create missing JMPS dimensions, loading histories,
 cohesive parameters, or mesh specifications. A homogeneous affine
 plane-stress/thin-three-dimensional FEM cross-check and physical-keyed
-cross-rank-count cohesive state recovery are implemented. Full thin-3D
-fracture, general near-incompressible validation, and distributed cohesive
-force assembly remain software roadmap items. The first publication-image registration is
+cross-rank-count cohesive state and Explicit force/restart contracts are
+implemented. Full thin-3D fracture, general near-incompressible validation,
+sparse scalable cohesive exchange, and imported internal surfaces remain
+software roadmap items. The first publication-image registration is
 implemented for reviewed affine maps; nonlinear optical calibration, image
 segmentation, and uncertainty propagation remain research processing rather
 than inferred software behavior.

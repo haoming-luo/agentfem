@@ -130,8 +130,11 @@ For cohesive research restarts, use
 `interfaces.save_portable_cohesive_state(...)` and
 `interfaces.load_portable_cohesive_state(...)`. The accepted state follows an
 ordered physical facet key across facet order and MPI rank-count changes, and
-the writer rejects inconsistent owner/ghost histories. This is a portable
-state contract; the current cohesive force assembler itself remains serial.
+the writer rejects inconsistent owner/ghost histories. For a split mesh, the
+same `fracture.mode_i_cohesive_force(...)` call selects serial or MPI execution;
+`step.save_checkpoint(..., portable=True)` retains coincident independent
+nodal identities and cohesive history across rank-count changes. The MPI path
+is a dense correctness reference, not yet a large-interface scalability claim.
 
 ## Design Principle
 

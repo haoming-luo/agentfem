@@ -77,17 +77,23 @@ normal orientation, length, and the quadrature contract. DOLFINx block-dof
 numbers are recorded only as execution metadata and are no longer treated as
 scientific state identity. This permits a valid serial dof renumbering while
 rejecting a different interface or law. The identity is orientation-sensitive
-by design; distributed ownership and cross-partition facet-state assembly are
-still required before MPI cohesive execution can be claimed.
+by design and now drives both cross-partition state and force assembly.
 
 That identity now has a collective portable-state consumer. Facets visible on
 several ranks receive one deterministic owner chosen from the ranks that can
 assemble them. The accepted maximum-opening values are stored once per
 physical key with the law, quadrature contract, size, and SHA-256 evidence.
 The same file is exercised by a two-rank write followed by a one-rank restore
-with a different facet order. This closes state redistribution, but not the
-remaining distributed residual problem: interface forces must still be added
-to owned/ghost displacement entries exactly once and accumulated collectively.
+with a different facet order.
+
+The split bulk graph does not normally ghost the opposite interface trace:
+the duplicated sides are topologically disconnected. The MPI reference
+consumer therefore exchanges owned displacement values by durable input-node
+identity, evaluates each sorted physical facet key on one balanced owner,
+reduces the equal-and-opposite nodal force, and writes only owned displacement
+entries. A two-rank Explicit run and two-rank-to-one-rank transient restart
+exercise this complete path. Dense collectives make this a correctness
+reference, not yet the large-interface performance backend.
 
 `interfaces.BilinearCohesiveLaw` and `interfaces.CohesiveTransaction` are the
 first material-point implementation of this contract.  They are marked
@@ -107,11 +113,11 @@ with independent displacement degrees of freedom.  The mesh adapter must:
    as a checked reconstruction aid;
 4. establish a deterministic normal and node/quadrature permutation;
 5. reject missing, duplicate, ambiguous, or noncoincident partners;
-6. work in serial first and then assign each pair one deterministic MPI owner.
+6. assign every physical pair one balanced deterministic MPI owner.
 
 Because the split sides are topological exterior facets, a normal DOLFINx
 interior-facet `dS` form is not by itself the global cohesive element.  The
-first 2D consumer will assemble paired-facet nodal forces explicitly and add
+current 2D consumer assembles paired-facet nodal forces explicitly and adds
 them to the same residual vector as the bulk force.  This also makes equal and
 opposite interface force and energy tests direct.  A later mixed-dimensional
 or custom-kernel implementation may replace the assembler without changing
@@ -319,7 +325,8 @@ The weekend foundation is intentionally narrower than a supershear claim:
   rejection of shared, missing, or ambiguous node identities;
 - a two-point 2D interface kernel with equal-and-opposite force and integrated
   recoverable/dissipated energy;
-- a serial DOLFINx dof adapter and a composite bulk-plus-interface residual;
+- serial and MPI-reference DOLFINx dof adapters and one composite
+  bulk-plus-interface residual;
 - an executable split-mesh adapter for triangular and quadrilateral cells,
   with automatic recovery of independent coincident displacement dofs from
   retained DOLFINx input-node identity;
@@ -331,7 +338,9 @@ The weekend foundation is intentionally narrower than a supershear claim:
   work, strong prescribed-motion work, and absolute/relative balance error;
 - amplitude-driven Explicit constraints that impose displacement, midpoint
   velocity, whole-step velocity, and acceleration from one declared history;
-- cohesive auxiliary state in the shared transient checkpoint envelope;
+- cohesive auxiliary state in the shared transient checkpoint envelope,
+  including coincident input-node and physical-facet keys for rank-count
+  changes;
 - quasi-static displacement to Explicit `u/v/a` transfer with an equilibrium
   guard or an explicitly declared release mode;
 - threshold-interpolated crack position, window-fitted crack speed, Mach-angle
@@ -343,10 +352,11 @@ The weekend foundation is intentionally narrower than a supershear claim:
   by the numerical arrival-time benchmark below; it does not substitute for a
   prestrained Rayleigh secular solution.
 
-This slice is still `experimental`. The dof adapter is serial-only; interface
-mesh splitting is not yet wired to Abaqus/Gmsh import; MPC/contact/weak-constraint
-work requires dedicated dual variables; general near-incompressibility and the
-prestrained surface-wave secular problem remain implementation gates.
+This slice is still `experimental`. The MPI dof adapter is a dense-collective
+reference rather than a sparse scalable exchange; interface mesh splitting is
+not yet wired to Abaqus/Gmsh import; MPC/contact/weak-constraint work requires
+dedicated dual variables; general near-incompressibility and full thin-3D
+fracture remain implementation gates.
 
 ### Automated V1--V3 guardrails
 
@@ -442,8 +452,9 @@ The next performance work is therefore:
    changing constitutive or commit/rollback semantics;
 3. keep the short construction smoke per commit and run the roughly
    6.2-minute full refinement contract in scheduled or release-gate CI;
-4. optimize MPI ownership only after the serial facet kernel has a stable
-   state identity and benchmark trace.
+4. replace the verified dense MPI reference exchange with a cached sparse
+   neighbor schedule while preserving its physical identity, force, energy,
+   restart, and benchmark contracts.
 
 ### V5 public-data evidence boundary
 
@@ -475,10 +486,11 @@ The explicit lifecycle also accepts a live derived-field group and refreshes
 `SENER/KED/J` or other supported finite-strain cell fields immediately before
 each saved frame. This closes the reproducibility and measurement plumbing
 needed to begin V5. It does not close the scientific gates. Remaining
-software-side blockers are a reviewed mapping from saved FEM fields to the
-publication's physical image coordinates, a thin-three-dimensional and
-general near-incompressibility cross-check, distributed cohesive
-ownership/checkpoint identity, and improved V4 spatial speed convergence.
+software-side blockers are full thin-three-dimensional fracture and general
+near-incompressibility validation, sparse scalable cohesive exchange,
+Abaqus/Gmsh internal-surface ingestion, and improved V4 spatial speed
+convergence. Affine publication registration, physical-keyed MPI force/state,
+and cross-rank-count cohesive restart now have executable contracts.
 
 ## Inputs to request from the authors
 

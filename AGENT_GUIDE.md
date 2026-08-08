@@ -140,8 +140,11 @@ finite-element simulation with AgentFEM.
 - Cohesive state portability: fixed-path cohesive transactions may instead use
   `interfaces.save_portable_cohesive_state(...)` and
   `interfaces.load_portable_cohesive_state(...)`. Physical facet keys survive
-  local order and MPI rank-count changes; the current distributed force
-  assembly is not implied by this state-only contract.
+  local order and MPI rank-count changes. `create_dolfinx_split_mesh(...,
+  comm=...)` plus the unchanged `fracture.mode_i_cohesive_force(...)` factory
+  provides the experimental MPI reference force path. Portable transient
+  checkpoints also distinguish coincident independent nodes; do not describe
+  its dense collective exchange as a scalability result.
 - Installed projects and external frontends: read `docs/getting_started.md`
   and `docs/agent_gui_integration.md`. Keep `case.py` as modeling truth, use
   `project.current_run()` for artifacts, publish a `SimulationResult`, and

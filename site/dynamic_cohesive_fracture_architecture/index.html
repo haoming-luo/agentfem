@@ -3648,8 +3648,21 @@ normal orientation, length, and the quadrature contract. DOLFINx block-dof
 numbers are recorded only as execution metadata and are no longer treated as
 scientific state identity. This permits a valid serial dof renumbering while
 rejecting a different interface or law. The identity is orientation-sensitive
-by design; distributed ownership and cross-partition facet-state assembly are
-still required before MPI cohesive execution can be claimed.</p>
+by design and now drives both cross-partition state and force assembly.</p>
+<p>That identity now has a collective portable-state consumer. Facets visible on
+several ranks receive one deterministic owner chosen from the ranks that can
+assemble them. The accepted maximum-opening values are stored once per
+physical key with the law, quadrature contract, size, and SHA-256 evidence.
+The same file is exercised by a two-rank write followed by a one-rank restore
+with a different facet order.</p>
+<p>The split bulk graph does not normally ghost the opposite interface trace:
+the duplicated sides are topologically disconnected. The MPI reference
+consumer therefore exchanges owned displacement values by durable input-node
+identity, evaluates each sorted physical facet key on one balanced owner,
+reduces the equal-and-opposite nodal force, and writes only owned displacement
+entries. A two-rank Explicit run and two-rank-to-one-rank transient restart
+exercise this complete path. Dense collectives make this a correctness
+reference, not yet the large-interface performance backend.</p>
 <p><code>interfaces.BilinearCohesiveLaw</code> and <code>interfaces.CohesiveTransaction</code> are the
 first material-point implementation of this contract.  They are marked
 experimental until a paired-facet global consumer passes the verification
@@ -3666,11 +3679,11 @@ with independent displacement degrees of freedom.  The mesh adapter must:</p>
    as a checked reconstruction aid;</li>
 <li>establish a deterministic normal and node/quadrature permutation;</li>
 <li>reject missing, duplicate, ambiguous, or noncoincident partners;</li>
-<li>work in serial first and then assign each pair one deterministic MPI owner.</li>
+<li>assign every physical pair one balanced deterministic MPI owner.</li>
 </ol>
 <p>Because the split sides are topological exterior facets, a normal DOLFINx
 interior-facet <code>dS</code> form is not by itself the global cohesive element.  The
-first 2D consumer will assemble paired-facet nodal forces explicitly and add
+current 2D consumer assembles paired-facet nodal forces explicitly and adds
 them to the same residual vector as the bulk force.  This also makes equal and
 opposite interface force and energy tests direct.  A later mixed-dimensional
 or custom-kernel implementation may replace the assembler without changing
@@ -3714,8 +3727,12 @@ requires either:</p>
   or</li>
 <li>a thin three-dimensional solid model.</li>
 </ul>
-<p>The first option is now implemented and locally verified. Thin 3D remains the
-required geometry-assumption cross-check.</p>
+<p>The first option is now implemented and locally verified. The first affine
+thin-3D cross-check is also executable: a true three-dimensional Q1 cuboid at
+two thickness/cell layouts recovers the condensed nominal stress and energy to
+near machine precision, including transverse zero traction. This validates the
+homogeneous reduction, not a three-dimensional crack front, bending,
+out-of-plane instability, or general near-incompressible locking behavior.</p>
 <h2 id="preload-and-step-transition">Preload and step transition<a class="headerlink" href="#preload-and-step-transition" title="Permanent link">&para;</a></h2>
 <p>Preload and dynamics are ordinary ordered analysis steps connected by a typed
 state-transfer object, not a special <code>preload_then_dynamic</code> solver.  The
@@ -3849,7 +3866,8 @@ the named benchmark and parameter range whose evidence is published.</p>
   rejection of shared, missing, or ambiguous node identities;</li>
 <li>a two-point 2D interface kernel with equal-and-opposite force and integrated
   recoverable/dissipated energy;</li>
-<li>a serial DOLFINx dof adapter and a composite bulk-plus-interface residual;</li>
+<li>serial and MPI-reference DOLFINx dof adapters and one composite
+  bulk-plus-interface residual;</li>
 <li>an executable split-mesh adapter for triangular and quadrilateral cells,
   with automatic recovery of independent coincident displacement dofs from
   retained DOLFINx input-node identity;</li>
@@ -3861,7 +3879,9 @@ the named benchmark and parameter range whose evidence is published.</p>
   work, strong prescribed-motion work, and absolute/relative balance error;</li>
 <li>amplitude-driven Explicit constraints that impose displacement, midpoint
   velocity, whole-step velocity, and acceleration from one declared history;</li>
-<li>cohesive auxiliary state in the shared transient checkpoint envelope;</li>
+<li>cohesive auxiliary state in the shared transient checkpoint envelope,
+  including coincident input-node and physical-facet keys for rank-count
+  changes;</li>
 <li>quasi-static displacement to Explicit <code>u/v/a</code> transfer with an equilibrium
   guard or an explicitly declared release mode;</li>
 <li>threshold-interpolated crack position, window-fitted crack speed, Mach-angle
@@ -3873,10 +3893,11 @@ the named benchmark and parameter range whose evidence is published.</p>
   by the numerical arrival-time benchmark below; it does not substitute for a
   prestrained Rayleigh secular solution.</li>
 </ul>
-<p>This slice is still <code>experimental</code>. The dof adapter is serial-only; interface
-mesh splitting is not yet wired to Abaqus/Gmsh import; MPC/contact/weak-constraint
-work requires dedicated dual variables; general near-incompressibility and the
-prestrained surface-wave secular problem remain implementation gates.</p>
+<p>This slice is still <code>experimental</code>. The MPI dof adapter is a dense-collective
+reference rather than a sparse scalable exchange; interface mesh splitting is
+not yet wired to Abaqus/Gmsh import; MPC/contact/weak-constraint work requires
+dedicated dual variables; general near-incompressibility and full thin-3D
+fracture remain implementation gates.</p>
 <h3 id="automated-v1-v3-guardrails">Automated V1--V3 guardrails<a class="headerlink" href="#automated-v1-v3-guardrails" title="Permanent link">&para;</a></h3>
 <p>The first named verification ladder is now executable:</p>
 <ul>
@@ -3962,8 +3983,9 @@ performance target.</p>
    changing constitutive or commit/rollback semantics;</li>
 <li>keep the short construction smoke per commit and run the roughly
    6.2-minute full refinement contract in scheduled or release-gate CI;</li>
-<li>optimize MPI ownership only after the serial facet kernel has a stable
-   state identity and benchmark trace.</li>
+<li>replace the verified dense MPI reference exchange with a cached sparse
+   neighbor schedule while preserving its physical identity, force, energy,
+   restart, and benchmark contracts.</li>
 </ol>
 <h3 id="v5-public-data-evidence-boundary">V5 public-data evidence boundary<a class="headerlink" href="#v5-public-data-evidence-boundary" title="Permanent link">&para;</a></h3>
 <p>V5 is now represented by reusable software contracts rather than a premature
@@ -3993,10 +4015,11 @@ attribute disagreement.</p>
 <code>SENER/KED/J</code> or other supported finite-strain cell fields immediately before
 each saved frame. This closes the reproducibility and measurement plumbing
 needed to begin V5. It does not close the scientific gates. Remaining
-software-side blockers are a reviewed mapping from saved FEM fields to the
-publication's physical image coordinates, a thin-three-dimensional and
-general near-incompressibility cross-check, distributed cohesive
-ownership/checkpoint identity, and improved V4 spatial speed convergence.</p>
+software-side blockers are full thin-three-dimensional fracture and general
+near-incompressibility validation, sparse scalable cohesive exchange,
+Abaqus/Gmsh internal-surface ingestion, and improved V4 spatial speed
+convergence. Affine publication registration, physical-keyed MPI force/state,
+and cross-rank-count cohesive restart now have executable contracts.</p>
 <h2 id="inputs-to-request-from-the-authors">Inputs to request from the authors<a class="headerlink" href="#inputs-to-request-from-the-authors" title="Permanent link">&para;</a></h2>
 <p>Priority order:</p>
 <ol>

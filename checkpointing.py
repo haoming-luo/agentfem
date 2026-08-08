@@ -347,6 +347,11 @@ def _write_portable_state(manifest, *, generation, functions, comm):
             arrays = {}
             index = {}
             for field_index, name in enumerate(functions):
+                modes = {item[name]["key_mode"] for item in gathered}
+                if len(modes) != 1:
+                    raise ValueError(
+                        f"Portable field {name!r} has inconsistent key modes."
+                    )
                 coordinates = np.concatenate(
                     [item[name]["coordinates"] for item in gathered], axis=0
                 )
@@ -369,6 +374,7 @@ def _write_portable_state(manifest, *, generation, functions, comm):
                     "values": value_key,
                     "rows": int(len(coordinates)),
                     "components": int(values.shape[1]),
+                    "key_mode": modes.pop(),
                 }
             atomic_savez(portable_path, **arrays)
             response = {
@@ -456,6 +462,10 @@ def _restore_portable_state(manifest, *, metadata, functions, comm) -> None:
                 stored_coordinates = np.asarray(data[selected["coordinates"]])
                 stored_values = np.asarray(data[selected["values"]])
                 local = _portable_local_field(function)
+                if selected.get("key_mode") != local["key_mode"]:
+                    raise ValueError(
+                        f"portable state key mode for {name!r} differs"
+                    )
                 lookup = {
                     row.tobytes(): index
                     for index, row in enumerate(stored_coordinates)
@@ -498,14 +508,28 @@ def _portable_local_field(function) -> dict[str, np.ndarray]:
         coordinates[:owned, : int(V.mesh.geometry.dim)]
     )
     coordinate_keys = _quantized_coordinate_keys(coordinates, V.mesh)
-    if _has_duplicate_coordinates(coordinate_keys):
-        raise NotImplementedError(
-            "Portable coordinate-keyed state requires one block dof per coordinate."
-        )
+    gathered_keys = V.mesh.comm.allgather(coordinate_keys)
+    global_keys = np.concatenate(gathered_keys, axis=0)
+    if _has_duplicate_coordinates(global_keys):
+        source_ids = _owned_p1_input_node_ids(function)
+        coordinate_keys = np.column_stack((coordinate_keys, source_ids))
+        key_mode = "quantized_physical_dof_coordinate_and_input_node_id"
+        gathered_augmented = V.mesh.comm.allgather(coordinate_keys)
+        if _has_duplicate_coordinates(np.concatenate(gathered_augmented, axis=0)):
+            raise NotImplementedError(
+                "Portable state cannot distinguish coincident owned dofs even "
+                "after adding their input-node identities."
+            )
+    else:
+        key_mode = "quantized_physical_dof_coordinate_and_block_component"
     values = np.asarray(
         function.x.array[: owned * block_size]
     ).reshape((owned, block_size)).copy()
-    return {"coordinates": coordinate_keys, "values": values}
+    return {
+        "coordinates": coordinate_keys,
+        "values": values,
+        "key_mode": key_mode,
+    }
 
 
 def function_portable_identity(function) -> dict[str, object]:
@@ -521,8 +545,54 @@ def function_portable_identity(function) -> dict[str, object]:
         "block_size": int(V.dofmap.index_map_bs),
         "global_block_dofs": int(sum(counts)),
         "mesh": mesh_portable_identity(V.mesh),
-        "key": "quantized_physical_dof_coordinate_and_block_component",
+        "key": local["key_mode"],
     }
+
+
+def _owned_p1_input_node_ids(function) -> np.ndarray:
+    """Map owned blocked P1 dofs to durable mesh-input node ids."""
+
+    V = function.function_space
+    domain = V.mesh
+    owned = int(V.dofmap.index_map.size_local)
+    if int(V.dofmap.bs) != int(V.dofmap.index_map_bs):
+        raise NotImplementedError(
+            "Coincident portable state requires a blocked nodal space."
+        )
+    geometry_maps = getattr(domain.geometry, "dofmaps", None)
+    geometry_dofmap = (
+        domain.geometry.dofmap if geometry_maps is None else geometry_maps[0]
+    )
+    input_indices = np.asarray(domain.geometry.input_global_indices, dtype=np.int64)
+    source = np.full(owned, -1, dtype=np.int64)
+    cell_map = domain.topology.index_map(domain.topology.dim)
+    for cell in range(int(cell_map.size_local + cell_map.num_ghosts)):
+        geometry_dofs = np.asarray(geometry_dofmap[cell], dtype=int)
+        field_dofs = np.asarray(V.dofmap.cell_dofs(cell), dtype=int)
+        if geometry_dofs.size != field_dofs.size:
+            raise NotImplementedError(
+                "Coincident portable keys require first-order nodal geometry "
+                "and a first-order blocked field."
+            )
+        for geometry_dof, field_dof in zip(
+            geometry_dofs, field_dofs, strict=True
+        ):
+            if int(field_dof) >= owned:
+                continue
+            node = int(input_indices[int(geometry_dof)])
+            previous = int(source[int(field_dof)])
+            if previous not in {-1, node}:
+                raise RuntimeError(
+                    "One owned field dof maps to inconsistent input-node ids."
+                )
+            source[int(field_dof)] = node
+    missing = np.flatnonzero(source < 0)
+    if missing.size:
+        raise NotImplementedError(
+            "Coincident portable state lacks input identity for owned dofs: "
+            f"{missing.tolist()}."
+        )
+    return source
 
 
 def mesh_portable_identity(domain) -> dict[str, object]:

@@ -129,9 +129,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `finite_strain_internal_force(displacement, test_function, material: hyperelasticity.NeoHookeanProperties, *, measure = ufl.dx, name: str = 'F_internal_finite_strain') -> OperatorForm` | Return the current Total-Lagrangian Neo-Hookean internal force. |
 | class | `FiniteStrainEnergyMonitor` | Accepted-frame kinetic and Neo-Hookean bulk energy monitor. |
 | class | `DofMappedCohesiveForce(assembler, displacement, *, node_to_block_dof)` | Map the serial 2D cohesive facet kernel to vector finite-element dofs. |
-| function | `p1_input_node_to_block_dof(displacement, *, number_of_input_nodes: int)` | Recover audited input-node identity for a first-order vector space. |
-| function | `mode_i_cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law: interface_api.BilinearCohesiveLaw, *, normal_hint, thickness: float = 1.0, tolerance: float = 1e-10) -> DofMappedCohesiveForce` | Build the executable Mode-I force directly from a split mesh contract. |
-| class | `FiniteStrainCohesiveResidual(bulk, cohesive: DofMappedCohesiveForce)` | Assemble bulk UFL and paired-facet interface forces into one residual. |
+| class | `DistributedDofMappedCohesiveForce(assembler, displacement, *, input_node_to_block_dof, input_node_owned, global_topology, global_facet_indices)` | MPI reference assembler for a physical-keyed split interface. |
+| function | `p1_input_node_to_block_dof(displacement, *, number_of_input_nodes: int)` | Recover the complete serial input-node to block-DOF map. |
+| function | `mode_i_cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law: interface_api.BilinearCohesiveLaw, *, normal_hint, thickness: float = 1.0, tolerance: float = 1e-10) -> DofMappedCohesiveForce \| DistributedDofMappedCohesiveForce` | Build the executable Mode-I force directly from a split mesh contract. |
+| class | `FiniteStrainCohesiveResidual(bulk, cohesive: DofMappedCohesiveForce \| DistributedDofMappedCohesiveForce)` | Assemble bulk UFL and paired-facet interface forces into one residual. |
 | class | `MassProportionalDampingResidual(base, *, mass, velocity, coefficient: float, dt: float)` | Add ``alpha M v_mid`` with transactional dissipation accounting. |
 | class | `DampingEnergyMonitor` | Add accepted viscous dissipation to an existing mechanical monitor. |
 | class | `FiniteStrainCohesiveEnergyMonitor` | Typed accepted-frame energy for bulk plus cohesive dynamics. |

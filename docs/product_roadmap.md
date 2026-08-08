@@ -30,7 +30,7 @@ core, results, verification, and documentation have priority.
 | Thermoelasticity | FEM-integrated | steady/implicit-transient heat transfer, regional multi-material conductivity and capacity, amplitude-driven sources/ambient conditions, and sequential isotropic thermal stress in 2D/3D | no property tables or monolithic two-way coupling |
 | Structural dynamics | FEM-integrated foundation | central difference, Newmark, and generalized-alpha through `dynamic_solid`; model-owned constraints and amplitude loads enter both Standard and Explicit paths; shared field output, mechanical-energy histories, integrity-checked pause/checkpoint/restart, truthful continuation output, and opt-in nodal checkpoint portability across MPI rank counts | implicit route is linear; portable NPZ is root-gathered and stateful quadrature portability is separate |
 | Neo-Hookean solids | FEM-integrated | compressible displacement route plus monolithic P2/DG0 constant-pressure mixed route; 3D, 2D plane strain, and locally condensed finite-strain plane stress; automatic/fixed increments, consistent Newton tangent, cutback/rollback, positive-J acceptance; topology-preserving C3D10-to-C3D10H derivation; serial mixed affine-periodic solve, large-mesh Golden contract, and homogeneous affine plane-stress/thin-3D FEM cross-check | one material; distributed mixed affine-periodic MPC, general explicit locking control, full thin-3D fracture, Cook convergence suite, and independent external-code comparison remain |
-| Dynamic cohesive fracture | experimental V4 mechanism + V5 evidence foundation | finite-strain plane-stress Explicit, prestrain transfer, fixed-path Mode-I cohesive transaction, complete energy ledger, V0--V3 guardrails, crack/supershear/spall V4 mechanism ladder, physical-length refinement contract, portable interface trace, multi-observer crack fronts, live SENER/KED/J saved fields, pinned Science Dryad manifest, affine publication-coordinate registration, sealed evidence bundle, physical-key MPI facet ownership and cross-rank-count state recovery, and curve/Mach-angle/field comparison contracts | V4 front speed remains above the ten-percent spatial gate; distributed cohesive force assembly, full thin-3D fracture/general incompressibility, and independent V5 research comparison remain |
+| Dynamic cohesive fracture | experimental V4 mechanism + V5 evidence foundation | finite-strain plane-stress Explicit, prestrain transfer, fixed-path Mode-I cohesive transaction, complete energy ledger, V0--V3 guardrails, crack/supershear/spall V4 mechanism ladder, physical-length refinement contract, portable interface trace, multi-observer crack fronts, live SENER/KED/J saved fields, pinned Science Dryad manifest, affine publication-coordinate registration, sealed evidence bundle, physical-key MPI state and force assembly, and two-rank-to-one-rank cohesive Explicit restart | V4 front speed remains above the ten-percent spatial gate; MPI force exchange is a dense laboratory reference; full thin-3D fracture/general incompressibility and independent V5 research comparison remain |
 | J2 plasticity | FEM-integrated foundation | 3D shared quadrature transaction, analytical tangent, natural/displacement loading, non-monotone tabular amplitude, global Newton, physical-increment cutback, cumulative serial restart, traceable quadrature S/PE/PEEQ/MISES plus weighted DG0 recovery and nodal RF results, prescribed-work/energy histories, analytical and Abaqus states, homogeneous multi-element evidence, and nonuniform bending regression | linear isotropic hardening, serial single-material small strain only; no plane stress, multi-region driver, MPI-portable quadrature restart, or nonuniform external structural benchmark |
 | Creep and creep damage | FEM-integrated power-law foundation + local damage assessment | 3D power-law backward Euler with shared quadrature state, analytical tangent, automatic physical-time cutback, CE/CEEQ/S/MISES/RF plus weighted DG0 recovery, dissipation and serial restart; scalar/field Arrhenius temperature consumed at quadrature points; official Abaqus constant-stress external contract; local K-R, Sinh, modified-theta and hot-wall assessment | global route is serial/single-material; no automatic transient thermal-history transfer, external component validation, or damage regularization |
 | Stress-life fatigue | postprocessor | Basquin/tabulated S-N, rainflow, Goodman, Miner assessment from named result histories | no multiaxial critical-plane method |
@@ -215,11 +215,13 @@ step coordinate. Acceptance requires:
 
 This work is urgent after the first release but must not be advertised from a
 rank-local array serialization prototype. The first nodal-state slice is now
-implemented: an opt-in coordinate-keyed NPZ written with two MPI ranks is
-continued on one rank and checked against an uninterrupted reference. It is a
-laboratory-scale bridge, not the final collective HDF5 path. The cell,
-quadrature-point, material-region, and state-layout keys needed by J2/creep
-remain the next identity gate.
+implemented: an opt-in physical-node-keyed NPZ written with two MPI ranks is
+continued on one rank and checked against an uninterrupted reference.
+Coincident independent nodes use durable source-node identity, and
+physical-facet-keyed cohesive history follows the same two-rank-to-one-rank
+continuation test. This is a laboratory-scale bridge, not the final collective
+HDF5 path. The cell, quadrature-point, material-region, and state-layout keys
+needed by J2/creep remain the next identity gate.
 
 ### Experimental finite-strain dynamic fracture
 
@@ -260,11 +262,11 @@ mechanism gate. The next promotion work is:
    counterpart. The principal traction-free prestrained surface-wave secular
    oracle and homogeneous affine plane-stress/thin-3D FEM cross-check are
    implemented and independently checked;
-7. Abaqus/Gmsh internal-surface ingestion and distributed cohesive force
-   assembly. Ordered physical interface identity, deterministic visibility
-   ownership, owner/ghost consistency rejection, and keyed two-rank-to-one-rank
-   state recovery are implemented; owned/ghost vector accumulation remains the
-   promotion gate;
+7. Abaqus/Gmsh internal-surface ingestion and sparse distributed cohesive
+   exchange. Ordered physical interface identity, balanced facet ownership,
+   owned-node force accumulation, globally reduced energy, coincident-node
+   portable fields, and two-rank-to-one-rank Explicit continuation are now
+   implemented as a dense correctness reference;
 8. author-deck/parameter acquisition for curve-level JMPS 2025 reproduction,
    followed by separated calibration and retained Science 2023 Dryad
    prediction cases.
