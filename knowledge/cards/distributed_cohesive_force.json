@@ -66,7 +66,7 @@
       }
     ],
     "assumptions": [
-      "The current reference route uses a two-dimensional, two-node fixed-path interface and a blocked first-order displacement field.",
+      "The current reference routes use two-node line facets in 2D or three-node triangular facets in 3D and a blocked first-order displacement field.",
       "All ranks construct the same audited SplitInterfaceMesh and participate in collective force, energy, snapshot, and restart operations.",
       "The interface contains at least one physical facet per MPI rank."
     ],
@@ -78,11 +78,11 @@
       "Coincident independent nodal checkpoint keys append durable input-node identity to the quantized coordinate."
     ],
     "applicability": [
-      "Distributed fixed-path Mode-I finite-strain Explicit dynamics, conforming 2D cell-partition interfaces, and cross-rank-count restart verification."
+      "Distributed fixed-path Mode-I finite-strain Explicit dynamics, conforming 2D/3D cell-partition interfaces, Abaqus/Gmsh named-interface lowering, and cross-rank-count restart verification."
     ],
     "limitations": [
       "The implementation uses sparse payloads on a communicator-wide Alltoallv schedule; extreme-scale neighborhood-collective performance is not yet benchmarked.",
-      "Mixed-mode, three-dimensional cohesive surfaces, contact after closure, and direct imported Abaqus/Gmsh internal-surface adapters are not yet covered.",
+      "Mixed-mode coupling, friction/contact after closure, quadratic surface interpolation, and arbitrary nonconforming interfaces are not yet covered.",
       "MPI execution is experimental and does not promote the V4/V5 scientific benchmark to validated status."
     ]
   },
@@ -90,6 +90,8 @@
     "minimal_example": "split = interfaces.split_conforming_cell_interface(points, cells, positive_cells=upper_cells); domain = interfaces.create_dolfinx_split_mesh(split, comm=MPI.COMM_WORLD); U = fields.displacement(domain); cohesive = fracture.mode_i_cohesive_force(split, U, law, normal_hint=(0, 1)); step = model.finite_strain_explicit_dynamics_step(target=U, material=material, cohesive_force=cohesive, dt=dt, steps=steps)",
     "examples": [
       "tests/test_parallel_cohesive.py",
+      "tests/test_abaqus_interop.py",
+      "tests/test_mesh_formats.py",
       "tests/portable_cohesive_dynamics_driver.py"
     ]
   },

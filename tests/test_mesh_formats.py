@@ -135,6 +135,96 @@ def test_conversion_can_preserve_boundary_sets_in_a_separate_xdmf(
     assert converted.warnings == ()
 
 
+def test_gmsh_physical_volume_and_surface_groups_lower_to_shared_interface(
+    tmp_path, monkeypatch
+):
+    source = _Mesh(
+        points=[
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, -1.0],
+            [0.0, 0.0, 1.0],
+        ],
+        cells=[
+            ("tetra", [[0, 1, 2, 3], [0, 2, 1, 4]]),
+            ("triangle", [[0, 1, 2]]),
+        ],
+        cell_sets={
+            "positive": [np.array([1]), None],
+            "weak_interface": [None, np.array([0])],
+        },
+    )
+    monkeypatch.setattr(formats, "require_meshio", lambda: _MeshIO(source))
+
+    split = formats.split_gmsh_physical_interface(
+        tmp_path / "model.msh",
+        positive_group="positive",
+        interface_group="weak_interface",
+        cell_type="tetra",
+        facet_type="triangle",
+    )
+
+    assert split.summary()["geometric_dimension"] == 3
+    np.testing.assert_array_equal(split.negative_facets, [[0, 1, 2]])
+
+
+def test_gmsh_planar_2d_physical_interface_prunes_constant_z_automatically(
+    tmp_path, monkeypatch
+):
+    source = _Mesh(
+        points=[
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [1.0, 1.0, 0.0],
+        ],
+        cells=[
+            ("triangle", [[0, 1, 2], [1, 3, 2]]),
+            ("line", [[1, 2]]),
+        ],
+        cell_sets={
+            "positive": [np.array([1]), None],
+            "weak_interface": [None, np.array([0])],
+        },
+    )
+    monkeypatch.setattr(formats, "require_meshio", lambda: _MeshIO(source))
+
+    split = formats.split_gmsh_physical_interface(
+        tmp_path / "planar.msh",
+        positive_group="positive",
+        interface_group="weak_interface",
+        cell_type="triangle",
+        facet_type="line",
+    )
+
+    assert split.summary()["geometric_dimension"] == 2
+    np.testing.assert_array_equal(split.negative_facets, [[1, 2]])
+
+
+def test_gmsh_physical_names_are_disambiguated_by_topological_dimension():
+    source = _Mesh(
+        points=np.zeros((5, 3)),
+        cells=[
+            ("tetra", [[0, 1, 2, 3], [0, 2, 1, 4]]),
+            ("triangle", [[0, 1, 2]]),
+        ],
+        field_data={
+            "bulk_tag_one": np.array([1, 3]),
+            "surface_tag_one": np.array([1, 2]),
+        },
+        cell_data={
+            "gmsh:physical": [np.array([1, 2]), np.array([1])],
+        },
+    )
+
+    bulk = formats._named_physical_members(source, "tetra")
+    surface = formats._named_physical_members(source, "triangle")
+
+    assert set(bulk) == {"bulk_tag_one"}
+    assert set(surface) == {"surface_tag_one"}
+
+
 def test_multi_topology_bundle_keeps_each_block_as_an_explicit_domain(tmp_path, monkeypatch):
     meshio = _MeshIO(_source_mesh())
     monkeypatch.setattr(formats, "require_meshio", lambda: meshio)

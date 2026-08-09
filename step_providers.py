@@ -334,30 +334,20 @@ def _lower_transient_heat(model, request: StepRequest):
 
 
 def _accept_neo_hookean(model, request: StepRequest) -> bool:
-    from .constitutive.hyperelasticity import (
-        NeoHookeanProperties,
-        PlaneStressNeoHookeanProperties,
-    )
+    from .constitutive import hyperelasticity
 
     study = getattr(model, "study", None)
     material = _selected_material(model, request)
-    required_assumption = (
-        "plane_stress"
-        if isinstance(material, PlaneStressNeoHookeanProperties)
-        else "plane_strain"
-    )
-    supported_kinematics = (
-        getattr(study, "dimension", None) == 3
-        or (
-            getattr(study, "dimension", None) == 2
-            and getattr(study, "assumption", None) == required_assumption
-        )
+    supported_kinematics = hyperelasticity.supports_hyperelastic_study(
+        material,
+        dimension=getattr(study, "dimension", 0),
+        assumption=getattr(study, "assumption", None),
     )
     return (
         getattr(study, "physics", None) == "solid_mechanics"
         and _is_vector_target(request.target)
         and supported_kinematics
-        and isinstance(material, NeoHookeanProperties)
+        and hyperelasticity.is_finite_strain_hyperelastic(material)
     )
 
 
@@ -483,7 +473,7 @@ def _lower_mixed_neo_hookean(model, request: StepRequest):
 
 
 def _accept_explicit_dynamics(model, request: StepRequest) -> bool:
-    from .constitutive.hyperelasticity import NeoHookeanProperties
+    from .constitutive import hyperelasticity
 
     method = request.options.get("method") or getattr(
         getattr(model, "study", None),
@@ -506,7 +496,7 @@ def _accept_explicit_dynamics(model, request: StepRequest) -> bool:
         )
         and (
             explicit_residual
-            or not isinstance(selected_material, NeoHookeanProperties)
+            or not hyperelasticity.is_finite_strain_hyperelastic(selected_material)
         )
         and (
         method is None
@@ -516,10 +506,7 @@ def _accept_explicit_dynamics(model, request: StepRequest) -> bool:
 
 
 def _accept_finite_strain_explicit_dynamics(model, request: StepRequest) -> bool:
-    from .constitutive.hyperelasticity import (
-        NeoHookeanProperties,
-        PlaneStressNeoHookeanProperties,
-    )
+    from .constitutive import hyperelasticity
 
     study = getattr(model, "study", None)
     method = request.options.get("method") or getattr(
@@ -528,17 +515,10 @@ def _accept_finite_strain_explicit_dynamics(model, request: StepRequest) -> bool
         None,
     )
     material = _selected_material(model, request)
-    required_assumption = (
-        "plane_stress"
-        if isinstance(material, PlaneStressNeoHookeanProperties)
-        else "plane_strain"
-    )
-    supported_kinematics = (
-        getattr(study, "dimension", None) == 3
-        or (
-            getattr(study, "dimension", None) == 2
-            and getattr(study, "assumption", None) == required_assumption
-        )
+    supported_kinematics = hyperelasticity.supports_hyperelastic_study(
+        material,
+        dimension=getattr(study, "dimension", 0),
+        assumption=getattr(study, "assumption", None),
     )
     return (
         request.target is not None
@@ -546,7 +526,7 @@ def _accept_finite_strain_explicit_dynamics(model, request: StepRequest) -> bool
         and getattr(study, "physics", None) == "solid_mechanics"
         and getattr(study, "analysis", None) == "second_order_dynamics"
         and supported_kinematics
-        and isinstance(material, NeoHookeanProperties)
+        and hyperelasticity.is_finite_strain_hyperelastic(material)
         and material.density is not None
         and _normalize(method or "central_difference")
         in {"explicit_dynamics", "central_difference"}
@@ -585,7 +565,7 @@ def _lower_explicit_dynamics(model, request: StepRequest):
 
 
 def _accept_implicit_dynamics(model, request: StepRequest) -> bool:
-    from .constitutive.hyperelasticity import NeoHookeanProperties
+    from .constitutive import hyperelasticity
 
     method = request.options.get("method") or getattr(
         getattr(model, "study", None),
@@ -605,7 +585,10 @@ def _accept_implicit_dynamics(model, request: StepRequest) -> bool:
             complete_system
             or _all_materials_support(model, request, _supports_dynamics)
         )
-        and (complete_system or not isinstance(selected_material, NeoHookeanProperties))
+        and (
+            complete_system
+            or not hyperelasticity.is_finite_strain_hyperelastic(selected_material)
+        )
         and _normalize(method or "") in {"newmark", "generalized_alpha"}
     )
 

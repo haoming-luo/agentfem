@@ -16,6 +16,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | [`agentfem.material.global_implicit_creep`](#agentfem-material-global_implicit_creep) | Global implicit power-law creep | material | supported |
 | [`agentfem.material.j2_global_plasticity`](#agentfem-material-j2_global_plasticity) | Global small-strain J2 plasticity | material | supported |
 | [`agentfem.material.mixed_hybrid_hyperelasticity`](#agentfem-material-mixed_hybrid_hyperelasticity) | Constant-pressure mixed Neo-Hookean solid | material | supported |
+| [`agentfem.material.mooney_rivlin_hyperelasticity`](#agentfem-material-mooney_rivlin_hyperelasticity) | Mooney--Rivlin finite-strain solids and incompressible sheets | material | experimental |
 | [`agentfem.operator.system_contracts`](#agentfem-operator-system_contracts) | Finite-element operator and system contracts | operator | supported |
 | [`agentfem.workflow.abaqus_engineering_regions`](#agentfem-workflow-abaqus_engineering_regions) | Abaqus node sets and element-face surfaces as FEM regions | workflow | supported |
 | [`agentfem.workflow.campaign_learning_pipeline`](#agentfem-workflow-campaign_learning_pipeline) | Simulation campaign to guarded learning workflow | workflow | supported |
@@ -54,9 +55,10 @@ the compact machine-readable `knowledge/catalog.json`.
 | `agentfem.benchmark.j2_global_restart` | Three-dimensional J2 path, physical cutback, cyclic amplitude, energy, and restart equivalence | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_regression |
 | `agentfem.benchmark.j2_multielement_patch` | Multi-element global J2 plasticity patch | three-dimensional small-strain rate-independent J2 plasticity with linear isotropic hardening | automated |
 | `agentfem.benchmark.j2_nonuniform_bending` | Nonuniform three-dimensional J2 bending path | three-dimensional small-strain Mises plasticity with linear isotropic hardening under displacement-controlled bending | automated_regression |
-| `agentfem.benchmark.jmps_weak_interface_convergence_v4` | Two-dimensional weak-interface supershear refinement contract | near-incompressible finite-strain plane-stress Neo-Hookean strip with ten or more cells through the height, homogeneous preload, smooth remote impact, a fixed bilinear Mode-I cohesive interface, and a precrack | experimental_v4_2d_mechanism_preserved |
+| `agentfem.benchmark.jmps_weak_interface_convergence_v4` | Two-dimensional weak-interface supershear refinement contract | near-incompressible finite-strain plane-stress Neo-Hookean strip with ten or more cells through the height, homogeneous preload, smooth remote impact, a fixed bilinear Mode-I cohesive interface, and a precrack | experimental_v4_2d_convergence_accepted |
 | `agentfem.benchmark.jmps_weak_interface_transition_v4` | Prestressed weak-interface crack-to-supershear-to-spall mechanism ladder | near-incompressible finite-strain plane-stress Neo-Hookean strip with homogeneous preload, smooth remote impact, a fixed zero-thickness bilinear Mode-I interface, and a precrack | experimental_v4_mechanism_executable |
 | `agentfem.benchmark.linear_static_cantilever` | Two-dimensional linear-static cantilever | small-strain isotropic linear elasticity in plane strain | numerical_regression |
+| `agentfem.benchmark.mooney_rivlin_material_paths` | Mooney--Rivlin material-path and Explicit-consumer contract | incompressible plane-stress Mooney--Rivlin hyperelasticity | experimental_automated_regression |
 | `agentfem.benchmark.neo_hookean_release` | Compressible Neo-Hookean finite-strain release contract | compressible Neo-Hookean hyperelasticity | automated_regression |
 | `agentfem.benchmark.operator_contracts` | Operator role, system, and residual-linearization contracts | backend-facing finite-element operator algebra | automated |
 | `agentfem.benchmark.plane_stress_thin_3d_crosscheck` | Finite-strain plane-stress and thin-three-dimensional patch cross-check | compressible Neo-Hookean finite strain under homogeneous uniaxial stretch with traction-free lateral and thickness directions | experimental_geometry_crosscheck_automated |
@@ -725,6 +727,108 @@ step = model.step(target=unknown, material=material)
 - Abaqus hybrid incompressible solid formulation: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-hybridincompress.htm`
 - DOLFINx mixed function-space API: `https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.html`
 
+<a id="agentfem-material-mooney_rivlin_hyperelasticity"></a>
+
+## Mooney--Rivlin finite-strain solids and incompressible sheets
+
+**Stable ID:** `agentfem.material.mooney_rivlin_hyperelasticity`<br>
+**Kind:** `material`<br>
+**Status:** `experimental`<br>
+**Source card:** `knowledge/cards/mooney_rivlin_hyperelasticity.json`
+
+Provides a compressible three-dimensional Mooney--Rivlin energy and the exact incompressible plane-stress sheet reduction of Wang--Fineberg--Needleman Eq. (17), consumed by static and finite-strain Explicit workflows.
+
+### Public API
+
+- `agentfem.constitutive.mooney_rivlin`
+- `agentfem.constitutive.mooney_rivlin_plane_stress`
+- `agentfem.fracture.incremental_wave_speeds`
+- `agentfem.models.Model.step`
+
+### Scientific contract
+
+The material energy, first-Piola stress, consistent finite-element residual, recoverable energy, numerical material tangent, and prestrained acoustic tensor all derive from one declared Mooney--Rivlin parameterization.
+
+**compressible three-dimensional energy**
+
+$$
+\psi=C_{10}(\bar I_1-3)+C_{01}(\bar I_2-3)+\frac{K}{2}(J-1)^2,\quad \mu=2(C_{10}+C_{01})
+$$
+
+A decoupled isochoric/volumetric Mooney--Rivlin form for positive-J three-dimensional solids.
+
+**incompressible plane-stress sheet energy**
+
+$$
+\psi=\frac{\mu}{2}[c(I+J^{-2}-3)+(1-c)(J^2+IJ^{-2}-3)]
+$$
+
+The reduced Eq. (17) form uses in-plane I=tr(FF^T), J=det(F), and thickness stretch J^-1.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| shear_modulus and first_invariant_fraction | positive stress and scalar c in [0,1] | stress and dimensionless | C10=mu*c/2 and C01=mu*(1-c)/2. |
+| bulk_modulus | positive stress | stress | Required by the compressible three-dimensional form and absent from the exact incompressible sheet reduction. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| energy, first-Piola/Cauchy stress, tangent, and wave speeds | scalar, second-order tensors, fourth-order tensor, and scalars | energy density, stress, tangent stress, and length/time | All consumers use the same declared energy and positive-J finite kinematics. |
+
+#### Assumptions
+
+- The material is isotropic and hyperelastic.
+- The incompressible plane-stress route represents a thin sheet with thickness stretch equal to the inverse in-plane area ratio.
+- Density is required for Explicit dynamics and acoustic analysis.
+
+#### Conventions
+
+- The three-dimensional factory is not silently used in a two-dimensional Study.
+- The plane-stress factory must be paired with assumption='plane_stress'.
+- The Wang--Fineberg--Needleman paper uses Eq. (17) to characterize/convert experimental material response; its reported finite-element calculation is described separately as hypoelastic.
+
+#### Applicability
+
+- Finite-strain rubber-like solids, incompressible thin sheets, and parameterized weak-interface dynamic-fracture studies.
+
+#### Limitations
+
+- The current compressible form uses a penalty bulk energy rather than a mixed pressure field.
+- The incompressible sheet route is a two-dimensional reduction, not a general three-dimensional incompressibility algorithm.
+- Publication-level JMPS reproduction still requires the authors' geometry, cohesive parameters, loading history, and comparison data.
+
+### Minimal example
+
+```python
+material = constitutive.mooney_rivlin_plane_stress(shear_modulus=500.5e3, first_invariant_fraction=0.2829, density=1020.0)
+step = model.step(target=u, material=material, dt='auto', steps=100)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_dynamic_fracture.py`
+- `tests/test_dynamic_fracture_benchmarks.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.mooney_rivlin_material_paths`
+
+**Validation rules**
+
+- Match the numerical sheet energy to Eq. (17) for a nontrivial deformation gradient.
+- Compare the material tangent with finite differences of first-Piola stress.
+- Verify the undeformed shear-wave speed against sqrt(mu/rho).
+- Run the material through the public finite-strain Explicit provider and the cohesive benchmark injection path.
+
+### References
+
+- Wang, Fineberg, and Needleman (2025), transition from crack-type to supershear-type to spall-type dynamics: `https://doi.org/10.1016/j.jmps.2025.106213`
+
 <a id="agentfem-operator-system_contracts"></a>
 
 ## Finite-element operator and system contracts
@@ -1312,7 +1416,7 @@ Each rank sends displacement traces and force contributions only for remote phys
 
 #### Assumptions
 
-- The current reference route uses a two-dimensional, two-node fixed-path interface and a blocked first-order displacement field.
+- The current reference routes use two-node line facets in 2D or three-node triangular facets in 3D and a blocked first-order displacement field.
 - All ranks construct the same audited SplitInterfaceMesh and participate in collective force, energy, snapshot, and restart operations.
 - The interface contains at least one physical facet per MPI rank.
 
@@ -1326,12 +1430,12 @@ Each rank sends displacement traces and force contributions only for remote phys
 
 #### Applicability
 
-- Distributed fixed-path Mode-I finite-strain Explicit dynamics, conforming 2D cell-partition interfaces, and cross-rank-count restart verification.
+- Distributed fixed-path Mode-I finite-strain Explicit dynamics, conforming 2D/3D cell-partition interfaces, Abaqus/Gmsh named-interface lowering, and cross-rank-count restart verification.
 
 #### Limitations
 
 - The implementation uses sparse payloads on a communicator-wide Alltoallv schedule; extreme-scale neighborhood-collective performance is not yet benchmarked.
-- Mixed-mode, three-dimensional cohesive surfaces, contact after closure, and direct imported Abaqus/Gmsh internal-surface adapters are not yet covered.
+- Mixed-mode coupling, friction/contact after closure, quadratic surface interpolation, and arbitrary nonconforming interfaces are not yet covered.
 - MPI execution is experimental and does not promote the V4/V5 scientific benchmark to validated status.
 
 ### Minimal example
@@ -1454,8 +1558,8 @@ The implementation falls back to observed RMS only when the observed range is nu
 - The public Science observations are not a complete JMPS 2025 computational input deck.
 - The dependency-free XLSX reader exposes stored values and cached formula results; it does not execute Excel formulas or infer units.
 - No universal acceptance tolerance is imposed; the research protocol must justify observable-specific thresholds.
-- The V4 spatial speed gate is not yet converged below ten percent.
-- Physical-keyed cohesive state, force, energy, sparse interface payloads, and cross-rank-count restart are implemented; direct imported/3D interfaces and extreme-scale MPI profiling remain.
+- The accepted V4 speed gate covers one fixed-distance two-dimensional numerical mechanism; it is not a publication-curve validation.
+- Physical-keyed cohesive state, force, energy, sparse interface payloads, cross-rank-count restart, direct named-interface lowering, and linear triangular 3D surfaces are implemented; extreme-scale MPI profiling remains.
 - The plane-stress/thin-3D cross-check currently covers homogeneous affine deformation, not a full three-dimensional propagating crack.
 - The implemented publication registration is affine; nonlinear lens correction, segmentation, and coordinate uncertainty remain explicit research preprocessing.
 

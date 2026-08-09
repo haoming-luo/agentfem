@@ -437,6 +437,12 @@ def inspect_external_mesh(path):
     return formats.inspect_external_mesh(path)
 
 
+def split_gmsh_physical_interface(*args, **kwargs):
+    """Lower named Gmsh physical cell/surface groups to a split interface."""
+
+    return formats.split_gmsh_physical_interface(*args, **kwargs)
+
+
 def read_abaqus_mesh(
     path: str | Path,
     converted_path: str | Path,

@@ -123,7 +123,7 @@
       "id": "agentfem.benchmark.jmps_weak_interface_convergence_v4",
       "physics": "near-incompressible finite-strain plane-stress Neo-Hookean strip with ten or more cells through the height, homogeneous preload, smooth remote impact, a fixed bilinear Mode-I cohesive interface, and a precrack",
       "source": "knowledge/benchmarks/jmps_weak_interface_convergence_v4.json",
-      "status": "experimental_v4_2d_mechanism_preserved",
+      "status": "experimental_v4_2d_convergence_accepted",
       "title": "Two-dimensional weak-interface supershear refinement contract"
     },
     {
@@ -139,6 +139,13 @@
       "source": "knowledge/benchmarks/linear_static_cantilever.json",
       "status": "numerical_regression",
       "title": "Two-dimensional linear-static cantilever"
+    },
+    {
+      "id": "agentfem.benchmark.mooney_rivlin_material_paths",
+      "physics": "incompressible plane-stress Mooney--Rivlin hyperelasticity",
+      "source": "knowledge/benchmarks/mooney_rivlin_material_paths.json",
+      "status": "experimental_automated_regression",
+      "title": "Mooney--Rivlin material-path and Explicit-consumer contract"
     },
     {
       "id": "agentfem.benchmark.neo_hookean_release",
@@ -297,6 +304,24 @@
       "status": "supported",
       "summary": "Solves finite-strain equilibrium with quadratic displacement and one independent constant pressure unknown per cell, including automatic incrementation, Newton tangent, rollback, and positive-J acceptance.",
       "title": "Constant-pressure mixed Neo-Hookean solid"
+    },
+    {
+      "id": "agentfem.material.mooney_rivlin_hyperelasticity",
+      "kind": "material",
+      "public_api": [
+        "agentfem.constitutive.mooney_rivlin",
+        "agentfem.constitutive.mooney_rivlin_plane_stress",
+        "agentfem.fracture.incremental_wave_speeds",
+        "agentfem.models.Model.step"
+      ],
+      "related_cards": [
+        "agentfem.material.finite_strain_plane_stress",
+        "agentfem.workflow.dynamic_fracture_v5_evidence"
+      ],
+      "source": "knowledge/cards/mooney_rivlin_hyperelasticity.json",
+      "status": "experimental",
+      "summary": "Provides a compressible three-dimensional Mooney--Rivlin energy and the exact incompressible plane-stress sheet reduction of Wang--Fineberg--Needleman Eq. (17), consumed by static and finite-strain Explicit workflows.",
+      "title": "Mooney--Rivlin finite-strain solids and incompressible sheets"
     },
     {
       "id": "agentfem.operator.system_contracts",

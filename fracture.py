@@ -26,15 +26,15 @@ from .fracture_evidence import DynamicFractureEvidenceBundle
 def finite_strain_internal_force(
     displacement,
     test_function,
-    material: hyperelasticity.NeoHookeanProperties,
+    material,
     *,
     measure=ufl.dx,
     name: str = "F_internal_finite_strain",
 ) -> OperatorForm:
-    """Return the current Total-Lagrangian Neo-Hookean internal force."""
+    """Return the current Total-Lagrangian hyperelastic internal force."""
 
-    if not isinstance(material, hyperelasticity.NeoHookeanProperties):
-        raise TypeError("finite_strain_internal_force requires NeoHookeanProperties.")
+    if not hyperelasticity.is_finite_strain_hyperelastic(material):
+        raise TypeError("finite_strain_internal_force requires a supported material.")
     expression = hyperelasticity.internal_virtual_work(
         displacement,
         test_function,
@@ -46,7 +46,11 @@ def finite_strain_internal_force(
         expression=expression,
         kind="finite_strain_internal_force",
         role="vector",
-        family="total_lagrangian_neo_hookean",
+        family=(
+            "total_lagrangian_neo_hookean"
+            if isinstance(material, hyperelasticity.NeoHookeanProperties)
+            else "total_lagrangian_mooney_rivlin"
+        ),
         metadata={
             "kinematics": "finite_strain",
             "configuration": "reference",
@@ -58,10 +62,10 @@ def finite_strain_internal_force(
 
 @dataclass
 class FiniteStrainEnergyMonitor:
-    """Accepted-frame kinetic and Neo-Hookean bulk energy monitor."""
+    """Accepted-frame kinetic and hyperelastic bulk energy monitor."""
 
     mass: object
-    material: hyperelasticity.NeoHookeanProperties
+    material: object
     measure: object = ufl.dx
 
     def evaluate(self, *, displacement, velocity) -> dict[str, float]:
@@ -80,12 +84,16 @@ class FiniteStrainEnergyMonitor:
 
 
 class DofMappedCohesiveForce:
-    """Map the serial 2D cohesive facet kernel to vector finite-element dofs."""
+    """Map a serial cohesive facet kernel to vector finite-element dofs."""
 
     def __init__(self, assembler, displacement, *, node_to_block_dof):
-        if not isinstance(assembler, interface_api.ModeICohesiveFacetAssembler):
+        supported = (
+            interface_api.ModeICohesiveFacetAssembler,
+            interface_api.ModeICohesiveSurfaceAssembler,
+        )
+        if not isinstance(assembler, supported):
             raise TypeError(
-                "DofMappedCohesiveForce requires ModeICohesiveFacetAssembler."
+                "DofMappedCohesiveForce requires a supported Mode-I cohesive assembler."
             )
         function = field_api.unwrap(displacement)
         if function.function_space.mesh.comm.size != 1:
@@ -187,7 +195,9 @@ class DofMappedCohesiveForce:
     def snapshot(self) -> dict[str, object]:
         values = np.asarray(
             self.assembler.state.committed_maximum, dtype=float
-        ).reshape((-1, 2))
+        ).reshape(
+            (-1, self.assembler.topology.quadrature_points_per_facet)
+        )
         return {
             "schema": "agentfem.dof-mapped-cohesive-force.v3",
             "node_to_block_dof": self.node_to_block_dof.tolist(),
@@ -273,7 +283,7 @@ class DofMappedCohesiveForce:
         return {
             "interface_stiffness": float(self.assembler.law.initial_stiffness),
             "interface_area": float(
-                np.min(topology.lengths) * self.assembler.thickness
+                np.min(topology.measures) * self.assembler.thickness
             ),
             "negative_mass": float(np.min(negative)),
             "positive_mass": float(np.min(positive)),
@@ -507,10 +517,14 @@ class DistributedDofMappedCohesiveForce:
         global_facet_indices,
         local_input_nodes=None,
     ):
-        if not isinstance(assembler, interface_api.ModeICohesiveFacetAssembler):
+        supported = (
+            interface_api.ModeICohesiveFacetAssembler,
+            interface_api.ModeICohesiveSurfaceAssembler,
+        )
+        if not isinstance(assembler, supported):
             raise TypeError(
                 "DistributedDofMappedCohesiveForce requires "
-                "ModeICohesiveFacetAssembler."
+                "a supported Mode-I cohesive assembler."
             )
         function = field_api.unwrap(displacement)
         comm = function.function_space.mesh.comm
@@ -675,7 +689,9 @@ class DistributedDofMappedCohesiveForce:
     def snapshot(self) -> dict[str, object]:
         local_values = np.asarray(
             self.assembler.state.committed_maximum, dtype=float
-        ).reshape((-1, 2))
+        ).reshape(
+            (-1, self.assembler.topology.quadrature_points_per_facet)
+        )
         gathered = self.comm.allgather(
             (
                 tuple(self.assembler.topology.facet_keys),
@@ -751,7 +767,7 @@ class DistributedDofMappedCohesiveForce:
         return {
             "interface_stiffness": float(self.assembler.law.initial_stiffness),
             "interface_area": float(
-                np.min(self.global_topology.lengths) * self.assembler.thickness
+                np.min(self.global_topology.measures) * self.assembler.thickness
             ),
             "negative_mass": float(self.comm.allreduce(np.min(negative), op=MPI.MIN)),
             "positive_mass": float(self.comm.allreduce(np.min(positive), op=MPI.MIN)),
@@ -866,13 +882,32 @@ def mode_i_cohesive_force(
 
     if not isinstance(split, interface_api.SplitInterfaceMesh):
         raise TypeError("mode_i_cohesive_force requires SplitInterfaceMesh.")
-    topology = interface_api.pair_coincident_line_facets(
-        split.coordinates,
-        split.negative_facets,
-        split.positive_facets,
-        normal_hint=normal_hint,
-        tolerance=tolerance,
-    )
+    dimension = int(split.coordinates.shape[1])
+    if dimension == 2:
+        topology = interface_api.pair_coincident_line_facets(
+            split.coordinates,
+            split.negative_facets,
+            split.positive_facets,
+            normal_hint=normal_hint,
+            tolerance=tolerance,
+        )
+        assembler_type = interface_api.ModeICohesiveFacetAssembler
+    elif dimension == 3:
+        if float(thickness) != 1.0:
+            raise ValueError(
+                "A 3D cohesive surface integrates physical area directly; "
+                "thickness must remain 1.0."
+            )
+        topology = interface_api.pair_coincident_surface_facets(
+            split.coordinates,
+            split.negative_facets,
+            split.positive_facets,
+            normal_hint=normal_hint,
+            tolerance=tolerance,
+        )
+        assembler_type = interface_api.ModeICohesiveSurfaceAssembler
+    else:
+        raise ValueError("Mode-I cohesive force requires a 2D or 3D split mesh.")
     function = field_api.unwrap(displacement)
     comm = function.function_space.mesh.comm
     contracts = comm.allgather(
@@ -889,12 +924,10 @@ def mode_i_cohesive_force(
             "cohesive law, and thickness."
         )
     if comm.size == 1:
-        assembler = interface_api.ModeICohesiveFacetAssembler(
-            topology,
-            law,
-            number_of_nodes=split.coordinates.shape[0],
-            thickness=thickness,
-        )
+        assembler_options = {"number_of_nodes": split.coordinates.shape[0]}
+        if dimension == 2:
+            assembler_options["thickness"] = thickness
+        assembler = assembler_type(topology, law, **assembler_options)
         mapping = p1_input_node_to_block_dof(
             displacement,
             number_of_input_nodes=split.coordinates.shape[0],
@@ -928,20 +961,30 @@ def mode_i_cohesive_force(
     ).astype(int)
     global_to_local = np.full(split.coordinates.shape[0], -1, dtype=int)
     global_to_local[local_input_nodes] = np.arange(local_input_nodes.size, dtype=int)
-    local_topology = interface_api.PairedLineFacets(
-        negative_nodes=global_to_local[global_negative],
-        positive_nodes=global_to_local[global_positive],
-        normals=topology.normals[selected],
-        lengths=topology.lengths[selected],
-        tolerance=topology.tolerance,
-        facet_keys=tuple(topology.facet_keys[index] for index in selected),
-    )
-    assembler = interface_api.ModeICohesiveFacetAssembler(
-        local_topology,
-        law,
-        number_of_nodes=local_input_nodes.size,
-        thickness=thickness,
-    )
+    topology_options = {
+        "negative_nodes": global_to_local[global_negative],
+        "positive_nodes": global_to_local[global_positive],
+        "normals": topology.normals[selected],
+        "tolerance": topology.tolerance,
+        "facet_keys": tuple(topology.facet_keys[index] for index in selected),
+    }
+    if dimension == 2:
+        topology_options["lengths"] = topology.lengths[selected]
+        local_topology = interface_api.PairedLineFacets(**topology_options)
+        assembler = assembler_type(
+            local_topology,
+            law,
+            number_of_nodes=local_input_nodes.size,
+            thickness=thickness,
+        )
+    else:
+        topology_options["areas"] = topology.areas[selected]
+        local_topology = interface_api.PairedSurfaceFacets(**topology_options)
+        assembler = assembler_type(
+            local_topology,
+            law,
+            number_of_nodes=local_input_nodes.size,
+        )
     return DistributedDofMappedCohesiveForce(
         assembler,
         displacement,
@@ -1488,12 +1531,12 @@ class PrincipalSurfaceWaveSpeed:
 
 def neo_hookean_material_tangent(
     deformation_gradient,
-    material: hyperelasticity.NeoHookeanProperties,
+    material,
 ) -> np.ndarray:
-    """Return ``A[i,J,k,L] = dP[i,J]/dF[k,L]`` for the declared energy."""
+    """Return ``A[i,J,k,L] = dP[i,J]/dF[k,L]`` for a supported energy."""
 
-    if not isinstance(material, hyperelasticity.NeoHookeanProperties):
-        raise TypeError("neo_hookean_material_tangent requires NeoHookeanProperties.")
+    if not hyperelasticity.is_finite_strain_hyperelastic(material):
+        raise TypeError("material tangent requires a supported hyperelastic material.")
     F = np.asarray(deformation_gradient, dtype=float)
     if F.ndim != 2 or F.shape[0] != F.shape[1] or F.shape[0] not in {2, 3}:
         raise ValueError("deformation_gradient must be one finite 2x2 or 3x3 array.")
@@ -1502,6 +1545,24 @@ def neo_hookean_material_tangent(
     J = float(np.linalg.det(F))
     if J <= 0.0:
         raise ValueError("Incremental material tangent requires det(F) > 0.")
+    if isinstance(material, hyperelasticity.MooneyRivlinProperties):
+        base_scale = max(1.0, float(np.linalg.norm(F)))
+        step = np.cbrt(np.finfo(float).eps) * base_scale
+        tangent = np.empty(F.shape + F.shape, dtype=float)
+        for k in range(F.shape[0]):
+            for L in range(F.shape[1]):
+                perturbation = np.zeros_like(F)
+                perturbation[k, L] = step
+                tangent[:, :, k, L] = (
+                    hyperelasticity.mooney_rivlin_first_piola_value(
+                        F + perturbation, material
+                    )
+                    - hyperelasticity.mooney_rivlin_first_piola_value(
+                        F - perturbation, material
+                    )
+                ) / (2.0 * step)
+        major = np.transpose(tangent, (2, 3, 0, 1))
+        return 0.5 * (tangent + major)
     if isinstance(
         material,
         hyperelasticity.PlaneStressNeoHookeanProperties,
@@ -1565,7 +1626,7 @@ def _neo_hookean_material_tangent_core(
 def incremental_wave_speeds(
     deformation_gradient,
     direction,
-    material: hyperelasticity.NeoHookeanProperties,
+    material,
     *,
     direction_configuration: str = "current",
 ) -> IncrementalWaveSpeeds:
@@ -1622,13 +1683,15 @@ def incremental_wave_speeds(
         )
     reference_speeds = np.sqrt(eigenvalues / float(material.density))
     deformation_jacobian = float(np.linalg.det(F))
-    if isinstance(
-        material,
-        hyperelasticity.PlaneStressNeoHookeanProperties,
-    ):
+    if isinstance(material, hyperelasticity.PlaneStressNeoHookeanProperties):
         deformation_jacobian *= (
             hyperelasticity.plane_stress_thickness_stretch_value(F, material)
         )
+    elif (
+        isinstance(material, hyperelasticity.MooneyRivlinProperties)
+        and material.plane_stress_incompressible
+    ):
+        deformation_jacobian = 1.0
     return IncrementalWaveSpeeds(
         speeds=np.asarray(reference_speeds * speed_scale, dtype=float),
         reference_speeds=np.asarray(reference_speeds, dtype=float),
@@ -1682,6 +1745,8 @@ def principal_surface_wave_speed(
     depth = 1 - axis
     if isinstance(material, hyperelasticity.PlaneStressNeoHookeanProperties):
         first_piola = hyperelasticity.plane_stress_first_piola_value(F, material)
+    elif isinstance(material, hyperelasticity.MooneyRivlinProperties):
+        first_piola = hyperelasticity.mooney_rivlin_first_piola_value(F, material)
     else:
         jacobian = float(np.linalg.det(F))
         first_piola = (
@@ -1798,7 +1863,7 @@ def principal_surface_wave_speed(
 
 
 def isotropic_reference_wave_speeds(
-    material: hyperelasticity.NeoHookeanProperties,
+    material,
 ) -> IsotropicWaveSpeeds:
     """Return unstretched 3D isotropic ``c_d``, ``c_s``, and ``c_R``.
 
@@ -1811,7 +1876,16 @@ def isotropic_reference_wave_speeds(
         raise ValueError("Wave speeds require a material density.")
     rho = float(material.density)
     cs = sqrt(material.mu / rho)
-    cp = sqrt((material.lambda_ + 2.0 * material.mu) / rho)
+    if isinstance(material, hyperelasticity.MooneyRivlinProperties):
+        if material.plane_stress_incompressible:
+            raise ValueError(
+                "Use incremental_wave_speeds for the reduced plane-stress "
+                "Mooney-Rivlin sheet."
+            )
+        longitudinal_modulus = material.bulk_modulus + 4.0 * material.mu / 3.0
+    else:
+        longitudinal_modulus = material.lambda_ + 2.0 * material.mu
+    cp = sqrt(longitudinal_modulus / rho)
     ratio = (cs / cp) ** 2
     # Polynomial in xi=(c_R/c_s)^2:
     # xi^3 - 8 xi^2 + (24 - 16 beta) xi - 16 (1 - beta) = 0.
@@ -1874,6 +1948,35 @@ class CohesiveCrackHistory:
                 None if finite_speed.size == 0 else float(np.max(finite_speed))
             ),
             "method": "threshold_interpolation_then_local_linear_fit",
+        }
+
+
+@dataclass(frozen=True)
+class CrackPropagationFit:
+    """Representative crack speed fitted across a declared path interval."""
+
+    speed: float
+    intercept: float
+    r_squared: float
+    samples: int
+    start_position: float
+    end_position: float
+    start_time: float
+    end_time: float
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "crack_propagation_fit",
+            "speed": self.speed,
+            "intercept": self.intercept,
+            "r_squared": self.r_squared,
+            "samples": self.samples,
+            "start_position": self.start_position,
+            "end_position": self.end_position,
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "method": "least_squares_position_over_declared_path_interval",
+            "spatial_configuration": "declared_by_history_consumer",
         }
 
 
@@ -2333,6 +2436,63 @@ def crack_tip_history(
         damage_threshold=float(threshold),
         fit_window=window,
         direction=direction,
+    )
+
+
+def fit_crack_propagation_speed(
+    history: CohesiveCrackHistory,
+    *,
+    start_position: float,
+    end_position: float,
+    minimum_samples: int = 3,
+) -> CrackPropagationFit | None:
+    """Fit one representative speed over a fixed physical path interval.
+
+    Local window fits are appropriate for identifying a peak-speed regime but
+    their maximum is sensitive to crack initiation and short transients. This
+    fit instead compares the same propagation distance across mesh and
+    time-step refinements. ``None`` is returned when the observed front has not
+    crossed enough of the interval; partial propagation is therefore not
+    silently reported as a converged speed.
+    """
+
+    if not isinstance(history, CohesiveCrackHistory):
+        raise TypeError("history must be a CohesiveCrackHistory.")
+    start = float(start_position)
+    end = float(end_position)
+    required = int(minimum_samples)
+    if not isfinite(start) or not isfinite(end) or end <= start:
+        raise ValueError("end_position must be finite and greater than start_position.")
+    if required < 3:
+        raise ValueError("minimum_samples must be at least three.")
+    valid = (
+        np.isfinite(history.time)
+        & np.isfinite(history.position)
+        & (history.position >= start)
+        & (history.position <= end)
+    )
+    if np.count_nonzero(valid) < required:
+        return None
+    time = np.asarray(history.time[valid], dtype=float)
+    position = np.asarray(history.position[valid], dtype=float)
+    if np.unique(position).size < 3 or float(np.ptp(position)) <= 0.0:
+        return None
+    mean_time = float(np.mean(time))
+    speed, centered_intercept = np.polyfit(time - mean_time, position, 1)
+    intercept = float(centered_intercept - speed * mean_time)
+    predicted = float(speed) * time + intercept
+    residual = float(np.sum((position - predicted) ** 2))
+    total = float(np.sum((position - np.mean(position)) ** 2))
+    r_squared = 1.0 if total <= np.finfo(float).eps else 1.0 - residual / total
+    return CrackPropagationFit(
+        speed=float(speed),
+        intercept=intercept,
+        r_squared=float(r_squared),
+        samples=int(time.size),
+        start_position=start,
+        end_position=end,
+        start_time=float(time[0]),
+        end_time=float(time[-1]),
     )
 
 
@@ -2941,6 +3101,7 @@ __all__ = [
     "CohesiveFrontEnsemble",
     "CohesiveInterfaceTrace",
     "CohesiveCrackHistory",
+    "CrackPropagationFit",
     "InterfaceFrontHistory",
     "PreloadTransferReport",
     "FiniteStrainEnergyMonitor",
@@ -2958,6 +3119,7 @@ __all__ = [
     "estimate_stable_time_increment",
     "cohesive_crack_tip",
     "crack_tip_history",
+    "fit_crack_propagation_speed",
     "interface_front_history",
     "finite_strain_internal_force",
     "isotropic_reference_wave_speeds",

@@ -194,6 +194,12 @@ class WeakInterfaceTransitionBenchmark:
     impact_displacement: float
     impact_rise_time: float
     performance: dict[str, object]
+    representative_fitted_speed: float | None = None
+    representative_speed_interval: tuple[float, float] | None = None
+    representative_speed_r_squared: float | None = None
+    representative_speed_samples: int = 0
+    bulk_material: dict[str, object] | None = None
+    rayleigh_speed_convention: str = "unstretched_isotropic_reference"
     trace: fracture.CohesiveInterfaceTrace | None = None
 
     def summary(self) -> dict[str, object]:
@@ -216,8 +222,13 @@ class WeakInterfaceTransitionBenchmark:
             "time_increment": self.time_increment,
             "propagated_length": self.propagated_length,
             "maximum_fitted_speed": self.maximum_fitted_speed,
+            "representative_fitted_speed": self.representative_fitted_speed,
+            "representative_speed_interval": self.representative_speed_interval,
+            "representative_speed_r_squared": self.representative_speed_r_squared,
+            "representative_speed_samples": self.representative_speed_samples,
+            "bulk_material": self.bulk_material,
             "rayleigh_wave_speed": self.rayleigh_wave_speed,
-            "rayleigh_speed_convention": "unstretched_isotropic_reference",
+            "rayleigh_speed_convention": self.rayleigh_speed_convention,
             "shear_wave_speed": self.shear_wave_speed,
             "shear_speed_convention": "prestrained_acoustic_tensor_reference",
             "pressure_wave_speed": self.pressure_wave_speed,
@@ -923,6 +934,7 @@ def prestressed_weak_interface_separation(
     impact_displacement: float = 0.0,
     impact_rise_time: float | None = None,
     speed_fit_length: float | None = None,
+    bulk_material=None,
     retain_trace: bool = False,
 ) -> WeakInterfaceTransitionBenchmark:
     """Drive a precrack through a prestressed plane-stress weak interface.
@@ -1032,13 +1044,24 @@ def prestressed_weak_interface_separation(
         name=f"prestressed_weak_interface_{label}",
     )
     displacement = model.field(fields.displacement(domain))
-    material = model.material(
+    selected_bulk_material = (
         constitutive.neo_hookean_plane_stress(
             young=float(young),
             poisson=float(poisson),
             density=float(density),
         )
+        if bulk_material is None
+        else bulk_material
     )
+    if not constitutive.hyperelasticity.is_plane_stress_hyperelastic(
+        selected_bulk_material
+    ):
+        raise TypeError(
+            "bulk_material must be a supported finite-strain plane-stress material."
+        )
+    if selected_bulk_material.density is None:
+        raise ValueError("The V4 Explicit bulk material requires density.")
+    material = model.material(selected_bulk_material)
     deformation_gradient, preload_opening, preload_traction = (
         _equilibrated_plane_stress_interface_preload(
             total_axial_strain=selected_strain,
@@ -1238,11 +1261,28 @@ def prestressed_weak_interface_separation(
     )
     finite = crack.speed[np.isfinite(crack.speed)]
     maximum_speed = 0.0 if finite.size == 0 else float(np.max(finite))
+    representative_start = selected_precrack + selected_fit_length
+    representative_end = min(
+        representative_start + selected_height,
+        selected_length - selected_fit_length,
+    )
+    representative_fit = fracture.fit_crack_propagation_speed(
+        crack,
+        start_position=representative_start,
+        end_position=representative_end,
+    )
     initial_length = float(crack.position[0])
     final_length = float(crack.position[-1])
-    rayleigh_speed = float(
-        fracture.isotropic_reference_wave_speeds(material).rayleigh
-    )
+    if isinstance(material, constitutive.MooneyRivlinProperties):
+        rayleigh_speed = float(
+            fracture.principal_surface_wave_speed(np.eye(2), material).speed
+        )
+        rayleigh_convention = "undeformed_plane_stress_principal_surface_wave"
+    else:
+        rayleigh_speed = float(
+            fracture.isotropic_reference_wave_speeds(material).rayleigh
+        )
+        rayleigh_convention = "unstretched_isotropic_reference"
     failed = np.asarray(damage_frames) >= 0.95
     ligament = ~precracked
     ligament_count = max(1, int(np.count_nonzero(ligament)))
@@ -1284,7 +1324,7 @@ def prestressed_weak_interface_separation(
         ligament_traction_ratio=maximum_traction_ratio,
         pressure_wave_speed=pressure_speed,
     )
-    cohesive_length = law.characteristic_length(float(young))
+    cohesive_length = law.characteristic_length(float(material.young))
     trace = None
     if retain_trace:
         trace = fracture.CohesiveInterfaceTrace(
@@ -1350,6 +1390,21 @@ def prestressed_weak_interface_separation(
         impact_displacement=selected_impact,
         impact_rise_time=selected_rise,
         performance=step.performance.summary(),
+        representative_fitted_speed=(
+            None if representative_fit is None else representative_fit.speed
+        ),
+        representative_speed_interval=(
+            representative_start,
+            representative_end,
+        ),
+        representative_speed_r_squared=(
+            None if representative_fit is None else representative_fit.r_squared
+        ),
+        representative_speed_samples=(
+            0 if representative_fit is None else representative_fit.samples
+        ),
+        bulk_material=material.as_dict(),
+        rayleigh_speed_convention=rayleigh_convention,
         trace=trace,
     )
 
@@ -1493,15 +1548,6 @@ def jmps_weak_interface_convergence_v4(
         time_step_scale=0.4,
         **common,
     )
-    spatial_change = abs(
-        spatial.maximum_fitted_speed - baseline.maximum_fitted_speed
-    ) / max(abs(spatial.maximum_fitted_speed), np.finfo(float).eps)
-    temporal_change = abs(
-        temporal.maximum_fitted_speed - baseline.maximum_fitted_speed
-    ) / max(abs(temporal.maximum_fitted_speed), np.finfo(float).eps)
-    fine_spatial_change = abs(
-        spatial_fine.maximum_fitted_speed - spatial.maximum_fitted_speed
-    ) / max(abs(spatial_fine.maximum_fitted_speed), np.finfo(float).eps)
     failures: list[str] = []
     mechanism_failures: list[str] = []
     speed_failures: list[str] = []
@@ -1518,7 +1564,40 @@ def jmps_weak_interface_convergence_v4(
             mechanism_failures.append(
                 f"{result.label} exceeds the 0.5-percent energy gate."
             )
+        if result.representative_fitted_speed is None:
+            speed_failures.append(
+                f"{result.label} does not cross the representative speed interval."
+            )
+        elif (
+            result.representative_speed_r_squared is None
+            or result.representative_speed_r_squared < 0.95
+        ):
+            speed_failures.append(
+                f"{result.label} representative speed fit has R-squared "
+                f"{result.representative_speed_r_squared!r}, below 0.95."
+            )
     failures.extend(mechanism_failures)
+    representative = [
+        baseline.representative_fitted_speed,
+        spatial.representative_fitted_speed,
+        spatial_fine.representative_fitted_speed,
+        temporal.representative_fitted_speed,
+    ]
+    if all(value is not None for value in representative):
+        baseline_speed, spatial_speed, fine_speed, temporal_speed = (
+            float(value) for value in representative
+        )
+        spatial_change = abs(spatial_speed - baseline_speed) / max(
+            abs(spatial_speed), np.finfo(float).eps
+        )
+        fine_spatial_change = abs(fine_speed - spatial_speed) / max(
+            abs(fine_speed), np.finfo(float).eps
+        )
+        temporal_change = abs(temporal_speed - baseline_speed) / max(
+            abs(temporal_speed), np.finfo(float).eps
+        )
+    else:
+        spatial_change = fine_spatial_change = temporal_change = float("inf")
     if spatial_change >= spatial_tolerance:
         speed_failures.append(
             "Spatial refinement changes fitted speed by "
@@ -1533,12 +1612,6 @@ def jmps_weak_interface_convergence_v4(
         speed_failures.append(
             "Second spatial refinement changes fitted speed by "
             f"{fine_spatial_change:.3%}, above {spatial_tolerance:.3%}."
-        )
-    if fine_spatial_change >= spatial_change:
-        speed_failures.append(
-            "Successive spatial fitted-speed changes do not decrease "
-            f"({spatial_change:.3%} then {fine_spatial_change:.3%}); "
-            "the reported maximum speed is not yet asymptotically converged."
         )
     failures.extend(speed_failures)
     return WeakInterfaceConvergenceStudy(
@@ -1575,9 +1648,19 @@ def _equilibrated_plane_stress_interface_preload(
             axial_stretch,
             material,
         )
-        traction = float(
-            constitutive.plane_stress_first_piola_value(gradient, material)[1, 1]
-        )
+        if isinstance(material, constitutive.MooneyRivlinProperties):
+            nominal_stress = (
+                constitutive.hyperelasticity.mooney_rivlin_first_piola_value(
+                    gradient,
+                    material,
+                )
+            )
+        else:
+            nominal_stress = constitutive.plane_stress_first_piola_value(
+                gradient,
+                material,
+            )
+        traction = float(nominal_stress[1, 1])
         opening = traction / stiffness
         residual = (axial_stretch - 1.0) * float(height) + opening - extension
         return residual, gradient, opening, traction

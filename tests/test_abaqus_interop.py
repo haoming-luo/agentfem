@@ -177,6 +177,54 @@ def test_abaqus_semantics_preserve_sets_and_element_face_surfaces(tmp_path):
     assert imported.surface_faces("LOAD_FACE") == ((1, "S2"), (3, "S2"), (5, "S2"))
 
 
+def test_abaqus_elset_and_internal_surface_lower_to_three_dimensional_cohesive_interface(
+    tmp_path,
+):
+    source = tmp_path / "cohesive_tetra.inp"
+    source.write_text(
+        "\n".join(
+            (
+                "*Node",
+                "1, 0., 0., 0.",
+                "2, 1., 0., 0.",
+                "3, 0., 1., 0.",
+                "4, 0., 0., -1.",
+                "5, 0., 0., 1.",
+                "*Element, type=C3D4, elset=ALL",
+                "10, 1, 2, 3, 4",
+                "20, 1, 3, 2, 5",
+                "*Elset, elset=POSITIVE",
+                "20",
+                "*Elset, elset=INTERFACE_OWNER",
+                "10",
+                "*Surface, name=WEAK_INTERFACE, type=ELEMENT",
+                "INTERFACE_OWNER, S1",
+            )
+        ),
+        encoding="utf-8",
+    )
+    semantics = abaqus.read_model_semantics(source)
+    imported = abaqus.AbaqusMeshImport(
+        fem_mesh=SimpleNamespace(),
+        nodes=abaqus.read_node_table(source),
+        conversion=SimpleNamespace(
+            source_path=source,
+            source_metadata={"abaqus_model_semantics": semantics.summary()},
+        ),
+    )
+
+    split = imported.cohesive_interface(
+        positive_elset="POSITIVE", surface="WEAK_INTERFACE"
+    )
+
+    assert split.summary()["geometric_dimension"] == 3
+    assert split.negative_facets.shape == (1, 3)
+    np.testing.assert_allclose(
+        split.coordinates[split.negative_facets],
+        split.coordinates[split.positive_facets],
+    )
+
+
 def test_abaqus_surface_becomes_a_load_ready_boundary_region(tmp_path):
     pytest.importorskip("meshio")
     source = tmp_path / "one_tetra.inp"

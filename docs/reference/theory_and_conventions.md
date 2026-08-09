@@ -148,6 +148,34 @@ strain plane-stress model. Nearly incompressible behavior should use the
 documented displacement-pressure formulation rather than treating an imported
 hybrid element name as a complete numerical formulation.
 
+## Mooney--Rivlin finite strain
+
+AgentFEM also exposes a two-parameter Mooney--Rivlin family. The compressible
+three-dimensional form uses the decoupled energy
+
+\[
+\psi=C_{10}(\bar I_1-3)+C_{01}(\bar I_2-3)
+     +\frac{K}{2}(J-1)^2,
+\qquad \mu=2(C_{10}+C_{01}).
+\]
+
+For incompressible thin sheets, `mooney_rivlin_plane_stress(...)` implements
+the reduced energy reported as Eq. (17) by Wang, Fineberg, and Needleman,
+
+\[
+\psi=\frac{\mu}{2}\left[
+c(I+J^{-2}-3)+(1-c)(J^2+IJ^{-2}-3)\right],
+\]
+
+where (I=\operatorname{tr}(\mathbf F\mathbf F^T)), (J=\det\mathbf F), and
+the out-of-plane stretch is (J^{-1}). The same energy supplies the first
+Piola stress, material tangent, finite-strain Explicit residual, recoverable
+energy, and prestrained acoustic tensor. The cited paper uses this relation to
+characterize/convert the measured material response; its reported numerical
+finite-element procedure is separately described as plane-stress
+hypoelastic. AgentFEM therefore records those roles separately instead of
+claiming that Eq. (17) was the paper's finite-element constitutive update.
+
 ## J2 plasticity and creep state
 
 The supported global J2 route is three-dimensional, small-strain, associative

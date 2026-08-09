@@ -1619,25 +1619,19 @@ class Model:
         else:
             record = self._material_record(material)
         properties = record.item
-        if not isinstance(properties, hyperelasticity.NeoHookeanProperties):
+        if not hyperelasticity.is_finite_strain_hyperelastic(properties):
             raise TypeError(
-                "model.hyperelastic_step requires NeoHookeanProperties."
+                "model.hyperelastic_step requires a supported hyperelastic material."
             )
-        if getattr(self.study, "dimension", None) == 2:
-            required_assumption = (
-                "plane_stress"
-                if isinstance(
-                    properties,
-                    hyperelasticity.PlaneStressNeoHookeanProperties,
-                )
-                else "plane_strain"
+        if not hyperelasticity.supports_hyperelastic_study(
+            properties,
+            dimension=getattr(self.study, "dimension", 0),
+            assumption=getattr(self.study, "assumption", None),
+        ):
+            raise ValueError(
+                "The Study dimension/assumption has no formulation for the "
+                f"selected hyperelastic material {properties.name!r}."
             )
-            if getattr(self.study, "assumption", None) != required_assumption:
-                raise ValueError(
-                    "The study and Neo-Hookean reduction disagree: "
-                    f"study assumption={getattr(self.study, 'assumption', None)!r}, "
-                    f"material requires {required_assumption!r}."
-                )
         selected_measure = measure
         if selected_measure is None:
             selected_measure = (
@@ -2251,12 +2245,14 @@ class Model:
 
         from . import problems
         from . import time as time_api
-        from .constitutive.hyperelasticity import NeoHookeanProperties
+        from .constitutive import hyperelasticity
 
         if (
             residual is None
             and len(self.materials) == 1
-            and isinstance(self.materials[0].item, NeoHookeanProperties)
+            and hyperelasticity.is_finite_strain_hyperelastic(
+                self.materials[0].item
+            )
         ):
             if prescribed:
                 raise ValueError(
@@ -2357,10 +2353,7 @@ class Model:
         from . import fracture
         from . import problems
         from . import time as time_api
-        from .constitutive.hyperelasticity import (
-            NeoHookeanProperties,
-            PlaneStressNeoHookeanProperties,
-        )
+        from .constitutive import hyperelasticity
 
         self.check(target=target, step_options={"material": material})
         if hasattr(self.study, "require"):
@@ -2374,22 +2367,20 @@ class Model:
             else self._material_record(material)
         )
         properties = record.item
-        if not isinstance(properties, NeoHookeanProperties):
+        if not hyperelasticity.is_finite_strain_hyperelastic(properties):
             raise TypeError(
-                "finite_strain_explicit_dynamics_step requires NeoHookeanProperties."
+                "finite_strain_explicit_dynamics_step requires a supported "
+                "hyperelastic material."
             )
-        if getattr(self.study, "dimension", None) == 2:
-            required_assumption = (
-                "plane_stress"
-                if isinstance(properties, PlaneStressNeoHookeanProperties)
-                else "plane_strain"
+        if not hyperelasticity.supports_hyperelastic_study(
+            properties,
+            dimension=getattr(self.study, "dimension", 0),
+            assumption=getattr(self.study, "assumption", None),
+        ):
+            raise ValueError(
+                "The Study dimension/assumption has no formulation for the "
+                f"selected hyperelastic material {properties.name!r}."
             )
-            if getattr(self.study, "assumption", None) != required_assumption:
-                raise ValueError(
-                    "The study and finite-strain material reduction disagree: "
-                    f"study assumption={getattr(self.study, 'assumption', None)!r}, "
-                    f"material requires {required_assumption!r}."
-                )
         if properties.density is None:
             raise ValueError("Finite-strain Explicit requires material density.")
         selected_measure = (
@@ -2409,7 +2400,7 @@ class Model:
                 measure=selected_measure,
             )
         )
-        if isinstance(properties, PlaneStressNeoHookeanProperties):
+        if hyperelasticity.is_plane_stress_hyperelastic(properties):
             reference_gradient = np.eye(2)
             membrane_modes = (
                 fracture.incremental_wave_speeds(
@@ -3144,11 +3135,11 @@ def _stiffness_from_record(
     law=None,
     name: str = "K",
 ):
-    from .constitutive.hyperelasticity import NeoHookeanProperties
+    from .constitutive import hyperelasticity
 
-    if isinstance(record.item, NeoHookeanProperties) and law is None:
+    if hyperelasticity.is_finite_strain_hyperelastic(record.item) and law is None:
         raise TypeError(
-            "A Neo-Hookean material has a deformation-dependent tangent, not "
+            "A hyperelastic material has a deformation-dependent tangent, not "
             "one linear stiffness operator. Build its finite-strain residual "
             "and use operators.linearize(...) when a tangent is required."
         )
@@ -3178,12 +3169,12 @@ def _internal_force_from_record(
 ):
     import ufl
 
-    from .constitutive.hyperelasticity import NeoHookeanProperties
+    from .constitutive import hyperelasticity
 
     selected_measure = measure
     if selected_measure is None and record.region is not None:
         selected_measure = record.region.measure
-    if isinstance(record.item, NeoHookeanProperties):
+    if hyperelasticity.is_finite_strain_hyperelastic(record.item):
         from . import fracture
 
         operator = fracture.finite_strain_internal_force(

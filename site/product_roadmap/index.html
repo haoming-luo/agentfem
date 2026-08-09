@@ -3363,16 +3363,16 @@ core, results, verification, and documentation have priority.</p>
 <td>implicit route is linear; portable NPZ is root-gathered and stateful quadrature portability is separate</td>
 </tr>
 <tr>
-<td>Neo-Hookean solids</td>
+<td>Hyperelastic solids</td>
 <td>FEM-integrated</td>
-<td>compressible displacement route plus monolithic P2/DG0 constant-pressure mixed route; 3D, 2D plane strain, and locally condensed finite-strain plane stress; automatic/fixed increments, consistent Newton tangent, cutback/rollback, positive-J acceptance; topology-preserving C3D10-to-C3D10H derivation; serial mixed affine-periodic solve, large-mesh Golden contract, and homogeneous affine plane-stress/thin-3D FEM cross-check</td>
-<td>one material; distributed mixed affine-periodic MPC, general explicit locking control, full thin-3D fracture, Cook convergence suite, and independent external-code comparison remain</td>
+<td>compressible and plane-stress Neo-Hookean; compressible 3D and exact incompressible plane-stress Mooney--Rivlin; static and finite-strain Explicit consumption, energy, first-Piola stress, material tangent and small-on-large waves; monolithic P2/DG0 constant-pressure Neo-Hookean; C3D10H topology and affine plane-stress/thin-3D checks</td>
+<td>distributed mixed affine-periodic MPC, general Explicit locking control, full thin-3D fracture, broader material benchmarks, and independent external-code comparison remain</td>
 </tr>
 <tr>
 <td>Dynamic cohesive fracture</td>
-<td>experimental V4 mechanism + V5 evidence foundation</td>
-<td>finite-strain plane-stress Explicit, prestrain transfer, fixed-path Mode-I cohesive transaction, complete energy ledger, V0--V3 guardrails, crack/supershear/spall V4 mechanism ladder, physical-length refinement contract, portable interface trace, multi-observer crack fronts, live SENER/KED/J saved fields, pinned Science Dryad manifest, affine publication-coordinate registration, sealed evidence bundle, cell-partition interface recovery, sparse physical-key MPI trace/force assembly, and two-rank-to-one-rank cohesive Explicit restart</td>
-<td>V4 front speed remains above the ten-percent spatial gate; direct imported/3D interfaces, extreme-scale MPI profiling, full thin-3D fracture/general incompressibility, and independent V5 research comparison remain</td>
+<td>experimental V4 convergence accepted + V5 evidence foundation</td>
+<td>finite-strain plane-stress Explicit, injectable Neo-Hookean/Mooney--Rivlin bulk material, preload transfer, fixed-path Mode-I cohesive transaction, complete energy ledger, V0--V3 guardrails, crack/supershear/spall V4 ladder, accepted fixed-distance spatial/time convergence, portable interface trace, multi-observer fronts, direct Abaqus ELSET/SURFACE and Gmsh physical-group lowering, 2D/3D paired cohesive kernels, sparse physical-key MPI force assembly and portable restart</td>
+<td>full thin-3D publication geometry, mixed-mode/contact, extreme-scale MPI profiling, general incompressibility control, and independent V5 research comparison remain</td>
 </tr>
 <tr>
 <td>J2 plasticity</td>
@@ -3636,27 +3636,27 @@ wave oracle.  All remain experimental.</p>
    front, and distributed spall-like separation under smooth remote impact.</li>
 <li>an opt-in V4 two-dimensional refinement contract. Supershear and energy
    closure persist across 30x10, 40x14, and 60x20 meshes and a halved time
-   increment. With a fixed physical fitting length, successive spatial speed
-   changes decrease from 13.02% to 10.73% but remain above the 10% gate.
-   Mechanism preservation therefore passes while fitted-speed convergence
-   remains explicitly false.</li>
+   increment. A representative fit over the same <code>x=[0.8,1.8]</code> propagation
+   interval has <code>R^2=0.990--0.997</code>; successive spatial changes are 1.00% and
+   2.41%, and the time-step change is 0.093%. Mechanism preservation and the
+   declared fixed-distance speed-convergence gate both pass.</li>
 </ol>
 <p>These are scoped named benchmarks, not universal validation. V1--V3 remain
 the compressible plane-strain guardrails; V4 is an experimental 2D membrane
 mechanism gate. The next promotion work is:</p>
 <ol>
-<li>diagnose the remaining front-speed sensitivity using cohesive-zone
-   resolution and an alternative crack-tip observable, then add an impact-history
-   family, loaded-interface wave reference, and full thin-3D fracture
+<li>add cohesive-zone-resolution and observer-ensemble studies, then an
+   impact-history family, loaded-interface wave reference, and full thin-3D fracture
    counterpart. The principal traction-free prestrained surface-wave secular
    oracle and homogeneous affine plane-stress/thin-3D FEM cross-check are
    implemented and independently checked;</li>
-<li>direct Abaqus/Gmsh internal-surface ingestion. Ordered physical interface
-   identity, cell-partition edge recovery, balanced facet ownership, sparse
-   owner-scheduled trace/force exchange, globally reduced energy,
-   coincident-node portable fields, and two-rank-to-one-rank Explicit
-   continuation are implemented. Source ELSET/SURFACE and physical-group
-   adapters, 3D surface pairing, and profiled neighborhood collectives remain;</li>
+<li>harden the implemented Abaqus <code>ELSET/SURFACE</code> and Gmsh physical-group
+   ingestion beyond linear tetrahedra. Ordered physical identity, 2D/3D
+   partition recovery, triangular surface pairing, balanced facet ownership,
+   sparse trace/force exchange, globally reduced energy, coincident-node
+   portable fields, and cross-rank-count Explicit continuation are implemented.
+   Quadratic faces, mixed-mode behavior, publication-scale imported fixtures,
+   and profiled neighborhood collectives remain;</li>
 <li>author-deck/parameter acquisition for curve-level JMPS 2025 reproduction,
    followed by separated calibration and retained Science 2023 Dryad
    prediction cases.</li>

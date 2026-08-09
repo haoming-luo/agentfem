@@ -53,6 +53,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `convert_external_mesh_to_xdmf(*args, **kwargs)` | Convert Abaqus/NASTRAN/COMSOL-like external meshes to XDMF. |
 | function | `convert_external_mesh_bundle(*args, **kwargs)` | Convert selected source topologies into explicit solver-domain files. |
 | function | `inspect_external_mesh(path)` | Inventory external element blocks and named sets before conversion. |
+| function | `split_gmsh_physical_interface(*args, **kwargs)` | Lower named Gmsh physical cell/surface groups to a split interface. |
 | function | `read_abaqus_mesh(path: str \| Path, converted_path: str \| Path, comm: MPI.Comm = MPI.COMM_WORLD, *, cell_type: str \| None = None, reuse_conversion: bool = True) -> abaqus.AbaqusMeshImport` | Convert and read an Abaqus mesh while retaining source node labels. |
 | function | `external_mesh_formats() -> dict[str, str]` | Return common external formats supported through optional ``meshio``. |
 | function | `read_converted_xdmf(conversion, comm: MPI.Comm = MPI.COMM_WORLD, *, mesh_name: str = 'Grid', tag_grid_name: str = 'Grid') -> FEMMesh` | Read a :class:`mesh.formats.MeshConversionResult` into DOLFINx. |
@@ -126,9 +127,9 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
-| function | `finite_strain_internal_force(displacement, test_function, material: hyperelasticity.NeoHookeanProperties, *, measure = ufl.dx, name: str = 'F_internal_finite_strain') -> OperatorForm` | Return the current Total-Lagrangian Neo-Hookean internal force. |
-| class | `FiniteStrainEnergyMonitor` | Accepted-frame kinetic and Neo-Hookean bulk energy monitor. |
-| class | `DofMappedCohesiveForce(assembler, displacement, *, node_to_block_dof)` | Map the serial 2D cohesive facet kernel to vector finite-element dofs. |
+| function | `finite_strain_internal_force(displacement, test_function, material, *, measure = ufl.dx, name: str = 'F_internal_finite_strain') -> OperatorForm` | Return the current Total-Lagrangian hyperelastic internal force. |
+| class | `FiniteStrainEnergyMonitor` | Accepted-frame kinetic and hyperelastic bulk energy monitor. |
+| class | `DofMappedCohesiveForce(assembler, displacement, *, node_to_block_dof)` | Map a serial cohesive facet kernel to vector finite-element dofs. |
 | class | `DistributedDofMappedCohesiveForce(assembler, displacement, *, input_node_to_block_dof, input_node_owned, global_topology, global_facet_indices, local_input_nodes = None)` | MPI assembler for a physical-keyed split interface. |
 | function | `p1_input_node_to_block_dof(displacement, *, number_of_input_nodes: int)` | Recover the complete serial input-node to block-DOF map. |
 | function | `mode_i_cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law: interface_api.BilinearCohesiveLaw, *, normal_hint, thickness: float = 1.0, tolerance: float = 1e-10) -> DofMappedCohesiveForce \| DistributedDofMappedCohesiveForce` | Build the executable Mode-I force directly from a split mesh contract. |
@@ -140,12 +141,13 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `IsotropicWaveSpeeds` | Reference small-on-zero wave speeds for one isotropic material. |
 | class | `IncrementalWaveSpeeds` | Small-on-large bulk-wave modes about one homogeneous deformation. |
 | class | `PrincipalSurfaceWaveSpeed` | Reference-coordinate principal surface-wave secular solution. |
-| function | `neo_hookean_material_tangent(deformation_gradient, material: hyperelasticity.NeoHookeanProperties) -> np.ndarray` | Return ``A[i,J,k,L] = dP[i,J]/dF[k,L]`` for the declared energy. |
-| function | `incremental_wave_speeds(deformation_gradient, direction, material: hyperelasticity.NeoHookeanProperties, *, direction_configuration: str = 'current') -> IncrementalWaveSpeeds` | Return homogeneous small-on-large bulk-wave speeds. |
+| function | `neo_hookean_material_tangent(deformation_gradient, material) -> np.ndarray` | Return ``A[i,J,k,L] = dP[i,J]/dF[k,L]`` for a supported energy. |
+| function | `incremental_wave_speeds(deformation_gradient, direction, material, *, direction_configuration: str = 'current') -> IncrementalWaveSpeeds` | Return homogeneous small-on-large bulk-wave speeds. |
 | function | `principal_surface_wave_speed(deformation_gradient, material: hyperelasticity.NeoHookeanProperties, *, propagation_axis: int = 0, scan_points: int = 320) -> PrincipalSurfaceWaveSpeed` | Solve the 2D small-on-large principal surface-wave secular problem. |
-| function | `isotropic_reference_wave_speeds(material: hyperelasticity.NeoHookeanProperties) -> IsotropicWaveSpeeds` | Return unstretched 3D isotropic ``c_d``, ``c_s``, and ``c_R``. |
+| function | `isotropic_reference_wave_speeds(material) -> IsotropicWaveSpeeds` | Return unstretched 3D isotropic ``c_d``, ``c_s``, and ``c_R``. |
 | class | `StableTimeIncrement` | Visible body/interface estimate for central difference. |
 | class | `CohesiveCrackHistory` | Crack-front position and window-fitted speed on a fixed path. |
+| class | `CrackPropagationFit` | Representative crack speed fitted across a declared path interval. |
 | class | `InterfaceFrontHistory` | Front position and fitted speed for one declared interface signal. |
 | class | `CohesiveFrontEnsemble` | Crack-front evidence from multiple thresholds and physical signals. |
 | class | `CohesiveInterfaceTrace` | Portable accepted-frame record on one fixed cohesive interface. |
@@ -154,6 +156,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `transfer_preload_to_explicit(preload_displacement, *, state, mass, residual, initial_velocity = None, mode: str = 'equilibrium', force_tolerance: float = 1e-08, acceleration_projection = None, energy_monitor = None, source_energy: float \| None = None, source_step: str \| None = None, destination_step: str \| None = None) -> PreloadTransferReport` | Initialize ``u/v/a`` consistently from a quasi-static preload state. |
 | function | `cohesive_crack_tip(path_coordinate, damage, *, threshold: float = 0.95, direction: str = 'increasing') -> float` | Locate the contiguous crack front by interpolating a damage threshold. |
 | function | `crack_tip_history(time_values, path_coordinate, damage_frames, *, threshold: float = 0.95, fit_window: int = 5, direction: str = 'increasing') -> CohesiveCrackHistory` | Build a crack history without single-failed-element speed spikes. |
+| function | `fit_crack_propagation_speed(history: CohesiveCrackHistory, *, start_position: float, end_position: float, minimum_samples: int = 3) -> CrackPropagationFit \| None` | Fit one representative speed over a fixed physical path interval. |
 | function | `interface_front_history(time_values, path_coordinate, signal_frames, *, signal: str, threshold: float, fit_window: int = 5, direction: str = 'increasing') -> InterfaceFrontHistory` | Track a contiguous interface front from any increasing damage signal. |
 | function | `cohesive_front_ensemble(trace: CohesiveInterfaceTrace, *, damage_thresholds = (0.5, 0.75, 0.95), opening_thresholds = (), dissipation_thresholds = (), fit_window: int = 5, direction: str = 'increasing') -> CohesiveFrontEnsemble` | Build observer-sensitivity evidence from a portable interface trace. |
 | function | `compare_curve(reference_coordinate, reference_values, simulation_coordinate, simulation_values, *, coordinate_name: str = 'coordinate', quantity_name: str = 'value') -> ScientificComparison` | Interpolate a simulated curve onto observed coordinates and compare. |
@@ -241,16 +244,20 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `turning_points(history) -> np.ndarray` | Return endpoints and local reversals from a scalar stress history. |
 | class | `FiniteStrainKinematics` | Standard total-Lagrangian kinematics derived from one displacement. |
 | class | `MixedNeoHookeanProperties` | Isochoric Neo-Hookean solid with an independent pressure field. |
+| class | `MooneyRivlinProperties` | Two-parameter isotropic Mooney-Rivlin finite-strain solid. |
 | class | `NeoHookeanProperties` | Compressible Neo-Hookean parameters derived from ``E`` and ``nu``. |
 | class | `PlaneStressNeoHookeanProperties` | Compressible Neo-Hookean membrane with locally relaxed thickness. |
 | function | `kinematics(displacement) -> FiniteStrainKinematics` | Return the standard finite-strain kinematic measures for ``u``. |
+| function | `mooney_rivlin(*, shear_modulus: float, first_invariant_fraction: float, bulk_modulus: float, density: float \| None = None, name: str = 'compressible Mooney-Rivlin') -> MooneyRivlinProperties` | Create a three-dimensional compressible Mooney-Rivlin solid. |
+| function | `mooney_rivlin_plane_stress(*, shear_modulus: float, first_invariant_fraction: float, density: float \| None = None, name: str = 'incompressible plane-stress Mooney-Rivlin') -> MooneyRivlinProperties` | Create the exact incompressible sheet reduction of Eq. (17). |
 | function | `mixed_neo_hookean(*, young: float, poisson: float, density: float \| None = None, name: str = 'mixed Neo-Hookean') -> MixedNeoHookeanProperties` | Create a pressure-displacement Neo-Hookean material. |
 | function | `neo_hookean(*, young: float, poisson: float, density: float \| None = None, name: str = 'compressible Neo-Hookean') -> NeoHookeanProperties` | Create a compressible Neo-Hookean material. |
 | function | `neo_hookean_plane_stress(*, young: float, poisson: float, density: float \| None = None, name: str = 'plane-stress compressible Neo-Hookean') -> PlaneStressNeoHookeanProperties` | Create a finite-strain plane-stress Neo-Hookean membrane material. |
 | function | `plane_stress_first_piola_value(deformation_gradient, properties: PlaneStressNeoHookeanProperties) -> np.ndarray` | Return the condensed numerical in-plane first Piola stress. |
 | function | `plane_stress_out_of_plane_first_piola_from_gradient(F, properties: PlaneStressNeoHookeanProperties)` | Return the condensed ``P33`` residual for diagnostics and tests. |
 | function | `plane_stress_thickness_stretch_value(deformation_gradient, properties: PlaneStressNeoHookeanProperties, *, tolerance: float = 1e-12, maximum_iterations: int = 30) -> float` | Solve the local ``P33=0`` condition for one numerical 2x2 ``F``. |
-| function | `plane_stress_uniaxial_deformation_gradient(axial_stretch: float, properties: PlaneStressNeoHookeanProperties, *, tolerance: float = 1e-12, maximum_iterations: int = 30) -> np.ndarray` | Return homogeneous uniaxial ``F2`` with traction-free lateral faces. |
+| function | `plane_stress_uniaxial_deformation_gradient(axial_stretch: float, properties: PlaneStressNeoHookeanProperties \| MooneyRivlinProperties, *, tolerance: float = 1e-12, maximum_iterations: int = 30) -> np.ndarray` | Return homogeneous uniaxial ``F2`` with traction-free lateral faces. |
+| function | `supports_hyperelastic_study(properties, *, dimension: int, assumption) -> bool` | Return whether one material has a formulation for the declared Study. |
 | class | `J2LinearIsotropicHardening` | Rate-independent von Mises plasticity with linear isotropic hardening. |
 | class | `J2PlasticState` | History variables for small-strain isotropic J2 plasticity. |
 | class | `J2Update` | Result of one radial-return material-point update. |
@@ -717,13 +724,17 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `BilinearCohesiveLaw` | Irreversible bilinear Mode-I cohesive law. |
 | class | `CohesiveTransaction(law: BilinearCohesiveLaw, size: int)` | Trial/commit/rollback state for a batch of cohesive points. |
 | class | `PairedLineFacets` | Deterministically paired zero-thickness line facets for a 2D mesh. |
-| class | `SplitInterfaceMesh` | Array-level result of splitting one conforming 2D interface path. |
-| function | `create_dolfinx_split_mesh(split: SplitInterfaceMesh, *, comm = None, cell_type: str \| None = None, input_order: str = 'counterclockwise')` | Create the first executable DOLFINx mesh for a split 2D interface. |
+| class | `PairedSurfaceFacets` | Deterministically paired zero-thickness triangular facets in 3D. |
+| class | `SplitInterfaceMesh` | Array-level result of splitting one conforming interface manifold. |
+| function | `create_dolfinx_split_mesh(split: SplitInterfaceMesh, *, comm = None, cell_type: str \| None = None, input_order: str = 'counterclockwise')` | Create an executable DOLFINx mesh for an audited split interface. |
 | class | `CohesiveFacetResponse` | Trial force and energy from a batch of paired 2D facets. |
 | class | `ModeICohesiveFacetAssembler(topology: PairedLineFacets, law: BilinearCohesiveLaw, *, number_of_nodes: int, thickness: float = 1.0)` | Two-point line integration for a fixed-path 2D Mode-I interface. |
+| class | `ModeICohesiveSurfaceAssembler(topology: PairedSurfaceFacets, law: BilinearCohesiveLaw, *, number_of_nodes: int)` | Three-point integration of linear triangular Mode-I surfaces in 3D. |
+| function | `pair_coincident_surface_facets(coordinates, negative_facets, positive_facets, *, normal_hint, tolerance: float = 1e-10) -> PairedSurfaceFacets` | Pair coincident three-node triangular facets in 3D. |
 | function | `pair_coincident_line_facets(coordinates, negative_facets, positive_facets, *, normal_hint, tolerance: float = 1e-10) -> PairedLineFacets` | Pair coincident two-node line facets with a declared normal direction. |
 | function | `split_conforming_line_interface(coordinates, cells, interface_facets, *, positive_cells) -> SplitInterfaceMesh` | Duplicate nodes on a declared conforming 2D cell interface. |
-| function | `split_conforming_cell_interface(coordinates, cells, *, positive_cells) -> SplitInterfaceMesh` | Split the internal edge separating two declared 2D cell partitions. |
+| function | `split_conforming_surface_interface(coordinates, cells, interface_facets, *, positive_cells) -> SplitInterfaceMesh` | Duplicate nodes on a declared conforming triangular surface in 3D. |
+| function | `split_conforming_cell_interface(coordinates, cells, *, positive_cells) -> SplitInterfaceMesh` | Split the internal facet separating two declared cell partitions. |
 | class | `CohesiveSurface` | Public description of a fixed-path zero-thickness interface. |
 | function | `bilinear_cohesive(*, strength: float, fracture_energy: float, initial_stiffness: float, compression_stiffness: float \| None = None, name: str = 'bilinear Mode-I cohesive law') -> BilinearCohesiveLaw` | Create a bilinear Mode-I cohesive law. |
 | function | `cohesive_surface(*, law: BilinearCohesiveLaw, mode: str = 'normal', name: str = 'cohesive surface') -> CohesiveSurface` | Declare a fixed-path zero-thickness cohesive interface. |

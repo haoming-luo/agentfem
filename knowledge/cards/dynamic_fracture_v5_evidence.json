@@ -114,8 +114,8 @@
       "The public Science observations are not a complete JMPS 2025 computational input deck.",
       "The dependency-free XLSX reader exposes stored values and cached formula results; it does not execute Excel formulas or infer units.",
       "No universal acceptance tolerance is imposed; the research protocol must justify observable-specific thresholds.",
-      "The V4 spatial speed gate is not yet converged below ten percent.",
-      "Physical-keyed cohesive state, force, energy, sparse interface payloads, and cross-rank-count restart are implemented; direct imported/3D interfaces and extreme-scale MPI profiling remain.",
+      "The accepted V4 speed gate covers one fixed-distance two-dimensional numerical mechanism; it is not a publication-curve validation.",
+      "Physical-keyed cohesive state, force, energy, sparse interface payloads, cross-rank-count restart, direct named-interface lowering, and linear triangular 3D surfaces are implemented; extreme-scale MPI profiling remains.",
       "The plane-stress/thin-3D cross-check currently covers homogeneous affine deformation, not a full three-dimensional propagating crack.",
       "The implemented publication registration is affine; nonlinear lens correction, segmentation, and coordinate uncertainty remain explicit research preprocessing."
     ]

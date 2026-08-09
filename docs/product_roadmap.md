@@ -29,8 +29,8 @@ core, results, verification, and documentation have priority.
 | Linear elasticity | FEM-integrated | 2D plane stress/strain and 3D isotropic solids; regional materials; displacement-only steps; one-call U/S/E/MISES output with opt-in SENER and explicit processing metadata; named-boundary reactions; automatic assembled external-force/strong-reaction equilibrium evidence; serial/MPI patch evidence | external structural convergence, integration-point export/recovery, axisymmetry, mixed incompressibility, beams/shells, and affine/weak reactions remain |
 | Thermoelasticity | FEM-integrated | steady/implicit-transient heat transfer, regional multi-material conductivity and capacity, amplitude-driven sources/ambient conditions, and sequential isotropic thermal stress in 2D/3D | no property tables or monolithic two-way coupling |
 | Structural dynamics | FEM-integrated foundation | central difference, Newmark, and generalized-alpha through `dynamic_solid`; model-owned constraints and amplitude loads enter both Standard and Explicit paths; shared field output, mechanical-energy histories, integrity-checked pause/checkpoint/restart, truthful continuation output, and opt-in nodal checkpoint portability across MPI rank counts | implicit route is linear; portable NPZ is root-gathered and stateful quadrature portability is separate |
-| Neo-Hookean solids | FEM-integrated | compressible displacement route plus monolithic P2/DG0 constant-pressure mixed route; 3D, 2D plane strain, and locally condensed finite-strain plane stress; automatic/fixed increments, consistent Newton tangent, cutback/rollback, positive-J acceptance; topology-preserving C3D10-to-C3D10H derivation; serial mixed affine-periodic solve, large-mesh Golden contract, and homogeneous affine plane-stress/thin-3D FEM cross-check | one material; distributed mixed affine-periodic MPC, general explicit locking control, full thin-3D fracture, Cook convergence suite, and independent external-code comparison remain |
-| Dynamic cohesive fracture | experimental V4 mechanism + V5 evidence foundation | finite-strain plane-stress Explicit, prestrain transfer, fixed-path Mode-I cohesive transaction, complete energy ledger, V0--V3 guardrails, crack/supershear/spall V4 mechanism ladder, physical-length refinement contract, portable interface trace, multi-observer crack fronts, live SENER/KED/J saved fields, pinned Science Dryad manifest, affine publication-coordinate registration, sealed evidence bundle, cell-partition interface recovery, sparse physical-key MPI trace/force assembly, and two-rank-to-one-rank cohesive Explicit restart | V4 front speed remains above the ten-percent spatial gate; direct imported/3D interfaces, extreme-scale MPI profiling, full thin-3D fracture/general incompressibility, and independent V5 research comparison remain |
+| Hyperelastic solids | FEM-integrated | compressible and plane-stress Neo-Hookean; compressible 3D and exact incompressible plane-stress Mooney--Rivlin; static and finite-strain Explicit consumption, energy, first-Piola stress, material tangent and small-on-large waves; monolithic P2/DG0 constant-pressure Neo-Hookean; C3D10H topology and affine plane-stress/thin-3D checks | distributed mixed affine-periodic MPC, general Explicit locking control, full thin-3D fracture, broader material benchmarks, and independent external-code comparison remain |
+| Dynamic cohesive fracture | experimental V4 convergence accepted + V5 evidence foundation | finite-strain plane-stress Explicit, injectable Neo-Hookean/Mooney--Rivlin bulk material, preload transfer, fixed-path Mode-I cohesive transaction, complete energy ledger, V0--V3 guardrails, crack/supershear/spall V4 ladder, accepted fixed-distance spatial/time convergence, portable interface trace, multi-observer fronts, direct Abaqus ELSET/SURFACE and Gmsh physical-group lowering, 2D/3D paired cohesive kernels, sparse physical-key MPI force assembly and portable restart | full thin-3D publication geometry, mixed-mode/contact, extreme-scale MPI profiling, general incompressibility control, and independent V5 research comparison remain |
 | J2 plasticity | FEM-integrated foundation | 3D shared quadrature transaction, analytical tangent, natural/displacement loading, non-monotone tabular amplitude, global Newton, physical-increment cutback, cumulative serial restart, traceable quadrature S/PE/PEEQ/MISES plus weighted DG0 recovery and nodal RF results, prescribed-work/energy histories, analytical and Abaqus states, homogeneous multi-element evidence, and nonuniform bending regression | linear isotropic hardening, serial single-material small strain only; no plane stress, multi-region driver, MPI-portable quadrature restart, or nonuniform external structural benchmark |
 | Creep and creep damage | FEM-integrated power-law foundation + local damage assessment | 3D power-law backward Euler with shared quadrature state, analytical tangent, automatic physical-time cutback, CE/CEEQ/S/MISES/RF plus weighted DG0 recovery, dissipation and serial restart; scalar/field Arrhenius temperature consumed at quadrature points; official Abaqus constant-stress external contract; local K-R, Sinh, modified-theta and hot-wall assessment | global route is serial/single-material; no automatic transient thermal-history transfer, external component validation, or damage regularization |
 | Stress-life fatigue | postprocessor | Basquin/tabulated S-N, rainflow, Goodman, Miner assessment from named result histories | no multiaxial critical-plane method |
@@ -247,27 +247,27 @@ The first four promotion gates now have executable experimental evidence:
    front, and distributed spall-like separation under smooth remote impact.
 5. an opt-in V4 two-dimensional refinement contract. Supershear and energy
    closure persist across 30x10, 40x14, and 60x20 meshes and a halved time
-   increment. With a fixed physical fitting length, successive spatial speed
-   changes decrease from 13.02% to 10.73% but remain above the 10% gate.
-   Mechanism preservation therefore passes while fitted-speed convergence
-   remains explicitly false.
+   increment. A representative fit over the same `x=[0.8,1.8]` propagation
+   interval has `R^2=0.990--0.997`; successive spatial changes are 1.00% and
+   2.41%, and the time-step change is 0.093%. Mechanism preservation and the
+   declared fixed-distance speed-convergence gate both pass.
 
 These are scoped named benchmarks, not universal validation. V1--V3 remain
 the compressible plane-strain guardrails; V4 is an experimental 2D membrane
 mechanism gate. The next promotion work is:
 
-6. diagnose the remaining front-speed sensitivity using cohesive-zone
-   resolution and an alternative crack-tip observable, then add an impact-history
-   family, loaded-interface wave reference, and full thin-3D fracture
+6. add cohesive-zone-resolution and observer-ensemble studies, then an
+   impact-history family, loaded-interface wave reference, and full thin-3D fracture
    counterpart. The principal traction-free prestrained surface-wave secular
    oracle and homogeneous affine plane-stress/thin-3D FEM cross-check are
    implemented and independently checked;
-7. direct Abaqus/Gmsh internal-surface ingestion. Ordered physical interface
-   identity, cell-partition edge recovery, balanced facet ownership, sparse
-   owner-scheduled trace/force exchange, globally reduced energy,
-   coincident-node portable fields, and two-rank-to-one-rank Explicit
-   continuation are implemented. Source ELSET/SURFACE and physical-group
-   adapters, 3D surface pairing, and profiled neighborhood collectives remain;
+7. harden the implemented Abaqus `ELSET/SURFACE` and Gmsh physical-group
+   ingestion beyond linear tetrahedra. Ordered physical identity, 2D/3D
+   partition recovery, triangular surface pairing, balanced facet ownership,
+   sparse trace/force exchange, globally reduced energy, coincident-node
+   portable fields, and cross-rank-count Explicit continuation are implemented.
+   Quadratic faces, mixed-mode behavior, publication-scale imported fixtures,
+   and profiled neighborhood collectives remain;
 8. author-deck/parameter acquisition for curve-level JMPS 2025 reproduction,
    followed by separated calibration and retained Science 2023 Dryad
    prediction cases.

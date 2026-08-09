@@ -6,6 +6,14 @@ and Fineberg, *Science* 381 (2023), and uses the authors' public Dryad dataset.
 The JMPS 2025 model remains a complementary mechanism reference because its
 complete computational input deck is not public.
 
+The JMPS manuscript reports the incompressible Mooney--Rivlin Eq. (17) with
+`c=0.2829` and an approximately `500.5 kPa` shear modulus when converting the
+measured deformation to stress. Its finite-element calculation is described
+separately as plane-stress hypoelastic. The software therefore exposes the
+Eq. (17) material as an injectable research hypothesis but does not silently
+label it as the paper's numerical constitutive update. A comparison must state
+which role is being reproduced.
+
 ## What the software now provides
 
 AgentFEM pins Dryad version `235603` as a 26-file CC0 manifest. Each file has
@@ -179,10 +187,11 @@ cohesive parameters, or mesh specifications. A homogeneous affine
 plane-stress/thin-three-dimensional FEM cross-check and physical-keyed
 cross-rank-count cohesive state and Explicit force/restart contracts are
 implemented. Full thin-3D fracture, general near-incompressible validation,
-direct imported internal surfaces, and extreme-scale neighborhood-collective
-profiling remain software roadmap items. The 2D route now derives a conforming
-path from cell partitions and exchanges only scheduled interface traces and
-forces across MPI. The first publication-image registration is
+and extreme-scale neighborhood-collective profiling remain software roadmap
+items. Direct Abaqus/Gmsh named interfaces and linear triangular 3D cohesive
+surfaces now lower to the same physical-keyed transaction used by the 2D
+route. Full thin-3D publication geometry remains separate from this topology
+and kernel milestone. The first publication-image registration is
 implemented for reviewed affine maps; nonlinear optical calibration, image
 segmentation, and uncertainty propagation remain research processing rather
 than inferred software behavior.

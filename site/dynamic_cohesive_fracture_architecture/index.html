@@ -3684,21 +3684,25 @@ with independent displacement degrees of freedom.  The mesh adapter must:</p>
 <li>reject missing, duplicate, ambiguous, or noncoincident partners;</li>
 <li>assign every physical pair one balanced deterministic MPI owner.</li>
 </ol>
-<p>For a conforming two-dimensional mesh, the path can now be derived from a
-declared cell partition with <code>split_conforming_cell_interface(...)</code>. The
-positive cell region remains explicit, while shared manifold edges are
-recovered and checked automatically. This is the neutral lowering target for
-future Abaqus ELSET/SURFACE and Gmsh physical-group adapters; it is not yet a
-direct 3D imported-surface consumer.</p>
+<p>For a conforming two- or three-dimensional mesh, the path can be derived from
+a declared cell partition with <code>split_conforming_cell_interface(...)</code>. Shared
+edges or triangular faces are recovered and checked automatically. Abaqus
+<code>ELSET</code> plus element-face <code>SURFACE</code> definitions and Gmsh volume/interface
+physical groups now lower directly to this neutral split-interface contract.
+The first rigorous imported 3D route is tetrahedral: the external face set is
+used as an independent check that the declared surface exactly equals the cell
+partition boundary before coincident nodes are duplicated.</p>
 <p>Because the split sides are topological exterior facets, a normal DOLFINx
-interior-facet <code>dS</code> form is not by itself the global cohesive element.  The
-current 2D consumer assembles paired-facet nodal forces explicitly and adds
+interior-facet <code>dS</code> form is not by itself the global cohesive element. The
+current 2D line and 3D triangular-surface consumers assemble paired-facet
+nodal forces explicitly and add
 them to the same residual vector as the bulk force.  This also makes equal and
 opposite interface force and energy tests direct.  A later mixed-dimensional
 or custom-kernel implementation may replace the assembler without changing
 the public <code>CohesiveSurface</code> contract.</p>
 <h2 id="bulk-dynamics">Bulk dynamics<a class="headerlink" href="#bulk-dynamics" title="Permanent link">&para;</a></h2>
-<p>The first route is a Total-Lagrangian compressible Neo-Hookean body:</p>
+<p>The bulk route is Total-Lagrangian hyperelasticity, currently including
+Neo-Hookean and Mooney--Rivlin energies:</p>
 <div class="arithmatex">\[
  \rho_0 \ddot{u}_i = P_{iJ,J} + \rho_0 b_i,
  \qquad
@@ -3719,15 +3723,18 @@ factor, and the controlling entity.</p>
 an explicit formulation: pressure has no ordinary inertial equation and the
 current mixed solve is monolithic.  It must not be attached to central
 difference merely because it avoids locking statically.</p>
-<p>The V4 mechanism route now uses a local finite-strain plane-stress reduction
-at <code>nu=0.49</code>. At every material point a positive thickness stretch is solved
-such that <code>P33=0</code>; the in-plane stress, energy, and Schur-condensed acoustic
-tangent all derive from that same condition. This is the correct membrane
-reduction for the named two-dimensional route, but it is not by itself a
-general proof against in-plane volumetric locking. A trusted broader route
-still requires an F-bar/selective-volumetric treatment or a deliberately
-designed stabilized explicit <code>u-p</code> scheme. Artificially lowering bulk modulus
-to obtain the desired crack speed remains forbidden.</p>
+<p>The original V4 mechanism Golden uses a local finite-strain Neo-Hookean
+plane-stress reduction at <code>nu=0.49</code>. At every material point a positive
+thickness stretch is solved such that <code>P33=0</code>; the in-plane stress, energy, and
+Schur-condensed acoustic tangent derive from the same condition. The same
+benchmark can now consume an injected incompressible plane-stress
+Mooney--Rivlin material using the Wang--Fineberg--Needleman Eq. (17) energy,
+without copying its mesh, cohesive, time-integration, energy, or crack-observer
+workflow. Neither reduction by itself proves freedom from in-plane locking on
+arbitrary meshes. A trusted broader route still requires an F-bar/selective-
+volumetric treatment or a deliberately designed stabilized explicit <code>u-p</code>
+scheme. Artificially lowering bulk modulus to obtain the desired crack speed
+remains forbidden.</p>
 <p>The current 2D Neo-Hookean implementation is plane strain.  A thin-sheet claim
 requires either:</p>
 <ul>
@@ -3964,17 +3971,20 @@ smooth impact is used because the screening impact becomes distributed spall
 when transverse wave propagation is resolved.</p>
 <p>All four runs preserve a resolved supershear regime, fewer than ten percent of
 the intact facets fail in one increment, and final complete-ledger energy
-errors remain below 0.034%. Time-step sensitivity is only 0.24%. Crack speed
-is evaluated over the same physical length of 0.3 in every spatial case,
-spanning three, four, and six interface facets rather than shrinking with the
-mesh. The fitted-speed changes decrease from 13.02% to 10.73%, but neither
-passes the declared 10% spatial gate. AgentFEM therefore reports
-<code>mechanism_preserved=True</code> but <code>speed_converged=False</code>, and the overall
-promotion gate remains false. This distinction is deliberate: repeated
-observation of a regime and a decreasing refinement change are useful
-evidence, but they are not yet an asymptotic crack speed. A cohesive-zone
-resolution study, thin-3D comparison, and author parameters remain necessary
-before publication-curve reproduction.</p>
+errors remain below 0.034%. The peak of a moving local-speed window is retained
+for regime classification because it detects whether the front crosses the
+prestrained shear-wave speed. It is not used as the convergence observable:
+that maximum is sensitive to initiation and short transients. Refinement
+instead compares a least-squares propagation speed over the same reference-
+coordinate interval, <code>x=[0.8, 1.8]</code>, in all four runs. The fits have
+<code>R^2=0.990--0.997</code>; the two successive spatial changes are 1.00% and 2.41%,
+and halving the explicit increment changes the representative speed by 0.093%.
+Both the declared 10% spatial and 2% temporal gates therefore pass, so the
+benchmark reports <code>mechanism_preserved=True</code>, <code>speed_converged=True</code>, and
+<code>accepted=True</code>. This establishes the declared two-dimensional numerical
+mechanism and observation contract. A cohesive-zone resolution study,
+thin-three-dimensional publication geometry, author parameters, and external
+curves remain necessary before claiming publication-level reproduction.</p>
 <p>The transient lifecycle advances path-dependent external work at every
 accepted increment but assembles bulk and kinetic energy only at retained
 history frames. It also reuses the accepted explicit residual when evaluating

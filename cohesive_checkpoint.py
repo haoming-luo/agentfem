@@ -93,7 +93,10 @@ def save_portable_cohesive_state(
     if int(state.size) != int(topology.number_of_points):
         raise ValueError("Cohesive transaction size does not match paired topology.")
     ownership = deterministic_facet_ownership(topology, comm=comm)
-    local_values = np.asarray(state.committed_maximum, dtype=float).reshape((-1, 2))
+    points = int(topology.quadrature_points_per_facet)
+    local_values = np.asarray(state.committed_maximum, dtype=float).reshape(
+        (-1, points)
+    )
     owned = ownership.owned_mask
     local_keys = tuple(str(key) for key in topology.facet_keys)
     payload = {
@@ -147,7 +150,7 @@ def save_portable_cohesive_state(
                 "parallel_contract": "physical_facet_keyed_state",
                 "writer_rank_count": int(comm.size),
                 "facets": len(ordered),
-                "quadrature_points_per_facet": 2,
+                "quadrature_points_per_facet": points,
                 "global_interface_sha256": _keys_digest(ordered),
                 "law": law_records[0],
                 "archive": {
@@ -200,8 +203,11 @@ def load_portable_cohesive_state(
                 keys = tuple(str(value) for value in stored["facet_keys"].tolist())
                 values = np.asarray(stored["maximum_opening"], dtype=float)
                 law = json.loads(str(stored["law_json"]))
-            if values.shape != (len(keys), 2) or np.any(~np.isfinite(values)):
+            points = int(topology.quadrature_points_per_facet)
+            if values.shape != (len(keys), points) or np.any(~np.isfinite(values)):
                 raise ValueError("Cohesive checkpoint state array is invalid.")
+            if int(metadata.get("quadrature_points_per_facet", -1)) != points:
+                raise ValueError("Cohesive checkpoint quadrature contract differs.")
             if _keys_digest(keys) != metadata["global_interface_sha256"]:
                 raise ValueError("Cohesive checkpoint interface identity differs.")
             if law != state.law.summary() or law != metadata["law"]:

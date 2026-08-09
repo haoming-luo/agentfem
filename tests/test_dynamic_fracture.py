@@ -11,6 +11,7 @@ from agentfem import (
     diagnostics,
     fields,
     fracture,
+    interfaces,
     mesh,
     models,
     operators,
@@ -479,6 +480,197 @@ def test_plane_stress_neo_hookean_runs_through_public_explicit_provider():
     assert step.history_records[-1]["bulk_strain_energy"] == pytest.approx(0.0)
 
 
+def test_wang_fineberg_needleman_mooney_rivlin_matches_equation_17():
+    material = constitutive.mooney_rivlin_plane_stress(
+        shear_modulus=500.5e3,
+        first_invariant_fraction=0.2829,
+        density=1020.0,
+    )
+    F = np.array(((1.12, 0.04), (0.01, 0.96)))
+    invariant = np.trace(F @ F.T)
+    jacobian = np.linalg.det(F)
+    expected = 0.5 * material.mu * (
+        0.2829 * (invariant + jacobian**-2 - 3.0)
+        + (1.0 - 0.2829)
+        * (jacobian**2 + invariant * jacobian**-2 - 3.0)
+    )
+
+    assert constitutive.hyperelasticity.mooney_rivlin_energy_value(
+        F, material
+    ) == pytest.approx(expected)
+    assert material.c10 == pytest.approx(0.5 * 500.5e3 * 0.2829)
+    assert material.c01 == pytest.approx(0.5 * 500.5e3 * (1.0 - 0.2829))
+    assert material.as_dict()["source_equation"] == (
+        "Wang-Fineberg-Needleman Eq. 17"
+    )
+    np.testing.assert_allclose(
+        constitutive.hyperelasticity.mooney_rivlin_first_piola_value(F, material),
+        np.array(
+            (
+                (163078.9242560367, 21669.180985113762),
+                (18834.376194589076, 33467.54124463248),
+            )
+        ),
+        rtol=2.0e-6,
+        atol=0.1,
+    )
+    uniaxial = constitutive.plane_stress_uniaxial_deformation_gradient(
+        1.12,
+        material,
+    )
+    assert np.linalg.det(uniaxial) * 1.12**-0.5 == pytest.approx(1.0)
+    assert constitutive.hyperelasticity.mooney_rivlin_first_piola_value(
+        uniaxial,
+        material,
+    )[0, 0] == pytest.approx(0.0, abs=1.0e-3)
+
+
+def test_mooney_rivlin_tangent_matches_first_piola_and_reference_shear_speed():
+    material = constitutive.mooney_rivlin_plane_stress(
+        shear_modulus=500.5e3,
+        first_invariant_fraction=0.2829,
+        density=1020.0,
+    )
+    F = np.array(((1.08, 0.02), (0.01, 0.94)))
+    tangent = fracture.neo_hookean_material_tangent(F, material)
+    numerical = np.empty_like(tangent)
+    step = 2.0e-5
+    for k in range(2):
+        for L in range(2):
+            perturbation = np.zeros_like(F)
+            perturbation[k, L] = step
+            numerical[:, :, k, L] = (
+                constitutive.hyperelasticity.mooney_rivlin_first_piola_value(
+                    F + perturbation, material
+                )
+                - constitutive.hyperelasticity.mooney_rivlin_first_piola_value(
+                    F - perturbation, material
+                )
+            ) / (2.0 * step)
+    np.testing.assert_allclose(tangent, numerical, rtol=3.0e-4, atol=20.0)
+    reference = fracture.incremental_wave_speeds(
+        np.eye(2), (1.0, 0.0), material, direction_configuration="reference"
+    )
+    assert reference.slowest == pytest.approx(
+        np.sqrt(material.mu / material.density), rel=2.0e-4
+    )
+
+
+def test_plane_stress_mooney_rivlin_runs_through_public_explicit_provider():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    model = models.create(
+        study=studies.dynamic_solid(
+            dimension=2, assumption="plane_stress", method="explicit"
+        ),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    material = model.material(
+        constitutive.mooney_rivlin_plane_stress(
+            shear_modulus=500.5e3,
+            first_invariant_fraction=0.2829,
+            density=1020.0,
+        )
+    )
+    capability = step_capability(
+        model,
+        target=displacement,
+        options={"material": material, "dt": 1.0e-6, "steps": 1},
+    )
+    assert capability["supported"]
+    step = model.step(
+        target=displacement,
+        material=material,
+        dt=1.0e-6,
+        steps=1,
+        progress=False,
+    )
+    step.run()
+    assert step.history_records[-1]["bulk_strain_energy"] == pytest.approx(0.0)
+
+
+def test_compressible_mooney_rivlin_rejects_unsupported_two_dimensional_study():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    model = models.create(
+        study=studies.dynamic_solid(
+            dimension=2,
+            assumption="plane_strain",
+            method="explicit",
+        ),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    material = model.material(
+        constitutive.mooney_rivlin(
+            shear_modulus=1.0e6,
+            first_invariant_fraction=0.25,
+            bulk_modulus=10.0e6,
+            density=1000.0,
+        )
+    )
+
+    capability = step_capability(
+        model,
+        target=displacement,
+        options={"material": material, "dt": 1.0e-6, "steps": 1},
+    )
+    assert not capability["supported"]
+
+
+def test_three_dimensional_split_surface_reaches_dolfinx_force_and_restart(tmp_path):
+    coordinates = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, -1.0],
+            [0.0, 0.0, 1.0],
+        ]
+    )
+    split = interfaces.split_conforming_cell_interface(
+        coordinates,
+        np.array([[0, 1, 2, 3], [0, 2, 1, 4]]),
+        positive_cells=[1],
+    )
+    domain = interfaces.create_dolfinx_split_mesh(
+        split, comm=MPI.COMM_SELF, cell_type="tetrahedron"
+    )
+    displacement = fields.displacement(domain)
+    law = interfaces.bilinear_cohesive(
+        strength=10.0, fracture_energy=2.0, initial_stiffness=1000.0
+    )
+    cohesive = fracture.mode_i_cohesive_force(
+        split,
+        displacement,
+        law,
+        normal_hint=(0.0, 0.0, 1.0),
+    )
+    values = displacement.value.x.array.reshape((-1, 3))
+    positive_nodes = np.unique(split.positive_facets)
+    values[cohesive.node_to_block_dof[positive_nodes], 2] = 0.02
+    trial = cohesive.begin()
+    cohesive.commit()
+    checkpoint = cohesive.save_portable_state(tmp_path / "surface")
+
+    assert trial.opening.shape == (1, 3)
+    assert checkpoint.exists()
+    cohesive.assembler.state.initialize(0.0)
+    cohesive.load_portable_state(checkpoint)
+    assert np.all(cohesive.assembler.state.committed_maximum > 0.0)
+
+
 def test_finite_strain_explicit_can_select_a_visible_automatic_time_increment():
     model, displacement, material = _dynamic_neo_hookean_model()
     step = model.step(
@@ -642,6 +834,36 @@ def test_crack_tip_history_interpolates_damage_and_fits_speed_over_a_window():
     np.testing.assert_allclose(history.position, fronts, atol=2.0e-3)
     np.testing.assert_allclose(history.speed[1:-1], expected_speed, atol=1.0e-2)
     assert history.summary()["method"].startswith("threshold_interpolation")
+
+
+def test_representative_crack_speed_uses_declared_physical_path_interval():
+    time = np.linspace(0.0, 1.0, 11)
+    history = fracture.CohesiveCrackHistory(
+        time=time,
+        position=0.2 + 2.5 * time,
+        speed=np.full(11, 2.5),
+        damage_threshold=0.95,
+        fit_window=5,
+        direction="increasing",
+    )
+    fitted = fracture.fit_crack_propagation_speed(
+        history,
+        start_position=0.7,
+        end_position=2.2,
+    )
+
+    assert fitted is not None
+    assert fitted.speed == pytest.approx(2.5)
+    assert fitted.r_squared == pytest.approx(1.0)
+    assert fitted.samples >= 3
+    assert fitted.summary()["method"] == (
+        "least_squares_position_over_declared_path_interval"
+    )
+    assert fracture.fit_crack_propagation_speed(
+        history,
+        start_position=2.65,
+        end_position=2.75,
+    ) is None
 
 
 def test_separation_classification_requires_independent_spall_evidence():

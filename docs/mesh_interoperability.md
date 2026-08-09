@@ -152,6 +152,39 @@ ambiguous coincident source nodes fail explicitly.
 `imported.surface_faces(name)` remains available as source-level evidence and
 for adapters that need the original `(element_label, face_identifier)` pairs.
 
+### Named internal surfaces for cohesive fracture
+
+Internal interface semantics can now be lowered directly to the neutral split-
+interface mesh used by the cohesive force and checkpoint machinery. For an
+Abaqus C3D4 deck, one `ELSET` selects the positive cell partition and an
+explicit element-face `SURFACE` independently proves the exact triangular
+interface:
+
+```python
+imported = mesh.read_abaqus_mesh("weak_interface.inp", "output/body.xdmf")
+split = imported.cohesive_interface(
+    positive_elset="UPPER_BODY",
+    surface="WEAK_INTERFACE",
+)
+```
+
+For Gmsh, named volume and surface physical groups carry the same contract:
+
+```python
+split = mesh.split_gmsh_physical_interface(
+    "weak_interface.msh",
+    positive_group="upper_body",
+    interface_group="weak_interface",
+)
+```
+
+Both adapters reject a named surface that differs from the boundary implied by
+the cell partition. The resulting coincident faces have independent nodes and
+can be passed to `fracture.mode_i_cohesive_force(...)` in serial or MPI. The
+current 3D kernel integrates linear triangular faces with three quadrature
+points. Abaqus C3D10 cohesive lowering remains intentionally blocked until a
+matching quadratic-face cohesive kernel and verification suite exist.
+
 ## Mesh-quality preflight
 
 Imported and generated triangle/tetrahedron domains can be audited before a

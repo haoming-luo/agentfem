@@ -150,6 +150,29 @@ def test_v4_strip_accepts_independent_even_transverse_resolution():
         )
 
 
+def test_v4_case_accepts_mooney_rivlin_bulk_material():
+    from agentfem import constitutive
+
+    material = constitutive.mooney_rivlin_plane_stress(
+        shear_modulus=1000.0 / 3.0,
+        first_invariant_fraction=0.2829,
+        density=1.0,
+    )
+    result = benchmarks.prestressed_weak_interface_separation(
+        label="v4_mooney_rivlin_smoke",
+        cells=30,
+        total_time=0.002,
+        axial_strain=0.12,
+        strength=150.0,
+        fracture_energy=1.0,
+        initial_stiffness=1.0e5,
+        bulk_material=material,
+    )
+
+    assert result.preload_energy_jump == pytest.approx(0.0)
+    assert result.preload_ligament_traction_ratio < 1.0
+
+
 def test_v4_convergence_contract_validates_controls_before_long_runs():
     with pytest.raises(ValueError, match="spatial_speed_tolerance"):
         benchmarks.jmps_weak_interface_convergence_v4(
@@ -160,12 +183,15 @@ def test_v4_convergence_contract_validates_controls_before_long_runs():
 
 
 def test_v4_refinement_separates_mechanism_from_speed_convergence(monkeypatch):
-    speeds = iter((10.0, 9.3, 8.4, 9.98))
+    peak_speeds = iter((10.0, 9.3, 8.4, 9.98))
+    representative_speeds = iter((8.0, 7.0, 6.0, 7.98))
 
     def synthetic_case(**kwargs):
         return SimpleNamespace(
             label=kwargs["label"],
-            maximum_fitted_speed=next(speeds),
+            maximum_fitted_speed=next(peak_speeds),
+            representative_fitted_speed=next(representative_speeds),
+            representative_speed_r_squared=0.999,
             regime="supershear",
             maximum_simultaneous_failed_fraction=0.02,
             final_relative_energy_error=1.0e-4,
@@ -180,8 +206,8 @@ def test_v4_refinement_separates_mechanism_from_speed_convergence(monkeypatch):
     assert study.mechanism_preserved
     assert not study.speed_converged
     assert not study.accepted
-    assert study.fine_spatial_speed_change > study.spatial_speed_change
+    assert study.fine_spatial_speed_change > 0.10
     assert any(
-        "not yet asymptotically converged" in message
+        "Second spatial refinement" in message
         for message in study.acceptance_failures
     )

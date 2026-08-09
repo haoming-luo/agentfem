@@ -46,14 +46,39 @@ model scripts do not need to import UFL for these quantities.
 affine-reduction paths; constraint implementation no longer changes the
 top-level solver language.
 
-Two-dimensional use is plane strain. Plane stress needs a local
-out-of-plane-stretch solve and is deliberately rejected by the convenience
-step rather than approximated silently.
+`neo_hookean(...)` in two dimensions is plane strain.
+`neo_hookean_plane_stress(...)` is a separate finite-strain membrane material:
+it solves a positive out-of-plane stretch satisfying `P33=0` and condenses the
+same energy and tangent. The Study assumption must match the material; the
+provider rejects a mismatch before assembly.
 
 The 3D Abaqus periodic-cell example additionally verifies quadratic tetrahedral
 geometry, macro-deformation control, equation mismatch, averaged stress, and
 quadrature-point `det(F)` bounds. It substitutes Neo-Hookean behavior for the
 unavailable Abaqus user material and does not claim constitutive equivalence.
+
+## Mooney--Rivlin Hyperelasticity
+
+`constitutive.mooney_rivlin(...)` provides the three-dimensional compressible
+energy
+
+```text
+psi = C10 (I1_bar - 3) + C01 (I2_bar - 3) + K/2 (J - 1)^2
+```
+
+`constitutive.mooney_rivlin_plane_stress(...)` provides the exact
+incompressible thin-sheet reduction reported as Eq. (17) by Wang, Fineberg,
+and Needleman. Both materials are consumed through the same `model.step(...)`
+language as Neo-Hookean solids. The finite-element residual, recoverable
+energy, first-Piola/Cauchy stress, material tangent, Explicit stable-increment
+estimate, and small-on-large wave analysis all use the declared energy.
+
+The JMPS-inspired weak-interface benchmark accepts this material directly via
+`bulk_material=...`; changing the constitutive law does not copy its mesh,
+cohesive state, preload transfer, time integration, energy ledger, or crack
+observer. The three-dimensional penalty form and the exact two-dimensional
+incompressible reduction remain distinct capabilities; neither is presented
+as a general locking-free three-dimensional Explicit formulation.
 
 ## J2 Plasticity
 

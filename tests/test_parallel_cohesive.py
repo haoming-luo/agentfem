@@ -50,6 +50,31 @@ def _law():
     )
 
 
+def _split_surface_3d():
+    coordinates = np.asarray(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.5, 0.5, -1.0],
+            [0.5, 0.5, 1.0],
+        ]
+    )
+    cells = np.asarray(
+        [
+            [0, 1, 2, 4],
+            [0, 2, 3, 4],
+            [0, 2, 1, 5],
+            [0, 3, 2, 5],
+        ],
+        dtype=int,
+    )
+    return interfaces.split_conforming_cell_interface(
+        coordinates, cells, positive_cells=[2, 3]
+    )
+
+
 def _distributed_force(split, displacement):
     return fracture.mode_i_cohesive_force(
         split,
@@ -116,6 +141,56 @@ def test_distributed_split_interface_assembles_each_physical_facet_once():
         snapshot = residual.snapshot()
         assert len(snapshot["cohesive"]["maximum_opening_by_key"]) == 3
         assert all(item == snapshot for item in comm.allgather(snapshot))
+    finally:
+        vector.destroy()
+
+
+def test_three_dimensional_cohesive_surface_uses_shared_sparse_mpi_contract():
+    comm = MPI.COMM_WORLD
+    if comm.size != 2:
+        pytest.skip("3D cohesive surface MPI acceptance requires two ranks")
+    split = _split_surface_3d()
+    domain = interfaces.create_dolfinx_split_mesh(
+        split, comm=comm, cell_type="tetrahedron"
+    )
+    displacement = fields.displacement(domain)
+    cohesive = fracture.mode_i_cohesive_force(
+        split,
+        displacement,
+        _law(),
+        normal_hint=(0.0, 0.0, 1.0),
+    )
+    values = displacement.value.x.array.reshape((-1, 3))
+    positive_nodes = set(int(value) for value in split.positive_facets.reshape(-1))
+    for node in np.flatnonzero(cohesive.input_node_owned):
+        if int(node) in positive_nodes:
+            values[int(cohesive.node_to_block_dof[node]), 2] = _law().peak_opening
+    displacement.value.x.scatter_forward()
+    zero = operators.OperatorForm(
+        name="zero_bulk_3d",
+        expression=ufl.inner(
+            fem.Constant(domain, np.asarray((0.0, 0.0, 0.0))), displacement.test
+        )
+        * ufl.dx,
+        kind="zero_bulk_force",
+        role="vector",
+        family="test",
+    )
+    residual = fracture.FiniteStrainCohesiveResidual(zero, cohesive)
+    vector = residual.assemble_vector()
+    try:
+        local_z = 0.0
+        array = vector.array.reshape((-1, 3))
+        for node in np.flatnonzero(cohesive.input_node_owned):
+            if int(node) in positive_nodes:
+                local_z += float(array[int(cohesive.node_to_block_dof[node]), 2])
+        assert comm.allreduce(local_z, op=MPI.SUM) == pytest.approx(_law().strength)
+        assert cohesive.summary()["interface"]["kind"] == (
+            "paired_triangular_surface_facets"
+        )
+        assert sum(
+            comm.allgather(cohesive.assembler.topology.number_of_facets)
+        ) == 2
     finally:
         vector.destroy()
 

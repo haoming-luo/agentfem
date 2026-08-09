@@ -141,7 +141,7 @@ Use the reference according to the question being asked:
 
 | Area | Available workflow |
 | --- | --- |
-| Solid mechanics | Linear elasticity, thermoelasticity, compressible Neo-Hookean finite strain, mixed displacement-pressure hyperelasticity, and stateful small-strain J2 plasticity |
+| Solid mechanics | Linear elasticity, thermoelasticity, Neo-Hookean and Mooney--Rivlin finite strain, mixed displacement-pressure hyperelasticity, and stateful small-strain J2 plasticity |
 | Heat transfer | Steady conduction and implicit transient heat transfer |
 | Dynamics | Newmark/generalized-\(\alpha\) implicit dynamics and central-difference explicit wave propagation |
 | Time-dependent materials | Global isothermal/Arrhenius power-law creep plus reviewed material-point creep/damage tools |

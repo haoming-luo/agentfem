@@ -1,0 +1,110 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.material.mooney_rivlin_hyperelasticity",
+  "title": "Mooney--Rivlin finite-strain solids and incompressible sheets",
+  "kind": "material",
+  "status": "experimental",
+  "summary": "Provides a compressible three-dimensional Mooney--Rivlin energy and the exact incompressible plane-stress sheet reduction of Wang--Fineberg--Needleman Eq. (17), consumed by static and finite-strain Explicit workflows.",
+  "public_api": [
+    "agentfem.constitutive.mooney_rivlin",
+    "agentfem.constitutive.mooney_rivlin_plane_stress",
+    "agentfem.fracture.incremental_wave_speeds",
+    "agentfem.models.Model.step"
+  ],
+  "implementation": [
+    "constitutive/hyperelasticity.py",
+    "fracture.py",
+    "models.py",
+    "step_providers.py",
+    "benchmarks/dynamic_fracture.py"
+  ],
+  "science": {
+    "statement": "The material energy, first-Piola stress, consistent finite-element residual, recoverable energy, numerical material tangent, and prestrained acoustic tensor all derive from one declared Mooney--Rivlin parameterization.",
+    "equations": [
+      {
+        "label": "compressible three-dimensional energy",
+        "expression": "\\psi=C_{10}(\\bar I_1-3)+C_{01}(\\bar I_2-3)+\\frac{K}{2}(J-1)^2,\\quad \\mu=2(C_{10}+C_{01})",
+        "description": "A decoupled isochoric/volumetric Mooney--Rivlin form for positive-J three-dimensional solids."
+      },
+      {
+        "label": "incompressible plane-stress sheet energy",
+        "expression": "\\psi=\\frac{\\mu}{2}[c(I+J^{-2}-3)+(1-c)(J^2+IJ^{-2}-3)]",
+        "description": "The reduced Eq. (17) form uses in-plane I=tr(FF^T), J=det(F), and thickness stretch J^-1."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "shear_modulus and first_invariant_fraction",
+        "type": "positive stress and scalar c in [0,1]",
+        "unit_role": "stress and dimensionless",
+        "description": "C10=mu*c/2 and C01=mu*(1-c)/2."
+      },
+      {
+        "name": "bulk_modulus",
+        "type": "positive stress",
+        "unit_role": "stress",
+        "description": "Required by the compressible three-dimensional form and absent from the exact incompressible sheet reduction."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "energy, first-Piola/Cauchy stress, tangent, and wave speeds",
+        "type": "scalar, second-order tensors, fourth-order tensor, and scalars",
+        "unit_role": "energy density, stress, tangent stress, and length/time",
+        "description": "All consumers use the same declared energy and positive-J finite kinematics."
+      }
+    ],
+    "assumptions": [
+      "The material is isotropic and hyperelastic.",
+      "The incompressible plane-stress route represents a thin sheet with thickness stretch equal to the inverse in-plane area ratio.",
+      "Density is required for Explicit dynamics and acoustic analysis."
+    ],
+    "conventions": [
+      "The three-dimensional factory is not silently used in a two-dimensional Study.",
+      "The plane-stress factory must be paired with assumption='plane_stress'.",
+      "The Wang--Fineberg--Needleman paper uses Eq. (17) to characterize/convert experimental material response; its reported finite-element calculation is described separately as hypoelastic."
+    ],
+    "applicability": [
+      "Finite-strain rubber-like solids, incompressible thin sheets, and parameterized weak-interface dynamic-fracture studies."
+    ],
+    "limitations": [
+      "The current compressible form uses a penalty bulk energy rather than a mixed pressure field.",
+      "The incompressible sheet route is a two-dimensional reduction, not a general three-dimensional incompressibility algorithm.",
+      "Publication-level JMPS reproduction still requires the authors' geometry, cohesive parameters, loading history, and comparison data."
+    ]
+  },
+  "usage": {
+    "minimal_example": "material = constitutive.mooney_rivlin_plane_stress(shear_modulus=500.5e3, first_invariant_fraction=0.2829, density=1020.0)\nstep = model.step(target=u, material=material, dt='auto', steps=100)",
+    "examples": [
+      "tests/test_dynamic_fracture.py",
+      "tests/test_dynamic_fracture_benchmarks.py",
+      "benchmarks/dynamic_fracture.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_dynamic_fracture.py",
+      "tests/test_dynamic_fracture_benchmarks.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.mooney_rivlin_material_paths"
+    ],
+    "validation_rules": [
+      "Match the numerical sheet energy to Eq. (17) for a nontrivial deformation gradient.",
+      "Compare the material tangent with finite differences of first-Piola stress.",
+      "Verify the undeformed shear-wave speed against sqrt(mu/rho).",
+      "Run the material through the public finite-strain Explicit provider and the cohesive benchmark injection path."
+    ]
+  },
+  "references": [
+    {
+      "title": "Wang, Fineberg, and Needleman (2025), transition from crack-type to supershear-type to spall-type dynamics",
+      "locator": "https://doi.org/10.1016/j.jmps.2025.106213"
+    }
+  ],
+  "related_cards": [
+    "agentfem.material.finite_strain_plane_stress",
+    "agentfem.workflow.dynamic_fracture_v5_evidence"
+  ]
+}

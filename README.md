@@ -55,7 +55,7 @@ engineering, computation, data, and AI.
 | --- | --- |
 | Engineering workflow | Study, model, regions, fields, materials, loads, constraints, steps, results, and concise model summaries |
 | FEM procedures | Linear and thermoelastic statics, implicit heat transfer, Newmark/generalized-alpha dynamics, and central-difference explicit dynamics |
-| Nonlinear solids | Compressible Neo-Hookean finite strain and a 3D small-strain J2 path with quadrature state, consistent tangent, cyclic loading, cutback, energy histories, and serial restart |
+| Nonlinear solids | Neo-Hookean and Mooney--Rivlin finite strain, plus a 3D small-strain J2 path with quadrature state, consistent tangent, cyclic loading, cutback, energy histories, and serial restart |
 | Time-dependent solids | 3D isothermal power-law creep with backward Euler, shared quadrature state, analytical tangent, automatic physical-time cutback, CE/CEEQ/S/MISES/RF, dissipation, and serial restart |
 | Meshes and constraints | Structured and XDMF meshes, optional Gmsh and meshio routes, Abaqus C3D10 import, equation constraints, and distributed periodic workflows |
 | Results and trust | Unified fields, quantities, histories, artifacts, progress events, checkpoints, Golden benchmarks, and exploratory/engineering/release quality policies |

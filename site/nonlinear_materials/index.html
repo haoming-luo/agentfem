@@ -1101,6 +1101,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#mooney-rivlin-hyperelasticity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mooney--Rivlin Hyperelasticity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#j2-plasticity" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3066,6 +3077,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#mooney-rivlin-hyperelasticity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mooney--Rivlin Hyperelasticity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#j2-plasticity" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3244,20 +3266,39 @@ model scripts do not need to import UFL for these quantities.
 <code>solvers.newton(...)</code> supplies one public nonlinear policy for both SNES and
 affine-reduction paths; constraint implementation no longer changes the
 top-level solver language.</p>
-<p>Two-dimensional use is plane strain. Plane stress needs a local
-out-of-plane-stretch solve and is deliberately rejected by the convenience
-step rather than approximated silently.</p>
+<p><code>neo_hookean(...)</code> in two dimensions is plane strain.
+<code>neo_hookean_plane_stress(...)</code> is a separate finite-strain membrane material:
+it solves a positive out-of-plane stretch satisfying <code>P33=0</code> and condenses the
+same energy and tangent. The Study assumption must match the material; the
+provider rejects a mismatch before assembly.</p>
 <p>The 3D Abaqus periodic-cell example additionally verifies quadratic tetrahedral
 geometry, macro-deformation control, equation mismatch, averaged stress, and
 quadrature-point <code>det(F)</code> bounds. It substitutes Neo-Hookean behavior for the
 unavailable Abaqus user material and does not claim constitutive equivalence.</p>
+<h2 id="mooney-rivlin-hyperelasticity">Mooney--Rivlin Hyperelasticity<a class="headerlink" href="#mooney-rivlin-hyperelasticity" title="Permanent link">&para;</a></h2>
+<p><code>constitutive.mooney_rivlin(...)</code> provides the three-dimensional compressible
+energy</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>psi = C10 (I1_bar - 3) + C01 (I2_bar - 3) + K/2 (J - 1)^2
+</code></pre></div>
+<p><code>constitutive.mooney_rivlin_plane_stress(...)</code> provides the exact
+incompressible thin-sheet reduction reported as Eq. (17) by Wang, Fineberg,
+and Needleman. Both materials are consumed through the same <code>model.step(...)</code>
+language as Neo-Hookean solids. The finite-element residual, recoverable
+energy, first-Piola/Cauchy stress, material tangent, Explicit stable-increment
+estimate, and small-on-large wave analysis all use the declared energy.</p>
+<p>The JMPS-inspired weak-interface benchmark accepts this material directly via
+<code>bulk_material=...</code>; changing the constitutive law does not copy its mesh,
+cohesive state, preload transfer, time integration, energy ledger, or crack
+observer. The three-dimensional penalty form and the exact two-dimensional
+incompressible reduction remain distinct capabilities; neither is presented
+as a general locking-free three-dimensional Explicit formulation.</p>
 <h2 id="j2-plasticity">J2 Plasticity<a class="headerlink" href="#j2-plasticity" title="Permanent link">&para;</a></h2>
 <p><code>constitutive.J2LinearIsotropicHardening</code> implements a small-strain,
 rate-independent Mises material-point update:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>trial elastic predictor
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>f_trial = q_trial - (sigma_y0 + H p_old)
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>Delta gamma = f_trial / (3G + H)
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>radial correction of deviatoric stress
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>trial elastic predictor
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>f_trial = q_trial - (sigma_y0 + H p_old)
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>Delta gamma = f_trial / (3G + H)
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>radial correction of deviatoric stress
 </code></pre></div>
 <p>The implementation verifies that the corrected stress lies on the hardened
 yield surface, includes an exact uniaxial update, and returns the analytical
@@ -3313,8 +3354,8 @@ evidence, followed by accepted temperature-field coupling and portable
 quadrature state. A new creep-law name alone is not that milestone.</p>
 <h2 id="creep-damage-sinh-flow-and-modified-theta">Creep Damage, Sinh Flow, and Modified Theta<a class="headerlink" href="#creep-damage-sinh-flow-and-modified-theta" title="Permanent link">&para;</a></h2>
 <p><code>KachanovRabotnovCreep</code> couples effective-stress creep and scalar damage:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>epsilon_dot = A (q / sigma_ref)^n / (1 - omega)^n
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>omega_dot   = B (q / sigma_ref)^m / (1 - omega)^phi
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>epsilon_dot = A (q / sigma_ref)^n / (1 - omega)^n
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>omega_dot   = B (q / sigma_ref)^m / (1 - omega)^phi
 </code></pre></div>
 <p>For a piecewise-constant stress interval, AgentFEM integrates both equations
 analytically. One interval and any subdivision therefore recover the same
@@ -3322,8 +3363,8 @@ material-point state up to floating-point tolerance. <code>SinhCreep</code> prov
 separate hyperbolic-sine Mises rate family used when a power law is too rigid
 over a wide stress range.</p>
 <p><code>ModifiedThetaProjection</code> represents</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>epsilon = epsilon_0 + A1 (1 - exp(-alpha t))
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>                    + B1 (exp(alpha t) - 1)
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>epsilon = epsilon_0 + A1 (1 - exp(-alpha t))
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>                    + B1 (exp(alpha t) - 1)
 </code></pre></div>
 <p>and supplies deterministic nonnegative fitting, strain/rate projection, and a
 time-to-strain criterion without adding SciPy to the core. It is classified as

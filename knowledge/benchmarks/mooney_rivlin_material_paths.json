@@ -1,0 +1,60 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.mooney_rivlin_material_paths",
+  "title": "Mooney--Rivlin material-path and Explicit-consumer contract",
+  "status": "experimental_automated_regression",
+  "purpose": "Freeze the Wang--Fineberg--Needleman Eq. (17) sheet energy, its first-Piola derivative and acoustic scale, and prove that the same material is consumed by the public finite-strain Explicit and cohesive-benchmark paths.",
+  "physics": "incompressible plane-stress Mooney--Rivlin hyperelasticity",
+  "execution": {
+    "command": "python -m pytest -q tests/test_dynamic_fracture.py tests/test_dynamic_fracture_benchmarks.py -k mooney_rivlin",
+    "example": "benchmarks/dynamic_fracture.py",
+    "evidence": "Independent material-point energy/stress/tangent checks are combined with public-provider and injected weak-interface smoke tests."
+  },
+  "observables": [
+    "Eq. (17) stored energy for a non-diagonal positive-J deformation gradient.",
+    "Numerical first-Piola stress and finite-difference material tangent.",
+    "Undeformed incremental shear-wave speed and finite-strain Explicit energy.",
+    "Preload transfer through the reusable weak-interface benchmark with a Mooney--Rivlin bulk material."
+  ],
+  "acceptance": [
+    "The implemented energy equals the independently evaluated Eq. (17) expression.",
+    "The material tangent agrees with centered differences of first-Piola stress.",
+    "The reference shear-wave speed agrees with sqrt(mu/rho).",
+    "Public Explicit and cohesive-benchmark consumers run without changing their workflow contract."
+  ],
+  "golden": {
+    "reference_version": "wang-fineberg-needleman-equation-17-1",
+    "quantities": [
+      {
+        "name": "strain_energy_density",
+        "expected": 10306.941754527124,
+        "relative_tolerance": 1e-10,
+        "absolute_tolerance": 1e-6,
+        "unit": "J/m^3",
+        "description": "Eq. (17) energy for F=[[1.12,0.04],[0.01,0.96]], mu=500.5 kPa, and c=0.2829."
+      },
+      {
+        "name": "first_piola",
+        "expected": [163078.9242560367, 21669.180985113762, 18834.376194589076, 33467.54124463248],
+        "relative_tolerance": 2e-6,
+        "absolute_tolerance": 0.1,
+        "unit": "Pa",
+        "description": "Row-major centered energy derivative for the versioned non-diagonal sheet deformation."
+      },
+      {
+        "name": "reference_shear_wave_speed",
+        "expected": 22.151448152911577,
+        "relative_tolerance": 2e-4,
+        "absolute_tolerance": 1e-5,
+        "unit": "m/s",
+        "description": "sqrt(mu/rho) for mu=500.5 kPa and rho=1020 kg/m^3."
+      }
+    ]
+  },
+  "limitations": [
+    "This is a constitutive/numerical implementation contract, not validation against the paper's experimental curves.",
+    "The V4 convergence Golden remains Neo-Hookean unless a separate Mooney--Rivlin parameter study is explicitly executed and versioned.",
+    "Publication reproduction still requires geometry, cohesive law, loading history, mesh and post-processing evidence."
+  ]
+}

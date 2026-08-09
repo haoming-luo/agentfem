@@ -11,6 +11,7 @@ layer.
 | Linear elasticity | Release workflow | Small-strain static solids and first models |
 | Thermoelasticity | Engineering workflow | Temperature-driven stress after thermal analysis |
 | Compressible Neo-Hookean | Engineering workflow | Finite-strain hyperelastic solids |
+| Mooney--Rivlin | Experimental FEM workflow | Compressible 3D solids and incompressible plane-stress sheets |
 | Mixed displacement-pressure Neo-Hookean | Experimental/engineering | Near-incompressible quadratic tetrahedral solids |
 | Small-strain J2 plasticity | Engineering path | Stateful elastoplastic loading with consistent tangent |
 

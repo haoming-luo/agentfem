@@ -186,7 +186,9 @@ def test_mode_i_facet_kernel_produces_equal_opposite_force_and_exact_energy():
     displacement[2:, 1] = _law().peak_opening
     response = assembler.begin(displacement)
 
-    np.testing.assert_allclose(np.sum(response.internal_force, axis=0), 0.0)
+    np.testing.assert_allclose(
+        np.sum(response.internal_force, axis=0), 0.0, atol=1.0e-14
+    )
     np.testing.assert_allclose(response.internal_force[:2, 1], -10.0)
     np.testing.assert_allclose(response.internal_force[2:, 1], 10.0)
     assert response.stored_energy == pytest.approx(
@@ -344,6 +346,46 @@ def test_split_cell_interface_rejects_non_manifold_connectivity():
             cells,
             positive_cells=[1],
         )
+
+
+def test_three_dimensional_surface_split_pair_and_mode_i_resultant():
+    coordinates = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, -1.0],
+            [0.0, 0.0, 1.0],
+        ]
+    )
+    cells = np.array([[0, 1, 2, 3], [0, 2, 1, 4]])
+    split = interfaces.split_conforming_cell_interface(
+        coordinates, cells, positive_cells=[1]
+    )
+    topology = interfaces.pair_coincident_surface_facets(
+        split.coordinates,
+        split.negative_facets,
+        split.positive_facets,
+        normal_hint=(0.0, 0.0, 1.0),
+    )
+    assembler = interfaces.ModeICohesiveSurfaceAssembler(
+        topology, _law(), number_of_nodes=split.coordinates.shape[0]
+    )
+    displacement = np.zeros_like(split.coordinates)
+    displacement[split.positive_facets.reshape(-1), 2] = 0.005
+    response = assembler.begin(displacement)
+
+    assert split.negative_facets.shape == (1, 3)
+    assert topology.areas == pytest.approx([0.5])
+    assert topology.number_of_points == 3
+    np.testing.assert_allclose(response.opening, [[0.005, 0.005, 0.005]])
+    np.testing.assert_allclose(
+        np.sum(response.internal_force, axis=0), 0.0, atol=1.0e-14
+    )
+    positive_force = np.sum(
+        response.internal_force[np.unique(split.positive_facets)], axis=0
+    )
+    np.testing.assert_allclose(positive_force, [0.0, 0.0, 2.5])
 
 
 def test_split_cell_interface_supports_triangle_partitions():

@@ -735,6 +735,78 @@ class AbaqusMeshImport:
             selected.append(table.element(element_label).face_corner_labels(face))
         return tuple(selected)
 
+    def cohesive_interface(
+        self,
+        *,
+        positive_elset: str,
+        surface: str,
+    ):
+        """Lower Abaqus ``ELSET``/``SURFACE`` semantics to a split interface.
+
+        The first source-semantic route consumes linear ``C3D4`` solids and
+        an explicit element-based internal surface.  The ELSET declares which
+        bulk partition receives duplicate nodes; the SURFACE independently
+        proves the exact physical faces.  A mismatch is rejected rather than
+        allowing a named surface to silently select another partition edge.
+        """
+
+        from agentfem import interfaces
+
+        set_record = self.element_sets.get(str(positive_elset).upper())
+        if set_record is None:
+            raise KeyError(f"Abaqus ELSET {positive_elset!r} is not present.")
+        table = self.elements
+        if any(item.element_type.upper() != "C3D4" for item in table.elements):
+            raise NotImplementedError(
+                "Direct 3D cohesive lowering currently requires one C3D4 block; "
+                "quadratic faces need a matching higher-order cohesive kernel."
+            )
+        label_to_node = {
+            int(label): index for index, label in enumerate(self.nodes.labels.tolist())
+        }
+        element_to_cell = {
+            int(item.label): index for index, item in enumerate(table.elements)
+        }
+        cells = np.asarray(
+            [
+                [label_to_node[int(label)] for label in item.connectivity]
+                for item in table.elements
+            ],
+            dtype=int,
+        )
+        try:
+            positive_cells = np.asarray(
+                [element_to_cell[int(label)] for label in set_record.get("labels", ())],
+                dtype=int,
+            )
+        except KeyError as exc:
+            raise KeyError(
+                f"Abaqus ELSET {positive_elset!r} references an unknown element."
+            ) from exc
+        requested = {
+            tuple(
+                sorted(label_to_node[int(label)] for label in corner_labels)
+            )
+            for corner_labels in self.surface_corner_labels(surface)
+        }
+        split = interfaces.split_conforming_cell_interface(
+            np.asarray(self.nodes.coordinates, dtype=float),
+            cells,
+            positive_cells=positive_cells,
+        )
+        recovered = {
+            tuple(sorted(int(value) for value in facet))
+            for facet in split.negative_facets
+        }
+        if requested != recovered:
+            missing = sorted(requested - recovered)[:4]
+            extra = sorted(recovered - requested)[:4]
+            raise ValueError(
+                "Abaqus SURFACE does not equal the interface implied by the "
+                f"declared ELSET: missing={missing}, extra={extra}."
+            )
+        return split
+
     def node_set(self, name: str, *, tolerance: float | None = None):
         """Promote an Abaqus ``NSET`` to a strong-constraint-ready node region."""
 

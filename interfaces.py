@@ -352,6 +352,16 @@ class PairedLineFacets:
     def number_of_points(self) -> int:
         return 2 * self.number_of_facets
 
+    @property
+    def quadrature_points_per_facet(self) -> int:
+        return 2
+
+    @property
+    def measures(self) -> np.ndarray:
+        """Reference line measure per facet."""
+
+        return self.lengths.copy()
+
     def summary(self) -> dict[str, object]:
         return {
             "kind": "paired_line_facets",
@@ -364,12 +374,7 @@ class PairedLineFacets:
         }
 
     def identity(self) -> dict[str, object]:
-        """Return the durable identity used by irreversible interface state.
-
-        Physical keys created by :func:`pair_coincident_line_facets` are
-        independent of DOLFINx dof numbering.  Directly constructed legacy
-        topologies retain an explicit node-order-scoped fallback.
-        """
+        """Return the durable physical identity of the paired line facets."""
 
         if self.facet_keys:
             keys = self.facet_keys
@@ -378,9 +383,7 @@ class PairedLineFacets:
             keys = tuple(
                 ":".join(str(int(value)) for value in (*negative, *positive))
                 for negative, positive in zip(
-                    self.negative_nodes,
-                    self.positive_nodes,
-                    strict=True,
+                    self.negative_nodes, self.positive_nodes, strict=True
                 )
             )
             scope = "legacy_node_order"
@@ -388,18 +391,14 @@ class PairedLineFacets:
         for key in keys:
             digest.update(key.encode("utf-8"))
             digest.update(b"\0")
-        digest.update(
-            np.rint(self.normals / self.tolerance).astype("<i8").tobytes()
-        )
-        digest.update(
-            np.rint(self.lengths / self.tolerance).astype("<i8").tobytes()
-        )
+        digest.update(np.rint(self.normals / self.tolerance).astype("<i8").tobytes())
+        digest.update(np.rint(self.lengths / self.tolerance).astype("<i8").tobytes())
         return {
             "schema": "agentfem.cohesive-interface-identity.v1",
             "sha256": digest.hexdigest(),
             "scope": scope,
             "number_of_facets": self.number_of_facets,
-            "quadrature_points_per_facet": 2,
+            "quadrature_points_per_facet": self.quadrature_points_per_facet,
             "pairing_tolerance": self.tolerance,
             "facet_keys": list(keys),
             "orientation_sensitive": True,
@@ -407,8 +406,125 @@ class PairedLineFacets:
 
 
 @dataclass(frozen=True)
+class PairedSurfaceFacets:
+    """Deterministically paired zero-thickness triangular facets in 3D.
+
+    The two sides have independent node identities but coincident reference
+    geometry.  Positive-side node order is permuted to the negative-side
+    geometry.  ``normal_hint`` remains an explicit physical convention: a
+    coincident surface cannot infer which material side is positive.
+    """
+
+    negative_nodes: np.ndarray
+    positive_nodes: np.ndarray
+    normals: np.ndarray
+    areas: np.ndarray
+    tolerance: float
+    facet_keys: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        negative = np.asarray(self.negative_nodes, dtype=np.int64)
+        positive = np.asarray(self.positive_nodes, dtype=np.int64)
+        normals = np.asarray(self.normals, dtype=float)
+        areas = np.asarray(self.areas, dtype=float).reshape(-1)
+        tolerance = float(self.tolerance)
+        if negative.ndim != 2 or negative.shape[1] != 3:
+            raise ValueError(
+                "PairedSurfaceFacets negative_nodes must have shape (facets, 3)."
+            )
+        if positive.shape != negative.shape:
+            raise ValueError(
+                "PairedSurfaceFacets positive_nodes must match negative_nodes."
+            )
+        if normals.shape != (negative.shape[0], 3):
+            raise ValueError(
+                "PairedSurfaceFacets normals must provide one 3D vector per facet."
+            )
+        if (
+            areas.shape != (negative.shape[0],)
+            or np.any(~np.isfinite(areas))
+            or np.any(areas <= 0.0)
+        ):
+            raise ValueError("PairedSurfaceFacets areas must be positive per facet.")
+        if np.any(~np.isfinite(normals)):
+            raise ValueError("PairedSurfaceFacets normals must be finite.")
+        if not isfinite(tolerance) or tolerance <= 0.0:
+            raise ValueError("PairedSurfaceFacets tolerance must be finite and positive.")
+        keys = tuple(str(value) for value in self.facet_keys)
+        if keys and (len(keys) != negative.shape[0] or len(set(keys)) != len(keys)):
+            raise ValueError("PairedSurfaceFacets facet_keys must be unique per facet.")
+        object.__setattr__(self, "negative_nodes", negative.copy())
+        object.__setattr__(self, "positive_nodes", positive.copy())
+        object.__setattr__(self, "normals", normals.copy())
+        object.__setattr__(self, "areas", areas.copy())
+        object.__setattr__(self, "tolerance", tolerance)
+        object.__setattr__(self, "facet_keys", keys)
+
+    @property
+    def number_of_facets(self) -> int:
+        return int(self.negative_nodes.shape[0])
+
+    @property
+    def quadrature_points_per_facet(self) -> int:
+        return 3
+
+    @property
+    def number_of_points(self) -> int:
+        return self.quadrature_points_per_facet * self.number_of_facets
+
+    @property
+    def measures(self) -> np.ndarray:
+        """Reference area per facet."""
+
+        return self.areas.copy()
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "paired_triangular_surface_facets",
+            "number_of_facets": self.number_of_facets,
+            "quadrature_points_per_facet": self.quadrature_points_per_facet,
+            "reference_area": float(np.sum(self.areas)),
+            "pairing_tolerance": self.tolerance,
+            "dof_sides": "independent",
+            "state_identity": self.identity(),
+        }
+
+    def identity(self) -> dict[str, object]:
+        if self.facet_keys:
+            keys = self.facet_keys
+            scope = "ordered_reference_facet_geometry"
+        else:
+            keys = tuple(
+                ":".join(str(int(value)) for value in (*negative, *positive))
+                for negative, positive in zip(
+                    self.negative_nodes, self.positive_nodes, strict=True
+                )
+            )
+            scope = "legacy_node_order"
+        digest = sha256()
+        for key in keys:
+            digest.update(key.encode("utf-8"))
+            digest.update(b"\0")
+        digest.update(np.rint(self.normals / self.tolerance).astype("<i8").tobytes())
+        digest.update(
+            np.rint(np.sqrt(self.areas) / self.tolerance)
+            .astype("<i8")
+            .tobytes()
+        )
+        return {
+            "schema": "agentfem.cohesive-interface-identity.v1",
+            "sha256": digest.hexdigest(),
+            "scope": scope,
+            "number_of_facets": self.number_of_facets,
+            "quadrature_points_per_facet": self.quadrature_points_per_facet,
+            "pairing_tolerance": self.tolerance,
+            "facet_keys": list(keys),
+            "orientation_sensitive": True,
+        }
+
+@dataclass(frozen=True)
 class SplitInterfaceMesh:
-    """Array-level result of splitting one conforming 2D interface path."""
+    """Array-level result of splitting one conforming interface manifold."""
 
     coordinates: np.ndarray
     cells: np.ndarray
@@ -420,6 +536,8 @@ class SplitInterfaceMesh:
     def summary(self) -> dict[str, object]:
         return {
             "kind": "split_zero_thickness_interface_mesh",
+            "geometric_dimension": int(self.coordinates.shape[1]),
+            "facet_nodes": int(self.negative_facets.shape[1]),
             "number_of_cells": int(self.cells.shape[0]),
             "number_of_original_interface_nodes": len(self.original_to_duplicate),
             "number_of_interface_facets": int(self.negative_facets.shape[0]),
@@ -457,7 +575,7 @@ def create_dolfinx_split_mesh(
     cell_type: str | None = None,
     input_order: str = "counterclockwise",
 ):
-    """Create the first executable DOLFINx mesh for a split 2D interface.
+    """Create an executable DOLFINx mesh for an audited split interface.
 
     ``split_conforming_line_interface`` deliberately operates on plain arrays
     so imported meshes can be audited before a solver owns them.  This adapter
@@ -487,11 +605,17 @@ def create_dolfinx_split_mesh(
             "Every MPI rank must provide the same audited SplitInterfaceMesh."
         )
     nodes_per_cell = int(split.cells.shape[1])
-    inferred = {3: "triangle", 4: "quadrilateral"}.get(nodes_per_cell)
+    geometric_dimension = int(split.coordinates.shape[1])
+    inferred = {
+        (2, 3): "triangle",
+        (2, 4): "quadrilateral",
+        (3, 4): "tetrahedron",
+    }.get((geometric_dimension, nodes_per_cell))
     selected_cell = inferred if cell_type is None else str(cell_type).strip().lower()
-    if selected_cell not in {"triangle", "quadrilateral"}:
+    if selected_cell not in {"triangle", "quadrilateral", "tetrahedron"}:
         raise ValueError(
-            "The first split-interface adapter supports triangle or quadrilateral cells."
+            "The split-interface adapter supports 2D triangles/quadrilaterals "
+            "and 3D tetrahedra."
         )
     expected_nodes = 3 if selected_cell == "triangle" else 4
     if nodes_per_cell != expected_nodes:
@@ -508,7 +632,7 @@ def create_dolfinx_split_mesh(
         "Lagrange",
         selected_cell,
         1,
-        shape=(2,),
+        shape=(geometric_dimension,),
     )
     input_cells = cells if selected_comm.rank == 0 else np.empty(
         (0, cells.shape[1]), dtype=np.int64
@@ -516,7 +640,7 @@ def create_dolfinx_split_mesh(
     input_coordinates = (
         np.asarray(split.coordinates, dtype=float)
         if selected_comm.rank == 0
-        else np.empty((0, 2), dtype=float)
+        else np.empty((0, geometric_dimension), dtype=float)
     )
     partitioner = None
     if selected_comm.size > 1:
@@ -527,7 +651,7 @@ def create_dolfinx_split_mesh(
             partitioner = dolfinx_mesh.create_cell_partitioner(
                 dolfinx_graph.partitioner_scotch(),
                 dolfinx_mesh.GhostMode.shared_facet,
-                2,
+                geometric_dimension,
             )
         except Exception as exc:
             raise RuntimeError(
@@ -711,6 +835,216 @@ class ModeICohesiveFacetAssembler:
         self._trial = None
 
 
+class ModeICohesiveSurfaceAssembler:
+    """Three-point integration of linear triangular Mode-I surfaces in 3D."""
+
+    _QUADRATURE = np.array(
+        [
+            [2.0 / 3.0, 1.0 / 6.0, 1.0 / 6.0],
+            [1.0 / 6.0, 2.0 / 3.0, 1.0 / 6.0],
+            [1.0 / 6.0, 1.0 / 6.0, 2.0 / 3.0],
+        ],
+        dtype=float,
+    )
+
+    def __init__(
+        self,
+        topology: PairedSurfaceFacets,
+        law: BilinearCohesiveLaw,
+        *,
+        number_of_nodes: int,
+    ):
+        if int(number_of_nodes) <= 0:
+            raise ValueError("number_of_nodes must be positive.")
+        largest = int(
+            max(np.max(topology.negative_nodes), np.max(topology.positive_nodes))
+        )
+        if largest >= int(number_of_nodes):
+            raise ValueError("Paired surface node number exceeds number_of_nodes.")
+        self.topology = topology
+        self.law = law
+        self.number_of_nodes = int(number_of_nodes)
+        self.thickness = 1.0  # compatibility: surface measure already has area
+        self.state = CohesiveTransaction(law, topology.number_of_points)
+        self._trial: CohesiveFacetResponse | None = None
+        self.last_committed_response: CohesiveFacetResponse | None = None
+
+    def initialize_precrack(self, facets) -> None:
+        selected = np.asarray(facets)
+        if selected.dtype == bool:
+            if selected.shape != (self.topology.number_of_facets,):
+                raise ValueError("Boolean precrack mask has the wrong facet shape.")
+            mask = selected
+        else:
+            mask = np.zeros(self.topology.number_of_facets, dtype=bool)
+            indices = np.asarray(selected, dtype=int)
+            if np.any(indices < 0) or np.any(indices >= mask.size):
+                raise ValueError("Precrack facet index is out of range.")
+            mask[indices] = True
+        maximum = np.zeros(
+            (self.topology.number_of_facets, self.topology.quadrature_points_per_facet),
+            dtype=float,
+        )
+        maximum[mask, :] = self.law.failure_opening
+        self.state.initialize(maximum.reshape(-1))
+
+    def begin(self, displacement) -> CohesiveFacetResponse:
+        values = _finite_array(displacement, name="displacement")
+        if values.shape != (self.number_of_nodes, 3):
+            raise ValueError("3D cohesive displacement must have shape (nodes, 3).")
+        jump = (
+            values[self.topology.positive_nodes]
+            - values[self.topology.negative_nodes]
+        )
+        jump_at_points = np.einsum("qi,fid->fqd", self._QUADRATURE, jump)
+        opening = np.einsum("fqd,fd->fq", jump_at_points, self.topology.normals)
+        material = self.state.begin(opening.reshape(-1))
+        points = self.topology.quadrature_points_per_facet
+        traction = material.traction.reshape((-1, points))
+        damage = material.damage.reshape((-1, points))
+
+        force = np.zeros_like(values)
+        point_scale = self.topology.areas / float(points)
+        for local_node in range(3):
+            scalar = np.sum(
+                self._QUADRATURE[:, local_node][None, :] * traction,
+                axis=1,
+            ) * point_scale
+            vector = scalar[:, None] * self.topology.normals
+            np.add.at(force, self.topology.positive_nodes[:, local_node], vector)
+            np.add.at(force, self.topology.negative_nodes[:, local_node], -vector)
+        stored = float(
+            np.sum(material.stored_energy.reshape((-1, points)) * point_scale[:, None])
+        )
+        dissipated = float(
+            np.sum(
+                material.dissipated_energy.reshape((-1, points))
+                * point_scale[:, None]
+            )
+        )
+        self._trial = CohesiveFacetResponse(
+            internal_force=force,
+            opening=opening,
+            traction=traction,
+            damage=damage,
+            stored_energy=stored,
+            dissipated_energy=dissipated,
+        )
+        return self._trial
+
+    def commit(self) -> None:
+        if self._trial is None:
+            raise RuntimeError("No cohesive surface trial response is available.")
+        self.last_committed_response = self._trial
+        self.state.commit()
+        self._trial = None
+
+    def rollback(self) -> None:
+        self.state.rollback()
+        self._trial = None
+
+    def material_point_response(
+        self, response: CohesiveFacetResponse | None = None
+    ) -> CohesiveResponse:
+        selected = self.last_committed_response if response is None else response
+        if selected is None:
+            raise RuntimeError("No cohesive surface response is available.")
+        return self.law.update(
+            np.asarray(selected.opening, dtype=float).reshape(-1),
+            self.state.committed_maximum,
+        )
+
+
+def pair_coincident_surface_facets(
+    coordinates,
+    negative_facets,
+    positive_facets,
+    *,
+    normal_hint,
+    tolerance: float = 1.0e-10,
+) -> PairedSurfaceFacets:
+    """Pair coincident three-node triangular facets in 3D."""
+
+    points = _finite_array(coordinates, name="coordinates")
+    negative = np.asarray(negative_facets, dtype=int)
+    positive = np.asarray(positive_facets, dtype=int)
+    hint = _finite_array(normal_hint, name="normal_hint")
+    if points.ndim != 2 or points.shape[1] != 3:
+        raise ValueError("Paired surface facets require 3D coordinates.")
+    if negative.ndim != 2 or negative.shape[1] != 3:
+        raise ValueError("negative_facets must have shape (facets, 3).")
+    if positive.shape != negative.shape:
+        raise ValueError("positive_facets must match negative_facets.")
+    if hint.shape != (3,) or np.linalg.norm(hint) == 0.0:
+        raise ValueError("normal_hint must be one nonzero 3D vector.")
+    if not isfinite(float(tolerance)) or float(tolerance) <= 0.0:
+        raise ValueError("tolerance must be finite and positive.")
+    if np.any(negative < 0) or np.any(positive < 0):
+        raise ValueError("Facet node numbers cannot be negative.")
+    if np.any(negative >= points.shape[0]) or np.any(positive >= points.shape[0]):
+        raise ValueError("Facet node number exceeds the coordinate array.")
+    if np.intersect1d(negative.reshape(-1), positive.reshape(-1)).size:
+        raise ValueError("Cohesive surface sides require independent node identities.")
+
+    positive_by_key = {}
+    for index, facet in enumerate(positive):
+        key = tuple(sorted(tuple(np.rint(point / tolerance).astype(np.int64)) for point in points[facet]))
+        if key in positive_by_key:
+            raise ValueError("Positive cohesive surface contains duplicate geometry.")
+        positive_by_key[key] = int(index)
+    ordered_positive = np.empty_like(negative)
+    for index, facet in enumerate(negative):
+        source = points[facet]
+        key = tuple(sorted(tuple(np.rint(point / tolerance).astype(np.int64)) for point in source))
+        candidate_index = positive_by_key.pop(key, None)
+        if candidate_index is None:
+            raise ValueError(f"Negative surface facet {index} has no coincident partner.")
+        candidates = positive[candidate_index]
+        target = points[candidates]
+        permutation = []
+        for point in source:
+            distances = np.linalg.norm(target - point, axis=1)
+            match = int(np.argmin(distances))
+            if distances[match] > tolerance or match in permutation:
+                raise ValueError("Coincident surface node pairing is ambiguous.")
+            permutation.append(match)
+        ordered_positive[index] = candidates[np.asarray(permutation, dtype=int)]
+    if positive_by_key:
+        raise ValueError("Positive cohesive surface contains unmatched facets.")
+
+    cross = np.cross(
+        points[negative[:, 1]] - points[negative[:, 0]],
+        points[negative[:, 2]] - points[negative[:, 0]],
+    )
+    double_area = np.linalg.norm(cross, axis=1)
+    if np.any(double_area <= tolerance**2):
+        raise ValueError("Interface facets must have positive reference area.")
+    normals = cross / double_area[:, None]
+    hint = hint / np.linalg.norm(hint)
+    signs = np.where(np.einsum("fd,d->f", normals, hint) >= 0.0, 1.0, -1.0)
+    normals *= signs[:, None]
+    facet_keys = tuple(
+        sha256(
+            np.asarray(
+                sorted(
+                    tuple(value)
+                    for value in np.rint(points[facet] / float(tolerance)).astype("<i8")
+                ),
+                dtype="<i8",
+            ).tobytes()
+        ).hexdigest()
+        for facet in negative
+    )
+    return PairedSurfaceFacets(
+        negative_nodes=negative.copy(),
+        positive_nodes=ordered_positive,
+        normals=normals,
+        areas=0.5 * double_area,
+        tolerance=float(tolerance),
+        facet_keys=facet_keys,
+    )
+
+
 def pair_coincident_line_facets(
     coordinates,
     negative_facets,
@@ -884,13 +1218,92 @@ def split_conforming_line_interface(
     )
 
 
+def split_conforming_surface_interface(
+    coordinates,
+    cells,
+    interface_facets,
+    *,
+    positive_cells,
+) -> SplitInterfaceMesh:
+    """Duplicate nodes on a declared conforming triangular surface in 3D."""
+
+    points = _finite_array(coordinates, name="coordinates")
+    connectivity = np.asarray(cells, dtype=int)
+    facets = np.asarray(interface_facets, dtype=int)
+    selected = np.asarray(positive_cells)
+    if points.ndim != 2 or points.shape[1] != 3:
+        raise ValueError("Surface splitting requires 3D coordinates.")
+    if (
+        connectivity.ndim != 2
+        or connectivity.shape[0] == 0
+        or connectivity.shape[1] != 4
+    ):
+        raise ValueError(
+            "3D surface splitting currently requires one linear tetrahedron block."
+        )
+    if facets.ndim != 2 or facets.shape[1] != 3 or facets.shape[0] == 0:
+        raise ValueError("interface_facets must have shape (facets, 3).")
+    if np.any(connectivity < 0) or np.any(connectivity >= points.shape[0]):
+        raise ValueError("Cell connectivity contains an invalid node number.")
+    if np.any(facets < 0) or np.any(facets >= points.shape[0]):
+        raise ValueError("Interface connectivity contains an invalid node number.")
+    if selected.dtype == bool:
+        if selected.shape != (connectivity.shape[0],):
+            raise ValueError("Boolean positive_cells mask has the wrong shape.")
+        positive_mask = selected.copy()
+    else:
+        positive_mask = np.zeros(connectivity.shape[0], dtype=bool)
+        indices = np.asarray(selected, dtype=int)
+        if np.any(indices < 0) or np.any(indices >= connectivity.shape[0]):
+            raise ValueError("positive_cells contains an out-of-range cell index.")
+        positive_mask[indices] = True
+    if not np.any(positive_mask) or np.all(positive_mask):
+        raise ValueError("Interface splitting requires cells on both declared sides.")
+    for facet_index, facet in enumerate(facets):
+        incident = np.flatnonzero(
+            np.sum(np.isin(connectivity, facet), axis=1) == facet.size
+        )
+        if incident.size != 2:
+            raise ValueError(
+                f"Interface facet {facet_index} must have exactly two incident cells; "
+                f"found {incident.size}."
+            )
+        if int(np.sum(positive_mask[incident])) != 1:
+            raise ValueError(
+                f"Interface facet {facet_index} does not separate one positive "
+                "and one negative cell."
+            )
+    interface_nodes = np.unique(facets)
+    duplicates = np.arange(
+        points.shape[0], points.shape[0] + interface_nodes.size, dtype=int
+    )
+    mapping = {
+        int(source): int(target)
+        for source, target in zip(interface_nodes, duplicates, strict=True)
+    }
+    split_points = np.vstack((points, points[interface_nodes]))
+    split_cells = connectivity.copy()
+    for source, target in mapping.items():
+        rows, columns = np.nonzero(positive_mask[:, None] & (split_cells == source))
+        split_cells[rows, columns] = target
+    positive_facets_array = np.vectorize(mapping.__getitem__, otypes=[int])(facets)
+    return SplitInterfaceMesh(
+        coordinates=split_points,
+        cells=split_cells,
+        negative_facets=facets.copy(),
+        positive_facets=np.asarray(positive_facets_array, dtype=int),
+        original_to_duplicate=mapping,
+        positive_cells=np.flatnonzero(positive_mask),
+    )
+
+
 def split_conforming_cell_interface(
     coordinates,
     cells,
     *,
     positive_cells,
 ) -> SplitInterfaceMesh:
-    """Split the internal edge separating two declared 2D cell partitions.
+    """Split the internal facet separating two declared cell partitions.
 
     This engineering adapter derives the conforming line facets from cell
     connectivity instead of asking a user or mesh importer to enumerate every
@@ -903,11 +1316,17 @@ def split_conforming_cell_interface(
     points = _finite_array(coordinates, name="coordinates")
     connectivity = np.asarray(cells, dtype=int)
     selected = np.asarray(positive_cells)
-    if points.ndim != 2 or points.shape[1] != 2:
-        raise ValueError("Cell-interface recovery currently requires 2D coordinates.")
-    if connectivity.ndim != 2 or connectivity.shape[1] not in {3, 4}:
+    if points.ndim != 2 or points.shape[1] not in {2, 3}:
+        raise ValueError("Cell-interface recovery requires 2D or 3D coordinates.")
+    supported = (
+        points.shape[1] == 2 and connectivity.ndim == 2 and connectivity.shape[1] in {3, 4}
+    ) or (
+        points.shape[1] == 3 and connectivity.ndim == 2 and connectivity.shape[1] == 4
+    )
+    if not supported:
         raise ValueError(
-            "Cell-interface recovery supports one triangle or quadrilateral block."
+            "Cell-interface recovery supports 2D triangles/quadrilaterals "
+            "or one 3D tetrahedron block."
         )
     if np.any(connectivity < 0) or np.any(connectivity >= points.shape[0]):
         raise ValueError("Cell connectivity contains an invalid node number.")
@@ -924,34 +1343,49 @@ def split_conforming_cell_interface(
     if not np.any(positive_mask) or np.all(positive_mask):
         raise ValueError("Interface recovery requires cells on both declared sides.")
 
-    edge_owners: dict[tuple[int, int], list[int]] = {}
+    facet_owners: dict[tuple[int, ...], list[int]] = {}
     for cell_index, cell in enumerate(connectivity):
-        for local in range(cell.size):
-            edge = tuple(sorted((int(cell[local]), int(cell[(local + 1) % cell.size]))))
-            edge_owners.setdefault(edge, []).append(int(cell_index))
+        if points.shape[1] == 2:
+            local_facets = [
+                (int(cell[local]), int(cell[(local + 1) % cell.size]))
+                for local in range(cell.size)
+            ]
+        else:
+            local_facets = [
+                (int(cell[0]), int(cell[2]), int(cell[1])),
+                (int(cell[0]), int(cell[1]), int(cell[3])),
+                (int(cell[1]), int(cell[2]), int(cell[3])),
+                (int(cell[2]), int(cell[0]), int(cell[3])),
+            ]
+        for facet in local_facets:
+            key = tuple(sorted(facet))
+            facet_owners.setdefault(key, []).append(int(cell_index))
     non_manifold = {
-        edge: owners for edge, owners in edge_owners.items() if len(owners) > 2
+        facet: owners for facet, owners in facet_owners.items() if len(owners) > 2
     }
     if non_manifold:
-        edge, owners = next(iter(non_manifold.items()))
+        facet, owners = next(iter(non_manifold.items()))
         raise ValueError(
             "Cell-interface recovery requires a manifold mesh; "
-            f"edge {edge} has {len(owners)} incident cells."
+            f"facet {facet} has {len(owners)} incident cells."
         )
     interface = [
-        edge
-        for edge, owners in edge_owners.items()
+        facet
+        for facet, owners in facet_owners.items()
         if len(owners) == 2
         and bool(positive_mask[owners[0]]) != bool(positive_mask[owners[1]])
     ]
     if not interface:
         raise ValueError(
-            "The declared cell partitions do not share a conforming internal edge."
+            "The declared cell partitions do not share a conforming internal facet."
         )
-    return split_conforming_line_interface(
-        points,
-        connectivity,
-        np.asarray(sorted(interface), dtype=int),
+    splitter = (
+        split_conforming_line_interface
+        if points.shape[1] == 2
+        else split_conforming_surface_interface
+    )
+    return splitter(
+        points, connectivity, np.asarray(sorted(interface), dtype=int),
         positive_cells=positive_mask,
     )
 
@@ -1055,8 +1489,10 @@ __all__ = [
     "COHESIVE_CHECKPOINT_SCHEMA",
     "CohesiveFacetResponse",
     "ModeICohesiveFacetAssembler",
+    "ModeICohesiveSurfaceAssembler",
     "FacetOwnership",
     "PairedLineFacets",
+    "PairedSurfaceFacets",
     "SplitInterfaceMesh",
     "bilinear_cohesive",
     "cohesive_characteristic_length",
@@ -1065,7 +1501,9 @@ __all__ = [
     "deterministic_facet_ownership",
     "load_portable_cohesive_state",
     "pair_coincident_line_facets",
+    "pair_coincident_surface_facets",
     "save_portable_cohesive_state",
     "split_conforming_line_interface",
+    "split_conforming_surface_interface",
     "split_conforming_cell_interface",
 ]

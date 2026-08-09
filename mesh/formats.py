@@ -156,6 +156,100 @@ def inspect_external_mesh(
     )
 
 
+def split_gmsh_physical_interface(
+    path: str | Path,
+    *,
+    positive_group: str,
+    interface_group: str,
+    cell_type: str | None = None,
+    facet_type: str | None = None,
+    prune_z: bool = False,
+):
+    """Lower Gmsh physical volume/surface groups to a split interface.
+
+    This source-level adapter is intentionally independent of XDMF tags.
+    Physical group names retain the modeling decision: ``positive_group``
+    identifies the cells whose interface nodes are duplicated, while
+    ``interface_group`` proves the exact lower-dimensional facets to split.
+    """
+
+    from agentfem import interfaces
+
+    meshio = require_meshio()
+    source = meshio.read(Path(path))
+    selected_cell = cell_type or _first_supported_cell_type(source.cells)
+    default_facets = {
+        "triangle": "line",
+        "quad": "line",
+        "tetra": "triangle",
+    }
+    selected_facet = facet_type or default_facets.get(selected_cell)
+    if selected_facet is None:
+        raise NotImplementedError(
+            f"No cohesive facet topology is declared for {selected_cell!r}."
+        )
+    cells = _cells_of_type(source.cells, selected_cell)
+    facets = _cells_of_type(source.cells, selected_facet)
+    points = np.asarray(source.points, dtype=float)
+    two_dimensional_cell = selected_cell in {"triangle", "quad"}
+    if two_dimensional_cell and points.shape[1] == 3:
+        planar_z = float(np.ptp(points[:, 2])) <= 1.0e-12 * max(
+            1.0,
+            float(np.ptp(points[:, :2])),
+        )
+        if not (prune_z or planar_z):
+            raise ValueError(
+                "A 2D cohesive mesh embedded in a non-xy 3D plane requires an "
+                "explicit coordinate transform before lowering."
+            )
+        points = points[:, :2]
+    elif prune_z and not two_dimensional_cell:
+        raise ValueError("prune_z cannot be used for a three-dimensional cell block.")
+    cell_members = _named_physical_members(source, selected_cell)
+    facet_members = _named_physical_members(source, selected_facet)
+    try:
+        positive_cells = cell_members[str(positive_group)]
+    except KeyError as exc:
+        raise KeyError(
+            f"Gmsh physical cell group {positive_group!r} is not present."
+        ) from exc
+    try:
+        selected_facets = facets[facet_members[str(interface_group)]]
+    except KeyError as exc:
+        raise KeyError(
+            f"Gmsh physical interface group {interface_group!r} is not present."
+        ) from exc
+    splitter = (
+        interfaces.split_conforming_line_interface
+        if two_dimensional_cell
+        else interfaces.split_conforming_surface_interface
+    )
+    split = splitter(
+        points,
+        cells,
+        selected_facets,
+        positive_cells=positive_cells,
+    )
+    # Recovery from the cell partition is an independent consistency check.
+    recovered = interfaces.split_conforming_cell_interface(
+        points, cells, positive_cells=positive_cells
+    )
+    explicit = {
+        tuple(sorted(int(value) for value in facet))
+        for facet in split.negative_facets
+    }
+    implied = {
+        tuple(sorted(int(value) for value in facet))
+        for facet in recovered.negative_facets
+    }
+    if explicit != implied:
+        raise ValueError(
+            "Gmsh physical interface does not equal the boundary implied by "
+            f"positive_group={positive_group!r}."
+        )
+    return split
+
+
 def summarize_external_mesh(
     source_path: str | Path,
     source_mesh,
@@ -668,6 +762,46 @@ def _cell_set_tags(source_mesh, cell_type: str, count: int):
         if len(names) > 1:
             overlaps[cell] = tuple(names)
     return tags, members, overlaps
+
+
+def _named_physical_members(source_mesh, cell_type: str) -> dict[str, np.ndarray]:
+    """Return named meshio/Gmsh physical memberships for one topology."""
+
+    count = len(_cells_of_type(source_mesh.cells, cell_type))
+    _, members, _ = _cell_set_tags(source_mesh, cell_type, count)
+    result = {str(name): np.asarray(values, dtype=int) for name, values in members.items()}
+    field_data = getattr(source_mesh, "field_data", {})
+    physical = _cell_data_for_type(
+        getattr(source_mesh, "cell_data", {}), source_mesh.cells, cell_type
+    ).get("gmsh:physical")
+    topology_dimension = {
+        "line": 1,
+        "triangle": 2,
+        "quad": 2,
+        "tetra": 3,
+    }.get(cell_type)
+    if physical:
+        tags = np.asarray(physical[0], dtype=int).reshape(-1)
+        for name, record in field_data.items():
+            values = np.asarray(record, dtype=int).reshape(-1)
+            if (
+                values.size >= 1
+                and (
+                    values.size < 2
+                    or topology_dimension is None
+                    or int(values[1]) == topology_dimension
+                )
+            ):
+                selected = np.flatnonzero(tags == int(values[0]))
+                if selected.size:
+                    previous = result.get(str(name))
+                    if previous is not None and not np.array_equal(previous, selected):
+                        raise ValueError(
+                            f"Gmsh physical group {name!r} has inconsistent "
+                            "cell-set and tag memberships."
+                        )
+                    result[str(name)] = selected
+    return result
 
 
 def _region_tag_array(

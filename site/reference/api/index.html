@@ -4014,6 +4014,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
+<td><code>split_gmsh_physical_interface(*args, **kwargs)</code></td>
+<td>Lower named Gmsh physical cell/surface groups to a split interface.</td>
+</tr>
+<tr>
+<td>function</td>
 <td><code>read_abaqus_mesh(path: str \| Path, converted_path: str \| Path, comm: MPI.Comm = MPI.COMM_WORLD, *, cell_type: str \| None = None, reuse_conversion: bool = True) -&gt; abaqus.AbaqusMeshImport</code></td>
 <td>Convert and read an Abaqus mesh while retaining source node labels.</td>
 </tr>
@@ -4340,18 +4345,18 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tbody>
 <tr>
 <td>function</td>
-<td><code>finite_strain_internal_force(displacement, test_function, material: hyperelasticity.NeoHookeanProperties, *, measure = ufl.dx, name: str = 'F_internal_finite_strain') -&gt; OperatorForm</code></td>
-<td>Return the current Total-Lagrangian Neo-Hookean internal force.</td>
+<td><code>finite_strain_internal_force(displacement, test_function, material, *, measure = ufl.dx, name: str = 'F_internal_finite_strain') -&gt; OperatorForm</code></td>
+<td>Return the current Total-Lagrangian hyperelastic internal force.</td>
 </tr>
 <tr>
 <td>class</td>
 <td><code>FiniteStrainEnergyMonitor</code></td>
-<td>Accepted-frame kinetic and Neo-Hookean bulk energy monitor.</td>
+<td>Accepted-frame kinetic and hyperelastic bulk energy monitor.</td>
 </tr>
 <tr>
 <td>class</td>
 <td><code>DofMappedCohesiveForce(assembler, displacement, *, node_to_block_dof)</code></td>
-<td>Map the serial 2D cohesive facet kernel to vector finite-element dofs.</td>
+<td>Map a serial cohesive facet kernel to vector finite-element dofs.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -4410,12 +4415,12 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>neo_hookean_material_tangent(deformation_gradient, material: hyperelasticity.NeoHookeanProperties) -&gt; np.ndarray</code></td>
-<td>Return <code>A[i,J,k,L] = dP[i,J]/dF[k,L]</code> for the declared energy.</td>
+<td><code>neo_hookean_material_tangent(deformation_gradient, material) -&gt; np.ndarray</code></td>
+<td>Return <code>A[i,J,k,L] = dP[i,J]/dF[k,L]</code> for a supported energy.</td>
 </tr>
 <tr>
 <td>function</td>
-<td><code>incremental_wave_speeds(deformation_gradient, direction, material: hyperelasticity.NeoHookeanProperties, *, direction_configuration: str = 'current') -&gt; IncrementalWaveSpeeds</code></td>
+<td><code>incremental_wave_speeds(deformation_gradient, direction, material, *, direction_configuration: str = 'current') -&gt; IncrementalWaveSpeeds</code></td>
 <td>Return homogeneous small-on-large bulk-wave speeds.</td>
 </tr>
 <tr>
@@ -4425,7 +4430,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>isotropic_reference_wave_speeds(material: hyperelasticity.NeoHookeanProperties) -&gt; IsotropicWaveSpeeds</code></td>
+<td><code>isotropic_reference_wave_speeds(material) -&gt; IsotropicWaveSpeeds</code></td>
 <td>Return unstretched 3D isotropic <code>c_d</code>, <code>c_s</code>, and <code>c_R</code>.</td>
 </tr>
 <tr>
@@ -4437,6 +4442,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>class</td>
 <td><code>CohesiveCrackHistory</code></td>
 <td>Crack-front position and window-fitted speed on a fixed path.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CrackPropagationFit</code></td>
+<td>Representative crack speed fitted across a declared path interval.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -4477,6 +4487,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>crack_tip_history(time_values, path_coordinate, damage_frames, *, threshold: float = 0.95, fit_window: int = 5, direction: str = 'increasing') -&gt; CohesiveCrackHistory</code></td>
 <td>Build a crack history without single-failed-element speed spikes.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>fit_crack_propagation_speed(history: CohesiveCrackHistory, *, start_position: float, end_position: float, minimum_samples: int = 3) -&gt; CrackPropagationFit \| None</code></td>
+<td>Fit one representative speed over a fixed physical path interval.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -4876,6 +4891,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>MooneyRivlinProperties</code></td>
+<td>Two-parameter isotropic Mooney-Rivlin finite-strain solid.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>NeoHookeanProperties</code></td>
 <td>Compressible Neo-Hookean parameters derived from <code>E</code> and <code>nu</code>.</td>
 </tr>
@@ -4888,6 +4908,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>kinematics(displacement) -&gt; FiniteStrainKinematics</code></td>
 <td>Return the standard finite-strain kinematic measures for <code>u</code>.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>mooney_rivlin(*, shear_modulus: float, first_invariant_fraction: float, bulk_modulus: float, density: float \| None = None, name: str = 'compressible Mooney-Rivlin') -&gt; MooneyRivlinProperties</code></td>
+<td>Create a three-dimensional compressible Mooney-Rivlin solid.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>mooney_rivlin_plane_stress(*, shear_modulus: float, first_invariant_fraction: float, density: float \| None = None, name: str = 'incompressible plane-stress Mooney-Rivlin') -&gt; MooneyRivlinProperties</code></td>
+<td>Create the exact incompressible sheet reduction of Eq. (17).</td>
 </tr>
 <tr>
 <td>function</td>
@@ -4921,8 +4951,13 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>plane_stress_uniaxial_deformation_gradient(axial_stretch: float, properties: PlaneStressNeoHookeanProperties, *, tolerance: float = 1e-12, maximum_iterations: int = 30) -&gt; np.ndarray</code></td>
+<td><code>plane_stress_uniaxial_deformation_gradient(axial_stretch: float, properties: PlaneStressNeoHookeanProperties \| MooneyRivlinProperties, *, tolerance: float = 1e-12, maximum_iterations: int = 30) -&gt; np.ndarray</code></td>
 <td>Return homogeneous uniaxial <code>F2</code> with traction-free lateral faces.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>supports_hyperelastic_study(properties, *, dimension: int, assumption) -&gt; bool</code></td>
+<td>Return whether one material has a formulation for the declared Study.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -6983,13 +7018,18 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>PairedSurfaceFacets</code></td>
+<td>Deterministically paired zero-thickness triangular facets in 3D.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>SplitInterfaceMesh</code></td>
-<td>Array-level result of splitting one conforming 2D interface path.</td>
+<td>Array-level result of splitting one conforming interface manifold.</td>
 </tr>
 <tr>
 <td>function</td>
 <td><code>create_dolfinx_split_mesh(split: SplitInterfaceMesh, *, comm = None, cell_type: str \| None = None, input_order: str = 'counterclockwise')</code></td>
-<td>Create the first executable DOLFINx mesh for a split 2D interface.</td>
+<td>Create an executable DOLFINx mesh for an audited split interface.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -7000,6 +7040,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>class</td>
 <td><code>ModeICohesiveFacetAssembler(topology: PairedLineFacets, law: BilinearCohesiveLaw, *, number_of_nodes: int, thickness: float = 1.0)</code></td>
 <td>Two-point line integration for a fixed-path 2D Mode-I interface.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ModeICohesiveSurfaceAssembler(topology: PairedSurfaceFacets, law: BilinearCohesiveLaw, *, number_of_nodes: int)</code></td>
+<td>Three-point integration of linear triangular Mode-I surfaces in 3D.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>pair_coincident_surface_facets(coordinates, negative_facets, positive_facets, *, normal_hint, tolerance: float = 1e-10) -&gt; PairedSurfaceFacets</code></td>
+<td>Pair coincident three-node triangular facets in 3D.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -7013,8 +7063,13 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
+<td><code>split_conforming_surface_interface(coordinates, cells, interface_facets, *, positive_cells) -&gt; SplitInterfaceMesh</code></td>
+<td>Duplicate nodes on a declared conforming triangular surface in 3D.</td>
+</tr>
+<tr>
+<td>function</td>
 <td><code>split_conforming_cell_interface(coordinates, cells, *, positive_cells) -&gt; SplitInterfaceMesh</code></td>
-<td>Split the internal edge separating two declared 2D cell partitions.</td>
+<td>Split the internal facet separating two declared cell partitions.</td>
 </tr>
 <tr>
 <td>class</td>

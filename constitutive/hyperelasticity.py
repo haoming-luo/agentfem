@@ -1,4 +1,4 @@
-"""Finite-strain compressible Neo-Hookean constitutive relations."""
+"""Finite-strain hyperelastic constitutive relations."""
 
 from __future__ import annotations
 
@@ -97,6 +97,196 @@ class PlaneStressNeoHookeanProperties(NeoHookeanProperties):
             }
         )
         return values
+
+
+@dataclass(frozen=True)
+class MooneyRivlinProperties:
+    """Two-parameter isotropic Mooney-Rivlin finite-strain solid.
+
+    The three-dimensional compressible form uses the decoupled energy
+
+    ``C10*(I1_bar-3) + C01*(I2_bar-3) + K/2*(J-1)^2``.
+
+    With ``plane_stress_incompressible=True`` it instead consumes the exact
+    reduced sheet energy used in Wang, Fineberg and Needleman (Eq. 17):
+
+    ``mu/2[c*(I+J^-2-3) + (1-c)*(J^2+I*J^-2-3)]``.
+
+    Here ``c`` is ``first_invariant_fraction``, ``C10=mu*c/2`` and
+    ``C01=mu*(1-c)/2``.  The reduced form enforces thickness stretch ``1/J``
+    and therefore must only be used in a two-dimensional plane-stress study.
+    """
+
+    shear_modulus: float
+    first_invariant_fraction: float
+    bulk_modulus_value: float = float("inf")
+    density: float | None = None
+    plane_stress_incompressible: bool = False
+    name: str = "Mooney-Rivlin"
+
+    def __post_init__(self) -> None:
+        if not isfinite(float(self.shear_modulus)) or self.shear_modulus <= 0.0:
+            raise ValueError("MooneyRivlinProperties.shear_modulus must be positive.")
+        fraction = float(self.first_invariant_fraction)
+        if not isfinite(fraction) or not 0.0 <= fraction <= 1.0:
+            raise ValueError(
+                "first_invariant_fraction must be finite and lie in [0, 1]."
+            )
+        if self.plane_stress_incompressible:
+            if not np.isinf(float(self.bulk_modulus_value)):
+                raise ValueError(
+                    "The incompressible plane-stress reduction requires "
+                    "bulk_modulus_value=inf."
+                )
+        elif (
+            not isfinite(float(self.bulk_modulus_value))
+            or self.bulk_modulus_value <= 0.0
+        ):
+            raise ValueError("Compressible Mooney-Rivlin bulk modulus must be positive.")
+        if self.density is not None and (
+            not isfinite(float(self.density)) or self.density <= 0.0
+        ):
+            raise ValueError("Mooney-Rivlin density must be finite and positive.")
+
+    @property
+    def mu(self) -> float:
+        return float(self.shear_modulus)
+
+    @property
+    def c10(self) -> float:
+        return 0.5 * self.mu * float(self.first_invariant_fraction)
+
+    @property
+    def c01(self) -> float:
+        return 0.5 * self.mu * (1.0 - float(self.first_invariant_fraction))
+
+    @property
+    def bulk_modulus(self) -> float:
+        return float(self.bulk_modulus_value)
+
+    @property
+    def young(self) -> float:
+        if self.plane_stress_incompressible:
+            return 3.0 * self.mu
+        return 9.0 * self.bulk_modulus * self.mu / (
+            3.0 * self.bulk_modulus + self.mu
+        )
+
+    @property
+    def poisson(self) -> float:
+        if self.plane_stress_incompressible:
+            return 0.5
+        return (3.0 * self.bulk_modulus - 2.0 * self.mu) / (
+            2.0 * (3.0 * self.bulk_modulus + self.mu)
+        )
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "model": (
+                "incompressible_plane_stress_mooney_rivlin"
+                if self.plane_stress_incompressible
+                else "compressible_mooney_rivlin"
+            ),
+            "kinematics": "finite_strain",
+            "spatial_formulation": (
+                "incompressible_plane_stress_sheet"
+                if self.plane_stress_incompressible
+                else "three_dimensional_compressible_solid"
+            ),
+            "two_dimensional_assumption": (
+                "plane_stress" if self.plane_stress_incompressible else None
+            ),
+            "shear_modulus": self.mu,
+            "first_invariant_fraction": self.first_invariant_fraction,
+            "C10": self.c10,
+            "C01": self.c01,
+            "bulk_modulus": (
+                None if self.plane_stress_incompressible else self.bulk_modulus
+            ),
+            "incompressibility": (
+                "exact_sheet_reduction"
+                if self.plane_stress_incompressible
+                else "finite_bulk_penalty"
+            ),
+            "young": self.young,
+            "poisson": self.poisson,
+            "density": self.density,
+            "source_equation": (
+                "Wang-Fineberg-Needleman Eq. 17"
+                if self.plane_stress_incompressible
+                else None
+            ),
+            "maturity": "experimental_verified_material_paths",
+        }
+
+
+def mooney_rivlin(
+    *,
+    shear_modulus: float,
+    first_invariant_fraction: float,
+    bulk_modulus: float,
+    density: float | None = None,
+    name: str = "compressible Mooney-Rivlin",
+) -> MooneyRivlinProperties:
+    """Create a three-dimensional compressible Mooney-Rivlin solid."""
+
+    return MooneyRivlinProperties(
+        shear_modulus=shear_modulus,
+        first_invariant_fraction=first_invariant_fraction,
+        bulk_modulus_value=bulk_modulus,
+        density=density,
+        name=name,
+    )
+
+
+def mooney_rivlin_plane_stress(
+    *,
+    shear_modulus: float,
+    first_invariant_fraction: float,
+    density: float | None = None,
+    name: str = "incompressible plane-stress Mooney-Rivlin",
+) -> MooneyRivlinProperties:
+    """Create the exact incompressible sheet reduction of Eq. (17)."""
+
+    return MooneyRivlinProperties(
+        shear_modulus=shear_modulus,
+        first_invariant_fraction=first_invariant_fraction,
+        bulk_modulus_value=float("inf"),
+        density=density,
+        plane_stress_incompressible=True,
+        name=name,
+    )
+
+
+def is_finite_strain_hyperelastic(properties) -> bool:
+    """Return whether a material is consumed by the displacement formulation."""
+
+    return isinstance(properties, (NeoHookeanProperties, MooneyRivlinProperties))
+
+
+def is_plane_stress_hyperelastic(properties) -> bool:
+    return isinstance(properties, PlaneStressNeoHookeanProperties) or (
+        isinstance(properties, MooneyRivlinProperties)
+        and properties.plane_stress_incompressible
+    )
+
+
+def supports_hyperelastic_study(properties, *, dimension: int, assumption) -> bool:
+    """Return whether one material has a formulation for the declared Study."""
+
+    if not is_finite_strain_hyperelastic(properties):
+        return False
+    selected_dimension = int(dimension)
+    if isinstance(properties, MooneyRivlinProperties):
+        if properties.plane_stress_incompressible:
+            return selected_dimension == 2 and assumption == "plane_stress"
+        return selected_dimension == 3
+    if isinstance(properties, PlaneStressNeoHookeanProperties):
+        return selected_dimension == 2 and assumption == "plane_stress"
+    return selected_dimension == 3 or (
+        selected_dimension == 2 and assumption == "plane_strain"
+    )
 
 
 def neo_hookean(
@@ -263,9 +453,39 @@ def green_lagrange_strain(displacement):
 
 def strain_energy_density_from_gradient(
     F,
-    properties: NeoHookeanProperties,
+    properties: NeoHookeanProperties | MooneyRivlinProperties,
 ):
-    """Return compressible Neo-Hookean energy density from ``F``."""
+    """Return the declared hyperelastic energy density from ``F``."""
+
+    if isinstance(properties, MooneyRivlinProperties):
+        dimension = int(F.ufl_shape[0])
+        if properties.plane_stress_incompressible:
+            if tuple(F.ufl_shape) != (2, 2):
+                raise ValueError(
+                    "Incompressible plane-stress Mooney-Rivlin requires one 2x2 F."
+                )
+            invariant = ufl.tr(F * F.T)
+            jacobian = ufl.det(F)
+            fraction = float(properties.first_invariant_fraction)
+            return 0.5 * properties.mu * (
+                fraction * (invariant + jacobian**-2 - 3.0)
+                + (1.0 - fraction)
+                * (jacobian**2 + invariant * jacobian**-2 - 3.0)
+            )
+        if dimension != 3:
+            raise ValueError(
+                "Compressible Mooney-Rivlin currently requires one 3x3 F; "
+                "use mooney_rivlin_plane_stress for a two-dimensional sheet."
+            )
+        C = F.T * F
+        J = ufl.det(F)
+        invariant_1 = ufl.tr(C)
+        invariant_2 = 0.5 * (invariant_1**2 - ufl.tr(C * C))
+        return (
+            properties.c10 * (J ** (-2.0 / 3.0) * invariant_1 - 3.0)
+            + properties.c01 * (J ** (-4.0 / 3.0) * invariant_2 - 3.0)
+            + 0.5 * properties.bulk_modulus * (J - 1.0) ** 2
+        )
 
     if isinstance(properties, PlaneStressNeoHookeanProperties):
         if tuple(F.ufl_shape) != (2, 2):
@@ -291,8 +511,10 @@ def strain_energy_density_from_gradient(
     )
 
 
-def strain_energy_density(displacement, properties: NeoHookeanProperties):
-    """Return compressible Neo-Hookean energy density ``psi(u)``."""
+def strain_energy_density(
+    displacement, properties: NeoHookeanProperties | MooneyRivlinProperties
+):
+    """Return the declared hyperelastic energy density ``psi(u)``."""
 
     return strain_energy_density_from_gradient(
         deformation_gradient(displacement),
@@ -348,8 +570,16 @@ def mixed_cauchy_stress(
     return mixed_first_piola(displacement, pressure, properties) * F.T / ufl.det(F)
 
 
-def first_piola_from_gradient(F, properties: NeoHookeanProperties):
-    """Return the first Piola stress ``P = d psi / d F`` analytically."""
+def first_piola_from_gradient(
+    F, properties: NeoHookeanProperties | MooneyRivlinProperties
+):
+    """Return first Piola stress ``P = d psi / d F``."""
+
+    if isinstance(properties, MooneyRivlinProperties):
+        variable = ufl.variable(F)
+        return ufl.diff(
+            strain_energy_density_from_gradient(variable, properties), variable
+        )
 
     if isinstance(properties, PlaneStressNeoHookeanProperties):
         variable = ufl.variable(F)
@@ -366,7 +596,9 @@ def first_piola_from_gradient(F, properties: NeoHookeanProperties):
     )
 
 
-def first_piola(displacement, properties: NeoHookeanProperties):
+def first_piola(
+    displacement, properties: NeoHookeanProperties | MooneyRivlinProperties
+):
     """Return the first Piola stress for a displacement field."""
 
     return first_piola_from_gradient(
@@ -375,14 +607,106 @@ def first_piola(displacement, properties: NeoHookeanProperties):
     )
 
 
-def cauchy_stress(displacement, properties: NeoHookeanProperties):
+def cauchy_stress(
+    displacement, properties: NeoHookeanProperties | MooneyRivlinProperties
+):
     """Return the Cauchy stress ``sigma = J^-1 P F^T``."""
 
     F = deformation_gradient(displacement)
     J = ufl.det(F)
     if isinstance(properties, PlaneStressNeoHookeanProperties):
         J *= plane_stress_thickness_stretch_from_gradient(F, properties)
+    elif (
+        isinstance(properties, MooneyRivlinProperties)
+        and properties.plane_stress_incompressible
+    ):
+        J = ufl.as_ufl(1.0)
     return (1.0 / J) * first_piola_from_gradient(F, properties) * F.T
+
+
+def mooney_rivlin_energy_value(
+    deformation_gradient,
+    properties: MooneyRivlinProperties,
+) -> float:
+    """Evaluate either supported Mooney-Rivlin energy numerically."""
+
+    if not isinstance(properties, MooneyRivlinProperties):
+        raise TypeError("mooney_rivlin_energy_value requires MooneyRivlinProperties.")
+    F = np.asarray(deformation_gradient, dtype=float)
+    if not np.all(np.isfinite(F)) or float(np.linalg.det(F)) <= 0.0:
+        raise ValueError("Mooney-Rivlin deformation gradient must be finite with J>0.")
+    if properties.plane_stress_incompressible:
+        if F.shape != (2, 2):
+            raise ValueError("Plane-stress Mooney-Rivlin requires one 2x2 F.")
+        invariant = float(np.trace(F @ F.T))
+        jacobian = float(np.linalg.det(F))
+        fraction = float(properties.first_invariant_fraction)
+        return float(
+            0.5
+            * properties.mu
+            * (
+                fraction * (invariant + jacobian**-2 - 3.0)
+                + (1.0 - fraction)
+                * (jacobian**2 + invariant * jacobian**-2 - 3.0)
+            )
+        )
+    if F.shape != (3, 3):
+        raise ValueError("Compressible Mooney-Rivlin requires one 3x3 F.")
+    C = F.T @ F
+    jacobian = float(np.linalg.det(F))
+    invariant_1 = float(np.trace(C))
+    invariant_2 = 0.5 * (invariant_1**2 - float(np.trace(C @ C)))
+    return float(
+        properties.c10 * (jacobian ** (-2.0 / 3.0) * invariant_1 - 3.0)
+        + properties.c01 * (jacobian ** (-4.0 / 3.0) * invariant_2 - 3.0)
+        + 0.5 * properties.bulk_modulus * (jacobian - 1.0) ** 2
+    )
+
+
+def mooney_rivlin_first_piola_value(
+    deformation_gradient,
+    properties: MooneyRivlinProperties,
+) -> np.ndarray:
+    """Evaluate first Piola stress for numerical oracles and wave analysis."""
+
+    F = np.asarray(deformation_gradient, dtype=float)
+    if properties.plane_stress_incompressible:
+        if F.shape != (2, 2) or float(np.linalg.det(F)) <= 0.0:
+            raise ValueError("Plane-stress Mooney-Rivlin requires a positive-J 2x2 F.")
+        scale = max(1.0, float(np.linalg.norm(F)))
+        step = np.cbrt(np.finfo(float).eps) * scale
+        result = np.empty_like(F)
+        for i in range(2):
+            for j in range(2):
+                perturbation = np.zeros_like(F)
+                perturbation[i, j] = step
+                result[i, j] = (
+                    mooney_rivlin_energy_value(F + perturbation, properties)
+                    - mooney_rivlin_energy_value(F - perturbation, properties)
+                ) / (2.0 * step)
+        return result
+    if F.shape != (3, 3) or float(np.linalg.det(F)) <= 0.0:
+        raise ValueError("Compressible Mooney-Rivlin requires a positive-J 3x3 F.")
+    J = float(np.linalg.det(F))
+    inverse_transpose = np.linalg.inv(F).T
+    C = F.T @ F
+    invariant_1 = float(np.trace(C))
+    invariant_2 = 0.5 * (invariant_1**2 - float(np.trace(C @ C)))
+    return (
+        2.0
+        * properties.c10
+        * J ** (-2.0 / 3.0)
+        * (F - invariant_1 / 3.0 * inverse_transpose)
+        + 2.0
+        * properties.c01
+        * J ** (-4.0 / 3.0)
+        * (
+            invariant_1 * F
+            - F @ C
+            - 2.0 * invariant_2 / 3.0 * inverse_transpose
+        )
+        + properties.bulk_modulus * J * (J - 1.0) * inverse_transpose
+    )
 
 
 def plane_stress_thickness_stretch_from_gradient(
@@ -508,7 +832,7 @@ def plane_stress_first_piola_value(
 
 def plane_stress_uniaxial_deformation_gradient(
     axial_stretch: float,
-    properties: PlaneStressNeoHookeanProperties,
+    properties: PlaneStressNeoHookeanProperties | MooneyRivlinProperties,
     *,
     tolerance: float = 1.0e-12,
     maximum_iterations: int = 30,
@@ -520,14 +844,18 @@ def plane_stress_uniaxial_deformation_gradient(
     local ``P33=0`` plane-stress condition.
     """
 
-    if not isinstance(properties, PlaneStressNeoHookeanProperties):
+    if not is_plane_stress_hyperelastic(properties):
         raise TypeError(
             "plane_stress_uniaxial_deformation_gradient requires "
-            "PlaneStressNeoHookeanProperties."
+            "a supported plane-stress hyperelastic material."
         )
     axial = float(axial_stretch)
     if not isfinite(axial) or axial <= 0.0:
         raise ValueError("axial_stretch must be finite and positive.")
+    if isinstance(properties, MooneyRivlinProperties):
+        # For an isotropic incompressible sheet with traction-free width and
+        # thickness, symmetry and J3=1 give lambda_width=lambda_thickness.
+        return np.diag((axial**-0.5, axial))
     selected_tolerance = float(tolerance)
     lateral = axial ** (-properties.poisson)
     scale = max(abs(properties.mu), abs(properties.lambda_), 1.0)
@@ -550,7 +878,7 @@ def plane_stress_uniaxial_deformation_gradient(
 def internal_virtual_work(
     displacement,
     test_function,
-    properties: NeoHookeanProperties,
+    properties: NeoHookeanProperties | MooneyRivlinProperties,
     *,
     measure=ufl.dx,
 ):
@@ -566,7 +894,7 @@ def internal_virtual_work(
 def residual(
     displacement,
     test_function,
-    properties: NeoHookeanProperties,
+    properties: NeoHookeanProperties | MooneyRivlinProperties,
     *,
     body_force=None,
     traction=None,
@@ -604,7 +932,7 @@ def tangent(residual_form, displacement, trial_function=None):
 
 def principal_nominal_stress(
     stretches,
-    properties: NeoHookeanProperties,
+    properties: NeoHookeanProperties | MooneyRivlinProperties,
 ) -> np.ndarray:
     """Evaluate diagonal first-Piola stresses for principal stretches.
 
@@ -617,6 +945,10 @@ def principal_nominal_stress(
         raise ValueError("stretches must be a vector of length two or three.")
     if not np.all(np.isfinite(selected)) or np.any(selected <= 0.0):
         raise ValueError("principal stretches must be finite and positive.")
+    if isinstance(properties, MooneyRivlinProperties):
+        return np.diag(
+            mooney_rivlin_first_piola_value(np.diag(selected), properties)
+        )
     J = float(np.prod(selected))
     return (
         properties.mu * (selected - 1.0 / selected)
@@ -626,7 +958,7 @@ def principal_nominal_stress(
 
 def principal_energy_density(
     stretches,
-    properties: NeoHookeanProperties,
+    properties: NeoHookeanProperties | MooneyRivlinProperties,
 ) -> float:
     """Evaluate the Neo-Hookean energy for principal stretches."""
 
@@ -635,6 +967,8 @@ def principal_energy_density(
         raise ValueError("stretches must be a vector of length two or three.")
     if not np.all(np.isfinite(selected)) or np.any(selected <= 0.0):
         raise ValueError("principal stretches must be finite and positive.")
+    if isinstance(properties, MooneyRivlinProperties):
+        return mooney_rivlin_energy_value(np.diag(selected), properties)
     J = float(np.prod(selected))
     return float(
         0.5 * properties.mu * (np.dot(selected, selected) - selected.size)
