@@ -2434,6 +2434,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../release_0.2.0a2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AgentFEM 0.2.0a2 Candidate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../release_0.2.0a1/" class="md-nav__link">
         
   
@@ -3175,7 +3203,7 @@ but may not be comfortable deriving weak forms.</p>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">model</span><span class="o">.</span><span class="n">fix</span><span class="p">(</span><span class="n">displacement</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">left_boundary</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">model</span><span class="o">.</span><span class="n">traction</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0e6</span><span class="p">),</span> <span class="n">on</span><span class="o">=</span><span class="n">right_boundary</span><span class="p">)</span>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span><span class="n">properties</span><span class="p">)</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">linear_static_step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">displacement</span><span class="p">)</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">displacement</span><span class="p">)</span>
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">step</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
 <a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </code></pre></div>
@@ -3201,7 +3229,7 @@ finite-element formulation.</p>
 </code></pre></div>
 <p>Weak-form tutorials may use <code>problems.LinearVariationalProblem</code>. Application
 tutorials should prefer model-owned step constructors such as
-<code>model.linear_static_step(...)</code>. Tutorials that explicitly teach operator
+<code>model.step(...)</code>. Tutorials that explicitly teach operator
 notation may use <code>problems.linear_static(...)</code> and
 <code>problems.first_order_transient(...)</code>.</p>
 <h2 id="level-3-solver-and-algorithm-tutorials">Level 3: Solver And Algorithm Tutorials<a class="headerlink" href="#level-3-solver-and-algorithm-tutorials" title="Permanent link">&para;</a></h2>

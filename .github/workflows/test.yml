@@ -61,6 +61,7 @@ jobs:
           python -m build
           python -m twine check dist/*
           python release_gate.py --dist dist
+          python -m pip install meshio
           python -m pip install --no-deps --force-reinstall dist/*.whl
 
       - name: Validate versioned scientific knowledge

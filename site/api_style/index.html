@@ -2536,6 +2536,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../release_0.2.0a2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AgentFEM 0.2.0a2 Candidate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../release_0.2.0a1/" class="md-nav__link">
         
   
@@ -3214,7 +3242,7 @@ for AI agents.</p>
   <code>model.internal_force(...)</code>, and <code>model.external_force(...)</code> for daily
   application scripts. These helpers should delegate to <code>operators</code> and
   preserve inspectable operator summaries.</li>
-<li>Prefer model-owned step helpers such as <code>model.linear_static_step(...)</code> for
+<li>Prefer the model-owned <code>model.step(...)</code> procedure-dispatch entry point for
   beginner workflows. The step should expose its K/F system through summaries
   so it remains auditable rather than becoming a black box.</li>
 <li>Provide operator-level constructors for engineering FEM notation, such as

@@ -42,7 +42,8 @@ dependencies = [
 Homepage = "https://github.com/haoming-luo/agentfem"
 Repository = "https://github.com/haoming-luo/agentfem"
 Issues = "https://github.com/haoming-luo/agentfem/issues"
-Documentation = "https://github.com/haoming-luo/agentfem#readme"
+Documentation = "https://haoming-luo.github.io/agentfem/"
+Changelog = "https://github.com/haoming-luo/agentfem/blob/main/CHANGELOG.md"
 
 [project.scripts]
 agentfem = "agentfem.cli:main"
@@ -113,7 +114,7 @@ packages = [
   "external_data/*.json",
   "research_tasks/*.json",
 ]
-"agentfem" = ["py.typed"]
+"agentfem" = ["py.typed", "release/*.json"]
 "agentfem.templates" = ["*/case.py", "*/agentfem.toml", "*/README.md", "*/AGENTS.md"]
 
 [tool.setuptools.exclude-package-data]

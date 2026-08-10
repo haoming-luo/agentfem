@@ -125,6 +125,11 @@ def run(
     field_variables = [
         "U", "S", "E", "EVOL", "F", "P", "PRESSURE", "MISES", "J", "SENER"
     ]
+    presentation = (
+        None
+        if video_format == "none"
+        else results.presentation(animation=video_format, fps=video_fps)
+    )
     output_request = results.output_plan(
         output,
         field=results.field_output(
@@ -144,10 +149,7 @@ def run(
             ),
             results.finite_strain_checks(constraint=periodicity),
         ),
-        presentation=results.presentation(
-            animation=video_format,
-            fps=video_fps,
-        ),
+        presentation=presentation,
         basename="periodic_cell",
     )
 
@@ -214,7 +216,12 @@ def _arguments():
     parser.add_argument("--shear-modulus", type=float, default=1.0)
     parser.add_argument("--bulk-to-shear-ratio", type=float, default=1.0e4)
     parser.add_argument("--video-fps", type=int, default=2)
-    parser.add_argument("--video-format", choices=("gif", "mp4"), default="gif")
+    parser.add_argument(
+        "--video-format",
+        choices=("gif", "mp4", "none"),
+        default="gif",
+        help="Presentation animation format; use 'none' for headless verification.",
+    )
     parser.add_argument("--source", type=Path, default=None)
     parser.add_argument("--output", type=Path, default=None)
     return parser.parse_args()

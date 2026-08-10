@@ -6,43 +6,9 @@ on:
       - "v*"
 
 jobs:
-  verify:
-    name: Verify release in FEniCSx
-    runs-on: ubuntu-latest
-    env:
-      UCX_TLS: tcp,sm,self
-    defaults:
-      run:
-        shell: bash -el {0}
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Create FEniCSx environment
-        uses: conda-incubator/setup-miniconda@v4
-        with:
-          activate-environment: agentfem-release
-          environment-file: environment.yml
-          miniforge-version: latest
-          use-mamba: true
-          channels: conda-forge
-          channel-priority: strict
-
-      - name: Install source and run release verification
-        run: |
-          python -m pip install -e . --no-deps
-          python build_knowledge.py --check --check-imports
-          python -m pytest
-          mpirun -n 2 python -m pytest tests/test_parallel_affine.py tests/test_parallel_cli.py tests/test_parallel_mesh_semantics.py tests/test_parallel_mixed.py tests/test_parallel_results.py tests/test_parallel_transient.py
-
   build:
-    name: Build package distributions
-    needs: verify
+    name: Build the immutable release artifacts
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-      attestations: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -55,34 +21,155 @@ jobs:
       - name: Install build tools
         run: python -m pip install --upgrade build twine
 
-      - name: Build source and wheel distributions
+      - name: Build source and wheel distributions once
         run: python -m build
 
-      - name: Validate distribution metadata and contents
+      - name: Validate metadata, payload, and release identity
         run: |
           python -m twine check dist/*
           python release_gate.py --dist dist --tag "${GITHUB_REF_NAME}"
+
+      - name: Upload immutable candidate distributions
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-package-distributions
+          path: dist/
+          if-no-files-found: error
+
+  verify:
+    name: Verify the exact wheel users will receive
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      UCX_TLS: tcp,sm,self
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Download immutable candidate distributions
+        uses: actions/download-artifact@v8
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Create FEniCSx environment
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          activate-environment: agentfem-release
+          environment-file: environment.yml
+          miniforge-version: latest
+          use-mamba: true
+          channels: conda-forge
+          channel-priority: strict
+
+      - name: Install the candidate wheel and optional mesh reader
+        run: |
+          python -m pip install meshio
+          python -m pip install "mkdocs>=1.6,<2" "mkdocs-material>=9,<10" pymdown-extensions
+          python -m pip install --no-deps --force-reinstall dist/*.whl
+
+      - name: Validate documentation and machine entrypoints
+        run: |
+          python build_docs.py --check
+          python -m mkdocs build --strict
+
+      - name: Verify the wheel identity and release workflows
+        run: python release_gate.py --dist dist --tag "${GITHUB_REF_NAME}" --smoke
+
+      - name: Validate versioned scientific knowledge
+        run: python build_knowledge.py --check --check-imports
+
+      - name: Run the complete serial suite
+        run: python -m pytest
+
+      - name: Run distributed constraint, fracture, and result tests
+        run: mpirun -n 2 python -m pytest tests/test_parallel_affine.py tests/test_parallel_cli.py tests/test_parallel_cohesive.py tests/test_parallel_mesh_semantics.py tests/test_parallel_mixed.py tests/test_parallel_results.py tests/test_parallel_transient.py
+
+      - name: Verify three-owner sparse cohesive exchange
+        run: mpirun -n 3 python -m pytest tests/test_parallel_cohesive.py -k "interface_sparse or serial_nonuniform"
+
+      - name: Verify checkpoint portability across MPI rank counts
+        run: |
+          mpirun -n 2 python tests/portable_checkpoint_driver.py write /tmp/agentfem-portable-heat
+          python tests/portable_checkpoint_driver.py read /tmp/agentfem-portable-heat
+          mpirun -n 2 python tests/portable_cohesive_checkpoint_driver.py write /tmp/agentfem-portable-cohesive
+          python tests/portable_cohesive_checkpoint_driver.py read /tmp/agentfem-portable-cohesive
+          mpirun -n 2 python tests/portable_cohesive_checkpoint_driver.py reject-inconsistent /tmp/agentfem-inconsistent-cohesive
+          mpirun -n 2 python tests/portable_cohesive_dynamics_driver.py write /tmp/agentfem-portable-cohesive-dynamics
+          python tests/portable_cohesive_dynamics_driver.py read /tmp/agentfem-portable-cohesive-dynamics
+
+  ml-verify:
+    name: Verify the optional PyTorch bridge from the candidate wheel
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      UCX_TLS: tcp,sm,self
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Download immutable candidate distributions
+        uses: actions/download-artifact@v8
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Create FEniCSx environment
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          activate-environment: agentfem-release-ml
+          environment-file: environment.yml
+          miniforge-version: latest
+          use-mamba: true
+          channels: conda-forge
+          channel-priority: strict
+
+      - name: Install the candidate wheel and official CPU PyTorch build
+        run: |
+          python -m pip install --no-deps --force-reinstall dist/*.whl
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Verify simulation-to-learning optional contracts
+        run: |
+          python -c "import torch, agentfem; print(torch.__version__, agentfem.__version__)"
+          python -c "import agentfem, torch; print(agentfem.__version__, torch.__version__)"
+          python -m pytest tests/test_datasets.py tests/test_surrogates.py
+
+  attest:
+    name: Attest the verified distributions
+    needs: [verify, ml-verify]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Download verified distributions
+        uses: actions/download-artifact@v8
+        with:
+          name: python-package-distributions
+          path: dist/
 
       - name: Attest official distribution provenance
         uses: actions/attest-build-provenance@v3
         with:
           subject-path: "dist/*"
 
-      - name: Upload distributions
-        uses: actions/upload-artifact@v7
-        with:
-          name: python-package-distributions
-          path: dist/
-
   publish:
-    name: Publish package distributions to PyPI
-    needs: build
+    name: Publish verified distributions to PyPI
+    needs: attest
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
       id-token: write
     steps:
-      - name: Download distributions
+      - name: Download verified distributions
         uses: actions/download-artifact@v8
         with:
           name: python-package-distributions

@@ -11,14 +11,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 import os
 from pathlib import Path
-import sys
 
 import numpy as np
 from mpi4py import MPI
-
-SOURCE_PARENT = Path(__file__).resolve().parents[2]
-if str(SOURCE_PARENT) not in sys.path:
-    sys.path.insert(0, str(SOURCE_PARENT))
 
 from agentfem import campaigns, datasets, fields, mesh, models, studies, surrogates
 from agentfem.constitutive import elasticity
@@ -75,9 +70,10 @@ def build_case(parameters) -> StaticCase:
     )
     model.fix(displacement, on=left, value=0.0)
     model.traction(value=(0.0, -1.0e6), on=right)
-    step = model.linear_static_step(
+    step = model.step(
         target=displacement,
         solver_options=LinearSolverOptions(ksp_type="preonly", pc_type="lu"),
+        name="campaign_linear_static",
     )
     return StaticCase(model=model, step=step, displacement=displacement)
 

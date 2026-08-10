@@ -1,4 +1,5 @@
 include README.md
+include CHANGELOG.md
 include LICENSE
 include NOTICE
 include CITATION.cff
@@ -14,6 +15,7 @@ include logo/AgentFEM_logo_transparent.png
 include logo/README.md
 recursive-include materials/data *.json
 recursive-include docs *.md
+recursive-include release *.json
 recursive-include skills *.md
 recursive-include templates *.py *.toml *.md
 recursive-include examples *.py *.md *.json *.inp *.dat *.mpc

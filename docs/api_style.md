@@ -72,7 +72,7 @@ for AI agents.
   `model.internal_force(...)`, and `model.external_force(...)` for daily
   application scripts. These helpers should delegate to `operators` and
   preserve inspectable operator summaries.
-- Prefer model-owned step helpers such as `model.linear_static_step(...)` for
+- Prefer the model-owned `model.step(...)` procedure-dispatch entry point for
   beginner workflows. The step should expose its K/F system through summaries
   so it remains auditable rather than becoming a black box.
 - Provide operator-level constructors for engineering FEM notation, such as

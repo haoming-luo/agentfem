@@ -14,13 +14,8 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
-import sys
 
 from mpi4py import MPI
-
-SOURCE_PARENT = Path(__file__).resolve().parents[2]
-if str(SOURCE_PARENT) not in sys.path:
-    sys.path.insert(0, str(SOURCE_PARENT))
 
 from agentfem import amplitudes
 from agentfem import fields

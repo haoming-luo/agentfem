@@ -15,15 +15,11 @@ Workflow highlights:
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
-import sys
 
 import numpy as np
 from mpi4py import MPI
-
-SOURCE_PARENT = Path(__file__).resolve().parents[2]
-if str(SOURCE_PARENT) not in sys.path:
-    sys.path.insert(0, str(SOURCE_PARENT))
 
 from agentfem import amplitudes
 from agentfem import diagnostics
@@ -38,6 +34,7 @@ from agentfem.diagnostics import max_magnitude, print_on_root
 
 def main() -> None:
     comm = MPI.COMM_WORLD
+    smoke = os.environ.get("AGENTFEM_RELEASE_SMOKE") == "1"
 
     # 1. Study: choose the analysis family and mechanical assumption.
     study = studies.dynamic_solid(
@@ -50,7 +47,7 @@ def main() -> None:
     # 2. Mesh and model: build the plate domain.
     length = 1.2e-6
     height = 0.24e-6
-    cells = (240, 48)
+    cells = (48, 12) if smoke else (240, 48)
     domain = fem_mesh.rectangle(
         lower=(0.0, 0.0),
         upper=(length, height),
@@ -161,7 +158,7 @@ def main() -> None:
     state = problems.second_order_state(displacement)
 
     dt = 0.35 * min(length / cells[0], height / cells[1]) / max(matrix_cp, inclusion_cp)
-    steps = 2000
+    steps = 80 if smoke else 2000
 
     internal_force = model.internal_force(state.u)
     absorbing_force = model.boundary_force(abc, state.v_mid)

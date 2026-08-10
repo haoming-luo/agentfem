@@ -2436,6 +2436,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../release_0.2.0a2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AgentFEM 0.2.0a2 Candidate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../release_0.2.0a1/" class="md-nav__link">
         
   
@@ -3153,10 +3181,11 @@ without storing a long-lived PyPI API token in repository secrets.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>git<span class="w"> </span>tag<span class="w"> </span>vX.Y.Z
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>vX.Y.Z
 </code></pre></div>
-<p>The GitHub Actions workflow <code>.github/workflows/publish-pypi.yml</code> first repeats
-the serial and MPI FEniCSx verification, checks that the tag matches both
-version declarations, validates the actual wheel/sdist payload, and only then
-publishes the tagged release to PyPI.</p>
+<p>The GitHub Actions workflow <code>.github/workflows/publish-pypi.yml</code> builds the
+wheel and source distribution exactly once. It then installs and verifies that
+immutable wheel through the complete serial, MPI, checkpoint, project-template,
+and release-workflow gates. Only those same artifacts are attested and
+published to PyPI; the workflow never rebuilds after verification.</p>
 <h2 id="install-command-for-users">Install Command for Users<a class="headerlink" href="#install-command-for-users" title="Permanent link">&para;</a></h2>
 <p>After publication:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>agentfem

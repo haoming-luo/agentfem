@@ -3,18 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-import os
-import sys
 
 import numpy as np
 from mpi4py import MPI
-
-SOURCE_PARENT = Path(__file__).resolve().parents[2]
-if (
-    os.environ.get("AGENTFEM_INSTALLED_SMOKE") != "1"
-    and str(SOURCE_PARENT) not in sys.path
-):
-    sys.path.insert(0, str(SOURCE_PARENT))
 
 from agentfem import benchmarks
 from agentfem import fields

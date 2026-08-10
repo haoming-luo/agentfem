@@ -1,0 +1,99 @@
+{
+  "schema": "agentfem.release-contract",
+  "schema_version": "0.1.0",
+  "target_version": "0.2.0a2",
+  "channel": "alpha",
+  "status": "candidate-preparation",
+  "supported_python": "3.11",
+  "platform_evidence": {
+    "continuous_integration": "Linux",
+    "local_development": [
+      "Linux",
+      "macOS with conda-forge FEniCSx",
+      "Windows through WSL2"
+    ]
+  },
+  "installed_templates": [
+    "static-solid",
+    "steady-heat",
+    "structural-dynamics"
+  ],
+  "workflows": [
+    {
+      "id": "linear-static-solid",
+      "maturity": "release",
+      "example": "examples/static_elasticity_2d.py",
+      "evidence": ["golden-observable", "serial-smoke", "two-rank-smoke"]
+    },
+    {
+      "id": "transient-heat",
+      "maturity": "release",
+      "example": "examples/transient_heat_2d.py",
+      "evidence": ["golden-observable", "checkpoint-tests", "installed-wheel-smoke"]
+    },
+    {
+      "id": "explicit-wave-inclusion",
+      "maturity": "engineering",
+      "example": "examples/wave_packet_inclusion_2d.py",
+      "evidence": ["release-smoke", "explicit-dynamics-tests", "absorbing-boundary-tests"]
+    },
+    {
+      "id": "c3d10h-periodic-hyperelasticity",
+      "maturity": "engineering",
+      "example": "examples/abaqus_c3d10h_periodic_cell/case.py",
+      "evidence": ["direct-import-tests", "mixed-formulation-tests", "periodic-cell-golden"]
+    },
+    {
+      "id": "j2-plasticity",
+      "maturity": "engineering",
+      "example": "examples/j2_plasticity_3d.py",
+      "evidence": ["material-point-path", "global-cutback-tests", "restart-tests"]
+    },
+    {
+      "id": "implicit-power-law-creep",
+      "maturity": "engineering",
+      "example": "examples/implicit_creep_relaxation_3d.py",
+      "evidence": ["relaxation-golden", "rollback-tests", "restart-tests"]
+    },
+    {
+      "id": "hot-wall-creep-assessment",
+      "maturity": "experimental",
+      "example": "examples/creep_hot_wall_assessment.py",
+      "evidence": ["release-smoke", "material-capability-contract"]
+    },
+    {
+      "id": "simulation-to-learning",
+      "maturity": "engineering",
+      "example": "examples/static_elasticity_surrogate_campaign.py",
+      "evidence": ["accepted-dataset-policy", "surrogate-validation", "fem-fallback"]
+    },
+    {
+      "id": "dynamic-cohesive-fracture",
+      "maturity": "experimental",
+      "example": "examples/science_supershear_v5_protocol.py",
+      "evidence": ["v0-v4-guardrails", "mpi-interface-tests", "energy-balance-tests"]
+    }
+  ],
+  "required_gates": [
+    "version-tag-agreement",
+    "clean-wheel-and-sdist",
+    "full-serial-tests",
+    "distributed-tests",
+    "cross-rank-checkpoint-portability",
+    "installed-wheel-identity",
+    "installed-project-template-loop",
+    "release-workflow-smokes",
+    "scientific-knowledge-check",
+    "documentation-strict-build",
+    "optional-pytorch-bridge",
+    "build-provenance-attestation"
+  ],
+  "not_release_claims": [
+    "universal finite-element coverage",
+    "general industrial code validation",
+    "native Windows solver support",
+    "general arbitrary-path fracture",
+    "binary-compatible Abaqus user-subroutine execution",
+    "automatic neural-operator or PINN training for arbitrary meshes"
+  ]
+}

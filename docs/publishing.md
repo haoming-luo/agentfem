@@ -39,10 +39,11 @@ without storing a long-lived PyPI API token in repository secrets.
    git push origin vX.Y.Z
    ```
 
-The GitHub Actions workflow `.github/workflows/publish-pypi.yml` first repeats
-the serial and MPI FEniCSx verification, checks that the tag matches both
-version declarations, validates the actual wheel/sdist payload, and only then
-publishes the tagged release to PyPI.
+The GitHub Actions workflow `.github/workflows/publish-pypi.yml` builds the
+wheel and source distribution exactly once. It then installs and verifies that
+immutable wheel through the complete serial, MPI, checkpoint, project-template,
+and release-workflow gates. Only those same artifacts are attested and
+published to PyPI; the workflow never rebuilds after verification.
 
 ## Install Command for Users
 

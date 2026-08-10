@@ -184,7 +184,7 @@ right = mesh.boundary(
 model.fix(u, on=left, value=0.0)
 model.traction(value=(0.0, -1.0e6), on=right)
 
-step = model.linear_static_step(target=u)
+step = model.step(target=u)
 result = step.solve_result()
 result.verify("engineering").require()
 

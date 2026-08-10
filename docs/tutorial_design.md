@@ -39,7 +39,7 @@ right_boundary = mesh.boundary(domain, right_marker, name="right")
 model.fix(displacement, on=left_boundary, value=0.0)
 model.traction(value=(0.0, -1.0e6), on=right_boundary)
 model.material(properties)
-step = model.linear_static_step(target=displacement)
+step = model.step(target=displacement)
 step.solve()
 print(model.tree())
 ```
@@ -72,7 +72,7 @@ a = forms.stiffness_form(sigma, elasticity.strain(v))
 
 Weak-form tutorials may use `problems.LinearVariationalProblem`. Application
 tutorials should prefer model-owned step constructors such as
-`model.linear_static_step(...)`. Tutorials that explicitly teach operator
+`model.step(...)`. Tutorials that explicitly teach operator
 notation may use `problems.linear_static(...)` and
 `problems.first_order_transient(...)`.
 

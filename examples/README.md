@@ -9,7 +9,7 @@ unless the example is intentionally advanced.
 1. `static_elasticity_2d.py`
    Beginner template. Demonstrates the preferred MVP path:
    `Study -> Model -> Field -> Material -> Regions -> Constraints/Loads ->
-   model.linear_static_step(...) -> AF-IR record -> solve -> XDMF`.
+   model.step(...) -> AF-IR record -> solve -> XDMF`.
 
 2. `transient_heat_2d.py`
    Intermediate template. Demonstrates first-order transient heat conduction
