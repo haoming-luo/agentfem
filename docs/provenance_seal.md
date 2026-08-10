@@ -54,11 +54,11 @@ independent chronology and evidence chain without contaminating scientific
 fields with hidden numerical watermarks.
 
 Official tagged wheel and source distributions add the next level of this
-chain: the release workflow publishes a GitHub artifact attestation before the
-same files are sent to PyPI. A downloaded distribution can therefore be checked
-against the canonical repository with GitHub's attestation verifier. The
-attestation proves the official build origin; the result seal proves the later
-integrity of a particular simulation bundle.
+chain: when repository visibility supports GitHub artifact attestations, the
+release workflow publishes one before the same files are sent to PyPI. Those
+distributions can be checked against the canonical repository with GitHub's
+attestation verifier. The attestation proves the official build origin; the
+result seal proves the later integrity of a particular simulation bundle.
 
 ## Artifact discipline
 

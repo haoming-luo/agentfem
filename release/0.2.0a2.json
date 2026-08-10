@@ -86,7 +86,7 @@
     "scientific-knowledge-check",
     "documentation-strict-build",
     "optional-pytorch-bridge",
-    "build-provenance-attestation"
+    "build-provenance-attestation-when-repository-visibility-supports-it"
   ],
   "not_release_claims": [
     "universal finite-element coverage",

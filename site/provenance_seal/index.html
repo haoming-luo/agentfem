@@ -3171,11 +3171,11 @@ blocks, and—later—signed release and result identities. This gives an
 independent chronology and evidence chain without contaminating scientific
 fields with hidden numerical watermarks.</p>
 <p>Official tagged wheel and source distributions add the next level of this
-chain: the release workflow publishes a GitHub artifact attestation before the
-same files are sent to PyPI. A downloaded distribution can therefore be checked
-against the canonical repository with GitHub's attestation verifier. The
-attestation proves the official build origin; the result seal proves the later
-integrity of a particular simulation bundle.</p>
+chain: when repository visibility supports GitHub artifact attestations, the
+release workflow publishes one before the same files are sent to PyPI. Those
+distributions can be checked against the canonical repository with GitHub's
+attestation verifier. The attestation proves the official build origin; the
+result seal proves the later integrity of a particular simulation bundle.</p>
 <h2 id="artifact-discipline">Artifact discipline<a class="headerlink" href="#artifact-discipline" title="Permanent link">&para;</a></h2>
 <p>Only artifacts registered on <code>SimulationResult</code> are sealed. Writers should
 therefore attach XDMF, HDF5, CSV, checkpoint, report, and dataset files before

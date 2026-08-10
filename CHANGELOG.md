@@ -35,7 +35,8 @@ experimental formulation to a validated one.
 - Abaqus periodic-cell examples now preserve C3D10H formulation identity and
   express three-dimensional uniaxial-stress macro control directly.
 - Release CI now builds distributions once, verifies the exact wheel to be
-  uploaded, then attests and publishes the same immutable artifacts.
+  uploaded, then publishes the same immutable artifacts. GitHub provenance
+  attestation is added when repository visibility supports it.
 - Installed-wheel smoke now compares the complete runtime payload and executes
   every bundled project template plus the release-facing workflow set.
 

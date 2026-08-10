@@ -157,9 +157,14 @@ jobs:
           path: dist/
 
       - name: Attest official distribution provenance
+        if: github.event.repository.visibility == 'public'
         uses: actions/attest-build-provenance@v3
         with:
           subject-path: "dist/*"
+
+      - name: Record private-repository attestation boundary
+        if: github.event.repository.visibility != 'public'
+        run: echo "GitHub artifact attestations require a public repository; publishing the verified immutable artifacts without a GitHub attestation."
 
   publish:
     name: Publish verified distributions to PyPI
