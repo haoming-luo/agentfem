@@ -1222,14 +1222,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../abaqus_periodic_cell/" class="md-nav__link">
+      <a href="../abaqus_c3d10h_periodic_cell/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Abaqus Periodic Cell
+    Abaqus C3D10H Periodic Cell
   
 
     
@@ -3149,8 +3149,8 @@ promote a material-point formula to a finite-element solver.</p>
 </tr>
 <tr>
 <td>Large-deformation porous cell</td>
-<td><code>examples/abaqus_c3d10_periodic_cell/</code></td>
-<td>C3D10/MPI and C3D10H/serial routes, exact equations, mixed pressure, Golden homogenization, deformed output</td>
+<td><code>examples/abaqus_c3d10h_periodic_cell/</code></td>
+<td>direct C3D10H import, exact equations, mixed pressure, Golden homogenization, deformed output</td>
 </tr>
 <tr>
 <td>High-temperature creep route</td>
@@ -3209,7 +3209,7 @@ They are curated and gated rather than duplicated under new names.</p>
 <li>Wave-inclusion and Neo-Hookean release paths carry small automated Golden
   contracts in addition to their larger demonstration workflows.</li>
 <li>The imported porous-cell workflow carries a versioned C3D10H large-mesh
-  contract: topology-preserving source derivation, P2/DG0 provider dispatch,
+  contract: direct hybrid-source recognition, P2/DG0 provider dispatch,
   positive <code>J</code>, equation mismatch, homogenized stress, and separate
   <code>PRESSURE</code>/first-Piola <code>P</code> fields.</li>
 <li>Scientific results distinguish <code>computed</code>, <code>converged</code>, <code>verified</code>, and

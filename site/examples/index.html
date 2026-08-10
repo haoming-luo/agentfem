@@ -16,7 +16,7 @@
         <link rel="prev" href="../solution_procedures_and_thermal_creep/">
       
       
-        <link rel="next" href="../abaqus_periodic_cell/">
+        <link rel="next" href="../abaqus_c3d10h_periodic_cell/">
       
       
         
@@ -1381,14 +1381,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../abaqus_periodic_cell/" class="md-nav__link">
+      <a href="../abaqus_c3d10h_periodic_cell/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Abaqus Periodic Cell
+    Abaqus C3D10H Periodic Cell
   
 
     
@@ -3341,14 +3341,14 @@ stable time integration, probes, progress events, and time-series fields.</p>
 · <a href="../guide/dynamics/">Dynamics and waves</a></p>
 <h2 id="abaqus-periodic-hyperelastic-cell">Abaqus periodic hyperelastic cell<a class="headerlink" href="#abaqus-periodic-hyperelastic-cell" title="Permanent link">&para;</a></h2>
 <p><span class="af-status af-status--engineering">Engineering</span></p>
-<p>This workflow imports an Abaqus C3D10 mesh and equation constraints, preserves
-quadratic-node and element-formulation identity, builds distributed periodic
-constraints, solves finite-strain Neo-Hookean loading, and writes homogenized
-and visualization results.</p>
-<p>Read the <a href="../abaqus_periodic_cell/">complete periodic-cell workflow</a> before
+<p>This workflow directly imports an Abaqus C3D10H mesh and equation constraints,
+preserves quadratic-node and hybrid/constant-pressure identity, solves a
+P2/DG0 finite-strain Neo-Hookean problem with exact periodic constraints, and
+writes homogenized and visualization results.</p>
+<p>Read the <a href="../abaqus_c3d10h_periodic_cell/">complete periodic-cell workflow</a> before
 running the case; it explains the source files, element mapping, periodic
 semantics, nonlinear controls, and output.</p>
-<p><a href="https://github.com/haoming-luo/agentfem/tree/main/examples/abaqus_c3d10_periodic_cell">Source directory</a>
+<p><a href="https://github.com/haoming-luo/agentfem/tree/main/examples/abaqus_c3d10h_periodic_cell">Source directory</a>
 · <a href="../reference/theory_and_conventions/#compressible-neo-hookean-finite-strain">Finite-strain theory</a></p>
 <h2 id="implicit-creep-relaxation">Implicit creep relaxation<a class="headerlink" href="#implicit-creep-relaxation" title="Permanent link">&para;</a></h2>
 <p><span class="af-status af-status--engineering">Engineering</span></p>
@@ -3440,13 +3440,13 @@ or loading may require new verification evidence.</p>
         
         
           
-          <a href="../abaqus_periodic_cell/" class="md-footer__link md-footer__link--next" aria-label="Next: Abaqus Periodic Cell">
+          <a href="../abaqus_c3d10h_periodic_cell/" class="md-footer__link md-footer__link--next" aria-label="Next: Abaqus C3D10H Periodic Cell">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Abaqus Periodic Cell
+                Abaqus C3D10H Periodic Cell
               </div>
             </div>
             <div class="md-footer__button md-icon">

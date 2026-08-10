@@ -119,7 +119,7 @@ nav:
 
   - Examples:
       - Overview: examples/index.md
-      - Abaqus Periodic Cell: abaqus_periodic_cell.md
+      - Abaqus C3D10H Periodic Cell: abaqus_c3d10h_periodic_cell.md
       - Research Protocols:
           - Science Supershear V5: research/science_supershear_v5.md
 

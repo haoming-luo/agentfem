@@ -150,12 +150,12 @@ _BENCHMARKS = (
         level="workflow",
         reference="knowledge/benchmarks/c3d10h_periodic_cell.json",
         criterion=(
-            "a topology-preserving C3D10-to-C3D10H source derivation selects "
-            "P2/DG0 mixed periodic equilibrium and satisfies its versioned "
+            "a direct C3D10H source selects P2/DG0 mixed periodic equilibrium "
+            "and satisfies its versioned "
             "stress, volume, positive-J, and equation-mismatch contract"
         ),
         automated_test=(
-            "tests/test_abaqus_interop.py -k derivation; "
+            "tests/test_abaqus_interop.py -k direct_c3d10h; "
             "tests/test_engineering_workflows.py -k mixed_hybrid_affine"
         ),
         status="manual_large_mesh_release_regression",
@@ -434,18 +434,18 @@ _BENCHMARKS = (
         automated_test="tests/test_abaqus_interop.py",
     ),
     BenchmarkSpec(
-        identifier="abaqus_c3d10_periodic_finite_deformation",
+        identifier="abaqus_c3d10h_periodic_finite_deformation",
         capability="abaqus_periodic_equations",
         level="finite_element",
-        reference="examples/abaqus_c3d10_periodic_cell; 3D porous periodic cell",
+        reference="examples/abaqus_c3d10h_periodic_cell; 3D porous periodic cell",
         criterion=(
-            "14,942 C3D10 nodes and 8,781 cells import; all 4,212 equations "
+            "14,942 C3D10H nodes and 8,781 cells import directly; all 4,212 equations "
             "have zero mismatch; automatic increments reach the target with "
             "positive sampled J and recorded convergence evidence"
         ),
         automated_test=(
-            "examples/abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py "
-            "--stretch 1.20"
+            "examples/abaqus_c3d10h_periodic_cell/case.py "
+            "--displacement 0.20"
         ),
         status="manual_regression",
     ),

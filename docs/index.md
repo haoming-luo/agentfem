@@ -145,7 +145,7 @@ Use the reference according to the question being asked:
 | Heat transfer | Steady conduction and implicit transient heat transfer |
 | Dynamics | Newmark/generalized-\(\alpha\) implicit dynamics and central-difference explicit wave propagation |
 | Time-dependent materials | Global isothermal/Arrhenius power-law creep plus reviewed material-point creep/damage tools |
-| Mesh and constraints | Structured/XDMF meshes, optional Gmsh and meshio routes, Abaqus C3D10 import, equation constraints, and distributed periodic workflows |
+| Mesh and constraints | Structured/XDMF meshes, optional Gmsh and meshio routes, direct Abaqus C3D10H import, equation constraints, and distributed periodic workflows |
 | Results and verification | Standard fields, histories, resultants, progress, checkpoints, Golden benchmarks, and explicit quality policies |
 | Simulation and learning | Parameter campaigns, scientific datasets, NumPy/PyTorch adapters, surrogate baselines, applicability guards, and FEM fallback |
 

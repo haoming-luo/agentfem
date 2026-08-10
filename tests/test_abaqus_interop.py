@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
-from types import SimpleNamespace
 from mpi4py import MPI
 
 from agentfem import constraints, fields, mesh
@@ -12,6 +14,28 @@ from agentfem.constraints.affine import (
     _expand_semantic_relations,
 )
 from agentfem.mesh import abaqus
+
+
+CASE_INPUT = (
+    Path(__file__).resolve().parents[1]
+    / "examples"
+    / "abaqus_c3d10h_periodic_cell"
+    / "input"
+)
+
+
+def test_versioned_periodic_cell_is_a_direct_c3d10h_source():
+    source = CASE_INPUT / "periodic_cell_c3d10h.dat"
+    definitions = abaqus.read_element_definitions(source)
+    equations = abaqus.read_equations(
+        CASE_INPUT / "periodic_cell_equations.mpc"
+    )
+
+    assert [item.source_type for item in definitions] == ["C3D10H"]
+    assert definitions[0].formulation == "hybrid"
+    assert definitions[0].pressure_interpolation == "constant"
+    assert definitions[0].additional_pressure_variables == 1
+    assert len(equations.equations) == 4212
 
 
 def test_abaqus_node_reader_preserves_nonconsecutive_labels(tmp_path):

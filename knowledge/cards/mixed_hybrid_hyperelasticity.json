@@ -71,7 +71,7 @@
   },
   "usage": {
     "minimal_example": "unknown = model.field(fields.displacement_pressure(domain))\nmaterial = model.material(constitutive.mixed_neo_hookean(shear_modulus=1.0, bulk_modulus=1.0e4))\nmodel.fix(unknown.displacement, on=support)\nstep = model.step(target=unknown, material=material)",
-    "examples": ["examples/abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py", "tests/test_engineering_workflows.py"]
+    "examples": ["examples/abaqus_c3d10h_periodic_cell/case.py", "tests/test_engineering_workflows.py"]
   },
   "verification": {
     "tests": ["tests/test_engineering_workflows.py", "tests/test_abaqus_interop.py", "tests/test_mesh_formats.py"],

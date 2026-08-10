@@ -1,7 +1,7 @@
 # Stable Steps and Compact Field Output
 
 This note records two architectural decisions made while turning the Abaqus
-C3D10 periodic-cell migration into reusable AgentFEM infrastructure.
+C3D10H periodic-cell workflow into reusable AgentFEM infrastructure.
 
 ## Stable public step, extensible lowering
 

@@ -38,7 +38,7 @@
 ***********************************
 ** GEOMETRY
 **
-*INCLUDE, INPUT=R1f10n30vc.dat
+*INCLUDE, INPUT=../input/periodic_cell_c3d10h.dat
 **
 *NSET, NSET=FIX
  1
@@ -68,7 +68,7 @@ MATRIX
 **
 ** Periodic Boundary Conditions
 **
-*EQUATION, INPUT=R1f10n30vc.mpc
+*EQUATION, INPUT=../input/periodic_cell_equations.mpc
 **
 **
 **POINT_fixed

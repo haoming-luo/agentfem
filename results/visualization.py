@@ -38,7 +38,7 @@ def render_deformation_comparison(
         border=False,
     )
     plotter.subplot(0, 0)
-    plotter.add_text("Imported C3D10 mesh", font_size=13)
+    plotter.add_text("Imported C3D10H mesh", font_size=13)
     plotter.add_mesh(
         undeformed,
         color="#d9e4f5",

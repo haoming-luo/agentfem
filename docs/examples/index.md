@@ -76,16 +76,16 @@ python examples/wave_packet_inclusion_2d.py
 
 <span class="af-status af-status--engineering">Engineering</span>
 
-This workflow imports an Abaqus C3D10 mesh and equation constraints, preserves
-quadratic-node and element-formulation identity, builds distributed periodic
-constraints, solves finite-strain Neo-Hookean loading, and writes homogenized
-and visualization results.
+This workflow directly imports an Abaqus C3D10H mesh and equation constraints,
+preserves quadratic-node and hybrid/constant-pressure identity, solves a
+P2/DG0 finite-strain Neo-Hookean problem with exact periodic constraints, and
+writes homogenized and visualization results.
 
-Read the [complete periodic-cell workflow](../abaqus_periodic_cell.md) before
+Read the [complete periodic-cell workflow](../abaqus_c3d10h_periodic_cell.md) before
 running the case; it explains the source files, element mapping, periodic
 semantics, nonlinear controls, and output.
 
-[Source directory](https://github.com/haoming-luo/agentfem/tree/main/examples/abaqus_c3d10_periodic_cell)
+[Source directory](https://github.com/haoming-luo/agentfem/tree/main/examples/abaqus_c3d10h_periodic_cell)
 · [Finite-strain theory](../reference/theory_and_conventions.md#compressible-neo-hookean-finite-strain)
 
 ## Implicit creep relaxation

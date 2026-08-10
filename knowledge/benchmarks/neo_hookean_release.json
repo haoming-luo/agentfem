@@ -8,7 +8,7 @@
   "physics": "compressible Neo-Hookean hyperelasticity",
   "execution": {
     "command": "python -m pytest -q tests/test_constitutive_models.py -k neo_hookean",
-    "example": "examples/abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py",
+    "example": "examples/abaqus_c3d10h_periodic_cell/case.py",
     "evidence": "The material-point energy gradient and a homogeneous finite-element patch are checked independently; the full porous-cell workflow remains a manual release regression."
   },
   "observables": [

@@ -123,7 +123,7 @@ evidence.
 constraints, including continued term lines. For periodic finite-deformation
 cells, `constraints.abaqus_periodic_cell(...)` maps source labels to
 displacement dofs and constructs exact affine elimination. See
-[Abaqus C3D10 Periodic Cell](abaqus_periodic_cell.md).
+[Abaqus C3D10H Periodic Cell](abaqus_c3d10h_periodic_cell.md).
 
 The Abaqus adapter also preserves inline and explicit `NSET`/`ELSET`
 definitions, expands `GENERATE` ranges, and records node- and element-based
@@ -212,7 +212,21 @@ that pressure formulation. This identity follows the
 which distinguishes C3D10H from the linear-pressure C3D10HS and C3D10MH
 families.
 
-AgentFEM now provides an explicit mixed route:
+Direct C3D10H input uses the ordinary Abaqus entry point; no source rewrite is
+needed:
+
+```python
+cell = mesh.read_abaqus_mesh(
+    "periodic_cell_c3d10h.dat",
+    "output/periodic_cell.xdmf",
+    cell_type="tetra10",
+)
+cell.require_formulation("hybrid")
+```
+
+`cell.element_definitions` and the conversion manifest retain the original
+`C3D10H`, hybrid, constant-pressure identity. AgentFEM then provides an
+explicit mixed route:
 
 ```python
 unknown = model.field(fields.displacement_pressure(domain))  # P2 / DG0

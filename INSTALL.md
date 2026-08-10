@@ -67,15 +67,15 @@ For a two-rank smoke test:
 mpiexec -n 2 python examples/static_elasticity_2d.py
 ```
 
-The Abaqus `*EQUATION` periodic-cell example also supports within-case MPI:
+The C3D10H mixed macro-control reference currently runs in serial:
 
 ```bash
-mpiexec -n 2 python \
-  examples/abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py \
-  --stretch 1.05
+python examples/abaqus_c3d10h_periodic_cell/case.py \
+  --displacement 0.20
 ```
 
-This path requires `dolfinx_mpc` with the same minor version as DOLFINx.
+Distributed, fully prescribed displacement-periodic formulations use the
+separate `dolfinx_mpc` backend.
 
 The launcher and `mpi4py` must come from the same MPI implementation. On macOS,
 Homebrew Open MPI can appear before a conda MPICH launcher on `PATH`; check

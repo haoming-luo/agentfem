@@ -48,5 +48,5 @@ number of poor/invalid owned cells.
 
 - [Mesh interoperability](../mesh_interoperability.md)
 - [Engineering loads, steps, and resultants](../engineering_workflows.md)
-- [Abaqus periodic cell](../abaqus_periodic_cell.md)
+- [Abaqus C3D10H periodic cell](../abaqus_c3d10h_periodic_cell.md)
 - [Example gallery](../examples/index.md)

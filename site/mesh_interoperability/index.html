@@ -1395,14 +1395,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../abaqus_periodic_cell/" class="md-nav__link">
+      <a href="../abaqus_c3d10h_periodic_cell/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Abaqus Periodic Cell
+    Abaqus C3D10H Periodic Cell
   
 
     
@@ -3392,7 +3392,7 @@ evidence.</p>
 constraints, including continued term lines. For periodic finite-deformation
 cells, <code>constraints.abaqus_periodic_cell(...)</code> maps source labels to
 displacement dofs and constructs exact affine elimination. See
-<a href="../abaqus_periodic_cell/">Abaqus C3D10 Periodic Cell</a>.</p>
+<a href="../abaqus_c3d10h_periodic_cell/">Abaqus C3D10H Periodic Cell</a>.</p>
 <p>The Abaqus adapter also preserves inline and explicit <code>NSET</code>/<code>ELSET</code>
 definitions, expands <code>GENERATE</code> ranges, and records node- and element-based
 <code>SURFACE</code> entries. For supported three-dimensional continuum families, these
@@ -3460,22 +3460,33 @@ that pressure formulation. This identity follows the
 <a href="https://docs.software.vt.edu/abaqusv2024/English/SIMACAEELMRefMap/simaelm-r-3delem.htm">Abaqus three-dimensional solid element library</a>,
 which distinguishes C3D10H from the linear-pressure C3D10HS and C3D10MH
 families.</p>
-<p>AgentFEM now provides an explicit mixed route:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">unknown</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">fields</span><span class="o">.</span><span class="n">displacement_pressure</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>  <span class="c1"># P2 / DG0</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">material</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">constitutive</span><span class="o">.</span><span class="n">mixed_neo_hookean</span><span class="p">(</span><span class="n">young</span><span class="o">=</span><span class="mf">1.0e6</span><span class="p">,</span> <span class="n">poisson</span><span class="o">=</span><span class="mf">0.499</span><span class="p">)</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="p">)</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">model</span><span class="o">.</span><span class="n">fix</span><span class="p">(</span><span class="n">unknown</span><span class="o">.</span><span class="n">displacement</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">support</span><span class="p">)</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">unknown</span><span class="p">,</span> <span class="n">material</span><span class="o">=</span><span class="n">material</span><span class="p">)</span>
+<p>Direct C3D10H input uses the ordinary Abaqus entry point; no source rewrite is
+needed:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">cell</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">read_abaqus_mesh</span><span class="p">(</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="s2">&quot;periodic_cell_c3d10h.dat&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="s2">&quot;output/periodic_cell.xdmf&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">cell_type</span><span class="o">=</span><span class="s2">&quot;tetra10&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="p">)</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">cell</span><span class="o">.</span><span class="n">require_formulation</span><span class="p">(</span><span class="s2">&quot;hybrid&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p><code>cell.element_definitions</code> and the conversion manifest retain the original
+<code>C3D10H</code>, hybrid, constant-pressure identity. AgentFEM then provides an
+explicit mixed route:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">unknown</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">fields</span><span class="o">.</span><span class="n">displacement_pressure</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>  <span class="c1"># P2 / DG0</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">material</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="n">constitutive</span><span class="o">.</span><span class="n">mixed_neo_hookean</span><span class="p">(</span><span class="n">young</span><span class="o">=</span><span class="mf">1.0e6</span><span class="p">,</span> <span class="n">poisson</span><span class="o">=</span><span class="mf">0.499</span><span class="p">)</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="p">)</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">model</span><span class="o">.</span><span class="n">fix</span><span class="p">(</span><span class="n">unknown</span><span class="o">.</span><span class="n">displacement</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">support</span><span class="p">)</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">unknown</span><span class="p">,</span> <span class="n">material</span><span class="o">=</span><span class="n">material</span><span class="p">)</span>
 </code></pre></div>
 <p>For controlled same-mesh studies, a large source file need not be copied and
 edited by hand:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">evidence</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">abaqus</span><span class="o">.</span><span class="n">derive_element_formulation</span><span class="p">(</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="s2">&quot;cell.dat&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="s2">&quot;output/mesh/cell_C3D10H.dat&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">source_type</span><span class="o">=</span><span class="s2">&quot;C3D10&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">target_type</span><span class="o">=</span><span class="s2">&quot;C3D10H&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">evidence</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">abaqus</span><span class="o">.</span><span class="n">derive_element_formulation</span><span class="p">(</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="s2">&quot;cell.dat&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="s2">&quot;output/mesh/cell_C3D10H.dat&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="n">source_type</span><span class="o">=</span><span class="s2">&quot;C3D10&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="n">target_type</span><span class="o">=</span><span class="s2">&quot;C3D10H&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="p">)</span>
 </code></pre></div>
 <p>The helper accepts only known equal-topology/equal-connectivity families,
 changes matching <code>*ELEMENT, TYPE=</code> values only, and writes a validated

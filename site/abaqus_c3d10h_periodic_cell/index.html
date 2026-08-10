@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://haoming-luo.github.io/agentfem/abaqus_periodic_cell/">
+        <link rel="canonical" href="https://haoming-luo.github.io/agentfem/abaqus_c3d10h_periodic_cell/">
       
       
         <link rel="prev" href="../examples/">
@@ -27,7 +27,7 @@
     
     
       
-        <title>Abaqus Periodic Cell - AgentFEM</title>
+        <title>Abaqus C3D10H Periodic Cell - AgentFEM</title>
       
     
     
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#abaqus-c3d10-periodic-cell" class="md-skip">
+        <a href="#abaqus-c3d10h-periodic-cell" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Abaqus Periodic Cell
+              Abaqus C3D10H Periodic Cell
             
           </span>
         </div>
@@ -1240,7 +1240,7 @@
   <span class="md-ellipsis">
     
   
-    Abaqus Periodic Cell
+    Abaqus C3D10H Periodic Cell
   
 
     
@@ -1258,7 +1258,7 @@
   <span class="md-ellipsis">
     
   
-    Abaqus Periodic Cell
+    Abaqus C3D10H Periodic Cell
   
 
     
@@ -3208,21 +3208,21 @@
   
 
 
-<h1 id="abaqus-c3d10-periodic-cell">Abaqus C3D10 Periodic Cell<a class="headerlink" href="#abaqus-c3d10-periodic-cell" title="Permanent link">&para;</a></h1>
+<h1 id="abaqus-c3d10h-periodic-cell">Abaqus C3D10H Periodic Cell<a class="headerlink" href="#abaqus-c3d10h-periodic-cell" title="Permanent link">&para;</a></h1>
 <h2 id="what-this-capability-proves">What This Capability Proves<a class="headerlink" href="#what-this-capability-proves" title="Permanent link">&para;</a></h2>
-<p>The <code>examples/abaqus_c3d10_periodic_cell/</code> workflow exercises several layers
+<p>The <code>examples/abaqus_c3d10h_periodic_cell/</code> workflow exercises several layers
 together:</p>
 <ol>
 <li>a custom-extension <code>.dat</code> file is read explicitly as Abaqus syntax;</li>
-<li><code>C3D10</code> is mapped to meshio <code>tetra10</code> and read by DOLFINx as a quadratic
-   tetrahedral geometry;</li>
+<li>the source <code>C3D10H</code> declaration is preserved as hybrid/constant-pressure
+   formulation evidence while its geometry is mapped to <code>tetra10</code>;</li>
 <li>Abaqus node labels are retained independently of DOLFINx ordering;</li>
 <li>all linear <code>*EQUATION</code> terms are parsed, validated, and matched to vector
    displacement degrees of freedom;</li>
 <li>chained edge and corner equations become an exact serial or distributed
    affine reduction;</li>
-<li>a C3D10H-equivalent P2/DG0 mixed formulation solves a quasi-incompressible
-   Neo-Hookean equilibrium incrementally;</li>
+<li>the verified P2/DG0 mixed provider directly consumes the C3D10H source
+   identity and solves quasi-incompressible Neo-Hookean equilibrium;</li>
 <li>XDMF/HDF5 time-series fields, VTU, PNG, GIF/MP4, exact macro histories,
    AF-IR, and convergence evidence are written from one top-level model.</li>
 </ol>
@@ -3255,55 +3255,58 @@ The versioned <code>u=0.2</code> reference run gives
 below <code>2e-11</code> in magnitude.</p>
 <h2 id="public-workflow">Public Workflow<a class="headerlink" href="#public-workflow" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">cell</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">read_abaqus_mesh</span><span class="p">(</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="s2">&quot;R1f10n30vc.dat&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="s2">&quot;input/periodic_cell_c3d10h.dat&quot;</span><span class="p">,</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="s2">&quot;output/mesh.xdmf&quot;</span><span class="p">,</span>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">cell_type</span><span class="o">=</span><span class="s2">&quot;tetra10&quot;</span><span class="p">,</span>
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">)</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">equations</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">abaqus</span><span class="o">.</span><span class="n">read_equations</span><span class="p">(</span><span class="s2">&quot;R1f10n30vc.mpc&quot;</span><span class="p">)</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">unknown</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">fields</span><span class="o">.</span><span class="n">displacement_pressure</span><span class="p">(</span><span class="n">cell</span><span class="o">.</span><span class="n">domain</span><span class="p">))</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">material</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">constitutive</span><span class="o">.</span><span class="n">mixed_neo_hookean</span><span class="p">(</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="n">shear_modulus</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>        <span class="n">bulk_modulus</span><span class="o">=</span><span class="mf">1.0e4</span><span class="p">,</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="p">)</span>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="p">)</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="n">periodicity</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">constraint</span><span class="p">(</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="n">constraints</span><span class="o">.</span><span class="n">abaqus_periodic_cell</span><span class="p">(</span>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>        <span class="n">unknown</span><span class="p">,</span>
-<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>        <span class="n">nodes</span><span class="o">=</span><span class="n">cell</span><span class="o">.</span><span class="n">nodes</span><span class="p">,</span>
-<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>        <span class="n">equations</span><span class="o">=</span><span class="n">equations</span><span class="p">,</span>
-<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>        <span class="n">control_displacements</span><span class="o">=</span><span class="p">(</span>
-<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>            <span class="p">(</span><span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
-<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>            <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
-<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>            <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>        <span class="p">),</span>
-<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>        <span class="n">anchor_node</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>        <span class="n">reference_nodes</span><span class="o">=</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
-<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a>    <span class="p">)</span>
-<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="p">)</span>
-<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a><span class="n">output</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">field_output</span><span class="p">(</span>
-<a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a>    <span class="s2">&quot;U&quot;</span><span class="p">,</span> <span class="s2">&quot;S&quot;</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="s2">&quot;EVOL&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a>    <span class="n">every</span><span class="o">=</span><span class="s2">&quot;increment&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a>    <span class="n">configuration</span><span class="o">=</span><span class="s2">&quot;deformed&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a>    <span class="n">backend</span><span class="o">=</span><span class="s2">&quot;xdmf&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a><span class="p">)</span>
-<a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a><span class="n">incrementation</span> <span class="o">=</span> <span class="n">steps</span><span class="o">.</span><span class="n">automatic</span><span class="p">(</span>
-<a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a>    <span class="n">initial</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>
-<a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a>    <span class="n">minimum</span><span class="o">=</span><span class="mf">1.0e-4</span><span class="p">,</span>
-<a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a>    <span class="n">maximum</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
-<a id="__codelineno-3-39" name="__codelineno-3-39" href="#__codelineno-3-39"></a>    <span class="n">max_increments</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-<a id="__codelineno-3-40" name="__codelineno-3-40" href="#__codelineno-3-40"></a><span class="p">)</span>
-<a id="__codelineno-3-41" name="__codelineno-3-41" href="#__codelineno-3-41"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
-<a id="__codelineno-3-42" name="__codelineno-3-42" href="#__codelineno-3-42"></a>    <span class="n">target</span><span class="o">=</span><span class="n">unknown</span><span class="p">,</span>
-<a id="__codelineno-3-43" name="__codelineno-3-43" href="#__codelineno-3-43"></a>    <span class="n">material</span><span class="o">=</span><span class="n">material</span><span class="p">,</span>
-<a id="__codelineno-3-44" name="__codelineno-3-44" href="#__codelineno-3-44"></a>    <span class="n">constraints</span><span class="o">=</span><span class="n">periodicity</span><span class="p">,</span>
-<a id="__codelineno-3-45" name="__codelineno-3-45" href="#__codelineno-3-45"></a>    <span class="n">incrementation</span><span class="o">=</span><span class="n">incrementation</span><span class="p">,</span>
-<a id="__codelineno-3-46" name="__codelineno-3-46" href="#__codelineno-3-46"></a>    <span class="n">output</span><span class="o">=</span><span class="n">output</span><span class="p">,</span>
-<a id="__codelineno-3-47" name="__codelineno-3-47" href="#__codelineno-3-47"></a>    <span class="n">solver_options</span><span class="o">=</span><span class="n">AffineNewtonOptions</span><span class="p">(</span><span class="n">max_it</span><span class="o">=</span><span class="mi">25</span><span class="p">),</span>
-<a id="__codelineno-3-48" name="__codelineno-3-48" href="#__codelineno-3-48"></a>    <span class="n">status_file</span><span class="o">=</span><span class="s2">&quot;output/periodic_cell.sta&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-49" name="__codelineno-3-49" href="#__codelineno-3-49"></a><span class="p">)</span>
-<a id="__codelineno-3-50" name="__codelineno-3-50" href="#__codelineno-3-50"></a><span class="n">result</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">cell</span><span class="o">.</span><span class="n">require_formulation</span><span class="p">(</span><span class="s2">&quot;hybrid&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">equations</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">abaqus</span><span class="o">.</span><span class="n">read_equations</span><span class="p">(</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="s2">&quot;input/periodic_cell_equations.mpc&quot;</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="p">)</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">unknown</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">fields</span><span class="o">.</span><span class="n">displacement_pressure</span><span class="p">(</span><span class="n">cell</span><span class="o">.</span><span class="n">domain</span><span class="p">))</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="n">material</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="n">constitutive</span><span class="o">.</span><span class="n">mixed_neo_hookean</span><span class="p">(</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>        <span class="n">shear_modulus</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>        <span class="n">bulk_modulus</span><span class="o">=</span><span class="mf">1.0e4</span><span class="p">,</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="p">)</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="p">)</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="n">periodicity</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">constraint</span><span class="p">(</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>    <span class="n">constraints</span><span class="o">.</span><span class="n">abaqus_periodic_cell</span><span class="p">(</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>        <span class="n">unknown</span><span class="p">,</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>        <span class="n">nodes</span><span class="o">=</span><span class="n">cell</span><span class="o">.</span><span class="n">nodes</span><span class="p">,</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>        <span class="n">equations</span><span class="o">=</span><span class="n">equations</span><span class="p">,</span>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>        <span class="n">control_displacements</span><span class="o">=</span><span class="p">(</span>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>            <span class="p">(</span><span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>            <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>            <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a>        <span class="p">),</span>
+<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a>        <span class="n">anchor_node</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a>        <span class="n">reference_nodes</span><span class="o">=</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+<a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a>    <span class="p">)</span>
+<a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a><span class="p">)</span>
+<a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a><span class="n">output</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">field_output</span><span class="p">(</span>
+<a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a>    <span class="s2">&quot;U&quot;</span><span class="p">,</span> <span class="s2">&quot;S&quot;</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="s2">&quot;EVOL&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a>    <span class="n">every</span><span class="o">=</span><span class="s2">&quot;increment&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a>    <span class="n">configuration</span><span class="o">=</span><span class="s2">&quot;deformed&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a>    <span class="n">backend</span><span class="o">=</span><span class="s2">&quot;xdmf&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a><span class="p">)</span>
+<a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a><span class="n">incrementation</span> <span class="o">=</span> <span class="n">steps</span><span class="o">.</span><span class="n">automatic</span><span class="p">(</span>
+<a id="__codelineno-3-39" name="__codelineno-3-39" href="#__codelineno-3-39"></a>    <span class="n">initial</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>
+<a id="__codelineno-3-40" name="__codelineno-3-40" href="#__codelineno-3-40"></a>    <span class="n">minimum</span><span class="o">=</span><span class="mf">1.0e-4</span><span class="p">,</span>
+<a id="__codelineno-3-41" name="__codelineno-3-41" href="#__codelineno-3-41"></a>    <span class="n">maximum</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+<a id="__codelineno-3-42" name="__codelineno-3-42" href="#__codelineno-3-42"></a>    <span class="n">max_increments</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+<a id="__codelineno-3-43" name="__codelineno-3-43" href="#__codelineno-3-43"></a><span class="p">)</span>
+<a id="__codelineno-3-44" name="__codelineno-3-44" href="#__codelineno-3-44"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
+<a id="__codelineno-3-45" name="__codelineno-3-45" href="#__codelineno-3-45"></a>    <span class="n">target</span><span class="o">=</span><span class="n">unknown</span><span class="p">,</span>
+<a id="__codelineno-3-46" name="__codelineno-3-46" href="#__codelineno-3-46"></a>    <span class="n">material</span><span class="o">=</span><span class="n">material</span><span class="p">,</span>
+<a id="__codelineno-3-47" name="__codelineno-3-47" href="#__codelineno-3-47"></a>    <span class="n">constraints</span><span class="o">=</span><span class="n">periodicity</span><span class="p">,</span>
+<a id="__codelineno-3-48" name="__codelineno-3-48" href="#__codelineno-3-48"></a>    <span class="n">incrementation</span><span class="o">=</span><span class="n">incrementation</span><span class="p">,</span>
+<a id="__codelineno-3-49" name="__codelineno-3-49" href="#__codelineno-3-49"></a>    <span class="n">output</span><span class="o">=</span><span class="n">output</span><span class="p">,</span>
+<a id="__codelineno-3-50" name="__codelineno-3-50" href="#__codelineno-3-50"></a>    <span class="n">solver_options</span><span class="o">=</span><span class="n">AffineNewtonOptions</span><span class="p">(</span><span class="n">max_it</span><span class="o">=</span><span class="mi">25</span><span class="p">),</span>
+<a id="__codelineno-3-51" name="__codelineno-3-51" href="#__codelineno-3-51"></a>    <span class="n">status_file</span><span class="o">=</span><span class="s2">&quot;output/periodic_cell.sta&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-52" name="__codelineno-3-52" href="#__codelineno-3-52"></a><span class="p">)</span>
+<a id="__codelineno-3-53" name="__codelineno-3-53" href="#__codelineno-3-53"></a><span class="n">result</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span>
 </code></pre></div>
 <h2 id="one-step-several-increments-several-frames">One step, several increments, several frames<a class="headerlink" href="#one-step-several-increments-several-frames" title="Permanent link">&para;</a></h2>
 <p>This case defines one nonlinear static Step. Its automatic controller chooses
@@ -3402,12 +3405,12 @@ depend on re-averaging visualization samples.</p>
 <p>The neutral conversion makes topology selection and any set loss visible in a
 manifest. Labels and equations are retained separately because generic mesh
 conversion cannot preserve every periodic-constraint requirement.</p>
-<p>The checked-in source geometry declares <code>C3D10</code>. AgentFEM records the source
-identity, derives the C3D10H formulation declaration without regenerating
-nodes or connectivity, and selects its monolithic P2/DG0 provider. The DG0
-field contributes one independent pressure unknown per cell. <code>tetra10</code>
-describes geometry; the hybrid formulation remains an explicit scientific
-choice.</p>
+<p>The checked-in source directly declares <code>C3D10H</code>. AgentFEM records that
+hybrid/constant-pressure identity during conversion and selects its monolithic
+P2/DG0 provider. The DG0 field contributes one independent pressure unknown
+per cell. <code>tetra10</code> describes geometry; the separately retained Abaqus source
+identity controls formulation validation. No derived Abaqus mesh is needed by
+this case.</p>
 <h2 id="evidence-and-failure-checks">Evidence and Failure Checks<a class="headerlink" href="#evidence-and-failure-checks" title="Permanent link">&para;</a></h2>
 <p>A credible run should report:</p>
 <ul>

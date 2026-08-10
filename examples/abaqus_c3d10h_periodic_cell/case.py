@@ -63,22 +63,29 @@ def run(
         )
     bulk_modulus = shear_modulus * bulk_to_shear_ratio
 
-    # Import: C3D10H changes formulation identity, not nodes/connectivity.
-    original_mesh = source / "R1f10n30vc.dat"
-    selected_mesh = output / "mesh" / "R1f10n30vc_C3D10H.dat"
-    derivation = mesh.abaqus.derive_element_formulation(
-        original_mesh,
-        selected_mesh,
-        source_type="C3D10",
-        target_type="C3D10H",
-    )
+    # Import the Abaqus C3D10H source directly. The neutral tetra10 mesh keeps
+    # geometry, while AgentFEM preserves and validates the hybrid formulation
+    # identity beside it.
+    input_directory = source / "input"
+    source_mesh = input_directory / "periodic_cell_c3d10h.dat"
     cell = mesh.read_abaqus_mesh(
-        selected_mesh,
-        output / "mesh" / "periodic_cell_c3d10h.xdmf",
+        source_mesh,
+        output / "mesh" / "periodic_cell.xdmf",
         comm=comm,
         cell_type="tetra10",
     )
-    equations = mesh.abaqus.read_equations(source / "R1f10n30vc.mpc")
+    definitions = cell.element_definitions
+    if len(definitions) != 1 or definitions[0].get("source_type") != "C3D10H":
+        raise ValueError(
+            "This reference case requires one direct Abaqus C3D10H element block."
+        )
+    cell.require_formulation(
+        "hybrid",
+        operation="C3D10H periodic-cell reference case",
+    )
+    equations = mesh.abaqus.read_equations(
+        input_directory / "periodic_cell_equations.mpc"
+    )
 
     # Model: a three-dimensional finite-deformation solid.
     study = studies.nonlinear_static(
@@ -177,7 +184,7 @@ def run(
         material=material,
         metadata={
             "case_definition": {
-                "mesh_source": "Abaqus C3D10 geometry with C3D10H formulation identity",
+                "mesh_source": "direct Abaqus C3D10H input",
                 "periodicity": "linear equation constraints",
                 "macro_control": (
                     "uniaxial stress: RIGHT-U1 prescribed; TOP-U2 and "
@@ -186,7 +193,7 @@ def run(
                 "axial_displacement": axial_displacement,
             },
             "element_formulation": {
-                "source_type": "C3D10H",
+                "source_definition": definitions[0],
                 "solver_route": "P2 displacement / DG0 pressure mixed formulation",
                 "shear_modulus": shear_modulus,
                 "bulk_modulus": bulk_modulus,
@@ -194,7 +201,6 @@ def run(
                 "strain_energy": (
                     "mu/2*(J^(-2/3)*I1-3) + kappa/2*(J-1)^2"
                 ),
-                "derivation": derivation.summary(),
             },
         },
     )

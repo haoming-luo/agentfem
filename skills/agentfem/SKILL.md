@@ -141,6 +141,11 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   execution and result records; do not infer success by matching console text.
 - Inspect external meshes before conversion, retain the conversion manifest,
   and do not call mesh conversion a full Abaqus/ANSYS model import.
+- Read an Abaqus `C3D10H` source directly with `mesh.read_abaqus_mesh(...)`,
+  inspect `cell.element_definitions`, and consume it only through the verified
+  P2-displacement/DG0-pressure mixed route. Do not derive another mesh when the
+  source already declares `C3D10H`, and do not treat neutral `tetra10` geometry
+  as sufficient formulation evidence.
 - When Abaqus constraints use node labels, preserve labels separately from
   backend dof ordering. Treat `*EQUATION` as an auditable constraint graph;
   reject duplicate slaves, cycles, missing node matches, and unsupported

@@ -7,12 +7,12 @@
   "purpose": "Verify AgentFEM's quasi-incompressible finite-strain periodic-cell workflow: quadratic source geometry, P2-displacement/DG0-pressure hybrid formulation, mixed macro reference-point control, exact equation constraints, homogenization, and unified output.",
   "physics": "three-dimensional near-incompressible mixed Neo-Hookean periodic homogenization",
   "execution": {
-    "command": "python examples/abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py --displacement 0.2 --shear-modulus 1.0 --bulk-to-shear-ratio 10000 --output examples_output/c3d10h_u020",
-    "example": "examples/abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py",
+    "command": "python examples/abaqus_c3d10h_periodic_cell/case.py --displacement 0.2 --shear-modulus 1.0 --bulk-to-shear-ratio 10000 --output examples_output/c3d10h_u020",
+    "example": "examples/abaqus_c3d10h_periodic_cell/case.py",
     "evidence": "The versioned source contains 14,942 nodes and 8,781 quadratic tetrahedra. AgentFEM records the formulation identity, solves 8,781 independent DG0 pressure unknowns beside quadratic displacement, obtains the free TOP-U2 and FRONT-U3 macro responses, and writes U, PRESSURE, P, S, LE, J, MISES, SENER, F, and EVOL to one time series."
   },
   "observables": [
-    "The source and derived meshes differ only in one C3D10 to C3D10H element declaration.",
+    "The checked-in source directly declares C3D10H; no derived Abaqus mesh is required.",
     "The conversion manifest retains C3D10H hybrid/constant-pressure identity beside tetra10 geometry.",
     "All 4,212 Abaqus equation constraints have zero reported mismatch at accepted increments.",
     "The converged control-node motion gives F=diag(1.2, 0.9178618773, 0.9180572899), with both transverse stretches solved rather than prescribed.",
@@ -23,7 +23,7 @@
   ],
   "acceptance": [
     "Three automatic increments reach load factor one and every increment converges.",
-    "The derived source retains 14,942 nodes and 8,781 tetra10 cells.",
+    "The direct C3D10H source retains 14,942 nodes and 8,781 tetra10 cells.",
     "The minimum sampled J remains positive and periodic equation mismatch remains below 1e-10.",
     "Versioned homogenized stress and volume observables satisfy the Golden tolerances."
   ],

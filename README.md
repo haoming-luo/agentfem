@@ -57,7 +57,7 @@ engineering, computation, data, and AI.
 | FEM procedures | Linear and thermoelastic statics, implicit heat transfer, Newmark/generalized-alpha dynamics, and central-difference explicit dynamics |
 | Nonlinear solids | Neo-Hookean and Mooney--Rivlin finite strain, plus a 3D small-strain J2 path with quadrature state, consistent tangent, cyclic loading, cutback, energy histories, and serial restart |
 | Time-dependent solids | 3D isothermal power-law creep with backward Euler, shared quadrature state, analytical tangent, automatic physical-time cutback, CE/CEEQ/S/MISES/RF, dissipation, and serial restart |
-| Meshes and constraints | Structured and XDMF meshes, optional Gmsh and meshio routes, Abaqus C3D10 import, equation constraints, and distributed periodic workflows |
+| Meshes and constraints | Structured and XDMF meshes, optional Gmsh and meshio routes, direct Abaqus C3D10H import, equation constraints, and distributed periodic workflows |
 | Results and trust | Unified fields, quantities, histories, artifacts, progress events, checkpoints, Golden benchmarks, and exploratory/engineering/release quality policies |
 | Simulation and learning | Reproducible campaigns, scientific datasets, PyTorch adapters, transparent surrogate baselines, validation thresholds, applicability guards, and FEM fallback |
 
@@ -211,8 +211,8 @@ useful.
   transfer with structured progress and XDMF output.
 - [`wave_packet_inclusion_2d.py`](examples/wave_packet_inclusion_2d.py) — wave
   propagation with an inclusion, source amplitude, and boundary models.
-- [`abaqus_c3d10_periodic_cell/`](examples/abaqus_c3d10_periodic_cell/) —
-  imported quadratic tetrahedra, Abaqus equations, distributed periodicity,
+- [`abaqus_c3d10h_periodic_cell/`](examples/abaqus_c3d10h_periodic_cell/) —
+  direct Abaqus C3D10H input, exact periodic equations, mixed pressure,
   Neo-Hookean large deformation, and homogenized output.
 - [`creep_hot_wall_assessment.py`](examples/creep_hot_wall_assessment.py) —
   thermoelastic FEM followed by an explicitly local creep assessment.

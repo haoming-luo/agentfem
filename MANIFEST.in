@@ -24,9 +24,9 @@ recursive-include operators *.md
 recursive-include tests *.py
 prune site
 prune examples_output
-prune examples/abaqus_c3d10_periodic_cell/output
-prune examples/abaqus_c3d10_periodic_cell/output_quick
-prune examples/abaqus_c3d10_periodic_cell/output_arch
+prune examples/abaqus_c3d10h_periodic_cell/output
+prune examples/abaqus_c3d10h_periodic_cell/output_quick
+prune examples/abaqus_c3d10h_periodic_cell/output_arch
 global-exclude .DS_Store
 global-exclude __pycache__
 global-exclude *.py[cod]

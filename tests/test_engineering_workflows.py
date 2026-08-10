@@ -186,7 +186,7 @@ def test_mixed_hybrid_affine_periodic_reduction_keeps_pressure_independent(tmp_p
     assert "homogenized_first_piola_stress" in result.histories
 
 
-def test_abaqus_reference_controls_can_leave_one_macro_component_free():
+def test_abaqus_reference_controls_can_leave_both_transverse_components_free():
     domain = mesh.cuboid(
         (0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (1, 1, 1),
         comm=MPI.COMM_SELF, cell_type="tetrahedron",

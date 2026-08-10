@@ -1,20 +1,20 @@
-# Abaqus C3D10 Periodic Cell
+# Abaqus C3D10H Periodic Cell
 
 ## What This Capability Proves
 
-The `examples/abaqus_c3d10_periodic_cell/` workflow exercises several layers
+The `examples/abaqus_c3d10h_periodic_cell/` workflow exercises several layers
 together:
 
 1. a custom-extension `.dat` file is read explicitly as Abaqus syntax;
-2. `C3D10` is mapped to meshio `tetra10` and read by DOLFINx as a quadratic
-   tetrahedral geometry;
+2. the source `C3D10H` declaration is preserved as hybrid/constant-pressure
+   formulation evidence while its geometry is mapped to `tetra10`;
 3. Abaqus node labels are retained independently of DOLFINx ordering;
 4. all linear `*EQUATION` terms are parsed, validated, and matched to vector
    displacement degrees of freedom;
 5. chained edge and corner equations become an exact serial or distributed
    affine reduction;
-6. a C3D10H-equivalent P2/DG0 mixed formulation solves a quasi-incompressible
-   Neo-Hookean equilibrium incrementally;
+6. the verified P2/DG0 mixed provider directly consumes the C3D10H source
+   identity and solves quasi-incompressible Neo-Hookean equilibrium;
 7. XDMF/HDF5 time-series fields, VTU, PNG, GIF/MP4, exact macro histories,
    AF-IR, and convergence evidence are written from one top-level model.
 
@@ -61,11 +61,14 @@ below `2e-11` in magnitude.
 
 ```python
 cell = mesh.read_abaqus_mesh(
-    "R1f10n30vc.dat",
+    "input/periodic_cell_c3d10h.dat",
     "output/mesh.xdmf",
     cell_type="tetra10",
 )
-equations = mesh.abaqus.read_equations("R1f10n30vc.mpc")
+cell.require_formulation("hybrid")
+equations = mesh.abaqus.read_equations(
+    "input/periodic_cell_equations.mpc"
+)
 unknown = model.field(fields.displacement_pressure(cell.domain))
 material = model.material(
     constitutive.mixed_neo_hookean(
@@ -179,12 +182,12 @@ The neutral conversion makes topology selection and any set loss visible in a
 manifest. Labels and equations are retained separately because generic mesh
 conversion cannot preserve every periodic-constraint requirement.
 
-The checked-in source geometry declares `C3D10`. AgentFEM records the source
-identity, derives the C3D10H formulation declaration without regenerating
-nodes or connectivity, and selects its monolithic P2/DG0 provider. The DG0
-field contributes one independent pressure unknown per cell. `tetra10`
-describes geometry; the hybrid formulation remains an explicit scientific
-choice.
+The checked-in source directly declares `C3D10H`. AgentFEM records that
+hybrid/constant-pressure identity during conversion and selects its monolithic
+P2/DG0 provider. The DG0 field contributes one independent pressure unknown
+per cell. `tetra10` describes geometry; the separately retained Abaqus source
+identity controls formulation validation. No derived Abaqus mesh is needed by
+this case.
 
 ## Evidence and Failure Checks
 

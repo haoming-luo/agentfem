@@ -57,9 +57,9 @@ unless the example is intentionally advanced.
    modified-theta projection in one result manifest. Parameters are
    illustrative and the example clearly does not claim a global creep field.
 
-11. `abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py`
+11. `abaqus_c3d10h_periodic_cell/case.py`
    Advanced interoperability and finite-deformation reference. Imports a real
-   Abaqus `C3D10` mesh, preserves node labels, eliminates 4,212 periodic
+   Abaqus `C3D10H` mesh, preserves hybrid identity and node labels, eliminates 4,212 periodic
    `*EQUATION` constraints, solves a 3D Neo-Hookean load path, and writes
    scale-one deformed VTU/PNG evidence. Read the folder README before treating
    it as an Abaqus comparison: the unavailable user material and user MPC are
