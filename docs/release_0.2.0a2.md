@@ -1,9 +1,9 @@
-# AgentFEM 0.2.0a2 release candidate
+# AgentFEM 0.2.0a2
 
 **Channel:** public alpha  
-**Status:** candidate preparation; not yet tagged or published
+**Released:** 10 August 2026
 
-This candidate closes the loop between a readable finite-element model and a
+This release closes the loop between a readable finite-element model and a
 repeatable installed-software workflow. The central release criterion is no
 longer merely that the repository test suite passes: the exact wheel intended
 for users must create projects, execute representative analyses, publish
@@ -42,7 +42,7 @@ J2, creep, and simulation-to-learning workflows. The gate compares every
 runtime file in the installed distribution with the built wheel, so an older
 same-version installation cannot substitute for the candidate.
 
-## Maturity at this candidate
+## Capability maturity
 
 | Capability | Maturity | Release evidence |
 | --- | --- | --- |
@@ -68,6 +68,3 @@ It is checked by the same release gate as the distributions.
   `agentfem[mesh-formats]`; visualization dependencies remain separate.
 - Linux is the release CI platform. macOS is supported through a compatible
   conda-forge FEniCSx environment; WSL2 remains the recommended Windows route.
-
-The version number will be changed, tagged, and published only after the full
-candidate rehearsal succeeds and the release is explicitly approved.

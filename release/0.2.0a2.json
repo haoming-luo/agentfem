@@ -3,7 +3,7 @@
   "schema_version": "0.1.0",
   "target_version": "0.2.0a2",
   "channel": "alpha",
-  "status": "candidate-preparation",
+  "status": "released",
   "supported_python": "3.11",
   "platform_evidence": {
     "continuous_integration": "Linux",

@@ -9,7 +9,7 @@ experimental formulation to a validated one.
 - Continue external benchmark work for inelasticity and dynamic fracture.
 - Extend three-dimensional cohesive interfaces and mixed finite-strain solids.
 
-## [0.2.0a2] - Release candidate
+## [0.2.0a2] - 2026-08-10
 
 ### Added
 
@@ -52,6 +52,6 @@ experimental formulation to a validated one.
   platform with readable study, model, step, result, campaign, and evidence
   contracts.
 
-[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.2.0a1...HEAD
+[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.2.0a2...HEAD
 [0.2.0a2]: https://github.com/haoming-luo/agentfem/compare/v0.2.0a1...v0.2.0a2
 [0.2.0a1]: https://github.com/haoming-luo/agentfem/releases/tag/v0.2.0a1
