@@ -423,6 +423,8 @@ def test_step_provider_registry_is_extensible_and_deterministic():
         "preferred",
         "fallback",
     ]
+    with pytest.raises(TypeError):
+        request.options["enabled"] = False
 
 
 def test_model_pressure_and_symmetry_keep_engineering_semantics_visible():

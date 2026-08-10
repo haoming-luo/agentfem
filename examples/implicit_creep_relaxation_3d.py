@@ -7,7 +7,6 @@ from mpi4py import MPI
 from agentfem import (
     constitutive,
     fields,
-    io,
     mesh,
     models,
     results,
@@ -64,7 +63,8 @@ def main() -> dict[str, float]:
             line_search="backtracking",
         ),
     )
-    simulation = step.solve_result()
+    output = Path(__file__).resolve().parents[1] / "examples_output" / "implicit_creep"
+    simulation = step.solve_result(output=output / "relaxation.xdmf")
     observables = {
         "mean_axial_stress": results.average(
             step.state.stress.function[0, 0], measure=step.state.measure
@@ -76,14 +76,6 @@ def main() -> dict[str, float]:
         "creep_dissipation": simulation.histories["creep_dissipation"].latest,
     }
 
-    output = Path(__file__).resolve().parents[1] / "examples_output" / "implicit_creep"
-    with io.XDMFTimeSeries(output / "relaxation.xdmf", domain) as writer:
-        writer.write_fields(
-            step.accepted_time,
-            displacement.value,
-            *step.state.output_fields(),
-        )
-    simulation.add_artifact("fields", output / "relaxation.xdmf")
     simulation.add_quantities(observables, kind="verification_observable")
     required_fields = {"S", "CE", "CEEQ", "MISES", "RF"}
     missing_fields = required_fields.difference(simulation.fields)
@@ -93,7 +85,7 @@ def main() -> dict[str, float]:
         "engineering",
         required_quantities=tuple(observables),
         required_histories=("creep_dissipation", "maximum_creep_increment"),
-        required_artifacts=("fields",),
+        required_artifacts=("fields_xdmf", "fields_hdf5"),
     ).require()
     simulation.write_manifest(output / "result.json", include_histories=True)
     print(simulation)

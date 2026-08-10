@@ -205,6 +205,28 @@ def test_global_implicit_creep_relaxation_uses_public_step_and_fields():
     )
 
 
+def test_creep_solve_result_writes_recovered_state_in_common_dataset(tmp_path):
+    step, _ = _creep_relaxation_patch(
+        duration=0.2,
+        incrementation=steps.fixed(2),
+    )
+
+    simulation = step.solve_result(output=tmp_path / "creep.xdmf")
+
+    assert simulation.artifacts["fields_xdmf"].is_file()
+    assert simulation.artifacts["fields_hdf5"].is_file()
+    assert {"Displacement", "S_CELL", "CE_CELL", "CEEQ_CELL", "MISES_CELL", "RF"} <= set(
+        simulation.metadata["field_output_fields"]["included"]
+    )
+    assert {"S", "CE", "CEEQ", "MISES"} <= set(
+        simulation.metadata["field_output_fields"]["omitted"]
+    )
+    assert simulation.verify(
+        "engineering",
+        required_artifacts=("fields_xdmf", "fields_hdf5"),
+    ).acceptable
+
+
 def test_global_creep_matches_official_abaqus_constant_stress_case():
     step = _creep_external_abaqus_constant_stress_patch()
     step.solve()
@@ -377,6 +399,21 @@ def test_global_j2_uniaxial_path_matches_versioned_analytical_golden():
     assert abs(final_balance) / final_internal < 0.03
     assert np.all(np.diff(simulation.histories["plastic_dissipation"].values) >= 0.0)
     assert simulation.metadata["execution"]["event_count"] > 4
+
+
+def test_j2_solve_result_writes_recovered_state_in_common_dataset(tmp_path):
+    step, _ = _j2_uniaxial_patch()
+
+    simulation = step.solve_result(output=tmp_path / "j2.xdmf")
+
+    assert simulation.artifacts["fields_xdmf"].is_file()
+    assert simulation.artifacts["fields_hdf5"].is_file()
+    assert {"Displacement", "S_CELL", "PE_CELL", "PEEQ_CELL", "MISES_CELL", "RF"} <= set(
+        simulation.metadata["field_output_fields"]["included"]
+    )
+    assert {"S", "PE", "PEEQ", "MISES"} <= set(
+        simulation.metadata["field_output_fields"]["omitted"]
+    )
 
 
 def test_global_j2_matches_published_abaqus_rate_independent_plasticity_case():

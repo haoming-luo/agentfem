@@ -6,7 +6,7 @@ import numpy as np
 from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 
-from agentfem import constitutive, fields, io, mesh, models, solvers, steps, studies
+from agentfem import constitutive, fields, mesh, models, solvers, steps, studies
 
 
 def main() -> None:
@@ -51,15 +51,10 @@ def main() -> None:
             linear_solver=solvers.direct_solver(package="mumps"),
         ),
     )
-    step.solve()
-
     output = Path(__file__).resolve().parents[1] / "examples_output" / "j2_plasticity_3d.xdmf"
-    with io.XDMFTimeSeries(output, domain) as writer:
-        writer.write_fields(
-            1.0,
-            displacement.value,
-            *step.state.output_fields(),
-        )
+    simulation = step.solve_result(output=output)
+    if MPI.COMM_WORLD.rank == 0:
+        simulation.write_manifest(output.with_suffix(".result.json"))
 
 
 if __name__ == "__main__":

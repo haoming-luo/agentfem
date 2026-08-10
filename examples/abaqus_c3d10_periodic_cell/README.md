@@ -1,66 +1,62 @@
 # Abaqus C3D10 periodic cell → AgentFEM finite deformation
 
-This example is a migration and validation workflow, not a claim that two
-different constitutive models are identical.
+This example demonstrates a quasi-incompressible, finite-deformation periodic
+cell assembled from reusable AgentFEM capabilities:
 
-What is preserved and tested:
-
-- the 14,942 Abaqus node labels and the 8,781 `C3D10` quadratic tetrahedra;
+- the 14,942 source node labels and 8,781 quadratic tetrahedra;
 - the `MATRIX` element set;
 - all 4,212 linear `*EQUATION` constraints, including chained edge/corner
   relations;
-- three-dimensional finite-deformation kinematics;
+- a C3D10H-equivalent P2-displacement/DG0-pressure formulation;
+- quasi-incompressible Neo-Hookean finite-deformation kinematics;
+- three-dimensional uniaxial-stress control through RIGHT/TOP/FRONT reference
+  points;
 - incremental nonlinear equilibrium and inspectable convergence evidence.
 
-The same source geometry can also be exercised as `C3D10H`. AgentFEM derives
-a second Abaqus source by changing only the matching `TYPE=C3D10` declaration,
-records both SHA-256 identities, and selects a monolithic P2-displacement/DG0-
-pressure route. Nodes and connectivity are not regenerated.
+The material is declared by its physical moduli. With default
+`bulk_to_shear_ratio=1e4`, its pressure-condensed stored energy is
 
-What is deliberately changed:
+```text
+W = mu/2 * (J^(-2/3) I1 - 3) + kappa/2 * (J - 1)^2
+```
 
-- `geom.inp` uses `*USER MATERIAL`; its implementation is not in this folder;
-- `*MPC,USER` likewise depends on an unavailable user subroutine;
-- AgentFEM therefore uses its explicit compressible Neo-Hookean model and
-  prescribes the complete macroscopic deformation gradient directly.
+which maps to Abaqus polynomial parameters `C10=mu/2` and `D1=2/kappa`.
+AgentFEM solves pressure as one independent constant value per cell rather
+than forcing a nearly incompressible penalty through displacement alone.
+RIGHT-U1 prescribes the axial extension, while TOP-U2 and FRONT-U3 are solved
+as independent transverse macro degrees of freedom. All macro shear
+components are zero. This produces zero transverse resultants without
+pre-imposing an isochoric lateral stretch.
+
+The versioned `u=0.2` reference run recovers
+`F=diag(1.2, 0.9178618773, 0.9180572899)`, with both `P22` and `P33` below
+`2e-11` in magnitude. The two independently solved lateral stretches need
+not be exactly equal for a finite random cell; their difference is below
+`2e-4` in this realization.
 
 The top-level model is
 [`agentfem_periodic_hyperelastic.py`](agentfem_periodic_hyperelastic.py).
-Run a quick verification with:
+Run the default C3D10H case with an axial displacement of `0.2`:
 
 ```bash
-python agentfem_periodic_hyperelastic.py --stretch 1.05
+python agentfem_periodic_hyperelastic.py
 ```
 
-Run the visible finite-deformation case with:
+For a smaller loading smoke test:
 
 ```bash
-python agentfem_periodic_hyperelastic.py --stretch 1.20
+python agentfem_periodic_hyperelastic.py --displacement 0.01
 ```
 
-Run the near-incompressible C3D10H verification route with:
+Material scale and compressibility remain explicit controls:
 
 ```bash
 python agentfem_periodic_hyperelastic.py \
-  --element-type C3D10H --poisson 0.499 --stretch 1.001
+  --shear-modulus 1.0 --bulk-to-shear-ratio 10000
 ```
 
-The C3D10H command is currently serial. Its release regression verifies the
-same 14,942 nodes and 8,781 connectivities, 8,781 independent cell-pressure
-unknowns, all imported equations, positive `J`, and versioned homogenized
-stress. The ordinary C3D10 route remains available under MPI.
-
-Run one distributed simulation across two MPI ranks with:
-
-```bash
-mpiexec -n 2 python agentfem_periodic_hyperelastic.py --stretch 1.20
-```
-
-This is within-case parallelism: DOLFINx partitions the mesh, every rank
-assembles its cells, `dolfinx_mpc` distributes the chained equation graph, and
-PETSc/MUMPS solves one distributed system. It is not two independent copies of
-the same serial job. `dolfinx_mpc` must match the installed DOLFINx minor
-version.
+The C3D10H mixed periodic route is currently serial. Distributed
+displacement-only periodic equations remain a separate tested capability.
 
 The main Python file contains the visible, Abaqus-style analysis controls:
 automatic initial/minimum/maximum increment sizes, a maximum of ten accepted
@@ -112,16 +108,8 @@ In serial, the default plan writes one logical ParaView result dataset:
 
 Open the XDMF in ParaView to play the actual deformation and switch fields
 without a Warp filter or multi-block selection. No directory of per-frame VTU
-files is required. `SDV` is absent because the substituted Neo-Hookean model
-has no state variables.
-
-Under MPI, collective DOLFINx I/O writes
-`periodic_cell_parallel.xdmf` and its HDF5 heavy data. This scientific record
-contains the reference mesh, displacement, and all requested cell fields for
-every accepted increment. Use ParaView's Warp By Vector for presentation.
-Directly deformed compact geometry, PNG, and GIF/MP4 rendering remain serial
-postprocessing products; they are intentionally not produced concurrently by
-multiple ranks.
+files is required. This hyperelastic material is stateless, so no `SDV` field
+is generated.
 
 The visualization and scientific-history products have different jobs:
 
@@ -133,10 +121,7 @@ The visualization and scientific-history products have different jobs:
   deformed visualization.
 
 The result manifest also records vector `U` and current `COORD` histories at
-the original Abaqus `RIGHT`, `TOP`, and `FRONT` control nodes. `RF` and `TF`
-are not fabricated: under exact affine MPC elimination they require recovery
-and verification of constraint multipliers, which remains a separate result
-capability.
+the `RIGHT`, `TOP`, and `FRONT` control nodes.
 
 Run `postprocess_homogenized_response.py` to create a case-specific macro plot.
 It reads NPZ rather than re-averaging XDMF cell-center samples: the NPZ history
@@ -161,10 +146,6 @@ the output mesh directory. The conversion manifest retains the derivation,
 the hybrid source identity, and the warning that neutral `tetra10` topology
 alone does not supply a pressure formulation.
 
-Serial execution uses AgentFEM's explicit affine transformation. MPI execution
-flattens the same chained equation graph to independent masters, maps Abaqus
-labels to global DOLFINx dofs, supplies every owned and ghost slave relation,
-and uses `dolfinx_mpc` for distributed assembly and back-substitution. The two
-paths are required to match in reduced residual, Newton convergence, and
-periodic mismatch. AMG near-nullspace transfer and affine-MPC reaction recovery
-remain future parallel capabilities.
+Serial execution uses AgentFEM's explicit sparse affine transformation. The
+same constraint module also provides a `dolfinx_mpc` backend for distributed,
+fully prescribed displacement formulations.

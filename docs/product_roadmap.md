@@ -73,6 +73,12 @@ an agent, user, or README from confusing these levels.
   limited to deterministic metadata;
 - one `SimulationResult` contract and one structured execution-event stream
   for linear, nonlinear, and transient steps;
+- one recommended `model.step(...)` entry whose immutable provider request
+  carries the resolved `SolutionProcedure`; explicit procedure selection,
+  capability inspection, and lowering now consume the same object;
+- one completed-result field writer for static elasticity, J2, and creep;
+  integration-point evidence remains raw while named `*_CELL` recoveries enter
+  the visualization dataset;
 - standard QoIs: integrals, averages, norms, extrema, reactions, energies, and
   histories;
 - attach global assembled load, strong reaction, force-balance residual, and
@@ -111,7 +117,8 @@ the first release.
 ### P1: nonlinear solid mechanics
 
 - harden the implemented `SolutionProcedure` separation across validation,
-  provider dispatch, result summaries, and future nonlinear/transient methods;
+  typed provider requests, lowering, result summaries, and future
+  nonlinear/transient methods;
 - build on the shared heat/Standard/Explicit `solve_result(output=...)`
   lifecycle with energy histories and restartable procedure state; field
   artifacts and accepted time increments are already unified;

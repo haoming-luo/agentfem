@@ -660,6 +660,14 @@ $$
 
 Positive pressure denotes compression and DG0 creates one pressure value per cell.
 
+**pressure-condensed stored energy**
+
+$$
+W=\frac{\mu}{2}(J^{-2/3}I_1-3)+\frac{\kappa}{2}(J-1)^2
+$$
+
+This is the quasi-incompressible Neo-Hookean form used by the porous-cell workflow; Abaqus polynomial parameters are C10=mu/2 and D1=2/kappa.
+
 #### Inputs
 
 | Name | Type | Unit role | Meaning |
@@ -675,7 +683,7 @@ Positive pressure denotes compression and DG0 creates one pressure value per cel
 #### Assumptions
 
 - Three-dimensional solids and two-dimensional plane strain use total-Lagrangian kinematics.
-- The volumetric response uses a finite bulk modulus derived from E and nu.
+- The volumetric response uses a finite bulk modulus declared directly with mu or derived from E and nu.
 
 #### Conventions
 
@@ -689,14 +697,13 @@ Positive pressure denotes compression and DG0 creates one pressure value per cel
 
 #### Limitations
 
-- This is an AgentFEM variational analogue, not a byte-for-byte reproduction of Abaqus internal hybrid elements.
 - Distributed mixed affine-periodic MPC, multiple finite-strain material regions, and an external locking benchmark remain release gates.
 
 ### Minimal example
 
 ```python
 unknown = model.field(fields.displacement_pressure(domain))
-material = model.material(constitutive.mixed_neo_hookean(young=1e6, poisson=0.499))
+material = model.material(constitutive.mixed_neo_hookean(shear_modulus=1.0, bulk_modulus=1.0e4))
 model.fix(unknown.displacement, on=support)
 step = model.step(target=unknown, material=material)
 ```
@@ -720,12 +727,15 @@ step = model.step(target=unknown, material=material)
 - Solve the constrained zero state and recover exactly zero displacement and pressure.
 - Reject any accepted increment with non-positive quadrature-point J.
 - Preserve every pressure dof as an independent reduced unknown under serial affine-periodic constraints.
+- Recover the actual macro deformation gradient from solved reference-point motion whenever a macro component is free.
+- For three-dimensional uniaxial stress, solve both transverse normal macro components and suppress only the macro shear components.
 
 ### References
 
 - Abaqus three-dimensional solid element library: C3D10H constant-pressure hybrid tetrahedron: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEELMRefMap/simaelm-r-3delem.htm`
 - Abaqus hybrid incompressible solid formulation: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-hybridincompress.htm`
 - DOLFINx mixed function-space API: `https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.html`
+- Luo et al., nonlinear elastic composites with spherical particles or voids, European Journal of Mechanics A/Solids (2023), 105076: `https://doi.org/10.1016/j.euromechsol.2023.105076`
 
 <a id="agentfem-material-mooney_rivlin_hyperelasticity"></a>
 
@@ -1612,6 +1622,7 @@ Converts J2 and creep quadrature evidence to separately named weighted DG0 cell 
 - `agentfem.results.FieldRecovery`
 - `agentfem.results.cell_average_recovery`
 - `agentfem.results.recover_integration_point_field`
+- `agentfem.results.write_result_fields`
 
 ### Scientific contract
 
@@ -1645,6 +1656,7 @@ Reference-cell quadrature weights form one DG0 value per cell; no neighbor contr
 #### Conventions
 
 - Raw integration-point fields keep their original names; recovered variants use an explicit *_CELL suffix in J2 and creep SimulationResult objects.
+- J2 and creep solve_result(output=...) automatically omit raw quadrature attributes and write the recovered cell fields in the common completed-result dataset.
 - Material boundaries are preserved because recovery is performed independently within every cell.
 - A smooth contour is a later presentation product and never overwrites constitutive evidence.
 
@@ -1661,7 +1673,8 @@ Reference-cell quadrature weights form one DG0 value per cell; no neighbor contr
 ### Minimal example
 
 ```python
-cell_peeq = results.recover_integration_point_field(step.state.equivalent_plastic_strain, name='PEEQ_CELL')
+result = step.solve_result(output='inelastic.xdmf')
+cell_peeq = result.fields['PEEQ_CELL']
 ```
 
 ### Verification
@@ -2129,6 +2142,7 @@ Separates physical analysis intent from Standard/Explicit selection, equation or
 ### Public API
 
 - `agentfem.procedures.SolutionProcedure`
+- `agentfem.procedures.resolve`
 - `agentfem.time.newmark`
 - `agentfem.time.generalized_alpha`
 - `agentfem.problems.LinearSystemProblem.reaction_field`
@@ -2169,6 +2183,7 @@ Algorithmic parameters control stability, accuracy, and high-frequency dissipati
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | step summary | structured procedure record | none | Records family, order, algorithm, control, statefulness, and solve requirements. |
+| typed provider request | immutable StepRequest | none | Carries the resolved procedure through capability inspection and executable lowering. |
 | advanced state | field state and convergence evidence | problem dependent | Accepted displacement, velocity, acceleration, temperature, or material state. |
 | reaction and mechanical energy diagnostics | nodal residual field and scalar energy record | force and energy | Strong-constraint reactions and visible M/K quadratic energies for supported systems. |
 | execution trace | ordered JSON-safe SolveEvent records | problem dependent | One source for progress, status files, result histories, failures, and agent monitoring. |
@@ -2185,6 +2200,7 @@ Algorithmic parameters control stability, accuracy, and high-frequency dissipati
 - Standard means a global implicit/assembled solution route, not an Abaqus compatibility claim.
 - Explicit means no global linear solve at each time increment.
 - Step, increment, iteration, attempt, and output frame remain distinct.
+- An explicit procedure object takes precedence over the Study preference and cannot conflict with method= or equation order.
 - Display cadence never removes an accepted or failed event from the execution trace.
 - Automatic checkpoints are written only after state, history, and the accepted-increment event are committed.
 
@@ -2201,7 +2217,8 @@ Algorithmic parameters control stability, accuracy, and high-frequency dissipati
 ### Minimal example
 
 ```python
-Create studies.implicit_dynamics(..., method='generalized_alpha') and call model.step(target=u, dt=..., steps=...).
+study = studies.dynamic_solid(dimension=2, assumption='plane_stress', method='newmark')
+step = model.step(target=u, procedure=procedures.generalized_alpha(), dt=..., steps=...)
 ```
 
 ### Verification
@@ -2218,7 +2235,8 @@ Create studies.implicit_dynamics(..., method='generalized_alpha') and call model
 
 **Validation rules**
 
-- Reject unknown procedure families, equation orders, controls, or incompatible explicit/global-solve combinations.
+- Reject unknown procedure families, method names, equation orders, controls, or incompatible explicit/global-solve combinations.
+- Require capability inspection and provider lowering to consume the same resolved SolutionProcedure.
 - Reject invalid generalized-alpha spectral radius and integration parameters.
 
 ### References

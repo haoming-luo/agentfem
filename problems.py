@@ -5,8 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from time import perf_counter
-from types import SimpleNamespace
-import warnings
 
 import numpy as np
 import ufl
@@ -933,7 +931,6 @@ class AnalysisStep:
         solver or projection plumbing in the top-level model.
         """
 
-        from . import io
         from .results import from_solution, static_force_balance, static_work_balance
 
         solution = self.problem.solve()
@@ -1037,76 +1034,14 @@ class AnalysisStep:
                 )
                 result.metadata["static_work"] = work.as_dict()
         if output is not None:
-            path = Path(output)
-            domain = solution.function_space.mesh
-            try:
-                if domain.comm.size == 1:
-                    from .results.output import write_unified_xdmf_series
+            from .results.output import attach_result_field_output
 
-                    auxiliary = tuple(
-                        _unwrap_result_field(item)
-                        for item in selected_fields
-                        if _unwrap_result_field(item) is not solution
-                    )
-                    write_unified_xdmf_series(
-                        path,
-                        (SimpleNamespace(solution=solution, load_factor=0.0),),
-                        (auxiliary,),
-                        deformation_scale=0.0,
-                    )
-                    layout = "single_uniform_grid"
-                    backend = "agentfem_unified_xdmf"
-                else:
-                    writable = []
-                    for item in selected_fields:
-                        function = _unwrap_result_field(item)
-                        if function is solution:
-                            coordinate_maps = getattr(domain.geometry, "cmaps", ())
-                            degree = int(
-                                getattr(coordinate_maps[0], "degree", 1)
-                                if coordinate_maps
-                                else 1
-                            )
-                            function = io.interpolate_for_xdmf(
-                                function,
-                                degree=degree,
-                                name=getattr(function, "name", "U"),
-                            )
-                        writable.append(function)
-                    with io.XDMFTimeSeries(path, domain) as writer:
-                        writer.write_fields(0.0, *writable)
-                    layout = "dolfinx_multigrid"
-                    backend = "dolfinx_xdmf_collective"
-                result.metadata["field_output"] = {
-                    "status": "completed",
-                    "backend": backend,
-                    "layout": layout,
-                    "geometry": "reference",
-                    "warp_field": (
-                        "U"
-                        if len(tuple(getattr(solution, "ufl_shape", ()))) == 1
-                        else None
-                    ),
-                }
-                result.add_artifact("fields_xdmf", path)
-                heavy = path.with_suffix(".h5")
-                if heavy.exists():
-                    result.add_artifact("fields_hdf5", heavy)
-            except Exception as exc:
-                result.status = "completed_with_output_errors"
-                result.metadata["field_output"] = {
-                    "status": "failed",
-                    "error_type": type(exc).__name__,
-                    "message": str(exc),
-                    "requested_path": str(path),
-                }
-                if strict_output:
-                    raise
-                warnings.warn(
-                    f"Simulation completed, but field output failed: {exc}",
-                    RuntimeWarning,
-                    stacklevel=2,
-                )
+            attach_result_field_output(
+                result,
+                output,
+                deformation_scale=0.0,
+                strict=strict_output,
+            )
         return result
 
     def summary(self) -> dict[str, object]:
@@ -1318,33 +1253,20 @@ class ExplicitDynamicsStep:
     def solve_result(
         self, *, output=None, fields=(), history=(), progress=None, comm=None
     ):
-        from .results import add_execution_trace, from_solution
-
-        _configure_transient_history(self, history)
-        if output is not None and self.completed_steps >= self.steps:
-            raise RuntimeError(
-                "Transient field output must be requested before completion; "
-                "completed steps cannot be reconstructed from final state alone."
-            )
-        if output is not None or self.completed_steps != self.steps:
-            self.run(
-                output=output,
-                fields=fields,
-                history=history,
-                progress=progress,
-                comm=comm,
-            )
-        solution = self.state.u.value
-        result = from_solution(solution, name=self.name, metadata={"step": self.summary()})
-        add_execution_trace(result, self.execution_events)
-        _attach_transient_output(
-            result,
+        return _solve_transient_result(
             self,
-            tuple(fields)
-            or self.last_output_fields
-            or (self.state.u.value, self.state.v.value, self.state.a.value),
+            solution=self.state.u.value,
+            default_fields=(
+                self.state.u.value,
+                self.state.v.value,
+                self.state.a.value,
+            ),
+            output=output,
+            fields=fields,
+            history=history,
+            progress=progress,
+            comm=comm,
         )
-        return result
 
     def save_checkpoint(self, path, *, portable: bool = False) -> Path:
         """Save explicit state, optionally portable across MPI partitions."""
@@ -1549,37 +1471,20 @@ class ImplicitDynamicsStep:
     def solve_result(
         self, *, output=None, fields=(), history=(), progress=None, comm=None
     ):
-        from .results import add_execution_trace, from_solution
-
-        _configure_transient_history(self, history)
-        if output is not None and self.completed_steps >= self.steps:
-            raise RuntimeError(
-                "Transient field output must be requested before completion; "
-                "completed steps cannot be reconstructed from final state alone."
-            )
-        if output is not None or self.completed_steps != self.steps:
-            self.run(
-                output=output,
-                fields=fields,
-                history=history,
-                progress=progress,
-                comm=comm,
-            )
-        solution = self.state.u.value
-        result = from_solution(
-            solution,
-            name=self.name,
-            metadata={"step": self.summary()},
-        )
-        add_execution_trace(result, self.execution_events)
-        _attach_transient_output(
-            result,
+        return _solve_transient_result(
             self,
-            tuple(fields)
-            or self.last_output_fields
-            or (self.state.u.value, self.state.v.value, self.state.a.value),
+            solution=self.state.u.value,
+            default_fields=(
+                self.state.u.value,
+                self.state.v.value,
+                self.state.a.value,
+            ),
+            output=output,
+            fields=fields,
+            history=history,
+            progress=progress,
+            comm=comm,
         )
-        return result
 
     def save_checkpoint(self, path, *, portable: bool = False) -> Path:
         """Save implicit state, optionally portable across MPI partitions."""
@@ -1796,35 +1701,16 @@ class FirstOrderTransientStep:
     def solve_result(
         self, *, output=None, fields=(), history=(), progress=None, comm=None
     ):
-        from .results import add_execution_trace, from_solution
-
-        _configure_transient_history(self, history)
-        if output is not None and self.completed_steps >= self.steps:
-            raise RuntimeError(
-                "Transient field output must be requested before completion; "
-                "completed steps cannot be reconstructed from final state alone."
-            )
-        if output is not None or self.completed_steps != self.steps:
-            self.run(
-                output=output,
-                fields=fields,
-                history=history,
-                progress=progress,
-                comm=comm,
-            )
-        solution = self.current
-        result = from_solution(
-            solution,
-            name=self.name,
-            metadata={"step": self.summary()},
-        )
-        add_execution_trace(result, self.execution_events)
-        _attach_transient_output(
-            result,
+        return _solve_transient_result(
             self,
-            tuple(fields) or self.last_output_fields or (self.current,),
+            solution=self.current,
+            default_fields=(self.current,),
+            output=output,
+            fields=fields,
+            history=history,
+            progress=progress,
+            comm=comm,
         )
-        return result
 
     def save_checkpoint(self, path, *, portable: bool = False) -> Path:
         """Save first-order state, optionally portable across MPI partitions."""
@@ -1868,6 +1754,49 @@ class FirstOrderTransientStep:
             ],
             "problem": self.problem.summary(),
         }
+
+
+def _solve_transient_result(
+    step,
+    *,
+    solution,
+    default_fields,
+    output,
+    fields,
+    history,
+    progress,
+    comm,
+):
+    """Shared transient solve/output/result lifecycle for all equation orders."""
+
+    from .results import add_execution_trace, from_solution
+
+    _configure_transient_history(step, history)
+    if output is not None and step.completed_steps >= step.steps:
+        raise RuntimeError(
+            "Transient field output must be requested before completion; "
+            "completed steps cannot be reconstructed from final state alone."
+        )
+    if output is not None or step.completed_steps != step.steps:
+        step.run(
+            output=output,
+            fields=fields,
+            history=history,
+            progress=progress,
+            comm=comm,
+        )
+    result = from_solution(
+        solution,
+        name=step.name,
+        metadata={"step": step.summary()},
+    )
+    add_execution_trace(result, step.execution_events)
+    _attach_transient_output(
+        result,
+        step,
+        tuple(fields) or step.last_output_fields or tuple(default_fields),
+    )
+    return result
 
 
 def _attach_transient_output(result, step, output_fields) -> None:

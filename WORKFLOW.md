@@ -27,8 +27,11 @@ this sequence visible unless there is a strong reason to encapsulate it.
     `model.stiffness(...)` for standard registered assets, or operator-first
     constructors such as `operators.stiffness(...)` and
     `operators.combine(...)` when each contribution should be explicit.
-14. Create and register an analysis step with `model.step(...)` or
-    `model.linear_static_step(...)`. The step should expose visible operators,
+14. Create and register an analysis step with `model.step(...)`. Pass an
+    explicit `procedure=procedures...` only when overriding or making the
+    Study's numerical preference visible. Legacy material/procedure-specific
+    Step factories remain compatibility and expert implementation entrypoints,
+    not parallel beginner workflows. The step should expose visible operators,
     such as `K U = F` or `(C / dt + K) T_next = C T_old / dt + Q`. For a
     nonlinear path, use `steps.automatic(...)` normally and
     `steps.fixed(...)` only for an intentionally fixed path.
@@ -44,6 +47,9 @@ this sequence visible unless there is a strong reason to encapsulate it.
     this same call; they are sampled after every accepted increment.
     A paused/restarted step may use the same call; the result identifies the
     artifact as a continuation segment and records its physical start time.
+    Stateful J2 and creep steps use the same `solve_result(output=...)` call:
+    raw quadrature state stays inspectable in the result, while explicitly
+    recovered `*_CELL` fields enter the visualization dataset.
 18. Evaluate physical QoIs, diagnostics, and histories. Keep coefficient
     statistics distinct from assembled physical integrals.
 19. Write visualization/output artifacts and attach them to the result. The

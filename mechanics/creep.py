@@ -832,7 +832,14 @@ class ImplicitCreepStep:
             "temperature": self._temperature_summary(),
         }
 
-    def solve_result(self):
+    def solve_result(
+        self,
+        *,
+        output=None,
+        output_fields=(),
+        strict_output: bool = False,
+    ):
+        """Solve and publish creep state through the common result path."""
         from ..results import (
             add_execution_trace,
             from_solution,
@@ -988,6 +995,15 @@ class ImplicitCreepStep:
             )
         for checkpoint in self.checkpoints:
             result.add_checkpoint(checkpoint)
+        if output is not None:
+            from ..results.output import attach_result_field_output
+
+            attach_result_field_output(
+                result,
+                output,
+                names=output_fields,
+                strict=strict_output,
+            )
         return result
 
     def summary(self) -> dict[str, object]:

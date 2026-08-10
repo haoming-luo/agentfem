@@ -372,6 +372,11 @@ class MixedNeoHookeanProperties:
             "density": self.density,
             "mu": self.mu,
             "bulk_modulus": self.bulk_modulus,
+            "C10": 0.5 * self.mu,
+            "D1": 2.0 / self.bulk_modulus,
+            "abaqus_C10": 0.5 * self.mu,
+            "abaqus_D1": 2.0 / self.bulk_modulus,
+            "volumetric_potential": "quadratic_J_minus_1",
             "pressure_sign": "positive_in_compression",
             "maturity": "verified_mixed_fem_form",
         }
@@ -379,18 +384,76 @@ class MixedNeoHookeanProperties:
 
 def mixed_neo_hookean(
     *,
-    young: float,
-    poisson: float,
+    young: float | None = None,
+    poisson: float | None = None,
+    shear_modulus: float | None = None,
+    bulk_modulus: float | None = None,
     density: float | None = None,
     name: str = "mixed Neo-Hookean",
 ) -> MixedNeoHookeanProperties:
-    """Create a pressure-displacement Neo-Hookean material."""
+    """Create a quadratic-volumetric mixed Neo-Hookean material.
+
+    Declare either ``young`` and ``poisson`` or the physically direct
+    ``shear_modulus`` and ``bulk_modulus`` pair.  Eliminating the independent
+    pressure from the mixed potential recovers
+
+    ``mu/2 * (J^(-2/3) I1 - 3) + kappa/2 * (J - 1)^2``.
+
+    In Abaqus polynomial notation this is ``C10=mu/2`` and ``D1=2/kappa``.
+    """
+
+    engineering = young is not None or poisson is not None
+    direct = shear_modulus is not None or bulk_modulus is not None
+    if engineering == direct:
+        raise ValueError(
+            "Declare exactly one complete pair: young/poisson or "
+            "shear_modulus/bulk_modulus."
+        )
+    if engineering:
+        if young is None or poisson is None:
+            raise ValueError("young and poisson must be declared together.")
+        selected_young = float(young)
+        selected_poisson = float(poisson)
+    else:
+        if shear_modulus is None or bulk_modulus is None:
+            raise ValueError(
+                "shear_modulus and bulk_modulus must be declared together."
+            )
+        mu = float(shear_modulus)
+        kappa = float(bulk_modulus)
+        if not isfinite(mu) or mu <= 0.0:
+            raise ValueError("shear_modulus must be finite and positive.")
+        if not isfinite(kappa) or kappa <= 0.0:
+            raise ValueError("bulk_modulus must be finite and positive.")
+        selected_young = 9.0 * kappa * mu / (3.0 * kappa + mu)
+        selected_poisson = (3.0 * kappa - 2.0 * mu) / (
+            2.0 * (3.0 * kappa + mu)
+        )
 
     return MixedNeoHookeanProperties(
-        young=young,
-        poisson=poisson,
+        young=selected_young,
+        poisson=selected_poisson,
         density=density,
         name=name,
+    )
+
+
+def mixed_condensed_energy_value(
+    deformation_gradient,
+    properties: MixedNeoHookeanProperties,
+) -> float:
+    """Evaluate the pressure-eliminated quadratic-volumetric energy."""
+
+    F = np.asarray(deformation_gradient, dtype=float)
+    if F.shape != (3, 3) or not np.all(np.isfinite(F)):
+        raise ValueError("mixed_condensed_energy_value requires one finite 3x3 F.")
+    J = float(np.linalg.det(F))
+    if J <= 0.0:
+        raise ValueError("The deformation gradient must have positive determinant.")
+    invariant = float(np.trace(F.T @ F))
+    return float(
+        0.5 * properties.mu * (J ** (-2.0 / 3.0) * invariant - 3.0)
+        + 0.5 * properties.bulk_modulus * (J - 1.0) ** 2
     )
 
 

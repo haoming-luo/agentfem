@@ -36,10 +36,10 @@ def main() -> None:
     comm = MPI.COMM_WORLD
 
     # 1. Study: choose the analysis family and mechanical assumption.
-    study = studies.second_order_dynamics(
-        physics="solid_mechanics",
+    study = studies.dynamic_solid(
         dimension=2,
         assumption="plane_strain",
+        method="explicit",
         name="wave_packet_plate",
     )
 
@@ -157,7 +157,7 @@ def main() -> None:
     #     u_next = u + dt v + 0.5 dt^2 a
     #     v_mid  = v + 0.5 dt a
     #     v_next = v_mid + 0.5 dt a_next
-    step = model.explicit_dynamics_step(
+    step = model.step(
         target=displacement,
         state=state,
         residual=residual_operator,
@@ -185,15 +185,15 @@ def main() -> None:
             f"periodic_err={periodic_err:.3e}"
         )
 
-    step.run(
+    simulation = step.solve_result(
         output=out,
-        domain=domain,
         fields=(state.u, state.v),
         progress=progress_message,
         comm=comm,
     )
 
     print_on_root(comm, f"Wave-packet plate result: {out}")
+    print_on_root(comm, simulation.format())
 
 
 if __name__ == "__main__":

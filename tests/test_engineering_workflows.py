@@ -58,6 +58,42 @@ def test_mixed_material_is_selected_by_the_unified_step_provider():
     assert capability["provider"]["name"] == "mixed_neo_hookean_constant_pressure"
 
 
+def test_mixed_neo_hookean_direct_moduli_match_quadratic_volumetric_energy():
+    material = constitutive.mixed_neo_hookean(
+        shear_modulus=2.5,
+        bulk_modulus=2.5e4,
+    )
+    F = np.diag((1.20, 0.93, 0.91))
+    J = float(np.linalg.det(F))
+    invariant = float(np.trace(F.T @ F))
+    expected = (
+        0.5 * 2.5 * (J ** (-2.0 / 3.0) * invariant - 3.0)
+        + 0.5 * 2.5e4 * (J - 1.0) ** 2
+    )
+
+    assert material.mu == pytest.approx(2.5)
+    assert material.bulk_modulus == pytest.approx(2.5e4)
+    assert material.as_dict()["C10"] == pytest.approx(1.25)
+    assert material.as_dict()["D1"] == pytest.approx(8.0e-5)
+    assert material.as_dict()["abaqus_C10"] == pytest.approx(1.25)
+    assert material.as_dict()["abaqus_D1"] == pytest.approx(8.0e-5)
+    assert constitutive.mixed_condensed_energy_value(F, material) == pytest.approx(
+        expected
+    )
+
+
+def test_mixed_neo_hookean_rejects_ambiguous_parameterization():
+    with pytest.raises(ValueError, match="exactly one complete pair"):
+        constitutive.mixed_neo_hookean(
+            young=1000.0,
+            poisson=0.49,
+            shear_modulus=1.0,
+            bulk_modulus=1.0e4,
+        )
+    with pytest.raises(ValueError, match="declared together"):
+        constitutive.mixed_neo_hookean(shear_modulus=1.0)
+
+
 def test_mixed_hybrid_zero_state_solves_with_subspace_constraints():
     domain = mesh.cuboid((0, 0, 0), (1, 1, 1), (1, 1, 1), comm=MPI.COMM_SELF, cell_type="tetrahedron")
     model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
@@ -148,6 +184,72 @@ def test_mixed_hybrid_affine_periodic_reduction_keeps_pressure_independent(tmp_p
     assert np.max(np.abs(unknown.value.x.array)) == pytest.approx(0.0)
     assert (tmp_path / "mixed_periodic.xdmf").exists()
     assert "homogenized_first_piola_stress" in result.histories
+
+
+def test_abaqus_reference_controls_can_leave_one_macro_component_free():
+    domain = mesh.cuboid(
+        (0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (1, 1, 1),
+        comm=MPI.COMM_SELF, cell_type="tetrahedron",
+    )
+    displacement = fields.displacement(domain)
+    nodes = abaqus.AbaqusNodeTable(
+        labels=np.asarray((1, 2, 3, 4)),
+        coordinates=np.asarray(
+            (
+                (0.0, 0.0, 0.0),
+                (1.0, 0.0, 0.0),
+                (0.0, 1.0, 0.0),
+                (0.0, 0.0, 1.0),
+            )
+        ),
+    )
+    periodicity = constraints.abaqus_periodic_cell(
+        displacement,
+        nodes=nodes,
+        equations=abaqus.AbaqusEquationSet(()),
+        anchor_node=1,
+        reference_nodes=(2, 3, 4),
+        control_displacements=(
+            (0.2, 0.0, 0.0),
+            (0.0, None, 0.0),
+            (0.0, 0.0, None),
+        ),
+    )
+
+    reduction = periodicity.reduction()
+    assert periodicity.has_free_macro_dofs
+    assert len(periodicity.prescribed_control_dofs) == 10
+    assert reduction.reduced_size == displacement.value.x.array.size - 10
+    assert periodicity.prescribed_values_at(0.5)[(2, 0)] == pytest.approx(0.1)
+    assert (3, 1) not in periodicity.prescribed_control_dofs
+
+    displacement.value.interpolate(
+        lambda x: np.vstack((0.2 * x[0], -0.15 * x[1], np.zeros_like(x[2])))
+    )
+    measured = periodicity.measured_deformation_gradient(displacement)
+    np.testing.assert_allclose(
+        measured,
+        np.diag((1.2, 0.85, 1.0)),
+        rtol=0.0,
+        atol=1.0e-14,
+    )
+    summary = periodicity.summary()
+    assert summary["free_macro_dofs"] == [
+        {"node": 3, "component": 2},
+        {"node": 4, "component": 3},
+    ]
+    diagnostics = results.finite_strain_diagnostics(
+        displacement,
+        constraint=periodicity,
+    )
+    np.testing.assert_array_equal(
+        diagnostics["macro_control_prescribed_mask"],
+        ((1.0, 1.0, 1.0), (1.0, 0.0, 1.0), (1.0, 1.0, 0.0)),
+    )
+    assert all(
+        np.all(np.isfinite(np.asarray(value, dtype=float)))
+        for value in diagnostics.values()
+    )
 
 
 def test_distributing_coupling_preserves_force_and_moment_resultants():

@@ -195,9 +195,12 @@ def test_c3d10h_periodic_cell_golden_is_machine_readable():
         "agentfem.benchmark.c3d10h_periodic_cell"
     )
 
-    assert golden.reference_version == "c3d10h-periodic-nu0499-stretch1001-1"
+    assert golden.reference_version == (
+        "c3d10h-periodic-kmu1e4-uniaxial-u020-1"
+    )
     assert {item.name for item in golden.quantities} == {
         "homogenized_first_piola_stress",
+        "measured_macro_deformation_gradient",
         "solid_reference_fraction",
         "minimum_quadrature_J",
         "periodic_equation_max_error",

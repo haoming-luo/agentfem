@@ -172,20 +172,27 @@ class DistributedAffineReduction:
 
 @dataclass(frozen=True)
 class AbaqusPeriodicConstraint:
-    """Periodic cell equations controlled by a macroscopic deformation gradient."""
+    """Periodic equations controlled by prescribed or free reference dofs.
+
+    A complete ``deformation_gradient`` preserves the original affine-control
+    API.  ``control_displacements`` instead mirrors Abaqus reference-node
+    boundary conditions: one row per ``reference_nodes`` entry and one value
+    per spatial component, with ``None`` marking a free macroscopic degree of
+    freedom whose conjugate global reaction is zero.
+    """
 
     target: object
     nodes: AbaqusNodeTable
     equations: AbaqusEquationSet
-    deformation_gradient: np.ndarray
     anchor_node: int
     reference_nodes: tuple[int, ...]
+    deformation_gradient: np.ndarray | None = None
+    control_displacements: tuple[tuple[float | None, ...], ...] | None = None
     tolerance: float = 1.0e-9
     name: str = "abaqus_periodic_cell"
 
     def __post_init__(self) -> None:
         _, space, _, block_size = self._displacement_layout()
-        F = _deformation_gradient(self.deformation_gradient, block_size)
         if len(self.reference_nodes) != block_size:
             raise ValueError(
                 "reference_nodes must contain one control node per spatial direction."
@@ -195,8 +202,50 @@ class AbaqusPeriodicConstraint:
             self.nodes.index(node)
         if self.tolerance <= 0.0:
             raise ValueError("AbaqusPeriodicConstraint.tolerance must be positive.")
+        references = tuple(int(node) for node in self.reference_nodes)
+        object.__setattr__(self, "reference_nodes", references)
+        if (self.deformation_gradient is None) == (
+            self.control_displacements is None
+        ):
+            raise ValueError(
+                "Pass exactly one of deformation_gradient or "
+                "control_displacements."
+            )
+        lattice = self._reference_lattice()
+        if self.deformation_gradient is not None:
+            F = _deformation_gradient(self.deformation_gradient, block_size)
+            prescribed = ((F - np.eye(block_size)) @ lattice).T
+            controls = tuple(
+                tuple(float(value) for value in row) for row in prescribed
+            )
+        else:
+            selected = tuple(tuple(row) for row in self.control_displacements)
+            if len(selected) != block_size or any(
+                len(row) != block_size for row in selected
+            ):
+                raise ValueError(
+                    "control_displacements must contain one vector per "
+                    "reference node and one entry per spatial component."
+                )
+            controls = tuple(
+                tuple(
+                    None
+                    if value is None
+                    else _finite_control_value(value)
+                    for value in row
+                )
+                for row in selected
+            )
+            nominal = np.asarray(
+                [
+                    [0.0 if value is None else float(value) for value in row]
+                    for row in controls
+                ],
+                dtype=float,
+            )
+            F = np.eye(block_size) + nominal.T @ np.linalg.inv(lattice)
         object.__setattr__(self, "deformation_gradient", F)
-        object.__setattr__(self, "reference_nodes", tuple(int(node) for node in self.reference_nodes))
+        object.__setattr__(self, "control_displacements", controls)
 
     @property
     def is_mixed(self) -> bool:
@@ -232,30 +281,96 @@ class AbaqusPeriodicConstraint:
         return (self.anchor_node, *self.reference_nodes)
 
     @property
-    def reference_cell_volume(self) -> float:
-        """Return the lattice-cell volume implied by the control nodes."""
+    def prescribed_control_dofs(self) -> frozenset[tuple[int, int]]:
+        prescribed = {
+            (int(self.anchor_node), component)
+            for component in range(len(self.reference_nodes))
+        }
+        for label, values in zip(self.reference_nodes, self.control_displacements):
+            prescribed.update(
+                (int(label), component)
+                for component, value in enumerate(values)
+                if value is not None
+            )
+        return frozenset(prescribed)
 
-        dimension = self.deformation_gradient.shape[0]
-        origin = self.nodes.coordinate(self.anchor_node)[:dimension]
+    @property
+    def has_free_macro_dofs(self) -> bool:
+        return any(
+            value is None
+            for row in self.control_displacements
+            for value in row
+        )
+
+    def _reference_lattice(self) -> np.ndarray:
+        dimension = len(self.reference_nodes)
+        origin = self.nodes.coordinate(int(self.anchor_node))[:dimension]
         lattice = np.column_stack(
             [
-                self.nodes.coordinate(node)[:dimension] - origin
+                self.nodes.coordinate(int(node))[:dimension] - origin
                 for node in self.reference_nodes
             ]
         )
+        determinant = float(np.linalg.det(lattice))
+        if not np.isfinite(determinant) or abs(determinant) <= self.tolerance:
+            raise ValueError(
+                "Periodic reference nodes must define an independent lattice basis."
+            )
+        return lattice
+
+    def prescribed_values_at(self, load_factor: float) -> dict[tuple[int, int], float]:
+        if not np.isfinite(load_factor) or load_factor < 0.0:
+            raise ValueError("load_factor must be finite and non-negative.")
+        values = {
+            (int(self.anchor_node), component): 0.0
+            for component in range(len(self.reference_nodes))
+        }
+        for label, row in zip(self.reference_nodes, self.control_displacements):
+            for component, value in enumerate(row):
+                if value is not None:
+                    values[(int(label), component)] = float(load_factor) * float(value)
+        return values
+
+    @property
+    def reference_cell_volume(self) -> float:
+        """Return the lattice-cell volume implied by the control nodes."""
+
+        lattice = self._reference_lattice()
         volume = abs(float(np.linalg.det(lattice)))
         if not np.isfinite(volume) or volume <= 0.0:
             raise ValueError("Periodic control nodes define a degenerate lattice cell.")
         return volume
 
     def deformation_gradient_at(self, load_factor: float) -> np.ndarray:
-        """Return the macroscopic deformation gradient at a step load factor."""
+        """Return the nominal prescribed-gradient predictor at one factor.
+
+        Free macroscopic components use zero displacement in this predictor.
+        Use :meth:`measured_deformation_gradient` after a solve to recover the
+        actual macroscopic gradient from the reference-node solution.
+        """
 
         if not np.isfinite(load_factor) or load_factor < 0.0:
             raise ValueError("load_factor must be finite and non-negative.")
         identity = np.eye(self.deformation_gradient.shape[0])
         return identity + float(load_factor) * (
             self.deformation_gradient - identity
+        )
+
+    def measured_deformation_gradient(self, displacement) -> np.ndarray:
+        """Recover the actual macroscopic gradient from control-node motion."""
+
+        from ..mesh.abaqus import displacement_in_source_order
+
+        values = displacement_in_source_order(displacement, self.nodes)
+        anchor = values[self.nodes.index(int(self.anchor_node))]
+        displacement_lattice = np.column_stack(
+            [
+                values[self.nodes.index(int(node))] - anchor
+                for node in self.reference_nodes
+            ]
+        )
+        return np.eye(len(self.reference_nodes)) + (
+            displacement_lattice @ np.linalg.inv(self._reference_lattice())
         )
 
     def reduction(self, load_factor: float = 1.0) -> AffineReduction:
@@ -307,15 +422,11 @@ class AbaqusPeriodicConstraint:
                 )
             relations[slave] = dependency
 
-        F = self.deformation_gradient_at(load_factor)
         prescribed: dict[int, float] = {}
-        for label in self.control_nodes:
-            coordinate = self.nodes.coordinate(label)[:block_size]
-            displacement = (F - np.eye(block_size)) @ coordinate
+        for (label, component), value in self.prescribed_values_at(load_factor).items():
             block = node_to_block[label]
-            for component in range(block_size):
-                parent_dof = int(parent_map[block * block_size + component])
-                prescribed[parent_dof] = float(displacement[component])
+            parent_dof = int(parent_map[block * block_size + component])
+            prescribed[parent_dof] = float(value)
         conflicts = set(relations) & set(prescribed)
         if conflicts:
             raise ValueError(
@@ -336,6 +447,7 @@ class AbaqusPeriodicConstraint:
         coordinates = np.asarray(
             displacement_space.tabulate_dof_coordinates(), dtype=float
         )
+        origin = self.nodes.coordinate(int(self.anchor_node))[:block_size]
         parent_to_displacement = {
             int(parent): local for local, parent in enumerate(parent_map)
         }
@@ -345,9 +457,9 @@ class AbaqusPeriodicConstraint:
             if local is None:
                 continue
             block, component = divmod(local, block_size)
-            values[index] = ((F - np.eye(block_size)) @ coordinates[block])[
-                component
-            ]
+            values[index] = (
+                (F - np.eye(block_size)) @ (coordinates[block] - origin)
+            )[component]
         return values
 
     def distributed_reduction(self) -> DistributedAffineReduction:
@@ -358,6 +470,11 @@ class AbaqusPeriodicConstraint:
                 "Distributed affine MPC for a mixed displacement-pressure "
                 "space is not yet implemented. Run this C3D10H periodic route "
                 "in serial; ordinary C3D10 displacement MPC remains parallel."
+            )
+        if self.has_free_macro_dofs:
+            raise NotImplementedError(
+                "Distributed affine MPC with free macroscopic control dofs is "
+                "not yet implemented; run this mixed-control route in serial."
             )
 
         try:
@@ -380,7 +497,7 @@ class AbaqusPeriodicConstraint:
         )
         relations, prescribed = _semantic_relations(
             self.equations,
-            self.control_nodes,
+            self.prescribed_control_dofs,
             block_size,
         )
         expanded = _expand_semantic_relations(relations, prescribed)
@@ -483,9 +600,10 @@ class AbaqusPeriodicConstraint:
         coordinates = np.asarray(
             displacement_space.tabulate_dof_coordinates(), dtype=float
         )
+        origin = self.nodes.coordinate(int(self.anchor_node))[:block_size]
         delta = float(target_factor) - float(start_factor)
         increment = delta * (
-            coordinates[:, :block_size]
+            (coordinates[:, :block_size] - origin)
             @ (self.deformation_gradient - np.eye(block_size)).T
         )
         flattened = increment.reshape(-1)
@@ -538,20 +656,41 @@ class AbaqusPeriodicConstraint:
         return float(space.mesh.comm.allreduce(maximum, op=MPI.MAX))
 
     def summary(self) -> dict[str, object]:
-        return {
+        values = {
             "name": self.name,
             "kind": "abaqus_periodic_constraint",
             "enforcement": "exact_affine_elimination",
             "equations": self.equations.summary(),
             "anchor_node": self.anchor_node,
             "reference_nodes": self.reference_nodes,
-            "target_deformation_gradient": self.deformation_gradient.tolist(),
+            "macro_control_kind": (
+                "mixed_prescribed_and_free"
+                if self.has_free_macro_dofs
+                else "prescribed_deformation_gradient"
+            ),
+            "nominal_deformation_gradient": self.deformation_gradient.tolist(),
+            "control_displacements": [
+                list(row) for row in self.control_displacements
+            ],
+            "free_macro_dofs": [
+                {"node": int(label), "component": component + 1}
+                for label, row in zip(self.reference_nodes, self.control_displacements)
+                for component, value in enumerate(row)
+                if value is None
+            ],
             "reference_cell_volume": self.reference_cell_volume,
             "unknown_layout": (
                 "mixed_displacement_pressure" if self.is_mixed else "displacement"
             ),
-            "supports_parallel": _dolfinx_mpc_available() and not self.is_mixed,
+            "supports_parallel": (
+                _dolfinx_mpc_available()
+                and not self.is_mixed
+                and not self.has_free_macro_dofs
+            ),
         }
+        if not self.has_free_macro_dofs:
+            values["target_deformation_gradient"] = self.deformation_gradient.tolist()
+        return values
 
 
 def abaqus_periodic_cell(
@@ -559,21 +698,27 @@ def abaqus_periodic_cell(
     *,
     nodes: AbaqusNodeTable,
     equations: AbaqusEquationSet,
-    deformation_gradient,
     anchor_node: int,
     reference_nodes,
+    deformation_gradient=None,
+    control_displacements=None,
     tolerance: float = 1.0e-9,
     name: str = "abaqus_periodic_cell",
 ) -> AbaqusPeriodicConstraint:
-    """Create exact periodic-cell constraints from Abaqus equation data."""
+    """Create exact periodic equations and explicit macro-control semantics."""
 
     return AbaqusPeriodicConstraint(
         target=target,
         nodes=nodes,
         equations=equations,
-        deformation_gradient=np.asarray(deformation_gradient, dtype=float),
         anchor_node=int(anchor_node),
         reference_nodes=tuple(int(node) for node in reference_nodes),
+        deformation_gradient=(
+            None
+            if deformation_gradient is None
+            else np.asarray(deformation_gradient, dtype=float)
+        ),
+        control_displacements=control_displacements,
         tolerance=float(tolerance),
         name=name,
     )
@@ -652,9 +797,16 @@ def _build_reduction(
 SemanticDof = tuple[int, int]
 
 
+def _finite_control_value(value) -> float:
+    selected = float(value)
+    if not np.isfinite(selected):
+        raise ValueError("Periodic control displacements must be finite or None.")
+    return selected
+
+
 def _semantic_relations(
     equations: AbaqusEquationSet,
-    control_nodes,
+    prescribed_controls,
     block_size: int,
 ) -> tuple[
     dict[SemanticDof, dict[SemanticDof, float]],
@@ -686,9 +838,8 @@ def _semantic_relations(
             )
         relations[slave] = dependencies
     prescribed = {
-        (int(label), component)
-        for label in control_nodes
-        for component in range(block_size)
+        (int(label), int(component))
+        for label, component in prescribed_controls
     }
     conflicts = set(relations) & prescribed
     if conflicts:

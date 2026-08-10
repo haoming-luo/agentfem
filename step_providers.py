@@ -8,7 +8,8 @@ keeps case-specific choices out of user scripts and out of ``Model.step``.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from types import MappingProxyType
+from typing import Callable, Mapping
 
 
 @dataclass(frozen=True)
@@ -17,11 +18,59 @@ class StepRequest:
 
     analysis: str
     target: object
-    options: dict[str, object]
+    options: Mapping[str, object]
+    procedure: object | None = None
+
+    def __post_init__(self) -> None:
+        normalized = _normalize(self.analysis)
+        selected = dict(self.options)
+        if any(not isinstance(key, str) or not key for key in selected):
+            raise TypeError("StepRequest option names must be non-empty strings.")
+        object.__setattr__(self, "analysis", normalized)
+        object.__setattr__(self, "options", MappingProxyType(selected))
 
     @property
     def material(self):
         return self.options.get("material")
+
+    @property
+    def method(self) -> str | None:
+        """Return the requested algorithm name without inspecting the Study."""
+
+        if self.procedure is not None:
+            return getattr(self.procedure, "algorithm", None)
+        selected = self.options.get("method")
+        return None if selected is None else _normalize(selected)
+
+    def option(self, name: str, default=None):
+        """Read one normalized provider option."""
+
+        return self.options.get(name, default)
+
+    def lowering_options(self, *drop: str) -> dict[str, object]:
+        """Return a mutable copy intended only for the selected lowerer."""
+
+        selected = dict(self.options)
+        for name in drop:
+            selected.pop(name, None)
+        return selected
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "analysis": self.analysis,
+            "target": _target_summary(self.target),
+            "procedure": (
+                None
+                if self.procedure is None
+                else self.procedure.summary()
+            ),
+            "option_names": tuple(sorted(self.options)),
+            "material": (
+                None
+                if self.material is None
+                else type(self.material).__name__
+            ),
+        }
 
 
 @dataclass(frozen=True)
@@ -102,7 +151,18 @@ class StepProviderRegistry:
         )
 
     def lower(self, model, request: StepRequest):
-        return self.resolve(model, request).lower(model, request)
+        provider = self.resolve(model, request)
+        created = provider.lower(model, request)
+        if request.procedure is not None and hasattr(created, "procedure"):
+            actual = getattr(created, "procedure", None)
+            if actual is not None and not _same_procedure(actual, request.procedure):
+                raise RuntimeError(
+                    f"Step provider {provider.name!r} lowered procedure "
+                    f"{actual.summary()!r}, which does not match the requested "
+                    f"procedure {request.procedure.summary()!r}."
+                )
+            created.procedure = request.procedure
+        return created
 
 
 _DEFAULT_REGISTRY = StepProviderRegistry()
@@ -126,6 +186,7 @@ def step_capability(
     target=None,
     analysis: str | None = None,
     options: dict[str, object] | None = None,
+    procedure=None,
 ) -> dict[str, object]:
     """Describe whether the current model can be lowered without executing it.
 
@@ -138,6 +199,12 @@ def step_capability(
         analysis or getattr(getattr(model, "study", None), "analysis", "")
     )
     selected_options = dict(options or {})
+    selected_procedure = _resolve_procedure(
+        model,
+        analysis=selected_analysis,
+        options=selected_options,
+        requested=procedure,
+    )
     targets = (
         (target,)
         if target is not None
@@ -155,6 +222,7 @@ def step_capability(
             analysis=selected_analysis,
             target=candidate_target,
             options=selected_options,
+            procedure=selected_procedure,
         )
         accepted = tuple(
             item for item in candidates if item.accepts(model, request)
@@ -170,20 +238,95 @@ def step_capability(
         "assumption": getattr(getattr(model, "study", None), "assumption", None),
         "supported": provider is not None,
         "target": _target_summary(selected_target),
+        "procedure": (
+            None
+            if selected_procedure is None
+            else selected_procedure.summary()
+        ),
         "provider": None if provider is None else provider.summary(),
         "candidate_providers": tuple(item.name for item in candidates),
     }
 
 
-def lower_step(model, *, analysis: str, target, options):
+def lower_step(model, *, analysis: str, target, options, procedure=None):
     """Normalize and lower one high-level step request."""
 
+    selected_analysis = _normalize(analysis)
+    selected_options = dict(options)
+    selected_procedure = _resolve_procedure(
+        model,
+        analysis=selected_analysis,
+        options=selected_options,
+        requested=procedure,
+    )
     request = StepRequest(
-        analysis=_normalize(analysis),
+        analysis=selected_analysis,
         target=target,
-        options=dict(options),
+        options=selected_options,
+        procedure=selected_procedure,
     )
     return _DEFAULT_REGISTRY.lower(model, request)
+
+
+def _resolve_procedure(model, *, analysis: str, options, requested):
+    """Resolve built-in procedures while leaving extension analyses open."""
+
+    from . import procedures
+
+    known = {
+        "linear_static",
+        "nonlinear_static",
+        "first_order_transient",
+        "nonlinear_transient",
+        "second_order_dynamics",
+        "explicit_dynamics",
+    }
+    if analysis not in known:
+        if requested is not None and not isinstance(
+            requested, procedures.SolutionProcedure
+        ):
+            raise TypeError(
+                "Custom Step procedures must be SolutionProcedure objects."
+            )
+        return requested
+    method = options.get("method")
+    if requested is not None and method is not None:
+        requested_name = (
+            requested.algorithm
+            if isinstance(requested, procedures.SolutionProcedure)
+            else _normalize(requested)
+        )
+        if _normalize(method) != _normalize(requested_name):
+            raise ValueError(
+                "Pass procedure= or method=, not conflicting numerical routes."
+            )
+    material = options.get("material")
+    registered = tuple(getattr(model, "materials", ()))
+    if material is None and len(registered) == 1:
+        material = registered[0].item
+    stateful = analysis == "nonlinear_transient" or type(material).__name__ in {
+        "J2LinearIsotropicHardening",
+        "IsotropicPowerLawCreepMaterial",
+    }
+    return procedures.resolve(
+        analysis=analysis,
+        requested=requested if requested is not None else method,
+        preferred=getattr(getattr(model, "study", None), "preferred_procedure", None),
+        stateful=stateful,
+    )
+
+
+def _same_procedure(left, right) -> bool:
+    names = (
+        "family",
+        "equation_order",
+        "control",
+        "algorithm",
+        "nonlinear",
+        "requires_global_solve",
+        "stateful",
+    )
+    return all(getattr(left, name, None) == getattr(right, name, None) for name in names)
 
 
 def _selected_material(model, request: StepRequest):
@@ -198,6 +341,14 @@ def _registered_materials(model, request: StepRequest) -> tuple[object, ...]:
     if selected is not None:
         return (selected,)
     return tuple(record.item for record in getattr(model, "materials", ()))
+
+
+def _procedure_method(model, request: StepRequest) -> str | None:
+    if request.procedure is not None:
+        return _normalize(request.procedure.algorithm)
+    if request.method is not None:
+        return _normalize(request.method)
+    return getattr(getattr(model, "study", None), "preferred_procedure", None)
 
 
 def _target_summary(target) -> dict[str, object] | None:
@@ -407,18 +558,14 @@ def _accept_implicit_creep(model, request: StepRequest) -> bool:
     from .constitutive.creep import IsotropicPowerLawCreepMaterial
 
     study = getattr(model, "study", None)
-    method = request.options.get("method") or getattr(
-        study,
-        "preferred_procedure",
-        None,
-    )
+    method = _procedure_method(model, request)
     return (
         getattr(study, "physics", None) == "solid_mechanics"
         and getattr(study, "analysis", None) == "nonlinear_transient"
         and getattr(study, "dimension", None) == 3
         and _is_vector_target(request.target)
         and _normalize(method or "implicit_creep")
-        in {"implicit_creep", "backward_euler"}
+        in {"implicit_creep", "backward_euler", "backward_euler_newton"}
         and isinstance(
             _selected_material(model, request),
             IsotropicPowerLawCreepMaterial,
@@ -475,11 +622,7 @@ def _lower_mixed_neo_hookean(model, request: StepRequest):
 def _accept_explicit_dynamics(model, request: StepRequest) -> bool:
     from .constitutive import hyperelasticity
 
-    method = request.options.get("method") or getattr(
-        getattr(model, "study", None),
-        "preferred_procedure",
-        None,
-    )
+    method = _procedure_method(model, request)
     selected_material = _selected_material(model, request)
     explicit_residual = request.options.get("residual") is not None
     return (
@@ -499,8 +642,8 @@ def _accept_explicit_dynamics(model, request: StepRequest) -> bool:
             or not hyperelasticity.is_finite_strain_hyperelastic(selected_material)
         )
         and (
-        method is None
-        or _normalize(method) in {"explicit_dynamics", "central_difference"}
+            method is None
+            or _normalize(method) in {"explicit_dynamics", "central_difference"}
         )
     )
 
@@ -509,11 +652,7 @@ def _accept_finite_strain_explicit_dynamics(model, request: StepRequest) -> bool
     from .constitutive import hyperelasticity
 
     study = getattr(model, "study", None)
-    method = request.options.get("method") or getattr(
-        study,
-        "preferred_procedure",
-        None,
-    )
+    method = _procedure_method(model, request)
     material = _selected_material(model, request)
     supported_kinematics = hyperelasticity.supports_hyperelastic_study(
         material,
@@ -567,11 +706,7 @@ def _lower_explicit_dynamics(model, request: StepRequest):
 def _accept_implicit_dynamics(model, request: StepRequest) -> bool:
     from .constitutive import hyperelasticity
 
-    method = request.options.get("method") or getattr(
-        getattr(model, "study", None),
-        "preferred_procedure",
-        None,
-    )
+    method = _procedure_method(model, request)
     complete_system = all(
         request.options.get(item) is not None for item in ("M", "K", "F")
     )
@@ -596,11 +731,8 @@ def _accept_implicit_dynamics(model, request: StepRequest) -> bool:
 def _lower_implicit_dynamics(model, request: StepRequest):
     options = dict(request.options)
     options.pop("material", None)
-    method = options.pop("method", None) or getattr(
-        model.study,
-        "preferred_procedure",
-        None,
-    )
+    options.pop("method", None)
+    method = _procedure_method(model, request)
     name = options.pop("name", None) or f"{method}_dynamics"
     return model.implicit_dynamics_step(
         target=request.target,
@@ -629,8 +761,9 @@ register_step_provider(
         lower=_lower_finite_strain_explicit_dynamics,
         priority=120,
         description=(
-            "Lower Neo-Hookean finite strain to a current-configuration-updated "
-            "Total-Lagrangian residual and explicit central difference."
+            "Lower a supported finite-strain hyperelastic material to a "
+            "current-state Total-Lagrangian residual and explicit central "
+            "difference."
         ),
         procedure="explicit/central_difference/total_lagrangian",
     )
@@ -693,7 +826,8 @@ register_step_provider(
         lower=_lower_mixed_neo_hookean,
         priority=115,
         description=(
-            "Lower P2 displacement and DG0 pressure to mixed finite-strain equilibrium."
+            "Lower P2 displacement and DG0 pressure to mixed finite-strain "
+            "hyperelastic equilibrium."
         ),
         procedure="standard/newton/mixed_constant_pressure",
     )
@@ -705,7 +839,10 @@ register_step_provider(
         accepts=_accept_neo_hookean,
         lower=_lower_neo_hookean,
         priority=100,
-        description="Lower a Neo-Hookean material to total-Lagrangian equilibrium.",
+        description=(
+            "Lower a supported displacement-based hyperelastic material to "
+            "total-Lagrangian equilibrium."
+        ),
         procedure="standard/newton",
     )
 )

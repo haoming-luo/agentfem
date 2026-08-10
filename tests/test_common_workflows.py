@@ -4,7 +4,16 @@ import numpy as np
 import pytest
 from mpi4py import MPI
 
-from agentfem import amplitudes, constitutive, fields, mesh, models, results, studies
+from agentfem import (
+    amplitudes,
+    constitutive,
+    fields,
+    mesh,
+    models,
+    procedures,
+    results,
+    studies,
+)
 from agentfem.constitutive import elasticity
 
 
@@ -479,6 +488,89 @@ def test_common_dynamic_study_factory_keeps_physics_and_procedure_distinct():
     assert explicit.analysis == implicit.analysis == "second_order_dynamics"
     assert explicit.preferred_procedure == "central_difference"
     assert implicit.preferred_procedure == "generalized_alpha"
+
+
+def test_explicit_solution_procedure_drives_capability_and_lowering():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    model = models.create(
+        study=studies.dynamic_solid(
+            dimension=2,
+            assumption="plane_stress",
+            method="newmark",
+        ),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    model.material(
+        elasticity.isotropic_elastic(
+            young=1.0e6,
+            poisson=0.3,
+            density=1000.0,
+        )
+    )
+    selected = procedures.central_difference()
+
+    capability = models.step_capability(
+        model,
+        target=displacement,
+        procedure=selected,
+    )
+    step = model.step(
+        target=displacement,
+        procedure=selected,
+        dt=1.0e-4,
+        steps=1,
+        progress=False,
+    )
+
+    assert capability["provider"]["name"] == "central_difference_explicit_dynamics"
+    assert capability["procedure"]["algorithm"] == "central_difference"
+    assert step.procedure is selected
+
+
+def test_conflicting_method_and_solution_procedure_fail_before_lowering():
+    from agentfem.step_providers import lower_step
+
+    model = models.create(
+        study=studies.dynamic_solid(
+            dimension=2,
+            assumption="plane_stress",
+            method="explicit",
+        )
+    )
+    with pytest.raises(ValueError, match="not conflicting numerical routes"):
+        lower_step(
+            model,
+            analysis="second_order_dynamics",
+            target=None,
+            options={"method": "newmark"},
+            procedure=procedures.central_difference(),
+        )
+
+
+def test_solution_procedure_resolution_rejects_silent_route_changes():
+    with pytest.raises(ValueError, match="requires 'static'"):
+        procedures.resolve(
+            analysis="linear_static",
+            requested=procedures.central_difference(),
+        )
+    with pytest.raises(ValueError, match="Unknown numerical method"):
+        procedures.resolve(
+            analysis="second_order_dynamics",
+            requested="mystery_integrator",
+        )
+    selected = procedures.resolve(
+        analysis="nonlinear_transient",
+        requested="backward_euler_newton",
+        stateful=True,
+    )
+    assert selected.algorithm == "backward_euler_newton"
 
 
 def test_implicit_dynamics_rejects_time_dependent_supports_before_solve():

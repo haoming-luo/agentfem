@@ -13,7 +13,8 @@ together:
    displacement degrees of freedom;
 5. chained edge and corner equations become an exact serial or distributed
    affine reduction;
-6. a 3D compressible Neo-Hookean equilibrium is solved incrementally;
+6. a C3D10H-equivalent P2/DG0 mixed formulation solves a quasi-incompressible
+   Neo-Hookean equilibrium incrementally;
 7. XDMF/HDF5 time-series fields, VTU, PNG, GIF/MP4, exact macro histories,
    AF-IR, and convergence evidence are written from one top-level model.
 
@@ -33,18 +34,28 @@ K_reduced(q) = T^T K(u) T
 This is the same elimination principle used by Abaqus/Standard linear
 equations, expressed as an inspectable AgentFEM object.
 
-## Scientific Boundary
+## Scientific definition
 
-The original Abaqus deck is not fully reproducible from the files supplied.
-Its `*USER MATERIAL` and `*MPC,USER` implementations are absent. AgentFEM
-therefore preserves the mesh and linear periodic equations, but deliberately
-substitutes:
+The matrix follows the quasi-incompressible Neo-Hookean energy used in the
+porous-composite study:
 
-- a documented compressible Neo-Hookean energy;
-- a complete prescribed macroscopic deformation gradient.
+```text
+W = mu/2 * (J^(-2/3) I1 - 3) + kappa/2 * (J - 1)^2
+kappa = 10^4 mu
+```
 
-This is a meaningful interoperability and finite-deformation validation case.
-It is not a material-response comparison with the original user subroutines.
+The mixed potential introduces one constant pressure unknown per cell. At
+stationarity, eliminating pressure recovers the energy above. The
+RIGHT/TOP/FRONT control nodes declare three-dimensional uniaxial stress:
+RIGHT-U1 is `0.2`, TOP-U2 and FRONT-U3 are solved, and all macroscopic shear
+components are zero. Thus both transverse resultants vanish independently.
+The actual macroscopic deformation gradient is reconstructed from the
+converged control-node motion at every frame. A finite random RVE may produce
+slightly different transverse stretches; equality emerges with effective
+transverse isotropy and is not imposed as an extra kinematic constraint.
+The versioned `u=0.2` reference run gives
+`F=diag(1.2, 0.9178618773, 0.9180572899)`, while both `P22` and `P33` are
+below `2e-11` in magnitude.
 
 ## Public Workflow
 
@@ -55,14 +66,24 @@ cell = mesh.read_abaqus_mesh(
     cell_type="tetra10",
 )
 equations = mesh.abaqus.read_equations("R1f10n30vc.mpc")
-u = model.field(fields.displacement(cell.domain, degree=2))
+unknown = model.field(fields.displacement_pressure(cell.domain))
+material = model.material(
+    constitutive.mixed_neo_hookean(
+        shear_modulus=1.0,
+        bulk_modulus=1.0e4,
+    )
+)
 
 periodicity = model.constraint(
     constraints.abaqus_periodic_cell(
-        u,
+        unknown,
         nodes=cell.nodes,
         equations=equations,
-        deformation_gradient=F_macro,
+        control_displacements=(
+            (0.2, 0.0, 0.0),
+            (0.0, None, 0.0),
+            (0.0, 0.0, None),
+        ),
         anchor_node=1,
         reference_nodes=(7, 9, 4),
     )
@@ -80,7 +101,8 @@ incrementation = steps.automatic(
     max_increments=10,
 )
 step = model.step(
-    target=u,
+    target=unknown,
+    material=material,
     constraints=periodicity,
     incrementation=incrementation,
     output=output,
@@ -88,12 +110,6 @@ step = model.step(
     status_file="output/periodic_cell.sta",
 )
 result = step.solve_result()
-output.write_finite_strain(
-    "output",
-    domain=cell.domain,
-    snapshots=step.snapshots,
-    material=material,
-)
 ```
 
 ## One step, several increments, several frames
@@ -130,10 +146,7 @@ for completion.
 | `SDV` | not applicable to the current stateless Neo-Hookean law | — |
 
 The result manifest additionally stores vector `U` and current `COORD`
-histories at Abaqus control nodes `RIGHT`, `TOP`, and `FRONT`. `RF` and `TF`
-are deliberately not approximated from homogenized stress: exact affine-MPC
-reaction recovery requires verified constraint multipliers and is listed as a
-remaining result capability.
+histories at control nodes `RIGHT`, `TOP`, and `FRONT`.
 
 In serial, the unified XDMF/HDF5 series is both the direct ParaView product and
 the scientific field record: topology is shared, reference coordinates are
@@ -166,27 +179,20 @@ The neutral conversion makes topology selection and any set loss visible in a
 manifest. Labels and equations are retained separately because generic mesh
 conversion cannot preserve every periodic-constraint requirement.
 
-The checked-in source declares `C3D10`. The default route therefore uses
-quadratic geometry, P2 displacement, and a displacement-based compressible
-Neo-Hookean law. With `--element-type C3D10H`, AgentFEM changes only that
-element declaration in a derived source, records both file identities, and
-uses its monolithic P2/DG0 mixed formulation. The DG0 field contributes one
-independent pressure unknown per cell. `tetra10` remains only the shared
-geometry; source formulation and solver provider stay explicit.
-
-The large-mesh release smoke uses `nu=0.499` and stretch `1.001`. It verifies
-14,942 source nodes, 8,781 cells and pressure unknowns, all 4,212 equations,
-positive quadrature-point `J`, the separate `PRESSURE` and first-Piola `P`
-fields, and a versioned homogenized response. This mixed affine-MPC path is
-serial in the current release; the C3D10 displacement route has the tested
-two-rank `dolfinx_mpc` backend.
+The checked-in source geometry declares `C3D10`. AgentFEM records the source
+identity, derives the C3D10H formulation declaration without regenerating
+nodes or connectivity, and selects its monolithic P2/DG0 provider. The DG0
+field contributes one independent pressure unknown per cell. `tetra10`
+describes geometry; the hybrid formulation remains an explicit scientific
+choice.
 
 ## Evidence and Failure Checks
 
 A credible run should report:
 
 - 14,942 imported nodes and 8,781 `tetra10` cells;
-- 4,212 equation constraints and 40,602 independent displacement dofs;
+- 4,212 equation constraints while both transverse macro dofs remain
+  independent;
 - Newton convergence for every load factor;
 - a near-machine-zero equation mismatch;
 - positive sampled `det(F)` values;
@@ -198,37 +204,10 @@ A credible run should report:
 The code rejects duplicate equation slaves, cyclic equation graphs, missing
 node-to-dof matches, non-positive target `det(F)`, and non-finite residuals.
 
-## Distributed equation backend
+## Constraint backends
 
-Serial execution constructs an explicit sparse transformation. MPI execution
-uses the same source-level equation graph but:
-
-- resolves chained slaves to independent masters before partition-dependent
-  numbering;
-- maps source labels to global DOLFINx block dofs and owning ranks;
-- supplies identical relations for every locally visible owned or ghost slave;
-- carries the non-homogeneous macroscopic deformation as an affine predictor;
-- constrains Newton corrections homogeneously with `dolfinx_mpc`;
-- assembles and solves one PETSc/MUMPS system across all ranks.
-
-The public model language is unchanged. A two-rank parity probe on this mesh
-has 44,826 global displacement dofs, 4,212 equation slaves, and 40,602
-independent dofs. For a 1.02 stretch, serial and two-rank runs have the same
-initial reduced residual (`0.613379810971141`), converge in three Newton
-iterations to approximately `1.5e-12`, and retain equation mismatch below
-`2e-17`.
-
-`dolfinx_mpc` is a compiled optional dependency and must match the DOLFINx
-minor version. Sparse direct MUMPS remains the trustworthy reference policy for
-this 40k-dof example. Distributed AMG near-nullspace transfer, verified
-constraint reactions, scaling studies beyond a few ranks, and directly
-deformed collective visualization remain engineering work rather than implied
-capabilities.
-
-## User-material migration is a separate capability
-
-Mesh/equation import does not imply that arbitrary `UMAT` or `UHYPER` source
-already runs. `docs/abaqus_user_material_bridge.md` defines the required
-quadrature state, tensor conversions, compiler boundary, and validation
-ladder. UHYPER is the narrower first target; stateful UMAT integration follows
-only after a global constitutive driver exists.
+This C3D10H workflow uses an explicit sparse affine transformation so the
+mixed pressure dofs and the free TOP-U2 and FRONT-U3 macro components remain
+independent unknowns. The same public constraint object also lowers fully
+prescribed displacement formulations to `dolfinx_mpc` for distributed
+execution.

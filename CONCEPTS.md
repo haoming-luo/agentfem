@@ -20,9 +20,11 @@ how the discrete equations advance. Examples are linear static,
 implicit-Euler heat transfer, Standard/Newmark dynamics,
 Standard/generalized-alpha dynamics, and Explicit/central difference.
 
-`SolutionProcedure` is initially a compact description used by summaries,
-validation, and step-provider dispatch. It should not grow into a second study
-object or force every algorithm parameter into beginner-facing code.
+`SolutionProcedure` is a compact description used by summaries, validation,
+and the same step-provider request that performs lowering. An explicit
+`model.step(procedure=...)` therefore changes the selected numerical route; it
+is not decorative metadata. It should not grow into a second study object or
+force every algorithm parameter into beginner-facing code.
 
 ## Model
 
@@ -244,6 +246,12 @@ Transient steps share one result lifecycle. Calling
 default primary/state fields to one XDMF/HDF5 series, records every accepted
 time increment, and attaches those artifacts to the returned
 `SimulationResult`.
+
+Completed stateful static/transient procedures use the same result vocabulary.
+J2 and creep keep accepted integration-point fields as raw constitutive
+evidence and write separately named recovered cell fields when
+`solve_result(output=...)` is requested. Output never silently converts an
+integration-point field into a smoothed nodal field.
 
 Accepted-increment history requests are procedure-independent. Heat,
 Standard dynamics, and Explicit dynamics all accept `history=(...)` on

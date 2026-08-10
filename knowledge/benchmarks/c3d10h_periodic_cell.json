@@ -4,17 +4,19 @@
   "id": "agentfem.benchmark.c3d10h_periodic_cell",
   "title": "Imported C3D10H near-incompressible periodic cell",
   "status": "manual_release_regression",
-  "purpose": "Verify that a C3D10 source mesh can be reproducibly re-declared as C3D10H without changing nodes or connectivity, and that the imported hybrid identity selects AgentFEM's P2-displacement/DG0-pressure finite-strain route with exact Abaqus *EQUATION constraints.",
+  "purpose": "Verify AgentFEM's quasi-incompressible finite-strain periodic-cell workflow: quadratic source geometry, P2-displacement/DG0-pressure hybrid formulation, mixed macro reference-point control, exact equation constraints, homogenization, and unified output.",
   "physics": "three-dimensional near-incompressible mixed Neo-Hookean periodic homogenization",
   "execution": {
-    "command": "python examples/abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py --element-type C3D10H --stretch 1.001 --poisson 0.499 --output examples_output/c3d10h_smoke",
+    "command": "python examples/abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py --displacement 0.2 --shear-modulus 1.0 --bulk-to-shear-ratio 10000 --output examples_output/c3d10h_u020",
     "example": "examples/abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py",
-    "evidence": "The versioned source contains 14,942 nodes and 8,781 C3D10 elements. AgentFEM changes only the matching TYPE= keyword, records both SHA-256 identities, imports the same tetra10 geometry, solves 8,781 independent DG0 pressure unknowns beside quadratic displacement, and writes U, PRESSURE, P, S, LE, J, MISES, SENER, F, and EVOL to one time series."
+    "evidence": "The versioned source contains 14,942 nodes and 8,781 quadratic tetrahedra. AgentFEM records the formulation identity, solves 8,781 independent DG0 pressure unknowns beside quadratic displacement, obtains the free TOP-U2 and FRONT-U3 macro responses, and writes U, PRESSURE, P, S, LE, J, MISES, SENER, F, and EVOL to one time series."
   },
   "observables": [
     "The source and derived meshes differ only in one C3D10 to C3D10H element declaration.",
     "The conversion manifest retains C3D10H hybrid/constant-pressure identity beside tetra10 geometry.",
     "All 4,212 Abaqus equation constraints have zero reported mismatch at accepted increments.",
+    "The converged control-node motion gives F=diag(1.2, 0.9178618773, 0.9180572899), with both transverse stretches solved rather than prescribed.",
+    "The final homogenized P22 and P33 are each below 2e-11 in magnitude, and the two transverse stretches differ by less than 2e-4.",
     "Every accepted state has positive quadrature-point deformation Jacobian.",
     "The mixed pressure field is a solved DG0 field and is not confused with first-Piola stress P.",
     "The two homogenized first-Piola reconstructions agree within tolerance."
@@ -26,15 +28,23 @@
     "Versioned homogenized stress and volume observables satisfy the Golden tolerances."
   ],
   "golden": {
-    "reference_version": "c3d10h-periodic-nu0499-stretch1001-1",
+    "reference_version": "c3d10h-periodic-kmu1e4-uniaxial-u020-1",
     "quantities": [
       {
         "name": "homogenized_first_piola_stress",
-        "expected": [0.5531142260585655, -0.0006636956284032983, -0.00040385712140553063, -0.0006627013279445501, -0.28481020916358846, 0.00033128420316908236, -0.0004032520920734518, 0.00033128420316951414, -0.28625966623505067],
+        "expected": [0.42010224484695285, -1.9659129620703107e-05, -8.908053736251105e-05, -1.503698221243583e-05, -1.8779045129280882e-11, 0.00038390936783782355, -6.815086286401544e-05, 0.000383991099687801, -9.824901347139918e-12],
         "relative_tolerance": 5e-6,
         "absolute_tolerance": 2e-8,
         "unit": "consistent stress unit",
         "description": "Row-major first-Piola tensor from a solid-volume integral normalized by the complete periodic-cell reference volume."
+      },
+      {
+        "name": "measured_macro_deformation_gradient",
+        "expected": [1.2, 0.0, 0.0, 0.0, 0.917861877294705, 0.0, 0.0, 0.0, 0.9180572899142109],
+        "relative_tolerance": 5e-7,
+        "absolute_tolerance": 1e-9,
+        "unit": null,
+        "description": "Row-major macro deformation gradient recovered from converged RIGHT/TOP/FRONT control-node displacements."
       },
       {
         "name": "solid_reference_fraction",
@@ -46,7 +56,7 @@
       },
       {
         "name": "minimum_quadrature_J",
-        "expected": 0.9976484765915496,
+        "expected": 0.6362401160792156,
         "relative_tolerance": 5e-6,
         "absolute_tolerance": 1e-8,
         "unit": null,
@@ -62,9 +72,14 @@
       }
     ]
   },
+  "scope": [
+    "Three-dimensional quasi-incompressible Neo-Hookean finite deformation with one constant pressure unknown per quadratic tetrahedron.",
+    "Serial mixed affine-periodic solution with two free transverse normal reference-point components.",
+    "The distributed constraint backend currently serves fully prescribed displacement formulations."
+  ],
   "limitations": [
-    "This is an AgentFEM mixed variational analogue and does not assert byte-for-byte equivalence with Abaqus internal C3D10H implementation.",
-    "The mixed affine-periodic route is serial in this release; the displacement-only C3D10 route supports dolfinx_mpc under MPI.",
-    "The Golden response uses the documented Neo-Hookean substitution, not the unavailable original USER MATERIAL and MPC,USER subroutines."
+    "The mixed affine-periodic route with solved macro components is currently serial.",
+    "This benchmark covers one P2-displacement/DG0-pressure tetrahedral formulation and one matrix/void periodic cell.",
+    "Distributed mixed constraints and broader multi-material hybrid formulations remain roadmap capabilities."
   ]
 }

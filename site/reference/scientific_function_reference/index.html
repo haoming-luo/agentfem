@@ -10745,6 +10745,11 @@ f_{\mathrm{trial}}=q_{\mathrm{trial}}-(\sigma_{y0}+Hp_n)
 p=-\kappa(J-1)
 \]</div>
 <p>Positive pressure denotes compression and DG0 creates one pressure value per cell.</p>
+<p><strong>pressure-condensed stored energy</strong></p>
+<div class="arithmatex">\[
+W=\frac{\mu}{2}(J^{-2/3}I_1-3)+\frac{\kappa}{2}(J-1)^2
+\]</div>
+<p>This is the quasi-incompressible Neo-Hookean form used by the porous-cell workflow; Abaqus polynomial parameters are C10=mu/2 and D1=2/kappa.</p>
 <h4 id="inputs_5">Inputs<a class="headerlink" href="#inputs_5" title="Permanent link">&para;</a></h4>
 <table>
 <thead>
@@ -10786,7 +10791,7 @@ p=-\kappa(J-1)
 <h4 id="assumptions_5">Assumptions<a class="headerlink" href="#assumptions_5" title="Permanent link">&para;</a></h4>
 <ul>
 <li>Three-dimensional solids and two-dimensional plane strain use total-Lagrangian kinematics.</li>
-<li>The volumetric response uses a finite bulk modulus derived from E and nu.</li>
+<li>The volumetric response uses a finite bulk modulus declared directly with mu or derived from E and nu.</li>
 </ul>
 <h4 id="conventions_5">Conventions<a class="headerlink" href="#conventions_5" title="Permanent link">&para;</a></h4>
 <ul>
@@ -10800,12 +10805,11 @@ p=-\kappa(J-1)
 </ul>
 <h4 id="limitations_5">Limitations<a class="headerlink" href="#limitations_5" title="Permanent link">&para;</a></h4>
 <ul>
-<li>This is an AgentFEM variational analogue, not a byte-for-byte reproduction of Abaqus internal hybrid elements.</li>
 <li>Distributed mixed affine-periodic MPC, multiple finite-strain material regions, and an external locking benchmark remain release gates.</li>
 </ul>
 <h3 id="minimal-example_5">Minimal example<a class="headerlink" href="#minimal-example_5" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">unknown</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">fields</span><span class="o">.</span><span class="n">displacement_pressure</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">material</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span><span class="n">constitutive</span><span class="o">.</span><span class="n">mixed_neo_hookean</span><span class="p">(</span><span class="n">young</span><span class="o">=</span><span class="mf">1e6</span><span class="p">,</span> <span class="n">poisson</span><span class="o">=</span><span class="mf">0.499</span><span class="p">))</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">material</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span><span class="n">constitutive</span><span class="o">.</span><span class="n">mixed_neo_hookean</span><span class="p">(</span><span class="n">shear_modulus</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">bulk_modulus</span><span class="o">=</span><span class="mf">1.0e4</span><span class="p">))</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">model</span><span class="o">.</span><span class="n">fix</span><span class="p">(</span><span class="n">unknown</span><span class="o">.</span><span class="n">displacement</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">support</span><span class="p">)</span>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">unknown</span><span class="p">,</span> <span class="n">material</span><span class="o">=</span><span class="n">material</span><span class="p">)</span>
 </code></pre></div>
@@ -10827,12 +10831,15 @@ p=-\kappa(J-1)
 <li>Solve the constrained zero state and recover exactly zero displacement and pressure.</li>
 <li>Reject any accepted increment with non-positive quadrature-point J.</li>
 <li>Preserve every pressure dof as an independent reduced unknown under serial affine-periodic constraints.</li>
+<li>Recover the actual macro deformation gradient from solved reference-point motion whenever a macro component is free.</li>
+<li>For three-dimensional uniaxial stress, solve both transverse normal macro components and suppress only the macro shear components.</li>
 </ul>
 <h3 id="references_5">References<a class="headerlink" href="#references_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Abaqus three-dimensional solid element library: C3D10H constant-pressure hybrid tetrahedron: <code>https://docs.software.vt.edu/abaqusv2024/English/SIMACAEELMRefMap/simaelm-r-3delem.htm</code></li>
 <li>Abaqus hybrid incompressible solid formulation: <code>https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-hybridincompress.htm</code></li>
 <li>DOLFINx mixed function-space API: <code>https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.html</code></li>
+<li>Luo et al., nonlinear elastic composites with spherical particles or voids, European Journal of Mechanics A/Solids (2023), 105076: <code>https://doi.org/10.1016/j.euromechsol.2023.105076</code></li>
 </ul>
 <p><a id="agentfem-material-mooney_rivlin_hyperelasticity"></a></p>
 <h2 id="mooney-rivlin-finite-strain-solids-and-incompressible-sheets">Mooney--Rivlin finite-strain solids and incompressible sheets<a class="headerlink" href="#mooney-rivlin-finite-strain-solids-and-incompressible-sheets" title="Permanent link">&para;</a></h2>
@@ -11861,6 +11868,7 @@ N_{\mathrm{payload},r}=d\,|\mathcal N_{\Gamma,r}^{\mathrm{remote}}|
 <li><code>agentfem.results.FieldRecovery</code></li>
 <li><code>agentfem.results.cell_average_recovery</code></li>
 <li><code>agentfem.results.recover_integration_point_field</code></li>
+<li><code>agentfem.results.write_result_fields</code></li>
 </ul>
 <h3 id="scientific-contract_14">Scientific contract<a class="headerlink" href="#scientific-contract_14" title="Permanent link">&para;</a></h3>
 <p>A scientific cell field is the quadrature-weighted mean of one constitutive integration-point field over each element; its processing history is part of the result meaning.</p>
@@ -11915,6 +11923,7 @@ N_{\mathrm{payload},r}=d\,|\mathcal N_{\Gamma,r}^{\mathrm{remote}}|
 <h4 id="conventions_14">Conventions<a class="headerlink" href="#conventions_14" title="Permanent link">&para;</a></h4>
 <ul>
 <li>Raw integration-point fields keep their original names; recovered variants use an explicit *_CELL suffix in J2 and creep SimulationResult objects.</li>
+<li>J2 and creep solve_result(output=...) automatically omit raw quadrature attributes and write the recovered cell fields in the common completed-result dataset.</li>
 <li>Material boundaries are preserved because recovery is performed independently within every cell.</li>
 <li>A smooth contour is a later presentation product and never overwrites constitutive evidence.</li>
 </ul>
@@ -11929,7 +11938,8 @@ N_{\mathrm{payload},r}=d\,|\mathcal N_{\Gamma,r}^{\mathrm{remote}}|
 <li>For curved non-affine cells, a physical-Jacobian-weighted recovery will need a distinct reviewed policy.</li>
 </ul>
 <h3 id="minimal-example_14">Minimal example<a class="headerlink" href="#minimal-example_14" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">cell_peeq</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">recover_integration_point_field</span><span class="p">(</span><span class="n">step</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">equivalent_plastic_strain</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;PEEQ_CELL&#39;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">result</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">solve_result</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="s1">&#39;inelastic.xdmf&#39;</span><span class="p">)</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">cell_peeq</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">fields</span><span class="p">[</span><span class="s1">&#39;PEEQ_CELL&#39;</span><span class="p">]</span>
 </code></pre></div>
 <h3 id="verification_14">Verification<a class="headerlink" href="#verification_14" title="Permanent link">&para;</a></h3>
 <p><strong>Tests</strong></p>
@@ -12458,6 +12468,7 @@ q=\frac{12(3V)^{2/3}}{\sum_e l_e^2}
 <h3 id="public-api_19">Public API<a class="headerlink" href="#public-api_19" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>agentfem.procedures.SolutionProcedure</code></li>
+<li><code>agentfem.procedures.resolve</code></li>
 <li><code>agentfem.time.newmark</code></li>
 <li><code>agentfem.time.generalized_alpha</code></li>
 <li><code>agentfem.problems.LinearSystemProblem.reaction_field</code></li>
@@ -12521,6 +12532,12 @@ q=\frac{12(3V)^{2/3}}{\sum_e l_e^2}
 <td>Records family, order, algorithm, control, statefulness, and solve requirements.</td>
 </tr>
 <tr>
+<td>typed provider request</td>
+<td>immutable StepRequest</td>
+<td>none</td>
+<td>Carries the resolved procedure through capability inspection and executable lowering.</td>
+</tr>
+<tr>
 <td>advanced state</td>
 <td>field state and convergence evidence</td>
 <td>problem dependent</td>
@@ -12557,6 +12574,7 @@ q=\frac{12(3V)^{2/3}}{\sum_e l_e^2}
 <li>Standard means a global implicit/assembled solution route, not an Abaqus compatibility claim.</li>
 <li>Explicit means no global linear solve at each time increment.</li>
 <li>Step, increment, iteration, attempt, and output frame remain distinct.</li>
+<li>An explicit procedure object takes precedence over the Study preference and cannot conflict with method= or equation order.</li>
 <li>Display cadence never removes an accepted or failed event from the execution trace.</li>
 <li>Automatic checkpoints are written only after state, history, and the accepted-increment event are committed.</li>
 </ul>
@@ -12571,7 +12589,8 @@ q=\frac{12(3V)^{2/3}}{\sum_e l_e^2}
 <li>Checkpoint retention is implemented for shared transient routes; portable cross-partition restart currently covers nodal state but not quadrature/internal-variable state.</li>
 </ul>
 <h3 id="minimal-example_19">Minimal example<a class="headerlink" href="#minimal-example_19" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="n">Create</span> <span class="n">studies</span><span class="o">.</span><span class="n">implicit_dynamics</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;generalized_alpha&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">call</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">,</span> <span class="n">dt</span><span class="o">=...</span><span class="p">,</span> <span class="n">steps</span><span class="o">=...</span><span class="p">)</span><span class="o">.</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="n">study</span> <span class="o">=</span> <span class="n">studies</span><span class="o">.</span><span class="n">dynamic_solid</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">assumption</span><span class="o">=</span><span class="s1">&#39;plane_stress&#39;</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;newmark&#39;</span><span class="p">)</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">,</span> <span class="n">procedure</span><span class="o">=</span><span class="n">procedures</span><span class="o">.</span><span class="n">generalized_alpha</span><span class="p">(),</span> <span class="n">dt</span><span class="o">=...</span><span class="p">,</span> <span class="n">steps</span><span class="o">=...</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="verification_19">Verification<a class="headerlink" href="#verification_19" title="Permanent link">&para;</a></h3>
 <p><strong>Tests</strong></p>
@@ -12586,7 +12605,8 @@ q=\frac{12(3V)^{2/3}}{\sum_e l_e^2}
 </ul>
 <p><strong>Validation rules</strong></p>
 <ul>
-<li>Reject unknown procedure families, equation orders, controls, or incompatible explicit/global-solve combinations.</li>
+<li>Reject unknown procedure families, method names, equation orders, controls, or incompatible explicit/global-solve combinations.</li>
+<li>Require capability inspection and provider lowering to consume the same resolved SolutionProcedure.</li>
 <li>Reject invalid generalized-alpha spectral radius and integration parameters.</li>
 </ul>
 <h3 id="references_19">References<a class="headerlink" href="#references_19" title="Permanent link">&para;</a></h3>

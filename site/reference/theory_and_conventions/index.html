@@ -3402,6 +3402,11 @@ relation.</p>
 </table>
 <p>Step, increment, nonlinear iteration, failed attempt, and output frame are
 distinct concepts throughout progress, checkpoint, and result records.</p>
+<p>The same resolved <code>SolutionProcedure</code> is carried by the Step request used for
+capability inspection and provider lowering. Passing
+<code>model.step(procedure=...)</code> can therefore select Standard or Explicit
+behavior; it cannot disagree with a simultaneous <code>method=</code> choice or with the
+equation order declared by the Study.</p>
 <h2 id="compressible-neo-hookean-finite-strain">Compressible Neo-Hookean finite strain<a class="headerlink" href="#compressible-neo-hookean-finite-strain" title="Permanent link">&para;</a></h2>
 <p>For the implemented compressible Neo-Hookean material, the strain-energy
 density is</p>

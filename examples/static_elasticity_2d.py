@@ -79,7 +79,7 @@ def main() -> dict[str, float]:
     model.check()
 
     # 7. Step and solve: assemble K u = F and solve the linear system.
-    step = model.linear_static_step(
+    step = model.step(
         target=displacement,
         solver_options=LinearSolverOptions(ksp_type="preonly", pc_type="lu"),
         name="cantilever_Ku_eq_F",

@@ -39,9 +39,18 @@ Those names mix two distinct decisions:
 - priority and a human-readable description.
 
 The default registry currently contains linear-static, implicit-Euler heat,
-Neo-Hookean finite-strain, 3D stateful J2, Newmark/generalized-alpha implicit
-dynamics, and central-difference explicit providers.
+finite-strain hyperelastic, 3D stateful J2 and creep,
+Newmark/generalized-alpha implicit dynamics, and central-difference explicit
+providers.
 The registry is public and inspectable through `models.step_providers()`.
+
+`model.step(...)` normalizes this call into an immutable `StepRequest`. The
+request carries the resolved `SolutionProcedure`, target, material reference,
+and a read-only option mapping through both `step_capability(...)` and provider
+lowering. An explicit `procedure=` may override the Study preference, but a
+conflicting `method=` or incompatible equation order fails before assembly.
+This is the first typed boundary behind the readable Python language; it does
+not add a second user-facing configuration system.
 
 This is an extension seam, not a promise that arbitrary registered code is
 scientifically valid. A new stateful material provider is admissible only
@@ -165,6 +174,13 @@ can therefore:
 XDMF and HDF5 are one logical dataset. Putting the heavy arrays inline in XML
 would create a much larger, slower text file without improving scientific
 meaning. PVD/VTU remains an optional compatibility backend, not the default.
+
+Completed static elasticity, J2, and creep results use the same
+`results.write_result_fields(...)` implementation. J2 and creep retain raw
+integration-point `S/PE/CE` state in `SimulationResult`; the common writer
+records that those fields were omitted from ordinary visualization attributes
+and writes the explicitly recovered `*_CELL` fields instead. No hidden nodal
+extrapolation or smoothing is introduced by asking for `output=`.
 
 The directly deformed compact writer is serial. Under MPI, AgentFEM retains two
 explicit products. DOLFINx collective XDMF/HDF5 is the compact scientific

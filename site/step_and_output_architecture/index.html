@@ -3285,9 +3285,17 @@ Those names mix two distinct decisions:</p>
 <li>priority and a human-readable description.</li>
 </ul>
 <p>The default registry currently contains linear-static, implicit-Euler heat,
-Neo-Hookean finite-strain, 3D stateful J2, Newmark/generalized-alpha implicit
-dynamics, and central-difference explicit providers.
+finite-strain hyperelastic, 3D stateful J2 and creep,
+Newmark/generalized-alpha implicit dynamics, and central-difference explicit
+providers.
 The registry is public and inspectable through <code>models.step_providers()</code>.</p>
+<p><code>model.step(...)</code> normalizes this call into an immutable <code>StepRequest</code>. The
+request carries the resolved <code>SolutionProcedure</code>, target, material reference,
+and a read-only option mapping through both <code>step_capability(...)</code> and provider
+lowering. An explicit <code>procedure=</code> may override the Study preference, but a
+conflicting <code>method=</code> or incompatible equation order fails before assembly.
+This is the first typed boundary behind the readable Python language; it does
+not add a second user-facing configuration system.</p>
 <p>This is an extension seam, not a promise that arbitrary registered code is
 scientifically valid. A new stateful material provider is admissible only
 after its constitutive state, trial/commit/rollback policy, tangent, increment
@@ -3380,6 +3388,12 @@ can therefore:</p>
 <p>XDMF and HDF5 are one logical dataset. Putting the heavy arrays inline in XML
 would create a much larger, slower text file without improving scientific
 meaning. PVD/VTU remains an optional compatibility backend, not the default.</p>
+<p>Completed static elasticity, J2, and creep results use the same
+<code>results.write_result_fields(...)</code> implementation. J2 and creep retain raw
+integration-point <code>S/PE/CE</code> state in <code>SimulationResult</code>; the common writer
+records that those fields were omitted from ordinary visualization attributes
+and writes the explicitly recovered <code>*_CELL</code> fields instead. No hidden nodal
+extrapolation or smoothing is introduced by asking for <code>output=</code>.</p>
 <p>The directly deformed compact writer is serial. Under MPI, AgentFEM retains two
 explicit products. DOLFINx collective XDMF/HDF5 is the compact scientific
 route. <code>io.ParaViewTimeSeries</code> and

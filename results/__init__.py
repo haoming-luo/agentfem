@@ -65,10 +65,12 @@ from .field_catalog import (
 from .output import (
     FieldOutput,
     FieldOutputArtifacts,
+    ResultFieldArtifacts,
     field_output,
     read_unified_xdmf_series,
     write_deformed_vtk_series,
     write_parallel_vtk_series,
+    write_result_fields,
     write_unified_xdmf_series,
 )
 from .plan import (
@@ -102,6 +104,7 @@ __all__ = [
     "FieldResult",
     "FieldOutput",
     "FieldOutputArtifacts",
+    "ResultFieldArtifacts",
     "FieldRecovery",
     "FieldVariable",
     "ForceMomentResultant",
@@ -176,5 +179,6 @@ __all__ = [
     "write_homogenized_history",
     "write_deformed_vtk_series",
     "write_parallel_vtk_series",
+    "write_result_fields",
     "write_unified_xdmf_series",
 ]

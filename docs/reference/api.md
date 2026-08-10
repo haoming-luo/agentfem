@@ -250,7 +250,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `kinematics(displacement) -> FiniteStrainKinematics` | Return the standard finite-strain kinematic measures for ``u``. |
 | function | `mooney_rivlin(*, shear_modulus: float, first_invariant_fraction: float, bulk_modulus: float, density: float \| None = None, name: str = 'compressible Mooney-Rivlin') -> MooneyRivlinProperties` | Create a three-dimensional compressible Mooney-Rivlin solid. |
 | function | `mooney_rivlin_plane_stress(*, shear_modulus: float, first_invariant_fraction: float, density: float \| None = None, name: str = 'incompressible plane-stress Mooney-Rivlin') -> MooneyRivlinProperties` | Create the exact incompressible sheet reduction of Eq. (17). |
-| function | `mixed_neo_hookean(*, young: float, poisson: float, density: float \| None = None, name: str = 'mixed Neo-Hookean') -> MixedNeoHookeanProperties` | Create a pressure-displacement Neo-Hookean material. |
+| function | `mixed_condensed_energy_value(deformation_gradient, properties: MixedNeoHookeanProperties) -> float` | Evaluate the pressure-eliminated quadratic-volumetric energy. |
+| function | `mixed_neo_hookean(*, young: float \| None = None, poisson: float \| None = None, shear_modulus: float \| None = None, bulk_modulus: float \| None = None, density: float \| None = None, name: str = 'mixed Neo-Hookean') -> MixedNeoHookeanProperties` | Create a quadratic-volumetric mixed Neo-Hookean material. |
 | function | `neo_hookean(*, young: float, poisson: float, density: float \| None = None, name: str = 'compressible Neo-Hookean') -> NeoHookeanProperties` | Create a compressible Neo-Hookean material. |
 | function | `neo_hookean_plane_stress(*, young: float, poisson: float, density: float \| None = None, name: str = 'plane-stress compressible Neo-Hookean') -> PlaneStressNeoHookeanProperties` | Create a finite-strain plane-stress Neo-Hookean membrane material. |
 | function | `plane_stress_first_piola_value(deformation_gradient, properties: PlaneStressNeoHookeanProperties) -> np.ndarray` | Return the condensed numerical in-plane first Piola stress. |
@@ -312,10 +313,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `periodic_projection(target, *, master, slave, match_axis: str \| int = 0, tolerance: float = 1e-12, name: str = 'periodic_projection') -> PeriodicProjectionConstraint` | Create component-wise dof pairs for projection-style periodicity. |
 | class | `PeriodicConstraintSpec` | Geometric description of a periodic constraint. |
 | class | `ConstraintSet` | Collection of constraints used by assembly or field updates. |
-| class | `AbaqusPeriodicConstraint` | Periodic cell equations controlled by a macroscopic deformation gradient. |
+| class | `AbaqusPeriodicConstraint` | Periodic equations controlled by prescribed or free reference dofs. |
 | class | `AffineReduction` | Sparse serial representation of ``u = T q + offset``. |
 | class | `DistributedAffineReduction` | Homogeneous correction space for a distributed affine constraint. |
-| function | `abaqus_periodic_cell(target, *, nodes: AbaqusNodeTable, equations: AbaqusEquationSet, deformation_gradient, anchor_node: int, reference_nodes, tolerance: float = 1e-09, name: str = 'abaqus_periodic_cell') -> AbaqusPeriodicConstraint` | Create exact periodic-cell constraints from Abaqus equation data. |
+| function | `abaqus_periodic_cell(target, *, nodes: AbaqusNodeTable, equations: AbaqusEquationSet, anchor_node: int, reference_nodes, deformation_gradient = None, control_displacements = None, tolerance: float = 1e-09, name: str = 'abaqus_periodic_cell') -> AbaqusPeriodicConstraint` | Create exact periodic equations and explicit macro-control semantics. |
 
 ## `agentfem.amplitudes`
 
@@ -493,6 +494,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `generalized_alpha() -> SolutionProcedure` | Public AgentFEM object. |
 | function | `central_difference() -> SolutionProcedure` | Public AgentFEM object. |
 | function | `for_step(*, analysis: str, method: str \| None = None, stateful: bool = False)` | Resolve a procedure without coupling ``Study`` to one solver route. |
+| function | `resolve(*, analysis: str, requested: SolutionProcedure \| str \| None = None, preferred: str \| None = None, stateful: bool = False) -> SolutionProcedure` | Resolve and validate the numerical procedure for one analysis request. |
 
 ## `agentfem.results`
 
@@ -551,10 +553,12 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `resolve_field_variables(names, *, finite_strain: bool = False) -> tuple[FieldVariable, ...]` | Resolve aliases, preserve request order, and remove duplicates. |
 | class | `FieldOutput` | What fields to save, how often, and in which configuration. |
 | class | `FieldOutputArtifacts` | Files and final live fields produced by one output plan. |
+| class | `ResultFieldArtifacts` | One completed-result field dataset and its explicit layout contract. |
 | function | `field_output(*variables, every: int \| str \| None = None, intervals: int \| None = None, configuration: str = 'deformed', deformation_scale: float = 1.0, backend: str = 'xdmf') -> FieldOutput` | Create a concise, inspectable field-output request. |
 | function | `read_unified_xdmf_series(xdmf_path) -> tuple[object, ...]` | Read AgentFEM's compact XDMF/HDF5 frames as PyVista grids. |
 | function | `write_deformed_vtk_series(pvd_path, snapshots, cell_fields, *, deformation_scale: float = 1.0) -> tuple[Path, tuple[Path, ...]]` | Write one deformed VTU grid per frame and a ParaView PVD collection. |
 | function | `write_parallel_vtk_series(path, snapshots, fields_by_frame) -> Path` | Write collective single-dataset ParaView frames under MPI. |
+| function | `write_result_fields(result, path, *, time: float = 0.0, names = (), deformation_scale: float = 0.0) -> ResultFieldArtifacts` | Write the live, visualization-ready fields of one SimulationResult. |
 | function | `write_unified_xdmf_series(xdmf_path, snapshots, cell_fields, *, deformation_scale: float = 1.0, store_reference_geometry: bool = True, compression: int = 4) -> Path` | Write one temporal XDMF and one compressed HDF5 heavy-data file. |
 | class | `FiniteStrainDiagnosticRequest` | Record physical admissibility and constraint checks. |
 | class | `HistoryRequest` | Evaluate one scientific quantity on every accepted output frame. |

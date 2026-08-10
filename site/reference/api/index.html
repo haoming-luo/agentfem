@@ -4921,8 +4921,13 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>mixed_neo_hookean(*, young: float, poisson: float, density: float \| None = None, name: str = 'mixed Neo-Hookean') -&gt; MixedNeoHookeanProperties</code></td>
-<td>Create a pressure-displacement Neo-Hookean material.</td>
+<td><code>mixed_condensed_energy_value(deformation_gradient, properties: MixedNeoHookeanProperties) -&gt; float</code></td>
+<td>Evaluate the pressure-eliminated quadratic-volumetric energy.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>mixed_neo_hookean(*, young: float \| None = None, poisson: float \| None = None, shear_modulus: float \| None = None, bulk_modulus: float \| None = None, density: float \| None = None, name: str = 'mixed Neo-Hookean') -&gt; MixedNeoHookeanProperties</code></td>
+<td>Create a quadratic-volumetric mixed Neo-Hookean material.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -5206,7 +5211,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tr>
 <td>class</td>
 <td><code>AbaqusPeriodicConstraint</code></td>
-<td>Periodic cell equations controlled by a macroscopic deformation gradient.</td>
+<td>Periodic equations controlled by prescribed or free reference dofs.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -5220,8 +5225,8 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>abaqus_periodic_cell(target, *, nodes: AbaqusNodeTable, equations: AbaqusEquationSet, deformation_gradient, anchor_node: int, reference_nodes, tolerance: float = 1e-09, name: str = 'abaqus_periodic_cell') -&gt; AbaqusPeriodicConstraint</code></td>
-<td>Create exact periodic-cell constraints from Abaqus equation data.</td>
+<td><code>abaqus_periodic_cell(target, *, nodes: AbaqusNodeTable, equations: AbaqusEquationSet, anchor_node: int, reference_nodes, deformation_gradient = None, control_displacements = None, tolerance: float = 1e-09, name: str = 'abaqus_periodic_cell') -&gt; AbaqusPeriodicConstraint</code></td>
+<td>Create exact periodic equations and explicit macro-control semantics.</td>
 </tr>
 </tbody>
 </table>
@@ -6004,6 +6009,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td><code>for_step(*, analysis: str, method: str \| None = None, stateful: bool = False)</code></td>
 <td>Resolve a procedure without coupling <code>Study</code> to one solver route.</td>
 </tr>
+<tr>
+<td>function</td>
+<td><code>resolve(*, analysis: str, requested: SolutionProcedure \| str \| None = None, preferred: str \| None = None, stateful: bool = False) -&gt; SolutionProcedure</code></td>
+<td>Resolve and validate the numerical procedure for one analysis request.</td>
+</tr>
 </tbody>
 </table>
 <h2 id="agentfemresults"><code>agentfem.results</code><a class="headerlink" href="#agentfemresults" title="Permanent link">&para;</a></h2>
@@ -6282,6 +6292,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>Files and final live fields produced by one output plan.</td>
 </tr>
 <tr>
+<td>class</td>
+<td><code>ResultFieldArtifacts</code></td>
+<td>One completed-result field dataset and its explicit layout contract.</td>
+</tr>
+<tr>
 <td>function</td>
 <td><code>field_output(*variables, every: int \| str \| None = None, intervals: int \| None = None, configuration: str = 'deformed', deformation_scale: float = 1.0, backend: str = 'xdmf') -&gt; FieldOutput</code></td>
 <td>Create a concise, inspectable field-output request.</td>
@@ -6300,6 +6315,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>write_parallel_vtk_series(path, snapshots, fields_by_frame) -&gt; Path</code></td>
 <td>Write collective single-dataset ParaView frames under MPI.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>write_result_fields(result, path, *, time: float = 0.0, names = (), deformation_scale: float = 0.0) -&gt; ResultFieldArtifacts</code></td>
+<td>Write the live, visualization-ready fields of one SimulationResult.</td>
 </tr>
 <tr>
 <td>function</td>

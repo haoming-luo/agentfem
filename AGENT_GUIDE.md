@@ -82,8 +82,11 @@ finite-element simulation with AgentFEM.
   `fields.displacement_pressure(...)` and
   `constitutive.mixed_neo_hookean(...)`; do not route it through a
   displacement-only provider.
-- Analysis steps: prefer `model.step(...)` or `model.linear_static_step(...)`
-  when a model owns fields, materials, loads, and constraints. Use
+- Analysis steps: prefer `model.step(...)` when a model owns fields,
+  materials, loads, and constraints. Pass a `SolutionProcedure` object when
+  the numerical route must be explicit or must override the Study preference;
+  capability inspection and lowering consume that same object. Treat named
+  legacy Step factories as expert/compatibility entrypoints. Use
   `problems.linear_static` or `problems.first_order_transient` when a workflow
   intentionally starts from explicit K/C/F operators without model ownership.
 - Problem summaries: use `problems.FEMProblem` when a workflow needs a
@@ -94,8 +97,11 @@ finite-element simulation with AgentFEM.
   point/path probes, region integrals/averages, boundary resultants and field
   extrema in `results`, then attach additional XDMF/CSV artifacts from `io`.
   Model-generated static elasticity produces projected `S/E/MISES`
-  automatically; `SENER` is opt-in through `field_variables`. Use
-  `results.small_strain_partition_fields` for reviewed
+  automatically; `SENER` is opt-in through `field_variables`. J2 and creep
+  expose the same completed-result writer through `solve_result(output=...)`;
+  raw quadrature fields remain result evidence and explicit `*_CELL` fields
+  are written for visualization. Use `results.small_strain_partition_fields`
+  for reviewed
   regional projections and `results.reaction_resultant(..., on=..., component=...)`
   only for named strong-constraint reactions.
   For imported physical surfaces use `mesh.tagged_boundary_region(...)` for

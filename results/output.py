@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
+import warnings
 import xml.etree.ElementTree as ET
 
 import numpy as np
@@ -24,6 +26,29 @@ class FieldOutputArtifacts:
     deformed_pvd: Path | None
     deformed_frames: tuple[Path, ...]
     final_fields: tuple[object, ...]
+
+
+@dataclass(frozen=True)
+class ResultFieldArtifacts:
+    """One completed-result field dataset and its explicit layout contract."""
+
+    xdmf: Path
+    hdf5: Path | None
+    backend: str
+    layout: str
+    geometry: str
+    warp_field: str | None
+    field_names: tuple[str, ...]
+    omitted_fields: tuple[str, ...] = ()
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "status": "completed",
+            "backend": self.backend,
+            "layout": self.layout,
+            "geometry": self.geometry,
+            "warp_field": self.warp_field,
+        }
 
 
 @dataclass(frozen=True)
@@ -490,6 +515,158 @@ def write_unified_xdmf_series(
     ET.indent(tree, space="  ")
     tree.write(xdmf, encoding="utf-8", xml_declaration=True)
     return xdmf
+
+
+def write_result_fields(
+    result,
+    path,
+    *,
+    time: float = 0.0,
+    names=(),
+    deformation_scale: float = 0.0,
+) -> ResultFieldArtifacts:
+    """Write the live, visualization-ready fields of one SimulationResult.
+
+    Integration-point fields remain first-class entries in ``SimulationResult``
+    but are not silently presented as ordinary nodal/cell visualization data.
+    Their explicitly recovered ``*_CELL`` counterparts are written instead.
+    """
+
+    requested = tuple(str(item) for item in names)
+    records = tuple(result.fields.values())
+    if requested:
+        missing = tuple(name for name in requested if name not in result.fields)
+        if missing:
+            raise KeyError(f"Unknown result fields requested for output: {missing!r}.")
+        records = tuple(result.fields[name] for name in requested)
+    live = tuple(item for item in records if item.field is not None)
+    if not live:
+        raise ValueError("Result field output requires at least one live field.")
+    forbidden = tuple(
+        item.name for item in live if item.location == "quadrature_points"
+    )
+    if requested and forbidden:
+        raise ValueError(
+            "Quadrature fields cannot be written as ordinary XDMF attributes: "
+            f"{forbidden!r}. Request their recovered *_CELL fields or use the "
+            "quadrature-state export contract."
+        )
+    writable = tuple(
+        item for item in live if item.location != "quadrature_points"
+    )
+    if not writable:
+        raise ValueError(
+            "No visualization-ready live fields remain after excluding "
+            "quadrature-point state."
+        )
+    primary = next(
+        (
+            item
+            for item in writable
+            if item.processing.get("method") == "primary_finite_element_solution"
+        ),
+        writable[0],
+    )
+    solution = getattr(primary.field, "value", primary.field)
+    auxiliary = tuple(
+        getattr(item.field, "value", item.field)
+        for item in writable
+        if item is not primary
+    )
+    domain = solution.function_space.mesh
+    selected_path = Path(path)
+    if domain.comm.size == 1:
+        write_unified_xdmf_series(
+            selected_path,
+            (SimpleNamespace(solution=solution, load_factor=float(time)),),
+            (auxiliary,),
+            deformation_scale=float(deformation_scale),
+        )
+        layout = "single_uniform_grid"
+        backend = "agentfem_unified_xdmf"
+    else:
+        from .. import io
+
+        output_fields = []
+        for function in (solution, *auxiliary):
+            if function is solution:
+                coordinate_maps = getattr(domain.geometry, "cmaps", ())
+                degree = int(
+                    getattr(coordinate_maps[0], "degree", 1)
+                    if coordinate_maps
+                    else 1
+                )
+                function = io.interpolate_for_xdmf(
+                    function,
+                    degree=degree,
+                    name=getattr(function, "name", primary.name),
+                )
+            output_fields.append(function)
+        with io.XDMFTimeSeries(selected_path, domain) as writer:
+            writer.write_fields(float(time), *output_fields)
+        layout = "dolfinx_multigrid"
+        backend = "dolfinx_xdmf_collective"
+    hdf5 = selected_path.with_suffix(".h5")
+    return ResultFieldArtifacts(
+        xdmf=selected_path,
+        hdf5=hdf5 if hdf5.exists() else None,
+        backend=backend,
+        layout=layout,
+        geometry=("deformed" if float(deformation_scale) != 0.0 else "reference"),
+        warp_field=(
+            "U" if len(tuple(getattr(solution, "ufl_shape", ()))) == 1 else None
+        ),
+        field_names=tuple(item.name for item in writable),
+        omitted_fields=tuple(
+            item.name for item in live if item.location == "quadrature_points"
+        ),
+    )
+
+
+def attach_result_field_output(
+    result,
+    path,
+    *,
+    time: float = 0.0,
+    names=(),
+    deformation_scale: float = 0.0,
+    strict: bool = False,
+):
+    """Write and register one result dataset without hiding solve success."""
+
+    selected_path = Path(path)
+    try:
+        artifacts = write_result_fields(
+            result,
+            selected_path,
+            time=time,
+            names=names,
+            deformation_scale=deformation_scale,
+        )
+        result.metadata["field_output"] = artifacts.summary()
+        result.metadata["field_output_fields"] = {
+            "included": artifacts.field_names,
+            "omitted": artifacts.omitted_fields,
+        }
+        result.add_artifact("fields_xdmf", artifacts.xdmf)
+        if artifacts.hdf5 is not None:
+            result.add_artifact("fields_hdf5", artifacts.hdf5)
+    except Exception as exc:
+        result.status = "completed_with_output_errors"
+        result.metadata["field_output"] = {
+            "status": "failed",
+            "error_type": type(exc).__name__,
+            "message": str(exc),
+            "requested_path": str(selected_path),
+        }
+        if strict:
+            raise
+        warnings.warn(
+            f"Simulation completed, but field output failed: {exc}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    return result
 
 
 def _unified_field_values(

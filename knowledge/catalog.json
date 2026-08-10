@@ -475,7 +475,8 @@
       "public_api": [
         "agentfem.results.FieldRecovery",
         "agentfem.results.cell_average_recovery",
-        "agentfem.results.recover_integration_point_field"
+        "agentfem.results.recover_integration_point_field",
+        "agentfem.results.write_result_fields"
       ],
       "related_cards": [
         "agentfem.workflow.standard_result_projection",
@@ -573,6 +574,7 @@
       "kind": "analysis_step",
       "public_api": [
         "agentfem.procedures.SolutionProcedure",
+        "agentfem.procedures.resolve",
         "agentfem.time.newmark",
         "agentfem.time.generalized_alpha",
         "agentfem.problems.LinearSystemProblem.reaction_field",

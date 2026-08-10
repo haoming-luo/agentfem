@@ -40,10 +40,10 @@ def main() -> None:
     comm = MPI.COMM_WORLD
 
     # 1. Study: choose the analysis family and mechanical assumption.
-    study = studies.second_order_dynamics(
-        physics="solid_mechanics",
+    study = studies.dynamic_solid(
         dimension=2,
         assumption="plane_strain",
+        method="explicit",
         name="wave_packet_stiff_inclusion",
     )
 
@@ -170,7 +170,7 @@ def main() -> None:
         absorbing=absorbing_force,
         name="R_internal_plus_absorbing",
     )
-    step = model.explicit_dynamics_step(
+    step = model.step(
         target=displacement,
         state=state,
         residual=residual_operator,
@@ -203,15 +203,15 @@ def main() -> None:
             f"periodic_err={periodic_err:.3e}"
         )
 
-    step.run(
+    simulation = step.solve_result(
         output=out,
-        domain=domain,
         fields=(state.u, state.v, material_id),
         progress=progress_message,
         comm=comm,
     )
 
     print_on_root(comm, f"Wave-packet inclusion result: {out}")
+    print_on_root(comm, simulation.format())
 
 
 if __name__ == "__main__":

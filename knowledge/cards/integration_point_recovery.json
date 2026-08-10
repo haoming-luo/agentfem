@@ -9,7 +9,8 @@
   "public_api": [
     "agentfem.results.FieldRecovery",
     "agentfem.results.cell_average_recovery",
-    "agentfem.results.recover_integration_point_field"
+    "agentfem.results.recover_integration_point_field",
+    "agentfem.results.write_result_fields"
   ],
   "implementation": [
     "constitutive/quadrature.py",
@@ -48,6 +49,7 @@
     ],
     "conventions": [
       "Raw integration-point fields keep their original names; recovered variants use an explicit *_CELL suffix in J2 and creep SimulationResult objects.",
+      "J2 and creep solve_result(output=...) automatically omit raw quadrature attributes and write the recovered cell fields in the common completed-result dataset.",
       "Material boundaries are preserved because recovery is performed independently within every cell.",
       "A smooth contour is a later presentation product and never overwrites constitutive evidence."
     ],
@@ -61,7 +63,7 @@
     ]
   },
   "usage": {
-    "minimal_example": "cell_peeq = results.recover_integration_point_field(step.state.equivalent_plastic_strain, name='PEEQ_CELL')",
+    "minimal_example": "result = step.solve_result(output='inelastic.xdmf')\ncell_peeq = result.fields['PEEQ_CELL']",
     "examples": [
       "examples/j2_plasticity_3d.py",
       "examples/implicit_creep_relaxation_3d.py"

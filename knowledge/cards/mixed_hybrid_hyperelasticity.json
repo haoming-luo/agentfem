@@ -30,6 +30,11 @@
         "label": "pressure constraint",
         "expression": "p=-\\kappa(J-1)",
         "description": "Positive pressure denotes compression and DG0 creates one pressure value per cell."
+      },
+      {
+        "label": "pressure-condensed stored energy",
+        "expression": "W=\\frac{\\mu}{2}(J^{-2/3}I_1-3)+\\frac{\\kappa}{2}(J-1)^2",
+        "description": "This is the quasi-incompressible Neo-Hookean form used by the porous-cell workflow; Abaqus polynomial parameters are C10=mu/2 and D1=2/kappa."
       }
     ],
     "inputs": [
@@ -50,7 +55,7 @@
     ],
     "assumptions": [
       "Three-dimensional solids and two-dimensional plane strain use total-Lagrangian kinematics.",
-      "The volumetric response uses a finite bulk modulus derived from E and nu."
+      "The volumetric response uses a finite bulk modulus declared directly with mu or derived from E and nu."
     ],
     "conventions": [
       "Positive pressure is compressive.",
@@ -61,12 +66,11 @@
       "Nearly incompressible Neo-Hookean continuum solids and C3D10H-topology import workflows."
     ],
     "limitations": [
-      "This is an AgentFEM variational analogue, not a byte-for-byte reproduction of Abaqus internal hybrid elements.",
       "Distributed mixed affine-periodic MPC, multiple finite-strain material regions, and an external locking benchmark remain release gates."
     ]
   },
   "usage": {
-    "minimal_example": "unknown = model.field(fields.displacement_pressure(domain))\nmaterial = model.material(constitutive.mixed_neo_hookean(young=1e6, poisson=0.499))\nmodel.fix(unknown.displacement, on=support)\nstep = model.step(target=unknown, material=material)",
+    "minimal_example": "unknown = model.field(fields.displacement_pressure(domain))\nmaterial = model.material(constitutive.mixed_neo_hookean(shear_modulus=1.0, bulk_modulus=1.0e4))\nmodel.fix(unknown.displacement, on=support)\nstep = model.step(target=unknown, material=material)",
     "examples": ["examples/abaqus_c3d10_periodic_cell/agentfem_periodic_hyperelastic.py", "tests/test_engineering_workflows.py"]
   },
   "verification": {
@@ -77,7 +81,9 @@
       "Reject displacement-only consumption of known C3D10H source semantics.",
       "Solve the constrained zero state and recover exactly zero displacement and pressure.",
       "Reject any accepted increment with non-positive quadrature-point J.",
-      "Preserve every pressure dof as an independent reduced unknown under serial affine-periodic constraints."
+      "Preserve every pressure dof as an independent reduced unknown under serial affine-periodic constraints.",
+      "Recover the actual macro deformation gradient from solved reference-point motion whenever a macro component is free.",
+      "For three-dimensional uniaxial stress, solve both transverse normal macro components and suppress only the macro shear components."
     ]
   },
   "references": [
@@ -92,6 +98,10 @@
     {
       "title": "DOLFINx mixed function-space API",
       "locator": "https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.html"
+    },
+    {
+      "title": "Luo et al., nonlinear elastic composites with spherical particles or voids, European Journal of Mechanics A/Solids (2023), 105076",
+      "locator": "https://doi.org/10.1016/j.euromechsol.2023.105076"
     }
   ],
   "related_cards": ["agentfem.load.surface_resultant", "agentfem.workflow.standard_result_projection"]

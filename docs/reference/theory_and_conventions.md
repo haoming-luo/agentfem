@@ -130,6 +130,12 @@ AgentFEM keeps the physical Study separate from the SolutionProcedure:
 Step, increment, nonlinear iteration, failed attempt, and output frame are
 distinct concepts throughout progress, checkpoint, and result records.
 
+The same resolved `SolutionProcedure` is carried by the Step request used for
+capability inspection and provider lowering. Passing
+`model.step(procedure=...)` can therefore select Standard or Explicit
+behavior; it cannot disagree with a simultaneous `method=` choice or with the
+equation order declared by the Study.
+
 ## Compressible Neo-Hookean finite strain
 
 For the implemented compressible Neo-Hookean material, the strain-energy

@@ -8,6 +8,7 @@
   "summary": "Separates physical analysis intent from Standard/Explicit selection, equation order, integration algorithm, state policy, and global-solve requirements.",
   "public_api": [
     "agentfem.procedures.SolutionProcedure",
+    "agentfem.procedures.resolve",
     "agentfem.time.newmark",
     "agentfem.time.generalized_alpha",
     "agentfem.problems.LinearSystemProblem.reaction_field",
@@ -60,6 +61,12 @@
         "description": "Records family, order, algorithm, control, statefulness, and solve requirements."
       },
       {
+        "name": "typed provider request",
+        "type": "immutable StepRequest",
+        "unit_role": "none",
+        "description": "Carries the resolved procedure through capability inspection and executable lowering."
+      },
+      {
         "name": "advanced state",
         "type": "field state and convergence evidence",
         "unit_role": "problem dependent",
@@ -93,6 +100,7 @@
       "Standard means a global implicit/assembled solution route, not an Abaqus compatibility claim.",
       "Explicit means no global linear solve at each time increment.",
       "Step, increment, iteration, attempt, and output frame remain distinct.",
+      "An explicit procedure object takes precedence over the Study preference and cannot conflict with method= or equation order.",
       "Display cadence never removes an accepted or failed event from the execution trace."
       ,"Automatic checkpoints are written only after state, history, and the accepted-increment event are committed."
     ],
@@ -106,7 +114,7 @@
     ]
   },
   "usage": {
-    "minimal_example": "Create studies.implicit_dynamics(..., method='generalized_alpha') and call model.step(target=u, dt=..., steps=...).",
+    "minimal_example": "study = studies.dynamic_solid(dimension=2, assumption='plane_stress', method='newmark')\nstep = model.step(target=u, procedure=procedures.generalized_alpha(), dt=..., steps=...)",
     "examples": [
       "examples/wave_packet_plate_2d.py",
       "examples/thermal_stress_wall_2d.py"
@@ -120,7 +128,8 @@
     ],
     "benchmarks": [],
     "validation_rules": [
-      "Reject unknown procedure families, equation orders, controls, or incompatible explicit/global-solve combinations.",
+      "Reject unknown procedure families, method names, equation orders, controls, or incompatible explicit/global-solve combinations.",
+      "Require capability inspection and provider lowering to consume the same resolved SolutionProcedure.",
       "Reject invalid generalized-alpha spectral radius and integration parameters."
     ]
   },

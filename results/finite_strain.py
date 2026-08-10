@@ -346,8 +346,10 @@ def homogenize_periodic_path(
             snapshot.solution,
             properties,
             pressure=getattr(snapshot, "fields", {}).get("PRESSURE"),
-            macro_deformation_gradient=constraint.deformation_gradient_at(
-                snapshot.load_factor
+            macro_deformation_gradient=(
+                constraint.measured_deformation_gradient(snapshot.solution)
+                if hasattr(constraint, "measured_deformation_gradient")
+                else constraint.deformation_gradient_at(snapshot.load_factor)
             ),
             cell_reference_volume=constraint.reference_cell_volume,
             load_factor=snapshot.load_factor,
@@ -399,12 +401,27 @@ def finite_strain_diagnostics(
         "maximum_displacement": maximum_displacement,
     }
     if constraint is not None:
+        measured = (
+            constraint.measured_deformation_gradient(function)
+            if hasattr(constraint, "measured_deformation_gradient")
+            else None
+        )
         values.update(
             {
-                "target_deformation_gradient": constraint.deformation_gradient,
+                "nominal_deformation_gradient": constraint.deformation_gradient,
+                "measured_macro_deformation_gradient": measured,
+                "macro_control_prescribed_mask": np.asarray(
+                    [
+                        [0.0 if value is None else 1.0 for value in row]
+                        for row in constraint.control_displacements
+                    ],
+                    dtype=float,
+                ),
                 "periodic_equation_max_error": constraint.mismatch(),
             }
         )
+        if not getattr(constraint, "has_free_macro_dofs", False):
+            values["target_deformation_gradient"] = constraint.deformation_gradient
     return values
 
 

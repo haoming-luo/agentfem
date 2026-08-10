@@ -1239,6 +1239,7 @@ class Model:
         *,
         kind: str | None = None,
         target=None,
+        procedure=None,
         K=None,
         F=None,
         constraints=None,
@@ -1251,7 +1252,10 @@ class Model:
 
         ``Step`` is the high-level workflow object for users and agents. It
         records the analysis intent while keeping operator-level objects visible
-        instead of hiding the model behind a monolithic solver call.
+        instead of hiding the model behind a monolithic solver call. Pass
+        ``procedure=`` only when the numerical route should be explicit or
+        override the Study preference; capability inspection and lowering use
+        that same resolved object.
         """
 
         selected_kind = kind or getattr(self.study, "analysis", None)
@@ -1268,7 +1272,13 @@ class Model:
             **kwargs,
         }
         if configuration is None:
-            return lower_step(self, analysis=selected_kind, target=target, options=options)
+            return lower_step(
+                self,
+                analysis=selected_kind,
+                target=target,
+                options=options,
+                procedure=procedure,
+            )
         original_loads, original_constraints = self.loads, self.constraints
         configuration.apply_predefined_fields()
         self.loads = list(configuration.resolve_loads(original_loads))
@@ -1281,6 +1291,7 @@ class Model:
                 analysis=selected_kind,
                 target=target,
                 options=options,
+                procedure=procedure,
             )
             created.engineering_step = configuration
             return created

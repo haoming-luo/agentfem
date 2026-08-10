@@ -574,7 +574,20 @@ class J2PlasticityStep:
             ),
         }
 
-    def solve_result(self):
+    def solve_result(
+        self,
+        *,
+        output=None,
+        output_fields=(),
+        strict_output: bool = False,
+    ):
+        """Solve and publish constitutive state through the common result path.
+
+        Raw integration-point state remains attached to the result.  When
+        ``output`` is requested, the primary solution, recovered ``*_CELL``
+        fields, and nodal reaction field share the standard completed-result
+        XDMF/HDF5 writer.
+        """
         from ..results import (
             add_execution_trace,
             from_solution,
@@ -750,6 +763,15 @@ class J2PlasticityStep:
                 )
         for checkpoint in self.checkpoints:
             result.add_checkpoint(checkpoint)
+        if output is not None:
+            from ..results.output import attach_result_field_output
+
+            attach_result_field_output(
+                result,
+                output,
+                names=output_fields,
+                strict=strict_output,
+            )
         return result
 
     def internal_energy(self) -> dict[str, float]:
