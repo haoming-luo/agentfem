@@ -1099,6 +1099,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../cyclic_cohesive_fatigue_architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cyclic Cohesive Fatigue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../solution_procedures_and_thermal_creep/" class="md-nav__link">
         
   
@@ -1769,6 +1797,17 @@
     <span class="md-ellipsis">
       
         agentfem.fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agentfemfatigue_fracture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.fatigue_fracture
       
     </span>
   </a>
@@ -3424,6 +3463,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agentfemfatigue_fracture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.fatigue_fracture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agentfemfracture" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4361,6 +4411,153 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="agentfemfatigue_fracture"><code>agentfem.fatigue_fracture</code><a class="headerlink" href="#agentfemfatigue_fracture" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Public object</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>class</td>
+<td><code>ForceCycle</code></td>
+<td>One scalar cyclic-load definition expressed in test parameters.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>force_cycle(*, minimum: float \| None = None, maximum: float \| None = None, fmin: float \| None = None, fmax: float \| None = None, frequency: float = 1.0, waveform: str = 'sine', hold_minimum_fraction: float = 0.0, hold_maximum_fraction: float = 0.0, table = (), name: str = 'force cycle') -&gt; ForceCycle</code></td>
+<td>Create a cyclic force from <code>minimum/maximum</code> or <code>fmin/fmax</code>.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CycleJumpDecision</code></td>
+<td>One inspectable proposal for advancing the independent cycle count.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CycleJumpPolicy</code></td>
+<td>Bound a cycle block by predicted damage and exact output landings.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CycleJumpRecord</code></td>
+<td>Accepted or rejected cycle-block evidence.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CycleJumpLedger(*, start_cycle: int = 0)</code></td>
+<td>Record exact cycle progress and every jump/cutback decision.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CyclicCohesiveResponse</code></td>
+<td>Mode-I response with separated monotonic and fatigue evidence.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CyclicCohesiveLaw</code></td>
+<td>Replaceable power-law range fatigue layered on a bilinear envelope.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CyclicCohesiveTransaction(law: CyclicCohesiveLaw, size: int)</code></td>
+<td>Atomic monotonic trials and cycle-block trials for cohesive points.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>FieldStateTransaction(fields, *, assets = None)</code></td>
+<td>In-memory rollback for bulk fields and other transactional assets.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CyclicEquilibriumPoint</code></td>
+<td>Evidence returned by one converged peak or valley equilibrium solve.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CyclicFatigueBlock</code></td>
+<td>Accepted structure-level cycle block and its error evidence.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>GlobalCyclicFatigueStep(*, cycle: ForceCycle, stop_cycle: int, interfaces, state, solve_equilibrium, jump: CycleJumpPolicy \| None = None, landing_cycles = (), maximum_opening_feedback: float = 0.02, maximum_energy_balance_error: float \| None = None, observe = None, name: str = 'cyclic fatigue')</code></td>
+<td>Quasi-static peak/valley fatigue loop with global rollback and cutback.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>SurfaceCrackComponent</code></td>
+<td>One connected failed component in a surface-crack observation.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>SurfaceCrackObservation</code></td>
+<td>One cycle's geometric evidence on a triangular cohesive surface.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CrackTopologyEvent</code></td>
+<td>Auditable identity change between two accepted crack observations.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>TrackedSurfaceCrack</code></td>
+<td>A connected crack component with identity stable across cycle blocks.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>SurfaceCrackTrackingFrame</code></td>
+<td>Persistent component identities and topology events at one cycle.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>SurfaceCrackTracker(*, interface_name: str, id_prefix: str \| None = None)</code></td>
+<td>Track cracks on one fixed cohesive surface by physical facet identity.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CrackInteractionObservation</code></td>
+<td>Two-crack geometry and growth evidence at one exact cycle.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>observe_surface_crack(coordinates, facets, damage, opening, *, cycle: int, name: str = 'surface crack', damage_threshold: float = 0.95, include_boundary_front: bool = False, facet_ids = None) -&gt; SurfaceCrackObservation</code></td>
+<td>Recover connected failed area and a three-dimensional crack front.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>surface_crack_interaction(first: SurfaceCrackObservation, second: SurfaceCrackObservation, *, first_single_growth_rate: float \| None = None, second_single_growth_rate: float \| None = None, first_double_growth_rate: float \| None = None, second_double_growth_rate: float \| None = None, coalescence_tolerance: float = 0.0) -&gt; CrackInteractionObservation</code></td>
+<td>Compare two named fronts without hiding the single-crack baseline.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ParisEvidence</code></td>
+<td>Postprocessed Paris-region evidence; never a crack-growth solver law.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>paris_evidence(cycles, crack_size, driving_force, *, fit_cycle_range: tuple[float, float] \| None = None, fit_mask = None, derivative_window: int = 3, driving_force_name: str = 'Delta K', crack_size_name: str = 'a', driving_force_unit: str = 'declared', crack_size_unit: str = 'declared') -&gt; ParisEvidence</code></td>
+<td>Fit a Paris relation after simulation from <code>a(N)</code> and a driver.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>cyclic_cohesive(*, monotonic: BilinearCohesiveLaw, fatigue_coefficient: float, fatigue_exponent: float, range_threshold: float, peak_exponent: float = 0.0, residual_exponent: float = 0.0, name: str = 'power-law cyclic Mode-I cohesive law') -&gt; CyclicCohesiveLaw</code></td>
+<td>Create the experimental reference cyclic cohesive law.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>field_state(fields = None, *, assets = None, **named_fields) -&gt; FieldStateTransaction</code></td>
+<td>Create rollback state from a field mapping or named field arguments.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>global_cyclic_fatigue_step(**kwargs) -&gt; GlobalCyclicFatigueStep</code></td>
+<td>Create a reusable force-controlled peak/valley fatigue controller.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="agentfemfracture"><code>agentfem.fracture</code><a class="headerlink" href="#agentfemfracture" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4388,6 +4585,26 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>NamedCohesiveResponse</code></td>
+<td>Responses and aggregate energy from several named interfaces.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CohesiveForceCollection(interfaces)</code></td>
+<td>Atomically compose independent named cohesive-interface forces.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>named_cohesive_forces(**interfaces) -&gt; CohesiveForceCollection</code></td>
+<td>Create an atomically managed collection from named cohesive forces.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>named_mode_i_cohesive_forces(split, displacement, *, laws, normal_hints, thicknesses = None, tolerance: float = 1e-10) -&gt; CohesiveForceCollection</code></td>
+<td>Build independent named forces on one atomically split solver mesh.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>DistributedDofMappedCohesiveForce(assembler, displacement, *, input_node_to_block_dof, input_node_owned, global_topology, global_facet_indices, local_input_nodes = None)</code></td>
 <td>MPI assembler for a physical-keyed split interface.</td>
 </tr>
@@ -4398,13 +4615,23 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>mode_i_cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law: interface_api.BilinearCohesiveLaw, *, normal_hint, thickness: float = 1.0, tolerance: float = 1e-10) -&gt; DofMappedCohesiveForce \| DistributedDofMappedCohesiveForce</code></td>
+<td><code>mode_i_cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law, *, normal_hint, thickness: float = 1.0, tolerance: float = 1e-10) -&gt; DofMappedCohesiveForce \| DistributedDofMappedCohesiveForce</code></td>
 <td>Build the executable Mode-I force directly from a split mesh contract.</td>
 </tr>
 <tr>
 <td>class</td>
-<td><code>FiniteStrainCohesiveResidual(bulk, cohesive: DofMappedCohesiveForce \| DistributedDofMappedCohesiveForce)</code></td>
+<td><code>FiniteStrainCohesiveResidual(bulk, cohesive)</code></td>
 <td>Assemble bulk UFL and paired-facet interface forces into one residual.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CohesiveNewtonSolveInfo</code></td>
+<td>Convergence evidence for one native bulk-plus-interface equilibrium.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>FiniteStrainCohesiveEquilibrium(residual: FiniteStrainCohesiveResidual, tangent, displacement, *, set_load = None, load_parameter = None, reference_load: float = 1.0, bcs = (), solver_options = None, control_displacement = None, reaction = None, bulk_strain_energy = None)</code></td>
+<td>Native Newton consumer for UFL bulk and zero-thickness interfaces.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -6034,6 +6261,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
+<td><code>cyclic_fatigue() -&gt; SolutionProcedure</code></td>
+<td>Quasi-static peak/valley equilibrium with independent cycle blocks.</td>
+</tr>
+<tr>
+<td>function</td>
 <td><code>for_step(*, analysis: str, method: str \| None = None, stateful: bool = False)</code></td>
 <td>Resolve a procedure without coupling <code>Study</code> to one solver route.</td>
 </tr>
@@ -7075,8 +7307,13 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>Array-level result of splitting one conforming interface manifold.</td>
 </tr>
 <tr>
+<td>class</td>
+<td><code>NamedSplitInterfaceMesh</code></td>
+<td>One solver mesh carrying several disjoint named cohesive surfaces.</td>
+</tr>
+<tr>
 <td>function</td>
-<td><code>create_dolfinx_split_mesh(split: SplitInterfaceMesh, *, comm = None, cell_type: str \| None = None, input_order: str = 'counterclockwise')</code></td>
+<td><code>create_dolfinx_split_mesh(split: SplitInterfaceMesh \| NamedSplitInterfaceMesh, *, comm = None, cell_type: str \| None = None, input_order: str = 'counterclockwise')</code></td>
 <td>Create an executable DOLFINx mesh for an audited split interface.</td>
 </tr>
 <tr>
@@ -7086,12 +7323,17 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
-<td><code>ModeICohesiveFacetAssembler(topology: PairedLineFacets, law: BilinearCohesiveLaw, *, number_of_nodes: int, thickness: float = 1.0)</code></td>
+<td><code>CohesiveElementTangents</code></td>
+<td>Element-node layouts and consistent scalar-dof tangent matrices.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ModeICohesiveFacetAssembler(topology: PairedLineFacets, law, *, number_of_nodes: int, thickness: float = 1.0)</code></td>
 <td>Two-point line integration for a fixed-path 2D Mode-I interface.</td>
 </tr>
 <tr>
 <td>class</td>
-<td><code>ModeICohesiveSurfaceAssembler(topology: PairedSurfaceFacets, law: BilinearCohesiveLaw, *, number_of_nodes: int)</code></td>
+<td><code>ModeICohesiveSurfaceAssembler(topology: PairedSurfaceFacets, law, *, number_of_nodes: int)</code></td>
 <td>Three-point integration of linear triangular Mode-I surfaces in 3D.</td>
 </tr>
 <tr>
@@ -7116,6 +7358,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
+<td><code>split_conforming_named_interfaces(coordinates, cells, named_interfaces) -&gt; NamedSplitInterfaceMesh</code></td>
+<td>Atomically split several disjoint conforming cohesive manifolds.</td>
+</tr>
+<tr>
+<td>function</td>
 <td><code>split_conforming_cell_interface(coordinates, cells, *, positive_cells) -&gt; SplitInterfaceMesh</code></td>
 <td>Split the internal facet separating two declared cell partitions.</td>
 </tr>
@@ -7131,7 +7378,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>cohesive_surface(*, law: BilinearCohesiveLaw, mode: str = 'normal', name: str = 'cohesive surface') -&gt; CohesiveSurface</code></td>
+<td><code>cohesive_surface(*, law, mode: str = 'normal', name: str = 'cohesive surface') -&gt; CohesiveSurface</code></td>
 <td>Declare a fixed-path zero-thickness cohesive interface.</td>
 </tr>
 <tr>

@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from dolfinx import fem
 from mpi4py import MPI
 import ufl
@@ -8,12 +9,15 @@ from agentfem import (
     constitutive,
     constraints,
     fields,
+    fatigue_fracture,
     fracture,
     interfaces,
     mesh,
     models,
     operators,
     problems,
+    results,
+    solvers,
     studies,
     time,
 )
@@ -85,6 +89,249 @@ def test_serial_dof_adapter_adds_cohesive_force_to_one_global_residual():
         )
     finally:
         vector.destroy()
+
+
+def test_serial_dof_adapter_adds_consistent_cohesive_tangent_to_petsc_matrix():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    displacement = fields.displacement(domain)
+    coordinates = np.array(
+        [[0.0, 0.0], [1.0, 0.0], [0.0, 0.0], [1.0, 0.0]]
+    )
+    topology = interfaces.pair_coincident_line_facets(
+        coordinates,
+        [[0, 1]],
+        [[2, 3]],
+        normal_hint=(0.0, 1.0),
+    )
+    law = interfaces.bilinear_cohesive(
+        strength=10.0,
+        fracture_energy=2.0,
+        initial_stiffness=1000.0,
+    )
+    assembler = interfaces.ModeICohesiveFacetAssembler(
+        topology, law, number_of_nodes=4
+    )
+    cohesive = fracture.DofMappedCohesiveForce(
+        assembler,
+        displacement,
+        node_to_block_dof=np.arange(4, dtype=int),
+    )
+    values = displacement.value.x.array.reshape((-1, 2))
+    values[2:, 1] = 0.5 * law.peak_opening
+    displacement.value.x.scatter_forward()
+    bulk_graph = fem.form(
+        ufl.inner(displacement.trial, displacement.test) * ufl.dx
+    )
+    from dolfinx.fem import petsc as fem_petsc
+
+    matrix = fem_petsc.assemble_matrix(bulk_graph)
+    matrix.assemble()
+    matrix.zeroEntries()
+    cohesive.add_to_matrix(matrix)
+    matrix.assemble()
+    direction = displacement.value.x.petsc_vec.duplicate()
+    action = displacement.value.x.petsc_vec.duplicate()
+    try:
+        direction.array[:] = np.arange(direction.array.size, dtype=float) - 2.5
+        matrix.mult(direction, action)
+        element = assembler.tangent_elements(values)
+        expected = element.matrices[0] @ direction.array.reshape((-1, 2))[
+            element.nodes[0]
+        ].reshape(-1)
+        np.testing.assert_allclose(action.array, expected, atol=1.0e-12)
+    finally:
+        action.destroy()
+        direction.destroy()
+        matrix.destroy()
+
+
+def test_native_cohesive_newton_solves_force_controlled_finite_strain_strip():
+    from dolfinx import mesh as dolfinx_mesh
+
+    coordinates = np.array(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [1.0, 0.5],
+            [0.0, 0.5],
+            [1.0, 1.0],
+            [0.0, 1.0],
+        ]
+    )
+    split = interfaces.split_conforming_line_interface(
+        coordinates,
+        np.array([[0, 1, 2, 3], [3, 2, 4, 5]]),
+        [[3, 2]],
+        positive_cells=[1],
+    )
+    domain = interfaces.create_dolfinx_split_mesh(split)
+    displacement = fields.displacement(domain)
+    material = constitutive.neo_hookean(young=100.0, poisson=0.25)
+    internal = fracture.finite_strain_internal_force(
+        displacement.value,
+        displacement.test,
+        material,
+    )
+    facet_dimension = domain.topology.dim - 1
+    top_facets = dolfinx_mesh.locate_entities_boundary(
+        domain, facet_dimension, lambda x: np.isclose(x[1], 1.0)
+    )
+    tags = dolfinx_mesh.meshtags(
+        domain,
+        facet_dimension,
+        np.sort(top_facets),
+        np.ones(top_facets.size, dtype=np.int32),
+    )
+    ds = ufl.Measure("ds", domain=domain, subdomain_data=tags)
+    load_parameter = fem.Constant(domain, 0.0)
+    external = operators.OperatorForm(
+        name="top_force",
+        expression=load_parameter * displacement.test[1] * ds(1),
+        kind="surface_force",
+        role="vector",
+        family="mechanical_load",
+    )
+    bulk_vector = internal - external
+    bulk = operators.residual_operator(
+        bulk_vector.expression,
+        name="R_bulk",
+        family="total_lagrangian_neo_hookean",
+    )
+    tangent = operators.linearize(bulk, displacement)
+    monotonic = interfaces.bilinear_cohesive(
+        strength=10.0, fracture_energy=0.2, initial_stiffness=1000.0
+    )
+    law = fatigue_fracture.cyclic_cohesive(
+        monotonic=monotonic,
+        fatigue_coefficient=1.0e-2,
+        fatigue_exponent=1.0,
+        range_threshold=0.0,
+    )
+    cohesive = fracture.mode_i_cohesive_force(
+        split,
+        displacement,
+        law,
+        normal_hint=(0.0, 1.0),
+    )
+    collection = fracture.named_cohesive_forces(crack=cohesive)
+    residual = fracture.FiniteStrainCohesiveResidual(bulk, collection)
+    bcs = [
+        constraints.component_dirichlet(
+            displacement,
+            1,
+            on=lambda x: np.isclose(x[1], 0.0),
+            value=0.0,
+        ).bc,
+        constraints.component_dirichlet(
+            displacement,
+            0,
+            on=lambda x: np.isclose(x[0], 0.0),
+            value=0.0,
+        ).bc,
+    ]
+    equilibrium = fracture.FiniteStrainCohesiveEquilibrium(
+        residual,
+        tangent,
+        displacement,
+        bcs=bcs,
+        load_parameter=load_parameter,
+        solver_options=solvers.newton(
+            relative_tolerance=1.0e-9,
+            absolute_tolerance=1.0e-11,
+            maximum_iterations=20,
+            linear_solver=solvers.direct_solver(),
+        ),
+        control_displacement=lambda function: float(
+            np.mean(
+                function.x.array.reshape((-1, 2))[
+                    np.isclose(
+                        function.function_space.tabulate_dof_coordinates()[:, 1],
+                        1.0,
+                    ),
+                    1,
+                ]
+            )
+        ),
+        reaction=lambda _function: results.reaction_resultant(
+            residual,
+            on=lambda x: np.isclose(x[1], 0.0),
+            component=1,
+        ),
+    )
+    point = equilibrium(load=0.5, branch="maximum", cycle=1)
+
+    assert point["converged"] is True
+    assert point["iterations"] < 10
+    assert point["reaction"] == pytest.approx(-0.5, rel=1.0e-8, abs=1.0e-10)
+    assert point["control_displacement"] > 0.0
+    assert equilibrium.last_info.residual_norm < 1.0e-8
+    values = displacement.value.x.array.reshape((-1, 2))
+    dof_coordinates = displacement.space.tabulate_dof_coordinates()
+    top = np.isclose(dof_coordinates[:, 1], 1.0)
+    assert np.mean(values[top, 1]) > 0.0
+    opening = cohesive.cycle_opening()
+    assert 0.0 < float(np.mean(opening)) < law.peak_opening
+    assert equilibrium.summary()["cohesive_state_commit"] == "owned_by_step_lifecycle"
+
+    state = fatigue_fracture.field_state(displacement=displacement)
+    cycle = fatigue_fracture.force_cycle(fmin=0.05, fmax=0.5)
+    jump = fatigue_fracture.CycleJumpPolicy(
+        maximum_damage_increment=0.1,
+        maximum_cycles=10,
+    )
+    cycle_step = fatigue_fracture.global_cyclic_fatigue_step(
+        cycle=cycle,
+        stop_cycle=3,
+        interfaces=collection,
+        state=state,
+        solve_equilibrium=equilibrium,
+        jump=jump,
+    )
+    cycle_step.run(until_cycle=1)
+    assert cycle_step.current_cycle == 1
+    assert (
+        cycle_step.history[0].closing.control_displacement
+        < cycle_step.history[0].maximum.control_displacement
+    )
+    assert np.max(cohesive.assembler.state.fatigue_damage) > 0.0
+    np.testing.assert_allclose(
+        cohesive.assembler.state.cumulative_cycles,
+        np.ones(cohesive.assembler.state.size),
+    )
+    checkpoint = cycle_step.snapshot()
+    cycle_step.run()
+    continuous_damage = cohesive.assembler.state.fatigue_damage.copy()
+    continuous_displacement = displacement.value.x.array.copy()
+
+    restarted = fatigue_fracture.global_cyclic_fatigue_step(
+        cycle=cycle,
+        stop_cycle=3,
+        interfaces=collection,
+        state=state,
+        solve_equilibrium=equilibrium,
+        jump=jump,
+    )
+    restarted.restore(checkpoint)
+    restarted.run()
+    assert restarted.current_cycle == cycle_step.current_cycle == 3
+    np.testing.assert_allclose(
+        cohesive.assembler.state.fatigue_damage,
+        continuous_damage,
+        rtol=1.0e-12,
+        atol=1.0e-14,
+    )
+    np.testing.assert_allclose(
+        displacement.value.x.array,
+        continuous_displacement,
+        rtol=1.0e-12,
+        atol=1.0e-14,
+    )
 
 
 def test_split_mesh_builds_executable_domain_and_recovers_coincident_dofs():

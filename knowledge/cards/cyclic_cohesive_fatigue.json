@@ -1,0 +1,164 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.material.cyclic_cohesive_fatigue",
+  "title": "Cyclic cohesive damage with an independent cycle coordinate",
+  "kind": "material",
+  "status": "experimental",
+  "summary": "Layers a thresholded, irreversible opening-range fatigue state on the exact bilinear Mode-I monotonic limit and advances accepted integer cycle blocks through explicit begin, commit, rollback and restart semantics.",
+  "public_api": [
+    "agentfem.fatigue_fracture.ForceCycle",
+    "agentfem.fatigue_fracture.CycleJumpPolicy",
+    "agentfem.fatigue_fracture.CycleJumpLedger",
+    "agentfem.fatigue_fracture.CyclicCohesiveLaw",
+    "agentfem.fatigue_fracture.CyclicCohesiveTransaction",
+    "agentfem.fatigue_fracture.FieldStateTransaction",
+    "agentfem.fatigue_fracture.GlobalCyclicFatigueStep",
+    "agentfem.fatigue_fracture.SurfaceCrackTracker",
+    "agentfem.fatigue_fracture.ParisEvidence",
+    "agentfem.fatigue_fracture.cyclic_cohesive",
+    "agentfem.fatigue_fracture.global_cyclic_fatigue_step",
+    "agentfem.fatigue_fracture.observe_surface_crack",
+    "agentfem.fatigue_fracture.paris_evidence",
+    "agentfem.procedures.cyclic_fatigue",
+    "agentfem.fracture.CohesiveForceCollection",
+    "agentfem.fracture.FiniteStrainCohesiveEquilibrium",
+    "agentfem.fracture.FiniteStrainCohesiveResidual",
+    "agentfem.fracture.named_mode_i_cohesive_forces",
+    "agentfem.interfaces.split_conforming_named_interfaces"
+  ],
+  "implementation": [
+    "fatigue_fracture.py",
+    "interfaces.py",
+    "cohesive_checkpoint.py",
+    "fracture.py",
+    "procedures.py"
+  ],
+  "science": {
+    "statement": "Fatigue cycles are neither transient time increments nor output frames; a replaceable cyclic cohesive law advances irreversible interface state from accepted local opening extrema while preserving the declared monotonic envelope.",
+    "equations": [
+      {
+        "label": "local opening load ratio",
+        "expression": "R_delta=delta_min^+/delta_max^+",
+        "description": "The local ratio changes with closure, shielding and crack interaction instead of copying one applied global load ratio to every integration point."
+      },
+      {
+        "label": "reference fatigue rate",
+        "expression": "dD_f/dN=C<((Delta delta/delta_f)-threshold)/(1-threshold)>^m(delta_max^+/delta_f)^q(1-D_f)^p",
+        "description": "A transparent reference law; alternative calibrated laws retain the same state and lifecycle protocol."
+      },
+      {
+        "label": "combined damage",
+        "expression": "D=1-(1-D_m)(1-D_f)",
+        "description": "Monotonic and cyclic degradation remain separately inspectable and combine without healing."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "monotonic cohesive law",
+        "type": "BilinearCohesiveLaw",
+        "unit_role": "traction-separation envelope",
+        "description": "Defines strength, fracture energy, stiffness, closure and the exact monotonic limit."
+      },
+      {
+        "name": "cycle extrema",
+        "type": "positive opening minimum and maximum per interface point",
+        "unit_role": "length",
+        "description": "Must come from accepted peak/valley equilibrium states in a global consumer."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "cyclic cohesive response",
+        "type": "traction, tangent, monotonic/fatigue/total damage and energy",
+        "unit_role": "interface response",
+        "description": "Compression retains closure stiffness without fatigue healing or false fatigue dissipation."
+      },
+      {
+        "name": "cycle state",
+        "type": "physical-facet-keyed quadrature arrays",
+        "unit_role": "restart state",
+        "description": "Includes opening extrema, accumulated cycles, fatigue damage and fatigue dissipation."
+      },
+      {
+        "name": "persistent crack components",
+        "type": "physical-facet-keyed crack identities and topology events",
+        "unit_role": "geometric observation",
+        "description": "Tracks per-component area, COD and front geometry while recording birth, death, merge and split ancestry across accepted cycles and restart."
+      },
+      {
+        "name": "Paris evidence",
+        "type": "postprocessed da/dN power-law fit",
+        "unit_role": "declared crack-size and driving-force units",
+        "description": "Fits accepted simulation observations with an explicit sample mask; it is never consumed as a crack-growth law by the solver."
+      }
+    ],
+    "assumptions": [
+      "The first law is normal Mode-I and fixed path.",
+      "The reference evolution is calibrated for the material/interface and load regime being studied.",
+      "The global cycle controller re-solves degraded equilibrium and rolls back/cuts back a proposed block when damage, opening-feedback or energy evidence exceeds tolerance."
+    ],
+    "conventions": [
+      "Cycle count is an integer independent coordinate.",
+      "Local positive opening extrema define the load-ratio effect.",
+      "No cycle advancement exactly recovers the wrapped bilinear law."
+    ],
+    "applicability": [
+      "Material-point studies, current 2D/3D paired-facet cohesive assemblers and the global peak/valley lifecycle for fixed-path surface-fatigue crack growth."
+    ],
+    "limitations": [
+      "The native equilibrium adapter currently covers Total-Lagrangian hyperelastic bulk forms, fixed-path Mode-I cohesive interfaces and strong Dirichlet reactions; reference-point work, MPC/weak/contact reactions and complete fatigue energy closure remain separate gates.",
+      "No mixed-mode, free-path crack growth, cylinder benchmark or experimental validation is included yet.",
+      "Bulk-field durable restart currently requires the same MPI partition; cohesive facet state is physically keyed and portable."
+    ]
+  },
+  "usage": {
+    "minimal_example": "cycle = fatigue_fracture.force_cycle(fmin=226, fmax=2262); law = fatigue_fracture.cyclic_cohesive(monotonic=interfaces.bilinear_cohesive(strength=..., fracture_energy=..., initial_stiffness=...), fatigue_coefficient=..., fatigue_exponent=..., range_threshold=...); step = fatigue_fracture.global_cyclic_fatigue_step(cycle=cycle, stop_cycle=..., interfaces=named_interfaces, state=fatigue_fracture.field_state(displacement=u), solve_equilibrium=solve_peak_or_valley); step.run()",
+    "examples": [
+      "tests/test_fatigue_fracture.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_fatigue_fracture.py",
+      "tests/test_interfaces.py",
+      "tests/test_dynamic_fracture.py",
+      "tests/test_global_cohesive_residual.py",
+      "tests/test_parallel_cohesive.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.cyclic_cohesive_global_lifecycle"
+    ],
+    "validation_rules": [
+      "Below-threshold cycles and static holds do not produce fatigue damage.",
+      "No-cycle monotonic paths exactly reproduce the bilinear law.",
+      "Rollback leaves all cycle state unchanged and checkpoint restores every field.",
+      "Constant-extrema exact cycles and one analytical cycle jump agree.",
+      "Global blocks re-solve the degraded peak, cut back excessive feedback, land on requested cycles and preserve restart equivalence.",
+      "Several disjoint 3D cohesive surfaces split atomically onto one solver mesh with independent names and state.",
+      "Analytical 2D/3D interface tangents match force directional derivatives and assemble with the UFL bulk tangent in serial and two-rank PETSc Newton systems.",
+      "A real force-controlled Neo-Hookean split strip completes peak, valley, fatigue update, degraded re-equilibration and closing, and its interrupted restart matches the continuous path."
+      ,"Same-surface components preserve one-to-one identities, create explicit merge ancestry and recover the same state after restart."
+      ,"Paris postprocessing recovers a synthetic known power relation without influencing crack evolution."
+    ]
+  },
+  "references": [
+    {
+      "title": "Roe and Siegmund, An irreversible cohesive zone model for interface fatigue crack growth simulation",
+      "locator": "https://doi.org/10.1016/S0013-7944(02)00034-6"
+    },
+    {
+      "title": "Bak et al., A Simulation Method for High-Cycle Fatigue-Driven Delamination using a Cohesive Zone Model",
+      "locator": "https://doi.org/10.1002/nme.5117"
+    },
+    {
+      "title": "AgentFEM cyclic cohesive fatigue architecture",
+      "locator": "docs/cyclic_cohesive_fatigue_architecture.md"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.cohesive_state_portability",
+    "agentfem.workflow.distributed_cohesive_force",
+    "agentfem.workflow.dynamic_fracture_v5_evidence"
+  ]
+}

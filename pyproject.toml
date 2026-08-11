@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentfem"
-version = "0.2.0a2"
+version = "0.2.0a3"
 description = "AI-native finite-element workflows for humans and agents."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -97,6 +97,7 @@ packages = [
   "agentfem.mesh",
   "agentfem.operators",
   "agentfem.results",
+  "agentfem.release",
   "agentfem.surrogates",
   "agentfem.time",
   "agentfem.templates",

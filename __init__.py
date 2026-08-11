@@ -1,6 +1,6 @@
 """Reusable finite-element workflow tools built on DOLFINx/PETSc."""
 
-__version__ = "0.2.0a2"
+__version__ = "0.2.0a3"
 
 from . import amplitudes
 from . import assembly
@@ -16,6 +16,7 @@ from . import datasets
 from . import dependencies
 from . import diagnostics
 from . import fields
+from . import fatigue_fracture
 from . import fracture
 from . import elements
 from . import extensions
@@ -51,6 +52,7 @@ PUBLIC_WORKFLOW_MODULES = (
     "mesh",
     "models",
     "fields",
+    "fatigue_fracture",
     "fracture",
     "materials",
     "mechanics",
@@ -108,6 +110,7 @@ __all__ = [
     "dependencies",
     "diagnostics",
     "fields",
+    "fatigue_fracture",
     "elements",
     "extensions",
     "forms",

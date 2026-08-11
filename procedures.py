@@ -13,7 +13,12 @@ from dataclasses import dataclass
 
 _FAMILIES = {"standard", "explicit"}
 _ORDERS = {"static", "first_order", "second_order"}
-_CONTROL = {"single_solve", "load_increments", "time_increments"}
+_CONTROL = {
+    "single_solve",
+    "load_increments",
+    "time_increments",
+    "cycle_increments",
+}
 
 
 @dataclass(frozen=True)
@@ -45,6 +50,8 @@ class SolutionProcedure:
             raise ValueError("An explicit procedure cannot require a global solve.")
         if equation_order == "static" and control == "time_increments":
             raise ValueError("A static procedure cannot use time increments.")
+        if control == "cycle_increments" and not self.stateful:
+            raise ValueError("A cycle-increment procedure must own state.")
         object.__setattr__(self, "family", family)
         object.__setattr__(self, "equation_order", equation_order)
         object.__setattr__(self, "control", control)
@@ -151,6 +158,24 @@ def central_difference() -> SolutionProcedure:
         control="time_increments",
         algorithm="central_difference",
         requires_global_solve=False,
+        stateful=True,
+    )
+
+
+def cyclic_fatigue() -> SolutionProcedure:
+    """Quasi-static peak/valley equilibrium with independent cycle blocks.
+
+    ``fatigue_fracture.GlobalCyclicFatigueStep`` implements this lifecycle and
+    delegates each nonlinear equilibrium to a replaceable FEM solver callback.
+    """
+
+    return SolutionProcedure(
+        name="cyclic fatigue",
+        family="standard",
+        equation_order="static",
+        control="cycle_increments",
+        algorithm="peak_valley_equilibrium_with_adaptive_cycle_jump",
+        nonlinear=True,
         stateful=True,
     )
 
@@ -310,6 +335,7 @@ def _normalize(value: str) -> str:
 __all__ = [
     "SolutionProcedure",
     "central_difference",
+    "cyclic_fatigue",
     "for_step",
     "generalized_alpha",
     "implicit_euler",

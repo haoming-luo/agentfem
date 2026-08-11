@@ -197,6 +197,38 @@ def test_mode_i_facet_kernel_produces_equal_opposite_force_and_exact_energy():
     assert response.dissipated_energy == pytest.approx(0.0)
 
 
+def test_mode_i_facet_consistent_tangent_matches_force_directional_derivative():
+    coordinates, topology = _one_segment_interface()
+    assembler = interfaces.ModeICohesiveFacetAssembler(
+        topology,
+        _law(),
+        number_of_nodes=coordinates.shape[0],
+        thickness=1.7,
+    )
+    displacement = np.zeros_like(coordinates)
+    displacement[2:, 1] = 0.5 * _law().peak_opening
+    direction = np.array(
+        [[0.2, -0.4], [-0.1, 0.3], [0.5, 0.7], [-0.2, -0.6]],
+        dtype=float,
+    )
+    tangent = assembler.tangent_elements(displacement)
+    epsilon = 1.0e-7
+    plus = assembler.begin(displacement + epsilon * direction).internal_force.copy()
+    assembler.rollback()
+    minus = assembler.begin(displacement - epsilon * direction).internal_force.copy()
+    assembler.rollback()
+    derivative = (plus - minus) / (2.0 * epsilon)
+
+    nodes = tangent.nodes[0]
+    predicted = tangent.matrices[0] @ direction[nodes].reshape(-1)
+    np.testing.assert_allclose(
+        predicted.reshape((-1, 2)),
+        derivative[nodes],
+        rtol=1.0e-10,
+        atol=1.0e-10,
+    )
+
+
 def test_mode_i_facet_kernel_is_invariant_to_common_rigid_translation():
     coordinates, topology = _one_segment_interface()
     assembler = interfaces.ModeICohesiveFacetAssembler(
@@ -386,6 +418,51 @@ def test_three_dimensional_surface_split_pair_and_mode_i_resultant():
         response.internal_force[np.unique(split.positive_facets)], axis=0
     )
     np.testing.assert_allclose(positive_force, [0.0, 0.0, 2.5])
+
+
+def test_mode_i_surface_consistent_tangent_matches_force_derivative():
+    coordinates = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, -1.0],
+            [0.0, 0.0, 1.0],
+        ]
+    )
+    cells = np.array([[0, 1, 2, 3], [0, 2, 1, 4]])
+    split = interfaces.split_conforming_cell_interface(
+        coordinates, cells, positive_cells=[1]
+    )
+    topology = interfaces.pair_coincident_surface_facets(
+        split.coordinates,
+        split.negative_facets,
+        split.positive_facets,
+        normal_hint=(0.0, 0.0, 1.0),
+    )
+    assembler = interfaces.ModeICohesiveSurfaceAssembler(
+        topology, _law(), number_of_nodes=split.coordinates.shape[0]
+    )
+    displacement = np.zeros_like(split.coordinates)
+    displacement[split.positive_facets.reshape(-1), 2] = 0.5 * _law().peak_opening
+    direction = np.arange(displacement.size, dtype=float).reshape(displacement.shape)
+    direction = 0.01 * (direction - np.mean(direction))
+    tangent = assembler.tangent_elements(displacement)
+    epsilon = 1.0e-7
+    plus = assembler.begin(displacement + epsilon * direction).internal_force.copy()
+    assembler.rollback()
+    minus = assembler.begin(displacement - epsilon * direction).internal_force.copy()
+    assembler.rollback()
+    derivative = (plus - minus) / (2.0 * epsilon)
+
+    nodes = tangent.nodes[0]
+    predicted = tangent.matrices[0] @ direction[nodes].reshape(-1)
+    np.testing.assert_allclose(
+        predicted.reshape((-1, 3)),
+        derivative[nodes],
+        rtol=1.0e-9,
+        atol=1.0e-9,
+    )
 
 
 def test_split_cell_interface_supports_triangle_partitions():

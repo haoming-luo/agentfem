@@ -99,6 +99,11 @@ class BilinearCohesiveLaw:
             raise ValueError("elastic_modulus must be finite and positive.")
         return modulus * self.fracture_energy / self.strength**2
 
+    def transaction(self, size: int) -> "CohesiveTransaction":
+        """Create this law's trial/commit state container."""
+
+        return CohesiveTransaction(self, size)
+
     def envelope_traction(self, opening) -> np.ndarray:
         """Return the monotonic tensile envelope traction."""
 
@@ -251,8 +256,13 @@ class CohesiveTransaction:
                 f"opening must have shape {self._committed_maximum.shape}, "
                 f"got {values.shape}."
             )
-        self._trial = self.law.update(values, self._committed_maximum)
+        self._trial = self.evaluate(values)
         return self._trial
+
+    def evaluate(self, opening) -> CohesiveResponse:
+        """Evaluate from committed state without creating a transaction."""
+
+        return self.law.update(opening, self._committed_maximum)
 
     def commit(self) -> None:
         if self._trial is None:
@@ -293,6 +303,18 @@ class CohesiveTransaction:
         if np.any(values < 0.0):
             raise ValueError("Initial cohesive maximum opening cannot be negative.")
         self._committed_maximum[:] = values
+
+    def state_arrays(self) -> dict[str, np.ndarray]:
+        """Return checkpoint-ready committed arrays."""
+
+        return {"maximum_opening": self._committed_maximum.copy()}
+
+    def restore_state_arrays(self, arrays: dict[str, object]) -> None:
+        """Restore checkpoint arrays through the same validation as initialize."""
+
+        if set(arrays) != {"maximum_opening"}:
+            raise ValueError("Cohesive-state fields differ from this law.")
+        self.initialize(arrays["maximum_opening"])
 
 
 @dataclass(frozen=True)
@@ -568,8 +590,93 @@ class SplitInterfaceMesh:
         }
 
 
+@dataclass(frozen=True)
+class NamedSplitInterfaceMesh:
+    """One solver mesh carrying several disjoint named cohesive surfaces."""
+
+    coordinates: np.ndarray
+    cells: np.ndarray
+    interfaces: dict[str, SplitInterfaceMesh]
+
+    def __post_init__(self) -> None:
+        points = np.asarray(self.coordinates, dtype=float)
+        cells = np.asarray(self.cells, dtype=int)
+        records = dict(self.interfaces)
+        if not records:
+            raise ValueError("NamedSplitInterfaceMesh requires at least one interface.")
+        if any(not str(name).strip() for name in records):
+            raise ValueError("Named split interfaces require nonempty names.")
+        for name, split in records.items():
+            if not isinstance(split, SplitInterfaceMesh):
+                raise TypeError(f"Named interface {name!r} is not a SplitInterfaceMesh.")
+            if not np.array_equal(split.coordinates, points) or not np.array_equal(
+                split.cells, cells
+            ):
+                raise ValueError(
+                    f"Named interface {name!r} does not share the combined solver mesh."
+                )
+        object.__setattr__(self, "coordinates", points.copy())
+        object.__setattr__(self, "cells", cells.copy())
+        object.__setattr__(self, "interfaces", records)
+
+    @property
+    def names(self) -> tuple[str, ...]:
+        return tuple(self.interfaces)
+
+    def __getitem__(self, name: str) -> SplitInterfaceMesh:
+        return self.interfaces[str(name)]
+
+    def combined(self) -> SplitInterfaceMesh:
+        """Return the topology-only union used to create one DOLFINx mesh."""
+
+        records = tuple(self.interfaces.values())
+        mapping = {}
+        for split in records:
+            overlap = set(mapping) & set(split.original_to_duplicate)
+            if overlap:
+                raise RuntimeError(
+                    "Named interfaces unexpectedly share duplicated source nodes."
+                )
+            mapping.update(split.original_to_duplicate)
+        return SplitInterfaceMesh(
+            coordinates=self.coordinates.copy(),
+            cells=self.cells.copy(),
+            negative_facets=np.vstack([item.negative_facets for item in records]),
+            positive_facets=np.vstack([item.positive_facets for item in records]),
+            original_to_duplicate=mapping,
+            positive_cells=np.unique(
+                np.concatenate([item.positive_cells for item in records])
+            ),
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "named_split_interface_mesh",
+            "geometric_dimension": int(self.coordinates.shape[1]),
+            "number_of_cells": int(self.cells.shape[0]),
+            "interfaces": {
+                name: split.summary() for name, split in self.interfaces.items()
+            },
+            "disjoint_interface_nodes": True,
+            "single_solver_mesh": True,
+        }
+
+    def identity(self) -> dict[str, object]:
+        digest = sha256()
+        digest.update(np.ascontiguousarray(self.coordinates).tobytes())
+        digest.update(np.ascontiguousarray(self.cells).tobytes())
+        for name in sorted(self.interfaces):
+            digest.update(name.encode("utf-8"))
+            digest.update(self.interfaces[name].identity()["sha256"].encode("ascii"))
+        return {
+            "schema": "agentfem.named-split-interface-mesh-identity.v1",
+            "sha256": digest.hexdigest(),
+            **self.summary(),
+        }
+
+
 def create_dolfinx_split_mesh(
-    split: SplitInterfaceMesh,
+    split: SplitInterfaceMesh | NamedSplitInterfaceMesh,
     *,
     comm=None,
     cell_type: str | None = None,
@@ -596,8 +703,13 @@ def create_dolfinx_split_mesh(
     from dolfinx import mesh as dolfinx_mesh
     from mpi4py import MPI
 
+    if isinstance(split, NamedSplitInterfaceMesh):
+        split = split.combined()
     if not isinstance(split, SplitInterfaceMesh):
-        raise TypeError("create_dolfinx_split_mesh requires SplitInterfaceMesh.")
+        raise TypeError(
+            "create_dolfinx_split_mesh requires SplitInterfaceMesh or "
+            "NamedSplitInterfaceMesh."
+        )
     selected_comm = MPI.COMM_SELF if comm is None else comm
     identities = selected_comm.allgather(split.identity())
     if any(identity != identities[0] for identity in identities[1:]):
@@ -690,6 +802,81 @@ class CohesiveFacetResponse:
     dissipated_energy: float
 
 
+@dataclass(frozen=True)
+class CohesiveElementTangents:
+    """Element-node layouts and consistent scalar-dof tangent matrices.
+
+    ``nodes`` stores the negative trace followed by the positive trace for
+    every paired facet.  Each matrix uses node-major component ordering.  The
+    array contract stays independent of PETSc so serial and distributed
+    consumers can lower the same verified interface kernel.
+    """
+
+    nodes: np.ndarray
+    matrices: np.ndarray
+
+    def __post_init__(self) -> None:
+        nodes = np.asarray(self.nodes, dtype=int)
+        matrices = np.asarray(self.matrices, dtype=float)
+        if nodes.ndim != 2:
+            raise ValueError("Cohesive tangent nodes must be a two-dimensional array.")
+        if matrices.ndim != 3 or matrices.shape[0] != nodes.shape[0]:
+            raise ValueError("Cohesive tangent matrices and facets are incompatible.")
+        if matrices.shape[1] != matrices.shape[2]:
+            raise ValueError("Every cohesive element tangent must be square.")
+        if not np.all(np.isfinite(matrices)):
+            raise ValueError("Cohesive element tangents must be finite.")
+        object.__setattr__(self, "nodes", nodes.copy())
+        object.__setattr__(self, "matrices", matrices.copy())
+
+
+def _mode_i_element_tangents(
+    *,
+    negative_nodes,
+    positive_nodes,
+    normals,
+    shape_values,
+    point_tangent,
+    point_scale,
+) -> CohesiveElementTangents:
+    """Integrate ``B_jump.T * dt/ddelta * B_jump`` per paired facet."""
+
+    negative = np.asarray(negative_nodes, dtype=int)
+    positive = np.asarray(positive_nodes, dtype=int)
+    normal = np.asarray(normals, dtype=float)
+    shape = np.asarray(shape_values, dtype=float)
+    tangent = np.asarray(point_tangent, dtype=float)
+    scale = np.asarray(point_scale, dtype=float)
+    facet_count, nodes_per_side = negative.shape
+    dimension = normal.shape[1]
+    if tangent.shape != (facet_count, shape.shape[0]):
+        raise ValueError("Material tangent and cohesive quadrature layout differ.")
+    if scale.shape not in {(facet_count,), (facet_count, shape.shape[0])}:
+        raise ValueError("Cohesive quadrature scale has an invalid shape.")
+    weighted = tangent * (scale[:, None] if scale.ndim == 1 else scale)
+    side_scalar = np.einsum("qi,fq,qj->fij", shape, weighted, shape)
+    # Construct the trace signs explicitly to preserve one matrix per physical
+    # facet and the conventional [negative, positive] element ordering.
+    trace_sign = np.concatenate(
+        (-np.ones(nodes_per_side), np.ones(nodes_per_side))
+    )
+    signed_scalar = (
+        side_scalar[:, np.tile(np.arange(nodes_per_side), 2)[:, None],
+                    np.tile(np.arange(nodes_per_side), 2)[None, :]]
+        * trace_sign[None, :, None]
+        * trace_sign[None, None, :]
+    )
+    normal_projector = np.einsum("fi,fj->fij", normal, normal)
+    block = np.einsum("fab,fij->faibj", signed_scalar, normal_projector)
+    matrices = block.reshape(
+        (facet_count, 2 * nodes_per_side * dimension, 2 * nodes_per_side * dimension)
+    )
+    return CohesiveElementTangents(
+        nodes=np.concatenate((negative, positive), axis=1),
+        matrices=matrices,
+    )
+
+
 class ModeICohesiveFacetAssembler:
     """Two-point line integration for a fixed-path 2D Mode-I interface.
 
@@ -711,7 +898,7 @@ class ModeICohesiveFacetAssembler:
     def __init__(
         self,
         topology: PairedLineFacets,
-        law: BilinearCohesiveLaw,
+        law,
         *,
         number_of_nodes: int,
         thickness: float = 1.0,
@@ -729,7 +916,7 @@ class ModeICohesiveFacetAssembler:
         self.law = law
         self.number_of_nodes = int(number_of_nodes)
         self.thickness = float(thickness)
-        self.state = CohesiveTransaction(law, topology.number_of_points)
+        self.state = _transaction_for_law(law, topology.number_of_points)
         self._trial: CohesiveFacetResponse | None = None
         self.last_committed_response: CohesiveFacetResponse | None = None
 
@@ -804,6 +991,34 @@ class ModeICohesiveFacetAssembler:
         )
         return self._trial
 
+    def tangent_elements(self, displacement) -> CohesiveElementTangents:
+        """Return the consistent 2D interface tangent at committed history."""
+
+        values = _finite_array(displacement, name="displacement")
+        if values.shape != (
+            self.number_of_nodes,
+            self.topology.normals.shape[1],
+        ):
+            raise ValueError("Displacement shape differs from the cohesive interface.")
+        jump = (
+            values[self.topology.positive_nodes]
+            - values[self.topology.negative_nodes]
+        )
+        opening = np.einsum(
+            "fqd,fd->fq",
+            np.einsum("qi,fid->fqd", self._GAUSS, jump),
+            self.topology.normals,
+        )
+        material = self.state.evaluate(opening.reshape(-1))
+        return _mode_i_element_tangents(
+            negative_nodes=self.topology.negative_nodes,
+            positive_nodes=self.topology.positive_nodes,
+            normals=self.topology.normals,
+            shape_values=self._GAUSS,
+            point_tangent=material.tangent.reshape((-1, 2)),
+            point_scale=0.5 * self.topology.lengths * self.thickness,
+        )
+
     def commit(self) -> None:
         if self._trial is None:
             raise RuntimeError("No cohesive facet trial response is available to commit.")
@@ -825,9 +1040,8 @@ class ModeICohesiveFacetAssembler:
         selected = self.last_committed_response if response is None else response
         if selected is None:
             raise RuntimeError("No cohesive facet response is available.")
-        return self.law.update(
-            np.asarray(selected.opening, dtype=float).reshape(-1),
-            self.state.committed_maximum,
+        return self.state.evaluate(
+            np.asarray(selected.opening, dtype=float).reshape(-1)
         )
 
     def rollback(self) -> None:
@@ -850,7 +1064,7 @@ class ModeICohesiveSurfaceAssembler:
     def __init__(
         self,
         topology: PairedSurfaceFacets,
-        law: BilinearCohesiveLaw,
+        law,
         *,
         number_of_nodes: int,
     ):
@@ -865,7 +1079,7 @@ class ModeICohesiveSurfaceAssembler:
         self.law = law
         self.number_of_nodes = int(number_of_nodes)
         self.thickness = 1.0  # compatibility: surface measure already has area
-        self.state = CohesiveTransaction(law, topology.number_of_points)
+        self.state = _transaction_for_law(law, topology.number_of_points)
         self._trial: CohesiveFacetResponse | None = None
         self.last_committed_response: CohesiveFacetResponse | None = None
 
@@ -932,6 +1146,32 @@ class ModeICohesiveSurfaceAssembler:
         )
         return self._trial
 
+    def tangent_elements(self, displacement) -> CohesiveElementTangents:
+        """Return the consistent 3D interface tangent at committed history."""
+
+        values = _finite_array(displacement, name="displacement")
+        if values.shape != (self.number_of_nodes, 3):
+            raise ValueError("3D cohesive displacement must have shape (nodes, 3).")
+        jump = (
+            values[self.topology.positive_nodes]
+            - values[self.topology.negative_nodes]
+        )
+        opening = np.einsum(
+            "fqd,fd->fq",
+            np.einsum("qi,fid->fqd", self._QUADRATURE, jump),
+            self.topology.normals,
+        )
+        material = self.state.evaluate(opening.reshape(-1))
+        points = self.topology.quadrature_points_per_facet
+        return _mode_i_element_tangents(
+            negative_nodes=self.topology.negative_nodes,
+            positive_nodes=self.topology.positive_nodes,
+            normals=self.topology.normals,
+            shape_values=self._QUADRATURE,
+            point_tangent=material.tangent.reshape((-1, points)),
+            point_scale=self.topology.areas / float(points),
+        )
+
     def commit(self) -> None:
         if self._trial is None:
             raise RuntimeError("No cohesive surface trial response is available.")
@@ -949,9 +1189,8 @@ class ModeICohesiveSurfaceAssembler:
         selected = self.last_committed_response if response is None else response
         if selected is None:
             raise RuntimeError("No cohesive surface response is available.")
-        return self.law.update(
-            np.asarray(selected.opening, dtype=float).reshape(-1),
-            self.state.committed_maximum,
+        return self.state.evaluate(
+            np.asarray(selected.opening, dtype=float).reshape(-1)
         )
 
 
@@ -1297,6 +1536,123 @@ def split_conforming_surface_interface(
     )
 
 
+def split_conforming_named_interfaces(
+    coordinates,
+    cells,
+    named_interfaces,
+) -> NamedSplitInterfaceMesh:
+    """Atomically split several disjoint conforming cohesive manifolds.
+
+    Each mapping value supplies ``interface_facets`` and ``positive_cells``.
+    Interface nodes must be disjoint in this first multi-crack contract. This
+    gives every duplicate a durable identity and fits separated surface cracks;
+    intersecting cohesive networks require an explicit junction topology.
+    """
+
+    points = _finite_array(coordinates, name="coordinates")
+    connectivity = np.asarray(cells, dtype=int)
+    specifications = tuple(dict(named_interfaces).items())
+    if not specifications:
+        raise ValueError("At least one named interface is required.")
+    names = tuple(str(name).strip() for name, _record in specifications)
+    if any(not name for name in names) or len(set(names)) != len(names):
+        raise ValueError("Named interfaces require unique nonempty names.")
+    if points.ndim != 2 or points.shape[1] not in {2, 3}:
+        raise ValueError("Named interface splitting requires 2D or 3D coordinates.")
+    splitter = (
+        split_conforming_line_interface
+        if points.shape[1] == 2
+        else split_conforming_surface_interface
+    )
+    validated = []
+    occupied_nodes: set[int] = set()
+    for normalized_name, (_declared_name, record) in zip(
+        names, specifications, strict=True
+    ):
+        if isinstance(record, dict):
+            try:
+                facets = record["interface_facets"]
+                positive_cells = record["positive_cells"]
+            except KeyError as exc:
+                raise ValueError(
+                    f"Named interface {normalized_name!r} requires "
+                    "interface_facets and positive_cells."
+                ) from exc
+        else:
+            try:
+                facets, positive_cells = record
+            except (TypeError, ValueError) as exc:
+                raise TypeError(
+                    "A named interface must be a mapping or a "
+                    "(interface_facets, positive_cells) pair."
+                ) from exc
+        checked = splitter(
+            points,
+            connectivity,
+            facets,
+            positive_cells=positive_cells,
+        )
+        nodes = set(int(value) for value in np.unique(checked.negative_facets))
+        overlap = occupied_nodes & nodes
+        if overlap:
+            raise ValueError(
+                "Named cohesive interfaces must not share source nodes; "
+                f"interface {normalized_name!r} overlaps nodes {sorted(overlap)[:8]}."
+            )
+        occupied_nodes.update(nodes)
+        validated.append((normalized_name, checked))
+
+    point_blocks = [points]
+    split_cells = connectivity.copy()
+    cursor = int(points.shape[0])
+    pending = []
+    for name, checked in validated:
+        source_nodes = np.asarray(sorted(checked.original_to_duplicate), dtype=int)
+        duplicate_nodes = np.arange(cursor, cursor + source_nodes.size, dtype=int)
+        cursor += source_nodes.size
+        mapping = {
+            int(source): int(target)
+            for source, target in zip(source_nodes, duplicate_nodes, strict=True)
+        }
+        point_blocks.append(points[source_nodes])
+        positive_mask = np.zeros(connectivity.shape[0], dtype=bool)
+        positive_mask[np.asarray(checked.positive_cells, dtype=int)] = True
+        for source, target in mapping.items():
+            rows, columns = np.nonzero(
+                positive_mask[:, None] & (split_cells == source)
+            )
+            split_cells[rows, columns] = target
+        positive_facets = np.vectorize(mapping.__getitem__, otypes=[int])(
+            checked.negative_facets
+        )
+        pending.append(
+            (
+                name,
+                checked.negative_facets.copy(),
+                np.asarray(positive_facets, dtype=int),
+                mapping,
+                np.asarray(checked.positive_cells, dtype=int),
+            )
+        )
+    combined_points = np.vstack(point_blocks)
+    records = {
+        name: SplitInterfaceMesh(
+            coordinates=combined_points,
+            cells=split_cells,
+            negative_facets=negative,
+            positive_facets=positive,
+            original_to_duplicate=mapping,
+            positive_cells=positive_cells,
+        )
+        for name, negative, positive, mapping, positive_cells in pending
+    }
+    return NamedSplitInterfaceMesh(
+        coordinates=combined_points,
+        cells=split_cells,
+        interfaces=records,
+    )
+
+
 def split_conforming_cell_interface(
     coordinates,
     cells,
@@ -1394,7 +1750,7 @@ def split_conforming_cell_interface(
 class CohesiveSurface:
     """Public description of a fixed-path zero-thickness interface."""
 
-    law: BilinearCohesiveLaw
+    law: object
     mode: str = "normal"
     name: str = "cohesive surface"
     maturity: str = "experimental"
@@ -1437,7 +1793,7 @@ def bilinear_cohesive(
 
 def cohesive_surface(
     *,
-    law: BilinearCohesiveLaw,
+    law,
     mode: str = "normal",
     name: str = "cohesive surface",
 ) -> CohesiveSurface:
@@ -1469,6 +1825,23 @@ def _finite_array(value, *, name: str) -> np.ndarray:
     return selected
 
 
+def _transaction_for_law(law, size: int):
+    """Create a cohesive state transaction without fixing one law family."""
+
+    factory = getattr(law, "transaction", None)
+    if factory is None or not callable(factory):
+        raise TypeError(
+            "A cohesive law must provide transaction(size), update semantics, "
+            "and a summary contract."
+        )
+    transaction = factory(int(size))
+    required = ("begin", "commit", "rollback", "initialize", "evaluate")
+    missing = [name for name in required if not callable(getattr(transaction, name, None))]
+    if missing:
+        raise TypeError(f"Cohesive transaction is missing operations: {missing}.")
+    return transaction
+
+
 # Portable state lives in a separate module so the local cohesive material and
 # facet kernels remain independently testable.  Re-export it from the public
 # interface namespace because users should not need to know the storage owner.
@@ -1487,10 +1860,12 @@ __all__ = [
     "CohesiveSurface",
     "CohesiveTransaction",
     "COHESIVE_CHECKPOINT_SCHEMA",
+    "CohesiveElementTangents",
     "CohesiveFacetResponse",
     "ModeICohesiveFacetAssembler",
     "ModeICohesiveSurfaceAssembler",
     "FacetOwnership",
+    "NamedSplitInterfaceMesh",
     "PairedLineFacets",
     "PairedSurfaceFacets",
     "SplitInterfaceMesh",
@@ -1504,6 +1879,7 @@ __all__ = [
     "pair_coincident_surface_facets",
     "save_portable_cohesive_state",
     "split_conforming_line_interface",
+    "split_conforming_named_interfaces",
     "split_conforming_surface_interface",
     "split_conforming_cell_interface",
 ]

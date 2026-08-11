@@ -123,6 +123,38 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `require_same_space(left, right) -> None` | Raise if two fields/functions are not on the same function space. |
 | function | `same_space(left, right) -> bool` | Return whether two fields/functions share the same function space. |
 
+## `agentfem.fatigue_fracture`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `ForceCycle` | One scalar cyclic-load definition expressed in test parameters. |
+| function | `force_cycle(*, minimum: float \| None = None, maximum: float \| None = None, fmin: float \| None = None, fmax: float \| None = None, frequency: float = 1.0, waveform: str = 'sine', hold_minimum_fraction: float = 0.0, hold_maximum_fraction: float = 0.0, table = (), name: str = 'force cycle') -> ForceCycle` | Create a cyclic force from ``minimum/maximum`` or ``fmin/fmax``. |
+| class | `CycleJumpDecision` | One inspectable proposal for advancing the independent cycle count. |
+| class | `CycleJumpPolicy` | Bound a cycle block by predicted damage and exact output landings. |
+| class | `CycleJumpRecord` | Accepted or rejected cycle-block evidence. |
+| class | `CycleJumpLedger(*, start_cycle: int = 0)` | Record exact cycle progress and every jump/cutback decision. |
+| class | `CyclicCohesiveResponse` | Mode-I response with separated monotonic and fatigue evidence. |
+| class | `CyclicCohesiveLaw` | Replaceable power-law range fatigue layered on a bilinear envelope. |
+| class | `CyclicCohesiveTransaction(law: CyclicCohesiveLaw, size: int)` | Atomic monotonic trials and cycle-block trials for cohesive points. |
+| class | `FieldStateTransaction(fields, *, assets = None)` | In-memory rollback for bulk fields and other transactional assets. |
+| class | `CyclicEquilibriumPoint` | Evidence returned by one converged peak or valley equilibrium solve. |
+| class | `CyclicFatigueBlock` | Accepted structure-level cycle block and its error evidence. |
+| class | `GlobalCyclicFatigueStep(*, cycle: ForceCycle, stop_cycle: int, interfaces, state, solve_equilibrium, jump: CycleJumpPolicy \| None = None, landing_cycles = (), maximum_opening_feedback: float = 0.02, maximum_energy_balance_error: float \| None = None, observe = None, name: str = 'cyclic fatigue')` | Quasi-static peak/valley fatigue loop with global rollback and cutback. |
+| class | `SurfaceCrackComponent` | One connected failed component in a surface-crack observation. |
+| class | `SurfaceCrackObservation` | One cycle's geometric evidence on a triangular cohesive surface. |
+| class | `CrackTopologyEvent` | Auditable identity change between two accepted crack observations. |
+| class | `TrackedSurfaceCrack` | A connected crack component with identity stable across cycle blocks. |
+| class | `SurfaceCrackTrackingFrame` | Persistent component identities and topology events at one cycle. |
+| class | `SurfaceCrackTracker(*, interface_name: str, id_prefix: str \| None = None)` | Track cracks on one fixed cohesive surface by physical facet identity. |
+| class | `CrackInteractionObservation` | Two-crack geometry and growth evidence at one exact cycle. |
+| function | `observe_surface_crack(coordinates, facets, damage, opening, *, cycle: int, name: str = 'surface crack', damage_threshold: float = 0.95, include_boundary_front: bool = False, facet_ids = None) -> SurfaceCrackObservation` | Recover connected failed area and a three-dimensional crack front. |
+| function | `surface_crack_interaction(first: SurfaceCrackObservation, second: SurfaceCrackObservation, *, first_single_growth_rate: float \| None = None, second_single_growth_rate: float \| None = None, first_double_growth_rate: float \| None = None, second_double_growth_rate: float \| None = None, coalescence_tolerance: float = 0.0) -> CrackInteractionObservation` | Compare two named fronts without hiding the single-crack baseline. |
+| class | `ParisEvidence` | Postprocessed Paris-region evidence; never a crack-growth solver law. |
+| function | `paris_evidence(cycles, crack_size, driving_force, *, fit_cycle_range: tuple[float, float] \| None = None, fit_mask = None, derivative_window: int = 3, driving_force_name: str = 'Delta K', crack_size_name: str = 'a', driving_force_unit: str = 'declared', crack_size_unit: str = 'declared') -> ParisEvidence` | Fit a Paris relation after simulation from ``a(N)`` and a driver. |
+| function | `cyclic_cohesive(*, monotonic: BilinearCohesiveLaw, fatigue_coefficient: float, fatigue_exponent: float, range_threshold: float, peak_exponent: float = 0.0, residual_exponent: float = 0.0, name: str = 'power-law cyclic Mode-I cohesive law') -> CyclicCohesiveLaw` | Create the experimental reference cyclic cohesive law. |
+| function | `field_state(fields = None, *, assets = None, **named_fields) -> FieldStateTransaction` | Create rollback state from a field mapping or named field arguments. |
+| function | `global_cyclic_fatigue_step(**kwargs) -> GlobalCyclicFatigueStep` | Create a reusable force-controlled peak/valley fatigue controller. |
+
 ## `agentfem.fracture`
 
 | Kind | Public object | Purpose |
@@ -130,10 +162,16 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `finite_strain_internal_force(displacement, test_function, material, *, measure = ufl.dx, name: str = 'F_internal_finite_strain') -> OperatorForm` | Return the current Total-Lagrangian hyperelastic internal force. |
 | class | `FiniteStrainEnergyMonitor` | Accepted-frame kinetic and hyperelastic bulk energy monitor. |
 | class | `DofMappedCohesiveForce(assembler, displacement, *, node_to_block_dof)` | Map a serial cohesive facet kernel to vector finite-element dofs. |
+| class | `NamedCohesiveResponse` | Responses and aggregate energy from several named interfaces. |
+| class | `CohesiveForceCollection(interfaces)` | Atomically compose independent named cohesive-interface forces. |
+| function | `named_cohesive_forces(**interfaces) -> CohesiveForceCollection` | Create an atomically managed collection from named cohesive forces. |
+| function | `named_mode_i_cohesive_forces(split, displacement, *, laws, normal_hints, thicknesses = None, tolerance: float = 1e-10) -> CohesiveForceCollection` | Build independent named forces on one atomically split solver mesh. |
 | class | `DistributedDofMappedCohesiveForce(assembler, displacement, *, input_node_to_block_dof, input_node_owned, global_topology, global_facet_indices, local_input_nodes = None)` | MPI assembler for a physical-keyed split interface. |
 | function | `p1_input_node_to_block_dof(displacement, *, number_of_input_nodes: int)` | Recover the complete serial input-node to block-DOF map. |
-| function | `mode_i_cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law: interface_api.BilinearCohesiveLaw, *, normal_hint, thickness: float = 1.0, tolerance: float = 1e-10) -> DofMappedCohesiveForce \| DistributedDofMappedCohesiveForce` | Build the executable Mode-I force directly from a split mesh contract. |
-| class | `FiniteStrainCohesiveResidual(bulk, cohesive: DofMappedCohesiveForce \| DistributedDofMappedCohesiveForce)` | Assemble bulk UFL and paired-facet interface forces into one residual. |
+| function | `mode_i_cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law, *, normal_hint, thickness: float = 1.0, tolerance: float = 1e-10) -> DofMappedCohesiveForce \| DistributedDofMappedCohesiveForce` | Build the executable Mode-I force directly from a split mesh contract. |
+| class | `FiniteStrainCohesiveResidual(bulk, cohesive)` | Assemble bulk UFL and paired-facet interface forces into one residual. |
+| class | `CohesiveNewtonSolveInfo` | Convergence evidence for one native bulk-plus-interface equilibrium. |
+| class | `FiniteStrainCohesiveEquilibrium(residual: FiniteStrainCohesiveResidual, tangent, displacement, *, set_load = None, load_parameter = None, reference_load: float = 1.0, bcs = (), solver_options = None, control_displacement = None, reaction = None, bulk_strain_energy = None)` | Native Newton consumer for UFL bulk and zero-thickness interfaces. |
 | class | `MassProportionalDampingResidual(base, *, mass, velocity, coefficient: float, dt: float)` | Add ``alpha M v_mid`` with transactional dissipation accounting. |
 | class | `DampingEnergyMonitor` | Add accepted viscous dissipation to an existing mechanical monitor. |
 | class | `FiniteStrainCohesiveEnergyMonitor` | Typed accepted-frame energy for bulk plus cohesive dynamics. |
@@ -493,6 +531,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `newmark() -> SolutionProcedure` | Public AgentFEM object. |
 | function | `generalized_alpha() -> SolutionProcedure` | Public AgentFEM object. |
 | function | `central_difference() -> SolutionProcedure` | Public AgentFEM object. |
+| function | `cyclic_fatigue() -> SolutionProcedure` | Quasi-static peak/valley equilibrium with independent cycle blocks. |
 | function | `for_step(*, analysis: str, method: str \| None = None, stateful: bool = False)` | Resolve a procedure without coupling ``Study`` to one solver route. |
 | function | `resolve(*, analysis: str, requested: SolutionProcedure \| str \| None = None, preferred: str \| None = None, stateful: bool = False) -> SolutionProcedure` | Resolve and validate the numerical procedure for one analysis request. |
 
@@ -730,18 +769,21 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `PairedLineFacets` | Deterministically paired zero-thickness line facets for a 2D mesh. |
 | class | `PairedSurfaceFacets` | Deterministically paired zero-thickness triangular facets in 3D. |
 | class | `SplitInterfaceMesh` | Array-level result of splitting one conforming interface manifold. |
-| function | `create_dolfinx_split_mesh(split: SplitInterfaceMesh, *, comm = None, cell_type: str \| None = None, input_order: str = 'counterclockwise')` | Create an executable DOLFINx mesh for an audited split interface. |
+| class | `NamedSplitInterfaceMesh` | One solver mesh carrying several disjoint named cohesive surfaces. |
+| function | `create_dolfinx_split_mesh(split: SplitInterfaceMesh \| NamedSplitInterfaceMesh, *, comm = None, cell_type: str \| None = None, input_order: str = 'counterclockwise')` | Create an executable DOLFINx mesh for an audited split interface. |
 | class | `CohesiveFacetResponse` | Trial force and energy from a batch of paired 2D facets. |
-| class | `ModeICohesiveFacetAssembler(topology: PairedLineFacets, law: BilinearCohesiveLaw, *, number_of_nodes: int, thickness: float = 1.0)` | Two-point line integration for a fixed-path 2D Mode-I interface. |
-| class | `ModeICohesiveSurfaceAssembler(topology: PairedSurfaceFacets, law: BilinearCohesiveLaw, *, number_of_nodes: int)` | Three-point integration of linear triangular Mode-I surfaces in 3D. |
+| class | `CohesiveElementTangents` | Element-node layouts and consistent scalar-dof tangent matrices. |
+| class | `ModeICohesiveFacetAssembler(topology: PairedLineFacets, law, *, number_of_nodes: int, thickness: float = 1.0)` | Two-point line integration for a fixed-path 2D Mode-I interface. |
+| class | `ModeICohesiveSurfaceAssembler(topology: PairedSurfaceFacets, law, *, number_of_nodes: int)` | Three-point integration of linear triangular Mode-I surfaces in 3D. |
 | function | `pair_coincident_surface_facets(coordinates, negative_facets, positive_facets, *, normal_hint, tolerance: float = 1e-10) -> PairedSurfaceFacets` | Pair coincident three-node triangular facets in 3D. |
 | function | `pair_coincident_line_facets(coordinates, negative_facets, positive_facets, *, normal_hint, tolerance: float = 1e-10) -> PairedLineFacets` | Pair coincident two-node line facets with a declared normal direction. |
 | function | `split_conforming_line_interface(coordinates, cells, interface_facets, *, positive_cells) -> SplitInterfaceMesh` | Duplicate nodes on a declared conforming 2D cell interface. |
 | function | `split_conforming_surface_interface(coordinates, cells, interface_facets, *, positive_cells) -> SplitInterfaceMesh` | Duplicate nodes on a declared conforming triangular surface in 3D. |
+| function | `split_conforming_named_interfaces(coordinates, cells, named_interfaces) -> NamedSplitInterfaceMesh` | Atomically split several disjoint conforming cohesive manifolds. |
 | function | `split_conforming_cell_interface(coordinates, cells, *, positive_cells) -> SplitInterfaceMesh` | Split the internal facet separating two declared cell partitions. |
 | class | `CohesiveSurface` | Public description of a fixed-path zero-thickness interface. |
 | function | `bilinear_cohesive(*, strength: float, fracture_energy: float, initial_stiffness: float, compression_stiffness: float \| None = None, name: str = 'bilinear Mode-I cohesive law') -> BilinearCohesiveLaw` | Create a bilinear Mode-I cohesive law. |
-| function | `cohesive_surface(*, law: BilinearCohesiveLaw, mode: str = 'normal', name: str = 'cohesive surface') -> CohesiveSurface` | Declare a fixed-path zero-thickness cohesive interface. |
+| function | `cohesive_surface(*, law, mode: str = 'normal', name: str = 'cohesive surface') -> CohesiveSurface` | Declare a fixed-path zero-thickness cohesive interface. |
 | function | `cohesive_characteristic_length(*, young: float, fracture_energy: float, strength: float) -> float` | Return the declared scale ``E * Gamma / strength**2``. |
 
 ## `agentfem.campaigns`

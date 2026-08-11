@@ -13,7 +13,8 @@ from mpi4py import MPI
 from .checkpointing import atomic_savez, atomic_write_text
 
 
-COHESIVE_CHECKPOINT_SCHEMA = "agentfem.cohesive-checkpoint.v1"
+COHESIVE_CHECKPOINT_SCHEMA = "agentfem.cohesive-checkpoint.v2"
+LEGACY_COHESIVE_CHECKPOINT_SCHEMA = "agentfem.cohesive-checkpoint.v1"
 
 
 @dataclass(frozen=True)
@@ -94,16 +95,31 @@ def save_portable_cohesive_state(
         raise ValueError("Cohesive transaction size does not match paired topology.")
     ownership = deterministic_facet_ownership(topology, comm=comm)
     points = int(topology.quadrature_points_per_facet)
-    local_values = np.asarray(state.committed_maximum, dtype=float).reshape(
-        (-1, points)
-    )
+    state_factory = getattr(state, "state_arrays", None)
+    if state_factory is None or not callable(state_factory):
+        local_state = {
+            "maximum_opening": np.asarray(state.committed_maximum, dtype=float)
+        }
+    else:
+        local_state = state_factory()
+    if not local_state or "maximum_opening" not in local_state:
+        raise ValueError("Cohesive state must include maximum_opening.")
+    local_values = {}
+    for name, values in sorted(local_state.items()):
+        selected = np.asarray(values, dtype=float)
+        if selected.shape != (int(state.size),) or np.any(~np.isfinite(selected)):
+            raise ValueError(f"Cohesive state field {name!r} is invalid.")
+        local_values[name] = selected.reshape((-1, points))
     owned = ownership.owned_mask
     local_keys = tuple(str(key) for key in topology.facet_keys)
     payload = {
-        "visible": (local_keys, local_values.copy()),
+        "visible": (
+            local_keys,
+            {name: values.copy() for name, values in local_values.items()},
+        ),
         "owned": (
             tuple(np.asarray(local_keys, dtype=str)[owned].tolist()),
-            local_values[owned].copy(),
+            {name: values[owned].copy() for name, values in local_values.items()},
         ),
     }
     gathered = comm.gather(payload, root=0)
@@ -114,36 +130,54 @@ def save_portable_cohesive_state(
     error = None
     if comm.rank == 0:
         try:
-            visible_records: dict[str, np.ndarray] = {}
+            field_names = tuple(sorted(local_values))
+            visible_records: dict[str, dict[str, np.ndarray]] = {
+                name: {} for name in field_names
+            }
             for rank_payload in gathered:
-                keys, values = rank_payload["visible"]
-                for key, value in zip(keys, values, strict=True):
-                    selected = np.asarray(value, dtype=float)
-                    previous = visible_records.get(key)
-                    if previous is not None and not np.array_equal(previous, selected):
-                        raise ValueError(
-                            "Cohesive state differs between ranks for physical "
-                            f"facet {key}; synchronize owner/ghost state before save."
-                        )
-                    visible_records[key] = selected
-            records: dict[str, np.ndarray] = {}
+                keys, fields = rank_payload["visible"]
+                if tuple(sorted(fields)) != field_names:
+                    raise ValueError("Cohesive state fields differ between ranks.")
+                for name in field_names:
+                    for key, value in zip(keys, fields[name], strict=True):
+                        selected = np.asarray(value, dtype=float)
+                        previous = visible_records[name].get(key)
+                        if previous is not None and not np.array_equal(previous, selected):
+                            raise ValueError(
+                                "Cohesive state differs between ranks for physical "
+                                f"facet {key}, field {name}; synchronize owner/ghost "
+                                "state before save."
+                            )
+                        visible_records[name][key] = selected
+            records: dict[str, dict[str, np.ndarray]] = {
+                name: {} for name in field_names
+            }
             for rank_payload in gathered:
-                keys, values = rank_payload["owned"]
-                for key, value in zip(keys, values, strict=True):
-                    if key in records:
-                        raise ValueError(f"Cohesive facet {key} has more than one owner.")
-                    records[key] = np.asarray(value, dtype=float)
+                keys, fields = rank_payload["owned"]
+                for name in field_names:
+                    for key, value in zip(keys, fields[name], strict=True):
+                        if key in records[name]:
+                            raise ValueError(
+                                f"Cohesive facet {key} has more than one owner."
+                            )
+                        records[name][key] = np.asarray(value, dtype=float)
             expected = set(ownership.global_keys)
-            if set(records) != expected:
+            if any(set(records[name]) != expected for name in field_names):
                 raise ValueError("Owned cohesive facets do not cover the global interface.")
-            ordered = tuple(sorted(records))
-            values = np.asarray([records[key] for key in ordered], dtype=float)
+            ordered = tuple(sorted(expected))
+            archive_fields = {
+                f"state__{name}": np.asarray(
+                    [records[name][key] for key in ordered], dtype=float
+                )
+                for name in field_names
+            }
             atomic_savez(
                 archive,
                 schema=np.asarray(COHESIVE_CHECKPOINT_SCHEMA),
                 facet_keys=np.asarray(ordered, dtype="U64"),
-                maximum_opening=values,
+                state_fields=np.asarray(field_names, dtype="U64"),
                 law_json=np.asarray(json.dumps(law_records[0], sort_keys=True)),
+                **archive_fields,
             )
             metadata = {
                 "schema": COHESIVE_CHECKPOINT_SCHEMA,
@@ -151,6 +185,7 @@ def save_portable_cohesive_state(
                 "writer_rank_count": int(comm.size),
                 "facets": len(ordered),
                 "quadrature_points_per_facet": points,
+                "state_fields": list(field_names),
                 "global_interface_sha256": _keys_digest(ordered),
                 "law": law_records[0],
                 "archive": {
@@ -190,7 +225,11 @@ def load_portable_cohesive_state(
     if comm.rank == 0:
         try:
             metadata = json.loads(manifest.read_text(encoding="utf-8"))
-            if metadata.get("schema") != COHESIVE_CHECKPOINT_SCHEMA:
+            schema = metadata.get("schema")
+            if schema not in {
+                COHESIVE_CHECKPOINT_SCHEMA,
+                LEGACY_COHESIVE_CHECKPOINT_SCHEMA,
+            }:
                 raise ValueError("Unsupported cohesive checkpoint schema.")
             archive = manifest.parent / metadata["archive"]["path"]
             if int(archive.stat().st_size) != int(metadata["archive"]["size"]):
@@ -198,14 +237,37 @@ def load_portable_cohesive_state(
             if _file_digest(archive) != metadata["archive"]["sha256"]:
                 raise ValueError("Cohesive checkpoint archive checksum differs.")
             with np.load(archive, allow_pickle=False) as stored:
-                if str(stored["schema"]) != COHESIVE_CHECKPOINT_SCHEMA:
+                if str(stored["schema"]) != schema:
                     raise ValueError("Cohesive archive schema differs from its manifest.")
                 keys = tuple(str(value) for value in stored["facet_keys"].tolist())
-                values = np.asarray(stored["maximum_opening"], dtype=float)
                 law = json.loads(str(stored["law_json"]))
+                if schema == LEGACY_COHESIVE_CHECKPOINT_SCHEMA:
+                    state_fields = ("maximum_opening",)
+                    values_by_field = {
+                        "maximum_opening": np.asarray(
+                            stored["maximum_opening"], dtype=float
+                        )
+                    }
+                else:
+                    state_fields = tuple(
+                        str(value) for value in stored["state_fields"].tolist()
+                    )
+                    values_by_field = {
+                        name: np.asarray(stored[f"state__{name}"], dtype=float)
+                        for name in state_fields
+                    }
             points = int(topology.quadrature_points_per_facet)
-            if values.shape != (len(keys), points) or np.any(~np.isfinite(values)):
+            if any(
+                values.shape != (len(keys), points)
+                or np.any(~np.isfinite(values))
+                for values in values_by_field.values()
+            ):
                 raise ValueError("Cohesive checkpoint state array is invalid.")
+            current_fields = tuple(sorted(state.state_arrays()))
+            if tuple(sorted(state_fields)) != current_fields:
+                raise ValueError(
+                    "Cohesive checkpoint state fields differ from current law."
+                )
             if int(metadata.get("quadrature_points_per_facet", -1)) != points:
                 raise ValueError("Cohesive checkpoint quadrature contract differs.")
             if _keys_digest(keys) != metadata["global_interface_sha256"]:
@@ -220,18 +282,33 @@ def load_portable_cohesive_state(
                     "Cohesive checkpoint physical interface differs: "
                     f"missing_current={missing}, extra_current={extra}."
                 )
-            payload = {key: values[index].tolist() for index, key in enumerate(keys)}
-            payload = {"metadata": metadata, "values": payload}
+            payload = {
+                "metadata": metadata,
+                "values": {
+                    name: {
+                        key: values_by_field[name][index].tolist()
+                        for index, key in enumerate(keys)
+                    }
+                    for name in state_fields
+                },
+            }
         except Exception as exc:  # pragma: no cover - collective error path
             payload = {"error": f"{type(exc).__name__}: {exc}"}
     payload = comm.bcast(payload, root=0)
     if "error" in payload:
         raise RuntimeError(f"Portable cohesive checkpoint read failed: {payload['error']}")
-    local = np.asarray(
-        [payload["values"][key] for key in topology.facet_keys],
-        dtype=float,
-    )
-    state.initialize(local.reshape(-1))
+    local = {
+        name: np.asarray(
+            [records[key] for key in topology.facet_keys],
+            dtype=float,
+        ).reshape(-1)
+        for name, records in payload["values"].items()
+    }
+    restore = getattr(state, "restore_state_arrays", None)
+    if restore is None or not callable(restore):
+        state.initialize(local["maximum_opening"])
+    else:
+        restore(local)
     metadata = dict(payload["metadata"])
     metadata["reader_rank_count"] = int(comm.size)
     metadata["local_facets"] = int(topology.number_of_facets)
@@ -269,6 +346,7 @@ def _file_digest(path: Path) -> str:
 
 __all__ = [
     "COHESIVE_CHECKPOINT_SCHEMA",
+    "LEGACY_COHESIVE_CHECKPOINT_SCHEMA",
     "FacetOwnership",
     "deterministic_facet_ownership",
     "load_portable_cohesive_state",

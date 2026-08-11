@@ -136,6 +136,31 @@ _CAPABILITIES = {
             "linear Goodman is the only mean-stress correction",
         ),
     ),
+    "cyclic_cohesive_fatigue": ConstitutiveCapability(
+        name="cyclic_cohesive_fatigue",
+        model=(
+            "thresholded opening-range fatigue damage layered on an exact "
+            "bilinear Mode-I cohesive envelope"
+        ),
+        maturity="experimental_global_lifecycle_and_facet_consumer",
+        available_scope=(
+            "independent cycle coordinate, sine/triangle/tabular force cycles, "
+            "damage/front-limited cycle-jump decisions and ledger, analytical "
+            "constant-extrema blocks, commit/rollback/restart, all-field "
+            "physical-facet checkpoint, named 2D/3D cohesive interfaces, atomic "
+            "multi-interface mesh splitting, global peak/valley/post-damage "
+            "equilibrium lifecycle, automatic feedback cutback, durable cycle "
+            "restart, native serial/MPI hyperelastic bulk-plus-cohesive Newton "
+            "equilibrium with algorithmic tangent and strong-constraint reaction, "
+            "and 3D failed-area/front/COD observations"
+        ),
+        limitations=(
+            "reference-point work and complete monotonic/fatigue energy closure remain",
+            "Mode-I fixed path only; no mixed-mode or free-path growth",
+            "reference fatigue evolution requires material/interface calibration",
+            "no cylinder benchmark, cross-partition bulk restart, CT validation, or experimental prediction yet",
+        ),
+    ),
     "abaqus_user_material_bridge": ConstitutiveCapability(
         name="abaqus_user_material_bridge",
         model="solver-neutral material-point protocol and UMAT/UHYPER adapter specification",

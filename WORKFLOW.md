@@ -101,6 +101,18 @@ For a collection of related cases, continue with:
 - Assembly: `assembly.py`
 - Operator families: `operators/`
 - Time integration: `time/explicit.py`, `time/implicit.py`, and runtime cadence
+- Cyclic cohesive damage, cycle jumps and 3D crack observations:
+  `fatigue_fracture.py`
+- Structure-level cyclic peak/valley control uses
+  `fatigue_fracture.global_cyclic_fatigue_step(...)`. It owns accepted cycle
+  coordinates, post-damage equilibrium checks, automatic cycle cutback and
+  bulk/interface restart. Use
+  `fracture.FiniteStrainCohesiveEquilibrium(...)` for the native
+  hyperelastic bulk-plus-interface Newton route; a custom equilibrium callback
+  remains a supported extension boundary for other global formulations.
+- Several disjoint cohesive cracks should be split together through
+  `interfaces.split_conforming_named_interfaces(...)`, then lowered to one
+  named force collection with `fracture.named_mode_i_cohesive_forces(...)`.
 - Shared transient checkpoint envelope and partition identity: `checkpointing.py`
 - Model-owned analysis-step creation: `models.py`
 - Stateful nonlinear solid mechanics: `mechanics/`

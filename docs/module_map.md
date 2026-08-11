@@ -19,6 +19,9 @@ This map links FEM concepts to the current Python modules.
 | Loads and natural boundary data | `loads.py` |
 | Constitutive response relations and maturity catalog | `constitutive/` |
 | Quadrature-point committed/trial state | `constitutive/quadrature.py` |
+| Monotonic cohesive laws, paired interface topology, and physical-keyed state | `interfaces.py`, `cohesive_checkpoint.py` |
+| Independent cycle coordinate, cyclic cohesive damage, cycle jumps, and 3D fatigue-crack observations | `fatigue_fracture.py` |
+| Finite-strain cohesive forces, named interface composition, energy, wave speeds, and dynamic crack evidence | `fracture.py` |
 | Global stateful solid-mechanics procedures | `mechanics/` |
 | Material-point contracts and UMAT/UHYPER bridge specifications | `constitutive/user_material.py` |
 | Material records and property containers | `materials/` |

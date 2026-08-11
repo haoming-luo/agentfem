@@ -159,6 +159,20 @@ An amplitude-driven nonlinear natural load supplies the complete load scale
 and is not multiplied by a second hidden ramp. A natural load without an
 amplitude follows the Step's default proportional ramp.
 
+## Cycle Coordinate and Cycle Block
+
+Fatigue cycle count is an independent physical coordinate. It is not physical
+transient time and it is not an output-frame index. A cyclic fatigue procedure
+may solve the peak and valley of a load cycle, then advance irreversible state
+over an accepted integer cycle block.
+
+A cycle block has explicit begin, commit and rollback semantics. Adaptive
+cycle jumping must bound a declared damage/front increment, land exactly on
+requested output and checkpoint cycles, and record why the jump was selected.
+Material-point equivalence under constant extrema is necessary but does not
+replace a global structural cycle-jump error check as the crack changes the
+equilibrium solution.
+
 ## Constitutive Law
 
 A local response relation that maps state to stress, flux, tangent, or another
@@ -176,6 +190,29 @@ power-law creep remains a local constitutive capability, not a claimed global
 creep analysis. Path-dependent material FEM integration additionally requires
 quadrature state, a consistent tangent or documented alternative, increment
 control, convergence evidence, and restart behavior.
+
+A cyclic cohesive law is one path-dependent constitutive family. Its platform
+contract is the monotonic limit, local cycle extrema, fatigue threshold,
+irreversible state, dissipation and transaction lifecycle. One fatigue damage
+formula is a replaceable implementation of that contract, not the definition
+of fatigue fracture in AgentFEM.
+
+A global cyclic-fatigue step is a lifecycle consumer, not another material
+law. It solves accepted load extrema, advances all named interfaces as one
+cycle-block transaction, re-solves the degraded structure, and commits only
+when damage, structural-feedback and optional energy errors satisfy the
+declared tolerances. Cycle count remains independent of physical time and
+output frames. The finite-element equilibrium adapter remains independently
+replaceable so the same controller can serve hyperelasticity, plasticity and
+future user-material providers.
+
+The first native equilibrium adapter combines a UFL finite-strain bulk
+residual and automatic-differentiation tangent with analytically integrated
+2D/3D cohesive forces and algorithmic tangents in one PETSc Newton system. It
+supports physical scalar force control, strong-constraint reactions, serial
+and sparse-owner MPI assembly, while leaving cohesive state commit/rollback to
+the owning monotonic or cyclic Step. A converged Newton correction therefore
+does not silently advance crack history.
 
 ## Material Record
 

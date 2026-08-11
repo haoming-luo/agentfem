@@ -57,6 +57,13 @@
       "title": "Sequential hot-wall creep assessment release contract"
     },
     {
+      "id": "agentfem.benchmark.cyclic_cohesive_global_lifecycle",
+      "physics": "Quasi-static force-controlled fixed-path Mode-I cohesive fatigue",
+      "source": "knowledge/benchmarks/cyclic_cohesive_global_lifecycle.json",
+      "status": "experimental_automated_foundation",
+      "title": "Global cyclic cohesive transaction, cutback, restart and named 3D interfaces"
+    },
+    {
       "id": "agentfem.benchmark.distributed_cohesive_force",
       "physics": "Two-dimensional Mode-I bilinear cohesive interface in finite-strain Explicit dynamics",
       "source": "knowledge/benchmarks/distributed_cohesive_force.json",
@@ -230,6 +237,40 @@
       "title": "Creep damage and modified-theta assessment"
     },
     {
+      "id": "agentfem.material.cyclic_cohesive_fatigue",
+      "kind": "material",
+      "public_api": [
+        "agentfem.fatigue_fracture.ForceCycle",
+        "agentfem.fatigue_fracture.CycleJumpPolicy",
+        "agentfem.fatigue_fracture.CycleJumpLedger",
+        "agentfem.fatigue_fracture.CyclicCohesiveLaw",
+        "agentfem.fatigue_fracture.CyclicCohesiveTransaction",
+        "agentfem.fatigue_fracture.FieldStateTransaction",
+        "agentfem.fatigue_fracture.GlobalCyclicFatigueStep",
+        "agentfem.fatigue_fracture.SurfaceCrackTracker",
+        "agentfem.fatigue_fracture.ParisEvidence",
+        "agentfem.fatigue_fracture.cyclic_cohesive",
+        "agentfem.fatigue_fracture.global_cyclic_fatigue_step",
+        "agentfem.fatigue_fracture.observe_surface_crack",
+        "agentfem.fatigue_fracture.paris_evidence",
+        "agentfem.procedures.cyclic_fatigue",
+        "agentfem.fracture.CohesiveForceCollection",
+        "agentfem.fracture.FiniteStrainCohesiveEquilibrium",
+        "agentfem.fracture.FiniteStrainCohesiveResidual",
+        "agentfem.fracture.named_mode_i_cohesive_forces",
+        "agentfem.interfaces.split_conforming_named_interfaces"
+      ],
+      "related_cards": [
+        "agentfem.workflow.cohesive_state_portability",
+        "agentfem.workflow.distributed_cohesive_force",
+        "agentfem.workflow.dynamic_fracture_v5_evidence"
+      ],
+      "source": "knowledge/cards/cyclic_cohesive_fatigue.json",
+      "status": "experimental",
+      "summary": "Layers a thresholded, irreversible opening-range fatigue state on the exact bilinear Mode-I monotonic limit and advances accepted integer cycle blocks through explicit begin, commit, rollback and restart semantics.",
+      "title": "Cyclic cohesive damage with an independent cycle coordinate"
+    },
+    {
       "id": "agentfem.material.finite_strain_plane_stress",
       "kind": "material",
       "public_api": [
@@ -397,7 +438,7 @@
       ],
       "source": "knowledge/cards/cohesive_state_portability.json",
       "status": "experimental",
-      "summary": "Assigns every locally visible cohesive facet one deterministic MPI owner and saves committed quadrature state by ordered physical facet key, allowing a changed facet order or MPI rank count to recover the same irreversible state.",
+      "summary": "Assigns every locally visible cohesive facet one deterministic MPI owner and saves every declared committed quadrature-state field by ordered physical facet key, allowing a changed facet order or MPI rank count to recover the same irreversible monotonic or cyclic state.",
       "title": "Physical-keyed cohesive state across MPI partitions"
     },
     {

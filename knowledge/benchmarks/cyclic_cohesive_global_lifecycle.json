@@ -1,0 +1,36 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.cyclic_cohesive_global_lifecycle",
+  "title": "Global cyclic cohesive transaction, cutback, restart and named 3D interfaces",
+  "status": "experimental_automated_foundation",
+  "purpose": "Verify the structure-level lifecycle and native finite-element equilibrium foundation required before a calibrated cylinder fatigue-crack benchmark: exact cycle coordinates, peak/valley equilibrium, bulk/cohesive consistent tangents, post-damage feedback, atomic rollback, restart and multiple named cohesive surfaces on one mesh.",
+  "physics": "Quasi-static force-controlled fixed-path Mode-I cohesive fatigue",
+  "execution": {
+    "command": "python -m pytest -q tests/test_fatigue_fracture.py && mpirun -n 2 python -m pytest -q tests/test_parallel_cohesive.py",
+    "example": "tests/test_fatigue_fracture.py",
+    "evidence": "Analytical material-point extrema, a controlled structural surrogate and a real force-controlled Neo-Hookean split strip exercise exact and jumped cycles, structural feedback cutback, native PETSc Newton assembly, strong-constraint reaction, field/interface/ledger restart, atomic two-surface splitting and two-rank state synchronization."
+  },
+  "observables": [
+    "Accepted and rejected cycle blocks with exact integer start/end identity.",
+    "Maximum fatigue-damage increment and normalized post-damage opening feedback.",
+    "Peak, verification-peak and closing equilibrium evidence.",
+    "Bulk field, named physical-facet state and cycle ledger after restart.",
+    "Independent lower/upper cohesive surface identity on one three-dimensional solver mesh."
+  ],
+  "acceptance": [
+    "No candidate block crosses a requested landing cycle.",
+    "A feedback violation restores bulk and every named interface before halving the jump.",
+    "Interrupted in-memory and durable restart paths recover the continuous accepted state.",
+    "Disjoint named surfaces duplicate nodes atomically and ambiguous shared-node surfaces are rejected.",
+    "Two MPI ranks retain identical cycle ledgers and advance all owned cohesive quadrature states to the same accepted cycle.",
+    "The 2D/3D cohesive algorithmic tangent matches force directional derivatives and the two-rank native Newton result preserves the prescribed force/reaction balance.",
+    "A native FEM cycle interrupted after one accepted cycle restarts to the same three-cycle displacement and fatigue state as the continuous calculation."
+  ],
+  "limitations": [
+    "The native strip verifies the equilibrium architecture, not a calibrated cylinder finite-element solution.",
+    "Reference-point distributing-coupling work and complete monotonic/fatigue energy closure remain required.",
+    "Bulk durable checkpoint shards currently require the same MPI partition and rank count.",
+    "No calibrated material, CT geometry or retained experimental prediction is included."
+  ]
+}

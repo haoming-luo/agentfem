@@ -8,6 +8,12 @@ experimental formulation to a validated one.
 
 - Continue external benchmark work for inelasticity and dynamic fracture.
 - Extend three-dimensional cohesive interfaces and mixed finite-strain solids.
+- Add a solver-integrated cyclic cohesive fatigue lifecycle with exact cycle
+  coordinates, adaptive cycle blocks, rollback, restart and named interfaces.
+- Track multiple cracks on one cohesive surface with persistent physical-facet
+  identities and explicit birth, merge, split and death events.
+- Fit Paris relations strictly as postprocessing evidence from accepted crack
+  histories, without prescribing crack advance in the solver.
 
 ## [0.2.0a2] - 2026-08-10
 

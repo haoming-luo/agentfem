@@ -154,6 +154,13 @@ finite-element simulation with AgentFEM.
   list. Portable transient checkpoints also distinguish coincident independent
   nodes. Do not infer 3D imported surfaces or extreme-scale performance from
   this 2D owner-scheduled contract.
+- Cyclic cohesive equilibrium: use
+  `fracture.FiniteStrainCohesiveEquilibrium(...)` when a UFL finite-strain bulk
+  residual and paired-facet interfaces should enter one native Newton solve.
+  Supply the physical scalar load through `load_parameter` or `set_load`; keep
+  interface history commit/rollback under the owning Step. Strong-constraint
+  reactions are supported through the residual reaction field, but do not reuse that
+  definition for MPC, weak, contact or multiplier reactions.
 - Installed projects and external frontends: read `docs/getting_started.md`
   and `docs/agent_gui_integration.md`. Keep `case.py` as modeling truth, use
   `project.current_run()` for artifacts, publish a `SimulationResult`, and

@@ -13,6 +13,7 @@ import numpy as np
 import ufl
 from dolfinx import fem
 from mpi4py import MPI
+from petsc4py import PETSc
 
 from . import fields as field_api
 from . import interfaces as interface_api
@@ -21,6 +22,48 @@ from .constitutive import hyperelasticity
 from .operators.core import OperatorForm
 from .kernel import dofs
 from .fracture_evidence import DynamicFractureEvidenceBundle
+
+
+def _cohesive_state_by_key(state, topology) -> dict[str, dict[str, list[float]]]:
+    """Encode every cohesive state field by durable physical facet key."""
+
+    factory = getattr(state, "state_arrays", None)
+    arrays = (
+        factory()
+        if callable(factory)
+        else {"maximum_opening": np.asarray(state.committed_maximum, dtype=float)}
+    )
+    points = int(topology.quadrature_points_per_facet)
+    records = {}
+    for name, values in sorted(arrays.items()):
+        selected = np.asarray(values, dtype=float)
+        if selected.shape != (int(topology.number_of_points),):
+            raise ValueError(f"Cohesive state field {name!r} has an invalid shape.")
+        by_facet = selected.reshape((-1, points))
+        records[name] = {
+            key: by_facet[index].tolist()
+            for index, key in enumerate(topology.facet_keys)
+        }
+    return records
+
+
+def _restore_cohesive_state_by_key(state, topology, records) -> None:
+    """Restore all state fields while allowing execution-local facet order."""
+
+    expected_fields = set(state.state_arrays())
+    if set(records) != expected_fields:
+        raise ValueError("Cohesive checkpoint state fields differ.")
+    expected_keys = set(topology.facet_keys)
+    arrays = {}
+    for name, by_key in records.items():
+        if set(by_key) != expected_keys:
+            raise ValueError(
+                f"Cohesive checkpoint facet keys differ for state field {name!r}."
+            )
+        arrays[name] = np.asarray(
+            [by_key[key] for key in topology.facet_keys], dtype=float
+        ).reshape(-1)
+    state.restore_state_arrays(arrays)
 
 
 def finite_strain_internal_force(
@@ -145,6 +188,29 @@ class DofMappedCohesiveForce:
         # addition avoids the duplicate-index machinery in ``np.add.at``.
         array[self.node_to_block_dof] += response.internal_force
 
+    def add_to_matrix(self, matrix) -> None:
+        """Add the consistent interface tangent to a serial PETSc matrix."""
+
+        values = self.displacement.x.array.reshape((-1, self.block_size))
+        elements = self.assembler.tangent_elements(
+            values[self.node_to_block_dof]
+        )
+        matrix.setOption(PETSc.Mat.Option.NEW_NONZERO_ALLOCATION_ERR, False)
+        components = np.arange(self.block_size, dtype=np.int32)
+        for nodes, element in zip(
+            elements.nodes, elements.matrices, strict=True
+        ):
+            blocks = self.node_to_block_dof[nodes]
+            scalar_dofs = (
+                blocks[:, None] * self.block_size + components[None, :]
+            ).reshape(-1).astype(np.int32)
+            matrix.setValuesLocal(
+                scalar_dofs,
+                scalar_dofs,
+                element,
+                addv=PETSc.InsertMode.ADD_VALUES,
+            )
+
     def commit(self) -> None:
         self.assembler.commit()
 
@@ -183,6 +249,24 @@ class DofMappedCohesiveForce:
         self.rollback()
         return response
 
+    def cycle_opening(self) -> np.ndarray:
+        """Evaluate the current opening without advancing interface history."""
+
+        response = self.begin()
+        try:
+            return np.asarray(response.opening, dtype=float).reshape(-1).copy()
+        finally:
+            self.rollback()
+
+    def material_point_response(self):
+        """Evaluate local cohesive state at the active displacement field."""
+
+        response = self.begin()
+        try:
+            return self.assembler.material_point_response(response)
+        finally:
+            self.rollback()
+
     def summary(self) -> dict[str, object]:
         return {
             "kind": "dof_mapped_cohesive_force",
@@ -193,23 +277,20 @@ class DofMappedCohesiveForce:
         }
 
     def snapshot(self) -> dict[str, object]:
-        values = np.asarray(
-            self.assembler.state.committed_maximum, dtype=float
-        ).reshape(
-            (-1, self.assembler.topology.quadrature_points_per_facet)
+        state_records = _cohesive_state_by_key(
+            self.assembler.state,
+            self.assembler.topology,
         )
         return {
-            "schema": "agentfem.dof-mapped-cohesive-force.v3",
+            "schema": "agentfem.dof-mapped-cohesive-force.v4",
             "node_to_block_dof": self.node_to_block_dof.tolist(),
             "negative_nodes": self.assembler.topology.negative_nodes.tolist(),
             "positive_nodes": self.assembler.topology.positive_nodes.tolist(),
             "interface_identity": self.assembler.topology.identity(),
             "dof_map_role": "execution_local_not_state_identity",
             "law": self.assembler.law.summary(),
-            "maximum_opening_by_key": {
-                key: values[index].tolist()
-                for index, key in enumerate(self.assembler.topology.facet_keys)
-            },
+            "state_by_field_and_key": state_records,
+            "maximum_opening_by_key": state_records["maximum_opening"],
             "state_identity": "ordered_physical_facet_and_quadrature",
         }
 
@@ -219,6 +300,7 @@ class DofMappedCohesiveForce:
             "agentfem.dof-mapped-cohesive-force.v1",
             "agentfem.dof-mapped-cohesive-force.v2",
             "agentfem.dof-mapped-cohesive-force.v3",
+            "agentfem.dof-mapped-cohesive-force.v4",
         }:
             raise ValueError("Unsupported cohesive dof-state schema.")
         if schema == "agentfem.dof-mapped-cohesive-force.v1":
@@ -258,7 +340,7 @@ class DofMappedCohesiveForce:
             "agentfem.dof-mapped-cohesive-force.v2",
         }:
             self.assembler.state.restore(snapshot["state"])
-        else:
+        elif schema == "agentfem.dof-mapped-cohesive-force.v3":
             records = snapshot.get("maximum_opening_by_key", {})
             if set(records) != set(self.assembler.topology.facet_keys):
                 raise ValueError("Cohesive checkpoint physical facet keys differ.")
@@ -267,6 +349,12 @@ class DofMappedCohesiveForce:
                 dtype=float,
             )
             self.assembler.state.initialize(values.reshape(-1))
+        else:
+            _restore_cohesive_state_by_key(
+                self.assembler.state,
+                self.assembler.topology,
+                snapshot.get("state_by_field_and_key", {}),
+            )
         self.assembler.last_committed_response = None
 
     def stability_inputs(self, mass) -> dict[str, float]:
@@ -288,6 +376,271 @@ class DofMappedCohesiveForce:
             "negative_mass": float(np.min(negative)),
             "positive_mass": float(np.min(positive)),
         }
+
+
+@dataclass(frozen=True)
+class NamedCohesiveResponse:
+    """Responses and aggregate energy from several named interfaces."""
+
+    by_name: dict[str, object]
+
+    @property
+    def stored_energy(self) -> float:
+        return float(sum(item.stored_energy for item in self.by_name.values()))
+
+    @property
+    def dissipated_energy(self) -> float:
+        return float(sum(item.dissipated_energy for item in self.by_name.values()))
+
+
+class CohesiveForceCollection:
+    """Atomically compose independent named cohesive-interface forces.
+
+    Each interface retains its own topology, law, precrack, state, energy and
+    restart identity.  The collection is itself a valid cohesive-force
+    consumer for the existing bulk-plus-interface residual and energy ledger.
+    """
+
+    def __init__(self, interfaces):
+        if isinstance(interfaces, dict):
+            records = tuple(interfaces.items())
+        else:
+            records = tuple(interfaces)
+        if not records:
+            raise ValueError("A cohesive-force collection cannot be empty.")
+        names = [str(name).strip() for name, _force in records]
+        if any(not name for name in names) or len(set(names)) != len(names):
+            raise ValueError("Named cohesive interfaces require unique nonempty names.")
+        self._forces = {
+            name: force for name, (_declared, force) in zip(names, records, strict=True)
+        }
+        required = (
+            "add_to_vector",
+            "commit",
+            "rollback",
+            "snapshot",
+            "restore",
+            "summary",
+            "current_response",
+            "for_displacement",
+            "stability_inputs",
+        )
+        for name, force in self._forces.items():
+            missing = [item for item in required if not callable(getattr(force, item, None))]
+            if missing:
+                raise TypeError(
+                    f"Cohesive interface {name!r} is missing operations {missing}."
+                )
+
+    @property
+    def names(self) -> tuple[str, ...]:
+        return tuple(self._forces)
+
+    @property
+    def displacement(self):
+        selected = tuple(force.displacement for force in self._forces.values())
+        first = selected[0]
+        if any(value is not first for value in selected[1:]):
+            raise RuntimeError(
+                "Named cohesive interfaces must share one displacement field."
+            )
+        return first
+
+    def __getitem__(self, name: str):
+        return self._forces[str(name)]
+
+    def for_displacement(self, displacement) -> "CohesiveForceCollection":
+        return CohesiveForceCollection(
+            {
+                name: force.for_displacement(displacement)
+                for name, force in self._forces.items()
+            }
+        )
+
+    def add_to_vector(self, vector) -> None:
+        for force in self._forces.values():
+            force.add_to_vector(vector)
+
+    def add_to_matrix(self, matrix) -> None:
+        for name, force in self._forces.items():
+            add = getattr(force, "add_to_matrix", None)
+            if not callable(add):
+                raise TypeError(
+                    f"Cohesive interface {name!r} has no consistent tangent consumer."
+                )
+            add(matrix)
+
+    def commit(self) -> None:
+        for force in self._forces.values():
+            force.commit()
+
+    def rollback(self) -> None:
+        for force in self._forces.values():
+            force.rollback()
+
+    def initialize_precrack(self, by_name: dict[str, object]) -> None:
+        unknown = set(by_name) - set(self._forces)
+        if unknown:
+            raise KeyError(f"Unknown cohesive interface names: {sorted(unknown)}.")
+        for name, facets in by_name.items():
+            self._forces[name].initialize_precrack(facets)
+
+    def begin_cycle(self, minimum_by_name, maximum_by_name, *, cycles: int = 1):
+        """Begin one replaceable cycle block across all named interfaces."""
+
+        expected = set(self._forces)
+        if set(minimum_by_name) != expected or set(maximum_by_name) != expected:
+            raise ValueError("Cycle extrema must be supplied for every named interface.")
+        responses = {}
+        try:
+            for name, force in self._forces.items():
+                transaction = force.assembler.state
+                begin = getattr(transaction, "begin_cycle", None)
+                if not callable(begin):
+                    raise TypeError(
+                        f"Cohesive interface {name!r} does not use a cyclic law."
+                    )
+                responses[name] = begin(
+                    minimum_by_name[name],
+                    maximum_by_name[name],
+                    cycles=cycles,
+                )
+        except Exception:
+            self.rollback()
+            raise
+        return responses
+
+    def commit_cycle(self) -> None:
+        for name, force in self._forces.items():
+            commit = getattr(force.assembler.state, "commit_cycle", None)
+            if not callable(commit):
+                self.rollback()
+                raise TypeError(f"Cohesive interface {name!r} has no cycle transaction.")
+        for force in self._forces.values():
+            force.assembler.state.commit_cycle()
+
+    def current_response(self) -> NamedCohesiveResponse:
+        return NamedCohesiveResponse(
+            {name: force.current_response() for name, force in self._forces.items()}
+        )
+
+    def cycle_openings(self) -> dict[str, np.ndarray]:
+        """Return named quadrature openings for a global cycle controller."""
+
+        return {
+            name: force.cycle_opening()
+            for name, force in self._forces.items()
+        }
+
+    def material_point_responses(self) -> dict[str, object]:
+        """Return named local responses without committing trial history."""
+
+        return {
+            name: force.material_point_response()
+            for name, force in self._forces.items()
+        }
+
+    def stability_inputs(self, mass) -> dict[str, float]:
+        candidates = [force.stability_inputs(mass) for force in self._forces.values()]
+
+        def limit(record):
+            reduced = (
+                record["negative_mass"]
+                * record["positive_mass"]
+                / (record["negative_mass"] + record["positive_mass"])
+            )
+            return 2.0 * sqrt(
+                reduced
+                / (record["interface_stiffness"] * record["interface_area"])
+            )
+
+        return min(candidates, key=limit)
+
+    def snapshot(self) -> dict[str, object]:
+        return {
+            "schema": "agentfem.named-cohesive-forces.v1",
+            "interfaces": {
+                name: force.snapshot() for name, force in self._forces.items()
+            },
+        }
+
+    def restore(self, snapshot: dict[str, object]) -> None:
+        if snapshot.get("schema") != "agentfem.named-cohesive-forces.v1":
+            raise ValueError("Unsupported named cohesive-force schema.")
+        records = snapshot.get("interfaces", {})
+        if set(records) != set(self._forces):
+            raise ValueError("Named cohesive interfaces differ from checkpoint.")
+        for name, force in self._forces.items():
+            force.restore(records[name])
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "named_cohesive_force_collection",
+            "interfaces": {
+                name: force.summary() for name, force in self._forces.items()
+            },
+            "state": "independent_per_interface",
+            "commit": "atomic_collection_lifecycle",
+        }
+
+    @property
+    def distributed(self) -> bool:
+        return any(
+            isinstance(force, DistributedDofMappedCohesiveForce)
+            for force in self._forces.values()
+        )
+
+
+def named_cohesive_forces(**interfaces) -> CohesiveForceCollection:
+    """Create an atomically managed collection from named cohesive forces."""
+
+    return CohesiveForceCollection(interfaces)
+
+
+def named_mode_i_cohesive_forces(
+    split,
+    displacement,
+    *,
+    laws,
+    normal_hints,
+    thicknesses=None,
+    tolerance: float = 1.0e-10,
+) -> CohesiveForceCollection:
+    """Build independent named forces on one atomically split solver mesh."""
+
+    if not isinstance(split, interface_api.NamedSplitInterfaceMesh):
+        raise TypeError(
+            "named_mode_i_cohesive_forces requires NamedSplitInterfaceMesh."
+        )
+    selected_laws = dict(laws)
+    selected_normals = dict(normal_hints)
+    selected_thicknesses = (
+        {name: 1.0 for name in split.names}
+        if thicknesses is None
+        else dict(thicknesses)
+    )
+    expected = set(split.names)
+    for label, values in (
+        ("laws", selected_laws),
+        ("normal_hints", selected_normals),
+        ("thicknesses", selected_thicknesses),
+    ):
+        if set(values) != expected:
+            raise ValueError(
+                f"Named cohesive {label} must match interfaces {sorted(expected)}."
+            )
+    forces = {
+        name: mode_i_cohesive_force(
+            split[name],
+            displacement,
+            selected_laws[name],
+            normal_hint=selected_normals[name],
+            thickness=float(selected_thicknesses[name]),
+            tolerance=tolerance,
+        )
+        for name in split.names
+    }
+    return CohesiveForceCollection(forces)
 
 
 class _SparseCohesiveExchange:
@@ -585,6 +938,28 @@ class DistributedDofMappedCohesiveForce:
             owned_interface_nodes=self.local_owned_interface_nodes,
             block_size=self.block_size,
         )
+        index_map = function.function_space.dofmap.index_map
+        local_global = index_map.local_to_global(
+            self.local_owned_interface_dofs.astype(np.int32)
+        )
+        owned_records = dict(
+            zip(
+                self.local_owned_interface_nodes.tolist(),
+                np.asarray(local_global, dtype=int).tolist(),
+                strict=True,
+            )
+        )
+        self.input_node_to_global_block_dof = np.full(mapping.size, -1, dtype=int)
+        for records in self.comm.allgather(owned_records):
+            for node, global_dof in records.items():
+                previous = self.input_node_to_global_block_dof[int(node)]
+                if previous >= 0 and previous != int(global_dof):
+                    raise RuntimeError(
+                        "A cohesive input node has inconsistent global dof identity."
+                    )
+                self.input_node_to_global_block_dof[int(node)] = int(global_dof)
+        if np.any(self.input_node_to_global_block_dof[self.interface_nodes] < 0):
+            raise RuntimeError("A cohesive interface node has no global PETSc dof.")
 
     @property
     def node_to_block_dof(self) -> np.ndarray:
@@ -637,6 +1012,29 @@ class DistributedDofMappedCohesiveForce:
             response.internal_force
         )
 
+    def add_to_matrix(self, matrix) -> None:
+        """Add locally owned facets using global PETSc dof identities."""
+
+        elements = self.assembler.tangent_elements(
+            self._required_displacement()
+        )
+        matrix.setOption(PETSc.Mat.Option.NEW_NONZERO_ALLOCATION_ERR, False)
+        components = np.arange(self.block_size, dtype=PETSc.IntType)
+        for compact_nodes, element in zip(
+            elements.nodes, elements.matrices, strict=True
+        ):
+            input_nodes = self.local_input_nodes[compact_nodes]
+            blocks = self.input_node_to_global_block_dof[input_nodes]
+            scalar_dofs = (
+                blocks[:, None] * self.block_size + components[None, :]
+            ).reshape(-1).astype(PETSc.IntType)
+            matrix.setValues(
+                scalar_dofs,
+                scalar_dofs,
+                element,
+                addv=PETSc.InsertMode.ADD_VALUES,
+            )
+
     def commit(self) -> None:
         self.assembler.commit()
 
@@ -664,6 +1062,24 @@ class DistributedDofMappedCohesiveForce:
         self.rollback()
         return response
 
+    def cycle_opening(self) -> np.ndarray:
+        """Evaluate local-owner openings without advancing interface history."""
+
+        response = self.begin()
+        try:
+            return np.asarray(response.opening, dtype=float).reshape(-1).copy()
+        finally:
+            self.rollback()
+
+    def material_point_response(self):
+        """Evaluate the local-owner constitutive response at active displacement."""
+
+        local = self.assembler.begin(self._required_displacement())
+        try:
+            return self.assembler.material_point_response(local)
+        finally:
+            self.assembler.rollback()
+
     def summary(self) -> dict[str, object]:
         local = int(self.assembler.topology.number_of_facets)
         global_count = int(self.comm.allreduce(local, op=MPI.SUM))
@@ -687,51 +1103,74 @@ class DistributedDofMappedCohesiveForce:
         }
 
     def snapshot(self) -> dict[str, object]:
-        local_values = np.asarray(
-            self.assembler.state.committed_maximum, dtype=float
-        ).reshape(
-            (-1, self.assembler.topology.quadrature_points_per_facet)
+        local_state = _cohesive_state_by_key(
+            self.assembler.state,
+            self.assembler.topology,
         )
         gathered = self.comm.allgather(
             (
                 tuple(self.assembler.topology.facet_keys),
-                local_values.tolist(),
+                local_state,
             )
         )
-        records = {}
-        for keys, values in gathered:
-            for key, value in zip(keys, values, strict=True):
-                if key in records:
-                    raise RuntimeError(f"Cohesive facet {key} has multiple MPI owners.")
-                records[key] = value
+        field_names = tuple(sorted(local_state))
+        records = {name: {} for name in field_names}
+        for keys, fields in gathered:
+            if tuple(sorted(fields)) != field_names:
+                raise RuntimeError("Distributed cohesive state fields differ by rank.")
+            for name in field_names:
+                for key in keys:
+                    if key in records[name]:
+                        raise RuntimeError(
+                            f"Cohesive facet {key} has multiple MPI owners."
+                        )
+                    records[name][key] = fields[name][key]
         expected = set(self.global_topology.facet_keys)
-        if set(records) != expected:
+        if any(set(records[name]) != expected for name in field_names):
             raise RuntimeError("Distributed cohesive snapshot lacks global facets.")
         return {
-            "schema": "agentfem.dof-mapped-cohesive-force.v3",
+            "schema": "agentfem.dof-mapped-cohesive-force.v4",
             "interface_identity": self.global_topology.identity(),
             "law": self.assembler.law.summary(),
-            "maximum_opening_by_key": {
-                key: records[key] for key in sorted(records)
-            },
+            "state_by_field_and_key": records,
+            "maximum_opening_by_key": records["maximum_opening"],
             "state_identity": "ordered_physical_facet_and_quadrature",
         }
 
     def restore(self, snapshot: dict[str, object]) -> None:
-        if snapshot.get("schema") != "agentfem.dof-mapped-cohesive-force.v3":
+        schema = snapshot.get("schema")
+        if schema not in {
+            "agentfem.dof-mapped-cohesive-force.v3",
+            "agentfem.dof-mapped-cohesive-force.v4",
+        }:
             raise ValueError("Unsupported distributed cohesive-state schema.")
         if snapshot.get("interface_identity") != self.global_topology.identity():
             raise ValueError("Distributed cohesive physical interface differs.")
         if snapshot.get("law") != self.assembler.law.summary():
             raise ValueError("Distributed cohesive law differs.")
-        records = snapshot.get("maximum_opening_by_key", {})
-        if set(records) != set(self.global_topology.facet_keys):
-            raise ValueError("Distributed cohesive snapshot facet keys differ.")
-        local = np.asarray(
-            [records[key] for key in self.assembler.topology.facet_keys],
-            dtype=float,
-        )
-        self.assembler.state.initialize(local.reshape(-1))
+        if schema == "agentfem.dof-mapped-cohesive-force.v3":
+            records = snapshot.get("maximum_opening_by_key", {})
+            if set(records) != set(self.global_topology.facet_keys):
+                raise ValueError("Distributed cohesive snapshot facet keys differ.")
+            local = np.asarray(
+                [records[key] for key in self.assembler.topology.facet_keys],
+                dtype=float,
+            )
+            self.assembler.state.initialize(local.reshape(-1))
+        else:
+            global_records = snapshot.get("state_by_field_and_key", {})
+            local_records = {
+                name: {
+                    key: records[key]
+                    for key in self.assembler.topology.facet_keys
+                }
+                for name, records in global_records.items()
+            }
+            _restore_cohesive_state_by_key(
+                self.assembler.state,
+                self.assembler.topology,
+                local_records,
+            )
         self.assembler.last_committed_response = None
 
     def save_portable_state(self, path):
@@ -872,7 +1311,7 @@ def p1_input_node_to_block_dof(displacement, *, number_of_input_nodes: int):
 def mode_i_cohesive_force(
     split: interface_api.SplitInterfaceMesh,
     displacement,
-    law: interface_api.BilinearCohesiveLaw,
+    law,
     *,
     normal_hint,
     thickness: float = 1.0,
@@ -1002,12 +1441,16 @@ class FiniteStrainCohesiveResidual:
     def __init__(
         self,
         bulk,
-        cohesive: DofMappedCohesiveForce | DistributedDofMappedCohesiveForce,
+        cohesive,
     ):
         self.bulk = bulk
         self.cohesive = cohesive
 
-    def assemble_vector(self):
+    @property
+    def displacement(self):
+        return self.cohesive.displacement
+
+    def assemble_vector(self, *, bcs=None):
         ledger = getattr(self, "performance", None)
         bulk_started = perf_counter()
         vector = operators.assemble_vector(self.bulk)
@@ -1025,7 +1468,54 @@ class FiniteStrainCohesiveResidual:
             vector.destroy()
             self.cohesive.rollback()
             raise
+        if bcs:
+            _zero_owned_bc_entries(vector, bcs)
         return vector
+
+    def assemble_matrix(self, tangent, *, bcs=None):
+        """Assemble the bulk and interface algorithmic tangent together.
+
+        Strong constraints are eliminated only after both contributions have
+        entered the matrix.  This ordering is essential because duplicated
+        cohesive traces introduce couplings absent from the bulk sparsity
+        graph.
+        """
+
+        ledger = getattr(self, "performance", None)
+        started = perf_counter()
+        matrix = operators.assemble_matrix(tangent)
+        try:
+            self.cohesive.add_to_matrix(matrix)
+            matrix.assemble()
+            if bcs:
+                constrained = _owned_bc_global_dofs(self.displacement, bcs)
+                matrix.zeroRowsColumns(constrained, diag=1.0)
+                matrix.assemble()
+            if ledger is not None:
+                ledger.add("bulk_cohesive_tangent_assembly", perf_counter() - started)
+            return matrix
+        except Exception:
+            matrix.destroy()
+            raise
+
+    def reaction_field(self, *, name: str = "RF"):
+        """Return the unconstrained bulk-plus-interface algebraic residual.
+
+        At a converged equilibrium its free entries vanish and strong-
+        constraint entries are nodal reactions.  The definition intentionally
+        excludes MPC, weak, contact and multiplier reactions.
+        """
+
+        vector = self.assemble_vector()
+        reaction = fem.Function(self.displacement.function_space, name=name)
+        try:
+            values = vector.array_r
+            reaction.x.array[: len(values)] = values
+            reaction.x.scatter_forward()
+        finally:
+            vector.destroy()
+            self.rollback()
+        return reaction
 
     def commit(self) -> None:
         self.cohesive.commit()
@@ -1045,12 +1535,15 @@ class FiniteStrainCohesiveResidual:
         self.cohesive.restore(snapshot["cohesive"])
 
     def summary(self) -> dict[str, object]:
-        parallel = isinstance(self.cohesive, DistributedDofMappedCohesiveForce)
+        parallel = isinstance(
+            self.cohesive, DistributedDofMappedCohesiveForce
+        ) or bool(getattr(self.cohesive, "distributed", False))
+        bulk_family = getattr(self.bulk, "family", "finite_strain_bulk")
         return {
             "name": "R_bulk_plus_cohesive",
             "kind": "finite_strain_cohesive_residual",
             "role": "residual",
-            "family": "total_lagrangian_neo_hookean+cohesive_interface",
+            "family": f"{bulk_family}+cohesive_interface",
             "parts": (
                 self.bulk.summary() if hasattr(self.bulk, "summary") else repr(self.bulk),
                 self.cohesive.summary(),
@@ -1060,6 +1553,293 @@ class FiniteStrainCohesiveResidual:
                 if parallel
                 else "experimental_serial_global_consumer"
             ),
+        }
+
+
+def _owned_bc_local_dofs(bcs) -> np.ndarray:
+    records = []
+    for bc in bcs:
+        dofs, first_ghost = bc.dof_indices()
+        records.append(np.asarray(dofs[:first_ghost], dtype=np.int32))
+    if not records:
+        return np.empty(0, dtype=np.int32)
+    return np.unique(np.concatenate(records)).astype(np.int32)
+
+
+def _zero_owned_bc_entries(vector, bcs) -> None:
+    selected = _owned_bc_local_dofs(bcs)
+    if selected.size:
+        with vector.localForm() as local:
+            local.array_w[selected] = 0.0
+
+
+def _owned_bc_global_dofs(displacement, bcs) -> np.ndarray:
+    local_scalar = _owned_bc_local_dofs(bcs)
+    if local_scalar.size == 0:
+        return np.empty(0, dtype=PETSc.IntType)
+    space = displacement.function_space
+    block_size = int(space.dofmap.index_map_bs)
+    local_blocks = (local_scalar // block_size).astype(np.int32)
+    components = local_scalar % block_size
+    global_blocks = space.dofmap.index_map.local_to_global(local_blocks)
+    return (
+        np.asarray(global_blocks, dtype=PETSc.IntType) * block_size
+        + components.astype(PETSc.IntType)
+    )
+
+
+@dataclass(frozen=True)
+class CohesiveNewtonSolveInfo:
+    """Convergence evidence for one native bulk-plus-interface equilibrium."""
+
+    converged: bool
+    iterations: int
+    initial_residual_norm: float
+    residual_norm: float
+    accepted_step_lengths: tuple[float, ...]
+    linear_converged_reasons: tuple[int, ...]
+    message: str = ""
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "finite_strain_cohesive_newton_info",
+            "converged": self.converged,
+            "iterations": self.iterations,
+            "initial_residual_norm": self.initial_residual_norm,
+            "residual_norm": self.residual_norm,
+            "accepted_step_lengths": self.accepted_step_lengths,
+            "linear_converged_reasons": self.linear_converged_reasons,
+            "message": self.message,
+        }
+
+
+class FiniteStrainCohesiveEquilibrium:
+    """Native Newton consumer for UFL bulk and zero-thickness interfaces.
+
+    A scalar physical load is supplied through ``set_load``.  The class is
+    directly callable with the ``GlobalCyclicFatigueStep`` equilibrium
+    protocol, but it remains useful for monotonic quasi-static paths.
+    Cohesive history is never committed inside Newton; the owning step keeps
+    begin/commit/rollback authority.
+    """
+
+    def __init__(
+        self,
+        residual: FiniteStrainCohesiveResidual,
+        tangent,
+        displacement,
+        *,
+        set_load=None,
+        load_parameter=None,
+        reference_load: float = 1.0,
+        bcs=(),
+        solver_options=None,
+        control_displacement=None,
+        reaction=None,
+        bulk_strain_energy=None,
+    ):
+        if not isinstance(residual, FiniteStrainCohesiveResidual):
+            raise TypeError("Native cohesive equilibrium requires its residual type.")
+        if (set_load is None) == (load_parameter is None):
+            raise ValueError(
+                "Provide exactly one of set_load or load_parameter."
+            )
+        selected_reference = float(reference_load)
+        if not isfinite(selected_reference) or selected_reference == 0.0:
+            raise ValueError("reference_load must be finite and nonzero.")
+        if set_load is None:
+            if not hasattr(load_parameter, "value"):
+                raise TypeError("load_parameter must expose a writable value.")
+
+            def set_load(value):
+                load_parameter.value = float(value) / selected_reference
+
+        elif not callable(set_load):
+            raise TypeError("set_load must accept one physical scalar load.")
+        for label, callback in (
+            ("control_displacement", control_displacement),
+            ("reaction", reaction),
+            ("bulk_strain_energy", bulk_strain_energy),
+        ):
+            if callback is not None and not callable(callback):
+                raise TypeError(f"{label} must be callable when supplied.")
+        from . import solvers
+
+        self.residual = residual
+        self.tangent = tangent
+        self.displacement = field_api.unwrap(displacement)
+        if self.displacement is not residual.displacement:
+            raise ValueError("Residual and equilibrium must share one displacement field.")
+        self.set_load = set_load
+        self.reference_load = selected_reference
+        self.bcs = tuple(bcs)
+        selected_options = solver_options or solvers.newton()
+        if not isinstance(selected_options, solvers.NewtonSolverOptions):
+            raise TypeError(
+                "FiniteStrainCohesiveEquilibrium requires NewtonSolverOptions."
+            )
+        self.solver_options = selected_options
+        self.control_displacement = control_displacement
+        self.reaction = reaction
+        self.bulk_strain_energy = bulk_strain_energy
+        self.last_info: CohesiveNewtonSolveInfo | None = None
+
+    def _residual_vector(self):
+        return self.residual.assemble_vector(bcs=self.bcs)
+
+    def solve(self, load: float) -> CohesiveNewtonSolveInfo:
+        from dolfinx.fem import petsc as fem_petsc
+        from . import solvers
+
+        selected_load = float(load)
+        if not isfinite(selected_load):
+            raise ValueError("Cohesive equilibrium load must be finite.")
+        self.set_load(selected_load)
+        function = self.displacement
+        rollback = function.x.array.copy()
+        fem_petsc.set_bc(function.x.petsc_vec, list(self.bcs))
+        function.x.scatter_forward()
+        options = self.solver_options
+        accepted_steps = []
+        linear_reasons = []
+        residual_vector = self._residual_vector()
+        initial_norm = float(residual_vector.norm())
+        current_norm = initial_norm
+        residual_vector.destroy()
+        threshold = options.absolute_tolerance + options.relative_tolerance * initial_norm
+        converged = np.isfinite(current_norm) and current_norm <= threshold
+        iteration = 0
+        message = "converged at initial state" if converged else ""
+        try:
+            while not converged and iteration < options.maximum_iterations:
+                iteration += 1
+                residual_vector = self._residual_vector()
+                matrix = self.residual.assemble_matrix(
+                    self.tangent, bcs=self.bcs
+                )
+                right_hand_side = residual_vector.copy()
+                right_hand_side.scale(-1.0)
+                correction = function.x.petsc_vec.duplicate()
+                correction.set(0.0)
+                linear = solvers.solve_matrix_system(
+                    matrix,
+                    right_hand_side,
+                    correction,
+                    options.linear_solver,
+                    raise_on_failure=False,
+                )
+                linear_reasons.append(linear.converged_reason)
+                residual_vector.destroy()
+                right_hand_side.destroy()
+                matrix.destroy()
+                if not linear.converged:
+                    correction.destroy()
+                    message = (
+                        "linear correction failed with PETSc reason "
+                        f"{linear.converged_reason}"
+                    )
+                    break
+                correction.ghostUpdate(
+                    addv=PETSc.InsertMode.INSERT,
+                    mode=PETSc.ScatterMode.FORWARD,
+                )
+                base = function.x.array.copy()
+                direction = correction.array.copy()
+                correction.destroy()
+                alpha = 1.0
+                accepted = False
+                minimum = (
+                    options.minimum_step_length
+                    if options.line_search == "backtracking"
+                    else 1.0
+                )
+                while alpha + 1.0e-15 >= minimum:
+                    function.x.array[:] = base + alpha * direction
+                    fem_petsc.set_bc(function.x.petsc_vec, list(self.bcs))
+                    function.x.scatter_forward()
+                    trial = self._residual_vector()
+                    trial_norm = float(trial.norm())
+                    trial.destroy()
+                    decreases = (
+                        trial_norm < current_norm
+                        or trial_norm <= current_norm * (1.0 - 1.0e-4 * alpha)
+                    )
+                    if np.isfinite(trial_norm) and (
+                        options.line_search != "backtracking" or decreases
+                    ):
+                        current_norm = trial_norm
+                        accepted_steps.append(alpha)
+                        accepted = True
+                        break
+                    self.residual.rollback()
+                    alpha *= options.line_search_reduction
+                if not accepted:
+                    function.x.array[:] = base
+                    function.x.scatter_forward()
+                    message = "line search did not reduce the residual"
+                    break
+                converged = current_norm <= threshold
+                if converged:
+                    message = "converged"
+            if not converged and not message:
+                message = "maximum Newton iterations reached"
+            info = CohesiveNewtonSolveInfo(
+                converged=converged,
+                iterations=iteration,
+                initial_residual_norm=initial_norm,
+                residual_norm=current_norm,
+                accepted_step_lengths=tuple(accepted_steps),
+                linear_converged_reasons=tuple(linear_reasons),
+                message=message,
+            )
+            self.last_info = info
+            if not converged:
+                function.x.array[:] = rollback
+                function.x.scatter_forward()
+                self.residual.rollback()
+                if options.error_if_not_converged:
+                    raise RuntimeError(
+                        "Finite-strain cohesive Newton solve failed: " + message
+                    )
+            return info
+        except Exception:
+            function.x.array[:] = rollback
+            function.x.scatter_forward()
+            self.residual.rollback()
+            raise
+
+    def __call__(self, *, load: float, branch: str, cycle: int):
+        info = self.solve(load)
+        evidence = {
+            "branch": branch,
+            "load": float(load),
+            "cycle": int(cycle),
+            "converged": info.converged,
+            "iterations": info.iterations,
+            "metadata": {"newton": info.summary()},
+        }
+        if self.control_displacement is not None:
+            evidence["control_displacement"] = float(
+                self.control_displacement(self.displacement)
+            )
+        if self.reaction is not None:
+            evidence["reaction"] = float(self.reaction(self.displacement))
+        if self.bulk_strain_energy is not None:
+            evidence["bulk_strain_energy"] = float(
+                self.bulk_strain_energy(self.displacement)
+            )
+        return evidence
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "finite_strain_cohesive_equilibrium",
+            "procedure": "quasi_static_newton",
+            "residual": self.residual.summary(),
+            "solver": self.solver_options.summary(),
+            "load_control": "physical_scalar_callback",
+            "reference_load": self.reference_load,
+            "cohesive_state_commit": "owned_by_step_lifecycle",
+            "maturity": "experimental_native_global_consumer",
         }
 
 
@@ -1184,7 +1964,7 @@ class FiniteStrainCohesiveEnergyMonitor:
     """Typed accepted-frame energy for bulk plus cohesive dynamics."""
 
     bulk: FiniteStrainEnergyMonitor
-    cohesive: DofMappedCohesiveForce | DistributedDofMappedCohesiveForce
+    cohesive: object
     _initial_dissipation: float | None = None
 
     def restore(self, history_record: dict[str, float]) -> None:
@@ -3095,6 +3875,7 @@ def minimum_cell_nodal_spacing(domain) -> float:
 
 
 __all__ = [
+    "CohesiveForceCollection",
     "DynamicFractureEvidenceBundle",
     "DofMappedCohesiveForce",
     "DistributedDofMappedCohesiveForce",
@@ -3103,9 +3884,12 @@ __all__ = [
     "CohesiveCrackHistory",
     "CrackPropagationFit",
     "InterfaceFrontHistory",
+    "NamedCohesiveResponse",
     "PreloadTransferReport",
     "FiniteStrainEnergyMonitor",
     "FiniteStrainCohesiveEnergyMonitor",
+    "CohesiveNewtonSolveInfo",
+    "FiniteStrainCohesiveEquilibrium",
     "FiniteStrainCohesiveResidual",
     "IsotropicWaveSpeeds",
     "PrincipalSurfaceWaveSpeed",
@@ -3127,6 +3911,8 @@ __all__ = [
     "minimum_cell_nodal_spacing",
     "mach_cone_angle",
     "mode_i_cohesive_force",
+    "named_cohesive_forces",
+    "named_mode_i_cohesive_forces",
     "p1_input_node_to_block_dof",
     "separation_regime",
     "transfer_preload_to_explicit",

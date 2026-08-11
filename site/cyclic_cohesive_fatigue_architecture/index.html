@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://haoming-luo.github.io/agentfem/platform_support/">
+        <link rel="canonical" href="https://haoming-luo.github.io/agentfem/cyclic_cohesive_fatigue_architecture/">
       
       
-        <link rel="prev" href="../project_upgrades/">
+        <link rel="prev" href="../dynamic_cohesive_fracture_architecture/">
       
       
-        <link rel="next" href="../licensing/">
+        <link rel="next" href="../solution_procedures_and_thermal_creep/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Platform and Optional Dependencies - AgentFEM</title>
+        <title>Cyclic Cohesive Fatigue - AgentFEM</title>
       
     
     
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#platform-and-optional-dependency-support" class="md-skip">
+        <a href="#cyclic-cohesive-fatigue-architecture" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Platform and Optional Dependencies
+              Cyclic Cohesive Fatigue
             
           </span>
         </div>
@@ -432,8 +432,10 @@
       
   
   
+    
   
   
+  
     
     
     
@@ -444,11 +446,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
@@ -469,7 +471,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -963,6 +965,8 @@
                 
   
   
+    
+  
   
   
     
@@ -972,11 +976,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" checked>
         
           
           <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
@@ -997,7 +1001,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1096,10 +1100,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../cyclic_cohesive_fatigue_architecture/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cyclic Cohesive Fatigue
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1115,6 +1146,114 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#independent-coordinates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Independent coordinates
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#constitutive-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constitutive protocol
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cycle-jump" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cycle jump
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multiple-interfaces-and-restart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multiple interfaces and restart
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#three-dimensional-observations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Three-dimensional observations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification-ladder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification ladder
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#primary-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Primary references
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2019,8 +2158,6 @@
       
   
   
-    
-  
   
   
     
@@ -2033,11 +2170,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
         
           
           <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
@@ -2058,7 +2195,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_7">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2129,8 +2266,6 @@
                 
   
   
-    
-  
   
   
     
@@ -2140,11 +2275,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_3" >
         
           
           <label class="md-nav__link" for="__nav_7_3" id="__nav_7_3_label" tabindex="0">
@@ -2165,7 +2300,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_7_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2320,37 +2455,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Platform and Optional Dependencies
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../platform_support/" class="md-nav__link">
         
   
   
@@ -2366,59 +2474,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#first-release-support-policy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        First-release support policy
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#windows-recommendation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Windows recommendation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gmsh-is-an-optional-adapter" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Gmsh is an optional adapter
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -3056,10 +3111,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#first-release-support-policy" class="md-nav__link">
+  <a href="#scope" class="md-nav__link">
     <span class="md-ellipsis">
       
-        First-release support policy
+        Scope
       
     </span>
   </a>
@@ -3067,10 +3122,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#windows-recommendation" class="md-nav__link">
+  <a href="#independent-coordinates" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Windows recommendation
+        Independent coordinates
       
     </span>
   </a>
@@ -3078,10 +3133,65 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#gmsh-is-an-optional-adapter" class="md-nav__link">
+  <a href="#constitutive-protocol" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Gmsh is an optional adapter
+        Constitutive protocol
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cycle-jump" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cycle jump
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multiple-interfaces-and-restart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multiple interfaces and restart
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#three-dimensional-observations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Three-dimensional observations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification-ladder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification ladder
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#primary-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Primary references
       
     </span>
   </a>
@@ -3131,10 +3241,10 @@
     
     
       <li class="md-path__item">
-        <a href="../project/" class="md-path__link">
+        <a href="../guide/" class="md-path__link">
           
   <span class="md-ellipsis">
-    Project
+    User Guide
   </span>
 
         </a>
@@ -3149,10 +3259,10 @@
     
     
       <li class="md-path__item">
-        <a href="../trust/" class="md-path__link">
+        <a href="../nonlinear_materials/" class="md-path__link">
           
   <span class="md-ellipsis">
-    Trust and Operations
+    Nonlinear and Coupled Workflows
   </span>
 
         </a>
@@ -3174,87 +3284,256 @@
   
 
 
-<h1 id="platform-and-optional-dependency-support">Platform and Optional-Dependency Support<a class="headerlink" href="#platform-and-optional-dependency-support" title="Permanent link">&para;</a></h1>
-<h2 id="first-release-support-policy">First-release support policy<a class="headerlink" href="#first-release-support-policy" title="Permanent link">&para;</a></h2>
-<p>AgentFEM reports platforms by executable evidence, not by whether Python can
-theoretically import one package.</p>
-<table>
-<thead>
-<tr>
-<th>Route</th>
-<th>26 August 2026 level</th>
-<th>Evidence and boundary</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Native Linux</td>
-<td>CI verified</td>
-<td>Full tests, two-rank MPI, wheel and release Demo gates run on Ubuntu.</td>
-</tr>
-<tr>
-<td>Native macOS</td>
-<td>Developer verified</td>
-<td>Maintainer development and release verification run on Apple Silicon; the MPI launcher must match <code>mpi4py</code>.</td>
-</tr>
-<tr>
-<td>Windows through WSL2</td>
-<td>Recommended Windows route</td>
-<td>Uses the Linux FEniCSx/PETSc/MPI stack exercised by CI. Host GUI and filesystem integration remain local setup concerns.</td>
-</tr>
-<tr>
-<td>Native Windows</td>
-<td>Experimental</td>
-<td>FEniCSx 0.11 has <code>win-64</code> builds, but AgentFEM's PETSc route and <code>dolfinx_mpc</code> 0.11 do not form a complete conda-forge native-Windows stack, and AgentFEM has no native-Windows CI gate.</td>
-</tr>
-</tbody>
-</table>
-<p>The current machine can produce a compact issue-report record:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">agentfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">platforms</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">platforms</span><span class="o">.</span><span class="n">runtime_report</span><span class="p">()</span><span class="o">.</span><span class="n">format</span><span class="p">())</span>
+<h1 id="cyclic-cohesive-fatigue-architecture">Cyclic Cohesive Fatigue Architecture<a class="headerlink" href="#cyclic-cohesive-fatigue-architecture" title="Permanent link">&para;</a></h1>
+<h2 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h2>
+<p>AgentFEM's first fatigue-crack-growth route is a declared zero-thickness
+cohesive surface subjected to cyclic loading. It is not the existing S--N
+fatigue postprocessor under a new name, and it is not yet a free-path crack
+method. The initial research target is one or two surface cracks in a
+three-dimensional cylindrical specimen under axial force cycles.</p>
+<p>The product capability is deliberately more general than that specimen:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>named cyclic load
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>      |
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>peak/valley equilibrium solves
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>      |
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>cyclic cohesive material transaction
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>      |
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>adaptive cycle block (begin / commit / rollback)
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>      |
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>named-interface state, energy, checkpoint and 3D observations
 </code></pre></div>
-<p>This reports the operating-system route, Python and core-package versions,
-the exact interpreter and imported AgentFEM directory, any installed-package
-shadowing, and the availability of meshio, Gmsh, PyVista, PyTorch, and
-<code>dolfinx_mpc</code>.</p>
-<h2 id="windows-recommendation">Windows recommendation<a class="headerlink" href="#windows-recommendation" title="Permanent link">&para;</a></h2>
-<p>Install WSL2 with Ubuntu, install Miniforge inside WSL, and follow
-<code>INSTALL.md</code>. Keep the project inside the WSL Linux filesystem for compilation
-and I/O performance. ParaView may run either inside WSLg or on Windows while
-opening output copied or exposed from the WSL filesystem.</p>
-<p>Native Windows should become supported only after all of the following exist:</p>
-<ol>
-<li>a supported linear/nonlinear algebra provider for AgentFEM's public steps;</li>
-<li>serial solve, XDMF/HDF5, JIT-form, and result tests on <code>windows-latest</code>;</li>
-<li>a documented MPI story;</li>
-<li>an explicit limitation or replacement for workflows requiring
-   <code>dolfinx_mpc</code>;</li>
-<li>an installed-wheel Demo gate.</li>
-</ol>
-<h2 id="gmsh-is-an-optional-adapter">Gmsh is an optional adapter<a class="headerlink" href="#gmsh-is-an-optional-adapter" title="Permanent link">&para;</a></h2>
-<p>AgentFEM has three independent mesh routes:</p>
-<ol>
-<li>DOLFINx structured meshes such as <code>mesh.rectangle(...)</code> require no Gmsh.</li>
-<li>XDMF meshes and meshio-based Abaqus/NASTRAN conversion require no Gmsh.</li>
-<li><code>mesh.read_gmsh_mesh(...)</code> and in-memory Gmsh models require the optional
-   Gmsh Python API.</li>
-</ol>
-<p>Install only the route required by the model:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;agentfem[mesh-formats]&#39;</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;agentfem[gmsh]&#39;</span>
-</code></pre></div>
-<p>The Gmsh project distributes its software under GPL-2.0-or-later with a
-published exception. AgentFEM does not vendor or bundle Gmsh, does not list it
-as a core dependency, and loads it only at the direct-Gmsh capability
-boundary. Distributors assembling a combined product remain responsible for
-reviewing the licenses of every component they distribute.</p>
-<p>Primary references:</p>
+<p>Geometry generation, CT registration and a particular cylinder mesh are
+research assets built on this contract. They do not define the solver API.</p>
+<h2 id="independent-coordinates">Independent coordinates<a class="headerlink" href="#independent-coordinates" title="Permanent link">&para;</a></h2>
+<p>Physical time, cycle count and output frame are different quantities:</p>
 <ul>
-<li><a href="https://fenicsproject.org/download/">FEniCSx download and installation</a></li>
-<li><a href="https://docs.fenicsproject.org/dolfinx/main/python/installation.html">DOLFINx installation dependencies</a></li>
-<li><a href="https://gmsh.info/#Licensing">Gmsh licensing</a></li>
-<li><a href="https://gmsh.info/LICENSE.txt">Gmsh license text</a></li>
+<li>physical time resolves inertia, frequency and waveform when those effects
+  matter;</li>
+<li>cycle count advances fatigue state and is the independent coordinate of a
+  cycle-jump calculation;</li>
+<li>output frames are requested observations and never determine state
+  evolution.</li>
+</ul>
+<p><code>procedures.cyclic_fatigue()</code> therefore declares <code>control="cycle_increments"</code>
+on a Standard, stateful, quasi-static peak/valley procedure. It does not reuse
+Explicit time merely to count cycles. <code>fatigue_fracture.ForceCycle</code> can still
+produce a physical-time amplitude when the waveform must be resolved. Sine,
+triangle and experiment-supplied tabular cycles are supported; sine/triangle
+cycles may declare peak and valley hold fractions, while tabular holds are
+represented explicitly by repeated values at distinct phases.</p>
+<p>For a physically resolved cycle, the existing engineering load path remains
+the consumer:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">cycle</span> <span class="o">=</span> <span class="n">fatigue_fracture</span><span class="o">.</span><span class="n">force_cycle</span><span class="p">(</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">fmin</span><span class="o">=</span><span class="mf">226.0</span><span class="p">,</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">fmax</span><span class="o">=</span><span class="mf">2262.0</span><span class="p">,</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">frequency</span><span class="o">=</span><span class="n">frequency</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">)</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">model</span><span class="o">.</span><span class="n">distributing_coupling</span><span class="p">(</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">force</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">cycle</span><span class="o">.</span><span class="n">maximum</span><span class="p">),</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">on</span><span class="o">=</span><span class="n">regions</span><span class="o">.</span><span class="n">loaded_end</span><span class="p">,</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">reference_point</span><span class="o">=</span><span class="n">loading_point</span><span class="p">,</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">amplitude</span><span class="o">=</span><span class="n">cycle</span><span class="o">.</span><span class="n">normalized_amplitude</span><span class="p">(),</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="p">)</span>
+</code></pre></div>
+<p>The quasi-static global cycle controller consumes the same declared minimum
+and maximum directly, without resolving millions of waveform periods.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">step</span> <span class="o">=</span> <span class="n">fatigue_fracture</span><span class="o">.</span><span class="n">global_cyclic_fatigue_step</span><span class="p">(</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">cycle</span><span class="o">=</span><span class="n">cycle</span><span class="p">,</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">stop_cycle</span><span class="o">=</span><span class="mi">1_000_000</span><span class="p">,</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">interfaces</span><span class="o">=</span><span class="n">cohesive_interfaces</span><span class="p">,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">state</span><span class="o">=</span><span class="n">fatigue_fracture</span><span class="o">.</span><span class="n">field_state</span><span class="p">(</span><span class="n">displacement</span><span class="o">=</span><span class="n">displacement</span><span class="p">),</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">solve_equilibrium</span><span class="o">=</span><span class="n">solve_peak_or_valley</span><span class="p">,</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">jump</span><span class="o">=</span><span class="n">fatigue_fracture</span><span class="o">.</span><span class="n">CycleJumpPolicy</span><span class="p">(</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>        <span class="n">maximum_damage_increment</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="p">),</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="n">landing_cycles</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">1_000</span><span class="p">,</span> <span class="mi">10_000</span><span class="p">),</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="p">)</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">step</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</code></pre></div>
+<p>The callback remains an explicit and replaceable integration boundary. For the
+native finite-strain route, <code>fracture.FiniteStrainCohesiveEquilibrium</code> now
+assembles the UFL bulk residual/tangent and the paired-facet cohesive
+force/algorithmic tangent into one PETSc Newton system. It accepts a physical
+scalar load setter and may return strong-constraint reaction, control
+displacement and bulk-energy evidence through reusable callbacks. Custom
+equilibrium providers remain valid for other constitutive or constraint
+formulations; the cycle controller never replaces or approximates the global
+solve.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">equilibrium</span> <span class="o">=</span> <span class="n">fracture</span><span class="o">.</span><span class="n">FiniteStrainCohesiveEquilibrium</span><span class="p">(</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">residual</span><span class="o">=</span><span class="n">bulk_plus_interfaces</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">tangent</span><span class="o">=</span><span class="n">bulk_tangent</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">displacement</span><span class="o">=</span><span class="n">displacement</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">load_parameter</span><span class="o">=</span><span class="n">axial_force_parameter</span><span class="p">,</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">bcs</span><span class="o">=</span><span class="n">strong_constraints</span><span class="p">,</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">solver_options</span><span class="o">=</span><span class="n">solvers</span><span class="o">.</span><span class="n">newton</span><span class="p">(),</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">reaction</span><span class="o">=</span><span class="n">axial_reaction</span><span class="p">,</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">control_displacement</span><span class="o">=</span><span class="n">loaded_end_displacement</span><span class="p">,</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="p">)</span>
+</code></pre></div>
+<p>The interface tangent is integrated from the constitutive <code>dt/ddelta</code> at each
+quadrature point. Strong constraints are eliminated only after the bulk and
+cohesive matrices have been combined, including couplings between coincident
+but independent trace nodes. The same kernel is covered by 2D/3D directional-
+derivative tests, serial PETSc assembly and a sparse-owner two-rank MPI test.</p>
+<h2 id="constitutive-protocol">Constitutive protocol<a class="headerlink" href="#constitutive-protocol" title="Permanent link">&para;</a></h2>
+<p><code>CyclicCohesiveLaw</code> composes, rather than replaces, a monotonic
+<code>BilinearCohesiveLaw</code>. Without a cycle-state advance it returns exactly the
+wrapped monotonic traction, tangent, damage and dissipation. The reference
+fatigue evolution uses the positive local opening extrema:</p>
+<div class="arithmatex">\[
+R_\delta = \frac{\delta_{\min}^{+}}{\delta_{\max}^{+}},\qquad
+\Delta \bar\delta =
+\frac{\delta_{\max}^{+}-\delta_{\min}^{+}}{\delta_f},
+\]</div>
+<div class="arithmatex">\[
+\frac{\mathrm d D_f}{\mathrm d N}
+= C
+\left\langle
+\frac{\Delta\bar\delta-\Delta\bar\delta_{\mathrm{th}}}
+{1-\Delta\bar\delta_{\mathrm{th}}}
+\right\rangle^{m}
+\left(\frac{\delta_{\max}^{+}}{\delta_f}\right)^q
+(1-D_f)^p.
+\]</div>
+<p>The residual term is part of the rate, not a separate additive source. Local
+opening extrema, rather than one globally imposed load ratio, allow shielding
+and closure to alter the driving cycle at each interface point.</p>
+<p>This power-law range model is an experimental reference implementation. It is
+not asserted to be universal for metals, elastomers, adhesives or composites.
+Alternative fatigue laws should retain the same public transaction:</p>
+<ul>
+<li>evaluate monotonic equilibrium trials;</li>
+<li>begin one cycle block from accepted peak/valley states;</li>
+<li>commit or rollback all history atomically;</li>
+<li>export every state array for restart;</li>
+<li>report threshold, load-ratio convention, evolution variable, monotonic
+  limit and maturity.</li>
+</ul>
+<p>The state separates maximum monotonic opening, fatigue damage, last positive
+opening extrema, accumulated cycles and fatigue dissipation. Compression uses
+the monotonic closure penalty and neither heals fatigue damage nor creates
+fatigue dissipation.</p>
+<h2 id="cycle-jump">Cycle jump<a class="headerlink" href="#cycle-jump" title="Permanent link">&para;</a></h2>
+<p><code>CycleJumpPolicy</code> bounds a proposed integer block by declared maximum damage
+and crack-front increments and never steps over a required output/checkpoint
+cycle. Its decision records start/end cycle, reason, controlling rates,
+predicted increments and exact landing target. <code>CycleJumpLedger</code> preserves
+every accepted or rejected proposal, its error estimate and cutback message,
+and is itself restartable.</p>
+<p>The policy is a proposal, not a global error estimator.
+<code>GlobalCyclicFatigueStep</code> now supplies the structural lifecycle:</p>
+<ol>
+<li>solve the accepted minimum and maximum equilibrium states;</li>
+<li>predict a cycle block from current material and optional front rates;</li>
+<li>begin the complete block transaction;</li>
+<li>re-solve the degraded peak/valley states;</li>
+<li>compare the pre- and post-degradation peak opening and accept only if
+   damage, structural-feedback and optional energy errors lie within tolerance;</li>
+<li>otherwise rollback and cut back the cycle block.</li>
+</ol>
+<p>At constant extrema the reference material-point rate is integrated
+analytically, so one 100-cycle material update equals 100 one-cycle updates.
+That property is necessary but does not prove structural cycle-jump accuracy:
+the extrema change as a crack grows.</p>
+<h2 id="multiple-interfaces-and-restart">Multiple interfaces and restart<a class="headerlink" href="#multiple-interfaces-and-restart" title="Permanent link">&para;</a></h2>
+<p><code>fracture.CohesiveForceCollection</code> composes independently named cohesive
+forces and can be consumed by the existing finite-strain cohesive residual and
+energy monitor. Each name retains its own topology, normal, material,
+precrack, response and restart record. Collection begin/commit/rollback is
+atomic.</p>
+<p><code>interfaces.split_conforming_named_interfaces(...)</code> performs one audited split
+for several disjoint two- or three-dimensional manifolds. All named surfaces
+share one solver mesh but receive independent duplicated nodes, physical facet
+identity, material and state. Ambiguous interfaces that share source nodes are
+rejected until an explicit cohesive-junction topology is available.</p>
+<p>Portable cohesive checkpoint schema v2 stores every declared state field by
+ordered physical facet key and quadrature point. It remains independent of MPI
+rank and DOF numbering. The reader retains compatibility with the monotonic
+schema v1.</p>
+<p>The global controller additionally checkpoints the accepted cycle ledger,
+named interfaces and bulk field shards. Bulk fields currently require the same
+MPI partition and rank count; physical-facet interface state remains portable
+across partitioning. This difference is recorded rather than hidden.</p>
+<h2 id="three-dimensional-observations">Three-dimensional observations<a class="headerlink" href="#three-dimensional-observations" title="Permanent link">&para;</a></h2>
+<p><code>observe_surface_crack(...)</code> works on a triangular cohesive surface. It
+reports failed area, connected components, maximum and area-weighted mean COD,
+and the embedded crack front formed by edges shared by one failed and one
+intact facet. Surface boundary edges are excluded by default so the crack mouth
+is not counted as the propagating front.</p>
+<p><code>surface_crack_interaction(...)</code> reports the minimum distance between two
+named fronts and explicit growth-rate ratios relative to a single-crack
+baseline. A ratio below one is shielding and a ratio above one is
+amplification. This makes the scientific rule visible: calibrate on the single
+crack, then predict the double crack without refitting.</p>
+<p><code>SurfaceCrackTracker</code> consumes stable physical facet keys and gives every
+connected component a persistent identity. One-to-one growth retains that
+identity; birth, death, merge and split are explicit topology events. A merge
+creates a new identity with all parent IDs instead of arbitrarily selecting
+one old crack as the survivor. The tracker is restartable, and one tracking
+frame computes all same-surface pair ligaments without asking a user to split
+the observation manually. MPI use requires globally stable facet keys rather
+than rank-local indices.</p>
+<p><code>paris_evidence(...)</code> is deliberately a postprocessor, not a crack-growth
+law. It differentiates an accepted crack-size history, records the declared
+fit mask or cycle interval and fits</p>
+<div class="arithmatex">\[
+\frac{\mathrm da}{\mathrm dN}=C\,\mathcal D^m,
+\]</div>
+<p>where the caller declares whether <span class="arithmatex">\(\mathcal D\)</span> is <span class="arithmatex">\(\Delta K\)</span>, <span class="arithmatex">\(\Delta G\)</span>
+or another documented driver. The fitted relation tests an emergent simulation
+response; it never feeds the fitted Paris parameters back into the cohesive
+solver. CT-to-mesh registration should reuse the existing explicit
+<code>surrogates.AffineCoordinateMap</code> (<code>x_model = x_CT @ A.T + b</code>) and store its
+coordinate systems and units with comparison evidence; registration does not
+belong in a plotting script.</p>
+<h2 id="verification-ladder">Verification ladder<a class="headerlink" href="#verification-ladder" title="Permanent link">&para;</a></h2>
+<p>The current executable foundation covers:</p>
+<ol>
+<li>exact monotonic recovery when no fatigue cycles are advanced;</li>
+<li>no damage under a static hold or below the fatigue threshold;</li>
+<li>irreversible damage and no false closure dissipation;</li>
+<li>exact constant-extrema one-cycle/cycle-jump equivalence;</li>
+<li>cycle-block rollback and local restart equivalence;</li>
+<li>all-field physical-facet checkpoint round trip;</li>
+<li>real consumption by the existing three-dimensional surface assembler;</li>
+<li>named-interface aggregation and three-dimensional front geometry;</li>
+<li>global peak/valley transaction, post-damage equilibrium feedback and
+   automatic cycle cutback;</li>
+<li>exact cycle landings plus interrupted/durable restart equivalence;</li>
+<li>atomic two-interface splitting on one three-dimensional solver mesh.</li>
+<li>analytic 2D/3D cohesive tangents against force directional derivatives;</li>
+<li>native force-controlled Neo-Hookean/cohesive Newton equilibrium with
+    strong-constraint reaction evidence;</li>
+<li>real FEM peak/valley, fatigue update, degraded re-equilibration, closing
+    and interrupted/restarted equivalence;</li>
+<li>two-rank sparse-owner cohesive tangent and distributed Newton assembly;</li>
+<li>stable same-surface component identity, restart and explicit merge ancestry;</li>
+<li>deterministic Paris postprocessing on a synthetic known power relation.</li>
+</ol>
+<p>Promotion to a cylinder-validated fatigue-crack-growth capability still requires:</p>
+<ul>
+<li>reference-point distributing-coupling work extraction and complete
+  monotonic/fatigue energy closure in the native equilibrium adapter;</li>
+<li>force-controlled cylinder examples and mesh/cycle-jump convergence;</li>
+<li>cross-partition portability for the bulk field part of the global checkpoint;</li>
+<li>symmetric two-crack and large-spacing limiting cases;</li>
+<li>an external numerical benchmark and retained experimental prediction cases.</li>
+</ul>
+<p>Until those gates pass, the feature is described as an experimental global
+cycle-lifecycle consumer and cohesive-facet foundation, not as a validated
+cylinder fatigue solver.</p>
+<h2 id="primary-references">Primary references<a class="headerlink" href="#primary-references" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Roe and Siegmund, <em>Engineering Fracture Mechanics</em> 70 (2003) 209--232,
+  DOI <code>10.1016/S0013-7944(02)00034-6</code>.</li>
+<li>Bak, Turon, Lindgaard and Lund, <em>International Journal for Numerical Methods
+  in Engineering</em> 106 (2016) 163--191, DOI <code>10.1002/nme.5117</code>.</li>
+<li>Dávila, NASA/TP--2018-219838, <em>From S--N to the Paris Law with a New
+  Mixed-Mode Cohesive Fatigue Model</em>.</li>
+<li>Carreras et al., <em>A simulation method for fatigue-driven delamination in
+  layered structures involving non-negligible fracture process zones and
+  arbitrarily shaped crack fronts</em>, arXiv <code>1905.05000</code>.</li>
 </ul>
 
 
@@ -3293,7 +3572,7 @@ reviewing the licenses of every component they distribute.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../project_upgrades/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Project Compatibility and Upgrades">
+          <a href="../dynamic_cohesive_fracture_architecture/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Dynamic Cohesive Fracture">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -3303,20 +3582,20 @@ reviewing the licenses of every component they distribute.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Project Compatibility and Upgrades
+                Dynamic Cohesive Fracture
               </div>
             </div>
           </a>
         
         
           
-          <a href="../licensing/" class="md-footer__link md-footer__link--next" aria-label="Next: Licensing">
+          <a href="../solution_procedures_and_thermal_creep/" class="md-footer__link md-footer__link--next" aria-label="Next: Thermal Stress and Creep Procedures">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Licensing
+                Thermal Stress and Creep Procedures
               </div>
             </div>
             <div class="md-footer__button md-icon">

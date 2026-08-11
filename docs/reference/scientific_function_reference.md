@@ -12,6 +12,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | --- | --- | --- | --- |
 | [`agentfem.load.surface_resultant`](#agentfem-load-surface_resultant) | Uniform boundary traction from a requested resultant force | workflow | supported |
 | [`agentfem.material.creep_damage_assessment`](#agentfem-material-creep_damage_assessment) | Creep damage and modified-theta assessment | material | supported |
+| [`agentfem.material.cyclic_cohesive_fatigue`](#agentfem-material-cyclic_cohesive_fatigue) | Cyclic cohesive damage with an independent cycle coordinate | material | experimental |
 | [`agentfem.material.finite_strain_plane_stress`](#agentfem-material-finite_strain_plane_stress) | Locally condensed finite-strain plane-stress Neo-Hookean membrane | material | experimental |
 | [`agentfem.material.global_implicit_creep`](#agentfem-material-global_implicit_creep) | Global implicit power-law creep | material | supported |
 | [`agentfem.material.j2_global_plasticity`](#agentfem-material-j2_global_plasticity) | Global small-strain J2 plasticity | material | supported |
@@ -46,6 +47,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | `agentfem.benchmark.creep_abaqus_constant_stress` | Official Abaqus time-hardening constant-stress creep case | three-dimensional small-strain Mises time-hardening power-law creep | automated_external_verification |
 | `agentfem.benchmark.creep_damage_material_paths` | Creep-damage material paths and curve projection | Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection | automated_regression |
 | `agentfem.benchmark.creep_hot_wall_release` | Sequential hot-wall creep assessment release contract | sequential transient heat conduction, plane-strain thermoelasticity, and local creep-damage assessment | automated_regression |
+| `agentfem.benchmark.cyclic_cohesive_global_lifecycle` | Global cyclic cohesive transaction, cutback, restart and named 3D interfaces | Quasi-static force-controlled fixed-path Mode-I cohesive fatigue | experimental_automated_foundation |
 | `agentfem.benchmark.distributed_cohesive_force` | Two-rank sparse fixed-path cohesive force and portable restart | Two-dimensional Mode-I bilinear cohesive interface in finite-strain Explicit dynamics | experimental_mpi_sparse_automated |
 | `agentfem.benchmark.dynamic_fracture_energy_v2` | Finite-strain and cohesive dynamic energy closure | Total-Lagrangian Neo-Hookean dynamics with optional Mode-I cohesive separation | experimental_v2_automated |
 | `agentfem.benchmark.elasticity_foundation` | Foundational small-strain elasticity verification | two- and three-dimensional small-strain linear elasticity | automated |
@@ -279,6 +281,144 @@ Create KachanovRabotnovCreep with traceable parameters, advance CreepDamageState
 - Constitutive equations for creep rupture: `doi:10.1016/0001-6160(77)90135-3`
 - Damage localization of conventional creep damage models and proposition of a new model: `doi:10.1299/jsmea.41.57`
 - Modified theta projection equation for high-temperature creep curves: `https://pmc.ncbi.nlm.nih.gov/articles/PMC6838921/`
+
+<a id="agentfem-material-cyclic_cohesive_fatigue"></a>
+
+## Cyclic cohesive damage with an independent cycle coordinate
+
+**Stable ID:** `agentfem.material.cyclic_cohesive_fatigue`<br>
+**Kind:** `material`<br>
+**Status:** `experimental`<br>
+**Source card:** `knowledge/cards/cyclic_cohesive_fatigue.json`
+
+Layers a thresholded, irreversible opening-range fatigue state on the exact bilinear Mode-I monotonic limit and advances accepted integer cycle blocks through explicit begin, commit, rollback and restart semantics.
+
+### Public API
+
+- `agentfem.fatigue_fracture.ForceCycle`
+- `agentfem.fatigue_fracture.CycleJumpPolicy`
+- `agentfem.fatigue_fracture.CycleJumpLedger`
+- `agentfem.fatigue_fracture.CyclicCohesiveLaw`
+- `agentfem.fatigue_fracture.CyclicCohesiveTransaction`
+- `agentfem.fatigue_fracture.FieldStateTransaction`
+- `agentfem.fatigue_fracture.GlobalCyclicFatigueStep`
+- `agentfem.fatigue_fracture.SurfaceCrackTracker`
+- `agentfem.fatigue_fracture.ParisEvidence`
+- `agentfem.fatigue_fracture.cyclic_cohesive`
+- `agentfem.fatigue_fracture.global_cyclic_fatigue_step`
+- `agentfem.fatigue_fracture.observe_surface_crack`
+- `agentfem.fatigue_fracture.paris_evidence`
+- `agentfem.procedures.cyclic_fatigue`
+- `agentfem.fracture.CohesiveForceCollection`
+- `agentfem.fracture.FiniteStrainCohesiveEquilibrium`
+- `agentfem.fracture.FiniteStrainCohesiveResidual`
+- `agentfem.fracture.named_mode_i_cohesive_forces`
+- `agentfem.interfaces.split_conforming_named_interfaces`
+
+### Scientific contract
+
+Fatigue cycles are neither transient time increments nor output frames; a replaceable cyclic cohesive law advances irreversible interface state from accepted local opening extrema while preserving the declared monotonic envelope.
+
+**local opening load ratio**
+
+$$
+R_delta=delta_min^+/delta_max^+
+$$
+
+The local ratio changes with closure, shielding and crack interaction instead of copying one applied global load ratio to every integration point.
+
+**reference fatigue rate**
+
+$$
+dD_f/dN=C<((Delta delta/delta_f)-threshold)/(1-threshold)>^m(delta_max^+/delta_f)^q(1-D_f)^p
+$$
+
+A transparent reference law; alternative calibrated laws retain the same state and lifecycle protocol.
+
+**combined damage**
+
+$$
+D=1-(1-D_m)(1-D_f)
+$$
+
+Monotonic and cyclic degradation remain separately inspectable and combine without healing.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| monotonic cohesive law | BilinearCohesiveLaw | traction-separation envelope | Defines strength, fracture energy, stiffness, closure and the exact monotonic limit. |
+| cycle extrema | positive opening minimum and maximum per interface point | length | Must come from accepted peak/valley equilibrium states in a global consumer. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| cyclic cohesive response | traction, tangent, monotonic/fatigue/total damage and energy | interface response | Compression retains closure stiffness without fatigue healing or false fatigue dissipation. |
+| cycle state | physical-facet-keyed quadrature arrays | restart state | Includes opening extrema, accumulated cycles, fatigue damage and fatigue dissipation. |
+| persistent crack components | physical-facet-keyed crack identities and topology events | geometric observation | Tracks per-component area, COD and front geometry while recording birth, death, merge and split ancestry across accepted cycles and restart. |
+| Paris evidence | postprocessed da/dN power-law fit | declared crack-size and driving-force units | Fits accepted simulation observations with an explicit sample mask; it is never consumed as a crack-growth law by the solver. |
+
+#### Assumptions
+
+- The first law is normal Mode-I and fixed path.
+- The reference evolution is calibrated for the material/interface and load regime being studied.
+- The global cycle controller re-solves degraded equilibrium and rolls back/cuts back a proposed block when damage, opening-feedback or energy evidence exceeds tolerance.
+
+#### Conventions
+
+- Cycle count is an integer independent coordinate.
+- Local positive opening extrema define the load-ratio effect.
+- No cycle advancement exactly recovers the wrapped bilinear law.
+
+#### Applicability
+
+- Material-point studies, current 2D/3D paired-facet cohesive assemblers and the global peak/valley lifecycle for fixed-path surface-fatigue crack growth.
+
+#### Limitations
+
+- The native equilibrium adapter currently covers Total-Lagrangian hyperelastic bulk forms, fixed-path Mode-I cohesive interfaces and strong Dirichlet reactions; reference-point work, MPC/weak/contact reactions and complete fatigue energy closure remain separate gates.
+- No mixed-mode, free-path crack growth, cylinder benchmark or experimental validation is included yet.
+- Bulk-field durable restart currently requires the same MPI partition; cohesive facet state is physically keyed and portable.
+
+### Minimal example
+
+```python
+cycle = fatigue_fracture.force_cycle(fmin=226, fmax=2262); law = fatigue_fracture.cyclic_cohesive(monotonic=interfaces.bilinear_cohesive(strength=..., fracture_energy=..., initial_stiffness=...), fatigue_coefficient=..., fatigue_exponent=..., range_threshold=...); step = fatigue_fracture.global_cyclic_fatigue_step(cycle=cycle, stop_cycle=..., interfaces=named_interfaces, state=fatigue_fracture.field_state(displacement=u), solve_equilibrium=solve_peak_or_valley); step.run()
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_fatigue_fracture.py`
+- `tests/test_interfaces.py`
+- `tests/test_dynamic_fracture.py`
+- `tests/test_global_cohesive_residual.py`
+- `tests/test_parallel_cohesive.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.cyclic_cohesive_global_lifecycle`
+
+**Validation rules**
+
+- Below-threshold cycles and static holds do not produce fatigue damage.
+- No-cycle monotonic paths exactly reproduce the bilinear law.
+- Rollback leaves all cycle state unchanged and checkpoint restores every field.
+- Constant-extrema exact cycles and one analytical cycle jump agree.
+- Global blocks re-solve the degraded peak, cut back excessive feedback, land on requested cycles and preserve restart equivalence.
+- Several disjoint 3D cohesive surfaces split atomically onto one solver mesh with independent names and state.
+- Analytical 2D/3D interface tangents match force directional derivatives and assemble with the UFL bulk tangent in serial and two-rank PETSc Newton systems.
+- A real force-controlled Neo-Hookean split strip completes peak, valley, fatigue update, degraded re-equilibration and closing, and its interrupted restart matches the continuous path.
+- Same-surface components preserve one-to-one identities, create explicit merge ancestry and recover the same state after restart.
+- Paris postprocessing recovers a synthetic known power relation without influencing crack evolution.
+
+### References
+
+- Roe and Siegmund, An irreversible cohesive zone model for interface fatigue crack growth simulation: `https://doi.org/10.1016/S0013-7944(02)00034-6`
+- Bak et al., A Simulation Method for High-Cycle Fatigue-Driven Delamination using a Cohesive Zone Model: `https://doi.org/10.1002/nme.5117`
+- AgentFEM cyclic cohesive fatigue architecture: `docs/cyclic_cohesive_fatigue_architecture.md`
 
 <a id="agentfem-material-finite_strain_plane_stress"></a>
 
@@ -1163,7 +1303,7 @@ dataset = report.require_dataset(quality='engineering'); training = surrogates.t
 **Status:** `experimental`<br>
 **Source card:** `knowledge/cards/cohesive_state_portability.json`
 
-Assigns every locally visible cohesive facet one deterministic MPI owner and saves committed quadrature state by ordered physical facet key, allowing a changed facet order or MPI rank count to recover the same irreversible state.
+Assigns every locally visible cohesive facet one deterministic MPI owner and saves every declared committed quadrature-state field by ordered physical facet key, allowing a changed facet order or MPI rank count to recover the same irreversible monotonic or cyclic state.
 
 ### Public API
 
@@ -1197,14 +1337,14 @@ The hash selects one rank from the sorted ranks on which the physical facet is v
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | paired physical facets | PairedLineFacets with ordered reference-geometry keys | reference geometry | Every local facet key is unique; ghost overlap across ranks is permitted. |
-| committed cohesive transaction | two quadrature-point maximum-opening values per facet and one law contract | opening length | Trial state must not be mistaken for accepted restart state. |
+| committed cohesive transaction | named quadrature-state arrays per facet and one law contract | opening length | Trial state must not be mistaken for accepted restart state. |
 
 #### Outputs
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | FacetOwnership | local ownership mask and global key-to-rank map | topology metadata | Provides one owner among the ranks able to assemble a visible facet. |
-| portable cohesive checkpoint | SHA-256 checked JSON manifest and keyed NPZ state | preserves cohesive law units | Restores local arrays in current facet order after verifying the global physical interface and law. |
+| portable cohesive checkpoint | SHA-256 checked JSON manifest and keyed NPZ state | preserves cohesive law units | Schema v2 restores all law-declared local arrays in current facet order after verifying the global physical interface, state layout and law; the reader retains monotonic schema-v1 compatibility. |
 
 #### Assumptions
 
@@ -1226,6 +1366,7 @@ The hash selects one rank from the sorted ranks on which the physical facet is v
 
 - Distributed residual assembly uses a sparse physical-node owner schedule; this state card alone is not an extreme-scale performance claim.
 - The root-gathered NPZ format is laboratory-scale, not an extreme-scale collective checkpoint backend.
+- State fields must be finite scalar arrays with one value per interface quadrature point.
 - Reversed facet orientation is intentionally incompatible until quadrature permutation is explicitly implemented.
 
 ### Minimal example

@@ -1099,6 +1099,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../cyclic_cohesive_fatigue_architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cyclic Cohesive Fatigue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../solution_procedures_and_thermal_creep/" class="md-nav__link">
         
   
@@ -3419,6 +3447,12 @@ core, results, verification, and documentation have priority.</p>
 <td>postprocessor</td>
 <td>Basquin/tabulated S-N, rainflow, Goodman, Miner assessment from named result histories</td>
 <td>no multiaxial critical-plane method</td>
+</tr>
+<tr>
+<td>Cyclic cohesive fatigue</td>
+<td>experimental native FEM lifecycle + 3D facet foundation</td>
+<td>independent cycle coordinate; force-cycle extrema; thresholded cyclic Mode-I damage layered on the exact bilinear monotonic limit; native serial/MPI hyperelastic bulk-plus-cohesive Newton equilibrium with analytical interface tangent and strong-constraint reaction; global peak/valley/post-damage lifecycle; damage/structural-feedback/energy acceptance and automatic cycle cutback; exact landings; bulk+named-interface restart; atomic multi-interface split on one solver mesh; 3D failed area/front/COD; persistent same-surface crack identities with merge/split ancestry and pair ligaments; Paris-law postprocessing evidence that remains outside the solver</td>
+<td>reference-point work and complete fatigue energy closure, cylinder benchmark, cross-partition bulk restart, CT validation and experimental prediction remain</td>
 </tr>
 <tr>
 <td>External CAE mesh</td>

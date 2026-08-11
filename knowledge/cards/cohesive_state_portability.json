@@ -5,7 +5,7 @@
   "title": "Physical-keyed cohesive state across MPI partitions",
   "kind": "workflow",
   "status": "experimental",
-  "summary": "Assigns every locally visible cohesive facet one deterministic MPI owner and saves committed quadrature state by ordered physical facet key, allowing a changed facet order or MPI rank count to recover the same irreversible state.",
+  "summary": "Assigns every locally visible cohesive facet one deterministic MPI owner and saves every declared committed quadrature-state field by ordered physical facet key, allowing a changed facet order or MPI rank count to recover the same irreversible monotonic or cyclic state.",
   "public_api": [
     "agentfem.interfaces.deterministic_facet_ownership",
     "agentfem.interfaces.save_portable_cohesive_state",
@@ -39,7 +39,7 @@
       },
       {
         "name": "committed cohesive transaction",
-        "type": "two quadrature-point maximum-opening values per facet and one law contract",
+        "type": "named quadrature-state arrays per facet and one law contract",
         "unit_role": "opening length",
         "description": "Trial state must not be mistaken for accepted restart state."
       }
@@ -55,7 +55,7 @@
         "name": "portable cohesive checkpoint",
         "type": "SHA-256 checked JSON manifest and keyed NPZ state",
         "unit_role": "preserves cohesive law units",
-        "description": "Restores local arrays in current facet order after verifying the global physical interface and law."
+        "description": "Schema v2 restores all law-declared local arrays in current facet order after verifying the global physical interface, state layout and law; the reader retains monotonic schema-v1 compatibility."
       }
     ],
     "assumptions": [
@@ -74,6 +74,7 @@
     "limitations": [
       "Distributed residual assembly uses a sparse physical-node owner schedule; this state card alone is not an extreme-scale performance claim.",
       "The root-gathered NPZ format is laboratory-scale, not an extreme-scale collective checkpoint backend.",
+      "State fields must be finite scalar arrays with one value per interface quadrature point.",
       "Reversed facet orientation is intentionally incompatible until quadrature permutation is explicitly implemented."
     ]
   },

@@ -415,6 +415,24 @@ _BENCHMARKS = (
         automated_test="tests/test_constitutive_models.py::test_rainflow_history_to_miner_damage_and_goodman_correction",
     ),
     BenchmarkSpec(
+        identifier="cyclic_cohesive_material_path",
+        capability="cyclic_cohesive_fatigue",
+        level="global_lifecycle_and_facet",
+        reference=(
+            "irreversible bilinear monotonic limit plus constant-extrema "
+            "analytical cycle-block evolution"
+        ),
+        criterion=(
+            "monotonic recovery is exact, sub-threshold cycles are inactive, "
+            "closure cannot heal, cycle jump equals exact cycles at fixed "
+            "extrema, global feedback triggers atomic cutback, restart retains "
+            "bulk/interface/cycle state, named 3D interfaces share one solver "
+            "mesh, and the facet consumer degrades force with nonnegative dissipation"
+        ),
+        automated_test="tests/test_fatigue_fracture.py",
+        status="experimental_foundation",
+    ),
+    BenchmarkSpec(
         identifier="external_mesh_named_sets",
         capability="external_mesh_interoperability",
         level="interface",
