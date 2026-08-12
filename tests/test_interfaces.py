@@ -428,8 +428,13 @@ def test_mixed_mode_initialization_requires_a_complete_physical_state():
     with pytest.raises(ValueError, match="does not determine"):
         state.initialize(0.01)
 
+    elastic = state.state_arrays()
+    elastic["maximum_effective_separation"][:] = 0.005
+    state.restore_state_arrays(elastic)
+    assert state.committed_maximum == pytest.approx([0.005])
+
     incomplete = state.state_arrays()
-    incomplete["maximum_effective_separation"][:] = 0.01
+    incomplete["failure_separation"][:] = 0.4
     with pytest.raises(ValueError, match="incomplete uninitiated"):
         state.restore_state_arrays(incomplete)
 

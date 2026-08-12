@@ -102,8 +102,8 @@ def save_portable_cohesive_state(
         }
     else:
         local_state = state_factory()
-    if not local_state or "maximum_opening" not in local_state:
-        raise ValueError("Cohesive state must include maximum_opening.")
+    if not local_state:
+        raise ValueError("Cohesive state must expose at least one state field.")
     local_values = {}
     for name, values in sorted(local_state.items()):
         selected = np.asarray(values, dtype=float)

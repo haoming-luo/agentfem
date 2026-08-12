@@ -1,0 +1,169 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.material.mixed_mode_cyclic_cohesive",
+  "title": "Proportional and ordered-path mixed-mode cyclic cohesive damage",
+  "kind": "material",
+  "status": "experimental",
+  "summary": "Layers explicit proportional-extrema or ordered within-cycle local cohesive-energy drivers on the mixed-mode bilinear envelope while preserving full jump vectors, BK or power interaction, atomic cycle transactions and physically keyed restart.",
+  "public_api": [
+    "agentfem.fatigue_fracture.MixedModeEnergyRange",
+    "agentfem.fatigue_fracture.MixedModeEnergyRangeDriver",
+    "agentfem.fatigue_fracture.OrderedJumpCyclePath",
+    "agentfem.fatigue_fracture.OrderedMixedModeEnergyPathDriver",
+    "agentfem.fatigue_fracture.MixedModeCyclicCohesiveLaw",
+    "agentfem.fatigue_fracture.MixedModeCyclicCohesiveTransaction",
+    "agentfem.fatigue_fracture.mixed_mode_energy_range_driver",
+    "agentfem.fatigue_fracture.ordered_jump_cycle",
+    "agentfem.fatigue_fracture.ordered_mixed_mode_energy_path_driver",
+    "agentfem.fatigue_fracture.cyclic_work_energy_ledger",
+    "agentfem.fatigue_fracture.cyclic_cohesive",
+    "agentfem.fatigue_fracture.global_cyclic_fatigue_step",
+    "agentfem.interfaces.mixed_mode_bilinear_cohesive",
+    "agentfem.fracture.cohesive_force"
+  ],
+  "implementation": [
+    "fatigue_fracture.py",
+    "interfaces.py",
+    "fracture.py",
+    "cohesive_checkpoint.py"
+  ],
+  "science": {
+    "statement": "A mixed-mode fatigue update consumes either true accepted valley/peak vectors for a proportional cycle or an ordered closed sequence of within-cycle jump vectors, resolves work-conjugate normal and shear cohesive-energy variations, and advances one replaceable irreversible state through a declared interaction rule.",
+    "equations": [
+      {
+        "label": "local cohesive energy channels",
+        "expression": "G_I^coh=0.5 K_n<delta_n>^2, G_II^coh=0.5 K_t||delta_t||^2",
+        "description": "These material-point damage drivers are explicitly distinguished from a structure-level J-integral or VCCT result."
+      },
+      {
+        "label": "BK range interaction",
+        "expression": "G_c(beta)=G_Ic+(G_IIc-G_Ic) beta^eta, beta=Delta G_II/(Delta G_I+Delta G_II)",
+        "description": "A power-law interaction is available through the same explicit driver contract."
+      },
+      {
+        "label": "reference cyclic evolution",
+        "expression": "dD_f/dN=C<Delta G_bar>^m(1-D_f)^p",
+        "description": "The normalized range includes the mixed threshold and critical energy, and constant extrema use exact residual-power integration."
+      },
+      {
+        "label": "ordered path measure",
+        "expression": "Phi_path=sum_s I_s <Delta G_s-G_th(beta_s)>_+/(G_c(beta_s)-G_th(beta_s))",
+        "description": "Positive variations of each local cohesive energy channel retain their order and segment mode mix; channel unloading does not create a second fictitious fatigue increment, while constant-total-energy mode transfer is preserved."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "mixed monotonic law",
+        "type": "MixedModeBilinearCohesiveLaw",
+        "unit_role": "traction-separation envelope",
+        "description": "Declares normal/shear strength, stiffness, fracture energies and BK or power interaction."
+      },
+      {
+        "name": "energy-range driver",
+        "type": "MixedModeEnergyRangeDriver",
+        "unit_role": "cohesive energy per area",
+        "description": "Declares threshold fractions, interaction and admissible proportionality tolerances."
+      },
+      {
+        "name": "cycle extrema",
+        "type": "two local jump-vector arrays",
+        "unit_role": "length",
+        "description": "Accepted valley and peak vectors in the deterministic local interface basis."
+      },
+      {
+        "name": "ordered cycle path",
+        "type": "OrderedJumpCyclePath",
+        "unit_role": "cycle phase and length",
+        "description": "A strictly ordered, closed sequence of three or more accepted local jump-vector stations for non-proportional cycles."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "mixed cyclic response",
+        "type": "traction, tangent, damage and energy arrays",
+        "unit_role": "interface response",
+        "description": "Separates monotonic and fatigue damage and dissipation while preserving compression closure."
+      },
+      {
+        "name": "cycle evidence fields",
+        "type": "material-aware quadrature arrays",
+        "unit_role": "jump, cohesive energy and cycle count",
+        "description": "Includes jump extrema, GI/GII ranges, critical/threshold energy, normalized range, local ratio and cycles."
+      },
+      {
+        "name": "portable cycle state",
+        "type": "physical-facet-keyed scalar and vector components",
+        "unit_role": "restart state",
+        "description": "Restores across facet order and MPI rank-count changes independently of DOF numbering."
+      }
+    ],
+    "assumptions": [
+      "The cohesive crack path is fixed.",
+      "A valley/peak pair is used only for proportional or near-proportional cycles; non-proportional cycles declare an ordered closed path.",
+      "Fatigue coefficient and exponents require material/interface calibration for predictive work."
+    ],
+    "conventions": [
+      "Local jump component zero is normal and the remaining components are tangential.",
+      "GI_COH and GII_COH names denote local cohesive-law drivers, not structural energy-release rates.",
+      "Non-proportional mode mix and tangential reversal are rejected by the extrema driver and retained station-by-station by the ordered-path driver.",
+      "No cycle advancement preserves the wrapped mixed-mode monotonic response."
+    ],
+    "applicability": [
+      "Fixed-path two- or three-dimensional cohesive fatigue under proportional or ordered non-proportional Mode-I, Mode-II and mixed-mode cycles."
+    ],
+    "limitations": [
+      "The ordered reference driver resolves a supplied closed path but does not infer an unresolved waveform, frictional fatigue dissipation or free-path crack growth.",
+      "No external calibrated mixed-mode fatigue structural benchmark has promoted this experimental reference law.",
+      "Bulk-field durable restart remains partition-sensitive even though cohesive state is cross-rank-count portable."
+    ]
+  },
+  "usage": {
+    "minimal_example": "driver = fatigue_fracture.ordered_mixed_mode_energy_path_driver(mode_i_threshold_fraction=0.05, mode_ii_threshold_fraction=0.05); law = fatigue_fracture.cyclic_cohesive(monotonic=interfaces.mixed_mode_bilinear_cohesive(...), driver=driver, fatigue_coefficient=C, fatigue_exponent=m, residual_exponent=p, range_threshold=0.0); path = fatigue_fracture.ordered_jump_cycle(phases, local_jump_history); state.begin_cycle_path(path, cycles=dN)",
+    "examples": [
+      "tests/test_fatigue_fracture.py",
+      "tests/test_global_cohesive_residual.py",
+      "tests/test_parallel_cohesive.py",
+      "tests/portable_mixed_cyclic_cohesive_driver.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_fatigue_fracture.py",
+      "tests/test_global_cohesive_residual.py",
+      "tests/test_parallel_cohesive.py",
+      "tests/portable_mixed_cyclic_cohesive_driver.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.mixed_mode_cyclic_cohesive_foundation"
+    ],
+    "validation_rules": [
+      "Pure-mode GI/GII channels and BK interaction match analytical values.",
+      "Tangential basis rotation does not change the driving range.",
+      "Non-proportional peak/valley paths are rejected by the extrema driver and an ordered closed path retains every resolved station.",
+      "Ordered-path exact cycles and one fixed-path cycle jump agree, and rollback/restart preserve path evidence.",
+      "Named reference-point, prescribed-motion and MPC work channels participate in the same transactional cycle-block energy ledger.",
+      "Exact cycles and one constant-extrema jump agree.",
+      "Local, global, serial, MPI and cross-rank-count restart consumers preserve all state fields."
+    ]
+  },
+  "references": [
+    {
+      "title": "Dávila, From S-N to Paris Law with a New Mixed-Mode Cohesive Fatigue Model",
+      "locator": "https://ntrs.nasa.gov/api/citations/20180004395/downloads/20180004395.pdf"
+    },
+    {
+      "title": "Leone et al., Scalability of Cohesive Fatigue Analyses Using Explicit Solvers",
+      "locator": "https://ntrs.nasa.gov/api/citations/20205010748/downloads/scitech2021_leone_v8.pdf"
+    },
+    {
+      "title": "AgentFEM cyclic cohesive fatigue architecture",
+      "locator": "docs/cyclic_cohesive_fatigue_architecture.md"
+    }
+  ],
+  "related_cards": [
+    "agentfem.material.cyclic_cohesive_fatigue",
+    "agentfem.workflow.vector_cohesive_interface",
+    "agentfem.workflow.cohesive_state_portability"
+  ]
+}

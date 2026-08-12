@@ -195,7 +195,11 @@ A cyclic cohesive law is one path-dependent constitutive family. Its platform
 contract is the monotonic limit, local cycle extrema, fatigue threshold,
 irreversible state, dissipation and transaction lifecycle. One fatigue damage
 formula is a replaceable implementation of that contract, not the definition
-of fatigue fracture in AgentFEM.
+of fatigue fracture in AgentFEM. Scalar Mode-I cycles use positive normal
+opening extrema. The experimental mixed-mode route instead consumes complete
+local valley/peak jump vectors and a declared cohesive-energy driver; its
+`GI_COH` and `GII_COH` quantities are local material forces, not structural
+J-integral or VCCT results.
 
 A global cyclic-fatigue step is a lifecycle consumer, not another material
 law. It solves accepted load extrema, advances all named interfaces as one

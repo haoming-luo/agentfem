@@ -136,10 +136,24 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `CyclicCohesiveResponse` | Mode-I response with separated monotonic and fatigue evidence. |
 | class | `CyclicCohesiveLaw` | Replaceable power-law range fatigue layered on a bilinear envelope. |
 | class | `CyclicCohesiveTransaction(law: CyclicCohesiveLaw, size: int)` | Atomic monotonic trials and cycle-block trials for cohesive points. |
+| class | `MixedModeEnergyRange` | Local cohesive-energy driver from one physical peak/valley pair. |
+| class | `OrderedJumpCyclePath` | One ordered closed cycle of complete local cohesive jump vectors. |
+| class | `MixedModeEnergyPath` | Segment-resolved local cohesive energy evidence for one ordered path. |
+| class | `OrderedMixedModeEnergyPathDriver` | Segment-resolved BK/power driver for ordered mixed-mode cycles. |
+| class | `MixedModeEnergyRangeDriver` | BK/power interaction for local mixed-mode cyclic energy ranges. |
+| class | `MixedModeCyclicCohesiveResponse` | Mixed-mode monotonic response with committed cyclic evidence. |
+| class | `MixedModeCyclicCohesiveLaw` | Replaceable cyclic damage layered on a mixed-mode cohesive envelope. |
+| class | `MixedModeCyclicCohesiveTransaction(law: MixedModeCyclicCohesiveLaw, size: int)` | Atomic full-vector cycle transaction with mixed-mode energy evidence. |
 | class | `FieldStateTransaction(fields, *, assets = None)` | In-memory rollback for bulk fields and other transactional assets. |
+| class | `GeneralizedWorkSample` | One named force--displacement pair at an accepted equilibrium point. |
+| function | `generalized_work_sample(name, *, force, displacement, role = 'natural_load') -> GeneralizedWorkSample` | Declare one generalized work-conjugate channel. |
+| function | `reference_point_work_sample(load, *, translation, rotation = None) -> GeneralizedWorkSample` | Pair a distributed reference load with measured rigid motion. |
+| class | `CyclicEnergyFrame` | One accepted or trial cycle-block work--energy closure. |
+| class | `CyclicWorkEnergyLedger(*, name = 'cyclic work-energy ledger')` | Transactional generalized-work and cycle-block energy accounting. |
+| function | `cyclic_work_energy_ledger(**options) -> CyclicWorkEnergyLedger` | Create a transactional cycle-block work--energy ledger. |
 | class | `CyclicEquilibriumPoint` | Evidence returned by one converged peak or valley equilibrium solve. |
 | class | `CyclicFatigueBlock` | Accepted structure-level cycle block and its error evidence. |
-| class | `GlobalCyclicFatigueStep(*, cycle: ForceCycle, stop_cycle: int, interfaces, state, solve_equilibrium, jump: CycleJumpPolicy \| None = None, landing_cycles = (), maximum_opening_feedback: float = 0.02, maximum_energy_balance_error: float \| None = None, observe = None, name: str = 'cyclic fatigue')` | Quasi-static peak/valley fatigue loop with global rollback and cutback. |
+| class | `GlobalCyclicFatigueStep(*, cycle: ForceCycle, stop_cycle: int, interfaces, state, solve_equilibrium, jump: CycleJumpPolicy \| None = None, landing_cycles = (), maximum_opening_feedback: float = 0.02, maximum_energy_balance_error: float \| None = None, energy_ledger: CyclicWorkEnergyLedger \| None = None, ordered_path_phases = (), observe = None, name: str = 'cyclic fatigue')` | Quasi-static peak/valley fatigue loop with global rollback and cutback. |
 | class | `SurfaceCrackComponent` | One connected failed component in a surface-crack observation. |
 | class | `SurfaceCrackObservation` | One cycle's geometric evidence on a triangular cohesive surface. |
 | class | `CrackTopologyEvent` | Auditable identity change between two accepted crack observations. |
@@ -151,9 +165,12 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `surface_crack_interaction(first: SurfaceCrackObservation, second: SurfaceCrackObservation, *, first_single_growth_rate: float \| None = None, second_single_growth_rate: float \| None = None, first_double_growth_rate: float \| None = None, second_double_growth_rate: float \| None = None, coalescence_tolerance: float = 0.0) -> CrackInteractionObservation` | Compare two named fronts without hiding the single-crack baseline. |
 | class | `ParisEvidence` | Postprocessed Paris-region evidence; never a crack-growth solver law. |
 | function | `paris_evidence(cycles, crack_size, driving_force, *, fit_cycle_range: tuple[float, float] \| None = None, fit_mask = None, derivative_window: int = 3, driving_force_name: str = 'Delta K', crack_size_name: str = 'a', driving_force_unit: str = 'declared', crack_size_unit: str = 'declared') -> ParisEvidence` | Fit a Paris relation after simulation from ``a(N)`` and a driver. |
-| function | `cyclic_cohesive(*, monotonic: BilinearCohesiveLaw, fatigue_coefficient: float, fatigue_exponent: float, range_threshold: float, peak_exponent: float = 0.0, residual_exponent: float = 0.0, name: str = 'power-law cyclic Mode-I cohesive law') -> CyclicCohesiveLaw` | Create the experimental reference cyclic cohesive law. |
+| function | `cyclic_cohesive(*, monotonic: BilinearCohesiveLaw \| MixedModeBilinearCohesiveLaw, fatigue_coefficient: float, fatigue_exponent: float, range_threshold: float, peak_exponent: float = 0.0, residual_exponent: float = 0.0, driver: MixedModeEnergyRangeDriver \| OrderedMixedModeEnergyPathDriver \| None = None, name: str \| None = None) -> CyclicCohesiveLaw \| MixedModeCyclicCohesiveLaw` | Create a Mode-I or mixed-mode cyclic cohesive law. |
+| function | `mixed_mode_energy_range_driver(**options) -> MixedModeEnergyRangeDriver` | Create the first proportional peak/valley mixed-mode fatigue driver. |
+| function | `ordered_jump_cycle(phases, jumps, *, name = 'ordered jump cycle')` | Create a closed, station-resolved local cohesive cycle. |
+| function | `ordered_mixed_mode_energy_path_driver(**options) -> OrderedMixedModeEnergyPathDriver` | Create a segment-resolved non-proportional mixed-mode driver. |
 | function | `field_state(fields = None, *, assets = None, **named_fields) -> FieldStateTransaction` | Create rollback state from a field mapping or named field arguments. |
-| function | `global_cyclic_fatigue_step(**kwargs) -> GlobalCyclicFatigueStep` | Create a reusable force-controlled peak/valley fatigue controller. |
+| function | `global_cyclic_fatigue_step(**kwargs) -> GlobalCyclicFatigueStep` | Create a reusable extrema- or ordered-path fatigue controller. |
 
 ## `agentfem.fracture`
 

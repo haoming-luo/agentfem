@@ -18,6 +18,22 @@ the most expensive command after every keystroke.
 Targeted tests answer “did this edit break its owner?” Full tests answer “did
 this apparently local edit violate another public contract?” Both are needed.
 
+This repository uses the project directory itself as the `agentfem` package.
+When an older wheel is also installed, running Python from the repository root
+can otherwise import that wheel while the tests still discover local files.
+For an explicit source-tree check, keep the repository root as the working
+directory and prepend its parent:
+
+```bash
+PYTHONPATH="$(pwd)/.." python -c \
+  'import agentfem; print(agentfem.__file__)'
+PYTHONPATH="$(pwd)/.." python -m pytest -q
+```
+
+The printed path must point to the current checkout. Release CI instead builds
+and force-installs the candidate wheel before testing, intentionally verifying
+the artifact users receive.
+
 ## Why AgentFEM still runs full CI frequently
 
 AgentFEM currently has a compact suite: the local complete serial run is much

@@ -4468,8 +4468,78 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>MixedModeEnergyRange</code></td>
+<td>Local cohesive-energy driver from one physical peak/valley pair.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>OrderedJumpCyclePath</code></td>
+<td>One ordered closed cycle of complete local cohesive jump vectors.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>MixedModeEnergyPath</code></td>
+<td>Segment-resolved local cohesive energy evidence for one ordered path.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>OrderedMixedModeEnergyPathDriver</code></td>
+<td>Segment-resolved BK/power driver for ordered mixed-mode cycles.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>MixedModeEnergyRangeDriver</code></td>
+<td>BK/power interaction for local mixed-mode cyclic energy ranges.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>MixedModeCyclicCohesiveResponse</code></td>
+<td>Mixed-mode monotonic response with committed cyclic evidence.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>MixedModeCyclicCohesiveLaw</code></td>
+<td>Replaceable cyclic damage layered on a mixed-mode cohesive envelope.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>MixedModeCyclicCohesiveTransaction(law: MixedModeCyclicCohesiveLaw, size: int)</code></td>
+<td>Atomic full-vector cycle transaction with mixed-mode energy evidence.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>FieldStateTransaction(fields, *, assets = None)</code></td>
 <td>In-memory rollback for bulk fields and other transactional assets.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>GeneralizedWorkSample</code></td>
+<td>One named force--displacement pair at an accepted equilibrium point.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>generalized_work_sample(name, *, force, displacement, role = 'natural_load') -&gt; GeneralizedWorkSample</code></td>
+<td>Declare one generalized work-conjugate channel.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>reference_point_work_sample(load, *, translation, rotation = None) -&gt; GeneralizedWorkSample</code></td>
+<td>Pair a distributed reference load with measured rigid motion.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CyclicEnergyFrame</code></td>
+<td>One accepted or trial cycle-block work--energy closure.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CyclicWorkEnergyLedger(*, name = 'cyclic work-energy ledger')</code></td>
+<td>Transactional generalized-work and cycle-block energy accounting.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>cyclic_work_energy_ledger(**options) -&gt; CyclicWorkEnergyLedger</code></td>
+<td>Create a transactional cycle-block work--energy ledger.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -4483,7 +4553,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
-<td><code>GlobalCyclicFatigueStep(*, cycle: ForceCycle, stop_cycle: int, interfaces, state, solve_equilibrium, jump: CycleJumpPolicy \| None = None, landing_cycles = (), maximum_opening_feedback: float = 0.02, maximum_energy_balance_error: float \| None = None, observe = None, name: str = 'cyclic fatigue')</code></td>
+<td><code>GlobalCyclicFatigueStep(*, cycle: ForceCycle, stop_cycle: int, interfaces, state, solve_equilibrium, jump: CycleJumpPolicy \| None = None, landing_cycles = (), maximum_opening_feedback: float = 0.02, maximum_energy_balance_error: float \| None = None, energy_ledger: CyclicWorkEnergyLedger \| None = None, ordered_path_phases = (), observe = None, name: str = 'cyclic fatigue')</code></td>
 <td>Quasi-static peak/valley fatigue loop with global rollback and cutback.</td>
 </tr>
 <tr>
@@ -4543,8 +4613,23 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>cyclic_cohesive(*, monotonic: BilinearCohesiveLaw, fatigue_coefficient: float, fatigue_exponent: float, range_threshold: float, peak_exponent: float = 0.0, residual_exponent: float = 0.0, name: str = 'power-law cyclic Mode-I cohesive law') -&gt; CyclicCohesiveLaw</code></td>
-<td>Create the experimental reference cyclic cohesive law.</td>
+<td><code>cyclic_cohesive(*, monotonic: BilinearCohesiveLaw \| MixedModeBilinearCohesiveLaw, fatigue_coefficient: float, fatigue_exponent: float, range_threshold: float, peak_exponent: float = 0.0, residual_exponent: float = 0.0, driver: MixedModeEnergyRangeDriver \| OrderedMixedModeEnergyPathDriver \| None = None, name: str \| None = None) -&gt; CyclicCohesiveLaw \| MixedModeCyclicCohesiveLaw</code></td>
+<td>Create a Mode-I or mixed-mode cyclic cohesive law.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>mixed_mode_energy_range_driver(**options) -&gt; MixedModeEnergyRangeDriver</code></td>
+<td>Create the first proportional peak/valley mixed-mode fatigue driver.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>ordered_jump_cycle(phases, jumps, *, name = 'ordered jump cycle')</code></td>
+<td>Create a closed, station-resolved local cohesive cycle.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>ordered_mixed_mode_energy_path_driver(**options) -&gt; OrderedMixedModeEnergyPathDriver</code></td>
+<td>Create a segment-resolved non-proportional mixed-mode driver.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -4554,7 +4639,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tr>
 <td>function</td>
 <td><code>global_cyclic_fatigue_step(**kwargs) -&gt; GlobalCyclicFatigueStep</code></td>
-<td>Create a reusable force-controlled peak/valley fatigue controller.</td>
+<td>Create a reusable extrema- or ordered-path fatigue controller.</td>
 </tr>
 </tbody>
 </table>

@@ -17,12 +17,14 @@ the compact machine-readable `knowledge/catalog.json`.
 | [`agentfem.material.global_implicit_creep`](#agentfem-material-global_implicit_creep) | Global implicit power-law creep | material | supported |
 | [`agentfem.material.j2_global_plasticity`](#agentfem-material-j2_global_plasticity) | Global small-strain J2 plasticity | material | supported |
 | [`agentfem.material.mixed_hybrid_hyperelasticity`](#agentfem-material-mixed_hybrid_hyperelasticity) | Constant-pressure mixed Neo-Hookean solid | material | supported |
+| [`agentfem.material.mixed_mode_cyclic_cohesive`](#agentfem-material-mixed_mode_cyclic_cohesive) | Proportional and ordered-path mixed-mode cyclic cohesive damage | material | experimental |
 | [`agentfem.material.mooney_rivlin_hyperelasticity`](#agentfem-material-mooney_rivlin_hyperelasticity) | Mooney--Rivlin finite-strain solids and incompressible sheets | material | experimental |
 | [`agentfem.operator.system_contracts`](#agentfem-operator-system_contracts) | Finite-element operator and system contracts | operator | supported |
 | [`agentfem.workflow.abaqus_engineering_regions`](#agentfem-workflow-abaqus_engineering_regions) | Abaqus node sets and element-face surfaces as FEM regions | workflow | supported |
 | [`agentfem.workflow.campaign_learning_pipeline`](#agentfem-workflow-campaign_learning_pipeline) | Simulation campaign to guarded learning workflow | workflow | supported |
 | [`agentfem.workflow.cohesive_state_portability`](#agentfem-workflow-cohesive_state_portability) | Physical-keyed cohesive state across MPI partitions | workflow | experimental |
 | [`agentfem.workflow.coordinate_reference_coupling`](#agentfem-workflow-coordinate_reference_coupling) | Local coordinates and reference-point continuum coupling | workflow | supported |
+| [`agentfem.workflow.cyclic_work_energy_ledger`](#agentfem-workflow-cyclic_work_energy_ledger) | Transactional generalized work and cycle-block energy ledger | workflow | experimental |
 | [`agentfem.workflow.distributed_cohesive_force`](#agentfem-workflow-distributed_cohesive_force) | Sparse physical-keyed cohesive force assembly across MPI ranks | workflow | experimental |
 | [`agentfem.workflow.dynamic_fracture_v5_evidence`](#agentfem-workflow-dynamic_fracture_v5_evidence) | Publication-data evidence for dynamic cohesive fracture | workflow | experimental |
 | [`agentfem.workflow.integration_point_recovery`](#agentfem-workflow-integration_point_recovery) | Traceable integration-point field recovery | workflow | supported |
@@ -49,6 +51,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | `agentfem.benchmark.creep_damage_material_paths` | Creep-damage material paths and curve projection | Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection | automated_regression |
 | `agentfem.benchmark.creep_hot_wall_release` | Sequential hot-wall creep assessment release contract | sequential transient heat conduction, plane-strain thermoelasticity, and local creep-damage assessment | automated_regression |
 | `agentfem.benchmark.cyclic_cohesive_global_lifecycle` | Global cyclic cohesive transaction, cutback, restart and named 3D interfaces | Quasi-static force-controlled fixed-path Mode-I cohesive fatigue | experimental_automated_foundation |
+| `agentfem.benchmark.delamination_structural_family` | DCB, ENF and MMB structural cohesive verification family | Fixed-path delamination under DCB Mode I, ENF Mode II and MMB mixed-mode loading | analytical_oracles_automated_external_curves_pending |
 | `agentfem.benchmark.distributed_cohesive_force` | Two-rank sparse fixed-path cohesive force and portable restart | Two-dimensional normal and mixed-mode bilinear cohesive interfaces in finite-strain assembly and Explicit dynamics | experimental_mpi_sparse_automated |
 | `agentfem.benchmark.dynamic_fracture_energy_v2` | Finite-strain and cohesive dynamic energy closure | Total-Lagrangian Neo-Hookean dynamics with optional Mode-I cohesive separation | experimental_v2_automated |
 | `agentfem.benchmark.elasticity_foundation` | Foundational small-strain elasticity verification | two- and three-dimensional small-strain linear elasticity | automated |
@@ -62,6 +65,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | `agentfem.benchmark.jmps_weak_interface_transition_v4` | Prestressed weak-interface crack-to-supershear-to-spall mechanism ladder | near-incompressible finite-strain plane-stress Neo-Hookean strip with homogeneous preload, smooth remote impact, a fixed zero-thickness bilinear Mode-I interface, and a precrack | experimental_v4_mechanism_executable |
 | `agentfem.benchmark.linear_static_cantilever` | Two-dimensional linear-static cantilever | small-strain isotropic linear elasticity in plane strain | numerical_regression |
 | `agentfem.benchmark.mixed_mode_bending_external_contract` | Source-identified mixed-mode bending curve comparison | Mixed-mode bending delamination or a mechanically equivalent fixed-path cohesive structure with measured load, displacement, crack length, and Mode-I fraction | contract_ready_external_data_pending |
+| `agentfem.benchmark.mixed_mode_cyclic_cohesive_foundation` | Mixed-mode cyclic cohesive paths, energy lifecycle and portable state | Fixed-path proportional and ordered non-proportional mixed-mode cyclic cohesive degradation | experimental_automated_foundation |
 | `agentfem.benchmark.mooney_rivlin_material_paths` | Mooney--Rivlin material-path and Explicit-consumer contract | incompressible plane-stress Mooney--Rivlin hyperelasticity | experimental_automated_regression |
 | `agentfem.benchmark.neo_hookean_release` | Compressible Neo-Hookean finite-strain release contract | compressible Neo-Hookean hyperelasticity | automated_regression |
 | `agentfem.benchmark.operator_contracts` | Operator role, system, and residual-linearization contracts | backend-facing finite-element operator algebra | automated |
@@ -309,6 +313,7 @@ Layers a thresholded, irreversible opening-range fatigue state on the exact bili
 - `agentfem.fatigue_fracture.ParisEvidence`
 - `agentfem.fatigue_fracture.cyclic_cohesive`
 - `agentfem.fatigue_fracture.global_cyclic_fatigue_step`
+- `agentfem.fatigue_fracture.cyclic_work_energy_ledger`
 - `agentfem.fatigue_fracture.observe_surface_crack`
 - `agentfem.fatigue_fracture.paris_evidence`
 - `agentfem.procedures.cyclic_fatigue`
@@ -364,7 +369,7 @@ Monotonic and cyclic degradation remain separately inspectable and combine witho
 
 #### Assumptions
 
-- The first law is normal Mode-I and fixed path.
+- This historical opening-range law is normal Mode-I and fixed path; the separate mixed-mode cyclic card declares its vector energy driver.
 - The reference evolution is calibrated for the material/interface and load regime being studied.
 - The global cycle controller re-solves degraded equilibrium and rolls back/cuts back a proposed block when damage, opening-feedback or energy evidence exceeds tolerance.
 
@@ -380,8 +385,8 @@ Monotonic and cyclic degradation remain separately inspectable and combine witho
 
 #### Limitations
 
-- The native equilibrium adapter currently covers Total-Lagrangian hyperelastic bulk forms, fixed-path Mode-I cohesive interfaces and strong Dirichlet reactions; reference-point work, MPC/weak/contact reactions and complete fatigue energy closure remain separate gates.
-- No mixed-mode, free-path crack growth, cylinder benchmark or experimental validation is included yet.
+- The generalized work-energy ledger accepts reference-point, prescribed-motion, MPC, weak and contact channels, but automatic extraction of all such reactions from every native provider remains a separate gate.
+- This Mode-I card does not claim mixed-mode calibration; free-path growth, cylinder validation and experimental prediction remain separate gates.
 - Bulk-field durable restart currently requires the same MPI partition; cohesive facet state is physically keyed and portable.
 
 ### Minimal example
@@ -879,6 +884,145 @@ step = model.step(target=unknown, material=material)
 - Abaqus hybrid incompressible solid formulation: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-hybridincompress.htm`
 - DOLFINx mixed function-space API: `https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.html`
 - Luo et al., nonlinear elastic composites with spherical particles or voids, European Journal of Mechanics A/Solids (2023), 105076: `https://doi.org/10.1016/j.euromechsol.2023.105076`
+
+<a id="agentfem-material-mixed_mode_cyclic_cohesive"></a>
+
+## Proportional and ordered-path mixed-mode cyclic cohesive damage
+
+**Stable ID:** `agentfem.material.mixed_mode_cyclic_cohesive`<br>
+**Kind:** `material`<br>
+**Status:** `experimental`<br>
+**Source card:** `knowledge/cards/mixed_mode_cyclic_cohesive.json`
+
+Layers explicit proportional-extrema or ordered within-cycle local cohesive-energy drivers on the mixed-mode bilinear envelope while preserving full jump vectors, BK or power interaction, atomic cycle transactions and physically keyed restart.
+
+### Public API
+
+- `agentfem.fatigue_fracture.MixedModeEnergyRange`
+- `agentfem.fatigue_fracture.MixedModeEnergyRangeDriver`
+- `agentfem.fatigue_fracture.OrderedJumpCyclePath`
+- `agentfem.fatigue_fracture.OrderedMixedModeEnergyPathDriver`
+- `agentfem.fatigue_fracture.MixedModeCyclicCohesiveLaw`
+- `agentfem.fatigue_fracture.MixedModeCyclicCohesiveTransaction`
+- `agentfem.fatigue_fracture.mixed_mode_energy_range_driver`
+- `agentfem.fatigue_fracture.ordered_jump_cycle`
+- `agentfem.fatigue_fracture.ordered_mixed_mode_energy_path_driver`
+- `agentfem.fatigue_fracture.cyclic_work_energy_ledger`
+- `agentfem.fatigue_fracture.cyclic_cohesive`
+- `agentfem.fatigue_fracture.global_cyclic_fatigue_step`
+- `agentfem.interfaces.mixed_mode_bilinear_cohesive`
+- `agentfem.fracture.cohesive_force`
+
+### Scientific contract
+
+A mixed-mode fatigue update consumes either true accepted valley/peak vectors for a proportional cycle or an ordered closed sequence of within-cycle jump vectors, resolves work-conjugate normal and shear cohesive-energy variations, and advances one replaceable irreversible state through a declared interaction rule.
+
+**local cohesive energy channels**
+
+$$
+G_I^coh=0.5 K_n<delta_n>^2, G_II^coh=0.5 K_t||delta_t||^2
+$$
+
+These material-point damage drivers are explicitly distinguished from a structure-level J-integral or VCCT result.
+
+**BK range interaction**
+
+$$
+G_c(beta)=G_Ic+(G_IIc-G_Ic) beta^eta, beta=Delta G_II/(Delta G_I+Delta G_II)
+$$
+
+A power-law interaction is available through the same explicit driver contract.
+
+**reference cyclic evolution**
+
+$$
+dD_f/dN=C<Delta G_bar>^m(1-D_f)^p
+$$
+
+The normalized range includes the mixed threshold and critical energy, and constant extrema use exact residual-power integration.
+
+**ordered path measure**
+
+$$
+Phi_path=sum_s I_s <Delta G_s-G_th(beta_s)>_+/(G_c(beta_s)-G_th(beta_s))
+$$
+
+Positive variations of each local cohesive energy channel retain their order and segment mode mix; channel unloading does not create a second fictitious fatigue increment, while constant-total-energy mode transfer is preserved.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| mixed monotonic law | MixedModeBilinearCohesiveLaw | traction-separation envelope | Declares normal/shear strength, stiffness, fracture energies and BK or power interaction. |
+| energy-range driver | MixedModeEnergyRangeDriver | cohesive energy per area | Declares threshold fractions, interaction and admissible proportionality tolerances. |
+| cycle extrema | two local jump-vector arrays | length | Accepted valley and peak vectors in the deterministic local interface basis. |
+| ordered cycle path | OrderedJumpCyclePath | cycle phase and length | A strictly ordered, closed sequence of three or more accepted local jump-vector stations for non-proportional cycles. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| mixed cyclic response | traction, tangent, damage and energy arrays | interface response | Separates monotonic and fatigue damage and dissipation while preserving compression closure. |
+| cycle evidence fields | material-aware quadrature arrays | jump, cohesive energy and cycle count | Includes jump extrema, GI/GII ranges, critical/threshold energy, normalized range, local ratio and cycles. |
+| portable cycle state | physical-facet-keyed scalar and vector components | restart state | Restores across facet order and MPI rank-count changes independently of DOF numbering. |
+
+#### Assumptions
+
+- The cohesive crack path is fixed.
+- A valley/peak pair is used only for proportional or near-proportional cycles; non-proportional cycles declare an ordered closed path.
+- Fatigue coefficient and exponents require material/interface calibration for predictive work.
+
+#### Conventions
+
+- Local jump component zero is normal and the remaining components are tangential.
+- GI_COH and GII_COH names denote local cohesive-law drivers, not structural energy-release rates.
+- Non-proportional mode mix and tangential reversal are rejected by the extrema driver and retained station-by-station by the ordered-path driver.
+- No cycle advancement preserves the wrapped mixed-mode monotonic response.
+
+#### Applicability
+
+- Fixed-path two- or three-dimensional cohesive fatigue under proportional or ordered non-proportional Mode-I, Mode-II and mixed-mode cycles.
+
+#### Limitations
+
+- The ordered reference driver resolves a supplied closed path but does not infer an unresolved waveform, frictional fatigue dissipation or free-path crack growth.
+- No external calibrated mixed-mode fatigue structural benchmark has promoted this experimental reference law.
+- Bulk-field durable restart remains partition-sensitive even though cohesive state is cross-rank-count portable.
+
+### Minimal example
+
+```python
+driver = fatigue_fracture.ordered_mixed_mode_energy_path_driver(mode_i_threshold_fraction=0.05, mode_ii_threshold_fraction=0.05); law = fatigue_fracture.cyclic_cohesive(monotonic=interfaces.mixed_mode_bilinear_cohesive(...), driver=driver, fatigue_coefficient=C, fatigue_exponent=m, residual_exponent=p, range_threshold=0.0); path = fatigue_fracture.ordered_jump_cycle(phases, local_jump_history); state.begin_cycle_path(path, cycles=dN)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_fatigue_fracture.py`
+- `tests/test_global_cohesive_residual.py`
+- `tests/test_parallel_cohesive.py`
+- `tests/portable_mixed_cyclic_cohesive_driver.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.mixed_mode_cyclic_cohesive_foundation`
+
+**Validation rules**
+
+- Pure-mode GI/GII channels and BK interaction match analytical values.
+- Tangential basis rotation does not change the driving range.
+- Non-proportional peak/valley paths are rejected by the extrema driver and an ordered closed path retains every resolved station.
+- Ordered-path exact cycles and one fixed-path cycle jump agree, and rollback/restart preserve path evidence.
+- Named reference-point, prescribed-motion and MPC work channels participate in the same transactional cycle-block energy ledger.
+- Exact cycles and one constant-extrema jump agree.
+- Local, global, serial, MPI and cross-rank-count restart consumers preserve all state fields.
+
+### References
+
+- Dávila, From S-N to Paris Law with a New Mixed-Mode Cohesive Fatigue Model: `https://ntrs.nasa.gov/api/citations/20180004395/downloads/20180004395.pdf`
+- Leone et al., Scalability of Cohesive Fatigue Analyses Using Explicit Solvers: `https://ntrs.nasa.gov/api/citations/20205010748/downloads/scitech2021_leone_v8.pdf`
+- AgentFEM cyclic cohesive fatigue architecture: `docs/cyclic_cohesive_fatigue_architecture.md`
 
 <a id="agentfem-material-mooney_rivlin_hyperelasticity"></a>
 
@@ -1506,6 +1650,112 @@ local = coordinates.cartesian(x=(0,1), y=(-1,0)); rp = coordinates.reference_poi
 ### References
 
 - Abaqus distributing coupling constraints: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAECSTRefMap/simacst-c-coupling.htm`
+
+<a id="agentfem-workflow-cyclic_work_energy_ledger"></a>
+
+## Transactional generalized work and cycle-block energy ledger
+
+**Stable ID:** `agentfem.workflow.cyclic_work_energy_ledger`<br>
+**Kind:** `workflow`<br>
+**Status:** `experimental`<br>
+**Source card:** `knowledge/cards/cyclic_work_energy_ledger.json`
+
+Accounts named force-motion and material-energy channels in the same begin/commit/rollback and restart boundary as a global fatigue cycle block.
+
+### Public API
+
+- `agentfem.fatigue_fracture.GeneralizedWorkSample`
+- `agentfem.fatigue_fracture.CyclicEnergyFrame`
+- `agentfem.fatigue_fracture.CyclicWorkEnergyLedger`
+- `agentfem.fatigue_fracture.generalized_work_sample`
+- `agentfem.fatigue_fracture.reference_point_work_sample`
+- `agentfem.fatigue_fracture.cyclic_work_energy_ledger`
+- `agentfem.fatigue_fracture.CyclicEquilibriumPoint`
+- `agentfem.fatigue_fracture.global_cyclic_fatigue_step`
+
+### Scientific contract
+
+External work is a sum over named work-conjugate generalized forces and motions; recoverable and dissipative energy channels are compared through their committed cycle-block increments.
+
+**resolved station work**
+
+$$
+Delta W_q=0.5(Q_i+Q_(i+1)) dot (q_(i+1)-q_i)
+$$
+
+Vector force-translation and moment-rotation pairs share the same trapezoidal contract.
+
+**cycle-block balance**
+
+$$
+epsilon_E=|W_ext-Delta E_accounted|/max(|W_ext|,|Delta E_accounted|,epsilon)
+$$
+
+The acceptance error participates in the global cycle transaction rather than being calculated after irreversible state is committed.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| generalized work channels | named GeneralizedWorkSample records at every resolved station | force-motion or moment-rotation work | Roles include natural load, reference point, prescribed motion, MPC, weak constraint and contact constraint. |
+| energy channels | named finite total-energy values at every station | energy | Declared at block start and trial end; may include recoverable bulk/interface energy, kinetic energy and monotonic, fatigue, cohesive or numerical dissipation. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| cyclic energy frame | CyclicEnergyFrame | energy and dimensionless balance error | Separates resolved-cycle work, explicitly estimated skipped-cycle work, per-channel/per-role block work, energy increments and closure error. |
+| restartable ledger | versioned snapshot | accepted evidence | Only accepted frames survive rollback and checkpoint restore. |
+
+#### Assumptions
+
+- Every station exposes the same uniquely named generalized work and energy channels.
+- Generalized force signs follow work done on the finite-element model.
+- For a cycle jump, the solved representative closed-cycle work is multiplied by the accepted cycle count and labelled as an estimate.
+
+#### Conventions
+
+- Reference-point force and translation are concatenated with moment and rotation.
+- Representative closed-cycle work and block endpoint energy increments are distinct; post-damage verification is not multiplied by the cycle jump.
+- MPC, weak/contact and prescribed-motion work require actual provider reactions; missing reactions are not guessed.
+- Energy balance rejection rolls back fields, interfaces, cycle identity and energy evidence atomically.
+
+#### Applicability
+
+- Quasi-static cyclic fatigue consumers with named load, constraint and material-energy evidence.
+
+#### Limitations
+
+- The ledger defines the complete accounting protocol, but not every native solver provider yet extracts every generalized reaction automatically.
+- Representative-cycle work multiplication is not an error estimator for changing within-block hysteresis; cycle-jump convergence remains required.
+
+### Minimal example
+
+```python
+ledger = fatigue_fracture.cyclic_work_energy_ledger(); point = fatigue_fracture.CyclicEquilibriumPoint(..., generalized_work=(fatigue_fracture.reference_point_work_sample(load, translation=u_rp, rotation=theta_rp),), energy_channels={"recoverable": E, "cohesive_dissipation": D}); step = fatigue_fracture.global_cyclic_fatigue_step(..., energy_ledger=ledger, maximum_energy_balance_error=tol)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_fatigue_fracture.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.mixed_mode_cyclic_cohesive_foundation`
+
+**Validation rules**
+
+- Named reference-point, prescribed-motion and MPC channels integrate to the analytical generalized work.
+- Cycle-block work and declared energy increments close within the requested tolerance.
+- An imbalanced block rejects without committing any energy frame.
+- Interrupted and restored ledgers preserve accepted frame identity.
+
+### References
+
+- Abaqus total energy output and energy balance definitions: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEOUTRefMap/simaout-c-exp-totalenergyoutput.htm`
+- AgentFEM cyclic cohesive fatigue architecture: `docs/cyclic_cohesive_fatigue_architecture.md`
 
 <a id="agentfem-workflow-distributed_cohesive_force"></a>
 
@@ -2834,7 +3084,7 @@ Post-peak path following adds one load unknown to the existing cohesive residual
 
 #### Limitations
 
-- No free-path fracture, cohesive junction topology, cyclic mixed-mode evolution or general non-proportional mixed-mode validation.
+- No free-path fracture or cohesive-junction topology; the separate experimental cyclic consumer accepts proportional extrema or an explicitly supplied ordered closed non-proportional path.
 - Normal-damage-driven tangential integrity does not yet add an independent cyclic shear-dissipation state; substantial shear requires the mixed-mode law.
 - No external mixed-mode structural benchmark has promoted the experimental law.
 - Arc length currently targets quasi-static native cohesive equilibrium, not Explicit dynamics.

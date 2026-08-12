@@ -25,6 +25,58 @@ def _cyclic(**kwargs):
     return fatigue_fracture.cyclic_cohesive(**options)
 
 
+def _mixed_cyclic(**kwargs):
+    monotonic = interfaces.mixed_mode_bilinear_cohesive(
+        normal_strength=10.0,
+        shear_strength=8.0,
+        normal_fracture_energy=2.0,
+        shear_fracture_energy=3.0,
+        normal_stiffness=1000.0,
+        tangential_stiffness=800.0,
+        interaction="bk",
+        interaction_exponent=1.6,
+    )
+    options = {
+        "monotonic": monotonic,
+        "driver": fatigue_fracture.mixed_mode_energy_range_driver(
+            mode_i_threshold_fraction=0.05,
+            mode_ii_threshold_fraction=0.05,
+        ),
+        "fatigue_coefficient": 2.0e-3,
+        "fatigue_exponent": 2.0,
+        "range_threshold": 0.0,
+        "residual_exponent": 1.0,
+    }
+    options.update(kwargs)
+    return fatigue_fracture.cyclic_cohesive(**options)
+
+
+def _ordered_mixed_cyclic(**kwargs):
+    return _mixed_cyclic(
+        driver=fatigue_fracture.ordered_mixed_mode_energy_path_driver(
+            mode_i_threshold_fraction=0.05,
+            mode_ii_threshold_fraction=0.05,
+        ),
+        **kwargs,
+    )
+
+
+def _ordered_path():
+    return fatigue_fracture.ordered_jump_cycle(
+        phases=(0.0, 0.2, 0.5, 0.8, 1.0),
+        jumps=np.asarray(
+            (
+                ((0.001, 0.0005),),
+                ((0.025, 0.0005),),
+                ((0.012, 0.0350),),
+                ((0.001, 0.0120),),
+                ((0.001, 0.0005),),
+            )
+        ),
+        name="non-proportional verification cycle",
+    )
+
+
 def test_force_cycle_uses_test_parameters_and_has_exact_extrema():
     cycle = fatigue_fracture.force_cycle(
         fmin=226.0,
@@ -118,6 +170,95 @@ def test_cycle_jump_can_be_front_limited_and_ledger_records_cutback_and_restart(
     restored.restore(ledger.snapshot())
     assert restored.current_cycle == smaller.end_cycle
     assert restored.summary()["rejected_blocks"] == 1
+
+
+def test_generalized_work_energy_ledger_accounts_named_roles_and_restart():
+    start = fatigue_fracture.CyclicEquilibriumPoint(
+        branch="minimum",
+        load=0.0,
+        cycle=0,
+        generalized_work=(
+            fatigue_fracture.generalized_work_sample(
+                "remote_load",
+                role="reference_point",
+                force=(0.0,),
+                displacement=(0.0,),
+            ),
+            fatigue_fracture.generalized_work_sample(
+                "moving_support",
+                role="prescribed_motion",
+                force=(0.0,),
+                displacement=(0.0,),
+            ),
+            fatigue_fracture.generalized_work_sample(
+                "periodic_constraint",
+                role="mpc_constraint",
+                force=(0.0,),
+                displacement=(0.0,),
+            ),
+        ),
+        energy_channels={"strain": 0.0, "cohesive": 0.0},
+    )
+    end = fatigue_fracture.CyclicEquilibriumPoint(
+        branch="maximum",
+        load=1.0,
+        cycle=5,
+        generalized_work=(
+            fatigue_fracture.generalized_work_sample(
+                "remote_load",
+                role="reference_point",
+                force=(6.0,),
+                displacement=(1.0,),
+            ),
+            fatigue_fracture.generalized_work_sample(
+                "moving_support",
+                role="prescribed_motion",
+                force=(2.0,),
+                displacement=(1.0,),
+            ),
+            fatigue_fracture.generalized_work_sample(
+                "periodic_constraint",
+                role="mpc_constraint",
+                force=(2.0,),
+                displacement=(1.0,),
+            ),
+        ),
+        energy_channels={"strain": 20.0, "cohesive": 5.0},
+    )
+    ledger = fatigue_fracture.cyclic_work_energy_ledger(name="full work ledger")
+    frame = ledger.begin_block((start, end), start_cycle=0, cycles=5)
+    assert frame.resolved_cycle_work == pytest.approx(5.0)
+    assert frame.block_external_work == pytest.approx(25.0)
+    assert frame.block_role_work == pytest.approx(
+        {"reference_point": 15.0, "prescribed_motion": 5.0, "mpc_constraint": 5.0}
+    )
+    assert frame.relative_balance_error == pytest.approx(0.0)
+    ledger.commit()
+    snapshot = ledger.snapshot()
+    restored = fatigue_fracture.cyclic_work_energy_ledger(name="full work ledger")
+    restored.restore(snapshot)
+    assert restored.snapshot() == snapshot
+
+    ledger.begin_block((start, end), start_cycle=5, cycles=5)
+    ledger.rollback()
+    assert len(ledger.frames) == 1
+
+
+def test_reference_point_work_adapter_includes_moment_rotation():
+    load = SimpleNamespace(
+        force=(1.0, 2.0, 3.0),
+        moment=(4.0, 5.0, 6.0),
+        reference_name="RP-1",
+        name="remote force",
+    )
+    sample = fatigue_fracture.reference_point_work_sample(
+        load,
+        translation=(0.1, 0.2, 0.3),
+        rotation=(0.01, 0.02, 0.03),
+    )
+    assert sample.name == "RP-1"
+    assert sample.role == "reference_point"
+    assert sample.force.shape == sample.displacement.shape == (6,)
 
 
 def test_below_threshold_or_static_hold_does_not_accumulate_fatigue_damage():
@@ -230,6 +371,221 @@ def test_constant_extrema_cycle_jump_matches_exact_cycle_by_cycle_solution():
     )
 
 
+def test_mixed_mode_energy_driver_separates_gi_gii_and_uses_bk_interaction():
+    law = _mixed_cyclic()
+    driver = law.driver
+    pure_i = driver.evaluate(law.monotonic, [[0.0, 0.0]], [[0.02, 0.0]])
+    assert pure_i.mode_i_range == pytest.approx([0.2])
+    assert pure_i.mode_ii_range == pytest.approx([0.0])
+    assert pure_i.mode_i_fraction == pytest.approx([1.0])
+    assert pure_i.mixed_fracture_energy == pytest.approx([2.0])
+
+    pure_ii = driver.evaluate(law.monotonic, [[0.0, 0.0]], [[0.0, 0.025]])
+    assert pure_ii.mode_i_range == pytest.approx([0.0])
+    assert pure_ii.mode_ii_range == pytest.approx([0.25])
+    assert pure_ii.mode_i_fraction == pytest.approx([0.0])
+    assert pure_ii.mixed_fracture_energy == pytest.approx([3.0])
+
+    mixed = driver.evaluate(
+        law.monotonic, [[0.005, 0.00625]], [[0.02, 0.025]]
+    )
+    beta = mixed.mode_ii_range / (
+        mixed.mode_i_range + mixed.mode_ii_range
+    )
+    expected = 2.0 + (3.0 - 2.0) * beta**1.6
+    np.testing.assert_allclose(mixed.mixed_fracture_energy, expected)
+    assert driver.summary(law.monotonic)[
+        "not_structure_level_energy_release_rate"
+    ]
+
+
+def test_mixed_mode_cyclic_factory_requires_explicit_unambiguous_driver():
+    monotonic = _mixed_cyclic().monotonic
+    with pytest.raises(ValueError, match="requires an explicit energy driver"):
+        fatigue_fracture.cyclic_cohesive(
+            monotonic=monotonic,
+            fatigue_coefficient=0.1,
+            fatigue_exponent=1.0,
+            range_threshold=0.0,
+        )
+    with pytest.raises(ValueError, match="thresholds and peak effects"):
+        fatigue_fracture.cyclic_cohesive(
+            monotonic=monotonic,
+            driver=fatigue_fracture.mixed_mode_energy_range_driver(),
+            fatigue_coefficient=0.1,
+            fatigue_exponent=1.0,
+            range_threshold=0.1,
+        )
+
+
+def test_mixed_mode_cycle_below_declared_energy_threshold_is_a_hold():
+    law = _mixed_cyclic()
+    state = law.transaction(1).configure_dimension(2)
+    state.begin_cycle([[0.001, 0.001]], [[0.002, 0.002]], cycles=10_000)
+    state.commit_cycle()
+    np.testing.assert_allclose(state.fatigue_damage, 0.0)
+    np.testing.assert_allclose(state.cumulative_cycles, 10_000.0)
+
+
+def test_mixed_mode_energy_driver_is_tangentially_rotation_invariant():
+    law = _mixed_cyclic()
+    first = law.driver.evaluate(
+        law.monotonic,
+        [[0.005, 0.003, 0.004]],
+        [[0.02, 0.012, 0.016]],
+    )
+    second = law.driver.evaluate(
+        law.monotonic,
+        [[0.005, -0.004, 0.003]],
+        [[0.02, -0.016, 0.012]],
+    )
+    for name in (
+        "mode_i_range",
+        "mode_ii_range",
+        "mixed_fracture_energy",
+        "normalized_range",
+        "local_load_ratio",
+    ):
+        np.testing.assert_allclose(getattr(first, name), getattr(second, name))
+
+
+def test_mixed_mode_peak_valley_driver_rejects_nonproportional_cycles():
+    law = _mixed_cyclic()
+    with pytest.raises(ValueError, match="mode mixity is non-proportional"):
+        law.driver.evaluate(
+            law.monotonic,
+            [[0.01, 0.0]],
+            [[0.02, 0.02]],
+        )
+    with pytest.raises(ValueError, match="Tangential jump direction"):
+        law.driver.evaluate(
+            law.monotonic,
+            [[0.005, 0.005, 0.0]],
+            [[0.02, -0.02, 0.0]],
+        )
+
+
+def test_mixed_mode_cycle_transaction_preserves_monotonic_limit_compression_and_restart():
+    law = _mixed_cyclic()
+    state = law.transaction(2).configure_dimension(2)
+    reference = law.monotonic.transaction(2)
+    for jump in (
+        np.array([[0.01, 0.008], [-0.01, 0.006]]),
+        np.array([[0.02, 0.016], [-0.005, 0.003]]),
+    ):
+        response = state.begin(jump)
+        expected = reference.begin(jump)
+        np.testing.assert_allclose(response.traction, expected.traction)
+        np.testing.assert_allclose(response.damage, expected.damage)
+        state.commit()
+        reference.commit()
+
+    before = state.snapshot()
+    valley = np.array([[0.005, 0.004], [-0.005, 0.002]])
+    peak = np.array([[0.02, 0.016], [-0.005, 0.008]])
+    trial = state.begin_cycle(valley, peak, cycles=25)
+    assert trial.fatigue_damage[0] > 0.0
+    assert trial.fatigue_damage[1] == pytest.approx(0.0)
+    state.rollback()
+    assert state.snapshot() == before
+
+    state.begin_cycle(valley, peak, cycles=25)
+    state.commit_cycle()
+    closed = state.begin([[-0.01, 0.0], [-0.02, 0.0]])
+    assert closed.traction[:, 0] == pytest.approx([-10.0, -20.0])
+    state.rollback()
+    snapshot = state.snapshot()
+    restored = law.transaction(2).configure_dimension(2)
+    restored.restore(snapshot)
+    for name, values in state.state_arrays().items():
+        np.testing.assert_allclose(restored.state_arrays()[name], values)
+
+
+def test_mixed_mode_cycle_jump_matches_cycle_by_cycle_at_fixed_vector_extrema():
+    law = _mixed_cyclic()
+    valley = np.array([[0.005, 0.004]])
+    peak = np.array([[0.02, 0.016]])
+    exact = law.transaction(1).configure_dimension(2)
+    for _ in range(100):
+        exact.begin_cycle(valley, peak, cycles=1)
+        exact.commit_cycle()
+    jumped = law.transaction(1).configure_dimension(2)
+    jumped.begin_cycle(valley, peak, cycles=100)
+    jumped.commit_cycle()
+    np.testing.assert_allclose(
+        jumped.fatigue_damage,
+        exact.fatigue_damage,
+        rtol=3.0e-12,
+        atol=4.0e-15,
+    )
+
+
+def test_ordered_nonproportional_path_is_segment_resolved_and_transactional():
+    law = _ordered_mixed_cyclic()
+    path = _ordered_path()
+    evidence = law.driver.evaluate_path(law.monotonic, path)
+    assert evidence.segment_normalized_range.shape == (4, 1)
+    assert np.count_nonzero(evidence.loading_segments[:, 0]) >= 2
+    assert evidence.path_length[0] > np.linalg.norm(
+        evidence.maximum_jump[0] - evidence.minimum_jump[0]
+    )
+    assert evidence.station_count == pytest.approx([5.0])
+
+    state = law.transaction(1).configure_dimension(2)
+    pristine = state.snapshot()
+    trial = state.begin_cycle_path(path, cycles=20)
+    assert trial.fatigue_damage[0] > 0.0
+    assert trial.cycle_station_count == pytest.approx([5.0])
+    assert trial.cycle_path_length == pytest.approx(evidence.path_length)
+    state.rollback()
+    assert state.snapshot() == pristine
+
+    state.begin_cycle_path(path, cycles=20)
+    state.commit_cycle()
+    restored = law.transaction(1).configure_dimension(2)
+    restored.restore(state.snapshot())
+    for name, values in state.state_arrays().items():
+        np.testing.assert_allclose(restored.state_arrays()[name], values)
+
+
+def test_ordered_path_retains_mode_transfer_at_constant_total_energy():
+    law = _ordered_mixed_cyclic()
+    normal = 0.02
+    shear = normal * np.sqrt(
+        law.monotonic.normal_stiffness / law.monotonic.tangential_stiffness
+    )
+    path = fatigue_fracture.ordered_jump_cycle(
+        (0.0, 0.5, 1.0),
+        np.asarray((((normal, 0.0),), ((0.0, shear),), ((normal, 0.0),))),
+    )
+    evidence = law.driver.evaluate_path(law.monotonic, path)
+    np.testing.assert_allclose(
+        0.5 * law.monotonic.normal_stiffness * normal**2,
+        0.5 * law.monotonic.tangential_stiffness * shear**2,
+    )
+    assert evidence.loading_segments[:, 0].tolist() == [True, True]
+    assert evidence.segment_mode_ii_range[0, 0] > 0.0
+    assert evidence.segment_mode_i_range[1, 0] > 0.0
+
+
+def test_ordered_path_cycle_jump_matches_cycle_by_cycle_for_fixed_path():
+    law = _ordered_mixed_cyclic()
+    path = _ordered_path()
+    exact = law.transaction(1).configure_dimension(2)
+    for _ in range(50):
+        exact.begin_cycle_path(path, cycles=1)
+        exact.commit_cycle()
+    jumped = law.transaction(1).configure_dimension(2)
+    jumped.begin_cycle_path(path, cycles=50)
+    jumped.commit_cycle()
+    np.testing.assert_allclose(
+        jumped.fatigue_damage,
+        exact.fatigue_damage,
+        rtol=3.0e-12,
+        atol=4.0e-15,
+    )
+
+
 def test_existing_3d_surface_assembler_consumes_cyclic_transaction():
     coordinates = np.array(
         [
@@ -267,6 +623,51 @@ def test_existing_3d_surface_assembler_consumes_cyclic_transaction():
         first.internal_force
     )
     assert degraded.dissipated_energy > first.dissipated_energy
+
+
+def test_3d_surface_assembler_consumes_full_vector_cyclic_transaction():
+    coordinates = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ]
+    )
+    topology = interfaces.pair_coincident_surface_facets(
+        coordinates,
+        negative_facets=np.array([[0, 1, 2]]),
+        positive_facets=np.array([[3, 4, 5]]),
+        normal_hint=(0.0, 0.0, 1.0),
+    )
+    assembler = interfaces.ModeICohesiveSurfaceAssembler(
+        topology,
+        _mixed_cyclic(),
+        number_of_nodes=6,
+        tangential="mixed",
+    )
+    displacement = np.zeros_like(coordinates)
+    displacement[3:] = (0.003, 0.004, 0.004)
+    valley_response = assembler.begin(displacement)
+    valley = assembler.cycle_kinematics(valley_response)
+    assembler.rollback()
+    displacement[3:] *= 4.0
+    peak_response = assembler.begin(displacement)
+    peak = assembler.cycle_kinematics(peak_response)
+    assembler.rollback()
+    np.testing.assert_allclose(peak, 4.0 * valley)
+
+    assembler.state.begin_cycle(valley, peak, cycles=9)
+    assembler.state.commit_cycle()
+    material = assembler.material_point_response(assembler.begin(displacement))
+    assembler.rollback()
+    assert material.jump.shape == (topology.number_of_points, 3)
+    assert np.max(material.fatigue_damage) > 0.0
+    assert np.max(material.mode_i_energy_range) > 0.0
+    assert np.max(material.mode_ii_energy_range) > 0.0
+    np.testing.assert_allclose(material.cumulative_cycles, 9.0)
 
 
 def test_cyclic_fatigue_procedure_keeps_cycles_distinct_from_time():
@@ -568,6 +969,9 @@ class _FakeCyclicForce:
     def cycle_opening(self):
         return self.opening.copy()
 
+    def cycle_kinematics(self):
+        return self.opening.copy()
+
     def for_displacement(self, displacement):
         self.displacement = displacement
         return self
@@ -603,6 +1007,58 @@ def _global_fatigue_fixture(*, feedback=0.1):
     return field, force, collection, state, solve_equilibrium, cycle
 
 
+def _global_mixed_fatigue_fixture(*, feedback=0.1):
+    field = _FakeField()
+    force = _FakeCyclicForce(_mixed_cyclic(), field)
+    force.assembler.state.configure_dimension(2)
+    force.opening = np.zeros((1, 2))
+    collection = fracture.named_cohesive_forces(crack=force)
+    state = fatigue_fracture.field_state(displacement=field)
+
+    def solve_equilibrium(*, load, branch, cycle):
+        damage = force.assembler.state.fatigue_damage[0]
+        compliance = 1.0 + feedback * damage
+        force.opening[:] = (0.008 * load * compliance, 0.006 * load * compliance)
+        field.x.array[0] = force.opening[0, 0]
+        return {
+            "iterations": 3,
+            "reaction": load,
+            "control_displacement": force.opening[0, 0],
+            "energy_balance_error": 1.0e-8,
+        }
+
+    cycle = fatigue_fracture.force_cycle(fmin=0.25, fmax=1.0)
+    return field, force, collection, state, solve_equilibrium, cycle
+
+
+def _global_ordered_mixed_fatigue_fixture():
+    field = _FakeField()
+    force = _FakeCyclicForce(_ordered_mixed_cyclic(), field)
+    force.assembler.state.configure_dimension(2)
+    force.opening = np.zeros((1, 2))
+    collection = fracture.named_cohesive_forces(crack=force)
+    state = fatigue_fracture.field_state(displacement=field)
+
+    def solve_equilibrium(*, load, branch, cycle, phase=None):
+        if phase is None:
+            phase = 0.5 if branch == "verification_maximum" else 1.0
+        angle = 2.0 * np.pi * phase
+        opening = np.asarray(
+            [[0.014 + 0.012 * np.sin(angle), 0.018 * (1.0 - np.cos(angle))]]
+        )
+        force.opening[:] = opening
+        field.x.array[0] = opening[0, 0]
+        return {
+            "iterations": 3,
+            "reaction": load,
+            "control_displacement": opening[0, 0],
+            "energy_balance_error": 1.0e-8,
+        }
+
+    cycle = fatigue_fracture.force_cycle(fmin=0.25, fmax=1.0)
+    return field, force, collection, state, solve_equilibrium, cycle
+
+
 def test_global_cycle_step_closes_at_valley_and_lands_on_requested_cycles():
     field, force, collection, state, solve, cycle = _global_fatigue_fixture()
     step = fatigue_fracture.global_cyclic_fatigue_step(
@@ -630,6 +1086,98 @@ def test_global_cycle_step_closes_at_valley_and_lands_on_requested_cycles():
     assert step.history[-1].closing.branch == "closing"
     assert field.x.array[0] < step.history[-1].maximum.control_displacement
     assert force.assembler.state.cumulative_cycles == pytest.approx([20.0])
+
+
+def test_global_cycle_energy_ledger_is_atomic_and_restartable():
+    field, force, collection, state, _solve, cycle = _global_fatigue_fixture()
+
+    def solve(*, load, branch, cycle):
+        opening = 0.2 * load
+        field.x.array[0] = opening
+        force.opening[:] = opening
+        energy = 0.5 * load * opening
+        return {
+            "reaction": load,
+            "control_displacement": opening,
+            "generalized_work": (
+                fatigue_fracture.generalized_work_sample(
+                    "actuator",
+                    role="reference_point",
+                    force=(load,),
+                    displacement=(opening,),
+                ),
+            ),
+            "energy_channels": {
+                "recoverable_bulk_and_interface": energy,
+            },
+        }
+
+    ledger = fatigue_fracture.cyclic_work_energy_ledger(name="global ledger")
+    step = fatigue_fracture.global_cyclic_fatigue_step(
+        cycle=cycle,
+        stop_cycle=1,
+        interfaces=collection,
+        state=state,
+        solve_equilibrium=solve,
+        energy_ledger=ledger,
+        maximum_energy_balance_error=1.0e-12,
+    )
+    step.run()
+    frame = step.history[0].energy_frame
+    assert frame is not None
+    assert frame.relative_balance_error == pytest.approx(0.0, abs=1.0e-14)
+    assert len(ledger.frames) == 1
+
+    checkpoint = step.snapshot()
+    field2, force2, collection2, state2, _solve2, cycle2 = _global_fatigue_fixture()
+    ledger2 = fatigue_fracture.cyclic_work_energy_ledger(name="global ledger")
+    restarted = fatigue_fracture.global_cyclic_fatigue_step(
+        cycle=cycle2,
+        stop_cycle=1,
+        interfaces=collection2,
+        state=state2,
+        solve_equilibrium=lambda **kwargs: None,
+        energy_ledger=ledger2,
+        maximum_energy_balance_error=1.0e-12,
+    )
+    restarted.restore(checkpoint)
+    assert ledger2.snapshot() == ledger.snapshot()
+
+
+def test_global_cycle_rejects_energy_imbalance_without_committing_ledger():
+    field, force, collection, state, _solve, cycle = _global_fatigue_fixture()
+
+    def solve(*, load, branch, cycle):
+        opening = 0.2 * load
+        field.x.array[0] = opening
+        force.opening[:] = opening
+        return {
+            "generalized_work": (
+                fatigue_fracture.generalized_work_sample(
+                    "actuator", force=(load,), displacement=(opening,)
+                ),
+            ),
+            "energy_channels": {
+                "deliberately_unbalanced": (
+                    1.0 if branch == "closing" else float(load)
+                )
+            },
+        }
+
+    ledger = fatigue_fracture.cyclic_work_energy_ledger(name="rejecting ledger")
+    step = fatigue_fracture.global_cyclic_fatigue_step(
+        cycle=cycle,
+        stop_cycle=1,
+        interfaces=collection,
+        state=state,
+        solve_equilibrium=solve,
+        energy_ledger=ledger,
+        maximum_energy_balance_error=1.0e-6,
+    )
+    with pytest.raises(RuntimeError, match="cutback to one cycle"):
+        step.run()
+    assert ledger.frames == []
+    assert step.current_cycle == 0
 
 
 def test_global_cycle_step_cuts_back_structural_feedback_atomically():
@@ -699,6 +1247,92 @@ def test_global_cycle_restart_matches_continuous_cycle_history():
     )
     np.testing.assert_allclose(field2.x.array, field3.x.array)
     assert restarted.current_cycle == continuous.current_cycle == 25
+
+
+def test_global_mixed_mode_cycle_step_restarts_full_vector_transaction():
+    field, force, collection, state, solve, cycle = _global_mixed_fatigue_fixture()
+    partial = fatigue_fracture.global_cyclic_fatigue_step(
+        cycle=cycle,
+        stop_cycle=15,
+        interfaces=collection,
+        state=state,
+        solve_equilibrium=solve,
+        landing_cycles=(5,),
+    )
+    partial.run(until_cycle=5)
+    checkpoint = partial.snapshot()
+
+    field2, force2, collection2, state2, solve2, cycle2 = (
+        _global_mixed_fatigue_fixture()
+    )
+    restarted = fatigue_fracture.global_cyclic_fatigue_step(
+        cycle=cycle2,
+        stop_cycle=15,
+        interfaces=collection2,
+        state=state2,
+        solve_equilibrium=solve2,
+        landing_cycles=(5,),
+    )
+    restarted.restore(checkpoint)
+    restarted.run()
+
+    field3, force3, collection3, state3, solve3, cycle3 = (
+        _global_mixed_fatigue_fixture()
+    )
+    continuous = fatigue_fracture.global_cyclic_fatigue_step(
+        cycle=cycle3,
+        stop_cycle=15,
+        interfaces=collection3,
+        state=state3,
+        solve_equilibrium=solve3,
+        landing_cycles=(5,),
+    )
+    continuous.run()
+    assert restarted.current_cycle == continuous.current_cycle == 15
+    for name, expected in force3.assembler.state.state_arrays().items():
+        np.testing.assert_allclose(
+            force2.assembler.state.state_arrays()[name], expected
+        )
+
+
+def test_global_ordered_path_dispatches_all_stations_and_restarts():
+    phases = (0.0, 0.125, 0.25, 0.5, 0.75, 0.875, 1.0)
+    field, force, collection, state, solve, cycle = (
+        _global_ordered_mixed_fatigue_fixture()
+    )
+    partial = fatigue_fracture.global_cyclic_fatigue_step(
+        cycle=cycle,
+        stop_cycle=8,
+        interfaces=collection,
+        state=state,
+        solve_equilibrium=solve,
+        ordered_path_phases=phases,
+        landing_cycles=(3,),
+    )
+    partial.run(until_cycle=3)
+    assert partial.history[-1].ordered_path[0].metadata["phase"] == 0.0
+    assert partial.history[-1].ordered_path[-1].metadata["phase"] == 1.0
+    assert force.assembler.state.state_arrays()["cycle_station_count"] == pytest.approx(
+        [len(phases)]
+    )
+    checkpoint = partial.snapshot()
+
+    field2, force2, collection2, state2, solve2, cycle2 = (
+        _global_ordered_mixed_fatigue_fixture()
+    )
+    restarted = fatigue_fracture.global_cyclic_fatigue_step(
+        cycle=cycle2,
+        stop_cycle=8,
+        interfaces=collection2,
+        state=state2,
+        solve_equilibrium=solve2,
+        ordered_path_phases=phases,
+        landing_cycles=(3,),
+    )
+    restarted.restore(checkpoint)
+    restarted.run()
+    assert restarted.current_cycle == 8
+    assert force2.assembler.state.cumulative_cycles == pytest.approx([8.0])
 
 
 def test_global_cycle_durable_checkpoint_restores_fields_interfaces_and_ledger(tmp_path):

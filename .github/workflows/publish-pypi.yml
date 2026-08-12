@@ -97,6 +97,8 @@ jobs:
           python tests/portable_checkpoint_driver.py read /tmp/agentfem-portable-heat
           mpirun -n 2 python tests/portable_cohesive_checkpoint_driver.py write /tmp/agentfem-portable-cohesive
           python tests/portable_cohesive_checkpoint_driver.py read /tmp/agentfem-portable-cohesive
+          mpirun -n 2 python tests/portable_mixed_cyclic_cohesive_driver.py write /tmp/agentfem-portable-mixed-cyclic
+          python tests/portable_mixed_cyclic_cohesive_driver.py read /tmp/agentfem-portable-mixed-cyclic
           mpirun -n 2 python tests/portable_cohesive_checkpoint_driver.py reject-inconsistent /tmp/agentfem-inconsistent-cohesive
           mpirun -n 2 python tests/portable_cohesive_dynamics_driver.py write /tmp/agentfem-portable-cohesive-dynamics
           python tests/portable_cohesive_dynamics_driver.py read /tmp/agentfem-portable-cohesive-dynamics

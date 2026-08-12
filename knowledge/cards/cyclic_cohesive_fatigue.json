@@ -18,6 +18,7 @@
     "agentfem.fatigue_fracture.ParisEvidence",
     "agentfem.fatigue_fracture.cyclic_cohesive",
     "agentfem.fatigue_fracture.global_cyclic_fatigue_step",
+    "agentfem.fatigue_fracture.cyclic_work_energy_ledger",
     "agentfem.fatigue_fracture.observe_surface_crack",
     "agentfem.fatigue_fracture.paris_evidence",
     "agentfem.procedures.cyclic_fatigue",
@@ -94,7 +95,7 @@
       }
     ],
     "assumptions": [
-      "The first law is normal Mode-I and fixed path.",
+      "This historical opening-range law is normal Mode-I and fixed path; the separate mixed-mode cyclic card declares its vector energy driver.",
       "The reference evolution is calibrated for the material/interface and load regime being studied.",
       "The global cycle controller re-solves degraded equilibrium and rolls back/cuts back a proposed block when damage, opening-feedback or energy evidence exceeds tolerance."
     ],
@@ -107,8 +108,8 @@
       "Material-point studies, current 2D/3D paired-facet cohesive assemblers and the global peak/valley lifecycle for fixed-path surface-fatigue crack growth."
     ],
     "limitations": [
-      "The native equilibrium adapter currently covers Total-Lagrangian hyperelastic bulk forms, fixed-path Mode-I cohesive interfaces and strong Dirichlet reactions; reference-point work, MPC/weak/contact reactions and complete fatigue energy closure remain separate gates.",
-      "No mixed-mode, free-path crack growth, cylinder benchmark or experimental validation is included yet.",
+      "The generalized work-energy ledger accepts reference-point, prescribed-motion, MPC, weak and contact channels, but automatic extraction of all such reactions from every native provider remains a separate gate.",
+      "This Mode-I card does not claim mixed-mode calibration; free-path growth, cylinder validation and experimental prediction remain separate gates.",
       "Bulk-field durable restart currently requires the same MPI partition; cohesive facet state is physically keyed and portable."
     ]
   },
@@ -157,6 +158,7 @@
     }
   ],
   "related_cards": [
+    "agentfem.material.mixed_mode_cyclic_cohesive",
     "agentfem.workflow.cohesive_state_portability",
     "agentfem.workflow.distributed_cohesive_force",
     "agentfem.workflow.dynamic_fracture_v5_evidence"

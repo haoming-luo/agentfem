@@ -24,7 +24,12 @@ from pathlib import Path
 import numpy as np
 
 from . import amplitudes
-from .interfaces import BilinearCohesiveLaw, CohesiveResponse
+from .interfaces import (
+    BilinearCohesiveLaw,
+    CohesiveResponse,
+    MixedModeBilinearCohesiveLaw,
+    VectorCohesiveResponse,
+)
 
 
 def _finite_array(value, *, name: str) -> np.ndarray:
@@ -927,6 +932,1016 @@ class CyclicCohesiveTransaction:
         self.rollback()
 
 
+@dataclass(frozen=True)
+class MixedModeEnergyRange:
+    """Local cohesive-energy driver from one physical peak/valley pair.
+
+    These quantities are work-conjugate interface energy channels. They are
+    deliberately not labelled as a structure-level J-integral or VCCT energy
+    release rate.
+    """
+
+    mode_i_minimum: np.ndarray
+    mode_i_maximum: np.ndarray
+    mode_i_range: np.ndarray
+    mode_ii_minimum: np.ndarray
+    mode_ii_maximum: np.ndarray
+    mode_ii_range: np.ndarray
+    mode_i_fraction: np.ndarray
+    mixed_fracture_energy: np.ndarray
+    mixed_threshold_energy: np.ndarray
+    normalized_range: np.ndarray
+    local_load_ratio: np.ndarray
+
+
+@dataclass(frozen=True)
+class OrderedJumpCyclePath:
+    """One ordered closed cycle of complete local cohesive jump vectors."""
+
+    phases: np.ndarray
+    jumps: np.ndarray
+    name: str = "ordered jump cycle"
+
+    def __post_init__(self) -> None:
+        phases = _finite_array(self.phases, name="phases").reshape(-1)
+        jumps = _finite_array(self.jumps, name="jumps")
+        if phases.size < 3 or phases[0] != 0.0 or phases[-1] != 1.0:
+            raise ValueError(
+                "An ordered jump cycle needs at least three stations from phase 0 to 1."
+            )
+        if np.any(np.diff(phases) <= 0.0):
+            raise ValueError("Ordered jump-cycle phases must increase strictly.")
+        if jumps.ndim != 3 or jumps.shape[0] != phases.size or jumps.shape[2] not in {2, 3}:
+            raise ValueError(
+                "Ordered jump-cycle values must have shape (stations, points, 2 or 3)."
+            )
+        scale = max(float(np.max(np.abs(jumps), initial=0.0)), 1.0)
+        if not np.allclose(jumps[0], jumps[-1], rtol=0.0, atol=1.0e-12 * scale):
+            raise ValueError("An ordered jump cycle must close at phase 1.")
+        object.__setattr__(self, "phases", phases.copy())
+        object.__setattr__(self, "jumps", jumps.copy())
+        object.__setattr__(self, "name", str(self.name))
+
+    @property
+    def station_count(self) -> int:
+        return int(self.phases.size)
+
+    @property
+    def point_count(self) -> int:
+        return int(self.jumps.shape[1])
+
+    @property
+    def dimension(self) -> int:
+        return int(self.jumps.shape[2])
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "ordered_closed_jump_cycle",
+            "name": self.name,
+            "station_count": self.station_count,
+            "point_count": self.point_count,
+            "dimension": self.dimension,
+            "phases": self.phases.tolist(),
+        }
+
+
+@dataclass(frozen=True)
+class MixedModeEnergyPath:
+    """Segment-resolved local cohesive energy evidence for one ordered path."""
+
+    equivalent_range: MixedModeEnergyRange
+    segment_mode_i_range: np.ndarray
+    segment_mode_ii_range: np.ndarray
+    segment_normalized_range: np.ndarray
+    loading_segments: np.ndarray
+    minimum_jump: np.ndarray
+    maximum_jump: np.ndarray
+    path_length: np.ndarray
+    reversal_count: np.ndarray
+    station_count: np.ndarray
+
+    def damage_measure(self, exponent: float) -> np.ndarray:
+        selected = float(exponent)
+        if not isfinite(selected) or selected < 0.0:
+            raise ValueError("fatigue exponent must be finite and nonnegative.")
+        active = self.loading_segments & (self.segment_normalized_range > 0.0)
+        values = np.where(
+            active,
+            self.segment_normalized_range**selected,
+            0.0,
+        )
+        return np.sum(values, axis=0)
+
+
+@dataclass(frozen=True)
+class OrderedMixedModeEnergyPathDriver:
+    """Segment-resolved BK/power driver for ordered mixed-mode cycles."""
+
+    mode_i_threshold_fraction: float = 0.0
+    mode_ii_threshold_fraction: float = 0.0
+    interaction: str | None = None
+    interaction_exponent: float | None = None
+    name: str = "ordered mixed-mode cohesive energy-path driver"
+
+    def __post_init__(self) -> None:
+        # Reuse the reviewed threshold and interaction validation.
+        MixedModeEnergyRangeDriver(
+            mode_i_threshold_fraction=self.mode_i_threshold_fraction,
+            mode_ii_threshold_fraction=self.mode_ii_threshold_fraction,
+            interaction=self.interaction,
+            interaction_exponent=self.interaction_exponent,
+        )
+
+    def _range_driver(self) -> "MixedModeEnergyRangeDriver":
+        return MixedModeEnergyRangeDriver(
+            mode_i_threshold_fraction=self.mode_i_threshold_fraction,
+            mode_ii_threshold_fraction=self.mode_ii_threshold_fraction,
+            interaction=self.interaction,
+            interaction_exponent=self.interaction_exponent,
+            proportionality_tolerance=1.0,
+            tangential_direction_tolerance=1.0,
+        )
+
+    def evaluate(self, law, valley_jump, peak_jump) -> MixedModeEnergyRange:
+        valley = _finite_array(valley_jump, name="valley_jump")
+        peak = _finite_array(peak_jump, name="peak_jump")
+        path = OrderedJumpCyclePath(
+            phases=np.asarray((0.0, 0.5, 1.0)),
+            jumps=np.stack((valley, peak, valley)),
+            name="peak-valley compatibility path",
+        )
+        return self.evaluate_path(law, path).equivalent_range
+
+    def evaluate_path(
+        self,
+        law: MixedModeBilinearCohesiveLaw,
+        path: OrderedJumpCyclePath,
+    ) -> MixedModeEnergyPath:
+        if not isinstance(law, MixedModeBilinearCohesiveLaw):
+            raise TypeError("Ordered mixed-mode energy driving requires a mixed-mode law.")
+        if not isinstance(path, OrderedJumpCyclePath):
+            raise TypeError("evaluate_path requires an OrderedJumpCyclePath.")
+        jump = path.jumps
+        opening = np.maximum(jump[..., 0], 0.0)
+        shear = np.linalg.norm(jump[..., 1:], axis=-1)
+        gi = 0.5 * law.normal_stiffness * opening**2
+        gii = 0.5 * law.tangential_stiffness * shear**2
+        delta_gi = np.diff(gi, axis=0)
+        delta_gii = np.diff(gii, axis=0)
+        scale = np.maximum(
+            np.maximum(gi[:-1] + gii[:-1], gi[1:] + gii[1:]), 1.0
+        )
+        positive_gi = np.where(
+            delta_gi > np.finfo(float).eps * scale,
+            delta_gi,
+            0.0,
+        )
+        positive_gii = np.where(
+            delta_gii > np.finfo(float).eps * scale,
+            delta_gii,
+            0.0,
+        )
+        total_positive = positive_gi + positive_gii
+        loading = total_positive > 0.0
+        mixity = np.divide(
+            positive_gii,
+            total_positive,
+            out=np.zeros_like(total_positive),
+            where=total_positive > 0.0,
+        )
+        range_driver = self._range_driver()
+        interaction, exponent = range_driver._interaction_values(law)
+        critical = range_driver._mixed_value(
+            law.normal_fracture_energy,
+            law.shear_fracture_energy,
+            mixity,
+            interaction=interaction,
+            exponent=exponent,
+        )
+        if self.mode_i_threshold_fraction == 0.0 and self.mode_ii_threshold_fraction == 0.0:
+            threshold = np.zeros_like(critical)
+        else:
+            if interaction == "power" and (
+                self.mode_i_threshold_fraction == 0.0
+                or self.mode_ii_threshold_fraction == 0.0
+            ):
+                raise ValueError(
+                    "Power-law threshold interaction requires both pure-mode "
+                    "threshold fractions to be positive, or both zero."
+                )
+            threshold = range_driver._mixed_value(
+                self.mode_i_threshold_fraction * law.normal_fracture_energy,
+                self.mode_ii_threshold_fraction * law.shear_fracture_energy,
+                mixity,
+                interaction=interaction,
+                exponent=exponent,
+            )
+        normalized = np.where(
+            loading,
+            np.clip(
+                (total_positive - threshold)
+                / np.maximum(critical - threshold, np.finfo(float).tiny),
+                0.0,
+                1.0,
+            ),
+            0.0,
+        )
+        aggregate_gi = np.sum(positive_gi, axis=0)
+        aggregate_gii = np.sum(positive_gii, axis=0)
+        aggregate_total = aggregate_gi + aggregate_gii
+        aggregate_mixity = np.divide(
+            aggregate_gii,
+            aggregate_total,
+            out=np.zeros_like(aggregate_total),
+            where=aggregate_total > 0.0,
+        )
+        aggregate_critical = range_driver._mixed_value(
+            law.normal_fracture_energy,
+            law.shear_fracture_energy,
+            aggregate_mixity,
+            interaction=interaction,
+            exponent=exponent,
+        )
+        if self.mode_i_threshold_fraction == 0.0 and self.mode_ii_threshold_fraction == 0.0:
+            aggregate_threshold = np.zeros_like(aggregate_critical)
+        else:
+            aggregate_threshold = range_driver._mixed_value(
+                self.mode_i_threshold_fraction * law.normal_fracture_energy,
+                self.mode_ii_threshold_fraction * law.shear_fracture_energy,
+                aggregate_mixity,
+                interaction=interaction,
+                exponent=exponent,
+            )
+        total_energy = gi + gii
+        minimum_index = np.argmin(total_energy, axis=0)
+        maximum_index = np.argmax(total_energy, axis=0)
+        point_index = np.arange(path.point_count)
+        minimum_jump = jump[minimum_index, point_index]
+        maximum_jump = jump[maximum_index, point_index]
+        load_ratio = np.sqrt(
+            np.divide(
+                np.min(total_energy, axis=0),
+                np.max(total_energy, axis=0),
+                out=np.zeros(path.point_count),
+                where=np.max(total_energy, axis=0) > 0.0,
+            )
+        )
+        increments = np.diff(jump, axis=0)
+        path_length = np.sum(np.linalg.norm(increments, axis=-1), axis=0)
+        if increments.shape[0] < 2:
+            reversals = np.zeros(path.point_count)
+        else:
+            dot = np.sum(increments[:-1] * increments[1:], axis=-1)
+            reversals = np.count_nonzero(dot < 0.0, axis=0).astype(float)
+        equivalent = MixedModeEnergyRange(
+            mode_i_minimum=np.min(gi, axis=0),
+            mode_i_maximum=np.max(gi, axis=0),
+            mode_i_range=aggregate_gi,
+            mode_ii_minimum=np.min(gii, axis=0),
+            mode_ii_maximum=np.max(gii, axis=0),
+            mode_ii_range=aggregate_gii,
+            mode_i_fraction=1.0 - aggregate_mixity,
+            mixed_fracture_energy=aggregate_critical,
+            mixed_threshold_energy=aggregate_threshold,
+            normalized_range=np.sum(normalized, axis=0),
+            local_load_ratio=load_ratio,
+        )
+        return MixedModeEnergyPath(
+            equivalent_range=equivalent,
+            segment_mode_i_range=positive_gi,
+            segment_mode_ii_range=positive_gii,
+            segment_normalized_range=normalized,
+            loading_segments=loading,
+            minimum_jump=minimum_jump,
+            maximum_jump=maximum_jump,
+            path_length=path_length,
+            reversal_count=reversals,
+            station_count=np.full(path.point_count, path.station_count, dtype=float),
+        )
+
+    def summary(self, law=None) -> dict[str, object]:
+        base = self._range_driver().summary(law)
+        base.update(
+            {
+                "name": self.name,
+                "kind": "ordered_local_cohesive_energy_path",
+                "path_assumption": "ordered_closed_cycle",
+                "path_measure": "sum_of_positive_segment_energy_variations",
+            }
+        )
+        return base
+
+
+@dataclass(frozen=True)
+class MixedModeEnergyRangeDriver:
+    """BK/power interaction for local mixed-mode cyclic energy ranges."""
+
+    mode_i_threshold_fraction: float = 0.0
+    mode_ii_threshold_fraction: float = 0.0
+    interaction: str | None = None
+    interaction_exponent: float | None = None
+    proportionality_tolerance: float = 0.05
+    tangential_direction_tolerance: float = 0.05
+    name: str = "mixed-mode cohesive energy-range driver"
+
+    def __post_init__(self) -> None:
+        for name in ("mode_i_threshold_fraction", "mode_ii_threshold_fraction"):
+            value = float(getattr(self, name))
+            if not isfinite(value) or not 0.0 <= value < 1.0:
+                raise ValueError(f"{name} must lie in [0, 1).")
+        interaction = (
+            None
+            if self.interaction is None
+            else str(self.interaction).strip().lower().replace("-", "_")
+        )
+        if interaction not in {None, "bk", "power"}:
+            raise ValueError("interaction must be None, 'bk', or 'power'.")
+        object.__setattr__(self, "interaction", interaction)
+        if self.interaction_exponent is not None and (
+            not isfinite(float(self.interaction_exponent))
+            or float(self.interaction_exponent) <= 0.0
+        ):
+            raise ValueError("interaction_exponent must be finite and positive.")
+        for name in ("proportionality_tolerance", "tangential_direction_tolerance"):
+            value = float(getattr(self, name))
+            if not isfinite(value) or not 0.0 <= value <= 1.0:
+                raise ValueError(f"{name} must lie in [0, 1].")
+
+    def _interaction_values(self, law: MixedModeBilinearCohesiveLaw):
+        interaction = law.interaction if self.interaction is None else self.interaction
+        exponent = (
+            law.interaction_exponent
+            if self.interaction_exponent is None
+            else float(self.interaction_exponent)
+        )
+        return interaction, exponent
+
+    @staticmethod
+    def _mixed_value(mode_i, mode_ii, fraction, *, interaction, exponent):
+        first = float(mode_i)
+        second = float(mode_ii)
+        if interaction == "bk":
+            return first + (second - first) * fraction**exponent
+        inverse = ((1.0 - fraction) / first) ** exponent + (
+            fraction / second
+        ) ** exponent
+        return inverse ** (-1.0 / exponent)
+
+    def evaluate(self, law, valley_jump, peak_jump) -> MixedModeEnergyRange:
+        if not isinstance(law, MixedModeBilinearCohesiveLaw):
+            raise TypeError("Mixed-mode energy driving requires a mixed-mode law.")
+        valley = _finite_array(valley_jump, name="valley_jump")
+        peak = _finite_array(peak_jump, name="peak_jump")
+        if valley.shape != peak.shape or valley.ndim != 2 or valley.shape[1] < 2:
+            raise ValueError("Cycle jump vectors must share shape (points, 2 or 3).")
+        valley_opening = np.maximum(valley[:, 0], 0.0)
+        peak_opening = np.maximum(peak[:, 0], 0.0)
+        if np.any(peak_opening + np.finfo(float).eps < valley_opening):
+            raise ValueError("Peak normal opening cannot be below valley opening.")
+        valley_shear = np.linalg.norm(valley[:, 1:], axis=1)
+        peak_shear = np.linalg.norm(peak[:, 1:], axis=1)
+        if np.any(peak_shear + np.finfo(float).eps < valley_shear):
+            raise ValueError("Peak tangential jump magnitude cannot be below valley.")
+
+        scale = np.maximum(np.linalg.norm(peak, axis=1), np.finfo(float).eps)
+        mode_i_peak = law.normal_stiffness * peak_opening**2
+        mode_ii_peak = law.tangential_stiffness * peak_shear**2
+        total_peak = mode_i_peak + mode_ii_peak
+        peak_mixity = np.divide(
+            mode_ii_peak,
+            total_peak,
+            out=np.zeros_like(total_peak),
+            where=total_peak > 0.0,
+        )
+        mode_i_valley = law.normal_stiffness * valley_opening**2
+        mode_ii_valley = law.tangential_stiffness * valley_shear**2
+        total_valley = mode_i_valley + mode_ii_valley
+        valley_mixity = np.divide(
+            mode_ii_valley,
+            total_valley,
+            out=peak_mixity.copy(),
+            where=total_valley > 0.0,
+        )
+        active_valley = total_valley > np.finfo(float).eps * np.maximum(total_peak, 1.0)
+        mismatch = np.abs(valley_mixity - peak_mixity)
+        if np.any(active_valley & (mismatch > self.proportionality_tolerance)):
+            raise ValueError(
+                "Peak/valley mode mixity is non-proportional beyond the declared "
+                "tolerance; supply an ordered cycle path to a future path driver."
+            )
+        both_shear = (valley_shear > np.finfo(float).eps * scale) & (
+            peak_shear > np.finfo(float).eps * scale
+        )
+        cosine = np.divide(
+            np.sum(valley[:, 1:] * peak[:, 1:], axis=1),
+            valley_shear * peak_shear,
+            out=np.ones_like(peak_shear),
+            where=both_shear,
+        )
+        if np.any(both_shear & (cosine < 1.0 - self.tangential_direction_tolerance)):
+            raise ValueError(
+                "Tangential jump direction changes beyond the declared tolerance; "
+                "peak/valley extrema cannot represent this non-proportional cycle."
+            )
+
+        # The thermodynamic force conjugate to cohesive damage is 1/2 K delta^2.
+        # It is a local nominal interface-energy driver, not the damaged stored
+        # energy and not a structure-level J-integral. Factors of 1/2 are kept
+        # consistently in both mode channels.
+        gi_min = 0.5 * mode_i_valley
+        gi_max = 0.5 * mode_i_peak
+        gii_min = 0.5 * mode_ii_valley
+        gii_max = 0.5 * mode_ii_peak
+        gi_range = np.maximum(gi_max - gi_min, 0.0)
+        gii_range = np.maximum(gii_max - gii_min, 0.0)
+        total_range = gi_range + gii_range
+        range_mixity = np.divide(
+            gii_range,
+            total_range,
+            out=peak_mixity.copy(),
+            where=total_range > 0.0,
+        )
+        interaction, exponent = self._interaction_values(law)
+        critical = self._mixed_value(
+            law.normal_fracture_energy,
+            law.shear_fracture_energy,
+            range_mixity,
+            interaction=interaction,
+            exponent=exponent,
+        )
+        if (
+            self.mode_i_threshold_fraction == 0.0
+            and self.mode_ii_threshold_fraction == 0.0
+        ):
+            threshold = np.zeros_like(critical)
+        else:
+            if interaction == "power" and (
+                self.mode_i_threshold_fraction == 0.0
+                or self.mode_ii_threshold_fraction == 0.0
+            ):
+                raise ValueError(
+                    "Power-law threshold interaction requires both pure-mode "
+                    "threshold fractions to be positive, or both zero."
+                )
+            threshold = self._mixed_value(
+                self.mode_i_threshold_fraction * law.normal_fracture_energy,
+                self.mode_ii_threshold_fraction * law.shear_fracture_energy,
+                range_mixity,
+                interaction=interaction,
+                exponent=exponent,
+            )
+        denominator = np.maximum(critical - threshold, np.finfo(float).tiny)
+        normalized = np.clip((total_range - threshold) / denominator, 0.0, 1.0)
+        load_ratio = np.sqrt(
+            np.divide(
+                total_valley,
+                total_peak,
+                out=np.zeros_like(total_peak),
+                where=total_peak > 0.0,
+            )
+        )
+        return MixedModeEnergyRange(
+            mode_i_minimum=gi_min,
+            mode_i_maximum=gi_max,
+            mode_i_range=gi_range,
+            mode_ii_minimum=gii_min,
+            mode_ii_maximum=gii_max,
+            mode_ii_range=gii_range,
+            mode_i_fraction=1.0 - range_mixity,
+            mixed_fracture_energy=critical,
+            mixed_threshold_energy=threshold,
+            normalized_range=normalized,
+            local_load_ratio=load_ratio,
+        )
+
+    def summary(self, law=None) -> dict[str, object]:
+        interaction = self.interaction
+        exponent = self.interaction_exponent
+        if isinstance(law, MixedModeBilinearCohesiveLaw):
+            interaction, exponent = self._interaction_values(law)
+        return {
+            "name": self.name,
+            "kind": "local_cohesive_energy_range",
+            "mode_i_threshold_fraction": self.mode_i_threshold_fraction,
+            "mode_ii_threshold_fraction": self.mode_ii_threshold_fraction,
+            "interaction": interaction,
+            "interaction_exponent": exponent,
+            "proportionality_tolerance": self.proportionality_tolerance,
+            "tangential_direction_tolerance": self.tangential_direction_tolerance,
+            "path_assumption": "proportional_peak_valley_cycle",
+            "not_structure_level_energy_release_rate": True,
+        }
+
+
+@dataclass(frozen=True)
+class MixedModeCyclicCohesiveResponse(VectorCohesiveResponse):
+    """Mixed-mode monotonic response with committed cyclic evidence."""
+
+    monotonic_damage: np.ndarray
+    fatigue_damage: np.ndarray
+    valley_jump: np.ndarray
+    peak_jump: np.ndarray
+    mode_i_energy_range: np.ndarray
+    mode_ii_energy_range: np.ndarray
+    mode_i_cycle_fraction: np.ndarray
+    mixed_fracture_energy: np.ndarray
+    mixed_threshold_energy: np.ndarray
+    normalized_energy_range: np.ndarray
+    local_load_ratio: np.ndarray
+    cumulative_cycles: np.ndarray
+    monotonic_dissipated_energy: np.ndarray
+    fatigue_dissipated_energy: np.ndarray
+    cycle_path_length: np.ndarray
+    cycle_reversal_count: np.ndarray
+    cycle_station_count: np.ndarray
+    failed: np.ndarray
+
+
+@dataclass(frozen=True)
+class MixedModeCyclicCohesiveLaw:
+    """Replaceable cyclic damage layered on a mixed-mode cohesive envelope."""
+
+    monotonic: MixedModeBilinearCohesiveLaw
+    driver: MixedModeEnergyRangeDriver | OrderedMixedModeEnergyPathDriver
+    fatigue_coefficient: float
+    fatigue_exponent: float
+    residual_exponent: float = 0.0
+    name: str = "power-law cyclic mixed-mode cohesive law"
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.monotonic, MixedModeBilinearCohesiveLaw):
+            raise TypeError("Mixed-mode cyclic law requires a mixed-mode monotonic law.")
+        if not isinstance(
+            self.driver,
+            (MixedModeEnergyRangeDriver, OrderedMixedModeEnergyPathDriver),
+        ):
+            raise TypeError("Mixed-mode cyclic law requires a declared energy driver.")
+        for name in ("fatigue_coefficient", "fatigue_exponent", "residual_exponent"):
+            value = float(getattr(self, name))
+            if not isfinite(value) or value < 0.0:
+                raise ValueError(f"{name} must be finite and nonnegative.")
+        if float(self.fatigue_coefficient) <= 0.0:
+            raise ValueError("fatigue_coefficient must be positive.")
+        if self.monotonic.residual_tangential_fraction != 0.0:
+            raise ValueError(
+                "The first mixed-mode cyclic law requires zero residual "
+                "tangential fraction so fatigue and stored penalty energy remain distinct."
+            )
+        if self.monotonic.friction_coefficient != 0.0:
+            raise ValueError(
+                "Cyclic mixed-mode friction needs a separate path-resolved "
+                "dissipation contract and is not enabled in this foundation."
+            )
+
+    @property
+    def normal_stiffness(self):
+        return self.monotonic.normal_stiffness
+
+    @property
+    def tangential_stiffness(self):
+        return self.monotonic.tangential_stiffness
+
+    @property
+    def cycle_feedback_scale(self):
+        normal = 2.0 * self.monotonic.normal_fracture_energy / self.monotonic.normal_strength
+        shear = 2.0 * self.monotonic.shear_fracture_energy / self.monotonic.shear_strength
+        return max(normal, shear)
+
+    def transaction(self, size: int):
+        return MixedModeCyclicCohesiveTransaction(self, size)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "family": "cohesive_traction_separation",
+            "mode": "mixed",
+            "cyclic_evolution": "power_law_local_cohesive_energy_range",
+            "fatigue_coefficient_per_cycle": self.fatigue_coefficient,
+            "fatigue_exponent": self.fatigue_exponent,
+            "residual_exponent": self.residual_exponent,
+            "driver": self.driver.summary(self.monotonic),
+            "monotonic_limit": self.monotonic.summary(),
+            "path_scope": "proportional_or_near_proportional_peak_valley_cycles",
+            "maturity": "experimental_material_point_foundation",
+        }
+
+
+class MixedModeCyclicCohesiveTransaction:
+    """Atomic full-vector cycle transaction with mixed-mode energy evidence."""
+
+    _SCHEMA = "agentfem.mixed-mode-cyclic-cohesive-state.v1"
+
+    def __init__(self, law: MixedModeCyclicCohesiveLaw, size: int):
+        self.law = law
+        self.monotonic = law.monotonic.transaction(size)
+        count = int(size)
+        self._fatigue = np.zeros(count)
+        self._valley = np.zeros((count, 0))
+        self._peak = np.zeros((count, 0))
+        self._gi_range = np.zeros(count)
+        self._gii_range = np.zeros(count)
+        self._mode_i_fraction = np.ones(count)
+        self._critical_energy = np.zeros(count)
+        self._threshold_energy = np.zeros(count)
+        self._normalized = np.zeros(count)
+        self._load_ratio = np.zeros(count)
+        self._cycles = np.zeros(count)
+        self._fatigue_dissipation = np.zeros(count)
+        self._path_length = np.zeros(count)
+        self._reversal_count = np.zeros(count)
+        self._station_count = np.zeros(count)
+        self._trial_response = None
+        self._trial_state = None
+
+    @property
+    def size(self):
+        return self.monotonic.size
+
+    @property
+    def committed_maximum(self):
+        return self.monotonic.committed_maximum
+
+    @property
+    def fatigue_damage(self):
+        return self._fatigue.copy()
+
+    @property
+    def cumulative_cycles(self):
+        return self._cycles.copy()
+
+    @property
+    def trial(self):
+        return self._trial_response
+
+    def _ensure_dimension(self, jump):
+        values = _finite_array(jump, name="jump")
+        if values.ndim != 2 or values.shape[0] != self.size or values.shape[1] < 2:
+            raise ValueError("mixed-mode jump must have shape (points, 2 or 3).")
+        if self._valley.shape[1] == 0:
+            self._valley = np.zeros_like(values)
+            self._peak = np.zeros_like(values)
+        elif values.shape != self._valley.shape:
+            raise ValueError("Mixed-mode jump dimension changed during the analysis.")
+        return values
+
+    def configure_dimension(self, dimension: int):
+        selected = int(dimension)
+        if selected not in {2, 3}:
+            raise ValueError("Mixed-mode interfaces require dimension 2 or 3.")
+        if self._valley.shape[1] not in {0, selected}:
+            raise ValueError("Mixed-mode transaction dimension is already fixed.")
+        if self._valley.shape[1] == 0:
+            self._valley = np.zeros((self.size, selected))
+            self._peak = np.zeros((self.size, selected))
+        return self
+
+    def _response(
+        self,
+        jump,
+        *,
+        base=None,
+        fatigue=None,
+        driver=None,
+        dissipation=None,
+        cycles=None,
+        path_length=None,
+        reversal_count=None,
+        station_count=None,
+    ):
+        values = self._ensure_dimension(jump)
+        selected_base = self.monotonic.evaluate(values) if base is None else base
+        fatigue_state = self._fatigue if fatigue is None else np.asarray(fatigue)
+        scale = 1.0 - fatigue_state
+        traction = selected_base.traction * scale[:, None]
+        tangent = selected_base.tangent * scale[:, None, None]
+        compression = values[:, 0] < 0.0
+        traction[compression, 0] = selected_base.traction[compression, 0]
+        tangent[compression, 0, 0] = selected_base.tangent[compression, 0, 0]
+        total_damage = 1.0 - (1.0 - selected_base.damage) * (1.0 - fatigue_state)
+        evidence = driver
+        gi_range = self._gi_range if evidence is None else evidence.mode_i_range
+        gii_range = self._gii_range if evidence is None else evidence.mode_ii_range
+        mode_i_fraction = (
+            self._mode_i_fraction if evidence is None else evidence.mode_i_fraction
+        )
+        critical_energy = (
+            self._critical_energy if evidence is None else evidence.mixed_fracture_energy
+        )
+        threshold_energy = (
+            self._threshold_energy if evidence is None else evidence.mixed_threshold_energy
+        )
+        normalized = self._normalized if evidence is None else evidence.normalized_range
+        ratio = self._load_ratio if evidence is None else evidence.local_load_ratio
+        fatigue_energy = self._fatigue_dissipation if dissipation is None else dissipation
+        cycle_state = self._cycles if cycles is None else cycles
+        closure = np.maximum(-values[:, 0], 0.0)
+        compression_energy = (
+            0.5 * self.law.monotonic.compression_stiffness * closure**2
+        )
+        stored = (
+            selected_base.stored_energy - compression_energy
+        ) * scale + compression_energy
+        return MixedModeCyclicCohesiveResponse(
+            jump=values.copy(), traction=traction, tangent=tangent,
+            maximum_effective_separation=selected_base.maximum_effective_separation,
+            damage=total_damage,
+            stored_energy=stored,
+            dissipated_energy=selected_base.dissipated_energy + fatigue_energy,
+            mode_mixity=selected_base.mode_mixity,
+            monotonic_damage=selected_base.damage,
+            fatigue_damage=fatigue_state.copy(),
+            valley_jump=self._valley.copy(), peak_jump=self._peak.copy(),
+            mode_i_energy_range=np.asarray(gi_range).copy(),
+            mode_ii_energy_range=np.asarray(gii_range).copy(),
+            mode_i_cycle_fraction=np.asarray(mode_i_fraction).copy(),
+            mixed_fracture_energy=np.asarray(critical_energy).copy(),
+            mixed_threshold_energy=np.asarray(threshold_energy).copy(),
+            normalized_energy_range=np.asarray(normalized).copy(),
+            local_load_ratio=np.asarray(ratio).copy(),
+            cumulative_cycles=np.asarray(cycle_state).copy(),
+            monotonic_dissipated_energy=selected_base.dissipated_energy,
+            fatigue_dissipated_energy=np.asarray(fatigue_energy).copy(),
+            cycle_path_length=np.asarray(
+                self._path_length if path_length is None else path_length
+            ).copy(),
+            cycle_reversal_count=np.asarray(
+                self._reversal_count if reversal_count is None else reversal_count
+            ).copy(),
+            cycle_station_count=np.asarray(
+                self._station_count if station_count is None else station_count
+            ).copy(),
+            failed=total_damage >= 1.0 - 1.0e-12,
+        )
+
+    def evaluate(self, jump):
+        return self._response(jump)
+
+    def begin(self, jump):
+        if self._trial_state is not None:
+            raise RuntimeError("A cycle-block trial is already active.")
+        values = self._ensure_dimension(jump)
+        base = self.monotonic.begin(values)
+        self._trial_response = self._response(values, base=base)
+        return self._trial_response
+
+    def commit(self):
+        if self._trial_response is None:
+            raise RuntimeError("No mixed-mode cyclic trial is available to commit.")
+        self.monotonic.commit()
+        self._trial_response = None
+
+    def begin_cycle(self, valley_jump, peak_jump, *, cycles: int = 1):
+        if self._trial_response is not None or self._trial_state is not None:
+            raise RuntimeError("Commit or rollback the active cohesive trial first.")
+        count = int(cycles)
+        if count < 1:
+            raise ValueError("cycles must be a positive integer.")
+        valley = self._ensure_dimension(valley_jump)
+        peak = self._ensure_dimension(peak_jump)
+        evidence = self.law.driver.evaluate(self.law.monotonic, valley, peak)
+        amplitude = self.law.fatigue_coefficient * np.where(
+            evidence.normalized_range > 0.0,
+            evidence.normalized_range ** self.law.fatigue_exponent,
+            0.0,
+        )
+        new_fatigue = _integrate_residual_power(
+            self._fatigue, amplitude, count, self.law.residual_exponent
+        )
+        base = self.monotonic.begin(peak)
+        increment = np.maximum(new_fatigue - self._fatigue, 0.0)
+        available = np.maximum(base.stored_energy, 0.0)
+        new_dissipation = self._fatigue_dissipation + available * increment
+        new_cycles = self._cycles + count
+        self._trial_state = {
+            "fatigue_damage": new_fatigue,
+            "valley_jump": valley.copy(), "peak_jump": peak.copy(),
+            "mode_i_energy_range": evidence.mode_i_range.copy(),
+            "mode_ii_energy_range": evidence.mode_ii_range.copy(),
+            "mode_i_cycle_fraction": evidence.mode_i_fraction.copy(),
+            "mixed_fracture_energy": evidence.mixed_fracture_energy.copy(),
+            "mixed_threshold_energy": evidence.mixed_threshold_energy.copy(),
+            "normalized_energy_range": evidence.normalized_range.copy(),
+            "local_load_ratio": evidence.local_load_ratio.copy(),
+            "cumulative_cycles": new_cycles,
+            "fatigue_dissipated_energy": new_dissipation,
+            "cycle_path_length": np.linalg.norm(peak - valley, axis=1) * 2.0,
+            "cycle_reversal_count": np.ones(self.size),
+            "cycle_station_count": np.full(self.size, 3.0),
+        }
+        self._trial_response = self._response(
+            peak, base=base, fatigue=new_fatigue, driver=evidence,
+            dissipation=new_dissipation, cycles=new_cycles,
+            path_length=self._trial_state["cycle_path_length"],
+            reversal_count=self._trial_state["cycle_reversal_count"],
+            station_count=self._trial_state["cycle_station_count"],
+        )
+        return self._trial_response
+
+    def begin_cycle_path(self, path: OrderedJumpCyclePath, *, cycles: int = 1):
+        """Begin one ordered, replaceable non-proportional cycle block."""
+
+        if self._trial_response is not None or self._trial_state is not None:
+            raise RuntimeError("Commit or rollback the active cohesive trial first.")
+        if not isinstance(self.law.driver, OrderedMixedModeEnergyPathDriver):
+            raise TypeError(
+                "Ordered cycle paths require OrderedMixedModeEnergyPathDriver."
+            )
+        count = int(cycles)
+        if count < 1:
+            raise ValueError("cycles must be a positive integer.")
+        if path.point_count != self.size:
+            raise ValueError("Ordered path point count differs from cohesive state.")
+        self.configure_dimension(path.dimension)
+        evidence = self.law.driver.evaluate_path(self.law.monotonic, path)
+        amplitude = self.law.fatigue_coefficient * evidence.damage_measure(
+            self.law.fatigue_exponent
+        )
+        new_fatigue = _integrate_residual_power(
+            self._fatigue, amplitude, count, self.law.residual_exponent
+        )
+        trial_monotonic = self.law.monotonic.transaction(self.size)
+        trial_monotonic.restore_state_arrays(self.monotonic.state_arrays())
+        for station in path.jumps[1:]:
+            trial_monotonic.begin(station)
+            trial_monotonic.commit()
+        base = trial_monotonic.evaluate(evidence.maximum_jump)
+        increment = np.maximum(new_fatigue - self._fatigue, 0.0)
+        new_dissipation = self._fatigue_dissipation + np.maximum(
+            base.stored_energy, 0.0
+        ) * increment
+        new_cycles = self._cycles + count
+        equivalent = evidence.equivalent_range
+        self._trial_state = {
+            "monotonic_state": trial_monotonic.state_arrays(),
+            "fatigue_damage": new_fatigue,
+            "valley_jump": evidence.minimum_jump.copy(),
+            "peak_jump": evidence.maximum_jump.copy(),
+            "mode_i_energy_range": equivalent.mode_i_range.copy(),
+            "mode_ii_energy_range": equivalent.mode_ii_range.copy(),
+            "mode_i_cycle_fraction": equivalent.mode_i_fraction.copy(),
+            "mixed_fracture_energy": equivalent.mixed_fracture_energy.copy(),
+            "mixed_threshold_energy": equivalent.mixed_threshold_energy.copy(),
+            "normalized_energy_range": equivalent.normalized_range.copy(),
+            "local_load_ratio": equivalent.local_load_ratio.copy(),
+            "cumulative_cycles": new_cycles,
+            "fatigue_dissipated_energy": new_dissipation,
+            "cycle_path_length": evidence.path_length.copy(),
+            "cycle_reversal_count": evidence.reversal_count.copy(),
+            "cycle_station_count": evidence.station_count.copy(),
+        }
+        self._trial_response = self._response(
+            evidence.maximum_jump,
+            base=base,
+            fatigue=new_fatigue,
+            driver=equivalent,
+            dissipation=new_dissipation,
+            cycles=new_cycles,
+            path_length=evidence.path_length,
+            reversal_count=evidence.reversal_count,
+            station_count=evidence.station_count,
+        )
+        return self._trial_response
+
+    def commit_cycle(self):
+        if self._trial_state is None:
+            raise RuntimeError("No cycle-block trial is available to commit.")
+        if "monotonic_state" in self._trial_state:
+            self.monotonic.restore_state_arrays(self._trial_state["monotonic_state"])
+        else:
+            self.monotonic.commit()
+        self._fatigue[:] = self._trial_state["fatigue_damage"]
+        self._valley[:] = self._trial_state["valley_jump"]
+        self._peak[:] = self._trial_state["peak_jump"]
+        self._gi_range[:] = self._trial_state["mode_i_energy_range"]
+        self._gii_range[:] = self._trial_state["mode_ii_energy_range"]
+        self._mode_i_fraction[:] = self._trial_state["mode_i_cycle_fraction"]
+        self._critical_energy[:] = self._trial_state["mixed_fracture_energy"]
+        self._threshold_energy[:] = self._trial_state["mixed_threshold_energy"]
+        self._normalized[:] = self._trial_state["normalized_energy_range"]
+        self._load_ratio[:] = self._trial_state["local_load_ratio"]
+        self._cycles[:] = self._trial_state["cumulative_cycles"]
+        self._fatigue_dissipation[:] = self._trial_state["fatigue_dissipated_energy"]
+        self._path_length[:] = self._trial_state["cycle_path_length"]
+        self._reversal_count[:] = self._trial_state["cycle_reversal_count"]
+        self._station_count[:] = self._trial_state["cycle_station_count"]
+        self._trial_state = None
+        self._trial_response = None
+
+    def rollback(self):
+        self.monotonic.rollback()
+        self._trial_state = None
+        self._trial_response = None
+
+    def initialize(self, maximum_effective_separation):
+        self.monotonic.initialize(maximum_effective_separation)
+        self.rollback()
+
+    def initialize_failed(self, mask):
+        self.monotonic.initialize_failed(mask)
+        selected = np.asarray(mask, dtype=bool)
+        self._fatigue[selected] = 1.0
+
+    def state_arrays(self):
+        if self._valley.shape[1] == 0:
+            raise RuntimeError(
+                "Configure the mixed-mode interface dimension before exporting state."
+            )
+        arrays = {
+            f"monotonic_{name}": values
+            for name, values in self.monotonic.state_arrays().items()
+        }
+        arrays.update({
+            "fatigue_damage": self._fatigue.copy(),
+            "mode_i_energy_range": self._gi_range.copy(),
+            "mode_ii_energy_range": self._gii_range.copy(),
+            "mode_i_cycle_fraction": self._mode_i_fraction.copy(),
+            "mixed_fracture_energy": self._critical_energy.copy(),
+            "mixed_threshold_energy": self._threshold_energy.copy(),
+            "normalized_energy_range": self._normalized.copy(),
+            "local_load_ratio": self._load_ratio.copy(),
+            "cumulative_cycles": self._cycles.copy(),
+            "fatigue_dissipated_energy": self._fatigue_dissipation.copy(),
+            "cycle_path_length": self._path_length.copy(),
+            "cycle_reversal_count": self._reversal_count.copy(),
+            "cycle_station_count": self._station_count.copy(),
+        })
+        for component in range(self._valley.shape[1]):
+            arrays[f"valley_jump_{component}"] = self._valley[:, component].copy()
+            arrays[f"peak_jump_{component}"] = self._peak[:, component].copy()
+        return arrays
+
+    def restore_state_arrays(self, arrays):
+        selected = {name: _finite_array(value, name=name) for name, value in arrays.items()}
+        monotonic_names = set(self.monotonic.state_arrays())
+        stored_monotonic_names = {
+            name.removeprefix("monotonic_")
+            for name in selected
+            if name.startswith("monotonic_")
+        }
+        if stored_monotonic_names != monotonic_names:
+            raise ValueError("Mixed-mode cyclic monotonic state fields differ.")
+        monotonic = {name: selected.pop(f"monotonic_{name}") for name in monotonic_names}
+        valley_names = sorted(name for name in selected if name.startswith("valley_jump_"))
+        peak_names = sorted(name for name in selected if name.startswith("peak_jump_"))
+        if len(valley_names) != len(peak_names) or len(valley_names) not in {2, 3}:
+            raise ValueError("Mixed-mode cyclic checkpoint lacks complete jump vectors.")
+        expected_valley = [f"valley_jump_{index}" for index in range(len(valley_names))]
+        expected_peak = [f"peak_jump_{index}" for index in range(len(peak_names))]
+        if valley_names != expected_valley or peak_names != expected_peak:
+            raise ValueError("Mixed-mode cyclic jump components are not consecutive.")
+        valley = np.column_stack([selected.pop(name) for name in valley_names])
+        peak = np.column_stack([selected.pop(name) for name in peak_names])
+        expected = {
+            "fatigue_damage", "mode_i_energy_range", "mode_ii_energy_range",
+            "mode_i_cycle_fraction", "mixed_fracture_energy",
+            "mixed_threshold_energy",
+            "normalized_energy_range", "local_load_ratio", "cumulative_cycles",
+            "fatigue_dissipated_energy",
+            "cycle_path_length", "cycle_reversal_count", "cycle_station_count",
+        }
+        if set(selected) != expected:
+            raise ValueError("Mixed-mode cyclic state fields differ from this law.")
+        for name, values in selected.items():
+            if values.shape != (self.size,):
+                raise ValueError(f"State field {name!r} has an invalid shape.")
+        if np.any((selected["fatigue_damage"] < 0.0) | (selected["fatigue_damage"] > 1.0)):
+            raise ValueError("fatigue_damage must lie in [0, 1].")
+        if np.any(selected["cumulative_cycles"] < 0.0):
+            raise ValueError("cumulative_cycles cannot be negative.")
+        self.monotonic.restore_state_arrays(monotonic)
+        self._ensure_dimension(valley)
+        self._valley[:] = valley
+        self._peak[:] = peak
+        self._fatigue[:] = selected["fatigue_damage"]
+        self._gi_range[:] = selected["mode_i_energy_range"]
+        self._gii_range[:] = selected["mode_ii_energy_range"]
+        self._mode_i_fraction[:] = selected["mode_i_cycle_fraction"]
+        self._critical_energy[:] = selected["mixed_fracture_energy"]
+        self._threshold_energy[:] = selected["mixed_threshold_energy"]
+        self._normalized[:] = selected["normalized_energy_range"]
+        self._load_ratio[:] = selected["local_load_ratio"]
+        self._cycles[:] = selected["cumulative_cycles"]
+        self._fatigue_dissipation[:] = selected["fatigue_dissipated_energy"]
+        self._path_length[:] = selected["cycle_path_length"]
+        self._reversal_count[:] = selected["cycle_reversal_count"]
+        self._station_count[:] = selected["cycle_station_count"]
+        self.rollback()
+
+    def snapshot(self):
+        return {
+            "schema": self._SCHEMA,
+            "law": self.law.summary(),
+            "state": {name: value.tolist() for name, value in self.state_arrays().items()},
+        }
+
+    def restore(self, snapshot):
+        if snapshot.get("schema") != self._SCHEMA:
+            raise ValueError("Unsupported mixed-mode cyclic cohesive-state schema.")
+        if snapshot.get("law") != self.law.summary():
+            raise ValueError("Mixed-mode cyclic law differs from checkpoint.")
+        self.restore_state_arrays(snapshot.get("state", {}))
+
+
 class FieldStateTransaction:
     """In-memory rollback for bulk fields and other transactional assets.
 
@@ -1103,6 +2118,283 @@ class FieldStateTransaction:
 
 
 @dataclass(frozen=True)
+class GeneralizedWorkSample:
+    """One named force--displacement pair at an accepted equilibrium point."""
+
+    name: str
+    role: str
+    force: np.ndarray
+    displacement: np.ndarray
+
+    def __post_init__(self) -> None:
+        name = str(self.name).strip()
+        role = str(self.role).strip().lower().replace("-", "_")
+        allowed = {
+            "natural_load",
+            "reference_point",
+            "prescribed_motion",
+            "mpc_constraint",
+            "weak_constraint",
+            "contact_constraint",
+        }
+        if not name or role not in allowed:
+            raise ValueError("Generalized work needs a name and a supported role.")
+        force = _finite_array(self.force, name="generalized_force").reshape(-1)
+        displacement = _finite_array(
+            self.displacement, name="generalized_displacement"
+        ).reshape(-1)
+        if force.size == 0 or force.shape != displacement.shape:
+            raise ValueError(
+                "Generalized force and displacement must have one matching layout."
+            )
+        object.__setattr__(self, "name", name)
+        object.__setattr__(self, "role", role)
+        object.__setattr__(self, "force", force.copy())
+        object.__setattr__(self, "displacement", displacement.copy())
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "role": self.role,
+            "force": self.force.tolist(),
+            "displacement": self.displacement.tolist(),
+        }
+
+
+def generalized_work_sample(
+    name,
+    *,
+    force,
+    displacement,
+    role="natural_load",
+) -> GeneralizedWorkSample:
+    """Declare one generalized work-conjugate channel."""
+
+    return GeneralizedWorkSample(
+        name=name,
+        role=role,
+        force=force,
+        displacement=displacement,
+    )
+
+
+def reference_point_work_sample(
+    load,
+    *,
+    translation,
+    rotation=None,
+) -> GeneralizedWorkSample:
+    """Pair a distributed reference load with measured rigid motion."""
+
+    force = np.asarray(getattr(load, "force"), dtype=float).reshape(-1)
+    displacement = np.asarray(translation, dtype=float).reshape(-1)
+    raw_moment = getattr(load, "moment", None)
+    moment = (
+        np.empty(0, dtype=float)
+        if raw_moment is None
+        else np.asarray(raw_moment, dtype=float).reshape(-1)
+    )
+    if rotation is None:
+        if moment.size and np.any(np.abs(moment) > 0.0):
+            raise ValueError("A nonzero reference-point moment requires rotation.")
+    else:
+        selected_rotation = np.asarray(rotation, dtype=float).reshape(-1)
+        if moment.size == 1 and selected_rotation.size == 1:
+            pass
+        elif moment.size != selected_rotation.size:
+            raise ValueError("Reference-point moment and rotation layouts differ.")
+        force = np.concatenate((force, moment))
+        displacement = np.concatenate((displacement, selected_rotation))
+    return GeneralizedWorkSample(
+        name=getattr(load, "reference_name", None) or getattr(load, "name", "RP"),
+        role="reference_point",
+        force=force,
+        displacement=displacement,
+    )
+
+
+@dataclass(frozen=True)
+class CyclicEnergyFrame:
+    """One accepted or trial cycle-block work--energy closure."""
+
+    start_cycle: int
+    end_cycle: int
+    cycles: int
+    resolved_cycle_work: float
+    estimated_skipped_cycle_work: float
+    block_external_work: float
+    resolved_channel_work: dict[str, float]
+    block_channel_work: dict[str, float]
+    block_role_work: dict[str, float]
+    energy_channel_increment: dict[str, float]
+    accounted_energy_increment: float
+    balance_error: float
+    relative_balance_error: float
+    estimation: str
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "cyclic_work_energy_frame",
+            **self.__dict__,
+        }
+
+
+class CyclicWorkEnergyLedger:
+    """Transactional generalized-work and cycle-block energy accounting.
+
+    A cycle jump does not invent unsolved frames.  The work of the resolved
+    representative closed path is integrated exactly by named generalized
+    coordinates; skipped-cycle work is explicitly an estimate, while total
+    material dissipation can come from the committed all-cycle state change.
+    """
+
+    _SCHEMA = "agentfem.cyclic-work-energy-ledger.v1"
+
+    def __init__(self, *, name="cyclic work-energy ledger"):
+        self.name = str(name)
+        self.frames: list[CyclicEnergyFrame] = []
+        self._trial: CyclicEnergyFrame | None = None
+
+    @staticmethod
+    def _coerce_sample(value) -> GeneralizedWorkSample:
+        if isinstance(value, GeneralizedWorkSample):
+            return value
+        if isinstance(value, dict):
+            return GeneralizedWorkSample(**value)
+        raise TypeError("Generalized-work entries must be samples or mappings.")
+
+    def begin_block(
+        self,
+        stations,
+        *,
+        start_cycle: int,
+        cycles: int,
+        energy_endpoints=None,
+    ) -> CyclicEnergyFrame:
+        if self._trial is not None:
+            raise RuntimeError("A cyclic energy block is already active.")
+        points = tuple(stations)
+        count = int(cycles)
+        if len(points) < 2 or count < 1:
+            raise ValueError("Cycle energy needs two stations and positive cycles.")
+        channels_by_station = []
+        for point in points:
+            samples = {
+                sample.name: sample
+                for sample in (
+                    self._coerce_sample(value)
+                    for value in getattr(point, "generalized_work", ())
+                )
+            }
+            if len(samples) != len(getattr(point, "generalized_work", ())):
+                raise ValueError("Generalized-work channel names must be unique.")
+            channels_by_station.append(samples)
+        names = set(channels_by_station[0])
+        if not names or any(set(item) != names for item in channels_by_station):
+            raise ValueError(
+                "Every cycle station must expose the same generalized-work channels."
+            )
+        endpoints = points if energy_endpoints is None else tuple(energy_endpoints)
+        if len(endpoints) != 2:
+            raise ValueError("Energy accounting requires exactly two block endpoints.")
+        energy_by_endpoint = [
+            dict(getattr(point, "energy_channels", {})) for point in endpoints
+        ]
+        energy_names = set(energy_by_endpoint[0])
+        if not energy_names or set(energy_by_endpoint[1]) != energy_names:
+            raise ValueError("Both block endpoints must expose the same energy channels.")
+        for values in energy_by_endpoint:
+            if any(not isfinite(float(value)) for value in values.values()):
+                raise ValueError("Energy channels must contain finite total values.")
+        channel_work = {name: 0.0 for name in sorted(names)}
+        roles = {}
+        for left, right in zip(channels_by_station[:-1], channels_by_station[1:]):
+            for name in channel_work:
+                first = left[name]
+                second = right[name]
+                if first.role != second.role or first.force.shape != second.force.shape:
+                    raise ValueError(f"Generalized-work channel {name!r} changed contract.")
+                increment = second.displacement - first.displacement
+                work = 0.5 * float(np.dot(first.force + second.force, increment))
+                channel_work[name] += work
+                roles[name] = first.role
+        resolved = float(sum(channel_work.values()))
+        skipped = resolved * max(count - 1, 0)
+        block_work = resolved + skipped
+        block_channel_work = {
+            name: float(value) * count for name, value in channel_work.items()
+        }
+        role_work = {}
+        for name, value in block_channel_work.items():
+            role = roles[name]
+            role_work[role] = role_work.get(role, 0.0) + value
+        increments = {
+            name: float(energy_by_endpoint[-1][name])
+            - float(energy_by_endpoint[0][name])
+            for name in sorted(energy_names)
+        }
+        accounted = float(sum(increments.values()))
+        balance = block_work - accounted
+        scale = max(abs(block_work), abs(accounted), np.finfo(float).eps)
+        self._trial = CyclicEnergyFrame(
+            start_cycle=int(start_cycle),
+            end_cycle=int(start_cycle) + count,
+            cycles=count,
+            resolved_cycle_work=resolved,
+            estimated_skipped_cycle_work=skipped,
+            block_external_work=block_work,
+            resolved_channel_work=channel_work,
+            block_channel_work=block_channel_work,
+            block_role_work=role_work,
+            energy_channel_increment=increments,
+            accounted_energy_increment=accounted,
+            balance_error=balance,
+            relative_balance_error=abs(balance) / scale,
+            estimation=(
+                "resolved_single_cycle"
+                if count == 1
+                else "representative_resolved_cycle_times_cycle_block"
+            ),
+        )
+        return self._trial
+
+    def commit(self) -> None:
+        if self._trial is None:
+            raise RuntimeError("No cyclic energy block is active.")
+        self.frames.append(self._trial)
+        self._trial = None
+
+    def rollback(self) -> None:
+        self._trial = None
+
+    def snapshot(self) -> dict[str, object]:
+        if self._trial is not None:
+            raise RuntimeError("Commit or rollback energy state before checkpoint.")
+        return {
+            "schema": self._SCHEMA,
+            "name": self.name,
+            "frames": [frame.summary() for frame in self.frames],
+        }
+
+    def restore(self, snapshot) -> None:
+        if snapshot.get("schema") != self._SCHEMA or snapshot.get("name") != self.name:
+            raise ValueError("Cyclic energy-ledger identity differs.")
+        self.frames = []
+        for record in snapshot.get("frames", []):
+            selected = dict(record)
+            if selected.pop("kind", None) != "cyclic_work_energy_frame":
+                raise ValueError("Cyclic energy frame schema differs.")
+            self.frames.append(CyclicEnergyFrame(**selected))
+        self._trial = None
+
+
+def cyclic_work_energy_ledger(**options) -> CyclicWorkEnergyLedger:
+    """Create a transactional cycle-block work--energy ledger."""
+
+    return CyclicWorkEnergyLedger(**options)
+
+
+@dataclass(frozen=True)
 class CyclicEquilibriumPoint:
     """Evidence returned by one converged peak or valley equilibrium solve."""
 
@@ -1116,11 +2408,15 @@ class CyclicEquilibriumPoint:
     external_work: float | None = None
     bulk_strain_energy: float | None = None
     energy_balance_error: float | None = None
+    generalized_work: tuple[GeneralizedWorkSample, ...] = ()
+    energy_channels: dict[str, float] = field(default_factory=dict)
     metadata: dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         branch = str(self.branch).strip().lower()
-        if branch not in {"minimum", "maximum", "verification_maximum", "closing"}:
+        if branch not in {
+            "minimum", "maximum", "verification_maximum", "closing", "path_station"
+        }:
             raise ValueError("Unknown cyclic-equilibrium branch.")
         if not isfinite(float(self.load)):
             raise ValueError("Equilibrium load must be finite.")
@@ -1138,10 +2434,23 @@ class CyclicEquilibriumPoint:
                 raise ValueError(f"Equilibrium evidence {name!r} must be finite.")
         if self.energy_balance_error is not None and self.energy_balance_error < 0.0:
             raise ValueError("energy_balance_error cannot be negative.")
+        work = tuple(
+            CyclicWorkEnergyLedger._coerce_sample(value)
+            for value in self.generalized_work
+        )
+        if len({sample.name for sample in work}) != len(work):
+            raise ValueError("Generalized-work channel names must be unique.")
+        energy = {str(name): float(value) for name, value in self.energy_channels.items()}
+        if not energy or all(isfinite(value) for value in energy.values()):
+            pass
+        else:
+            raise ValueError("Energy channels must contain finite totals.")
         object.__setattr__(self, "branch", branch)
         object.__setattr__(self, "load", float(self.load))
         object.__setattr__(self, "cycle", int(self.cycle))
         object.__setattr__(self, "iterations", int(self.iterations))
+        object.__setattr__(self, "generalized_work", work)
+        object.__setattr__(self, "energy_channels", energy)
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     @classmethod
@@ -1177,6 +2486,8 @@ class CyclicEquilibriumPoint:
             "external_work": self.external_work,
             "bulk_strain_energy": self.bulk_strain_energy,
             "energy_balance_error": self.energy_balance_error,
+            "generalized_work": [sample.summary() for sample in self.generalized_work],
+            "energy_channels": dict(self.energy_channels),
             "metadata": dict(self.metadata),
         }
 
@@ -1193,6 +2504,8 @@ class CyclicFatigueBlock:
     maximum_damage_increment: float
     opening_feedback_error: float
     energy_balance_error: float
+    energy_frame: CyclicEnergyFrame | None = None
+    ordered_path: tuple[CyclicEquilibriumPoint, ...] = ()
     observations: dict[str, object] = field(default_factory=dict)
 
     def summary(self) -> dict[str, object]:
@@ -1206,6 +2519,10 @@ class CyclicFatigueBlock:
             "maximum_damage_increment": self.maximum_damage_increment,
             "opening_feedback_error": self.opening_feedback_error,
             "energy_balance_error": self.energy_balance_error,
+            "energy_frame": (
+                None if self.energy_frame is None else self.energy_frame.summary()
+            ),
+            "ordered_path": [point.summary() for point in self.ordered_path],
             "observations": {
                 name: value.summary() if hasattr(value, "summary") else value
                 for name, value in self.observations.items()
@@ -1239,6 +2556,8 @@ class GlobalCyclicFatigueStep:
         landing_cycles=(),
         maximum_opening_feedback: float = 0.02,
         maximum_energy_balance_error: float | None = None,
+        energy_ledger: CyclicWorkEnergyLedger | None = None,
+        ordered_path_phases=(),
         observe=None,
         name: str = "cyclic fatigue",
     ):
@@ -1253,7 +2572,7 @@ class GlobalCyclicFatigueStep:
             "begin_cycle",
             "commit_cycle",
             "rollback",
-            "cycle_openings",
+            "cycle_kinematics",
             "material_point_responses",
         )
         missing = [item for item in required if not hasattr(interfaces, item)]
@@ -1282,6 +2601,21 @@ class GlobalCyclicFatigueStep:
         targets = tuple(sorted({int(value) for value in landing_cycles}))
         if any(value < 1 or value > int(stop_cycle) for value in targets):
             raise ValueError("landing_cycles must lie in [1, stop_cycle].")
+        phases = tuple(float(value) for value in ordered_path_phases)
+        if phases:
+            if (
+                len(phases) < 3
+                or phases[0] != 0.0
+                or phases[-1] != 1.0
+                or any(not isfinite(value) for value in phases)
+                or np.any(np.diff(phases) <= 0.0)
+            ):
+                raise ValueError(
+                    "ordered_path_phases must increase strictly from 0 to 1 "
+                    "and contain at least three stations."
+                )
+            if not callable(getattr(interfaces, "begin_cycle_path", None)):
+                raise TypeError("Named interfaces have no ordered-path transaction.")
         self.name = str(name)
         self.cycle = cycle
         self.stop_cycle = int(stop_cycle)
@@ -1292,6 +2626,12 @@ class GlobalCyclicFatigueStep:
         self.landing_cycles = targets
         self.maximum_opening_feedback = opening_limit
         self.maximum_energy_balance_error = energy_limit
+        if energy_ledger is not None and not isinstance(
+            energy_ledger, CyclicWorkEnergyLedger
+        ):
+            raise TypeError("energy_ledger must be a CyclicWorkEnergyLedger.")
+        self.energy_ledger = energy_ledger
+        self.ordered_path_phases = phases
         self.observe = observe
         self.ledger = CycleJumpLedger()
         self.history: list[CyclicFatigueBlock] = []
@@ -1347,14 +2687,19 @@ class GlobalCyclicFatigueStep:
             landing_cycles=self.landing_cycles,
         )
 
-    def _solve(self, *, load: float, branch: str, cycle: int):
-        result = self.solve_equilibrium(load=load, branch=branch, cycle=cycle)
+    def _solve(self, *, load: float, branch: str, cycle: int, phase=None):
+        arguments = {"load": load, "branch": branch, "cycle": cycle}
+        if phase is not None:
+            arguments["phase"] = float(phase)
+        result = self.solve_equilibrium(**arguments)
         point = CyclicEquilibriumPoint.coerce(
             result,
             branch=branch,
             load=load,
             cycle=cycle,
         )
+        if phase is not None and "phase" not in point.metadata:
+            point = replace(point, metadata={**point.metadata, "phase": float(phase)})
         if not point.converged:
             raise RuntimeError(
                 f"Global equilibrium did not converge at {branch} of cycle {cycle}."
@@ -1364,38 +2709,88 @@ class GlobalCyclicFatigueStep:
     def _attempt(self, decision: CycleJumpDecision) -> bool:
         bulk_snapshot = self.state.snapshot()
         interface_snapshot = self.interfaces.snapshot()
+        energy_snapshot = (
+            None if self.energy_ledger is None else self.energy_ledger.snapshot()
+        )
         before_damage = self._fatigue_damage()
         self.ledger.begin(decision)
         try:
-            minimum = self._solve(
-                load=self.cycle.minimum,
-                branch="minimum",
-                cycle=decision.start_cycle,
-            )
-            minimum_opening = self.interfaces.cycle_openings()
-            maximum = self._solve(
-                load=self.cycle.maximum,
-                branch="maximum",
-                cycle=decision.end_cycle,
-            )
-            maximum_opening = self.interfaces.cycle_openings()
-            self.interfaces.begin_cycle(
-                minimum_opening,
-                maximum_opening,
-                cycles=decision.cycles,
-            )
+            ordered_points = ()
+            if self.ordered_path_phases:
+                points = []
+                kinematics = {name: [] for name in self.interfaces.names}
+                for phase in self.ordered_path_phases:
+                    point = self._solve(
+                        load=self.cycle.at_phase(phase),
+                        branch="path_station",
+                        cycle=decision.end_cycle,
+                        phase=phase,
+                    )
+                    points.append(point)
+                    station = self.interfaces.cycle_kinematics()
+                    for name in self.interfaces.names:
+                        kinematics[name].append(station[name])
+                ordered_points = tuple(points)
+                maximum_index = int(
+                    np.argmax([self.cycle.at_phase(value) for value in self.ordered_path_phases])
+                )
+                minimum = ordered_points[0]
+                maximum = ordered_points[maximum_index]
+                maximum_opening = {
+                    name: values[maximum_index] for name, values in kinematics.items()
+                }
+                paths = {
+                    name: OrderedJumpCyclePath(
+                        phases=np.asarray(self.ordered_path_phases),
+                        jumps=np.stack(values),
+                        name=f"{name} accepted local cycle",
+                    )
+                    for name, values in kinematics.items()
+                }
+                self.interfaces.begin_cycle_path(paths, cycles=decision.cycles)
+            else:
+                minimum = self._solve(
+                    load=self.cycle.minimum,
+                    branch="minimum",
+                    cycle=decision.start_cycle,
+                )
+                minimum_opening = self.interfaces.cycle_kinematics()
+                maximum = self._solve(
+                    load=self.cycle.maximum,
+                    branch="maximum",
+                    cycle=decision.end_cycle,
+                )
+                maximum_opening = self.interfaces.cycle_kinematics()
+                self.interfaces.begin_cycle(
+                    minimum_opening,
+                    maximum_opening,
+                    cycles=decision.cycles,
+                )
             self.interfaces.commit_cycle()
             verification = self._solve(
                 load=self.cycle.maximum,
                 branch="verification_maximum",
                 cycle=decision.end_cycle,
             )
-            verified_opening = self.interfaces.cycle_openings()
+            verified_opening = self.interfaces.cycle_kinematics()
             closing = self._solve(
                 load=self.cycle.minimum,
                 branch="closing",
                 cycle=decision.end_cycle,
             )
+            energy_frame = None
+            if self.energy_ledger is not None:
+                representative_cycle = (
+                    ordered_points
+                    if ordered_points
+                    else (minimum, maximum, minimum)
+                )
+                energy_frame = self.energy_ledger.begin_block(
+                    representative_cycle,
+                    start_cycle=decision.start_cycle,
+                    cycles=decision.cycles,
+                    energy_endpoints=(minimum, closing),
+                )
             after_damage = self._fatigue_damage()
             damage_increment = self._maximum_damage_increment(
                 before_damage,
@@ -1408,11 +2803,15 @@ class GlobalCyclicFatigueStep:
             energy_error = max(
                 (
                     float(point.energy_balance_error)
-                    for point in (minimum, maximum, verification, closing)
+                    for point in (
+                        *ordered_points, minimum, maximum, verification, closing
+                    )
                     if point.energy_balance_error is not None
                 ),
                 default=0.0,
             )
+            if energy_frame is not None:
+                energy_error = max(energy_error, energy_frame.relative_balance_error)
             accepted = (
                 damage_increment
                 <= self.jump.maximum_damage_increment + 1.0e-14
@@ -1432,6 +2831,8 @@ class GlobalCyclicFatigueStep:
                 ),
             )
             if not accepted:
+                if self.energy_ledger is not None:
+                    self.energy_ledger.rollback()
                 self.interfaces.restore(interface_snapshot)
                 self.state.restore(bulk_snapshot)
                 self.ledger.rollback(
@@ -1456,14 +2857,20 @@ class GlobalCyclicFatigueStep:
                 maximum_damage_increment=damage_increment,
                 opening_feedback_error=opening_error,
                 energy_balance_error=energy_error,
+                energy_frame=energy_frame,
+                ordered_path=ordered_points,
                 observations=observations,
             )
             self.history.append(block)
+            if self.energy_ledger is not None:
+                self.energy_ledger.commit()
             self.ledger.commit(error_estimate=error)
             self._damage_rate = damage_increment / decision.cycles
             self._front_rate = self._front_advance_rate(block)
             return True
         except Exception as exc:
+            if self.energy_ledger is not None:
+                self.energy_ledger.restore(energy_snapshot)
             self.interfaces.rollback()
             self.interfaces.restore(interface_snapshot)
             self.state.restore(bulk_snapshot)
@@ -1516,7 +2923,16 @@ class GlobalCyclicFatigueStep:
             if first.shape != second.shape:
                 raise ValueError(f"Interface {name!r} opening layout changed.")
             law = self.interfaces[name].assembler.law
-            scale = max(float(law.failure_opening), np.finfo(float).eps)
+            scale = max(
+                float(
+                    getattr(
+                        law,
+                        "cycle_feedback_scale",
+                        getattr(law, "failure_opening", 1.0),
+                    )
+                ),
+                np.finfo(float).eps,
+            )
             local = max(local, float(np.max(np.abs(second - first), initial=0.0)) / scale)
         force = self.interfaces[self.interfaces.names[0]]
         comm = force.displacement.function_space.mesh.comm
@@ -1545,6 +2961,7 @@ class GlobalCyclicFatigueStep:
             "cycle": self.cycle.summary(),
             "stop_cycle": self.stop_cycle,
             "landing_cycles": list(self.landing_cycles),
+            "ordered_path_phases": list(self.ordered_path_phases),
             "ledger": self.ledger.snapshot(),
             "history": [
                 *self._restored_history,
@@ -1554,6 +2971,9 @@ class GlobalCyclicFatigueStep:
             "front_rate": self._front_rate,
             "bulk_state": self.state.snapshot(),
             "interfaces": self.interfaces.snapshot(),
+            "energy_ledger": (
+                None if self.energy_ledger is None else self.energy_ledger.snapshot()
+            ),
         }
 
     def restore(self, snapshot: dict[str, object]) -> None:
@@ -1569,6 +2989,10 @@ class GlobalCyclicFatigueStep:
                 snapshot.get("landing_cycles"),
                 list(self.landing_cycles),
             ),
+            "ordered_path_phases": (
+                snapshot.get("ordered_path_phases", []),
+                list(self.ordered_path_phases),
+            ),
         }
         for label, (stored, current) in checks.items():
             if stored != current:
@@ -1577,6 +3001,11 @@ class GlobalCyclicFatigueStep:
                 )
         self.state.restore(snapshot["bulk_state"])
         self.interfaces.restore(snapshot["interfaces"])
+        stored_energy = snapshot.get("energy_ledger")
+        if (stored_energy is None) != (self.energy_ledger is None):
+            raise ValueError("Global cyclic-fatigue energy-ledger contract differs.")
+        if self.energy_ledger is not None:
+            self.energy_ledger.restore(stored_energy)
         self.ledger.restore(snapshot["ledger"])
         self._damage_rate = snapshot.get("damage_rate")
         self._front_rate = float(snapshot.get("front_rate", 0.0))
@@ -1659,9 +3088,17 @@ class GlobalCyclicFatigueStep:
             "jump": self.jump.summary(),
             "maximum_opening_feedback": self.maximum_opening_feedback,
             "maximum_energy_balance_error": self.maximum_energy_balance_error,
+            "ordered_path_phases": self.ordered_path_phases,
             "accepted_blocks": len(self._restored_history) + len(self.history),
             "ledger": self.ledger.summary(),
-            "procedure": "quasi_static_peak_valley_with_post_damage_equilibrium",
+            "energy_ledger": (
+                None if self.energy_ledger is None else self.energy_ledger.snapshot()
+            ),
+            "procedure": (
+                "quasi_static_ordered_path_with_post_damage_equilibrium"
+                if self.ordered_path_phases
+                else "quasi_static_peak_valley_with_post_damage_equilibrium"
+            ),
             "maturity": "experimental_global_cycle_consumer",
         }
 
@@ -2509,15 +3946,42 @@ def _facet_values(values, number_of_facets: int, *, name: str) -> np.ndarray:
 
 def cyclic_cohesive(
     *,
-    monotonic: BilinearCohesiveLaw,
+    monotonic: BilinearCohesiveLaw | MixedModeBilinearCohesiveLaw,
     fatigue_coefficient: float,
     fatigue_exponent: float,
     range_threshold: float,
     peak_exponent: float = 0.0,
     residual_exponent: float = 0.0,
-    name: str = "power-law cyclic Mode-I cohesive law",
-) -> CyclicCohesiveLaw:
-    """Create the experimental reference cyclic cohesive law."""
+    driver: MixedModeEnergyRangeDriver | OrderedMixedModeEnergyPathDriver | None = None,
+    name: str | None = None,
+) -> CyclicCohesiveLaw | MixedModeCyclicCohesiveLaw:
+    """Create a Mode-I or mixed-mode cyclic cohesive law.
+
+    ``range_threshold`` retains the historical normalized-opening meaning for
+    Mode-I. For a mixed monotonic envelope, threshold semantics belong to the
+    explicit energy-range ``driver`` and ``range_threshold`` must be zero.
+    """
+
+    if isinstance(monotonic, MixedModeBilinearCohesiveLaw):
+        if driver is None:
+            raise ValueError(
+                "A mixed-mode cyclic cohesive law requires an explicit energy driver."
+            )
+        if float(range_threshold) != 0.0 or float(peak_exponent) != 0.0:
+            raise ValueError(
+                "Mixed-mode thresholds and peak effects belong to the declared "
+                "energy driver; range_threshold and peak_exponent must remain zero."
+            )
+        return MixedModeCyclicCohesiveLaw(
+            monotonic=monotonic,
+            driver=driver,
+            fatigue_coefficient=fatigue_coefficient,
+            fatigue_exponent=fatigue_exponent,
+            residual_exponent=residual_exponent,
+            name=name or "power-law cyclic mixed-mode cohesive law",
+        )
+    if driver is not None:
+        raise ValueError("The historical Mode-I cyclic law does not consume a vector driver.")
 
     return CyclicCohesiveLaw(
         monotonic=monotonic,
@@ -2526,8 +3990,28 @@ def cyclic_cohesive(
         range_threshold=range_threshold,
         peak_exponent=peak_exponent,
         residual_exponent=residual_exponent,
-        name=name,
+        name=name or "power-law cyclic Mode-I cohesive law",
     )
+
+
+def mixed_mode_energy_range_driver(**options) -> MixedModeEnergyRangeDriver:
+    """Create the first proportional peak/valley mixed-mode fatigue driver."""
+
+    return MixedModeEnergyRangeDriver(**options)
+
+
+def ordered_jump_cycle(phases, jumps, *, name="ordered jump cycle"):
+    """Create a closed, station-resolved local cohesive cycle."""
+
+    return OrderedJumpCyclePath(phases=phases, jumps=jumps, name=name)
+
+
+def ordered_mixed_mode_energy_path_driver(
+    **options,
+) -> OrderedMixedModeEnergyPathDriver:
+    """Create a segment-resolved non-proportional mixed-mode driver."""
+
+    return OrderedMixedModeEnergyPathDriver(**options)
 
 
 def field_state(fields=None, *, assets=None, **named_fields) -> FieldStateTransaction:
@@ -2542,7 +4026,7 @@ def field_state(fields=None, *, assets=None, **named_fields) -> FieldStateTransa
 
 
 def global_cyclic_fatigue_step(**kwargs) -> GlobalCyclicFatigueStep:
-    """Create a reusable force-controlled peak/valley fatigue controller."""
+    """Create a reusable extrema- or ordered-path fatigue controller."""
 
     return GlobalCyclicFatigueStep(**kwargs)
 
@@ -2583,6 +4067,17 @@ __all__ = [
     "CyclicCohesiveLaw",
     "CyclicCohesiveResponse",
     "CyclicCohesiveTransaction",
+    "CyclicEnergyFrame",
+    "CyclicWorkEnergyLedger",
+    "GeneralizedWorkSample",
+    "MixedModeCyclicCohesiveLaw",
+    "MixedModeCyclicCohesiveResponse",
+    "MixedModeCyclicCohesiveTransaction",
+    "MixedModeEnergyRange",
+    "MixedModeEnergyRangeDriver",
+    "MixedModeEnergyPath",
+    "OrderedJumpCyclePath",
+    "OrderedMixedModeEnergyPathDriver",
     "FieldStateTransaction",
     "ForceCycle",
     "GlobalCyclicFatigueStep",
@@ -2593,10 +4088,16 @@ __all__ = [
     "SurfaceCrackTrackingFrame",
     "TrackedSurfaceCrack",
     "cyclic_cohesive",
+    "cyclic_work_energy_ledger",
     "field_state",
     "force_cycle",
     "global_cyclic_fatigue_step",
+    "generalized_work_sample",
+    "mixed_mode_energy_range_driver",
+    "ordered_jump_cycle",
+    "ordered_mixed_mode_energy_path_driver",
     "observe_surface_crack",
     "paris_evidence",
+    "reference_point_work_sample",
     "surface_crack_interaction",
 ]

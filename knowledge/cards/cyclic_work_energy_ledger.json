@@ -1,0 +1,118 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.cyclic_work_energy_ledger",
+  "title": "Transactional generalized work and cycle-block energy ledger",
+  "kind": "workflow",
+  "status": "experimental",
+  "summary": "Accounts named force-motion and material-energy channels in the same begin/commit/rollback and restart boundary as a global fatigue cycle block.",
+  "public_api": [
+    "agentfem.fatigue_fracture.GeneralizedWorkSample",
+    "agentfem.fatigue_fracture.CyclicEnergyFrame",
+    "agentfem.fatigue_fracture.CyclicWorkEnergyLedger",
+    "agentfem.fatigue_fracture.generalized_work_sample",
+    "agentfem.fatigue_fracture.reference_point_work_sample",
+    "agentfem.fatigue_fracture.cyclic_work_energy_ledger",
+    "agentfem.fatigue_fracture.CyclicEquilibriumPoint",
+    "agentfem.fatigue_fracture.global_cyclic_fatigue_step"
+  ],
+  "implementation": [
+    "fatigue_fracture.py"
+  ],
+  "science": {
+    "statement": "External work is a sum over named work-conjugate generalized forces and motions; recoverable and dissipative energy channels are compared through their committed cycle-block increments.",
+    "equations": [
+      {
+        "label": "resolved station work",
+        "expression": "Delta W_q=0.5(Q_i+Q_(i+1)) dot (q_(i+1)-q_i)",
+        "description": "Vector force-translation and moment-rotation pairs share the same trapezoidal contract."
+      },
+      {
+        "label": "cycle-block balance",
+        "expression": "epsilon_E=|W_ext-Delta E_accounted|/max(|W_ext|,|Delta E_accounted|,epsilon)",
+        "description": "The acceptance error participates in the global cycle transaction rather than being calculated after irreversible state is committed."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "generalized work channels",
+        "type": "named GeneralizedWorkSample records at every resolved station",
+        "unit_role": "force-motion or moment-rotation work",
+        "description": "Roles include natural load, reference point, prescribed motion, MPC, weak constraint and contact constraint."
+      },
+      {
+        "name": "energy channels",
+        "type": "named finite total-energy values at every station",
+        "unit_role": "energy",
+        "description": "Declared at block start and trial end; may include recoverable bulk/interface energy, kinetic energy and monotonic, fatigue, cohesive or numerical dissipation."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "cyclic energy frame",
+        "type": "CyclicEnergyFrame",
+        "unit_role": "energy and dimensionless balance error",
+        "description": "Separates resolved-cycle work, explicitly estimated skipped-cycle work, per-channel/per-role block work, energy increments and closure error."
+      },
+      {
+        "name": "restartable ledger",
+        "type": "versioned snapshot",
+        "unit_role": "accepted evidence",
+        "description": "Only accepted frames survive rollback and checkpoint restore."
+      }
+    ],
+    "assumptions": [
+      "Every station exposes the same uniquely named generalized work and energy channels.",
+      "Generalized force signs follow work done on the finite-element model.",
+      "For a cycle jump, the solved representative closed-cycle work is multiplied by the accepted cycle count and labelled as an estimate."
+    ],
+    "conventions": [
+      "Reference-point force and translation are concatenated with moment and rotation.",
+      "Representative closed-cycle work and block endpoint energy increments are distinct; post-damage verification is not multiplied by the cycle jump.",
+      "MPC, weak/contact and prescribed-motion work require actual provider reactions; missing reactions are not guessed.",
+      "Energy balance rejection rolls back fields, interfaces, cycle identity and energy evidence atomically."
+    ],
+    "applicability": [
+      "Quasi-static cyclic fatigue consumers with named load, constraint and material-energy evidence."
+    ],
+    "limitations": [
+      "The ledger defines the complete accounting protocol, but not every native solver provider yet extracts every generalized reaction automatically.",
+      "Representative-cycle work multiplication is not an error estimator for changing within-block hysteresis; cycle-jump convergence remains required."
+    ]
+  },
+  "usage": {
+    "minimal_example": "ledger = fatigue_fracture.cyclic_work_energy_ledger(); point = fatigue_fracture.CyclicEquilibriumPoint(..., generalized_work=(fatigue_fracture.reference_point_work_sample(load, translation=u_rp, rotation=theta_rp),), energy_channels={\"recoverable\": E, \"cohesive_dissipation\": D}); step = fatigue_fracture.global_cyclic_fatigue_step(..., energy_ledger=ledger, maximum_energy_balance_error=tol)",
+    "examples": [
+      "tests/test_fatigue_fracture.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_fatigue_fracture.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.mixed_mode_cyclic_cohesive_foundation"
+    ],
+    "validation_rules": [
+      "Named reference-point, prescribed-motion and MPC channels integrate to the analytical generalized work.",
+      "Cycle-block work and declared energy increments close within the requested tolerance.",
+      "An imbalanced block rejects without committing any energy frame.",
+      "Interrupted and restored ledgers preserve accepted frame identity."
+    ]
+  },
+  "references": [
+    {
+      "title": "Abaqus total energy output and energy balance definitions",
+      "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAEOUTRefMap/simaout-c-exp-totalenergyoutput.htm"
+    },
+    {
+      "title": "AgentFEM cyclic cohesive fatigue architecture",
+      "locator": "docs/cyclic_cohesive_fatigue_architecture.md"
+    }
+  ],
+  "related_cards": [
+    "agentfem.material.mixed_mode_cyclic_cohesive",
+    "agentfem.material.cyclic_cohesive_fatigue",
+    "agentfem.workflow.coordinate_reference_coupling"
+  ]
+}

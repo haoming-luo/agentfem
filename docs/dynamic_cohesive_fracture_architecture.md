@@ -124,9 +124,10 @@ release without introducing a calibrated mixed-mode law.
 
 The normal-driven degraded mode is intended for paths that remain close to
 Mode-I. Its tangential force and tangent are exact for the declared response,
-but the scalar fatigue transaction does not yet carry an independent shear
-damage-dissipation history. Significant shear separation should therefore use
-the mixed-mode law; cyclic mixed-mode energy is a remaining promotion gate.
+but the scalar fatigue transaction does not carry an independent shear
+damage-dissipation history. Significant cyclic shear separation should use the
+separate experimental mixed-mode energy-range driver, which consumes complete
+local jump extrema and accepts only proportional or near-proportional cycles.
 The permanent penalty tie is likewise a kinematic Mode-I declaration, not a
 general post-failure interface model.
 
@@ -151,17 +152,22 @@ regularized Coulomb resistance is optional and declared in the law summary.
 An optional residual tangential fraction is a true parallel elastic penalty:
 its stiffness is present from the virgin state, its work remains stored, and
 it does not alter the declared Mode-II fracture dissipation.
-The implemented path scope is proportional or mildly changing mode mix.
-General non-proportional and cyclic mixed-mode evolution remains a separate
-promotion gate.
+The monotonic path scope is proportional or mildly changing mode mix. The
+cyclic extension adds local cohesive GI/GII ranges and BK/power interaction
+for proportional peak/valley cycles and an explicit station-resolved driver
+for ordered closed non-proportional cycles. The latter never reconstructs an
+unresolved waveform from extrema.
 
 The external structural promotion route is now explicit rather than implicit.
-`benchmarks.MixedModeBendingCurve` reads a source-identified four-column MMB
-curve, assigns it a deterministic numerical identity, and
-`compare_mixed_mode_bending_curves(...)` compares load, load-point displacement,
-and Mode-I fraction on common crack-length coordinates. Tolerances are required
-arguments. The automated synthetic fixture verifies this data and decision
-machinery only; no published NASA curve is bundled or claimed reproduced yet.
+`benchmarks.DelaminationBenchmarkSpec` defines DCB, ENF and MMB specimen
+families. DCB/ENF classical compliance derivatives are automated analytical
+oracles; `compliance_energy_release_curve(...)` recovers structure-level
+\(G=P^2(\mathrm dC/\mathrm da)/(2b)\), and MMB requires an independently
+declared Mode-I partition. Acceptance also checks cohesive-zone resolution
+and artificial dissipation. `MixedModeBendingCurve` separately reads a source-
+identified external trace and compares load, displacement and Mode-I fraction
+under required tolerances. These contracts do not claim that a published
+finite-element or experimental curve has already been reproduced.
 
 Damage and solver state still use begin/commit/rollback. Mixed-mode checkpoint
 fields are stored by the same physical facet and quadrature identity as the

@@ -55,6 +55,30 @@ def _law():
     )
 
 
+def _mixed_cyclic_law():
+    monotonic = interfaces.mixed_mode_bilinear_cohesive(
+        normal_strength=10.0,
+        shear_strength=8.0,
+        normal_fracture_energy=2.0,
+        shear_fracture_energy=3.0,
+        normal_stiffness=1000.0,
+        tangential_stiffness=800.0,
+        interaction="bk",
+        interaction_exponent=1.6,
+    )
+    return fatigue_fracture.cyclic_cohesive(
+        monotonic=monotonic,
+        driver=fatigue_fracture.mixed_mode_energy_range_driver(
+            mode_i_threshold_fraction=0.01,
+            mode_ii_threshold_fraction=0.01,
+        ),
+        fatigue_coefficient=0.1,
+        fatigue_exponent=1.0,
+        residual_exponent=1.0,
+        range_threshold=0.0,
+    )
+
+
 def _split_surface_3d():
     coordinates = np.asarray(
         [
@@ -400,6 +424,61 @@ def test_distributed_vector_cohesive_interface_transfers_shear_and_restarts():
         }
     finally:
         vector.destroy()
+
+
+def test_distributed_mixed_mode_cycle_preserves_vector_state_and_evidence():
+    comm = MPI.COMM_WORLD
+    if comm.size != 2:
+        pytest.skip("distributed mixed cyclic acceptance requires two ranks")
+    split = _split_strip()
+    domain = interfaces.create_dolfinx_split_mesh(split, comm=comm)
+    displacement = fields.displacement(domain)
+    cohesive = fracture.cohesive_force(
+        split,
+        displacement,
+        _mixed_cyclic_law(),
+        normal_hint=(0.0, 1.0),
+    )
+    collection = fracture.named_cohesive_forces(crack=cohesive)
+    values = displacement.value.x.array.reshape((-1, 2))
+    positive_nodes = set(int(value) for value in split.positive_facets.reshape(-1))
+
+    for node in np.flatnonzero(cohesive.input_node_owned):
+        if int(node) in positive_nodes:
+            values[int(cohesive.node_to_block_dof[node])] = (0.002, 0.002)
+    displacement.value.x.scatter_forward()
+    valley = collection.cycle_kinematics()
+    for node in np.flatnonzero(cohesive.input_node_owned):
+        if int(node) in positive_nodes:
+            values[int(cohesive.node_to_block_dof[node])] = (0.008, 0.008)
+    displacement.value.x.scatter_forward()
+    peak = collection.cycle_kinematics()
+
+    collection.begin_cycle(valley, peak, cycles=7)
+    collection.commit_cycle()
+    quantities = cohesive.interface_quantities()
+    assert {
+        "GI_COH_RANGE",
+        "GII_COH_RANGE",
+        "FATIGUE_DAMAGE",
+        "CYCLES",
+        "CYCLE_PATH_LENGTH",
+        "CYCLE_REVERSALS",
+        "CYCLE_STATIONS",
+    } <= set(quantities)
+    local_damage = float(np.max(quantities["FATIGUE_DAMAGE"], initial=0.0))
+    assert comm.allreduce(local_damage, op=MPI.MAX) > 0.0
+    np.testing.assert_allclose(quantities["CYCLES"], 7.0)
+
+    snapshot = cohesive.snapshot()
+    before = cohesive.assembler.state.state_arrays()
+    collection.begin_cycle(valley, peak, cycles=3)
+    collection.commit_cycle()
+    cohesive.restore(snapshot)
+    for name, expected in before.items():
+        np.testing.assert_allclose(
+            cohesive.assembler.state.state_arrays()[name], expected
+        )
 
 
 def test_distributed_cohesive_force_runs_through_public_explicit_step():

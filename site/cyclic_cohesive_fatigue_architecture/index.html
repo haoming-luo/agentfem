@@ -1193,6 +1193,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Constitutive protocol">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mixed-mode-energy-range-driver" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mixed-mode energy-range driver
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generalized-work-and-cycle-block-energy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generalized work and cycle-block energy
+      
+    </span>
+  </a>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3141,6 +3169,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Constitutive protocol">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mixed-mode-energy-range-driver" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mixed-mode energy-range driver
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generalized-work-and-cycle-block-energy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generalized work and cycle-block energy
+      
+    </span>
+  </a>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3304,14 +3360,15 @@ three-dimensional cylindrical specimen under axial force cycles.</p>
 </code></pre></div>
 <p>Geometry generation, CT registration and a particular cylinder mesh are
 research assets built on this contract. They do not define the solver API.</p>
-<p>The cycle law in this document remains a normal-opening fatigue evolution.
-The shared paired-facet kernel can now transfer tangential traction through
-<code>fracture.cohesive_force(..., tangential="degraded")</code>, preventing intact
-multi-interface bodies from acquiring artificial tangential rigid modes. That
-does not silently turn the fatigue calibration into a mixed-mode law. The
-separate monotonic <code>mixed_mode_bilinear_cohesive(...)</code> capability must acquire
-its own cyclic damage equation and validation before cyclic Mode-II or mixed
-mode is claimed.</p>
+<p>Two deliberately separate reference laws implement this lifecycle. The
+historical Mode-I law evolves from positive normal-opening extrema. The
+experimental mixed-mode law consumes either the complete local vectors at an
+accepted proportional valley/peak pair or an explicitly ordered closed path,
+separates local cohesive <span class="arithmatex">\(G_I\)</span> and <span class="arithmatex">\(G_{II}\)</span> channels, and applies a declared
+BK or power-law interaction. No driver is silently selected from observed
+kinematics: mixed-mode cycling requires a <code>MixedModeBilinearCohesiveLaw</code> and
+either <code>MixedModeEnergyRangeDriver</code> or
+<code>OrderedMixedModeEnergyPathDriver</code>.</p>
 <p>Multi-interface projects should run two preflights before cycle execution:</p>
 <ol>
 <li><code>audit_split_interface_rigid_modes(...)</code> on the split topology and declared
@@ -3431,6 +3488,85 @@ Alternative fatigue laws should retain the same public transaction:</p>
 opening extrema, accumulated cycles and fatigue dissipation. Compression uses
 the monotonic closure penalty and neither heals fatigue damage nor creates
 fatigue dissipation.</p>
+<h3 id="mixed-mode-energy-range-driver">Mixed-mode energy-range driver<a class="headerlink" href="#mixed-mode-energy-range-driver" title="Permanent link">&para;</a></h3>
+<p>The mixed-mode transaction stores the two <em>actual</em> local peak/valley jump
+vectors, not independent componentwise minima and maxima. With local normal
+component <span class="arithmatex">\(\delta_n\)</span> and tangential vector <span class="arithmatex">\(\boldsymbol\delta_t\)</span>, its first
+reference driver uses</p>
+<div class="arithmatex">\[
+G_I^{\mathrm{coh}}=\frac12 K_n\langle\delta_n\rangle^2,
+\qquad
+G_{II}^{\mathrm{coh}}=\frac12 K_t\|\boldsymbol\delta_t\|^2,
+\]</div>
+<div class="arithmatex">\[
+\Delta G_I^{\mathrm{coh}}=G_{I,\max}^{\mathrm{coh}}
+-G_{I,\min}^{\mathrm{coh}},\qquad
+\Delta G_{II}^{\mathrm{coh}}=G_{II,\max}^{\mathrm{coh}}
+-G_{II,\min}^{\mathrm{coh}}.
+\]</div>
+<p>These are work-conjugate <strong>local cohesive-law drivers</strong>. The <code>COH</code> qualifier
+is retained in output names because they are not structural energy-release
+rates obtained by a J-integral or VCCT. The range mode fraction is</p>
+<div class="arithmatex">\[
+\beta=\frac{\Delta G_{II}^{\mathrm{coh}}}
+{\Delta G_I^{\mathrm{coh}}+\Delta G_{II}^{\mathrm{coh}}},
+\]</div>
+<p>and, for the BK option,</p>
+<div class="arithmatex">\[
+G_c(\beta)=G_{Ic}+(G_{IIc}-G_{Ic})\beta^\eta.
+\]</div>
+<p>Pure-mode threshold fractions are mixed by the same declared interaction.
+The normalized range above that threshold drives the same exact residual-
+power cycle integration used by the Mode-I transaction. The public result
+contract exposes <code>JUMP_MIN_LOCAL</code>, <code>JUMP_MAX_LOCAL</code>, <code>GI_COH_RANGE</code>,
+<code>GII_COH_RANGE</code>, <code>G_COH_CRITICAL</code>, <code>G_COH_THRESHOLD</code>,
+<code>G_COH_RANGE_NORM</code>, local load ratio, cycle count and separated monotonic and
+fatigue dissipation.</p>
+<p>A peak/valley pair is sufficient only for proportional or near-proportional
+cycles. The extrema driver therefore checks mode-mix change and tangential-
+direction reversal and rejects an apparent non-proportional path. For a
+resolved non-proportional waveform, <code>OrderedJumpCyclePath</code> carries strictly
+increasing phase stations from zero to one, complete local jump vectors at
+every station and an exactly closed final state. The ordered driver retains
+the positive variation of each cohesive energy channel on every segment,
+evaluates the active variation with its own mode mix and sums the resulting
+fatigue measure. Thus a Mode-I-to-Mode-II transfer at constant total elastic
+energy is not silently erased. It records path length, reversal count and
+station count. Decreasing portions of a channel do not generate a second
+fictitious damage increment.</p>
+<p>This is intentionally not rainflow reconstruction. The solver must provide
+the within-cycle stations that matter; AgentFEM does not invent a path from
+two extrema. A fixed supplied path retains exact one-cycle/cycle-jump
+equivalence under the reference rate integration, and the complete path state
+participates in rollback and restart.</p>
+<h2 id="generalized-work-and-cycle-block-energy">Generalized work and cycle-block energy<a class="headerlink" href="#generalized-work-and-cycle-block-energy" title="Permanent link">&para;</a></h2>
+<p><code>CyclicWorkEnergyLedger</code> closes the cycle transaction over named generalized
+force--motion pairs. A channel can represent a natural load, reference-point
+force/moment, prescribed motion, MPC reaction, weak constraint or contact
+constraint. <code>reference_point_work_sample(...)</code> combines translation/force and
+rotation/moment in one work-conjugate vector. Force signs must follow the
+declared convention of work done on the model.</p>
+<p>For resolved stations, each channel uses trapezoidal work</p>
+<div class="arithmatex">\[
+\Delta W_q = \tfrac12(\mathbf Q_i+\mathbf Q_{i+1})\cdot
+(\mathbf q_{i+1}-\mathbf q_i).
+\]</div>
+<p>The block separately receives total material-energy channels at its accepted
+start and trial end states, such as recoverable
+bulk/interface energy, kinetic energy and monotonic/fatigue/cohesive/numerical
+dissipation. Their trial final-minus-initial change is compared with external
+work. Post-damage verification points are not multiplied as though they were
+additional physical cycles. For a cycle jump, work of the solved
+representative closed cycle is multiplied by the accepted integer block and
+explicitly labelled an estimate; all-cycle material dissipation may still be
+supplied by the exact trial state change. The ledger is committed only when fields, interfaces,
+post-damage equilibrium and the cycle ledger are all accepted. A failed
+energy check rolls everything back together.</p>
+<p>The ledger is a complete public accounting contract, not a claim that every
+solver provider already extracts every reaction automatically. Native and
+custom providers expose their actual reference-point, prescribed-motion,
+MPC, weak/contact reaction channels through <code>CyclicEquilibriumPoint</code>; missing
+channels cannot be replaced by a guessed force.</p>
 <h2 id="cycle-jump">Cycle jump<a class="headerlink" href="#cycle-jump" title="Permanent link">&para;</a></h2>
 <p><code>CycleJumpPolicy</code> bounds a proposed integer block by declared maximum damage
 and crack-front increments and never steps over a required output/checkpoint
@@ -3441,10 +3577,10 @@ and is itself restartable.</p>
 <p>The policy is a proposal, not a global error estimator.
 <code>GlobalCyclicFatigueStep</code> now supplies the structural lifecycle:</p>
 <ol>
-<li>solve the accepted minimum and maximum equilibrium states;</li>
+<li>solve the accepted extrema or every declared ordered-path station;</li>
 <li>predict a cycle block from current material and optional front rates;</li>
 <li>begin the complete block transaction;</li>
-<li>re-solve the degraded peak/valley states;</li>
+<li>re-solve the degraded maximum and closing states;</li>
 <li>compare the pre- and post-degradation peak opening and accept only if
    damage, structural-feedback and optional energy errors lie within tolerance;</li>
 <li>otherwise rollback and cut back the cycle block.</li>
@@ -3467,7 +3603,10 @@ rejected until an explicit cohesive-junction topology is available.</p>
 <p>Portable cohesive checkpoint schema v2 stores every declared state field by
 ordered physical facet key and quadrature point. It remains independent of MPI
 rank and DOF numbering. The reader retains compatibility with the monotonic
-schema v1.</p>
+schema v1. This includes every component of mixed-mode peak/valley jumps and
+all fatigue-driver evidence. An automated acceptance writes overlapping
+physical facets on two MPI ranks and restores them in a different order on one
+rank.</p>
 <p>The global controller additionally checkpoints the accepted cycle ledger,
 named interfaces and bulk field shards. Bulk fields currently require the same
 MPI partition and rank count; physical-facet interface state remains portable
@@ -3526,13 +3665,30 @@ belong in a plotting script.</p>
     and interrupted/restarted equivalence;</li>
 <li>two-rank sparse-owner cohesive tangent and distributed Newton assembly;</li>
 <li>stable same-surface component identity, restart and explicit merge ancestry;</li>
-<li>deterministic Paris postprocessing on a synthetic known power relation.</li>
+<li>deterministic Paris postprocessing on a synthetic known power relation;</li>
+<li>pure Mode-I, pure Mode-II and BK mixed-mode energy-range decomposition;</li>
+<li>tangential-basis rotation invariance and explicit rejection of
+    non-proportional peak/valley paths;</li>
+<li>mixed-mode cycle-jump/exact-cycle equivalence, rollback and restart;</li>
+<li>real 2D and two-rank MPI consumers with standard cyclic interface fields;</li>
+<li>physical-facet-keyed mixed cyclic state written on two ranks and restored
+    under a reordered one-rank partition.</li>
+<li>ordered non-proportional path resolution, exact-cycle/jump equivalence,
+    rollback and restart with path evidence;</li>
+<li>named generalized-work integration for reference points, prescribed
+    motion and MPC channels, with atomic energy rejection and restart;</li>
+<li>DCB/ENF analytical structural energy-release oracles plus an MMB contract
+    that requires independently declared mode partition, process-zone
+    resolution and numerical-dissipation evidence.</li>
 </ol>
 <p>Promotion to a cylinder-validated fatigue-crack-growth capability still requires:</p>
 <ul>
-<li>reference-point distributing-coupling work extraction and complete
-  monotonic/fatigue energy closure in the native equilibrium adapter;</li>
+<li>automatic reaction extraction for every native reference-point, MPC,
+  weak/contact and prescribed-motion provider (the public ledger contract is
+  now available);</li>
 <li>force-controlled cylinder examples and mesh/cycle-jump convergence;</li>
+<li>calibrated mixed-mode fatigue parameters and executed DCB/ENF/MMB finite-
+  element convergence plus source-identified external structural curves;</li>
 <li>cross-partition portability for the bulk field part of the global checkpoint;</li>
 <li>symmetric two-crack and large-spacing limiting cases;</li>
 <li>an external numerical benchmark and retained experimental prediction cases.</li>
@@ -3548,9 +3704,15 @@ cylinder fatigue solver.</p>
   in Engineering</em> 106 (2016) 163--191, DOI <code>10.1002/nme.5117</code>.</li>
 <li>Dávila, NASA/TP--2018-219838, <em>From S--N to the Paris Law with a New
   Mixed-Mode Cohesive Fatigue Model</em>.</li>
+<li>Leone et al., NASA NTRS 20205010748, <em>Scalability of Cohesive Fatigue
+  Analyses Using Explicit Solvers</em>.</li>
 <li>Carreras et al., <em>A simulation method for fatigue-driven delamination in
   layered structures involving non-negligible fracture process zones and
   arbitrarily shaped crack fronts</em>, arXiv <code>1905.05000</code>.</li>
+<li>NASA/TM-2020, <em>Improved Benchmarking of Cohesive Elements in Abaqus Standard
+  for Predicting Delamination Growth</em>.</li>
+<li>ASTM D5528/D5528M, D7905/D7905M and D6671/D6671M specimen families for DCB,
+  ENF and MMB, respectively.</li>
 </ul>
 
 

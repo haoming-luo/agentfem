@@ -139,10 +139,10 @@ _CAPABILITIES = {
     "cyclic_cohesive_fatigue": ConstitutiveCapability(
         name="cyclic_cohesive_fatigue",
         model=(
-            "thresholded opening-range fatigue damage layered on an exact "
-            "bilinear Mode-I cohesive envelope"
+            "replaceable Mode-I opening-range or proportional mixed-mode "
+            "cohesive-energy-range fatigue damage layered on a bilinear envelope"
         ),
-        maturity="experimental_global_lifecycle_and_facet_consumer",
+        maturity="experimental_mixed_mode_global_lifecycle",
         available_scope=(
             "independent cycle coordinate, sine/triangle/tabular force cycles, "
             "damage/front-limited cycle-jump decisions and ledger, analytical "
@@ -152,13 +152,16 @@ _CAPABILITIES = {
             "equilibrium lifecycle, automatic feedback cutback, durable cycle "
             "restart, native serial/MPI hyperelastic bulk-plus-cohesive Newton "
             "equilibrium with algorithmic tangent and strong-constraint reaction, "
-            "and 3D failed-area/front/COD observations"
+            "3D failed-area/front/COD observations, complete local jump extrema, "
+            "GI/GII cohesive-energy ranges, BK/power interaction, material-aware "
+            "cyclic fields, and cross-rank-count physical-facet state portability"
         ),
         limitations=(
             "reference-point work and complete monotonic/fatigue energy closure remain",
-            "cyclic damage evolution remains Mode-I even though the monotonic platform now has a separate mixed-mode law",
+            "mixed-mode peak/valley driver is limited to proportional or near-proportional cycles; ordered non-proportional paths are rejected",
             "reference fatigue evolution requires material/interface calibration",
-            "no cylinder benchmark, cross-partition bulk restart, CT validation, or experimental prediction yet",
+            "local cohesive GI/GII drivers are not structural J-integral or VCCT energy-release rates",
+            "no cylinder benchmark, cross-partition bulk restart, mixed-mode external validation, CT validation, or experimental prediction yet",
         ),
     ),
     "mixed_mode_cohesive_interface": ConstitutiveCapability(
@@ -173,12 +176,13 @@ _CAPABILITIES = {
             "tangential transfer, compression penalty, optional regularized "
             "Coulomb resistance, analytical tangent, standard interface fields, "
             "serial/MPI assembly, physical-facet restart, rigid-mode preflight, "
-            "Mode-I deviation audit, and spherical arc-length continuation"
+            "Mode-I deviation audit, spherical arc-length continuation, and an "
+            "experimental proportional mixed-mode cyclic energy-range consumer"
         ),
         limitations=(
             "mixed-mode damage freezes mode mix at initiation and is intended for proportional or mildly changing paths",
             "friction is a smooth penalty regularization rather than a general contact active-set solver",
-            "cyclic mixed-mode damage and free-path crack growth are not implemented",
+            "non-proportional cyclic mixed-mode paths and free-path crack growth are not implemented",
             "no external mixed-mode structural benchmark has yet promoted this experimental law",
         ),
     ),

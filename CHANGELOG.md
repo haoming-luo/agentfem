@@ -10,6 +10,18 @@ experimental formulation to a validated one.
 - Extend three-dimensional cohesive interfaces and mixed finite-strain solids.
 - Add a solver-integrated cyclic cohesive fatigue lifecycle with exact cycle
   coordinates, adaptive cycle blocks, rollback, restart and named interfaces.
+- Add an explicit proportional mixed-mode cyclic law with complete local jump
+  extrema, cohesive GI/GII energy ranges, BK/power interaction, material-aware
+  fields and physical-facet restart across MPI rank counts.
+- Add explicitly ordered closed non-proportional jump paths, segment-resolved
+  mixed-mode fatigue driving, path evidence, global dispatch and atomic
+  rollback/restart.
+- Add a transactional generalized work--energy ledger for natural loads,
+  reference-point force/moment, prescribed motion, MPC/weak/contact channels
+  and cycle-jump blocks.
+- Add DCB/ENF analytical compliance and structural energy-release oracles plus
+  an MMB contract with mandatory mode partition, process-zone resolution and
+  numerical-dissipation guardrails.
 - Track multiple cracks on one cohesive surface with persistent physical-facet
   identities and explicit birth, merge, split and death events.
 - Fit Paris relations strictly as postprocessing evidence from accepted crack

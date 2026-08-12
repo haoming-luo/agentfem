@@ -3,9 +3,18 @@
 from .registry import BenchmarkSpec, benchmark, list_benchmarks
 from .golden import GoldenBenchmark, GoldenQuantity, golden_benchmark
 from .mixed_mode import (
+    DelaminationBenchmarkAssessment,
+    DelaminationBenchmarkSpec,
+    DelaminationEnergyReleaseCurve,
     MixedModeBendingComparison,
     MixedModeBendingCurve,
+    assess_delamination_benchmark,
+    beam_theory_energy_release_curve,
+    compliance_energy_release_curve,
     compare_mixed_mode_bending_curves,
+    dcb_beam_compliance,
+    delamination_benchmark_spec,
+    enf_beam_compliance,
 )
 from .dynamic_fracture import (
     CohesiveEnergyBenchmark,
@@ -28,6 +37,9 @@ __all__ = [
     "BenchmarkSpec",
     "GoldenBenchmark",
     "GoldenQuantity",
+    "DelaminationBenchmarkAssessment",
+    "DelaminationBenchmarkSpec",
+    "DelaminationEnergyReleaseCurve",
     "MixedModeBendingComparison",
     "MixedModeBendingCurve",
     "benchmark",
@@ -40,8 +52,14 @@ __all__ = [
     "WeakInterfaceTransitionSuite",
     "WeakInterfaceConvergenceStudy",
     "classical_cohesive_crack",
+    "assess_delamination_benchmark",
+    "beam_theory_energy_release_curve",
     "cohesive_energy_balance",
     "compare_mixed_mode_bending_curves",
+    "compliance_energy_release_curve",
+    "dcb_beam_compliance",
+    "delamination_benchmark_spec",
+    "enf_beam_compliance",
     "finite_strain_wave_arrival",
     "jmps_weak_interface_transition_v4",
     "jmps_weak_interface_convergence_v4",

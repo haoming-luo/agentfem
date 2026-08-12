@@ -73,6 +73,42 @@ def _restore_cohesive_state_by_key(state, topology, records) -> None:
     state.restore_state_arrays(arrays)
 
 
+def _cyclic_interface_quantities(response) -> dict[str, np.ndarray]:
+    """Return optional cyclic evidence without weakening the base field contract.
+
+    The energy ranges are local cohesive-law drivers.  Their explicit ``COH``
+    names distinguish them from structural energy-release rates obtained from
+    a J-integral, VCCT, or another global fracture-mechanics procedure.
+    """
+
+    fields = {}
+    optional = {
+        "fatigue_damage": "FATIGUE_DAMAGE",
+        "opening_minimum": "JUMP_MIN_LOCAL",
+        "opening_maximum": "JUMP_MAX_LOCAL",
+        "opening_range": "JUMP_RANGE",
+        "valley_jump": "JUMP_MIN_LOCAL",
+        "peak_jump": "JUMP_MAX_LOCAL",
+        "mode_i_energy_range": "GI_COH_RANGE",
+        "mode_ii_energy_range": "GII_COH_RANGE",
+        "mode_i_cycle_fraction": "MODE_I_FRACTION_CYCLE",
+        "mixed_fracture_energy": "G_COH_CRITICAL",
+        "mixed_threshold_energy": "G_COH_THRESHOLD",
+        "normalized_energy_range": "G_COH_RANGE_NORM",
+        "local_load_ratio": "LOCAL_LOAD_RATIO",
+        "cumulative_cycles": "CYCLES",
+        "monotonic_dissipated_energy": "DISSIPATION_MONOTONIC",
+        "fatigue_dissipated_energy": "DISSIPATION_FATIGUE",
+        "cycle_path_length": "CYCLE_PATH_LENGTH",
+        "cycle_reversal_count": "CYCLE_REVERSALS",
+        "cycle_station_count": "CYCLE_STATIONS",
+    }
+    for attribute, name in optional.items():
+        if hasattr(response, attribute):
+            fields[name] = np.asarray(getattr(response, attribute), dtype=float).copy()
+    return fields
+
+
 def finite_strain_internal_force(
     displacement,
     test_function,
@@ -265,6 +301,15 @@ class DofMappedCohesiveForce:
         finally:
             self.rollback()
 
+    def cycle_kinematics(self) -> np.ndarray:
+        """Evaluate scalar opening or full local jump for a cycle extremum."""
+
+        response = self.begin()
+        try:
+            return self.assembler.cycle_kinematics(response)
+        finally:
+            self.rollback()
+
     def material_point_response(self):
         """Evaluate local cohesive state at the active displacement field."""
 
@@ -277,15 +322,21 @@ class DofMappedCohesiveForce:
     def interface_quantities(self) -> dict[str, np.ndarray]:
         """Return standard local interface fields at cohesive quadrature points."""
 
-        response = self.current_response()
-        return {
-            "JUMP_N": np.asarray(response.opening, dtype=float).copy(),
-            "JUMP_T": np.asarray(response.tangential_jump, dtype=float).copy(),
-            "TRACTION_N": np.asarray(response.traction, dtype=float).copy(),
-            "TRACTION_T": np.asarray(response.tangential_traction, dtype=float).copy(),
-            "DAMAGE": np.asarray(response.damage, dtype=float).copy(),
-            "MODE_MIXITY": np.asarray(response.mode_mixity, dtype=float).copy(),
-        }
+        response = self.begin()
+        try:
+            material = self.assembler.material_point_response(response)
+            quantities = {
+                "JUMP_N": np.asarray(response.opening, dtype=float).copy(),
+                "JUMP_T": np.asarray(response.tangential_jump, dtype=float).copy(),
+                "TRACTION_N": np.asarray(response.traction, dtype=float).copy(),
+                "TRACTION_T": np.asarray(response.tangential_traction, dtype=float).copy(),
+                "DAMAGE": np.asarray(response.damage, dtype=float).copy(),
+                "MODE_MIXITY": np.asarray(response.mode_mixity, dtype=float).copy(),
+            }
+            quantities.update(_cyclic_interface_quantities(material))
+            return quantities
+        finally:
+            self.rollback()
 
     def audit_mode_i(self, **options):
         """Audit accepted kinematics without advancing interface state."""
@@ -583,6 +634,26 @@ class CohesiveForceCollection:
         for force in self._forces.values():
             force.assembler.state.commit_cycle()
 
+    def begin_cycle_path(self, paths_by_name, *, cycles: int = 1):
+        """Begin one ordered local path across every named interface."""
+
+        expected = set(self._forces)
+        if set(paths_by_name) != expected:
+            raise ValueError("An ordered cycle path is required for every interface.")
+        responses = {}
+        try:
+            for name, force in self._forces.items():
+                begin = getattr(force.assembler.state, "begin_cycle_path", None)
+                if not callable(begin):
+                    raise TypeError(
+                        f"Cohesive interface {name!r} has no ordered-path transaction."
+                    )
+                responses[name] = begin(paths_by_name[name], cycles=cycles)
+        except Exception:
+            self.rollback()
+            raise
+        return responses
+
     def current_response(self) -> NamedCohesiveResponse:
         return NamedCohesiveResponse(
             {name: force.current_response() for name, force in self._forces.items()}
@@ -593,6 +664,18 @@ class CohesiveForceCollection:
 
         return {
             name: force.cycle_opening()
+            for name, force in self._forces.items()
+        }
+
+    def cycle_kinematics(self) -> dict[str, np.ndarray]:
+        """Return each interface's scalar or vector material-point extrema."""
+
+        return {
+            name: (
+                force.cycle_kinematics()
+                if callable(getattr(force, "cycle_kinematics", None))
+                else force.cycle_opening()
+            )
             for name, force in self._forces.items()
         }
 
@@ -1244,6 +1327,13 @@ class DistributedDofMappedCohesiveForce:
         finally:
             self.rollback()
 
+    def cycle_kinematics(self) -> np.ndarray:
+        response = self.assembler.begin(self._required_displacement())
+        try:
+            return self.assembler.cycle_kinematics(response)
+        finally:
+            self.assembler.rollback()
+
     def material_point_response(self):
         """Evaluate the local-owner constitutive response at active displacement."""
 
@@ -1256,15 +1346,21 @@ class DistributedDofMappedCohesiveForce:
     def interface_quantities(self) -> dict[str, np.ndarray]:
         """Return this MPI rank's physical-facet-owner interface fields."""
 
-        response = self.current_response()
-        return {
-            "JUMP_N": np.asarray(response.opening, dtype=float).copy(),
-            "JUMP_T": np.asarray(response.tangential_jump, dtype=float).copy(),
-            "TRACTION_N": np.asarray(response.traction, dtype=float).copy(),
-            "TRACTION_T": np.asarray(response.tangential_traction, dtype=float).copy(),
-            "DAMAGE": np.asarray(response.damage, dtype=float).copy(),
-            "MODE_MIXITY": np.asarray(response.mode_mixity, dtype=float).copy(),
-        }
+        local = self.assembler.begin(self._required_displacement())
+        try:
+            material = self.assembler.material_point_response(local)
+            quantities = {
+                "JUMP_N": np.asarray(local.opening, dtype=float).copy(),
+                "JUMP_T": np.asarray(local.tangential_jump, dtype=float).copy(),
+                "TRACTION_N": np.asarray(local.traction, dtype=float).copy(),
+                "TRACTION_T": np.asarray(local.tangential_traction, dtype=float).copy(),
+                "DAMAGE": np.asarray(local.damage, dtype=float).copy(),
+                "MODE_MIXITY": np.asarray(local.mode_mixity, dtype=float).copy(),
+            }
+            quantities.update(_cyclic_interface_quantities(material))
+            return quantities
+        finally:
+            self.assembler.rollback()
 
     def audit_mode_i(self, **options):
         return interface_api.audit_mode_i_kinematics(
@@ -1747,7 +1843,7 @@ def cohesive_force(
     if selected is None:
         selected = (
             "mixed"
-            if isinstance(law, interface_api.MixedModeBilinearCohesiveLaw)
+            if getattr(law, "summary", lambda: {})().get("mode") == "mixed"
             else "tie"
         )
     return mode_i_cohesive_force(

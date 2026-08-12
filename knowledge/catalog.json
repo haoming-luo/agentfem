@@ -64,6 +64,13 @@
       "title": "Global cyclic cohesive transaction, cutback, restart and named 3D interfaces"
     },
     {
+      "id": "agentfem.benchmark.delamination_structural_family",
+      "physics": "Fixed-path delamination under DCB Mode I, ENF Mode II and MMB mixed-mode loading",
+      "source": "knowledge/benchmarks/delamination_structural_family.json",
+      "status": "analytical_oracles_automated_external_curves_pending",
+      "title": "DCB, ENF and MMB structural cohesive verification family"
+    },
+    {
       "id": "agentfem.benchmark.distributed_cohesive_force",
       "physics": "Two-dimensional normal and mixed-mode bilinear cohesive interfaces in finite-strain assembly and Explicit dynamics",
       "source": "knowledge/benchmarks/distributed_cohesive_force.json",
@@ -153,6 +160,13 @@
       "source": "knowledge/benchmarks/mixed_mode_bending_external_contract.json",
       "status": "contract_ready_external_data_pending",
       "title": "Source-identified mixed-mode bending curve comparison"
+    },
+    {
+      "id": "agentfem.benchmark.mixed_mode_cyclic_cohesive_foundation",
+      "physics": "Fixed-path proportional and ordered non-proportional mixed-mode cyclic cohesive degradation",
+      "source": "knowledge/benchmarks/mixed_mode_cyclic_cohesive_foundation.json",
+      "status": "experimental_automated_foundation",
+      "title": "Mixed-mode cyclic cohesive paths, energy lifecycle and portable state"
     },
     {
       "id": "agentfem.benchmark.mooney_rivlin_material_paths",
@@ -265,6 +279,7 @@
         "agentfem.fatigue_fracture.ParisEvidence",
         "agentfem.fatigue_fracture.cyclic_cohesive",
         "agentfem.fatigue_fracture.global_cyclic_fatigue_step",
+        "agentfem.fatigue_fracture.cyclic_work_energy_ledger",
         "agentfem.fatigue_fracture.observe_surface_crack",
         "agentfem.fatigue_fracture.paris_evidence",
         "agentfem.procedures.cyclic_fatigue",
@@ -275,6 +290,7 @@
         "agentfem.interfaces.split_conforming_named_interfaces"
       ],
       "related_cards": [
+        "agentfem.material.mixed_mode_cyclic_cohesive",
         "agentfem.workflow.cohesive_state_portability",
         "agentfem.workflow.distributed_cohesive_force",
         "agentfem.workflow.dynamic_fracture_v5_evidence"
@@ -359,6 +375,35 @@
       "status": "supported",
       "summary": "Solves finite-strain equilibrium with quadratic displacement and one independent constant pressure unknown per cell, including automatic incrementation, Newton tangent, rollback, and positive-J acceptance.",
       "title": "Constant-pressure mixed Neo-Hookean solid"
+    },
+    {
+      "id": "agentfem.material.mixed_mode_cyclic_cohesive",
+      "kind": "material",
+      "public_api": [
+        "agentfem.fatigue_fracture.MixedModeEnergyRange",
+        "agentfem.fatigue_fracture.MixedModeEnergyRangeDriver",
+        "agentfem.fatigue_fracture.OrderedJumpCyclePath",
+        "agentfem.fatigue_fracture.OrderedMixedModeEnergyPathDriver",
+        "agentfem.fatigue_fracture.MixedModeCyclicCohesiveLaw",
+        "agentfem.fatigue_fracture.MixedModeCyclicCohesiveTransaction",
+        "agentfem.fatigue_fracture.mixed_mode_energy_range_driver",
+        "agentfem.fatigue_fracture.ordered_jump_cycle",
+        "agentfem.fatigue_fracture.ordered_mixed_mode_energy_path_driver",
+        "agentfem.fatigue_fracture.cyclic_work_energy_ledger",
+        "agentfem.fatigue_fracture.cyclic_cohesive",
+        "agentfem.fatigue_fracture.global_cyclic_fatigue_step",
+        "agentfem.interfaces.mixed_mode_bilinear_cohesive",
+        "agentfem.fracture.cohesive_force"
+      ],
+      "related_cards": [
+        "agentfem.material.cyclic_cohesive_fatigue",
+        "agentfem.workflow.vector_cohesive_interface",
+        "agentfem.workflow.cohesive_state_portability"
+      ],
+      "source": "knowledge/cards/mixed_mode_cyclic_cohesive.json",
+      "status": "experimental",
+      "summary": "Layers explicit proportional-extrema or ordered within-cycle local cohesive-energy drivers on the mixed-mode bilinear envelope while preserving full jump vectors, BK or power interaction, atomic cycle transactions and physically keyed restart.",
+      "title": "Proportional and ordered-path mixed-mode cyclic cohesive damage"
     },
     {
       "id": "agentfem.material.mooney_rivlin_hyperelasticity",
@@ -474,6 +519,29 @@
       "status": "supported",
       "summary": "Maps explicit local components to global finite-element loads and applies force/moment or known rigid motion through a named continuum reference point.",
       "title": "Local coordinates and reference-point continuum coupling"
+    },
+    {
+      "id": "agentfem.workflow.cyclic_work_energy_ledger",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.fatigue_fracture.GeneralizedWorkSample",
+        "agentfem.fatigue_fracture.CyclicEnergyFrame",
+        "agentfem.fatigue_fracture.CyclicWorkEnergyLedger",
+        "agentfem.fatigue_fracture.generalized_work_sample",
+        "agentfem.fatigue_fracture.reference_point_work_sample",
+        "agentfem.fatigue_fracture.cyclic_work_energy_ledger",
+        "agentfem.fatigue_fracture.CyclicEquilibriumPoint",
+        "agentfem.fatigue_fracture.global_cyclic_fatigue_step"
+      ],
+      "related_cards": [
+        "agentfem.material.mixed_mode_cyclic_cohesive",
+        "agentfem.material.cyclic_cohesive_fatigue",
+        "agentfem.workflow.coordinate_reference_coupling"
+      ],
+      "source": "knowledge/cards/cyclic_work_energy_ledger.json",
+      "status": "experimental",
+      "summary": "Accounts named force-motion and material-energy channels in the same begin/commit/rollback and restart boundary as a global fatigue cycle block.",
+      "title": "Transactional generalized work and cycle-block energy ledger"
     },
     {
       "id": "agentfem.workflow.distributed_cohesive_force",
@@ -725,6 +793,7 @@
       "related_cards": [
         "agentfem.workflow.distributed_cohesive_force",
         "agentfem.material.cyclic_cohesive_fatigue",
+        "agentfem.material.mixed_mode_cyclic_cohesive",
         "agentfem.workflow.cohesive_state_portability"
       ],
       "source": "knowledge/cards/vector_cohesive_interface.json",

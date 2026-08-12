@@ -64,7 +64,7 @@
     ],
     "applicability": ["Fixed-path monotonic and dynamic cohesive problems requiring explicit shear integrity, mixed-mode separation, model-rank screening, or post-peak continuation."],
     "limitations": [
-      "No free-path fracture, cohesive junction topology, cyclic mixed-mode evolution or general non-proportional mixed-mode validation.",
+      "No free-path fracture or cohesive-junction topology; the separate experimental cyclic consumer accepts proportional extrema or an explicitly supplied ordered closed non-proportional path.",
       "Normal-damage-driven tangential integrity does not yet add an independent cyclic shear-dissipation state; substantial shear requires the mixed-mode law.",
       "No external mixed-mode structural benchmark has promoted the experimental law.",
       "Arc length currently targets quasi-static native cohesive equilibrium, not Explicit dynamics."
@@ -91,5 +91,5 @@
     {"title": "PETSc rigid-body null space", "locator": "https://petsc.org/release/manualpages/Mat/MatNullSpaceCreateRigidBody/"},
     {"title": "AgentFEM dynamic cohesive fracture architecture", "locator": "docs/dynamic_cohesive_fracture_architecture.md"}
   ],
-  "related_cards": ["agentfem.workflow.distributed_cohesive_force", "agentfem.material.cyclic_cohesive_fatigue", "agentfem.workflow.cohesive_state_portability"]
+  "related_cards": ["agentfem.workflow.distributed_cohesive_force", "agentfem.material.cyclic_cohesive_fatigue", "agentfem.material.mixed_mode_cyclic_cohesive", "agentfem.workflow.cohesive_state_portability"]
 }

@@ -877,9 +877,13 @@ class MixedModeCohesiveTransaction:
             restored[name] = values
         initiated = restored["initiation_separation"] > 0.0
         uninitiated = ~initiated
-        if np.any(restored["maximum_effective_separation"][uninitiated] > 0.0) or np.any(
-            restored["failure_separation"][uninitiated] > 0.0
-        ) or np.any(restored["initiation_stiffness"][uninitiated] > 0.0):
+        # A point may carry a positive elastic maximum below initiation while
+        # the frozen damage envelope remains unset. Only a partial envelope is
+        # invalid; rejecting the elastic maximum would make an ordinary
+        # pre-initiation checkpoint impossible to restore.
+        if np.any(restored["failure_separation"][uninitiated] > 0.0) or np.any(
+            restored["initiation_stiffness"][uninitiated] > 0.0
+        ):
             raise ValueError(
                 "Mixed-mode checkpoint contains an incomplete uninitiated state."
             )
@@ -1857,7 +1861,8 @@ def _validate_tangential_mode(mode: str, stiffness, law) -> tuple[str, float]:
         raise ValueError(
             "tangential must be 'free', 'tie', 'degraded', or 'mixed'."
         )
-    if isinstance(law, MixedModeBilinearCohesiveLaw):
+    mixed = getattr(law, "summary", lambda: {})().get("mode") == "mixed"
+    if mixed:
         if selected not in {"mixed"}:
             raise ValueError("A mixed-mode law requires tangential='mixed'.")
         return selected, float(law.tangential_stiffness)
@@ -2010,6 +2015,9 @@ class ModeICohesiveFacetAssembler:
             tangential, tangential_stiffness, law
         )
         self.state = _transaction_for_law(law, topology.number_of_points)
+        configure_dimension = getattr(self.state, "configure_dimension", None)
+        if callable(configure_dimension):
+            configure_dimension(self.topology.normals.shape[1])
         self._trial: CohesiveFacetResponse | None = None
         self.last_committed_response: CohesiveFacetResponse | None = None
 
@@ -2156,6 +2164,20 @@ class ModeICohesiveFacetAssembler:
             return self.state.evaluate(local.reshape((-1, local.shape[-1])))
         return self.state.evaluate(np.asarray(selected.opening, dtype=float).reshape(-1))
 
+    def cycle_kinematics(
+        self, response: CohesiveFacetResponse | None = None
+    ) -> np.ndarray:
+        """Return true local-basis point kinematics for one cycle extremum."""
+
+        selected = self.last_committed_response if response is None else response
+        if selected is None:
+            raise RuntimeError("No cohesive facet response is available.")
+        if self.tangential != "mixed":
+            return np.asarray(selected.opening, dtype=float).reshape(-1).copy()
+        frames = _interface_frames(self.topology.normals)
+        local = np.einsum("fdi,fqd->fqi", frames, selected.jump)
+        return local.reshape((-1, local.shape[-1])).copy()
+
     def rollback(self) -> None:
         self.state.rollback()
         self._trial = None
@@ -2197,6 +2219,9 @@ class ModeICohesiveSurfaceAssembler:
             tangential, tangential_stiffness, law
         )
         self.state = _transaction_for_law(law, topology.number_of_points)
+        configure_dimension = getattr(self.state, "configure_dimension", None)
+        if callable(configure_dimension):
+            configure_dimension(self.topology.normals.shape[1])
         self._trial: CohesiveFacetResponse | None = None
         self.last_committed_response: CohesiveFacetResponse | None = None
 
@@ -2328,6 +2353,18 @@ class ModeICohesiveSurfaceAssembler:
             local = np.einsum("fdi,fqd->fqi", frames, selected.jump)
             return self.state.evaluate(local.reshape((-1, local.shape[-1])))
         return self.state.evaluate(np.asarray(selected.opening, dtype=float).reshape(-1))
+
+    def cycle_kinematics(
+        self, response: CohesiveFacetResponse | None = None
+    ) -> np.ndarray:
+        selected = self.last_committed_response if response is None else response
+        if selected is None:
+            raise RuntimeError("No cohesive surface response is available.")
+        if self.tangential != "mixed":
+            return np.asarray(selected.opening, dtype=float).reshape(-1).copy()
+        frames = _interface_frames(self.topology.normals)
+        local = np.einsum("fdi,fqd->fqi", frames, selected.jump)
+        return local.reshape((-1, local.shape[-1])).copy()
 
 
 def pair_coincident_surface_facets(
@@ -2895,9 +2932,9 @@ class CohesiveSurface:
         selected = str(self.mode).strip().lower().replace("-", "_")
         if selected not in {"normal", "mixed"}:
             raise ValueError("CohesiveSurface.mode must be 'normal' or 'mixed'.")
-        if selected == "mixed" and not isinstance(
-            self.law, MixedModeBilinearCohesiveLaw
-        ):
+        if selected == "mixed" and getattr(
+            self.law, "summary", lambda: {}
+        )().get("mode") != "mixed":
             raise TypeError("mode='mixed' requires a mixed-mode cohesive law.")
         object.__setattr__(self, "mode", selected)
 

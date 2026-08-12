@@ -1,0 +1,38 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.mixed_mode_cyclic_cohesive_foundation",
+  "title": "Mixed-mode cyclic cohesive paths, energy lifecycle and portable state",
+  "status": "experimental_automated_foundation",
+  "purpose": "Verify complete local jump extrema, ordered closed non-proportional paths, cohesive GI/GII variation, BK interaction, atomic cycle and generalized-work transactions, global cycle-jump consumption, material-aware fields, MPI assembly and cross-rank-count restart.",
+  "physics": "Fixed-path proportional and ordered non-proportional mixed-mode cyclic cohesive degradation",
+  "execution": {
+    "command": "python -m pytest -q tests/test_fatigue_fracture.py tests/test_global_cohesive_residual.py && mpirun -n 2 python -m pytest -q tests/test_parallel_cohesive.py && mpirun -n 2 python tests/portable_mixed_cyclic_cohesive_driver.py write /tmp/agentfem-mixed-cyclic && python tests/portable_mixed_cyclic_cohesive_driver.py read /tmp/agentfem-mixed-cyclic",
+    "example": "tests/test_fatigue_fracture.py",
+    "evidence": "Pure-mode, proportional mixed and ordered-path material points, a real paired-facet public force, a global station-resolved controller, an atomic generalized-work ledger, a two-rank sparse-owner interface and a two-rank-to-one-rank physical-key checkpoint exercise the same replaceable law contract."
+  },
+  "observables": [
+    "True local valley and peak jump vectors rather than independent component extrema.",
+    "Local cohesive GI and GII energy ranges, mode fraction, BK critical energy, threshold and normalized range.",
+    "Monotonic, fatigue and combined damage with separate dissipated-energy fields.",
+    "Accepted cycle count, local load ratio, rollback state and physical-facet checkpoint identity.",
+    "Serial and distributed standard interface fields attached to the public cohesive force."
+    ,"Ordered path length, reversal count and station count."
+    ,"Named reference-point, prescribed-motion, MPC/weak/contact and natural-load work channels plus material-energy increments."
+  ],
+  "acceptance": [
+    "Pure Mode-I has zero GII range and pure Mode-II has zero GI range.",
+    "BK mixed critical energy equals its analytical expression and is invariant under a tangential basis rotation.",
+    "Peak/valley paths with excessive mode-mix change or shear-direction reversal are rejected rather than silently reduced.",
+    "One fixed vector-extrema cycle jump matches repeated exact cycle transactions within numerical tolerance.",
+    "Rollback and interrupted global restart preserve every vector and scalar state field.",
+    "Two MPI ranks consume the vector law and expose fatigue evidence, and their physical-facet state restores in reordered one-rank execution."
+    ,"A non-proportional closed path preserves station order, matches exact repeated cycles under a fixed path, and survives rollback/restart."
+    ,"Cycle-block energy imbalance rejects atomically without committing cohesive, field, cycle or energy-ledger state."
+  ],
+  "limitations": [
+    "The local cohesive energy channels are material drivers, not J-integral or VCCT structural energy-release rates.",
+    "Non-proportional loading requires explicitly resolved ordered stations; an unresolved continuous waveform is not reconstructed from extrema.",
+    "The DCB/ENF/MMB structural benchmark family is a separate verification contract; no cylinder or experimental prediction is implied here."
+  ]
+}
