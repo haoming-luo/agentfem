@@ -45,6 +45,33 @@ def test_cohesive_trace_round_trip_and_multi_observer_front(tmp_path):
     assert ensemble.summary()["maximum_speed_spread"] < 5.0e-3
 
 
+def test_cohesive_trace_v2_retains_optional_vector_interface_fields(tmp_path):
+    source = _trace()
+    tangential_jump = np.zeros((*source.opening.shape, 2))
+    tangential_jump[..., 0] = 0.1 * source.opening
+    tangential_traction = 50.0 * tangential_jump
+    mode_mixity = np.full(source.opening.shape, 0.2)
+    trace = fracture.CohesiveInterfaceTrace(
+        time=source.time,
+        path_coordinate=source.path_coordinate,
+        opening=source.opening,
+        traction=source.traction,
+        damage=source.damage,
+        dissipated_energy_density=source.dissipated_energy_density,
+        tangential_jump=tangential_jump,
+        tangential_traction=tangential_traction,
+        mode_mixity=mode_mixity,
+        metadata=source.metadata,
+    )
+    restored = fracture.CohesiveInterfaceTrace.read(
+        trace.write(tmp_path / "vector_interface_trace")
+    )
+    np.testing.assert_allclose(restored.tangential_jump, tangential_jump)
+    np.testing.assert_allclose(restored.tangential_traction, tangential_traction)
+    np.testing.assert_allclose(restored.mode_mixity, mode_mixity)
+    assert restored.summary()["vector_kinematics"] is True
+
+
 def test_curve_mach_cone_and_rectilinear_field_comparisons():
     x = np.linspace(0.0, 1.0, 11)
     curve = fracture.compare_curve(x, 2.0 * x, x[::2], 2.0 * x[::2])

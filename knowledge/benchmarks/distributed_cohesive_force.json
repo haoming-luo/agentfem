@@ -5,7 +5,7 @@
   "title": "Two-rank sparse fixed-path cohesive force and portable restart",
   "status": "experimental_mpi_sparse_automated",
   "purpose": "Prove that disconnected split-interface traces can be coupled through an interface-scaled owner schedule without duplicated force or rank-local state identity, and that the accepted Explicit state can change MPI rank count.",
-  "physics": "Two-dimensional Mode-I bilinear cohesive interface in finite-strain Explicit dynamics",
+  "physics": "Two-dimensional normal and mixed-mode bilinear cohesive interfaces in finite-strain assembly and Explicit dynamics",
   "execution": {
     "example": "tests/test_parallel_cohesive.py",
     "command": "mpirun -n 2 python -m pytest tests/test_parallel_cohesive.py",
@@ -15,9 +15,10 @@
     "Global equal-and-opposite interface force and exact integrated positive-side resultant.",
     "Global cohesive stored energy and one physical owner per facet.",
     "Node-wise agreement with the serial kernel for nonuniform compression, elastic opening, and softening.",
-    "Communication metadata bounded by required remote interface nodes.",
+    "Communication metadata bounded by required remote interface nodes, rank workload balance, and PETSc event names for constitutive, vector, and matrix work.",
     "Identical structured Explicit energy history on every rank.",
     "One-rank restarted displacement and irreversible maximum-opening state relative to an uninterrupted reference."
+    ,"Mixed-mode normal/shear resultant and all physical-facet state fields on two ranks."
   ],
   "acceptance": [
     "The total cohesive force is zero to 1e-12 absolute and the positive-side resultant equals strength times reference interface length.",
@@ -25,12 +26,13 @@
     "Every physical facet appears exactly once in the distributed snapshot.",
     "Every distributed interface-node force and both cohesive energy channels match the serial nonuniform reference to 1e-13.",
     "Per-rank trace and force payload counts equal dimension times the scheduled remote interface-node count.",
+    "The collective performance profile reports the same global facet and payload counts on every rank; wall-clock evidence is obtained from the declared PETSc log events rather than a noisy CI time threshold.",
     "The sparse schedule and node-wise serial equivalence pass with both two and three facet-owner ranks.",
     "Two-rank-to-one-rank continuation matches displacement and cohesive history to 1e-11 relative."
   ],
   "limitations": [
     "Sparse payloads use communicator-wide Alltoallv; extreme-scale neighbor-graph performance is not yet a validated result.",
-    "The benchmark covers blocked P1 displacement, two-node 2D facets, and Mode I only.",
+    "The benchmark covers blocked P1 displacement and two-node 2D facets; the separate vector-interface benchmark owns material-law detail.",
     "It does not validate the JMPS/Science crack-speed observations or a full thin-three-dimensional crack."
   ]
 }

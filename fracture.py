@@ -24,6 +24,13 @@ from .kernel import dofs
 from .fracture_evidence import DynamicFractureEvidenceBundle
 
 
+_COHESIVE_PETSC_EVENTS = {
+    "constitutive": "AgentFEMCohesiveConstitutive",
+    "vector": "AgentFEMCohesiveVectorAssembly",
+    "matrix": "AgentFEMCohesiveMatrixAssembly",
+}
+
+
 def _cohesive_state_by_key(state, topology) -> dict[str, dict[str, list[float]]]:
     """Encode every cohesive state field by durable physical facet key."""
 
@@ -136,7 +143,7 @@ class DofMappedCohesiveForce:
         )
         if not isinstance(assembler, supported):
             raise TypeError(
-                "DofMappedCohesiveForce requires a supported Mode-I cohesive assembler."
+                "DofMappedCohesiveForce requires a supported cohesive assembler."
             )
         function = field_api.unwrap(displacement)
         if function.function_space.mesh.comm.size != 1:
@@ -267,11 +274,33 @@ class DofMappedCohesiveForce:
         finally:
             self.rollback()
 
+    def interface_quantities(self) -> dict[str, np.ndarray]:
+        """Return standard local interface fields at cohesive quadrature points."""
+
+        response = self.current_response()
+        return {
+            "JUMP_N": np.asarray(response.opening, dtype=float).copy(),
+            "JUMP_T": np.asarray(response.tangential_jump, dtype=float).copy(),
+            "TRACTION_N": np.asarray(response.traction, dtype=float).copy(),
+            "TRACTION_T": np.asarray(response.tangential_traction, dtype=float).copy(),
+            "DAMAGE": np.asarray(response.damage, dtype=float).copy(),
+            "MODE_MIXITY": np.asarray(response.mode_mixity, dtype=float).copy(),
+        }
+
+    def audit_mode_i(self, **options):
+        """Audit accepted kinematics without advancing interface state."""
+
+        return interface_api.audit_mode_i_kinematics(
+            self.current_response(), **options
+        )
+
     def summary(self) -> dict[str, object]:
         return {
             "kind": "dof_mapped_cohesive_force",
             "interface": self.assembler.topology.summary(),
             "law": self.assembler.law.summary(),
+            "interface_kinematics": self.assembler.tangential,
+            "tangential_stiffness": self.assembler.tangential_stiffness,
             "parallel_scope": "serial_experimental",
             "restart_identity": self.assembler.topology.identity(),
         }
@@ -281,18 +310,22 @@ class DofMappedCohesiveForce:
             self.assembler.state,
             self.assembler.topology,
         )
-        return {
-            "schema": "agentfem.dof-mapped-cohesive-force.v4",
+        snapshot = {
+            "schema": "agentfem.dof-mapped-cohesive-force.v5",
             "node_to_block_dof": self.node_to_block_dof.tolist(),
             "negative_nodes": self.assembler.topology.negative_nodes.tolist(),
             "positive_nodes": self.assembler.topology.positive_nodes.tolist(),
             "interface_identity": self.assembler.topology.identity(),
             "dof_map_role": "execution_local_not_state_identity",
             "law": self.assembler.law.summary(),
+            "interface_kinematics": self.assembler.tangential,
+            "tangential_stiffness": self.assembler.tangential_stiffness,
             "state_by_field_and_key": state_records,
-            "maximum_opening_by_key": state_records["maximum_opening"],
             "state_identity": "ordered_physical_facet_and_quadrature",
         }
+        if "maximum_opening" in state_records:
+            snapshot["maximum_opening_by_key"] = state_records["maximum_opening"]
+        return snapshot
 
     def restore(self, snapshot: dict[str, object]) -> None:
         schema = snapshot.get("schema")
@@ -301,8 +334,18 @@ class DofMappedCohesiveForce:
             "agentfem.dof-mapped-cohesive-force.v2",
             "agentfem.dof-mapped-cohesive-force.v3",
             "agentfem.dof-mapped-cohesive-force.v4",
+            "agentfem.dof-mapped-cohesive-force.v5",
         }:
             raise ValueError("Unsupported cohesive dof-state schema.")
+        if schema != "agentfem.dof-mapped-cohesive-force.v5" and (
+            self.assembler.tangential != "free"
+        ):
+            raise ValueError(
+                "Legacy cohesive checkpoints do not record interface "
+                "kinematics and can only be restored into the historical "
+                "free-slip Mode-I consumer. Recreate or explicitly migrate "
+                "the checkpoint before using tie, degraded, or mixed behavior."
+            )
         if schema == "agentfem.dof-mapped-cohesive-force.v1":
             checks = {
                 "node-to-dof map": (
@@ -329,6 +372,19 @@ class DofMappedCohesiveForce:
                 ),
                 "cohesive law": (snapshot.get("law"), self.assembler.law.summary()),
             }
+            if schema == "agentfem.dof-mapped-cohesive-force.v5":
+                checks.update(
+                    {
+                        "interface kinematics": (
+                            snapshot.get("interface_kinematics"),
+                            self.assembler.tangential,
+                        ),
+                        "tangential stiffness": (
+                            snapshot.get("tangential_stiffness"),
+                            self.assembler.tangential_stiffness,
+                        ),
+                    }
+                )
         for label, (stored, current) in checks.items():
             if stored != current:
                 raise ValueError(
@@ -368,8 +424,16 @@ class DofMappedCohesiveForce:
         topology = self.assembler.topology
         negative = nodal_mass[topology.negative_nodes]
         positive = nodal_mass[topology.positive_nodes]
+        normal_stiffness = float(
+            self.assembler.law.initial_stiffness
+            if hasattr(self.assembler.law, "initial_stiffness")
+            else self.assembler.law.normal_stiffness
+        )
         return {
-            "interface_stiffness": float(self.assembler.law.initial_stiffness),
+            "interface_stiffness": max(
+                normal_stiffness,
+                float(self.assembler.tangential_stiffness),
+            ),
             "interface_area": float(
                 np.min(topology.measures) * self.assembler.thickness
             ),
@@ -540,6 +604,20 @@ class CohesiveForceCollection:
             for name, force in self._forces.items()
         }
 
+    def interface_quantities(self) -> dict[str, dict[str, np.ndarray]]:
+        """Return standard fields grouped by durable interface name."""
+
+        return {
+            name: force.interface_quantities()
+            for name, force in self._forces.items()
+        }
+
+    def audit_mode_i(self, **options) -> dict[str, object]:
+        return {
+            name: force.audit_mode_i(**options)
+            for name, force in self._forces.items()
+        }
+
     def stability_inputs(self, mass) -> dict[str, float]:
         candidates = [force.stability_inputs(mass) for force in self._forces.values()]
 
@@ -604,6 +682,8 @@ def named_mode_i_cohesive_forces(
     laws,
     normal_hints,
     thicknesses=None,
+    tangential="free",
+    tangential_stiffness=None,
     tolerance: float = 1.0e-10,
 ) -> CohesiveForceCollection:
     """Build independent named forces on one atomically split solver mesh."""
@@ -619,11 +699,23 @@ def named_mode_i_cohesive_forces(
         if thicknesses is None
         else dict(thicknesses)
     )
+    selected_tangential = (
+        {name: tangential for name in split.names}
+        if isinstance(tangential, str)
+        else dict(tangential)
+    )
+    selected_tangential_stiffness = (
+        {name: tangential_stiffness for name in split.names}
+        if tangential_stiffness is None or np.isscalar(tangential_stiffness)
+        else dict(tangential_stiffness)
+    )
     expected = set(split.names)
     for label, values in (
         ("laws", selected_laws),
         ("normal_hints", selected_normals),
         ("thicknesses", selected_thicknesses),
+        ("tangential", selected_tangential),
+        ("tangential_stiffness", selected_tangential_stiffness),
     ):
         if set(values) != expected:
             raise ValueError(
@@ -636,11 +728,84 @@ def named_mode_i_cohesive_forces(
             selected_laws[name],
             normal_hint=selected_normals[name],
             thickness=float(selected_thicknesses[name]),
+            tangential=selected_tangential[name],
+            tangential_stiffness=selected_tangential_stiffness[name],
             tolerance=tolerance,
         )
         for name in split.names
     }
     return CohesiveForceCollection(forces)
+
+
+def cohesive_forces(
+    split,
+    displacement,
+    *,
+    laws,
+    normal_hints,
+    thicknesses=None,
+    tangential=None,
+    tangential_stiffness=None,
+    tolerance: float = 1.0e-10,
+) -> CohesiveForceCollection:
+    """Build a recommended force for every named split interface.
+
+    Each interface independently selects the conservative scalar Mode-I tie or
+    the full mixed-mode response from its law. ``tangential`` may be one mode
+    for every interface or a name-to-mode mapping when a model deliberately
+    combines different interface assumptions.
+    """
+
+    if not isinstance(split, interface_api.NamedSplitInterfaceMesh):
+        raise TypeError("cohesive_forces requires NamedSplitInterfaceMesh.")
+    expected = set(split.names)
+    selected_laws = dict(laws)
+    selected_normals = dict(normal_hints)
+    selected_thicknesses = (
+        {name: 1.0 for name in split.names}
+        if thicknesses is None
+        else dict(thicknesses)
+    )
+    selected_tangential = (
+        {name: None for name in split.names}
+        if tangential is None
+        else (
+            {name: tangential for name in split.names}
+            if isinstance(tangential, str)
+            else dict(tangential)
+        )
+    )
+    selected_stiffness = (
+        {name: tangential_stiffness for name in split.names}
+        if tangential_stiffness is None or np.isscalar(tangential_stiffness)
+        else dict(tangential_stiffness)
+    )
+    for label, values in (
+        ("laws", selected_laws),
+        ("normal_hints", selected_normals),
+        ("thicknesses", selected_thicknesses),
+        ("tangential", selected_tangential),
+        ("tangential_stiffness", selected_stiffness),
+    ):
+        if set(values) != expected:
+            raise ValueError(
+                f"Named cohesive {label} must match interfaces {sorted(expected)}."
+            )
+    return CohesiveForceCollection(
+        {
+            name: cohesive_force(
+                split[name],
+                displacement,
+                selected_laws[name],
+                normal_hint=selected_normals[name],
+                tangential=selected_tangential[name],
+                tangential_stiffness=selected_stiffness[name],
+                thickness=float(selected_thicknesses[name]),
+                tolerance=tolerance,
+            )
+            for name in split.names
+        }
+    )
 
 
 class _SparseCohesiveExchange:
@@ -999,12 +1164,19 @@ class DistributedDofMappedCohesiveForce:
             dissipated_energy=float(
                 self.comm.allreduce(local.dissipated_energy, op=MPI.SUM)
             ),
+            jump=local.jump,
+            tangential_jump=local.tangential_jump,
+            traction_vector=local.traction_vector,
+            tangential_traction=local.tangential_traction,
+            mode_mixity=local.mode_mixity,
         )
 
+    @PETSc.Log.EventDecorator(_COHESIVE_PETSC_EVENTS["constitutive"])
     def begin(self):
         local = self.assembler.begin(self._required_displacement())
         return self._globalize_energy(local)
 
+    @PETSc.Log.EventDecorator(_COHESIVE_PETSC_EVENTS["vector"])
     def add_to_vector(self, vector) -> None:
         response = self.begin()
         array = vector.array.reshape((-1, self.block_size))
@@ -1012,6 +1184,7 @@ class DistributedDofMappedCohesiveForce:
             response.internal_force
         )
 
+    @PETSc.Log.EventDecorator(_COHESIVE_PETSC_EVENTS["matrix"])
     def add_to_matrix(self, matrix) -> None:
         """Add locally owned facets using global PETSc dof identities."""
 
@@ -1080,6 +1253,24 @@ class DistributedDofMappedCohesiveForce:
         finally:
             self.assembler.rollback()
 
+    def interface_quantities(self) -> dict[str, np.ndarray]:
+        """Return this MPI rank's physical-facet-owner interface fields."""
+
+        response = self.current_response()
+        return {
+            "JUMP_N": np.asarray(response.opening, dtype=float).copy(),
+            "JUMP_T": np.asarray(response.tangential_jump, dtype=float).copy(),
+            "TRACTION_N": np.asarray(response.traction, dtype=float).copy(),
+            "TRACTION_T": np.asarray(response.tangential_traction, dtype=float).copy(),
+            "DAMAGE": np.asarray(response.damage, dtype=float).copy(),
+            "MODE_MIXITY": np.asarray(response.mode_mixity, dtype=float).copy(),
+        }
+
+    def audit_mode_i(self, **options):
+        return interface_api.audit_mode_i_kinematics(
+            self.current_response(), **options
+        )
+
     def summary(self) -> dict[str, object]:
         local = int(self.assembler.topology.number_of_facets)
         global_count = int(self.comm.allreduce(local, op=MPI.SUM))
@@ -1087,6 +1278,8 @@ class DistributedDofMappedCohesiveForce:
             "kind": "distributed_dof_mapped_cohesive_force",
             "interface": self.global_topology.summary(),
             "law": self.assembler.law.summary(),
+            "interface_kinematics": self.assembler.tangential,
+            "tangential_stiffness": self.assembler.tangential_stiffness,
             "parallel_scope": "mpi_sparse_owner_exchange",
             "rank_count": int(self.comm.size),
             "local_owned_facets": local,
@@ -1100,6 +1293,56 @@ class DistributedDofMappedCohesiveForce:
             "communication": self.exchange.summary(),
             "restart_identity": self.global_topology.identity(),
             "maturity": "experimental_sparse_mpi_consumer",
+        }
+
+    def performance_profile(self) -> dict[str, object]:
+        """Return deterministic MPI workload evidence for this interface.
+
+        Counts are suitable for regression tests and decomposition studies;
+        wall-clock timings remain PETSc profiling data because CI timing is too
+        noisy to be a scientific performance threshold. Run with PETSc
+        ``-log_view`` to inspect the named constitutive/vector/matrix events.
+        """
+
+        communication = self.exchange.summary()
+        local = {
+            "rank": int(self.comm.rank),
+            "owned_facets": int(self.assembler.topology.number_of_facets),
+            "required_nodes": int(communication["rank_required_nodes"]),
+            "remote_trace_nodes": int(
+                communication["rank_remote_trace_nodes"]
+            ),
+            "trace_values_per_exchange": int(
+                communication["rank_trace_values_per_exchange"]
+            ),
+            "force_values_per_exchange": int(
+                communication["rank_force_values_per_exchange"]
+            ),
+        }
+        ranks = tuple(self.comm.allgather(local))
+        facet_counts = np.asarray(
+            [item["owned_facets"] for item in ranks], dtype=float
+        )
+        average = float(np.mean(facet_counts)) if facet_counts.size else 0.0
+        imbalance = (
+            float(np.max(facet_counts) / average) if average > 0.0 else 0.0
+        )
+        return {
+            "schema": "agentfem.cohesive-mpi-profile.v1",
+            "rank_count": int(self.comm.size),
+            "global_facets": int(np.sum(facet_counts)),
+            "global_remote_trace_nodes": int(
+                sum(item["remote_trace_nodes"] for item in ranks)
+            ),
+            "global_trace_values_per_exchange": int(
+                sum(item["trace_values_per_exchange"] for item in ranks)
+            ),
+            "global_force_values_per_exchange": int(
+                sum(item["force_values_per_exchange"] for item in ranks)
+            ),
+            "maximum_facet_imbalance": imbalance,
+            "petsc_events": dict(_COHESIVE_PETSC_EVENTS),
+            "ranks": ranks,
         }
 
     def snapshot(self) -> dict[str, object]:
@@ -1128,26 +1371,44 @@ class DistributedDofMappedCohesiveForce:
         expected = set(self.global_topology.facet_keys)
         if any(set(records[name]) != expected for name in field_names):
             raise RuntimeError("Distributed cohesive snapshot lacks global facets.")
-        return {
-            "schema": "agentfem.dof-mapped-cohesive-force.v4",
+        snapshot = {
+            "schema": "agentfem.dof-mapped-cohesive-force.v5",
             "interface_identity": self.global_topology.identity(),
             "law": self.assembler.law.summary(),
+            "interface_kinematics": self.assembler.tangential,
+            "tangential_stiffness": self.assembler.tangential_stiffness,
             "state_by_field_and_key": records,
-            "maximum_opening_by_key": records["maximum_opening"],
             "state_identity": "ordered_physical_facet_and_quadrature",
         }
+        if "maximum_opening" in records:
+            snapshot["maximum_opening_by_key"] = records["maximum_opening"]
+        return snapshot
 
     def restore(self, snapshot: dict[str, object]) -> None:
         schema = snapshot.get("schema")
         if schema not in {
             "agentfem.dof-mapped-cohesive-force.v3",
             "agentfem.dof-mapped-cohesive-force.v4",
+            "agentfem.dof-mapped-cohesive-force.v5",
         }:
             raise ValueError("Unsupported distributed cohesive-state schema.")
+        if schema != "agentfem.dof-mapped-cohesive-force.v5" and (
+            self.assembler.tangential != "free"
+        ):
+            raise ValueError(
+                "Legacy distributed cohesive checkpoints do not record "
+                "interface kinematics and can only restore free-slip Mode-I."
+            )
         if snapshot.get("interface_identity") != self.global_topology.identity():
             raise ValueError("Distributed cohesive physical interface differs.")
         if snapshot.get("law") != self.assembler.law.summary():
             raise ValueError("Distributed cohesive law differs.")
+        if schema == "agentfem.dof-mapped-cohesive-force.v5" and (
+            snapshot.get("interface_kinematics") != self.assembler.tangential
+            or snapshot.get("tangential_stiffness")
+            != self.assembler.tangential_stiffness
+        ):
+            raise ValueError("Distributed cohesive interface kinematics differ.")
         if schema == "agentfem.dof-mapped-cohesive-force.v3":
             records = snapshot.get("maximum_opening_by_key", {})
             if set(records) != set(self.global_topology.facet_keys):
@@ -1203,8 +1464,16 @@ class DistributedDofMappedCohesiveForce:
         positive = np.asarray(
             masses[self.assembler.topology.positive_nodes.reshape(-1)]
         )
+        normal_stiffness = float(
+            self.assembler.law.initial_stiffness
+            if hasattr(self.assembler.law, "initial_stiffness")
+            else self.assembler.law.normal_stiffness
+        )
         return {
-            "interface_stiffness": float(self.assembler.law.initial_stiffness),
+            "interface_stiffness": max(
+                normal_stiffness,
+                float(self.assembler.tangential_stiffness),
+            ),
             "interface_area": float(
                 np.min(self.global_topology.measures) * self.assembler.thickness
             ),
@@ -1316,8 +1585,17 @@ def mode_i_cohesive_force(
     normal_hint,
     thickness: float = 1.0,
     tolerance: float = 1.0e-10,
+    tangential: str = "free",
+    tangential_stiffness: float | None = None,
 ) -> DofMappedCohesiveForce | DistributedDofMappedCohesiveForce:
-    """Build the executable Mode-I force directly from a split mesh contract."""
+    """Build a fixed-path cohesive force from a split mesh contract.
+
+    ``tangential='free'`` preserves the original normal-only interface.
+    ``'tie'`` supplies a strict Mode-I penalty constraint that does not
+    degrade. ``'degraded'`` transfers shear while the normal-driven interface
+    is intact and releases it with normal damage. A
+    :class:`MixedModeBilinearCohesiveLaw` requires ``'mixed'``.
+    """
 
     if not isinstance(split, interface_api.SplitInterfaceMesh):
         raise TypeError("mode_i_cohesive_force requires SplitInterfaceMesh.")
@@ -1355,6 +1633,10 @@ def mode_i_cohesive_force(
             "interface": topology.identity(),
             "law": law.summary(),
             "thickness": float(thickness),
+            "tangential": str(tangential),
+            "tangential_stiffness": (
+                None if tangential_stiffness is None else float(tangential_stiffness)
+            ),
         }
     )
     if any(contract != contracts[0] for contract in contracts[1:]):
@@ -1366,6 +1648,8 @@ def mode_i_cohesive_force(
         assembler_options = {"number_of_nodes": split.coordinates.shape[0]}
         if dimension == 2:
             assembler_options["thickness"] = thickness
+        assembler_options["tangential"] = tangential
+        assembler_options["tangential_stiffness"] = tangential_stiffness
         assembler = assembler_type(topology, law, **assembler_options)
         mapping = p1_input_node_to_block_dof(
             displacement,
@@ -1415,6 +1699,8 @@ def mode_i_cohesive_force(
             law,
             number_of_nodes=local_input_nodes.size,
             thickness=thickness,
+            tangential=tangential,
+            tangential_stiffness=tangential_stiffness,
         )
     else:
         topology_options["areas"] = topology.areas[selected]
@@ -1423,6 +1709,8 @@ def mode_i_cohesive_force(
             local_topology,
             law,
             number_of_nodes=local_input_nodes.size,
+            tangential=tangential,
+            tangential_stiffness=tangential_stiffness,
         )
     return DistributedDofMappedCohesiveForce(
         assembler,
@@ -1432,6 +1720,45 @@ def mode_i_cohesive_force(
         local_input_nodes=local_input_nodes,
         global_topology=topology,
         global_facet_indices=selected,
+    )
+
+
+def cohesive_force(
+    split: interface_api.SplitInterfaceMesh,
+    displacement,
+    law,
+    *,
+    normal_hint,
+    tangential: str | None = None,
+    tangential_stiffness: float | None = None,
+    thickness: float = 1.0,
+    tolerance: float = 1.0e-10,
+):
+    """Build the recommended full-vector fixed-path interface consumer.
+
+    A scalar Mode-I law defaults to a nondegrading tangential penalty tie:
+    that law declares no shear strength or Mode-II fracture energy from which
+    AgentFEM could infer tangential damage.  A mixed-mode law selects its full
+    vector damage response.  Damage-compatible scalar shear transfer remains
+    available through the explicit ``tangential='degraded'`` option.
+    """
+
+    selected = tangential
+    if selected is None:
+        selected = (
+            "mixed"
+            if isinstance(law, interface_api.MixedModeBilinearCohesiveLaw)
+            else "tie"
+        )
+    return mode_i_cohesive_force(
+        split,
+        displacement,
+        law,
+        normal_hint=normal_hint,
+        thickness=thickness,
+        tolerance=tolerance,
+        tangential=selected,
+        tangential_stiffness=tangential_stiffness,
     )
 
 
@@ -1608,6 +1935,76 @@ class CohesiveNewtonSolveInfo:
             "initial_residual_norm": self.initial_residual_norm,
             "residual_norm": self.residual_norm,
             "accepted_step_lengths": self.accepted_step_lengths,
+            "linear_converged_reasons": self.linear_converged_reasons,
+            "message": self.message,
+        }
+
+
+@dataclass(frozen=True)
+class ArcLengthOptions:
+    """Crisfield-style spherical continuation controls.
+
+    ``load_scale`` maps one physical load unit into displacement-norm units;
+    making it explicit prevents a numerically convenient but dimensionally
+    hidden arc-length equation.
+    """
+
+    radius: float
+    load_scale: float
+    maximum_iterations: int = 30
+    relative_tolerance: float = 1.0e-7
+    absolute_tolerance: float = 1.0e-9
+    constraint_tolerance: float = 1.0e-8
+    load_derivative_step: float = 1.0e-6
+
+    def __post_init__(self) -> None:
+        for name in (
+            "radius",
+            "load_scale",
+            "relative_tolerance",
+            "absolute_tolerance",
+            "constraint_tolerance",
+            "load_derivative_step",
+        ):
+            value = float(getattr(self, name))
+            if not isfinite(value) or value <= 0.0:
+                raise ValueError(f"Arc-length {name} must be finite and positive.")
+        if int(self.maximum_iterations) < 1:
+            raise ValueError("Arc-length maximum_iterations must be positive.")
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "spherical_arc_length_options",
+            "radius": self.radius,
+            "load_scale": self.load_scale,
+            "maximum_iterations": self.maximum_iterations,
+            "relative_tolerance": self.relative_tolerance,
+            "absolute_tolerance": self.absolute_tolerance,
+            "constraint_tolerance": self.constraint_tolerance,
+            "load_derivative_step": self.load_derivative_step,
+        }
+
+
+@dataclass(frozen=True)
+class ArcLengthSolveInfo:
+    converged: bool
+    iterations: int
+    load: float
+    load_increment: float
+    residual_norm: float
+    constraint_residual: float
+    linear_converged_reasons: tuple[int, ...]
+    message: str = ""
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "cohesive_arc_length_solve_info",
+            "converged": self.converged,
+            "iterations": self.iterations,
+            "load": self.load,
+            "load_increment": self.load_increment,
+            "residual_norm": self.residual_norm,
+            "constraint_residual": self.constraint_residual,
             "linear_converged_reasons": self.linear_converged_reasons,
             "message": self.message,
         }
@@ -1840,6 +2237,340 @@ class FiniteStrainCohesiveEquilibrium:
             "reference_load": self.reference_load,
             "cohesive_state_commit": "owned_by_step_lifecycle",
             "maturity": "experimental_native_global_consumer",
+        }
+
+
+class FiniteStrainCohesiveArcLength:
+    """Spherical arc-length continuation for cohesive equilibrium paths.
+
+    This consumer reuses the exact bulk-plus-interface residual, tangent,
+    boundary elimination and cohesive transaction.  It adds one physical load
+    unknown rather than introducing a second cohesive implementation.  A
+    converged trial is accepted only by :meth:`commit`; :meth:`advance` is the
+    convenient solve-and-commit route.
+    """
+
+    def __init__(
+        self,
+        equilibrium: FiniteStrainCohesiveEquilibrium,
+        options: ArcLengthOptions,
+        *,
+        initial_load: float = 0.0,
+    ):
+        if not isinstance(equilibrium, FiniteStrainCohesiveEquilibrium):
+            raise TypeError("Arc length requires a cohesive equilibrium consumer.")
+        if not isinstance(options, ArcLengthOptions):
+            raise TypeError("options must be ArcLengthOptions.")
+        self.equilibrium = equilibrium
+        self.options = options
+        self.load = float(initial_load)
+        if not isfinite(self.load):
+            raise ValueError("initial_load must be finite.")
+        self._accepted_displacement = equilibrium.displacement.x.array.copy()
+        self._accepted_load = self.load
+        self._trial_info: ArcLengthSolveInfo | None = None
+        self._previous_increment: tuple[np.ndarray, float] | None = None
+        self.history: list[dict[str, object]] = []
+        equilibrium.set_load(self.load)
+
+    @property
+    def displacement(self):
+        return self.equilibrium.displacement
+
+    def _owned_dot(self, left, right) -> float:
+        space = self.displacement.function_space
+        owned = int(space.dofmap.index_map.size_local * space.dofmap.index_map_bs)
+        local = float(np.dot(np.asarray(left)[:owned], np.asarray(right)[:owned]))
+        return float(space.mesh.comm.allreduce(local, op=MPI.SUM))
+
+    def _load_derivative(self, load: float):
+        step = self.options.load_derivative_step * max(1.0, abs(load))
+        plus = None
+        minus = None
+        try:
+            self.equilibrium.set_load(load + step)
+            plus = self.equilibrium._residual_vector()
+            self.equilibrium.residual.rollback()
+            self.equilibrium.set_load(load - step)
+            minus = self.equilibrium._residual_vector()
+            self.equilibrium.residual.rollback()
+            plus.axpy(-1.0, minus)
+            plus.scale(0.5 / step)
+            derivative = plus
+            plus = None
+            return derivative
+        finally:
+            if plus is not None:
+                plus.destroy()
+            if minus is not None:
+                minus.destroy()
+            self.equilibrium.residual.rollback()
+            self.equilibrium.set_load(load)
+
+    def _linear_solve(self, matrix, right_hand_side):
+        from . import solvers
+
+        solution = self.displacement.x.petsc_vec.duplicate()
+        solution.set(0.0)
+        info = solvers.solve_matrix_system(
+            matrix,
+            right_hand_side,
+            solution,
+            self.equilibrium.solver_options.linear_solver,
+            raise_on_failure=False,
+        )
+        if not info.converged:
+            solution.destroy()
+            raise RuntimeError(
+                "Arc-length linear solve failed with PETSc reason "
+                f"{info.converged_reason}."
+            )
+        solution.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT,
+            mode=PETSc.ScatterMode.FORWARD,
+        )
+        return solution, int(info.converged_reason)
+
+    def begin_step(self, *, direction: float = 1.0) -> ArcLengthSolveInfo:
+        """Solve one replaceable continuation increment."""
+
+        if self._trial_info is not None:
+            raise RuntimeError("Commit or rollback the active arc-length trial.")
+        from dolfinx.fem import petsc as fem_petsc
+
+        sign = float(np.sign(direction))
+        if sign == 0.0:
+            raise ValueError("Arc-length direction cannot be zero.")
+        function = self.displacement
+        function.x.array[:] = self._accepted_displacement
+        fem_petsc.set_bc(function.x.petsc_vec, list(self.equilibrium.bcs))
+        function.x.scatter_forward()
+        self.equilibrium.set_load(self._accepted_load)
+        matrix = self.equilibrium.residual.assemble_matrix(
+            self.equilibrium.tangent, bcs=self.equilibrium.bcs
+        )
+        derivative = self._load_derivative(self._accepted_load)
+        derivative.scale(-1.0)
+        predictor, reason = self._linear_solve(matrix, derivative)
+        matrix.destroy()
+        derivative.destroy()
+        predictor_array = predictor.array.copy()
+        predictor.destroy()
+        if self._previous_increment is not None:
+            previous_u, previous_load = self._previous_increment
+            orientation = self._owned_dot(predictor_array, previous_u) + (
+                self.options.load_scale**2 * previous_load
+            )
+            if orientation < 0.0:
+                sign *= -1.0
+        norm = sqrt(
+            self._owned_dot(predictor_array, predictor_array)
+            + self.options.load_scale**2
+        )
+        load_increment = sign * self.options.radius / norm
+        function.x.array[:] = (
+            self._accepted_displacement + load_increment * predictor_array
+        )
+        fem_petsc.set_bc(function.x.petsc_vec, list(self.equilibrium.bcs))
+        function.x.scatter_forward()
+        selected_load = self._accepted_load + load_increment
+        self.equilibrium.set_load(selected_load)
+
+        linear_reasons = [reason]
+        initial_norm = None
+        residual_norm = float("inf")
+        constraint = float("inf")
+        converged = False
+        message = ""
+        try:
+            for iteration in range(1, self.options.maximum_iterations + 1):
+                residual = self.equilibrium._residual_vector()
+                residual_norm = float(residual.norm())
+                if initial_norm is None:
+                    initial_norm = residual_norm
+                increment_u = function.x.array - self._accepted_displacement
+                increment_load = selected_load - self._accepted_load
+                constraint = (
+                    self._owned_dot(increment_u, increment_u)
+                    + (self.options.load_scale * increment_load) ** 2
+                    - self.options.radius**2
+                )
+                residual_limit = (
+                    self.options.absolute_tolerance
+                    + self.options.relative_tolerance * initial_norm
+                )
+                constraint_limit = (
+                    self.options.constraint_tolerance * self.options.radius**2
+                )
+                if residual_norm <= residual_limit and abs(constraint) <= constraint_limit:
+                    residual.destroy()
+                    converged = True
+                    message = "converged"
+                    break
+                matrix = self.equilibrium.residual.assemble_matrix(
+                    self.equilibrium.tangent, bcs=self.equilibrium.bcs
+                )
+                residual.scale(-1.0)
+                correction, correction_reason = self._linear_solve(matrix, residual)
+                residual.destroy()
+                load_derivative = self._load_derivative(selected_load)
+                load_derivative.scale(-1.0)
+                load_direction, load_reason = self._linear_solve(
+                    matrix, load_derivative
+                )
+                load_derivative.destroy()
+                matrix.destroy()
+                linear_reasons.extend((correction_reason, load_reason))
+                correction_array = correction.array.copy()
+                direction_array = load_direction.array.copy()
+                correction.destroy()
+                load_direction.destroy()
+                denominator = (
+                    self._owned_dot(increment_u, direction_array)
+                    + self.options.load_scale**2 * increment_load
+                )
+                if abs(denominator) <= np.finfo(float).eps:
+                    message = "arc-length corrector denominator vanished"
+                    break
+                correction_load = (
+                    -0.5 * constraint
+                    - self._owned_dot(increment_u, correction_array)
+                ) / denominator
+                function.x.array[:] += correction_array + correction_load * direction_array
+                selected_load += correction_load
+                fem_petsc.set_bc(function.x.petsc_vec, list(self.equilibrium.bcs))
+                function.x.scatter_forward()
+                self.equilibrium.set_load(selected_load)
+            else:
+                iteration = self.options.maximum_iterations
+                message = "maximum arc-length iterations reached"
+            info = ArcLengthSolveInfo(
+                converged=converged,
+                iterations=iteration,
+                load=float(selected_load),
+                load_increment=float(selected_load - self._accepted_load),
+                residual_norm=residual_norm,
+                constraint_residual=float(constraint),
+                linear_converged_reasons=tuple(linear_reasons),
+                message=message,
+            )
+            if not converged:
+                function.x.array[:] = self._accepted_displacement
+                function.x.scatter_forward()
+                self.equilibrium.set_load(self._accepted_load)
+                self.equilibrium.residual.rollback()
+                raise RuntimeError("Cohesive arc-length step failed: " + message)
+            self.load = float(selected_load)
+            self._trial_info = info
+            return info
+        except Exception:
+            if self._trial_info is None:
+                function.x.array[:] = self._accepted_displacement
+                function.x.scatter_forward()
+                self.load = self._accepted_load
+                self.equilibrium.set_load(self.load)
+                self.equilibrium.residual.rollback()
+            raise
+
+    def commit(self) -> None:
+        if self._trial_info is None:
+            raise RuntimeError("No converged arc-length trial is available.")
+        increment = self.displacement.x.array - self._accepted_displacement
+        load_increment = self.load - self._accepted_load
+        self.equilibrium.residual.commit()
+        self._previous_increment = (increment.copy(), float(load_increment))
+        self._accepted_displacement = self.displacement.x.array.copy()
+        self._accepted_load = float(self.load)
+        self.history.append(self._trial_info.summary())
+        self._trial_info = None
+
+    def rollback(self) -> None:
+        self.equilibrium.residual.rollback()
+        self.displacement.x.array[:] = self._accepted_displacement
+        self.displacement.x.scatter_forward()
+        self.load = self._accepted_load
+        self.equilibrium.set_load(self.load)
+        self._trial_info = None
+
+    def advance(self, *, direction: float = 1.0) -> ArcLengthSolveInfo:
+        info = self.begin_step(direction=direction)
+        self.commit()
+        return info
+
+    def snapshot(self) -> dict[str, object]:
+        return {
+            "schema": "agentfem.cohesive-arc-length.v1",
+            "load": self._accepted_load,
+            "displacement": self._accepted_displacement.tolist(),
+            "previous_increment": (
+                None
+                if self._previous_increment is None
+                else {
+                    "displacement": self._previous_increment[0].tolist(),
+                    "load": self._previous_increment[1],
+                }
+            ),
+            "cohesive": self.equilibrium.residual.snapshot(),
+            "options": self.options.summary(),
+            "history": list(self.history),
+        }
+
+    def restore(self, snapshot: dict[str, object]) -> None:
+        if snapshot.get("schema") != "agentfem.cohesive-arc-length.v1":
+            raise ValueError("Unsupported cohesive arc-length checkpoint schema.")
+        if snapshot.get("options") != self.options.summary():
+            raise ValueError("Arc-length checkpoint options differ.")
+        displacement = np.asarray(snapshot.get("displacement"), dtype=float)
+        if displacement.shape != self.displacement.x.array.shape or not np.all(
+            np.isfinite(displacement)
+        ):
+            raise ValueError("Arc-length checkpoint displacement layout differs.")
+        load = float(snapshot["load"])
+        if not isfinite(load):
+            raise ValueError("Arc-length checkpoint load must be finite.")
+        previous = snapshot.get("previous_increment")
+        if previous is None:
+            restored_previous = None
+        else:
+            previous_displacement = np.asarray(
+                previous["displacement"], dtype=float
+            )
+            previous_load = float(previous["load"])
+            if (
+                previous_displacement.shape != displacement.shape
+                or not np.all(np.isfinite(previous_displacement))
+                or not isfinite(previous_load)
+            ):
+                raise ValueError(
+                    "Arc-length checkpoint previous increment is invalid."
+                )
+            restored_previous = (
+                previous_displacement,
+                previous_load,
+            )
+        history = snapshot.get("history", ())
+        if not isinstance(history, (list, tuple)) or not all(
+            isinstance(record, dict) for record in history
+        ):
+            raise ValueError("Arc-length checkpoint history is invalid.")
+        self.equilibrium.residual.restore(snapshot["cohesive"])
+        self._accepted_displacement = displacement.copy()
+        self.displacement.x.array[:] = displacement
+        self.displacement.x.scatter_forward()
+        self._accepted_load = self.load = load
+        self.equilibrium.set_load(self.load)
+        self._previous_increment = restored_previous
+        self.history = [dict(record) for record in history]
+        self._trial_info = None
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "finite_strain_cohesive_arc_length",
+            "procedure": "spherical_arc_length",
+            "options": self.options.summary(),
+            "equilibrium": self.equilibrium.summary(),
+            "commit": "explicit_trial_or_advance",
+            "maturity": "experimental_post_peak_consumer",
         }
 
 
@@ -2859,6 +3590,9 @@ class CohesiveInterfaceTrace:
     traction: np.ndarray
     damage: np.ndarray
     dissipated_energy_density: np.ndarray
+    tangential_jump: np.ndarray | None = None
+    tangential_traction: np.ndarray | None = None
+    mode_mixity: np.ndarray | None = None
     metadata: dict[str, object] | None = None
 
     def __post_init__(self) -> None:
@@ -2877,10 +3611,35 @@ class CohesiveInterfaceTrace:
             if values.shape != shape or np.any(~np.isfinite(values)):
                 raise ValueError(f"Cohesive trace {name} must have shape {shape} and be finite.")
             arrays[name] = values.copy()
+        vector_arrays = {}
+        for name in ("tangential_jump", "tangential_traction"):
+            declared = getattr(self, name)
+            if declared is None:
+                continue
+            values = np.asarray(declared, dtype=float)
+            if values.ndim != 3 or values.shape[:2] != shape or np.any(~np.isfinite(values)):
+                raise ValueError(
+                    f"Cohesive trace {name} must have shape {shape}+(components,) and be finite."
+                )
+            vector_arrays[name] = values.copy()
+        scalar_optional = None
+        if self.mode_mixity is not None:
+            scalar_optional = np.asarray(self.mode_mixity, dtype=float)
+            if scalar_optional.shape != shape or np.any(~np.isfinite(scalar_optional)):
+                raise ValueError(
+                    f"Cohesive trace mode_mixity must have shape {shape} and be finite."
+                )
         object.__setattr__(self, "time", time.copy())
         object.__setattr__(self, "path_coordinate", coordinate.copy())
         for name, values in arrays.items():
             object.__setattr__(self, name, values)
+        for name in ("tangential_jump", "tangential_traction"):
+            object.__setattr__(self, name, vector_arrays.get(name))
+        object.__setattr__(
+            self,
+            "mode_mixity",
+            None if scalar_optional is None else scalar_optional.copy(),
+        )
         object.__setattr__(self, "metadata", dict(self.metadata or {}))
 
     def write(self, path: str | Path) -> Path:
@@ -2890,17 +3649,21 @@ class CohesiveInterfaceTrace:
         if location.suffix.lower() != ".npz":
             location = location.with_suffix(".npz")
         location.parent.mkdir(parents=True, exist_ok=True)
-        np.savez_compressed(
-            location,
-            schema=np.asarray("agentfem.cohesive-interface-trace.v1"),
-            time=self.time,
-            path_coordinate=self.path_coordinate,
-            opening=self.opening,
-            traction=self.traction,
-            damage=self.damage,
-            dissipated_energy_density=self.dissipated_energy_density,
-            metadata_json=np.asarray(json.dumps(self.metadata, sort_keys=True)),
-        )
+        payload = {
+            "schema": np.asarray("agentfem.cohesive-interface-trace.v2"),
+            "time": self.time,
+            "path_coordinate": self.path_coordinate,
+            "opening": self.opening,
+            "traction": self.traction,
+            "damage": self.damage,
+            "dissipated_energy_density": self.dissipated_energy_density,
+            "metadata_json": np.asarray(json.dumps(self.metadata, sort_keys=True)),
+        }
+        for name in ("tangential_jump", "tangential_traction", "mode_mixity"):
+            value = getattr(self, name)
+            if value is not None:
+                payload[name] = value
+        np.savez_compressed(location, **payload)
         return location
 
     @classmethod
@@ -2908,7 +3671,10 @@ class CohesiveInterfaceTrace:
         location = Path(path)
         with np.load(location, allow_pickle=False) as archive:
             schema = str(archive["schema"])
-            if schema != "agentfem.cohesive-interface-trace.v1":
+            if schema not in {
+                "agentfem.cohesive-interface-trace.v1",
+                "agentfem.cohesive-interface-trace.v2",
+            }:
                 raise ValueError(f"Unsupported cohesive trace schema {schema!r}.")
             return cls(
                 time=archive["time"],
@@ -2917,6 +3683,21 @@ class CohesiveInterfaceTrace:
                 traction=archive["traction"],
                 damage=archive["damage"],
                 dissipated_energy_density=archive["dissipated_energy_density"],
+                tangential_jump=(
+                    archive["tangential_jump"]
+                    if "tangential_jump" in archive.files
+                    else None
+                ),
+                tangential_traction=(
+                    archive["tangential_traction"]
+                    if "tangential_traction" in archive.files
+                    else None
+                ),
+                mode_mixity=(
+                    archive["mode_mixity"]
+                    if "mode_mixity" in archive.files
+                    else None
+                ),
                 metadata=json.loads(str(archive["metadata_json"])),
             )
 
@@ -2928,6 +3709,7 @@ class CohesiveInterfaceTrace:
             "time_interval": [float(self.time[0]), float(self.time[-1])],
             "maximum_opening": float(np.max(self.opening)),
             "maximum_damage": float(np.max(self.damage)),
+            "vector_kinematics": self.tangential_jump is not None,
             "metadata": dict(self.metadata or {}),
         }
 
@@ -3889,6 +4671,9 @@ __all__ = [
     "FiniteStrainEnergyMonitor",
     "FiniteStrainCohesiveEnergyMonitor",
     "CohesiveNewtonSolveInfo",
+    "ArcLengthOptions",
+    "ArcLengthSolveInfo",
+    "FiniteStrainCohesiveArcLength",
     "FiniteStrainCohesiveEquilibrium",
     "FiniteStrainCohesiveResidual",
     "IsotropicWaveSpeeds",
@@ -3910,6 +4695,8 @@ __all__ = [
     "principal_surface_wave_speed",
     "minimum_cell_nodal_spacing",
     "mach_cone_angle",
+    "cohesive_force",
+    "cohesive_forces",
     "mode_i_cohesive_force",
     "named_cohesive_forces",
     "named_mode_i_cohesive_forces",

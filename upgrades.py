@@ -9,17 +9,22 @@ loads, constraints, materials, weak forms, or solver choices automatically.
 from __future__ import annotations
 
 import ast
+from copy import deepcopy
 from dataclasses import dataclass
+from hashlib import sha256
 import json
 from pathlib import Path
 import re
 from typing import Iterable
+
+import numpy as np
 
 from . import __version__
 from .project import CURRENT_PROJECT_SCHEMA_VERSION, PROJECT_FILENAME, ProjectConfig
 
 
 UPGRADE_SCHEMA = "agentfem.upgrade-report"
+COHESIVE_CHECKPOINT_SCHEMA = "agentfem.dof-mapped-cohesive-force.v5"
 
 
 @dataclass(frozen=True)
@@ -231,6 +236,100 @@ def apply_safe_metadata(project: ProjectConfig) -> tuple[Path, ...]:
     return (config_path, backup)
 
 
+def migrate_cohesive_checkpoint(
+    snapshot: dict[str, object],
+    *,
+    tangential: str,
+    tangential_stiffness: float | None = None,
+    acknowledge_physics_change: bool = False,
+) -> dict[str, object]:
+    """Explicitly promote a physical-keyed scalar checkpoint to schema v5.
+
+    Version 3 introduced physical facet identity and version 4 generalized the
+    state field table, but neither recorded tangential interface behavior.
+    Promotion to ``tie`` or ``degraded`` therefore requires an explicit
+    acknowledgement. Mixed-mode state cannot be inferred from scalar opening
+    history and is deliberately rejected.
+    """
+
+    if not isinstance(snapshot, dict):
+        raise TypeError("A cohesive checkpoint migration requires a mapping.")
+    source_schema = snapshot.get("schema")
+    supported = {
+        "agentfem.dof-mapped-cohesive-force.v3",
+        "agentfem.dof-mapped-cohesive-force.v4",
+    }
+    if source_schema not in supported:
+        raise ValueError(
+            "Cohesive checkpoint migration supports physical-keyed schemas "
+            "v3 and v4. Restore older state into a free-slip consumer and "
+            "write a current checkpoint first."
+        )
+    mode = str(tangential).strip().lower().replace("-", "_")
+    mode = {"none": "free", "normal_only": "free", "cohesive": "degraded"}.get(
+        mode, mode
+    )
+    if mode not in {"free", "tie", "degraded"}:
+        raise ValueError(
+            "Scalar checkpoint migration supports free, tie, or degraded; "
+            "mixed-mode initiation history cannot be reconstructed."
+        )
+    if mode != "free" and not acknowledge_physics_change:
+        raise ValueError(
+            "Changing a legacy free-slip checkpoint to a shear-carrying "
+            "interface requires acknowledge_physics_change=True."
+        )
+    law = snapshot.get("law")
+    if not isinstance(law, dict) or law.get("mode") != "normal":
+        raise ValueError("Only scalar Mode-I cohesive checkpoints can migrate.")
+    if mode == "free":
+        stiffness = 0.0
+        if tangential_stiffness is not None and float(tangential_stiffness) != 0.0:
+            raise ValueError("Free-slip migration cannot add tangential stiffness.")
+    else:
+        stiffness = (
+            float(law.get("initial_stiffness"))
+            if tangential_stiffness is None
+            else float(tangential_stiffness)
+        )
+        if not np.isfinite(stiffness) or stiffness <= 0.0:
+            raise ValueError("Migrated tangential stiffness must be positive.")
+
+    migrated = deepcopy(snapshot)
+    if source_schema.endswith(".v3"):
+        records = migrated.get("maximum_opening_by_key")
+        if not isinstance(records, dict) or not records:
+            raise ValueError("Version 3 cohesive checkpoint lacks keyed state.")
+        migrated["state_by_field_and_key"] = {"maximum_opening": records}
+    fields = migrated.get("state_by_field_and_key")
+    if not isinstance(fields, dict) or set(fields) != {"maximum_opening"}:
+        raise ValueError("Legacy scalar checkpoint state fields are incompatible.")
+    encoded = json.dumps(
+        snapshot,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    migrated.update(
+        {
+            "schema": COHESIVE_CHECKPOINT_SCHEMA,
+            "interface_kinematics": mode,
+            "tangential_stiffness": stiffness,
+            "state_identity": "ordered_physical_facet_and_quadrature",
+            "migration": {
+                "schema": "agentfem.cohesive-checkpoint-migration.v1",
+                "source_schema": source_schema,
+                "source_sha256": sha256(encoded).hexdigest(),
+                "target_schema": COHESIVE_CHECKPOINT_SCHEMA,
+                "declared_legacy_kinematics": "free",
+                "target_kinematics": mode,
+                "physics_change_acknowledged": bool(acknowledge_physics_change),
+            },
+        }
+    )
+    return migrated
+
+
 def _metadata_findings(project: ProjectConfig) -> Iterable[UpgradeFinding]:
     path = project.root / PROJECT_FILENAME
     text = path.read_text(encoding="utf-8")
@@ -382,9 +481,11 @@ def _insert_project_key(text: str, key: str, value: str) -> str:
 
 
 __all__ = [
+    "COHESIVE_CHECKPOINT_SCHEMA",
     "UPGRADE_SCHEMA",
     "UpgradeFinding",
     "UpgradeReport",
     "apply_safe_metadata",
     "inspect_project",
+    "migrate_cohesive_checkpoint",
 ]

@@ -34,6 +34,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | [`agentfem.workflow.standard_result_projection`](#agentfem-workflow-standard_result_projection) | Projected small-strain fields, reactions, and static equilibrium | workflow | supported |
 | [`agentfem.workflow.thermoelastic_analysis`](#agentfem-workflow-thermoelastic_analysis) | Sequential thermoelastic analysis | workflow | supported |
 | [`agentfem.workflow.transient_checkpoint_portability`](#agentfem-workflow-transient_checkpoint_portability) | Portable transient checkpoint state | workflow | supported |
+| [`agentfem.workflow.vector_cohesive_interface`](#agentfem-workflow-vector_cohesive_interface) | Full-vector and mixed-mode cohesive interfaces | workflow | experimental |
 
 ## Benchmark index
 
@@ -48,7 +49,7 @@ the compact machine-readable `knowledge/catalog.json`.
 | `agentfem.benchmark.creep_damage_material_paths` | Creep-damage material paths and curve projection | Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection | automated_regression |
 | `agentfem.benchmark.creep_hot_wall_release` | Sequential hot-wall creep assessment release contract | sequential transient heat conduction, plane-strain thermoelasticity, and local creep-damage assessment | automated_regression |
 | `agentfem.benchmark.cyclic_cohesive_global_lifecycle` | Global cyclic cohesive transaction, cutback, restart and named 3D interfaces | Quasi-static force-controlled fixed-path Mode-I cohesive fatigue | experimental_automated_foundation |
-| `agentfem.benchmark.distributed_cohesive_force` | Two-rank sparse fixed-path cohesive force and portable restart | Two-dimensional Mode-I bilinear cohesive interface in finite-strain Explicit dynamics | experimental_mpi_sparse_automated |
+| `agentfem.benchmark.distributed_cohesive_force` | Two-rank sparse fixed-path cohesive force and portable restart | Two-dimensional normal and mixed-mode bilinear cohesive interfaces in finite-strain assembly and Explicit dynamics | experimental_mpi_sparse_automated |
 | `agentfem.benchmark.dynamic_fracture_energy_v2` | Finite-strain and cohesive dynamic energy closure | Total-Lagrangian Neo-Hookean dynamics with optional Mode-I cohesive separation | experimental_v2_automated |
 | `agentfem.benchmark.elasticity_foundation` | Foundational small-strain elasticity verification | two- and three-dimensional small-strain linear elasticity | automated |
 | `agentfem.benchmark.finite_strain_incremental_waves_v1` | Neo-Hookean small-on-large wave oracle | compressible Neo-Hookean small-on-large elastodynamics | experimental_v1_automated |
@@ -60,12 +61,14 @@ the compact machine-readable `knowledge/catalog.json`.
 | `agentfem.benchmark.jmps_weak_interface_convergence_v4` | Two-dimensional weak-interface supershear refinement contract | near-incompressible finite-strain plane-stress Neo-Hookean strip with ten or more cells through the height, homogeneous preload, smooth remote impact, a fixed bilinear Mode-I cohesive interface, and a precrack | experimental_v4_2d_convergence_accepted |
 | `agentfem.benchmark.jmps_weak_interface_transition_v4` | Prestressed weak-interface crack-to-supershear-to-spall mechanism ladder | near-incompressible finite-strain plane-stress Neo-Hookean strip with homogeneous preload, smooth remote impact, a fixed zero-thickness bilinear Mode-I interface, and a precrack | experimental_v4_mechanism_executable |
 | `agentfem.benchmark.linear_static_cantilever` | Two-dimensional linear-static cantilever | small-strain isotropic linear elasticity in plane strain | numerical_regression |
+| `agentfem.benchmark.mixed_mode_bending_external_contract` | Source-identified mixed-mode bending curve comparison | Mixed-mode bending delamination or a mechanically equivalent fixed-path cohesive structure with measured load, displacement, crack length, and Mode-I fraction | contract_ready_external_data_pending |
 | `agentfem.benchmark.mooney_rivlin_material_paths` | Mooney--Rivlin material-path and Explicit-consumer contract | incompressible plane-stress Mooney--Rivlin hyperelasticity | experimental_automated_regression |
 | `agentfem.benchmark.neo_hookean_release` | Compressible Neo-Hookean finite-strain release contract | compressible Neo-Hookean hyperelasticity | automated_regression |
 | `agentfem.benchmark.operator_contracts` | Operator role, system, and residual-linearization contracts | backend-facing finite-element operator algebra | automated |
 | `agentfem.benchmark.plane_stress_thin_3d_crosscheck` | Finite-strain plane-stress and thin-three-dimensional patch cross-check | compressible Neo-Hookean finite strain under homogeneous uniaxial stretch with traction-free lateral and thickness directions | experimental_geometry_crosscheck_automated |
 | `agentfem.benchmark.thermoelastic_free_expansion` | Plane-stress isotropic free thermal expansion | small-strain isotropic plane-stress thermoelasticity under uniform temperature change | automated_regression |
 | `agentfem.benchmark.transient_heat_release` | Implicit-Euler transient heat release regression | two-dimensional transient heat conduction with constant isotropic properties | numerical_regression |
+| `agentfem.benchmark.vector_cohesive_interface` | Vector cohesive kinematics, mixed-mode energy and model rank | Two- and three-dimensional fixed-path cohesive interfaces under normal, shear, mixed and compressive separation | experimental_automated_foundation |
 | `agentfem.benchmark.wave_release` | Explicit elastic-wave inclusion release contract | two-dimensional plane-strain linear elastodynamics | automated_regression |
 
 <a id="agentfem-load-surface_resultant"></a>
@@ -1519,6 +1522,7 @@ Recovers a split two-dimensional interface from declared cell sides, builds one 
 
 - `agentfem.interfaces.create_dolfinx_split_mesh`
 - `agentfem.interfaces.split_conforming_cell_interface`
+- `agentfem.fracture.cohesive_force`
 - `agentfem.fracture.mode_i_cohesive_force`
 - `agentfem.fracture.DistributedDofMappedCohesiveForce`
 - `agentfem.fracture.FiniteStrainCohesiveResidual`
@@ -1556,7 +1560,7 @@ Each rank sends displacement traces and force contributions only for remote phys
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | split interface mesh | SplitInterfaceMesh | reference geometry | Coincident sides retain independent input-node identities and explicit positive/negative facet pairing. |
-| Mode-I cohesive law and displacement | BilinearCohesiveLaw and blocked P1 vector Function | consistent mechanical units | The same public factory selects serial or MPI execution from the mesh communicator. |
+| cohesive law and displacement | BilinearCohesiveLaw or MixedModeBilinearCohesiveLaw and blocked P1 vector Function | consistent mechanical units | The same public factory selects serial or MPI execution from the mesh communicator. |
 
 #### Outputs
 
@@ -1586,7 +1590,7 @@ Each rank sends displacement traces and force contributions only for remote phys
 #### Limitations
 
 - The implementation uses sparse payloads on a communicator-wide Alltoallv schedule; extreme-scale neighborhood-collective performance is not yet benchmarked.
-- Mixed-mode coupling, friction/contact after closure, quadratic surface interpolation, and arbitrary nonconforming interfaces are not yet covered.
+- Vector and mixed-mode coupling use the same MPI consumer; quadratic surface interpolation and arbitrary nonconforming interfaces are not yet covered.
 - MPI execution is experimental and does not promote the V4/V5 scientific benchmark to validated status.
 
 ### Minimal example
@@ -2736,3 +2740,134 @@ policy = checkpointing.every(10, directory='checkpoints', portable=True)
 ### References
 
 - DOLFINx parallel checkpointing demo: `https://docs.fenicsproject.org/dolfinx/main/python/demos/demo_checkpointing.html`
+
+<a id="agentfem-workflow-vector_cohesive_interface"></a>
+
+## Full-vector and mixed-mode cohesive interfaces
+
+**Stable ID:** `agentfem.workflow.vector_cohesive_interface`<br>
+**Kind:** `workflow`<br>
+**Status:** `experimental`<br>
+**Source card:** `knowledge/cards/vector_cohesive_interface.json`
+
+Adds explicit vector jump and traction kinematics, intact and damage-compatible tangential transfer, mixed-mode bilinear damage, compression contact, standard fields, rigid-mode and Mode-I audits, serial/MPI restart, and spherical arc-length continuation to one reusable fixed-path interface contract.
+
+### Public API
+
+- `agentfem.interfaces.mixed_mode_bilinear_cohesive`
+- `agentfem.interfaces.audit_split_interface_rigid_modes`
+- `agentfem.interfaces.audit_mode_i_kinematics`
+- `agentfem.fracture.cohesive_force`
+- `agentfem.fracture.cohesive_forces`
+- `agentfem.fracture.mode_i_cohesive_force`
+- `agentfem.fracture.FiniteStrainCohesiveArcLength`
+
+### Scientific contract
+
+A split cohesive interface must constrain and damage the complete displacement jump declared by its physical law; normal-only traction is a special slip model rather than the default meaning of a three-dimensional cohesive surface.
+
+**interface kinematics**
+
+$$
+\delta_n=\llbracket u\rrbracket\cdot n,\quad \boldsymbol\delta_t=\llbracket u\rrbracket-\delta_n n
+$$
+
+The same decomposition drives line and triangular-surface facets.
+
+**quadratic damage initiation**
+
+$$
+(\langle t_n\rangle/T_n)^2+(\|t_t\|/T_t)^2=1
+$$
+
+Compression does not initiate cohesive damage.
+
+**BK mixed fracture energy**
+
+$$
+G_c=G_{Ic}+(G_{IIc}-G_{Ic})(G_s/(G_n+G_s))^\eta
+$$
+
+Power-law energy interaction is an alternative explicit option.
+
+**spherical continuation**
+
+$$
+\|\Delta u\|^2+(\alpha\Delta\lambda)^2=\Delta s^2
+$$
+
+Post-peak path following adds one load unknown to the existing cohesive residual.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| split interface | SplitInterfaceMesh or NamedSplitInterfaceMesh | reference geometry | Coincident sides with independent displacement identities. |
+| cohesive law | BilinearCohesiveLaw or MixedModeBilinearCohesiveLaw | consistent force-length system | Strength, stiffness, fracture energies and optional contact/friction parameters. |
+| kinematic mode | free, tie, degraded or mixed | dimensionless choice | Declares the physical tangential behavior rather than hiding it in a case script. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| standard interface fields | quadrature arrays | jump length, traction, damage | JUMP_N/JUMP_T/TRACTION_N/TRACTION_T/DAMAGE/MODE_MIXITY. |
+| well-posedness evidence | InterfaceRigidModeAudit and ModeIKinematicsAudit | rank and dimensionless ratio | Pre-solve body-mode rank and accepted-state tangential deviation. |
+| continuation evidence | ArcLengthSolveInfo | declared load and displacement scales | Residual, arc constraint, iterations and accepted load increment. |
+
+#### Assumptions
+
+- The crack path is fixed and represented by paired two-node lines or three-node triangular surfaces.
+- The first mixed-mode damage law is intended for proportional or mildly changing mode mix.
+- Regularized friction acts only in compression and is not a replacement for a general contact solver.
+
+#### Conventions
+
+- Positive normal traction and jump denote opening.
+- The local interface frame is deterministic and right-handed; normal is component zero.
+- Strict tie does not degrade and must be selected deliberately.
+- The recommended scalar Mode-I factory uses a strict tangential penalty tie because the scalar law declares no Mode-II failure data.
+- State and output identity follow physical facet keys and quadrature, not MPI-local dofs.
+
+#### Applicability
+
+- Fixed-path monotonic and dynamic cohesive problems requiring explicit shear integrity, mixed-mode separation, model-rank screening, or post-peak continuation.
+
+#### Limitations
+
+- No free-path fracture, cohesive junction topology, cyclic mixed-mode evolution or general non-proportional mixed-mode validation.
+- Normal-damage-driven tangential integrity does not yet add an independent cyclic shear-dissipation state; substantial shear requires the mixed-mode law.
+- No external mixed-mode structural benchmark has promoted the experimental law.
+- Arc length currently targets quasi-static native cohesive equilibrium, not Explicit dynamics.
+
+### Minimal example
+
+```python
+law = interfaces.mixed_mode_bilinear_cohesive(normal_strength=Tn, shear_strength=Ts, normal_fracture_energy=GIc, shear_fracture_energy=GIIc, normal_stiffness=Kn, tangential_stiffness=Kt, interaction='bk'); cohesive = fracture.cohesive_force(split, U, law, normal_hint=(0, 0, 1))
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_interfaces.py`
+- `tests/test_global_cohesive_residual.py`
+- `tests/test_parallel_cohesive.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.vector_cohesive_interface`
+
+**Validation rules**
+
+- Pure-mode envelope areas equal declared fracture energies.
+- Analytical point and facet tangents match centered force derivatives.
+- A free middle body is detected before solving and a shear-carrying intact interface closes the rank.
+- Mixed-mode vector resultants and state fields pass serial and two-rank consumers.
+- A native finite-strain cohesive arc-length increment satisfies equilibrium and the spherical constraint.
+
+### References
+
+- Abaqus cohesive behavior: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-cohesivebehavior.htm`
+- Abaqus damage evolution and mixed-mode criteria: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAECAERefMap/simacae-t-prpmechanicaldamageevolution.htm`
+- PETSc rigid-body null space: `https://petsc.org/release/manualpages/Mat/MatNullSpaceCreateRigidBody/`
+- AgentFEM dynamic cohesive fracture architecture: `docs/dynamic_cohesive_fracture_architecture.md`

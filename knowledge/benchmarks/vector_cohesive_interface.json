@@ -1,0 +1,39 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.vector_cohesive_interface",
+  "title": "Vector cohesive kinematics, mixed-mode energy and model rank",
+  "status": "experimental_automated_foundation",
+  "purpose": "Verify complete interface jump/traction kinematics, damage-compatible shear transfer, mixed-mode energy interactions, compression contact, algorithmic tangents, rigid-mode preflight, physical-facet restart and post-peak continuation plumbing.",
+  "physics": "Two- and three-dimensional fixed-path cohesive interfaces under normal, shear, mixed and compressive separation",
+  "execution": {
+    "example": "tests/test_interfaces.py",
+    "command": "python -m pytest tests/test_interfaces.py tests/test_global_cohesive_residual.py && mpiexec -n 2 python -m pytest tests/test_parallel_cohesive.py",
+    "evidence": "Material-point envelopes, vector facet resultants, finite-difference tangents, multi-body rank, serial global continuation, MPI force assembly and restart fields are executable regressions."
+  },
+  "observables": [
+    "Normal and tangential jump and traction at every cohesive quadrature point.",
+    "Pure Mode-I and Mode-II dissipated fracture energy.",
+    "Separation of Mode-II fracture dissipation from residual parallel-penalty stored energy.",
+    "Analytical force tangent relative to centered finite difference.",
+    "Rigid-body nullity of a three-body, two-interface split model.",
+    "Equal axial resultants and zero parasitic shear in a three-dimensional three-layer, two-interface patch.",
+    "Serial and two-rank mixed-mode resultants and physical-keyed state fields.",
+    "Converged spherical arc-length step through the native bulk-plus-interface residual."
+  ],
+  "acceptance": [
+    "The legacy free-slip Mode-I resultant is unchanged.",
+    "A precracked degraded-tangential interface carries neither tensile nor shear traction.",
+    "Pure-mode complete separation dissipates the declared GIc or GIIc.",
+    "A residual tangential penalty preserves GIIc while its independently integrated work remains recoverable stored energy.",
+    "Vector and mixed-mode analytical tangents match force derivatives within declared numerical tolerances.",
+    "Normal-only connections expose free middle-body modes and full intact connections close the rigid-body rank.",
+    "Both interfaces in the three-dimensional three-layer patch transfer the analytical axial resultant without tangential jump or traction.",
+    "Two-rank mixed-mode force resultants equal the serial analytical resultant and checkpoint every state field once per physical facet."
+  ],
+  "limitations": [
+    "Mixed-mode damage freezes mode mix at initiation and is not a general non-proportional fatigue model.",
+    "Friction is a regularized penalty contact option, not a general contact active-set benchmark.",
+    "The benchmark is a software verification foundation, not an external structural validation."
+  ]
+}

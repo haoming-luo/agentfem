@@ -2679,6 +2679,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#static-analysis-adoption" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Static-analysis adoption
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3110,6 +3121,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#static-analysis-adoption" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Static-analysis adoption
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3217,8 +3239,8 @@ the most expensive command after every keystroke.</p>
 </tr>
 <tr>
 <td>Before committing</td>
-<td>Related workflow tests, misuse tests, and generated-asset checks</td>
-<td><code>python build_knowledge.py --check --check-imports</code>; <code>python build_docs.py --check</code></td>
+<td>Related workflow tests, critical static analysis, misuse tests, and generated-asset checks</td>
+<td><code>ruff check . --no-cache</code>; <code>python build_knowledge.py --check --check-imports</code>; <code>python build_docs.py --check</code></td>
 </tr>
 <tr>
 <td>Before pushing a coherent code change</td>
@@ -3282,6 +3304,12 @@ always-running decision job are safer when selective CI is eventually needed.</p
 </ul>
 <p>This strategy keeps the development loop efficient without weakening the
 scientific claims attached to a release.</p>
+<h2 id="static-analysis-adoption">Static-analysis adoption<a class="headerlink" href="#static-analysis-adoption" title="Permanent link">&para;</a></h2>
+<p>The first Ruff gate deliberately checks correctness-sensitive rules: syntax,
+undefined names, invalid control flow, loop-variable capture, and mutable
+function-call defaults. It does not reformat the historical repository or
+rewrite third-party reference scripts. Broader style rules may be adopted
+module by module only when their review cost is justified.</p>
 
 
 

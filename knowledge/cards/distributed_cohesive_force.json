@@ -9,6 +9,7 @@
   "public_api": [
     "agentfem.interfaces.create_dolfinx_split_mesh",
     "agentfem.interfaces.split_conforming_cell_interface",
+    "agentfem.fracture.cohesive_force",
     "agentfem.fracture.mode_i_cohesive_force",
     "agentfem.fracture.DistributedDofMappedCohesiveForce",
     "agentfem.fracture.FiniteStrainCohesiveResidual"
@@ -45,8 +46,8 @@
         "description": "Coincident sides retain independent input-node identities and explicit positive/negative facet pairing."
       },
       {
-        "name": "Mode-I cohesive law and displacement",
-        "type": "BilinearCohesiveLaw and blocked P1 vector Function",
+        "name": "cohesive law and displacement",
+        "type": "BilinearCohesiveLaw or MixedModeBilinearCohesiveLaw and blocked P1 vector Function",
         "unit_role": "consistent mechanical units",
         "description": "The same public factory selects serial or MPI execution from the mesh communicator."
       }
@@ -82,7 +83,7 @@
     ],
     "limitations": [
       "The implementation uses sparse payloads on a communicator-wide Alltoallv schedule; extreme-scale neighborhood-collective performance is not yet benchmarked.",
-      "Mixed-mode coupling, friction/contact after closure, quadratic surface interpolation, and arbitrary nonconforming interfaces are not yet covered.",
+      "Vector and mixed-mode coupling use the same MPI consumer; quadratic surface interpolation and arbitrary nonconforming interfaces are not yet covered.",
       "MPI execution is experimental and does not promote the V4/V5 scientific benchmark to validated status."
     ]
   },

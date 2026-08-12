@@ -1168,6 +1168,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#mixed-mode-and-model-well-posedness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mixed-mode and model well-posedness
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#interface-topology" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3321,6 +3332,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#mixed-mode-and-model-well-posedness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mixed-mode and model well-posedness
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#interface-topology" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3722,10 +3744,86 @@ Explicit run and two-rank-to-one-rank transient restart exercise this complete
 path, while a nonuniform compression/softening case compares every assembled
 node force with the serial kernel. This removes dense volume-node payloads; it
 does not yet claim an extreme-scale neighborhood-collective optimum.</p>
-<p><code>interfaces.BilinearCohesiveLaw</code> and <code>interfaces.CohesiveTransaction</code> are the
-first material-point implementation of this contract.  They are marked
-experimental until a paired-facet global consumer passes the verification
-ladder.</p>
+<p><code>interfaces.BilinearCohesiveLaw</code> and <code>interfaces.CohesiveTransaction</code> retain
+the original scalar Mode-I material-point contract. The paired-facet kernel
+now adds one explicit vector-kinematics layer rather than inferring shear
+behavior from a case:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">cohesive</span> <span class="o">=</span> <span class="n">fracture</span><span class="o">.</span><span class="n">cohesive_force</span><span class="p">(</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">split</span><span class="p">,</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">U</span><span class="p">,</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">law</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">normal_hint</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">tangential_stiffness</span><span class="o">=</span><span class="n">Kt</span><span class="p">,</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="p">)</span>
+</code></pre></div>
+<p>For a scalar Mode-I law this recommended factory defaults to
+<code>tangential="tie"</code>, a non-degrading penalty constraint for strict Mode-I
+studies. This is the conservative default because a scalar law declares no
+shear strength or Mode-II fracture energy from which AgentFEM could infer a
+shear failure law. <code>mode_i_cohesive_force(..., tangential="free")</code> remains the
+backwards-compatible frictionless-slip model. <code>tangential="degraded"</code> is an
+explicit normal-damage-driven approximation for users who intend tangential
+release without introducing a calibrated mixed-mode law.</p>
+<p>The normal-driven degraded mode is intended for paths that remain close to
+Mode-I. Its tangential force and tangent are exact for the declared response,
+but the scalar fatigue transaction does not yet carry an independent shear
+damage-dissipation history. Significant shear separation should therefore use
+the mixed-mode law; cyclic mixed-mode energy is a remaining promotion gate.
+The permanent penalty tie is likewise a kinematic Mode-I declaration, not a
+general post-failure interface model.</p>
+<p>Several named split surfaces use the same public decision path through
+<code>fracture.cohesive_forces(...)</code>. Each named law independently selects the
+strict scalar Mode-I or mixed-mode response while the returned collection
+keeps commit, rollback, output, energy, and checkpoint operations atomic.</p>
+<p>Every vector response exposes <code>JUMP_N</code>, <code>JUMP_T</code>, <code>TRACTION_N</code>, <code>TRACTION_T</code>,
+<code>DAMAGE</code>, and <code>MODE_MIXITY</code>. The same arrays are produced by serial and
+physical-facet-owner MPI consumers. <code>audit_mode_i_kinematics(...)</code> can reject
+a nominal Mode-I model when tangential jump exceeds a declared ratio.</p>
+<h2 id="mixed-mode-and-model-well-posedness">Mixed-mode and model well-posedness<a class="headerlink" href="#mixed-mode-and-model-well-posedness" title="Permanent link">&para;</a></h2>
+<p><code>interfaces.mixed_mode_bilinear_cohesive(...)</code> is the first P1 mixed-mode
+material-point and global-facet route. It uses a quadratic nominal-traction
+initiation criterion. After initiation, the selected mode mix is retained as
+state and the failure energy follows either Benzeggagh--Kenane or power-law
+interaction. Compression uses a separate penalty and does not advance damage;
+regularized Coulomb resistance is optional and declared in the law summary.
+An optional residual tangential fraction is a true parallel elastic penalty:
+its stiffness is present from the virgin state, its work remains stored, and
+it does not alter the declared Mode-II fracture dissipation.
+The implemented path scope is proportional or mildly changing mode mix.
+General non-proportional and cyclic mixed-mode evolution remains a separate
+promotion gate.</p>
+<p>The external structural promotion route is now explicit rather than implicit.
+<code>benchmarks.MixedModeBendingCurve</code> reads a source-identified four-column MMB
+curve, assigns it a deterministic numerical identity, and
+<code>compare_mixed_mode_bending_curves(...)</code> compares load, load-point displacement,
+and Mode-I fraction on common crack-length coordinates. Tolerances are required
+arguments. The automated synthetic fixture verifies this data and decision
+machinery only; no published NASA curve is bundled or claimed reproduced yet.</p>
+<p>Damage and solver state still use begin/commit/rollback. Mixed-mode checkpoint
+fields are stored by the same physical facet and quadrature identity as the
+Mode-I maximum-opening state, so a different rank partition does not become a
+new material history. Checkpoint schema v5 also records the tangential mode
+and stiffness. Older checkpoints predate vector kinematics and restore directly
+only into the historical free-slip consumer.
+<code>upgrades.migrate_cohesive_checkpoint(...)</code> can produce an auditable v5 free,
+tie, or degraded state from physical-keyed v3/v4 data; changing shear physics
+requires an explicit acknowledgement and records a source digest and migration
+provenance. It rejects mixed-mode migration because initiation mixity cannot be
+reconstructed from scalar opening history. Legacy index-keyed v1/v2 states must
+first be restored on their original free-slip model and re-saved with physical
+facet identity.</p>
+<p>Interface splitting can create several disconnected bulk bodies. Before a
+solve, <code>audit_split_interface_rigid_modes(...)</code> constructs each body's exact
+translation/rotation basis and measures the rank of declared Dirichlet and
+intact interface constraints. A free middle body therefore fails preflight
+instead of being hidden by a singular linear solve. The remedy must be a
+physical boundary or shear-carrying interface, not an arbitrary point fix.</p>
+<p>For quasi-static post-peak paths,
+<code>FiniteStrainCohesiveArcLength</code> augments the existing bulk-plus-interface
+residual with one physical load unknown and a spherical constraint. It reuses
+the analytical interface tangent, strong-boundary elimination, rollback, and
+checkpoint state; force control and arc length are distinct procedures rather
+than switches embedded in a material law.</p>
 <h2 id="interface-topology">Interface topology<a class="headerlink" href="#interface-topology" title="Permanent link">&para;</a></h2>
 <p>Ordinary continuous displacement degrees of freedom cannot represent a jump
 on a shared facet.  The MVP therefore uses two geometrically coincident sides
@@ -3970,6 +4068,13 @@ physical-owner schedule with sparse trace/force payloads, and conforming paths
 can be recovered from cell partitions. Direct Abaqus/Gmsh surface lowering,
 extreme-scale neighborhood-collective profiling, MPC/contact/weak-constraint
 work, general near-incompressibility, and full thin-3D fracture remain gates.</p>
+<p><code>DistributedDofMappedCohesiveForce.performance_profile()</code> makes the current
+parallel workload reviewable without turning noisy CI wall time into a pass/fail
+criterion. It reports per-rank owned facets, required and remote trace nodes,
+numeric payload counts, and facet imbalance. PETSc <code>-log_view</code> supplies timing
+for the named constitutive, vector-assembly, and matrix-assembly events. The
+combination separates a decomposition or communication regression from normal
+runner timing variation.</p>
 <h3 id="automated-v1-v3-guardrails">Automated V1--V3 guardrails<a class="headerlink" href="#automated-v1-v3-guardrails" title="Permanent link">&para;</a></h3>
 <p>The first named verification ladder is now executable:</p>
 <ul>
@@ -4058,8 +4163,8 @@ performance target.</p>
    changing constitutive or commit/rollback semantics;</li>
 <li>keep the short construction smoke per commit and run the roughly
    6.2-minute full refinement contract in scheduled or release-gate CI;</li>
-<li>profile the implemented cached sparse owner schedule on larger interfaces,
-   then evaluate a distributed-graph neighborhood collective without changing
+<li>retain the collective workload profile and PETSc event names on larger
+   interfaces, then evaluate a distributed-graph neighborhood collective without changing
    its physical identity, force, energy, restart, or benchmark contracts.</li>
 </ol>
 <h3 id="v5-public-data-evidence-boundary">V5 public-data evidence boundary<a class="headerlink" href="#v5-public-data-evidence-boundary" title="Permanent link">&para;</a></h3>

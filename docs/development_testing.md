@@ -9,7 +9,7 @@ the most expensive command after every keystroke.
 | Moment | Required evidence | Typical command |
 | --- | --- | --- |
 | Inner development loop | Direct unit/interface tests for the changed owner | `python -m pytest -q tests/test_extensions.py` |
-| Before committing | Related workflow tests, misuse tests, and generated-asset checks | `python build_knowledge.py --check --check-imports`; `python build_docs.py --check` |
+| Before committing | Related workflow tests, critical static analysis, misuse tests, and generated-asset checks | `ruff check . --no-cache`; `python build_knowledge.py --check --check-imports`; `python build_docs.py --check` |
 | Before pushing a coherent code change | Complete serial suite | `python -m pytest -q` |
 | MPI-sensitive change | Relevant two-rank modules using the environment-matched launcher | `$CONDA_PREFIX/bin/mpiexec -n 2 python -m pytest ...` |
 | Pull request and `main` | Wheel installation, full serial, MPI, checkpoint portability, examples, documentation, and optional PyTorch bridge | GitHub Actions `Test` workflow |
@@ -62,3 +62,11 @@ always-running decision job are safer when selective CI is eventually needed.
 
 This strategy keeps the development loop efficient without weakening the
 scientific claims attached to a release.
+
+## Static-analysis adoption
+
+The first Ruff gate deliberately checks correctness-sensitive rules: syntax,
+undefined names, invalid control flow, loop-variable capture, and mutable
+function-call defaults. It does not reformat the historical repository or
+rewrite third-party reference scripts. Broader style rules may be adopted
+module by module only when their review cost is justified.

@@ -4600,8 +4600,13 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>named_mode_i_cohesive_forces(split, displacement, *, laws, normal_hints, thicknesses = None, tolerance: float = 1e-10) -&gt; CohesiveForceCollection</code></td>
+<td><code>named_mode_i_cohesive_forces(split, displacement, *, laws, normal_hints, thicknesses = None, tangential = 'free', tangential_stiffness = None, tolerance: float = 1e-10) -&gt; CohesiveForceCollection</code></td>
 <td>Build independent named forces on one atomically split solver mesh.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>cohesive_forces(split, displacement, *, laws, normal_hints, thicknesses = None, tangential = None, tangential_stiffness = None, tolerance: float = 1e-10) -&gt; CohesiveForceCollection</code></td>
+<td>Build a recommended force for every named split interface.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -4615,8 +4620,13 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>mode_i_cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law, *, normal_hint, thickness: float = 1.0, tolerance: float = 1e-10) -&gt; DofMappedCohesiveForce \| DistributedDofMappedCohesiveForce</code></td>
-<td>Build the executable Mode-I force directly from a split mesh contract.</td>
+<td><code>mode_i_cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law, *, normal_hint, thickness: float = 1.0, tolerance: float = 1e-10, tangential: str = 'free', tangential_stiffness: float \| None = None) -&gt; DofMappedCohesiveForce \| DistributedDofMappedCohesiveForce</code></td>
+<td>Build a fixed-path cohesive force from a split mesh contract.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law, *, normal_hint, tangential: str \| None = None, tangential_stiffness: float \| None = None, thickness: float = 1.0, tolerance: float = 1e-10)</code></td>
+<td>Build the recommended full-vector fixed-path interface consumer.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -4630,8 +4640,23 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>ArcLengthOptions</code></td>
+<td>Crisfield-style spherical continuation controls.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ArcLengthSolveInfo</code></td>
+<td>Public AgentFEM object.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>FiniteStrainCohesiveEquilibrium(residual: FiniteStrainCohesiveResidual, tangent, displacement, *, set_load = None, load_parameter = None, reference_load: float = 1.0, bcs = (), solver_options = None, control_displacement = None, reaction = None, bulk_strain_energy = None)</code></td>
 <td>Native Newton consumer for UFL bulk and zero-thickness interfaces.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>FiniteStrainCohesiveArcLength(equilibrium: FiniteStrainCohesiveEquilibrium, options: ArcLengthOptions, *, initial_load: float = 0.0)</code></td>
+<td>Spherical arc-length continuation for cohesive equilibrium paths.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -6971,6 +6996,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td><code>apply_safe_metadata(project: ProjectConfig) -&gt; tuple[Path, ...]</code></td>
 <td>Apply only deterministic project-metadata migrations, atomically.</td>
 </tr>
+<tr>
+<td>function</td>
+<td><code>migrate_cohesive_checkpoint(snapshot: dict[str, object], *, tangential: str, tangential_stiffness: float \| None = None, acknowledge_physics_change: bool = False) -&gt; dict[str, object]</code></td>
+<td>Explicitly promote a physical-keyed scalar checkpoint to schema v5.</td>
+</tr>
 </tbody>
 </table>
 <h2 id="agentfemio"><code>agentfem.io</code><a class="headerlink" href="#agentfemio" title="Permanent link">&para;</a></h2>
@@ -7283,6 +7313,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>VectorCohesiveResponse</code></td>
+<td>Local-basis response of a two- or three-dimensional interface.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>MixedModeBilinearCohesiveLaw</code></td>
+<td>Bilinear mixed-mode cohesive law for proportional loading paths.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>BilinearCohesiveLaw</code></td>
 <td>Irreversible bilinear Mode-I cohesive law.</td>
 </tr>
@@ -7290,6 +7330,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>class</td>
 <td><code>CohesiveTransaction(law: BilinearCohesiveLaw, size: int)</code></td>
 <td>Trial/commit/rollback state for a batch of cohesive points.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>MixedModeCohesiveTransaction(law: MixedModeBilinearCohesiveLaw, size: int)</code></td>
+<td>Trial/commit state for :class:<code>MixedModeBilinearCohesiveLaw</code>.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -7312,6 +7357,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>One solver mesh carrying several disjoint named cohesive surfaces.</td>
 </tr>
 <tr>
+<td>class</td>
+<td><code>InterfaceRigidModeAudit</code></td>
+<td>Rigid-body constraint rank of a split-interface model.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>audit_split_interface_rigid_modes(split: SplitInterfaceMesh \| NamedSplitInterfaceMesh, *, constrained_components, tangential = 'free', active_facets = None, rank_tolerance: float \| None = None, error_if_singular: bool = False) -&gt; InterfaceRigidModeAudit</code></td>
+<td>Audit rigid translations and rotations before creating a solver mesh.</td>
+</tr>
+<tr>
 <td>function</td>
 <td><code>create_dolfinx_split_mesh(split: SplitInterfaceMesh \| NamedSplitInterfaceMesh, *, comm = None, cell_type: str \| None = None, input_order: str = 'counterclockwise')</code></td>
 <td>Create an executable DOLFINx mesh for an audited split interface.</td>
@@ -7319,7 +7374,17 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tr>
 <td>class</td>
 <td><code>CohesiveFacetResponse</code></td>
-<td>Trial force and energy from a batch of paired 2D facets.</td>
+<td>Trial force, kinematics and energy from paired interface facets.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ModeIKinematicsAudit</code></td>
+<td>Accepted-state check that a declared Mode-I path remains Mode-I.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>audit_mode_i_kinematics(response: CohesiveFacetResponse, *, ratio_limit: float = 0.1, absolute_tolerance: float = 1e-12, error_if_exceeded: bool = False) -&gt; ModeIKinematicsAudit</code></td>
+<td>Check tangential jump without changing cohesive history.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -7328,13 +7393,13 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
-<td><code>ModeICohesiveFacetAssembler(topology: PairedLineFacets, law, *, number_of_nodes: int, thickness: float = 1.0)</code></td>
-<td>Two-point line integration for a fixed-path 2D Mode-I interface.</td>
+<td><code>ModeICohesiveFacetAssembler(topology: PairedLineFacets, law, *, number_of_nodes: int, thickness: float = 1.0, tangential: str = 'free', tangential_stiffness: float \| None = None)</code></td>
+<td>Two-point line integration for a fixed-path 2D interface.</td>
 </tr>
 <tr>
 <td>class</td>
-<td><code>ModeICohesiveSurfaceAssembler(topology: PairedSurfaceFacets, law, *, number_of_nodes: int)</code></td>
-<td>Three-point integration of linear triangular Mode-I surfaces in 3D.</td>
+<td><code>ModeICohesiveSurfaceAssembler(topology: PairedSurfaceFacets, law, *, number_of_nodes: int, tangential: str = 'free', tangential_stiffness: float \| None = None)</code></td>
+<td>Three-point integration of linear triangular interfaces in 3D.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -7375,6 +7440,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>bilinear_cohesive(*, strength: float, fracture_energy: float, initial_stiffness: float, compression_stiffness: float \| None = None, name: str = 'bilinear Mode-I cohesive law') -&gt; BilinearCohesiveLaw</code></td>
 <td>Create a bilinear Mode-I cohesive law.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>mixed_mode_bilinear_cohesive(*, normal_strength: float, shear_strength: float, normal_fracture_energy: float, shear_fracture_energy: float, normal_stiffness: float, tangential_stiffness: float, interaction: str = 'bk', interaction_exponent: float = 1.45, compression_stiffness: float \| None = None, residual_tangential_fraction: float = 0.0, friction_coefficient: float = 0.0, friction_regularization: float = 1e-08, name: str = 'bilinear mixed-mode cohesive law') -&gt; MixedModeBilinearCohesiveLaw</code></td>
+<td>Create a quadratic-initiation, energy-evolution mixed-mode law.</td>
 </tr>
 <tr>
 <td>function</td>

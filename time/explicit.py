@@ -302,8 +302,10 @@ def _prescribed_kinematics(prescribed, *, time, dt: float):
         if amplitude is None:
             values = (0.0, 0.0, 0.0)
         else:
-            def derivative(at):
-                return (amplitude(at + h) - amplitude(at - h)) / (2.0 * h)
+            def derivative(at, selected_amplitude=amplitude):
+                return (
+                    selected_amplitude(at + h) - selected_amplitude(at - h)
+                ) / (2.0 * h)
 
             midpoint_velocity = derivative(selected_time - 0.5 * dt)
             whole_velocity = derivative(selected_time)

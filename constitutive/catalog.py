@@ -156,9 +156,30 @@ _CAPABILITIES = {
         ),
         limitations=(
             "reference-point work and complete monotonic/fatigue energy closure remain",
-            "Mode-I fixed path only; no mixed-mode or free-path growth",
+            "cyclic damage evolution remains Mode-I even though the monotonic platform now has a separate mixed-mode law",
             "reference fatigue evolution requires material/interface calibration",
             "no cylinder benchmark, cross-partition bulk restart, CT validation, or experimental prediction yet",
+        ),
+    ),
+    "mixed_mode_cohesive_interface": ConstitutiveCapability(
+        name="mixed_mode_cohesive_interface",
+        model=(
+            "quadratic nominal-traction initiation with bilinear energy "
+            "evolution and BK or power-law mode interaction"
+        ),
+        maturity="experimental_global_facet_consumer",
+        available_scope=(
+            "2D/3D fixed paths, full vector jump and traction, intact/degraded "
+            "tangential transfer, compression penalty, optional regularized "
+            "Coulomb resistance, analytical tangent, standard interface fields, "
+            "serial/MPI assembly, physical-facet restart, rigid-mode preflight, "
+            "Mode-I deviation audit, and spherical arc-length continuation"
+        ),
+        limitations=(
+            "mixed-mode damage freezes mode mix at initiation and is intended for proportional or mildly changing paths",
+            "friction is a smooth penalty regularization rather than a general contact active-set solver",
+            "cyclic mixed-mode damage and free-path crack growth are not implemented",
+            "no external mixed-mode structural benchmark has yet promoted this experimental law",
         ),
     ),
     "abaqus_user_material_bridge": ConstitutiveCapability(

@@ -165,13 +165,18 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `NamedCohesiveResponse` | Responses and aggregate energy from several named interfaces. |
 | class | `CohesiveForceCollection(interfaces)` | Atomically compose independent named cohesive-interface forces. |
 | function | `named_cohesive_forces(**interfaces) -> CohesiveForceCollection` | Create an atomically managed collection from named cohesive forces. |
-| function | `named_mode_i_cohesive_forces(split, displacement, *, laws, normal_hints, thicknesses = None, tolerance: float = 1e-10) -> CohesiveForceCollection` | Build independent named forces on one atomically split solver mesh. |
+| function | `named_mode_i_cohesive_forces(split, displacement, *, laws, normal_hints, thicknesses = None, tangential = 'free', tangential_stiffness = None, tolerance: float = 1e-10) -> CohesiveForceCollection` | Build independent named forces on one atomically split solver mesh. |
+| function | `cohesive_forces(split, displacement, *, laws, normal_hints, thicknesses = None, tangential = None, tangential_stiffness = None, tolerance: float = 1e-10) -> CohesiveForceCollection` | Build a recommended force for every named split interface. |
 | class | `DistributedDofMappedCohesiveForce(assembler, displacement, *, input_node_to_block_dof, input_node_owned, global_topology, global_facet_indices, local_input_nodes = None)` | MPI assembler for a physical-keyed split interface. |
 | function | `p1_input_node_to_block_dof(displacement, *, number_of_input_nodes: int)` | Recover the complete serial input-node to block-DOF map. |
-| function | `mode_i_cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law, *, normal_hint, thickness: float = 1.0, tolerance: float = 1e-10) -> DofMappedCohesiveForce \| DistributedDofMappedCohesiveForce` | Build the executable Mode-I force directly from a split mesh contract. |
+| function | `mode_i_cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law, *, normal_hint, thickness: float = 1.0, tolerance: float = 1e-10, tangential: str = 'free', tangential_stiffness: float \| None = None) -> DofMappedCohesiveForce \| DistributedDofMappedCohesiveForce` | Build a fixed-path cohesive force from a split mesh contract. |
+| function | `cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law, *, normal_hint, tangential: str \| None = None, tangential_stiffness: float \| None = None, thickness: float = 1.0, tolerance: float = 1e-10)` | Build the recommended full-vector fixed-path interface consumer. |
 | class | `FiniteStrainCohesiveResidual(bulk, cohesive)` | Assemble bulk UFL and paired-facet interface forces into one residual. |
 | class | `CohesiveNewtonSolveInfo` | Convergence evidence for one native bulk-plus-interface equilibrium. |
+| class | `ArcLengthOptions` | Crisfield-style spherical continuation controls. |
+| class | `ArcLengthSolveInfo` | Public AgentFEM object. |
 | class | `FiniteStrainCohesiveEquilibrium(residual: FiniteStrainCohesiveResidual, tangent, displacement, *, set_load = None, load_parameter = None, reference_load: float = 1.0, bcs = (), solver_options = None, control_displacement = None, reaction = None, bulk_strain_energy = None)` | Native Newton consumer for UFL bulk and zero-thickness interfaces. |
+| class | `FiniteStrainCohesiveArcLength(equilibrium: FiniteStrainCohesiveEquilibrium, options: ArcLengthOptions, *, initial_load: float = 0.0)` | Spherical arc-length continuation for cohesive equilibrium paths. |
 | class | `MassProportionalDampingResidual(base, *, mass, velocity, coefficient: float, dt: float)` | Add ``alpha M v_mid`` with transactional dissipation accounting. |
 | class | `DampingEnergyMonitor` | Add accepted viscous dissipation to an existing mechanical monitor. |
 | class | `FiniteStrainCohesiveEnergyMonitor` | Typed accepted-frame energy for bulk plus cohesive dynamics. |
@@ -689,6 +694,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `UpgradeReport` | Dry-run migration plan for one installed-use project. |
 | function | `inspect_project(project: ProjectConfig) -> UpgradeReport` | Return a dry-run upgrade report without executing or changing the case. |
 | function | `apply_safe_metadata(project: ProjectConfig) -> tuple[Path, ...]` | Apply only deterministic project-metadata migrations, atomically. |
+| function | `migrate_cohesive_checkpoint(snapshot: dict[str, object], *, tangential: str, tangential_stiffness: float \| None = None, acknowledge_physics_change: bool = False) -> dict[str, object]` | Explicitly promote a physical-keyed scalar checkpoint to schema v5. |
 
 ## `agentfem.io`
 
@@ -764,17 +770,24 @@ and evidence remain in the linked guides and scientific function reference.
 | Kind | Public object | Purpose |
 | --- | --- | --- |
 | class | `CohesiveResponse` | One Mode-I traction--separation update. |
+| class | `VectorCohesiveResponse` | Local-basis response of a two- or three-dimensional interface. |
+| class | `MixedModeBilinearCohesiveLaw` | Bilinear mixed-mode cohesive law for proportional loading paths. |
 | class | `BilinearCohesiveLaw` | Irreversible bilinear Mode-I cohesive law. |
 | class | `CohesiveTransaction(law: BilinearCohesiveLaw, size: int)` | Trial/commit/rollback state for a batch of cohesive points. |
+| class | `MixedModeCohesiveTransaction(law: MixedModeBilinearCohesiveLaw, size: int)` | Trial/commit state for :class:`MixedModeBilinearCohesiveLaw`. |
 | class | `PairedLineFacets` | Deterministically paired zero-thickness line facets for a 2D mesh. |
 | class | `PairedSurfaceFacets` | Deterministically paired zero-thickness triangular facets in 3D. |
 | class | `SplitInterfaceMesh` | Array-level result of splitting one conforming interface manifold. |
 | class | `NamedSplitInterfaceMesh` | One solver mesh carrying several disjoint named cohesive surfaces. |
+| class | `InterfaceRigidModeAudit` | Rigid-body constraint rank of a split-interface model. |
+| function | `audit_split_interface_rigid_modes(split: SplitInterfaceMesh \| NamedSplitInterfaceMesh, *, constrained_components, tangential = 'free', active_facets = None, rank_tolerance: float \| None = None, error_if_singular: bool = False) -> InterfaceRigidModeAudit` | Audit rigid translations and rotations before creating a solver mesh. |
 | function | `create_dolfinx_split_mesh(split: SplitInterfaceMesh \| NamedSplitInterfaceMesh, *, comm = None, cell_type: str \| None = None, input_order: str = 'counterclockwise')` | Create an executable DOLFINx mesh for an audited split interface. |
-| class | `CohesiveFacetResponse` | Trial force and energy from a batch of paired 2D facets. |
+| class | `CohesiveFacetResponse` | Trial force, kinematics and energy from paired interface facets. |
+| class | `ModeIKinematicsAudit` | Accepted-state check that a declared Mode-I path remains Mode-I. |
+| function | `audit_mode_i_kinematics(response: CohesiveFacetResponse, *, ratio_limit: float = 0.1, absolute_tolerance: float = 1e-12, error_if_exceeded: bool = False) -> ModeIKinematicsAudit` | Check tangential jump without changing cohesive history. |
 | class | `CohesiveElementTangents` | Element-node layouts and consistent scalar-dof tangent matrices. |
-| class | `ModeICohesiveFacetAssembler(topology: PairedLineFacets, law, *, number_of_nodes: int, thickness: float = 1.0)` | Two-point line integration for a fixed-path 2D Mode-I interface. |
-| class | `ModeICohesiveSurfaceAssembler(topology: PairedSurfaceFacets, law, *, number_of_nodes: int)` | Three-point integration of linear triangular Mode-I surfaces in 3D. |
+| class | `ModeICohesiveFacetAssembler(topology: PairedLineFacets, law, *, number_of_nodes: int, thickness: float = 1.0, tangential: str = 'free', tangential_stiffness: float \| None = None)` | Two-point line integration for a fixed-path 2D interface. |
+| class | `ModeICohesiveSurfaceAssembler(topology: PairedSurfaceFacets, law, *, number_of_nodes: int, tangential: str = 'free', tangential_stiffness: float \| None = None)` | Three-point integration of linear triangular interfaces in 3D. |
 | function | `pair_coincident_surface_facets(coordinates, negative_facets, positive_facets, *, normal_hint, tolerance: float = 1e-10) -> PairedSurfaceFacets` | Pair coincident three-node triangular facets in 3D. |
 | function | `pair_coincident_line_facets(coordinates, negative_facets, positive_facets, *, normal_hint, tolerance: float = 1e-10) -> PairedLineFacets` | Pair coincident two-node line facets with a declared normal direction. |
 | function | `split_conforming_line_interface(coordinates, cells, interface_facets, *, positive_cells) -> SplitInterfaceMesh` | Duplicate nodes on a declared conforming 2D cell interface. |
@@ -783,6 +796,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `split_conforming_cell_interface(coordinates, cells, *, positive_cells) -> SplitInterfaceMesh` | Split the internal facet separating two declared cell partitions. |
 | class | `CohesiveSurface` | Public description of a fixed-path zero-thickness interface. |
 | function | `bilinear_cohesive(*, strength: float, fracture_energy: float, initial_stiffness: float, compression_stiffness: float \| None = None, name: str = 'bilinear Mode-I cohesive law') -> BilinearCohesiveLaw` | Create a bilinear Mode-I cohesive law. |
+| function | `mixed_mode_bilinear_cohesive(*, normal_strength: float, shear_strength: float, normal_fracture_energy: float, shear_fracture_energy: float, normal_stiffness: float, tangential_stiffness: float, interaction: str = 'bk', interaction_exponent: float = 1.45, compression_stiffness: float \| None = None, residual_tangential_fraction: float = 0.0, friction_coefficient: float = 0.0, friction_regularization: float = 1e-08, name: str = 'bilinear mixed-mode cohesive law') -> MixedModeBilinearCohesiveLaw` | Create a quadratic-initiation, energy-evolution mixed-mode law. |
 | function | `cohesive_surface(*, law, mode: str = 'normal', name: str = 'cohesive surface') -> CohesiveSurface` | Declare a fixed-path zero-thickness cohesive interface. |
 | function | `cohesive_characteristic_length(*, young: float, fracture_energy: float, strength: float) -> float` | Return the declared scale ``E * Gamma / strength**2``. |
 

@@ -11,6 +11,23 @@ on:
   pull_request:
 
 jobs:
+  static-analysis:
+    name: Python correctness lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Run the critical Ruff gate
+        run: |
+          python -m pip install "ruff>=0.16,<0.17"
+          ruff check . --no-cache
+
   documentation:
     name: Documentation and machine entrypoints
     runs-on: ubuntu-latest

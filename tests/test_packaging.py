@@ -1,4 +1,5 @@
 from pathlib import Path
+import tomllib
 
 from agentfem import cli, release_gate
 
@@ -51,3 +52,21 @@ def test_publish_workflow_verifies_the_same_artifacts_it_builds_once():
     assert "python release_gate.py --dist dist --tag \"${GITHUB_REF_NAME}\" --smoke" in workflow
     assert "needs: [verify, ml-verify]" in workflow
     assert "needs: attest" in workflow
+
+
+def test_test_workflow_runs_the_versioned_critical_static_analysis_gate():
+    configuration = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text())
+    workflow = (
+        PROJECT_ROOT / ".github" / "workflows" / "test.yml"
+    ).read_text(encoding="utf-8")
+
+    assert configuration["tool"]["ruff"]["target-version"] == "py311"
+    assert configuration["tool"]["ruff"]["lint"]["select"] == [
+        "E9",
+        "F63",
+        "F7",
+        "F82",
+        "B023",
+        "RUF009",
+    ]
+    assert "ruff check . --no-cache" in workflow

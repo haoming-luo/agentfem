@@ -25,6 +25,25 @@ named-interface state, energy, checkpoint and 3D observations
 Geometry generation, CT registration and a particular cylinder mesh are
 research assets built on this contract. They do not define the solver API.
 
+The cycle law in this document remains a normal-opening fatigue evolution.
+The shared paired-facet kernel can now transfer tangential traction through
+`fracture.cohesive_force(..., tangential="degraded")`, preventing intact
+multi-interface bodies from acquiring artificial tangential rigid modes. That
+does not silently turn the fatigue calibration into a mixed-mode law. The
+separate monotonic `mixed_mode_bilinear_cohesive(...)` capability must acquire
+its own cyclic damage equation and validation before cyclic Mode-II or mixed
+mode is claimed.
+
+Multi-interface projects should run two preflights before cycle execution:
+
+1. `audit_split_interface_rigid_modes(...)` on the split topology and declared
+   strong constraints;
+2. `cohesive.audit_mode_i(...)` after the initial elastic peak/valley pair.
+
+The first catches disconnected-body mechanisms. The second catches a model
+that was declared Mode-I but develops excessive tangential jump. Neither
+check repairs a physically incomplete model by adding a hidden point support.
+
 ## Independent coordinates
 
 Physical time, cycle count and output frame are different quantities:

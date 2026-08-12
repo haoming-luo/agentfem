@@ -2,6 +2,11 @@
 
 from .registry import BenchmarkSpec, benchmark, list_benchmarks
 from .golden import GoldenBenchmark, GoldenQuantity, golden_benchmark
+from .mixed_mode import (
+    MixedModeBendingComparison,
+    MixedModeBendingCurve,
+    compare_mixed_mode_bending_curves,
+)
 from .dynamic_fracture import (
     CohesiveEnergyBenchmark,
     ClassicalCrackBenchmark,
@@ -23,6 +28,8 @@ __all__ = [
     "BenchmarkSpec",
     "GoldenBenchmark",
     "GoldenQuantity",
+    "MixedModeBendingComparison",
+    "MixedModeBendingCurve",
     "benchmark",
     "golden_benchmark",
     "WaveArrivalBenchmark",
@@ -34,6 +41,7 @@ __all__ = [
     "WeakInterfaceConvergenceStudy",
     "classical_cohesive_crack",
     "cohesive_energy_balance",
+    "compare_mixed_mode_bending_curves",
     "finite_strain_wave_arrival",
     "jmps_weak_interface_transition_v4",
     "jmps_weak_interface_convergence_v4",

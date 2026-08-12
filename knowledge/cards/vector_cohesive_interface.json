@@ -1,0 +1,95 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.vector_cohesive_interface",
+  "title": "Full-vector and mixed-mode cohesive interfaces",
+  "kind": "workflow",
+  "status": "experimental",
+  "summary": "Adds explicit vector jump and traction kinematics, intact and damage-compatible tangential transfer, mixed-mode bilinear damage, compression contact, standard fields, rigid-mode and Mode-I audits, serial/MPI restart, and spherical arc-length continuation to one reusable fixed-path interface contract.",
+  "public_api": [
+    "agentfem.interfaces.mixed_mode_bilinear_cohesive",
+    "agentfem.interfaces.audit_split_interface_rigid_modes",
+    "agentfem.interfaces.audit_mode_i_kinematics",
+    "agentfem.fracture.cohesive_force",
+    "agentfem.fracture.cohesive_forces",
+    "agentfem.fracture.mode_i_cohesive_force",
+    "agentfem.fracture.FiniteStrainCohesiveArcLength"
+  ],
+  "implementation": ["interfaces.py", "fracture.py"],
+  "science": {
+    "statement": "A split cohesive interface must constrain and damage the complete displacement jump declared by its physical law; normal-only traction is a special slip model rather than the default meaning of a three-dimensional cohesive surface.",
+    "equations": [
+      {
+        "label": "interface kinematics",
+        "expression": "\\delta_n=\\llbracket u\\rrbracket\\cdot n,\\quad \\boldsymbol\\delta_t=\\llbracket u\\rrbracket-\\delta_n n",
+        "description": "The same decomposition drives line and triangular-surface facets."
+      },
+      {
+        "label": "quadratic damage initiation",
+        "expression": "(\\langle t_n\\rangle/T_n)^2+(\\|t_t\\|/T_t)^2=1",
+        "description": "Compression does not initiate cohesive damage."
+      },
+      {
+        "label": "BK mixed fracture energy",
+        "expression": "G_c=G_{Ic}+(G_{IIc}-G_{Ic})(G_s/(G_n+G_s))^\\eta",
+        "description": "Power-law energy interaction is an alternative explicit option."
+      },
+      {
+        "label": "spherical continuation",
+        "expression": "\\|\\Delta u\\|^2+(\\alpha\\Delta\\lambda)^2=\\Delta s^2",
+        "description": "Post-peak path following adds one load unknown to the existing cohesive residual."
+      }
+    ],
+    "inputs": [
+      {"name": "split interface", "type": "SplitInterfaceMesh or NamedSplitInterfaceMesh", "unit_role": "reference geometry", "description": "Coincident sides with independent displacement identities."},
+      {"name": "cohesive law", "type": "BilinearCohesiveLaw or MixedModeBilinearCohesiveLaw", "unit_role": "consistent force-length system", "description": "Strength, stiffness, fracture energies and optional contact/friction parameters."},
+      {"name": "kinematic mode", "type": "free, tie, degraded or mixed", "unit_role": "dimensionless choice", "description": "Declares the physical tangential behavior rather than hiding it in a case script."}
+    ],
+    "outputs": [
+      {"name": "standard interface fields", "type": "quadrature arrays", "unit_role": "jump length, traction, damage", "description": "JUMP_N/JUMP_T/TRACTION_N/TRACTION_T/DAMAGE/MODE_MIXITY."},
+      {"name": "well-posedness evidence", "type": "InterfaceRigidModeAudit and ModeIKinematicsAudit", "unit_role": "rank and dimensionless ratio", "description": "Pre-solve body-mode rank and accepted-state tangential deviation."},
+      {"name": "continuation evidence", "type": "ArcLengthSolveInfo", "unit_role": "declared load and displacement scales", "description": "Residual, arc constraint, iterations and accepted load increment."}
+    ],
+    "assumptions": [
+      "The crack path is fixed and represented by paired two-node lines or three-node triangular surfaces.",
+      "The first mixed-mode damage law is intended for proportional or mildly changing mode mix.",
+      "Regularized friction acts only in compression and is not a replacement for a general contact solver."
+    ],
+    "conventions": [
+      "Positive normal traction and jump denote opening.",
+      "The local interface frame is deterministic and right-handed; normal is component zero.",
+      "Strict tie does not degrade and must be selected deliberately.",
+      "The recommended scalar Mode-I factory uses a strict tangential penalty tie because the scalar law declares no Mode-II failure data.",
+      "State and output identity follow physical facet keys and quadrature, not MPI-local dofs."
+    ],
+    "applicability": ["Fixed-path monotonic and dynamic cohesive problems requiring explicit shear integrity, mixed-mode separation, model-rank screening, or post-peak continuation."],
+    "limitations": [
+      "No free-path fracture, cohesive junction topology, cyclic mixed-mode evolution or general non-proportional mixed-mode validation.",
+      "Normal-damage-driven tangential integrity does not yet add an independent cyclic shear-dissipation state; substantial shear requires the mixed-mode law.",
+      "No external mixed-mode structural benchmark has promoted the experimental law.",
+      "Arc length currently targets quasi-static native cohesive equilibrium, not Explicit dynamics."
+    ]
+  },
+  "usage": {
+    "minimal_example": "law = interfaces.mixed_mode_bilinear_cohesive(normal_strength=Tn, shear_strength=Ts, normal_fracture_energy=GIc, shear_fracture_energy=GIIc, normal_stiffness=Kn, tangential_stiffness=Kt, interaction='bk'); cohesive = fracture.cohesive_force(split, U, law, normal_hint=(0, 0, 1))",
+    "examples": ["tests/test_interfaces.py", "tests/test_global_cohesive_residual.py", "tests/test_parallel_cohesive.py"]
+  },
+  "verification": {
+    "tests": ["tests/test_interfaces.py", "tests/test_global_cohesive_residual.py", "tests/test_parallel_cohesive.py"],
+    "benchmarks": ["agentfem.benchmark.vector_cohesive_interface"],
+    "validation_rules": [
+      "Pure-mode envelope areas equal declared fracture energies.",
+      "Analytical point and facet tangents match centered force derivatives.",
+      "A free middle body is detected before solving and a shear-carrying intact interface closes the rank.",
+      "Mixed-mode vector resultants and state fields pass serial and two-rank consumers.",
+      "A native finite-strain cohesive arc-length increment satisfies equilibrium and the spherical constraint."
+    ]
+  },
+  "references": [
+    {"title": "Abaqus cohesive behavior", "locator": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-cohesivebehavior.htm"},
+    {"title": "Abaqus damage evolution and mixed-mode criteria", "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAECAERefMap/simacae-t-prpmechanicaldamageevolution.htm"},
+    {"title": "PETSc rigid-body null space", "locator": "https://petsc.org/release/manualpages/Mat/MatNullSpaceCreateRigidBody/"},
+    {"title": "AgentFEM dynamic cohesive fracture architecture", "locator": "docs/dynamic_cohesive_fracture_architecture.md"}
+  ],
+  "related_cards": ["agentfem.workflow.distributed_cohesive_force", "agentfem.material.cyclic_cohesive_fatigue", "agentfem.workflow.cohesive_state_portability"]
+}

@@ -68,7 +68,7 @@ docs = [
 ]
 notebooks = ["jupyterlab", "ipykernel", "nbformat", "nbclient"]
 ml = ["torch"]
-dev = ["build", "pytest", "twine"]
+dev = ["build", "pytest", "ruff>=0.16,<0.17", "twine"]
 
 [tool.setuptools]
 package-dir = { "agentfem" = "." }
@@ -124,3 +124,17 @@ packages = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+
+[tool.ruff]
+target-version = "py311"
+extend-exclude = [
+  "build",
+  "site",
+  "verification",
+  "examples/abaqus_c3d10h_periodic_cell/abaqus_reference",
+]
+
+[tool.ruff.lint]
+# Begin with correctness defects rather than imposing a repository-wide style
+# rewrite on established scientific code and imported reference scripts.
+select = ["E9", "F63", "F7", "F82", "B023", "RUF009"]

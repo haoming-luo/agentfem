@@ -98,10 +98,98 @@ path, while a nonuniform compression/softening case compares every assembled
 node force with the serial kernel. This removes dense volume-node payloads; it
 does not yet claim an extreme-scale neighborhood-collective optimum.
 
-`interfaces.BilinearCohesiveLaw` and `interfaces.CohesiveTransaction` are the
-first material-point implementation of this contract.  They are marked
-experimental until a paired-facet global consumer passes the verification
-ladder.
+`interfaces.BilinearCohesiveLaw` and `interfaces.CohesiveTransaction` retain
+the original scalar Mode-I material-point contract. The paired-facet kernel
+now adds one explicit vector-kinematics layer rather than inferring shear
+behavior from a case:
+
+```python
+cohesive = fracture.cohesive_force(
+    split,
+    U,
+    law,
+    normal_hint=(0.0, 0.0, 1.0),
+    tangential_stiffness=Kt,
+)
+```
+
+For a scalar Mode-I law this recommended factory defaults to
+`tangential="tie"`, a non-degrading penalty constraint for strict Mode-I
+studies. This is the conservative default because a scalar law declares no
+shear strength or Mode-II fracture energy from which AgentFEM could infer a
+shear failure law. `mode_i_cohesive_force(..., tangential="free")` remains the
+backwards-compatible frictionless-slip model. `tangential="degraded"` is an
+explicit normal-damage-driven approximation for users who intend tangential
+release without introducing a calibrated mixed-mode law.
+
+The normal-driven degraded mode is intended for paths that remain close to
+Mode-I. Its tangential force and tangent are exact for the declared response,
+but the scalar fatigue transaction does not yet carry an independent shear
+damage-dissipation history. Significant shear separation should therefore use
+the mixed-mode law; cyclic mixed-mode energy is a remaining promotion gate.
+The permanent penalty tie is likewise a kinematic Mode-I declaration, not a
+general post-failure interface model.
+
+Several named split surfaces use the same public decision path through
+`fracture.cohesive_forces(...)`. Each named law independently selects the
+strict scalar Mode-I or mixed-mode response while the returned collection
+keeps commit, rollback, output, energy, and checkpoint operations atomic.
+
+Every vector response exposes `JUMP_N`, `JUMP_T`, `TRACTION_N`, `TRACTION_T`,
+`DAMAGE`, and `MODE_MIXITY`. The same arrays are produced by serial and
+physical-facet-owner MPI consumers. `audit_mode_i_kinematics(...)` can reject
+a nominal Mode-I model when tangential jump exceeds a declared ratio.
+
+## Mixed-mode and model well-posedness
+
+`interfaces.mixed_mode_bilinear_cohesive(...)` is the first P1 mixed-mode
+material-point and global-facet route. It uses a quadratic nominal-traction
+initiation criterion. After initiation, the selected mode mix is retained as
+state and the failure energy follows either Benzeggagh--Kenane or power-law
+interaction. Compression uses a separate penalty and does not advance damage;
+regularized Coulomb resistance is optional and declared in the law summary.
+An optional residual tangential fraction is a true parallel elastic penalty:
+its stiffness is present from the virgin state, its work remains stored, and
+it does not alter the declared Mode-II fracture dissipation.
+The implemented path scope is proportional or mildly changing mode mix.
+General non-proportional and cyclic mixed-mode evolution remains a separate
+promotion gate.
+
+The external structural promotion route is now explicit rather than implicit.
+`benchmarks.MixedModeBendingCurve` reads a source-identified four-column MMB
+curve, assigns it a deterministic numerical identity, and
+`compare_mixed_mode_bending_curves(...)` compares load, load-point displacement,
+and Mode-I fraction on common crack-length coordinates. Tolerances are required
+arguments. The automated synthetic fixture verifies this data and decision
+machinery only; no published NASA curve is bundled or claimed reproduced yet.
+
+Damage and solver state still use begin/commit/rollback. Mixed-mode checkpoint
+fields are stored by the same physical facet and quadrature identity as the
+Mode-I maximum-opening state, so a different rank partition does not become a
+new material history. Checkpoint schema v5 also records the tangential mode
+and stiffness. Older checkpoints predate vector kinematics and restore directly
+only into the historical free-slip consumer.
+`upgrades.migrate_cohesive_checkpoint(...)` can produce an auditable v5 free,
+tie, or degraded state from physical-keyed v3/v4 data; changing shear physics
+requires an explicit acknowledgement and records a source digest and migration
+provenance. It rejects mixed-mode migration because initiation mixity cannot be
+reconstructed from scalar opening history. Legacy index-keyed v1/v2 states must
+first be restored on their original free-slip model and re-saved with physical
+facet identity.
+
+Interface splitting can create several disconnected bulk bodies. Before a
+solve, `audit_split_interface_rigid_modes(...)` constructs each body's exact
+translation/rotation basis and measures the rank of declared Dirichlet and
+intact interface constraints. A free middle body therefore fails preflight
+instead of being hidden by a singular linear solve. The remedy must be a
+physical boundary or shear-carrying interface, not an arbitrary point fix.
+
+For quasi-static post-peak paths,
+`FiniteStrainCohesiveArcLength` augments the existing bulk-plus-interface
+residual with one physical load unknown and a spherical constraint. It reuses
+the analytical interface tangent, strong-boundary elimination, rollback, and
+checkpoint state; force control and arc length are distinct procedures rather
+than switches embedded in a material law.
 
 ## Interface topology
 
@@ -375,6 +463,14 @@ can be recovered from cell partitions. Direct Abaqus/Gmsh surface lowering,
 extreme-scale neighborhood-collective profiling, MPC/contact/weak-constraint
 work, general near-incompressibility, and full thin-3D fracture remain gates.
 
+`DistributedDofMappedCohesiveForce.performance_profile()` makes the current
+parallel workload reviewable without turning noisy CI wall time into a pass/fail
+criterion. It reports per-rank owned facets, required and remote trace nodes,
+numeric payload counts, and facet imbalance. PETSc `-log_view` supplies timing
+for the named constitutive, vector-assembly, and matrix-assembly events. The
+combination separates a decomposition or communication regression from normal
+runner timing variation.
+
 ### Automated V1--V3 guardrails
 
 The first named verification ladder is now executable:
@@ -472,8 +568,8 @@ The next performance work is therefore:
    changing constitutive or commit/rollback semantics;
 3. keep the short construction smoke per commit and run the roughly
    6.2-minute full refinement contract in scheduled or release-gate CI;
-4. profile the implemented cached sparse owner schedule on larger interfaces,
-   then evaluate a distributed-graph neighborhood collective without changing
+4. retain the collective workload profile and PETSc event names on larger
+   interfaces, then evaluate a distributed-graph neighborhood collective without changing
    its physical identity, force, energy, restart, or benchmark contracts.
 
 ### V5 public-data evidence boundary

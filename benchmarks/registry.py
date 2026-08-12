@@ -286,6 +286,21 @@ _BENCHMARKS = (
         status="experimental_regression",
     ),
     BenchmarkSpec(
+        identifier="mixed_mode_bending_external_contract",
+        capability="mixed_mode_cohesive_fracture",
+        level="external_curve_contract",
+        reference=(
+            "knowledge/benchmarks/mixed_mode_bending_external_contract.json"
+        ),
+        criterion=(
+            "a source-identified mixed-mode bending curve is compared on common "
+            "crack-length coordinates using explicitly declared load, displacement, "
+            "and mode-mix tolerances"
+        ),
+        automated_test="tests/test_mixed_mode_benchmark.py",
+        status="contract_ready_external_data_pending",
+    ),
+    BenchmarkSpec(
         identifier="finite_strain_incremental_waves_v1",
         capability="dynamic_cohesive_fracture",
         level="constitutive_and_homogeneous_prestrain",

@@ -65,7 +65,7 @@
     },
     {
       "id": "agentfem.benchmark.distributed_cohesive_force",
-      "physics": "Two-dimensional Mode-I bilinear cohesive interface in finite-strain Explicit dynamics",
+      "physics": "Two-dimensional normal and mixed-mode bilinear cohesive interfaces in finite-strain assembly and Explicit dynamics",
       "source": "knowledge/benchmarks/distributed_cohesive_force.json",
       "status": "experimental_mpi_sparse_automated",
       "title": "Two-rank sparse fixed-path cohesive force and portable restart"
@@ -148,6 +148,13 @@
       "title": "Two-dimensional linear-static cantilever"
     },
     {
+      "id": "agentfem.benchmark.mixed_mode_bending_external_contract",
+      "physics": "Mixed-mode bending delamination or a mechanically equivalent fixed-path cohesive structure with measured load, displacement, crack length, and Mode-I fraction",
+      "source": "knowledge/benchmarks/mixed_mode_bending_external_contract.json",
+      "status": "contract_ready_external_data_pending",
+      "title": "Source-identified mixed-mode bending curve comparison"
+    },
+    {
       "id": "agentfem.benchmark.mooney_rivlin_material_paths",
       "physics": "incompressible plane-stress Mooney--Rivlin hyperelasticity",
       "source": "knowledge/benchmarks/mooney_rivlin_material_paths.json",
@@ -188,6 +195,13 @@
       "source": "knowledge/benchmarks/transient_heat_release.json",
       "status": "numerical_regression",
       "title": "Implicit-Euler transient heat release regression"
+    },
+    {
+      "id": "agentfem.benchmark.vector_cohesive_interface",
+      "physics": "Two- and three-dimensional fixed-path cohesive interfaces under normal, shear, mixed and compressive separation",
+      "source": "knowledge/benchmarks/vector_cohesive_interface.json",
+      "status": "experimental_automated_foundation",
+      "title": "Vector cohesive kinematics, mixed-mode energy and model rank"
     },
     {
       "id": "agentfem.benchmark.wave_release",
@@ -467,6 +481,7 @@
       "public_api": [
         "agentfem.interfaces.create_dolfinx_split_mesh",
         "agentfem.interfaces.split_conforming_cell_interface",
+        "agentfem.fracture.cohesive_force",
         "agentfem.fracture.mode_i_cohesive_force",
         "agentfem.fracture.DistributedDofMappedCohesiveForce",
         "agentfem.fracture.FiniteStrainCohesiveResidual"
@@ -694,6 +709,28 @@
       "status": "supported",
       "summary": "Adds an opt-in physical-node-keyed state beside fast MPI rank shards so a supported transient analysis can restart with a different MPI partition or rank count, including split interfaces with coincident independent nodes.",
       "title": "Portable transient checkpoint state"
+    },
+    {
+      "id": "agentfem.workflow.vector_cohesive_interface",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.interfaces.mixed_mode_bilinear_cohesive",
+        "agentfem.interfaces.audit_split_interface_rigid_modes",
+        "agentfem.interfaces.audit_mode_i_kinematics",
+        "agentfem.fracture.cohesive_force",
+        "agentfem.fracture.cohesive_forces",
+        "agentfem.fracture.mode_i_cohesive_force",
+        "agentfem.fracture.FiniteStrainCohesiveArcLength"
+      ],
+      "related_cards": [
+        "agentfem.workflow.distributed_cohesive_force",
+        "agentfem.material.cyclic_cohesive_fatigue",
+        "agentfem.workflow.cohesive_state_portability"
+      ],
+      "source": "knowledge/cards/vector_cohesive_interface.json",
+      "status": "experimental",
+      "summary": "Adds explicit vector jump and traction kinematics, intact and damage-compatible tangential transfer, mixed-mode bilinear damage, compression contact, standard fields, rigid-mode and Mode-I audits, serial/MPI restart, and spherical arc-length continuation to one reusable fixed-path interface contract.",
+      "title": "Full-vector and mixed-mode cohesive interfaces"
     }
   ],
   "schema": "agentfem.scientific-function-catalog",

@@ -242,6 +242,353 @@ def test_mode_i_facet_kernel_is_invariant_to_common_rigid_translation():
     np.testing.assert_allclose(response.internal_force, 0.0, atol=1.0e-14)
 
 
+def test_vector_interface_modes_make_tangential_physics_explicit():
+    coordinates, topology = _one_segment_interface()
+    displacement = np.zeros_like(coordinates)
+    displacement[2:, 0] = 0.02
+    displacement[2:, 1] = 0.5 * _law().peak_opening
+
+    free = interfaces.ModeICohesiveFacetAssembler(
+        topology, _law(), number_of_nodes=4, tangential="free"
+    ).begin(displacement)
+    tied = interfaces.ModeICohesiveFacetAssembler(
+        topology,
+        _law(),
+        number_of_nodes=4,
+        tangential="tie",
+        tangential_stiffness=250.0,
+    ).begin(displacement)
+
+    np.testing.assert_allclose(free.tangential_traction, 0.0)
+    np.testing.assert_allclose(tied.tangential_traction[:, :, 0], 5.0)
+    audit = interfaces.audit_mode_i_kinematics(tied, ratio_limit=1.0)
+    assert audit.tangential_to_normal_ratio == pytest.approx(4.0)
+    assert audit.accepted is False
+    with pytest.raises(RuntimeError, match="excessive tangential jump"):
+        interfaces.audit_mode_i_kinematics(
+            tied, ratio_limit=1.0, error_if_exceeded=True
+        )
+
+
+def test_normal_driven_tangential_connection_releases_with_precrack():
+    coordinates, topology = _one_segment_interface()
+    assembler = interfaces.ModeICohesiveFacetAssembler(
+        topology,
+        _law(),
+        number_of_nodes=4,
+        tangential="degraded",
+        tangential_stiffness=250.0,
+    )
+    assembler.initialize_precrack([0])
+    displacement = np.zeros_like(coordinates)
+    displacement[2:, 0] = 0.02
+    displacement[2:, 1] = 0.05
+    response = assembler.begin(displacement)
+    np.testing.assert_allclose(response.internal_force, 0.0, atol=1.0e-14)
+    np.testing.assert_allclose(response.tangential_traction, 0.0, atol=1.0e-14)
+
+
+def test_degraded_vector_interface_tangent_matches_force_derivative():
+    coordinates, topology = _one_segment_interface()
+    assembler = interfaces.ModeICohesiveFacetAssembler(
+        topology,
+        _law(),
+        number_of_nodes=4,
+        tangential="degraded",
+        tangential_stiffness=400.0,
+    )
+    displacement = np.zeros_like(coordinates)
+    displacement[2:, 0] = 0.015
+    displacement[2:, 1] = 0.08
+    direction = np.array(
+        [[0.2, -0.4], [-0.1, 0.3], [0.5, 0.7], [-0.2, -0.6]],
+        dtype=float,
+    )
+    tangent = assembler.tangent_elements(displacement)
+    epsilon = 1.0e-7
+    plus = assembler.begin(displacement + epsilon * direction).internal_force.copy()
+    assembler.rollback()
+    minus = assembler.begin(displacement - epsilon * direction).internal_force.copy()
+    assembler.rollback()
+    derivative = (plus - minus) / (2.0 * epsilon)
+    nodes = tangent.nodes[0]
+    predicted = tangent.matrices[0] @ direction[nodes].reshape(-1)
+    np.testing.assert_allclose(
+        predicted.reshape((-1, 2)), derivative[nodes], rtol=2.0e-7, atol=2.0e-7
+    )
+
+
+@pytest.mark.parametrize("interaction", ["bk", "power"])
+def test_mixed_mode_law_recovers_pure_mode_fracture_energies(interaction):
+    law = interfaces.mixed_mode_bilinear_cohesive(
+        normal_strength=10.0,
+        shear_strength=8.0,
+        normal_fracture_energy=2.0,
+        shear_fracture_energy=3.0,
+        normal_stiffness=1000.0,
+        tangential_stiffness=800.0,
+        interaction=interaction,
+        interaction_exponent=1.7,
+    )
+    normal = law.transaction(1)
+    normal_failure = 2.0 * law.normal_fracture_energy / law.normal_strength
+    response = normal.begin([[normal_failure, 0.0]])
+    assert response.damage == pytest.approx([1.0])
+    assert response.dissipated_energy == pytest.approx(
+        [law.normal_fracture_energy]
+    )
+    normal.rollback()
+
+    shear = law.transaction(1)
+    shear_failure = 2.0 * law.shear_fracture_energy / law.shear_strength
+    response = shear.begin([[0.0, shear_failure]])
+    assert response.damage == pytest.approx([1.0])
+    assert response.dissipated_energy == pytest.approx(
+        [law.shear_fracture_energy]
+    )
+
+
+def test_mixed_mode_transaction_restart_tangent_and_compression_contact():
+    law = interfaces.mixed_mode_bilinear_cohesive(
+        normal_strength=10.0,
+        shear_strength=8.0,
+        normal_fracture_energy=2.0,
+        shear_fracture_energy=3.0,
+        normal_stiffness=1000.0,
+        tangential_stiffness=800.0,
+        interaction="bk",
+        friction_coefficient=0.25,
+        friction_regularization=1.0e-4,
+    )
+    state = law.transaction(1)
+    initiation = np.array([[0.015, 0.012]])
+    state.begin(initiation)
+    state.commit()
+    point = np.array([[0.06, 0.04]])
+    response = state.evaluate(point)
+    epsilon = 1.0e-7
+    numerical = np.column_stack(
+        [
+            (
+                state.evaluate(point + epsilon * np.eye(2)[component]).traction[0]
+                - state.evaluate(point - epsilon * np.eye(2)[component]).traction[0]
+            )
+            / (2.0 * epsilon)
+            for component in range(2)
+        ]
+    )
+    np.testing.assert_allclose(response.tangent[0], numerical, rtol=2.0e-6, atol=2.0e-6)
+
+    snapshot = state.snapshot()
+    restored = law.transaction(1)
+    restored.restore(snapshot)
+    np.testing.assert_allclose(
+        restored.state_arrays()["maximum_effective_separation"],
+        state.state_arrays()["maximum_effective_separation"],
+    )
+    committed_damage = restored.evaluate(initiation).damage.copy()
+    contact = restored.evaluate([[-0.01, 0.005]])
+    assert contact.damage == pytest.approx(committed_damage)
+    assert contact.traction[0, 0] < 0.0
+    assert contact.traction[0, 1] > 0.0
+    contact_point = np.array([[-0.01, 0.005]])
+    numerical_contact = np.column_stack(
+        [
+            (
+                restored.evaluate(
+                    contact_point + epsilon * np.eye(2)[component]
+                ).traction[0]
+                - restored.evaluate(
+                    contact_point - epsilon * np.eye(2)[component]
+                ).traction[0]
+            )
+            / (2.0 * epsilon)
+            for component in range(2)
+        ]
+    )
+    np.testing.assert_allclose(
+        contact.tangent[0], numerical_contact, rtol=2.0e-6, atol=2.0e-6
+    )
+
+
+def test_mixed_mode_initialization_requires_a_complete_physical_state():
+    law = interfaces.mixed_mode_bilinear_cohesive(
+        normal_strength=10.0,
+        shear_strength=8.0,
+        normal_fracture_energy=2.0,
+        shear_fracture_energy=3.0,
+        normal_stiffness=1000.0,
+        tangential_stiffness=800.0,
+    )
+    state = law.transaction(1)
+    state.begin([[0.0, 0.0]])
+    with pytest.raises(RuntimeError, match="Rollback"):
+        state.initialize(0.0)
+    state.rollback()
+    with pytest.raises(ValueError, match="does not determine"):
+        state.initialize(0.01)
+
+    incomplete = state.state_arrays()
+    incomplete["maximum_effective_separation"][:] = 0.01
+    with pytest.raises(ValueError, match="incomplete uninitiated"):
+        state.restore_state_arrays(incomplete)
+
+
+def test_residual_tangential_branch_stores_work_without_changing_giic():
+    law = interfaces.mixed_mode_bilinear_cohesive(
+        normal_strength=10.0,
+        shear_strength=8.0,
+        normal_fracture_energy=2.0,
+        shear_fracture_energy=3.0,
+        normal_stiffness=1000.0,
+        tangential_stiffness=800.0,
+        residual_tangential_fraction=0.1,
+    )
+    state = law.transaction(1)
+    failure = 2.0 * law.shear_fracture_energy / law.shear_strength
+    separations = np.linspace(0.0, failure, 10_001)
+    tractions = np.empty_like(separations)
+    response = None
+    for index, separation in enumerate(separations):
+        response = state.begin([[0.0, separation]])
+        tractions[index] = response.traction[0, 1]
+        state.commit()
+    assert response is not None
+    penalty_stored = (
+        0.5
+        * law.residual_tangential_fraction
+        * law.tangential_stiffness
+        * failure**2
+    )
+    assert response.dissipated_energy == pytest.approx(
+        [law.shear_fracture_energy]
+    )
+    assert response.stored_energy == pytest.approx([penalty_stored])
+    work = np.trapezoid(tractions, separations)
+    assert work == pytest.approx(
+        law.shear_fracture_energy + penalty_stored,
+        rel=2.0e-5,
+    )
+
+
+def test_multi_interface_rigid_mode_audit_detects_free_middle_bodies():
+    coordinates = np.array(
+        [
+            [0.0, 0.0], [1.0, 0.0],
+            [0.0, 1.0], [1.0, 1.0],
+            [0.0, 2.0], [1.0, 2.0],
+            [0.0, 3.0], [1.0, 3.0],
+        ]
+    )
+    cells = np.array([[0, 1, 3, 2], [2, 3, 5, 4], [4, 5, 7, 6]])
+    split = interfaces.split_conforming_named_interfaces(
+        coordinates,
+        cells,
+        {
+            "lower": {"interface_facets": [[2, 3]], "positive_cells": [1, 2]},
+            "upper": {"interface_facets": [[4, 5]], "positive_cells": [2]},
+        },
+    )
+    constraints = {0: (0, 1), 1: (0, 1)}
+    free = interfaces.audit_split_interface_rigid_modes(
+        split,
+        constrained_components=constraints,
+        tangential="free",
+    )
+    tied = interfaces.audit_split_interface_rigid_modes(
+        split,
+        constrained_components=constraints,
+        tangential="degraded",
+    )
+    assert free.nullity >= 2
+    assert tied.well_posed
+    with pytest.raises(ValueError, match="rank_tolerance"):
+        interfaces.audit_split_interface_rigid_modes(
+            split,
+            constrained_components=constraints,
+            tangential="tie",
+            rank_tolerance=-1.0,
+        )
+    with pytest.raises(RuntimeError, match="unconstrained rigid-body"):
+        interfaces.audit_split_interface_rigid_modes(
+            split,
+            constrained_components=constraints,
+            tangential="free",
+            error_if_singular=True,
+        )
+
+
+def test_three_layer_3d_axial_patch_transfers_normal_force_without_shear():
+    triangle = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    coordinates = np.vstack(
+        [
+            np.column_stack((triangle, np.full(3, height)))
+            for height in (0.0, 1.0, 2.0, 3.0)
+        ]
+    )
+    cells = []
+    for layer in range(3):
+        a, b, c = 3 * layer + np.arange(3)
+        upper_a, upper_b, upper_c = 3 * (layer + 1) + np.arange(3)
+        cells.extend(
+            [
+                [a, b, c, upper_a],
+                [b, c, upper_a, upper_b],
+                [c, upper_a, upper_b, upper_c],
+            ]
+        )
+    split = interfaces.split_conforming_named_interfaces(
+        coordinates,
+        np.asarray(cells, dtype=int),
+        {
+            "lower": {
+                "interface_facets": [[3, 4, 5]],
+                "positive_cells": np.arange(3, 9),
+            },
+            "upper": {
+                "interface_facets": [[6, 7, 8]],
+                "positive_cells": np.arange(6, 9),
+            },
+        },
+    )
+    constraints = {node: (0, 1, 2) for node in (0, 1, 2)}
+    audit = interfaces.audit_split_interface_rigid_modes(
+        split,
+        constrained_components=constraints,
+        tangential="degraded",
+    )
+    assert audit.well_posed
+
+    displacement = np.zeros_like(split.coordinates)
+    opening = 0.005
+    lower = split["lower"]
+    upper = split["upper"]
+    displacement[np.unique(lower.positive_facets), 2] = opening
+    displacement[np.unique(upper.negative_facets), 2] = opening
+    displacement[np.unique(upper.positive_facets), 2] = 2.0 * opening
+
+    for surface in (lower, upper):
+        topology = interfaces.pair_coincident_surface_facets(
+            split.coordinates,
+            surface.negative_facets,
+            surface.positive_facets,
+            normal_hint=(0.0, 0.0, 1.0),
+        )
+        assembler = interfaces.ModeICohesiveSurfaceAssembler(
+            topology,
+            _law(),
+            number_of_nodes=split.coordinates.shape[0],
+            tangential="degraded",
+        )
+        response = assembler.begin(displacement)
+        positive_force = np.sum(
+            response.internal_force[np.unique(surface.positive_facets)], axis=0
+        )
+        np.testing.assert_allclose(positive_force, [0.0, 0.0, 2.5])
+        np.testing.assert_allclose(response.tangential_jump, 0.0, atol=1.0e-14)
+        np.testing.assert_allclose(response.tangential_traction, 0.0, atol=1.0e-14)
+
+
 def test_precracked_facet_has_no_tensile_force_but_retains_closure_penalty():
     coordinates, topology = _one_segment_interface()
     assembler = interfaces.ModeICohesiveFacetAssembler(

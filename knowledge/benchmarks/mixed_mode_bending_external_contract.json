@@ -1,0 +1,36 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.mixed_mode_bending_external_contract",
+  "title": "Source-identified mixed-mode bending curve comparison",
+  "status": "contract_ready_external_data_pending",
+  "purpose": "Provide a reusable and auditable external structural promotion gate for the first mixed-mode cohesive law without claiming that a published curve has already been reproduced.",
+  "physics": "Mixed-mode bending delamination or a mechanically equivalent fixed-path cohesive structure with measured load, displacement, crack length, and Mode-I fraction",
+  "execution": {
+    "example": "tests/test_mixed_mode_benchmark.py",
+    "command": "python -m pytest tests/test_mixed_mode_benchmark.py",
+    "evidence": "The dependency-free data contract validates source identity, units-by-convention columns, strictly increasing crack coordinates, interpolation coverage, explicit tolerances, deterministic SHA-256 identity, and accepted/rejected curve comparisons."
+  },
+  "observables": [
+    "Applied load versus crack length.",
+    "Load-point displacement versus crack length.",
+    "Mode-I energy fraction versus crack length.",
+    "Source string and deterministic numerical curve identity.",
+    "Relative L2 load/displacement errors and maximum absolute mode-fraction error."
+  ],
+  "acceptance": [
+    "Reference and computed records use exactly crack_length, load, displacement, and mode_i_fraction columns.",
+    "The computed crack-length interval covers the complete external reference interval.",
+    "Every scientific tolerance is supplied by the benchmark owner rather than hidden in the comparison API.",
+    "A future external promotion must pin the exact public data extraction, units, geometry, material, boundary conditions, and source revision before accepted=True is cited as external verification."
+  ],
+  "limitations": [
+    "The repository does not currently bundle digitized NASA load-displacement curves or assert numerical agreement with them.",
+    "The synthetic automated fixture verifies the comparison machinery, not the mixed-mode finite-element solution.",
+    "Non-proportional cyclic mixed mode, free-path delamination, and experimental uncertainty remain outside this contract."
+  ],
+  "references": [
+    "NASA/CR-2003-212683: Mixed-Mode Bending Delamination Apparatus",
+    "NASA/TM-2004-213269: Mixed-Mode Bending Test Method and Data Reduction"
+  ]
+}

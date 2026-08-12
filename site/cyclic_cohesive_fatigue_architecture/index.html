@@ -3304,6 +3304,23 @@ three-dimensional cylindrical specimen under axial force cycles.</p>
 </code></pre></div>
 <p>Geometry generation, CT registration and a particular cylinder mesh are
 research assets built on this contract. They do not define the solver API.</p>
+<p>The cycle law in this document remains a normal-opening fatigue evolution.
+The shared paired-facet kernel can now transfer tangential traction through
+<code>fracture.cohesive_force(..., tangential="degraded")</code>, preventing intact
+multi-interface bodies from acquiring artificial tangential rigid modes. That
+does not silently turn the fatigue calibration into a mixed-mode law. The
+separate monotonic <code>mixed_mode_bilinear_cohesive(...)</code> capability must acquire
+its own cyclic damage equation and validation before cyclic Mode-II or mixed
+mode is claimed.</p>
+<p>Multi-interface projects should run two preflights before cycle execution:</p>
+<ol>
+<li><code>audit_split_interface_rigid_modes(...)</code> on the split topology and declared
+   strong constraints;</li>
+<li><code>cohesive.audit_mode_i(...)</code> after the initial elastic peak/valley pair.</li>
+</ol>
+<p>The first catches disconnected-body mechanisms. The second catches a model
+that was declared Mode-I but develops excessive tangential jump. Neither
+check repairs a physically incomplete model by adding a hidden point support.</p>
 <h2 id="independent-coordinates">Independent coordinates<a class="headerlink" href="#independent-coordinates" title="Permanent link">&para;</a></h2>
 <p>Physical time, cycle count and output frame are different quantities:</p>
 <ul>

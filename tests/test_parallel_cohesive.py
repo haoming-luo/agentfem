@@ -342,6 +342,66 @@ def test_three_dimensional_cohesive_surface_uses_shared_sparse_mpi_contract():
         vector.destroy()
 
 
+def test_distributed_vector_cohesive_interface_transfers_shear_and_restarts():
+    comm = MPI.COMM_WORLD
+    if comm.size != 2:
+        pytest.skip("distributed vector cohesive acceptance requires two ranks")
+    split = _split_strip()
+    domain = interfaces.create_dolfinx_split_mesh(split, comm=comm)
+    displacement = fields.displacement(domain)
+    law = interfaces.mixed_mode_bilinear_cohesive(
+        normal_strength=10.0,
+        shear_strength=8.0,
+        normal_fracture_energy=2.0,
+        shear_fracture_energy=3.0,
+        normal_stiffness=1000.0,
+        tangential_stiffness=500.0,
+        interaction="power",
+        interaction_exponent=1.5,
+    )
+    cohesive = fracture.cohesive_force(
+        split, displacement, law, normal_hint=(0.0, 1.0)
+    )
+    values = displacement.value.x.array.reshape((-1, 2))
+    positive_nodes = set(int(value) for value in split.positive_facets.reshape(-1))
+    for node in np.flatnonzero(cohesive.input_node_owned):
+        if int(node) in positive_nodes:
+            values[int(cohesive.node_to_block_dof[node])] = (0.002, 0.005)
+    displacement.value.x.scatter_forward()
+    zero = operators.OperatorForm(
+        name="zero_bulk_vector",
+        expression=ufl.inner(
+            fem.Constant(domain, np.asarray((0.0, 0.0))), displacement.test
+        ) * ufl.dx,
+        kind="zero_bulk_force",
+        role="vector",
+        family="test",
+    )
+    residual = fracture.FiniteStrainCohesiveResidual(zero, cohesive)
+    vector = residual.assemble_vector()
+    try:
+        local = np.zeros(2)
+        array = vector.array.reshape((-1, 2))
+        for node in np.flatnonzero(cohesive.input_node_owned):
+            if int(node) in positive_nodes:
+                local += array[int(cohesive.node_to_block_dof[node])]
+        resultant = np.asarray(comm.allreduce(local, op=MPI.SUM))
+        np.testing.assert_allclose(resultant, [1.0, 5.0], rtol=1.0e-12)
+        residual.commit()
+        assert set(cohesive.interface_quantities()) == {
+            "JUMP_N", "JUMP_T", "TRACTION_N", "TRACTION_T", "DAMAGE", "MODE_MIXITY"
+        }
+        snapshot = cohesive.snapshot()
+        assert set(snapshot["state_by_field_and_key"]) == {
+            "failure_separation",
+            "initiation_separation",
+            "initiation_stiffness",
+            "maximum_effective_separation",
+        }
+    finally:
+        vector.destroy()
+
+
 def test_distributed_cohesive_force_runs_through_public_explicit_step():
     comm = MPI.COMM_WORLD
     if comm.size != 2:
@@ -441,6 +501,20 @@ def test_distributed_cohesive_exchange_is_interface_sparse():
     )
     records = comm.allgather(communication)
     assert any(item["rank_remote_trace_nodes"] > 0 for item in records)
+
+    profile = cohesive.performance_profile()
+    assert profile["schema"] == "agentfem.cohesive-mpi-profile.v1"
+    assert profile["global_facets"] == 3
+    assert profile["rank_count"] == comm.size
+    assert profile["global_trace_values_per_exchange"] == sum(
+        item["rank_trace_values_per_exchange"] for item in records
+    )
+    assert profile["global_force_values_per_exchange"] == sum(
+        item["rank_force_values_per_exchange"] for item in records
+    )
+    assert profile["maximum_facet_imbalance"] >= 1.0
+    assert set(profile["petsc_events"]) == {"constitutive", "vector", "matrix"}
+    assert all(item == profile for item in comm.allgather(profile))
 
 
 def test_sparse_exchange_matches_serial_nonuniform_interface_response():

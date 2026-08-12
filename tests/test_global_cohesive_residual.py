@@ -20,6 +20,7 @@ from agentfem import (
     solvers,
     studies,
     time,
+    upgrades,
 )
 
 
@@ -379,6 +380,180 @@ def test_split_mesh_builds_executable_domain_and_recovers_coincident_dofs():
     np.testing.assert_allclose(response.opening, law.peak_opening)
     np.testing.assert_allclose(np.sum(response.internal_force, axis=0), 0.0)
     cohesive.rollback()
+
+
+def test_public_vector_cohesive_force_exposes_standard_interface_fields():
+    coordinates = np.array(
+        [
+            [0.0, 0.0], [1.0, 0.0],
+            [1.0, 0.5], [0.0, 0.5],
+            [1.0, 1.0], [0.0, 1.0],
+        ]
+    )
+    split = interfaces.split_conforming_line_interface(
+        coordinates,
+        np.array([[0, 1, 2, 3], [3, 2, 4, 5]]),
+        [[3, 2]],
+        positive_cells=[1],
+    )
+    domain = interfaces.create_dolfinx_split_mesh(split)
+    displacement = fields.displacement(domain)
+    law = interfaces.bilinear_cohesive(
+        strength=10.0, fracture_energy=2.0, initial_stiffness=1000.0
+    )
+    cohesive = fracture.cohesive_force(
+        split,
+        displacement,
+        law,
+        normal_hint=(0.0, 1.0),
+        tangential_stiffness=500.0,
+    )
+    mapping = cohesive.node_to_block_dof
+    values = displacement.value.x.array.reshape((-1, 2))
+    positive = mapping[split.positive_facets.reshape(-1)]
+    values[positive, 0] = 0.002
+    values[positive, 1] = 0.005
+    displacement.value.x.scatter_forward()
+    quantities = cohesive.interface_quantities()
+    assert set(quantities) == {
+        "JUMP_N", "JUMP_T", "TRACTION_N", "TRACTION_T", "DAMAGE", "MODE_MIXITY"
+    }
+    assert np.max(np.linalg.norm(quantities["TRACTION_T"], axis=-1)) > 0.0
+    assert cohesive.summary()["interface_kinematics"] == "tie"
+    snapshot = cohesive.snapshot()
+    assert snapshot["schema"] == "agentfem.dof-mapped-cohesive-force.v5"
+    legacy = dict(snapshot)
+    legacy["schema"] = "agentfem.dof-mapped-cohesive-force.v4"
+    legacy.pop("interface_kinematics")
+    legacy.pop("tangential_stiffness")
+    with pytest.raises(ValueError, match="Legacy cohesive checkpoints"):
+        cohesive.restore(legacy)
+    with pytest.raises(ValueError, match="acknowledge_physics_change"):
+        upgrades.migrate_cohesive_checkpoint(legacy, tangential="tie")
+    migrated = upgrades.migrate_cohesive_checkpoint(
+        legacy,
+        tangential="tie",
+        tangential_stiffness=500.0,
+        acknowledge_physics_change=True,
+    )
+    cohesive.restore(migrated)
+    assert migrated["migration"]["source_schema"].endswith(".v4")
+    assert len(migrated["migration"]["source_sha256"]) == 64
+    free = fracture.mode_i_cohesive_force(
+        split,
+        displacement,
+        law,
+        normal_hint=(0.0, 1.0),
+        tangential="free",
+    )
+    with pytest.raises(ValueError, match="interface kinematics"):
+        free.restore(snapshot)
+    free.restore(legacy)
+
+
+def test_mixed_mode_public_force_restart_and_arc_length_consumer():
+    from dolfinx import mesh as dolfinx_mesh
+
+    coordinates = np.array(
+        [
+            [0.0, 0.0], [1.0, 0.0],
+            [1.0, 0.5], [0.0, 0.5],
+            [1.0, 1.0], [0.0, 1.0],
+        ]
+    )
+    split = interfaces.split_conforming_line_interface(
+        coordinates,
+        np.array([[0, 1, 2, 3], [3, 2, 4, 5]]),
+        [[3, 2]],
+        positive_cells=[1],
+    )
+    domain = interfaces.create_dolfinx_split_mesh(split)
+    displacement = fields.displacement(domain)
+    material = constitutive.neo_hookean(young=100.0, poisson=0.25)
+    internal = fracture.finite_strain_internal_force(
+        displacement.value, displacement.test, material
+    )
+    facet_dimension = domain.topology.dim - 1
+    top_facets = dolfinx_mesh.locate_entities_boundary(
+        domain, facet_dimension, lambda x: np.isclose(x[1], 1.0)
+    )
+    tags = dolfinx_mesh.meshtags(
+        domain,
+        facet_dimension,
+        np.sort(top_facets),
+        np.ones(top_facets.size, dtype=np.int32),
+    )
+    ds = ufl.Measure("ds", domain=domain, subdomain_data=tags)
+    load_parameter = fem.Constant(domain, 0.0)
+    external = operators.OperatorForm(
+        name="top_force",
+        expression=load_parameter * displacement.test[1] * ds(1),
+        kind="surface_force",
+        role="vector",
+        family="mechanical_load",
+    )
+    bulk_vector = internal - external
+    bulk = operators.residual_operator(
+        bulk_vector.expression,
+        name="R_bulk",
+        family="total_lagrangian_neo_hookean",
+    )
+    tangent = operators.linearize(bulk, displacement)
+    law = interfaces.mixed_mode_bilinear_cohesive(
+        normal_strength=10.0,
+        shear_strength=8.0,
+        normal_fracture_energy=0.2,
+        shear_fracture_energy=0.3,
+        normal_stiffness=1000.0,
+        tangential_stiffness=800.0,
+        interaction="bk",
+    )
+    cohesive = fracture.cohesive_force(
+        split, displacement, law, normal_hint=(0.0, 1.0)
+    )
+    residual = fracture.FiniteStrainCohesiveResidual(bulk, cohesive)
+    bcs = [
+        constraints.component_dirichlet(
+            displacement, 1, on=lambda x: np.isclose(x[1], 0.0), value=0.0
+        ).bc,
+        constraints.component_dirichlet(
+            displacement, 0, on=lambda x: np.isclose(x[0], 0.0), value=0.0
+        ).bc,
+    ]
+    equilibrium = fracture.FiniteStrainCohesiveEquilibrium(
+        residual,
+        tangent,
+        displacement,
+        bcs=bcs,
+        load_parameter=load_parameter,
+        solver_options=solvers.newton(
+            relative_tolerance=1.0e-9,
+            absolute_tolerance=1.0e-11,
+            maximum_iterations=20,
+            linear_solver=solvers.direct_solver(),
+        ),
+    )
+    continuation = fracture.FiniteStrainCohesiveArcLength(
+        equilibrium,
+        fracture.ArcLengthOptions(
+            radius=0.05,
+            load_scale=0.1,
+            maximum_iterations=15,
+            relative_tolerance=1.0e-8,
+            absolute_tolerance=1.0e-10,
+            constraint_tolerance=1.0e-7,
+        ),
+    )
+    info = continuation.advance()
+    assert info.converged
+    assert info.load > 0.0
+    snapshot = continuation.snapshot()
+    assert set(snapshot["cohesive"]["cohesive"]["state_by_field_and_key"]) == {
+        "failure_separation",
+        "initiation_separation",
+        "initiation_stiffness",
+        "maximum_effective_separation",
+    }
 
 
 def test_split_interface_runs_through_prescribed_dynamic_energy_lifecycle():

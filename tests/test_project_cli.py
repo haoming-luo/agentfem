@@ -3,7 +3,36 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from agentfem import __version__, cli, project, results, upgrades
+
+
+def test_cohesive_checkpoint_migration_is_explicit_and_nonmutating():
+    source = {
+        "schema": "agentfem.dof-mapped-cohesive-force.v3",
+        "interface_identity": {"sha256": "physical-interface"},
+        "law": {"mode": "normal", "initial_stiffness": 1000.0},
+        "maximum_opening_by_key": {"facet:0": [0.1, 0.2]},
+    }
+    encoded = json.dumps(source, sort_keys=True)
+    migrated = upgrades.migrate_cohesive_checkpoint(
+        source,
+        tangential="free",
+    )
+    assert json.dumps(source, sort_keys=True) == encoded
+    assert migrated["schema"] == upgrades.COHESIVE_CHECKPOINT_SCHEMA
+    assert migrated["interface_kinematics"] == "free"
+    assert migrated["tangential_stiffness"] == 0.0
+    assert migrated["state_by_field_and_key"] == {
+        "maximum_opening": {"facet:0": [0.1, 0.2]}
+    }
+    with pytest.raises(ValueError, match="mixed-mode initiation"):
+        upgrades.migrate_cohesive_checkpoint(
+            source,
+            tangential="mixed",
+            acknowledge_physics_change=True,
+        )
 
 
 def test_project_config_and_run_context_are_portable(tmp_path):

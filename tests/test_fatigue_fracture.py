@@ -812,6 +812,31 @@ def test_two_named_3d_interfaces_are_split_atomically_on_one_solver_mesh():
     assert forces.names == ("lower", "upper")
     assert set(forces.cycle_openings()) == {"lower", "upper"}
 
+    mixed = interfaces.mixed_mode_bilinear_cohesive(
+        normal_strength=10.0,
+        shear_strength=8.0,
+        normal_fracture_energy=2.0,
+        shear_fracture_energy=3.0,
+        normal_stiffness=1000.0,
+        tangential_stiffness=800.0,
+    )
+    recommended = fracture.cohesive_forces(
+        split,
+        displacement,
+        laws={
+            "lower": interfaces.bilinear_cohesive(
+                strength=10.0,
+                fracture_energy=2.0,
+                initial_stiffness=1000.0,
+            ),
+            "upper": mixed,
+        },
+        normal_hints={"lower": (0.0, 0.0, 1.0), "upper": (0.0, 0.0, 1.0)},
+    )
+    summaries = recommended.summary()["interfaces"]
+    assert summaries["lower"]["interface_kinematics"] == "tie"
+    assert summaries["upper"]["interface_kinematics"] == "mixed"
+
 
 def test_named_interface_split_rejects_ambiguous_shared_nodes():
     coordinates = np.array(

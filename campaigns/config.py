@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 from pathlib import Path
 from typing import Mapping
@@ -36,7 +36,7 @@ class CampaignSpecification:
     parameter_space: ParameterSpace
     sampling: SamplingPlan
     outputs: tuple[Quantity, ...]
-    execution: ExecutionPolicy = ExecutionPolicy()
+    execution: ExecutionPolicy = field(default_factory=ExecutionPolicy)
     description: str = ""
 
     def create_campaign(self, *, build=None, evaluate=None) -> Campaign:
