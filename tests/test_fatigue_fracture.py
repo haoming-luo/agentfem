@@ -1031,7 +1031,7 @@ def _global_mixed_fatigue_fixture(*, feedback=0.1):
     return field, force, collection, state, solve_equilibrium, cycle
 
 
-def _global_ordered_mixed_fatigue_fixture():
+def _global_ordered_mixed_fatigue_fixture(*, path_feedback=0.0):
     field = _FakeField()
     force = _FakeCyclicForce(_ordered_mixed_cyclic(), field)
     force.assembler.state.configure_dimension(2)
@@ -1043,8 +1043,20 @@ def _global_ordered_mixed_fatigue_fixture():
         if phase is None:
             phase = 0.5 if branch == "verification_maximum" else 1.0
         angle = 2.0 * np.pi * phase
+        damage = force.assembler.state.fatigue_damage[0]
+        local_feedback = (
+            1.0
+            + path_feedback
+            * damage
+            * np.exp(-((phase - 0.25) / 0.04) ** 2)
+        )
         opening = np.asarray(
-            [[0.014 + 0.012 * np.sin(angle), 0.018 * (1.0 - np.cos(angle))]]
+            [
+                [
+                    (0.014 + 0.012 * np.sin(angle)) * local_feedback,
+                    0.018 * (1.0 - np.cos(angle)) * local_feedback,
+                ]
+            ]
         )
         force.opening[:] = opening
         field.x.array[0] = opening[0, 0]
@@ -1312,6 +1324,9 @@ def test_global_ordered_path_dispatches_all_stations_and_restarts():
     partial.run(until_cycle=3)
     assert partial.history[-1].ordered_path[0].metadata["phase"] == 0.0
     assert partial.history[-1].ordered_path[-1].metadata["phase"] == 1.0
+    assert len(partial.history[-1].verification_path) == len(phases)
+    assert partial.history[-1].verification_path[0].metadata["phase"] == 0.0
+    assert partial.history[-1].verification_path[-1].metadata["phase"] == 1.0
     assert force.assembler.state.state_arrays()["cycle_station_count"] == pytest.approx(
         [len(phases)]
     )
@@ -1333,6 +1348,29 @@ def test_global_ordered_path_dispatches_all_stations_and_restarts():
     restarted.run()
     assert restarted.current_cycle == 8
     assert force2.assembler.state.cumulative_cycles == pytest.approx([8.0])
+
+
+def test_global_ordered_path_checks_feedback_at_nonmaximum_station():
+    phases = (0.0, 0.25, 0.5, 0.75, 1.0)
+    field, force, collection, state, solve, cycle = (
+        _global_ordered_mixed_fatigue_fixture(path_feedback=1.0)
+    )
+    step = fatigue_fracture.global_cyclic_fatigue_step(
+        cycle=cycle,
+        stop_cycle=1,
+        interfaces=collection,
+        state=state,
+        solve_equilibrium=solve,
+        ordered_path_phases=phases,
+        maximum_opening_feedback=1.0,
+    )
+    step.run()
+    block = step.history[0]
+    assert block.maximum.control_displacement == pytest.approx(
+        block.verification_maximum.control_displacement
+    )
+    assert block.opening_feedback_error > 0.0
+    assert len(block.verification_path) == len(phases)
 
 
 def test_global_cycle_durable_checkpoint_restores_fields_interfaces_and_ledger(tmp_path):

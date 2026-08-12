@@ -2396,7 +2396,7 @@ def cyclic_work_energy_ledger(**options) -> CyclicWorkEnergyLedger:
 
 @dataclass(frozen=True)
 class CyclicEquilibriumPoint:
-    """Evidence returned by one converged peak or valley equilibrium solve."""
+    """Evidence returned by one converged cyclic equilibrium solve."""
 
     branch: str
     load: float
@@ -2415,7 +2415,12 @@ class CyclicEquilibriumPoint:
     def __post_init__(self) -> None:
         branch = str(self.branch).strip().lower()
         if branch not in {
-            "minimum", "maximum", "verification_maximum", "closing", "path_station"
+            "minimum",
+            "maximum",
+            "verification_maximum",
+            "closing",
+            "path_station",
+            "verification_path_station",
         }:
             raise ValueError("Unknown cyclic-equilibrium branch.")
         if not isfinite(float(self.load)):
@@ -2506,6 +2511,7 @@ class CyclicFatigueBlock:
     energy_balance_error: float
     energy_frame: CyclicEnergyFrame | None = None
     ordered_path: tuple[CyclicEquilibriumPoint, ...] = ()
+    verification_path: tuple[CyclicEquilibriumPoint, ...] = ()
     observations: dict[str, object] = field(default_factory=dict)
 
     def summary(self) -> dict[str, object]:
@@ -2523,6 +2529,9 @@ class CyclicFatigueBlock:
                 None if self.energy_frame is None else self.energy_frame.summary()
             ),
             "ordered_path": [point.summary() for point in self.ordered_path],
+            "verification_path": [
+                point.summary() for point in self.verification_path
+            ],
             "observations": {
                 name: value.summary() if hasattr(value, "summary") else value
                 for name, value in self.observations.items()
@@ -2531,7 +2540,7 @@ class CyclicFatigueBlock:
 
 
 class GlobalCyclicFatigueStep:
-    """Quasi-static peak/valley fatigue loop with global rollback and cutback.
+    """Quasi-static cyclic fatigue loop with global rollback and cutback.
 
     ``solve_equilibrium`` owns the finite-element nonlinear solve but must not
     commit irreversible cohesive history. A replaceable equilibrium trial may
@@ -2539,7 +2548,9 @@ class GlobalCyclicFatigueStep:
     accepted opening. This controller owns the larger cycle-block transaction:
     bulk fields, every named interface, the cycle ledger, exact output
     landings, and the post-damage verification equilibrium are accepted
-    together or not at all.
+    together or not at all. Extrema-only cycles verify the degraded maximum;
+    ordered non-proportional cycles verify every supplied path station so that
+    a controlling jump away from the scalar load maximum cannot be missed.
     """
 
     _SCHEMA = "agentfem.global-cyclic-fatigue-step.v1"
@@ -2716,6 +2727,7 @@ class GlobalCyclicFatigueStep:
         self.ledger.begin(decision)
         try:
             ordered_points = ()
+            verification_points = ()
             if self.ordered_path_phases:
                 points = []
                 kinematics = {name: [] for name in self.interfaces.names}
@@ -2736,9 +2748,6 @@ class GlobalCyclicFatigueStep:
                 )
                 minimum = ordered_points[0]
                 maximum = ordered_points[maximum_index]
-                maximum_opening = {
-                    name: values[maximum_index] for name, values in kinematics.items()
-                }
                 paths = {
                     name: OrderedJumpCyclePath(
                         phases=np.asarray(self.ordered_path_phases),
@@ -2767,17 +2776,54 @@ class GlobalCyclicFatigueStep:
                     cycles=decision.cycles,
                 )
             self.interfaces.commit_cycle()
-            verification = self._solve(
-                load=self.cycle.maximum,
-                branch="verification_maximum",
-                cycle=decision.end_cycle,
-            )
-            verified_opening = self.interfaces.cycle_kinematics()
-            closing = self._solve(
-                load=self.cycle.minimum,
-                branch="closing",
-                cycle=decision.end_cycle,
-            )
+            if ordered_points:
+                verified_points = []
+                verified_kinematics = {
+                    name: [] for name in self.interfaces.names
+                }
+                for phase in self.ordered_path_phases:
+                    point = self._solve(
+                        load=self.cycle.at_phase(phase),
+                        branch="verification_path_station",
+                        cycle=decision.end_cycle,
+                        phase=phase,
+                    )
+                    verified_points.append(point)
+                    station = self.interfaces.cycle_kinematics()
+                    for name in self.interfaces.names:
+                        verified_kinematics[name].append(station[name])
+                verification_points = tuple(verified_points)
+                verification = replace(
+                    verification_points[maximum_index],
+                    branch="verification_maximum",
+                )
+                closing = replace(verification_points[-1], branch="closing")
+                opening_error = self._opening_feedback_error(
+                    {
+                        name: np.stack(values)
+                        for name, values in kinematics.items()
+                    },
+                    {
+                        name: np.stack(values)
+                        for name, values in verified_kinematics.items()
+                    },
+                )
+            else:
+                verification = self._solve(
+                    load=self.cycle.maximum,
+                    branch="verification_maximum",
+                    cycle=decision.end_cycle,
+                )
+                verified_opening = self.interfaces.cycle_kinematics()
+                closing = self._solve(
+                    load=self.cycle.minimum,
+                    branch="closing",
+                    cycle=decision.end_cycle,
+                )
+                opening_error = self._opening_feedback_error(
+                    maximum_opening,
+                    verified_opening,
+                )
             energy_frame = None
             if self.energy_ledger is not None:
                 representative_cycle = (
@@ -2796,15 +2842,16 @@ class GlobalCyclicFatigueStep:
                 before_damage,
                 after_damage,
             )
-            opening_error = self._opening_feedback_error(
-                maximum_opening,
-                verified_opening,
-            )
             energy_error = max(
                 (
                     float(point.energy_balance_error)
                     for point in (
-                        *ordered_points, minimum, maximum, verification, closing
+                        *ordered_points,
+                        *verification_points,
+                        minimum,
+                        maximum,
+                        verification,
+                        closing,
                     )
                     if point.energy_balance_error is not None
                 ),
@@ -2859,6 +2906,7 @@ class GlobalCyclicFatigueStep:
                 energy_balance_error=energy_error,
                 energy_frame=energy_frame,
                 ordered_path=ordered_points,
+                verification_path=verification_points,
                 observations=observations,
             )
             self.history.append(block)

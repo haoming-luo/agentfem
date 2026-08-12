@@ -284,10 +284,16 @@ The policy is a proposal, not a global error estimator.
 1. solve the accepted extrema or every declared ordered-path station;
 2. predict a cycle block from current material and optional front rates;
 3. begin the complete block transaction;
-4. re-solve the degraded maximum and closing states;
-5. compare the pre- and post-degradation peak opening and accept only if
-   damage, structural-feedback and optional energy errors lie within tolerance;
+4. re-solve the degraded maximum and closing states for an extrema-only cycle,
+   or every degraded station for an ordered non-proportional path;
+5. compare the pre- and post-degradation peak opening or complete resolved
+   jump path and accept only if damage, structural-feedback and optional energy
+   errors lie within tolerance;
 6. otherwise rollback and cut back the cycle block.
+
+The path-wide comparison is essential because the controlling local jump need
+not occur at the scalar load maximum. Both the accepted and degraded station
+evidence are retained in the cycle-block result and participate in restart.
 
 At constant extrema the reference material-point rate is integrated
 analytically, so one 100-cycle material update equals 100 one-cycle updates.

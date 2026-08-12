@@ -16,6 +16,8 @@ experimental formulation to a validated one.
 - Add explicitly ordered closed non-proportional jump paths, segment-resolved
   mixed-mode fatigue driving, path evidence, global dispatch and atomic
   rollback/restart.
+- Re-equilibrate and compare every degraded ordered-path station before a
+  non-proportional cycle block can be committed.
 - Add a transactional generalized work--energy ledger for natural loads,
   reference-point force/moment, prescribed motion, MPC/weak/contact channels
   and cycle-jump blocks.

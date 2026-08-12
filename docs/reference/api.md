@@ -151,9 +151,9 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `CyclicEnergyFrame` | One accepted or trial cycle-block work--energy closure. |
 | class | `CyclicWorkEnergyLedger(*, name = 'cyclic work-energy ledger')` | Transactional generalized-work and cycle-block energy accounting. |
 | function | `cyclic_work_energy_ledger(**options) -> CyclicWorkEnergyLedger` | Create a transactional cycle-block work--energy ledger. |
-| class | `CyclicEquilibriumPoint` | Evidence returned by one converged peak or valley equilibrium solve. |
+| class | `CyclicEquilibriumPoint` | Evidence returned by one converged cyclic equilibrium solve. |
 | class | `CyclicFatigueBlock` | Accepted structure-level cycle block and its error evidence. |
-| class | `GlobalCyclicFatigueStep(*, cycle: ForceCycle, stop_cycle: int, interfaces, state, solve_equilibrium, jump: CycleJumpPolicy \| None = None, landing_cycles = (), maximum_opening_feedback: float = 0.02, maximum_energy_balance_error: float \| None = None, energy_ledger: CyclicWorkEnergyLedger \| None = None, ordered_path_phases = (), observe = None, name: str = 'cyclic fatigue')` | Quasi-static peak/valley fatigue loop with global rollback and cutback. |
+| class | `GlobalCyclicFatigueStep(*, cycle: ForceCycle, stop_cycle: int, interfaces, state, solve_equilibrium, jump: CycleJumpPolicy \| None = None, landing_cycles = (), maximum_opening_feedback: float = 0.02, maximum_energy_balance_error: float \| None = None, energy_ledger: CyclicWorkEnergyLedger \| None = None, ordered_path_phases = (), observe = None, name: str = 'cyclic fatigue')` | Quasi-static cyclic fatigue loop with global rollback and cutback. |
 | class | `SurfaceCrackComponent` | One connected failed component in a surface-crack observation. |
 | class | `SurfaceCrackObservation` | One cycle's geometric evidence on a triangular cohesive surface. |
 | class | `CrackTopologyEvent` | Auditable identity change between two accepted crack observations. |

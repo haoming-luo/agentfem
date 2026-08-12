@@ -26,9 +26,10 @@
     "Peak/valley paths with excessive mode-mix change or shear-direction reversal are rejected rather than silently reduced.",
     "One fixed vector-extrema cycle jump matches repeated exact cycle transactions within numerical tolerance.",
     "Rollback and interrupted global restart preserve every vector and scalar state field.",
-    "Two MPI ranks consume the vector law and expose fatigue evidence, and their physical-facet state restores in reordered one-rank execution."
-    ,"A non-proportional closed path preserves station order, matches exact repeated cycles under a fixed path, and survives rollback/restart."
-    ,"Cycle-block energy imbalance rejects atomically without committing cohesive, field, cycle or energy-ledger state."
+    "Two MPI ranks consume the vector law and expose fatigue evidence, and their physical-facet state restores in reordered one-rank execution.",
+    "A non-proportional closed path preserves station order, matches exact repeated cycles under a fixed path, and survives rollback/restart.",
+    "Cycle-block energy imbalance rejects atomically without committing cohesive, field, cycle or energy-ledger state.",
+    "The degraded ordered path is re-equilibrated station by station so a controlling jump away from the scalar maximum cannot evade feedback cutback."
   ],
   "limitations": [
     "The local cohesive energy channels are material drivers, not J-integral or VCCT structural energy-release rates.",

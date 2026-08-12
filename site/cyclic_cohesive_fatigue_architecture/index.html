@@ -3580,11 +3580,16 @@ and is itself restartable.</p>
 <li>solve the accepted extrema or every declared ordered-path station;</li>
 <li>predict a cycle block from current material and optional front rates;</li>
 <li>begin the complete block transaction;</li>
-<li>re-solve the degraded maximum and closing states;</li>
-<li>compare the pre- and post-degradation peak opening and accept only if
-   damage, structural-feedback and optional energy errors lie within tolerance;</li>
+<li>re-solve the degraded maximum and closing states for an extrema-only cycle,
+   or every degraded station for an ordered non-proportional path;</li>
+<li>compare the pre- and post-degradation peak opening or complete resolved
+   jump path and accept only if damage, structural-feedback and optional energy
+   errors lie within tolerance;</li>
 <li>otherwise rollback and cut back the cycle block.</li>
 </ol>
+<p>The path-wide comparison is essential because the controlling local jump need
+not occur at the scalar load maximum. Both the accepted and degraded station
+evidence are retained in the cycle-block result and participate in restart.</p>
 <p>At constant extrema the reference material-point rate is integrated
 analytically, so one 100-cycle material update equals 100 one-cycle updates.
 That property is necessary but does not prove structural cycle-jump accuracy:
