@@ -302,12 +302,16 @@ def _resolve_procedure(model, *, analysis: str, options, requested):
             )
     material = options.get("material")
     registered = tuple(getattr(model, "materials", ()))
-    if material is None and len(registered) == 1:
-        material = registered[0].item
-    stateful = analysis == "nonlinear_transient" or type(material).__name__ in {
-        "J2LinearIsotropicHardening",
-        "IsotropicPowerLawCreepMaterial",
-    }
+    materials = (
+        (material,)
+        if material is not None
+        else tuple(record.item for record in registered)
+    )
+    stateful = analysis == "nonlinear_transient" or any(
+        type(selected).__name__
+        in {"J2LinearIsotropicHardening", "IsotropicPowerLawCreepMaterial"}
+        for selected in materials
+    )
     return procedures.resolve(
         analysis=analysis,
         requested=requested if requested is not None else method,
@@ -532,16 +536,15 @@ def _accept_j2(model, request: StepRequest) -> bool:
         getattr(study, "physics", None) == "solid_mechanics"
         and _is_vector_target(request.target)
         and getattr(study, "dimension", None) == 3
-        and isinstance(
-            _selected_material(model, request),
-            J2LinearIsotropicHardening,
+        and _all_materials_support(
+            model, request, lambda item: isinstance(item, J2LinearIsotropicHardening)
         )
     )
 
 
 def _lower_j2(model, request: StepRequest):
     options = dict(request.options)
-    material = _selected_material(model, request)
+    material = request.material
     options.pop("material", None)
     options.pop("K", None)
     options.pop("F", None)
@@ -566,16 +569,17 @@ def _accept_implicit_creep(model, request: StepRequest) -> bool:
         and _is_vector_target(request.target)
         and _normalize(method or "implicit_creep")
         in {"implicit_creep", "backward_euler", "backward_euler_newton"}
-        and isinstance(
-            _selected_material(model, request),
-            IsotropicPowerLawCreepMaterial,
+        and _all_materials_support(
+            model,
+            request,
+            lambda item: isinstance(item, IsotropicPowerLawCreepMaterial),
         )
     )
 
 
 def _lower_implicit_creep(model, request: StepRequest):
     options = dict(request.options)
-    material = _selected_material(model, request)
+    material = request.material
     options.pop("material", None)
     options.pop("K", None)
     options.pop("F", None)

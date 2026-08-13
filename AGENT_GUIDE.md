@@ -221,5 +221,10 @@ elasticity, implicit and explicit linear structural dynamics, implicit heat
 transfer, sequential thermoelasticity, a bounded Neo-Hookean nonlinear solve,
 result/campaign/data flow, external mesh conversion, and deliberately staged
 path-dependent material tools. The first global J2 and Arrhenius power-law
-creep providers are serial-only foundations. Product depth and verification
-take priority over adding material names or backend abstractions.
+creep providers use regional quadrature materials. J2 MPI global equilibrium
+is public after partition-interface, cutback/rollback, cross-rank-count
+restart, and external thick-cylinder structural tests; distributed creep
+equilibrium retains its separate NAFEMS promotion gate. Their constitutive
+transactions and quadrature archives are MPI-safe and portable across rank
+counts. Product depth and external verification take
+priority over adding material names or backend abstractions.

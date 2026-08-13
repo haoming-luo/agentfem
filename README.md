@@ -1,22 +1,27 @@
-<p align="center"><img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM logo" width="320"></p>
+<p align="center"><img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM logo" width="280"></p>
 
 # AgentFEM
 
 [![Test](https://github.com/haoming-luo/agentfem/actions/workflows/test.yml/badge.svg)](https://github.com/haoming-luo/agentfem/actions/workflows/test.yml)
 [![PyPI](https://img.shields.io/pypi/v/agentfem.svg)](https://pypi.org/project/agentfem/)
+[![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
+[![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows%20%28WSL2%29-informational.svg)](INSTALL.md)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-AgentFEM is an open-source platform for **AI-native finite-element computing**.
-It explores how engineering simulation may evolve in the age of AI agents—from
-software designed primarily for human operation toward scientific workflows
-that humans and AI agents can jointly understand, construct, and improve.
+**AI-native finite-element computing for humans and agents.**
+
+AgentFEM is an open-source finite-element platform that turns an engineering
+analysis into a readable Python workflow: define the study, model, materials,
+loads, solution procedure, outputs, and verification in one place. The same
+workflow can be understood and operated by researchers, scripts, IDEs, future
+GUIs, and AI agents.
 
 AgentFEM was initiated by Haoming Luo and open-sourced on GitHub in July 2026.
 
 Its immediate goal is practical: to become a dependable and unusually usable
-open-source FEM platform. Its longer-term vision is to turn finite-element
-simulation into an accessible, shared scientific workspace connecting
-engineering, computation, data, and AI.
+open-source FEM platform. Its longer-term vision is to make finite-element
+simulation an accessible scientific workspace connecting engineering,
+computation, data, and AI.
 
 ## Why AgentFEM
 
@@ -44,224 +49,158 @@ engineering, computation, data, and AI.
   and still reach operators, UFL, DOLFINx, PETSc, and custom constitutive
   models whenever needed.
 
-> **Our conviction:** AI will make code abundant, but trustworthy scientific
-> structure will remain scarce. AgentFEM is being built so that finite-element
-> knowledge can be created, checked, communicated, and accumulated by humans
-> and AI agents together.
-
-## What Works Today
-
-| Area | Implemented path |
-| --- | --- |
-| Engineering workflow | Study, model, regions, fields, materials, loads, constraints, steps, results, and concise model summaries |
-| FEM procedures | Linear and thermoelastic statics, implicit heat transfer, Newmark/generalized-alpha dynamics, and central-difference explicit dynamics |
-| Nonlinear solids | Neo-Hookean and Mooney--Rivlin finite strain, plus a 3D small-strain J2 path with quadrature state, consistent tangent, cyclic loading, cutback, energy histories, and serial restart |
-| Time-dependent solids | 3D isothermal power-law creep with backward Euler, shared quadrature state, analytical tangent, automatic physical-time cutback, CE/CEEQ/S/MISES/RF, dissipation, and serial restart |
-| Meshes and constraints | Structured and XDMF meshes, optional Gmsh and meshio routes, direct Abaqus C3D10H import, equation constraints, and distributed periodic workflows |
-| Results and trust | Unified fields, quantities, histories, artifacts, progress events, checkpoints, Golden benchmarks, and exploratory/engineering/release quality policies |
-| Simulation and learning | Reproducible campaigns, scientific datasets, PyTorch adapters, transparent surrogate baselines, validation thresholds, applicability guards, and FEM fallback |
-
-Power-law creep now has a bounded global 3D isothermal route. Arrhenius,
-Kachanov--Rabotnov, and Sinh relations remain verified material-point tools;
-modified theta is a curve-projection tool, and stress-life fatigue is a
-postprocessor. AgentFEM keeps these maturity levels explicit rather than
-letting one global material path silently promote the others.
-
-The public workflow remains recognizable to a finite-element user:
-
-```text
-Study -> Model -> Mesh/Regions -> Fields -> Materials -> Loads/Constraints
-      -> Operators -> Step -> Solve -> Results/Verification
-```
-
-## Architecture
-
-AgentFEM uses three visible layers:
-
-1. **Engineering workflow** — studies, models, regions, materials, loads,
-   steps, campaigns, and results.
-2. **Finite-element extension layer** — reusable operators, weak forms,
-   constitutive laws, constraints, and custom scientific components.
-3. **Numerical kernel** — the current FEniCSx/DOLFINx, PETSc, and MPI
-   foundation for assembly, solution, and distributed computation.
-
-The implementation is deliberately FEniCSx-first. Advanced users can descend
-through every layer, while a narrow adapter boundary and experimental AF-IR
-records preserve room for future evolution. AF-IR is not presented as a
-universal simulation language or a neural-network compiler IR.
+> **Our conviction:** Open FEM for everyone. Useful simulation within reach
+> with AI. Engineering AI grounded in physical models, observations, and
+> verification.
 
 ## Install
 
-AgentFEM expects a compatible FEniCSx environment. The recommended route is to
-create the numerical stack with conda-forge and then install AgentFEM from
-PyPI:
+AgentFEM supports **Linux**, **macOS**, and **Windows through WSL2**. Conda-forge
+provides the compiled FEniCSx/PETSc/MPI stack and PyPI provides AgentFEM:
 
 ```bash
 mamba create -n agentfem-env -c conda-forge \
   python=3.11 fenics-dolfinx=0.11 mpich mpi4py petsc4py h5py
 mamba activate agentfem-env
-python -m pip install --pre agentfem
+python -m pip install agentfem
 ```
 
-The `0.2` series is currently a public alpha. `--pre` opts into this preview;
-ordinary `pip install agentfem` continues to select the latest non-prerelease.
-AgentFEM is not yet distributed as a conda-forge package.
-
-Optional integrations remain separate from the Apache-2.0 core:
-
-```bash
-python -m pip install --pre 'agentfem[mesh-formats]'  # Abaqus/NASTRAN/etc.
-python -m pip install --pre 'agentfem[gmsh]'          # Gmsh model/.msh import
-python -m pip install --pre 'agentfem[visualization]'
-python -m pip install --pre 'agentfem[ml]'            # PyTorch adapters
-```
-
-Gmsh is a separately distributed GPL-licensed optional package and is not
-bundled with AgentFEM. Windows users should currently use WSL2. See
-[`INSTALL.md`](INSTALL.md) for platform details and development installation.
-
-After installation, verify the numerical environment and create a project in
-any working directory:
+Then confirm that the numerical environment is coherent:
 
 ```bash
 agentfem doctor
-mkdir beam && cd beam
+```
+
+The conda-forge AgentFEM recipe is in review; once published, the numerical
+stack and AgentFEM can be installed together. Until then, the commands above
+are the shortest supported installation path. On Windows, run them inside an
+Ubuntu WSL2 terminal. See [`INSTALL.md`](INSTALL.md) for platform details,
+MPI notes, and source installation.
+
+Optional capabilities stay separate from the Apache-2.0 core:
+
+```bash
+python -m pip install 'agentfem[mesh-formats]'   # Abaqus/NASTRAN meshes
+python -m pip install 'agentfem[gmsh]'           # Gmsh model/.msh import
+python -m pip install 'agentfem[visualization]'  # ParaView-ready helpers
+python -m pip install 'agentfem[ml]'             # PyTorch adapters
+```
+
+Gmsh is an optional, separately distributed GPL-licensed dependency and is not
+bundled with AgentFEM.
+
+## Run Your First Model
+
+Create and run a complete static-solid project in any directory:
+
+```bash
+mkdir first-agentfem-model && cd first-agentfem-model
 agentfem init --template static-solid .
 agentfem check
 agentfem run
 agentfem inspect
 ```
 
-`case.py` remains ordinary Python and can also be run directly. The CLI adds a
-repeatable project root, run identity, MPI launch, structured result manifest,
-and machine-readable interface for IDEs, GUIs, and AI agents. See the
-[`Installed Project Workflow`](docs/getting_started.md).
-
-## Quick Start
+The generated `case.py` is ordinary, editable Python. Its public workflow reads
+like an engineering analysis:
 
 ```python
-from mpi4py import MPI
-import numpy as np
-
-from agentfem import fields, mesh, models, studies
-from agentfem.constitutive import elasticity
-
-study = studies.linear_static(
-    physics="solid_mechanics",
-    dimension=2,
-    assumption="plane_strain",
-)
-domain = mesh.rectangle(
-    (0.0, 0.0),
-    (1.0, 0.2),
-    (40, 8),
-    comm=MPI.COMM_WORLD,
-    cell_type="quadrilateral",
-)
+study = studies.static_solid(dimension=2, assumption="plane_strain")
 model = models.create(study=study, mesh=domain, name="cantilever")
-
 u = model.field(fields.displacement(domain, degree=1))
-model.material(
-    elasticity.isotropic_elastic(
-        young=210e9,
-        poisson=0.3,
-        density=7800,
-    )
-)
 
-left = mesh.boundary(
-    domain,
-    lambda x: np.isclose(x[0], 0.0),
-    name="left",
-    tag=1,
-)
-right = mesh.boundary(
-    domain,
-    lambda x: np.isclose(x[0], 1.0),
-    name="right",
-    tag=2,
-)
-model.fix(u, on=left, value=0.0)
-model.traction(value=(0.0, -1.0e6), on=right)
+model.material(elasticity.isotropic_elastic(young=210e9, poisson=0.30))
+model.clamp(u, on=left)
+model.traction((0.0, -1.0e6), on=right)
 
-step = model.step(target=u)
-result = step.solve_result()
+result = model.step(target=u, name="static_load").solve_result()
 result.verify("engineering").require()
-
-print(model.tree())
-print(result)
 ```
 
-From a source checkout, run the complete repository example with:
+The CLI gives the same model a repeatable project root, run identity,
+structured result manifest, MPI launch path, and machine-readable interface.
+You can also run `case.py` directly with Python.
 
-```bash
-python examples/static_elasticity_2d.py
+## What Works Today
+
+| Area | Available workflow |
+| --- | --- |
+| Solid mechanics | Linear and thermoelastic statics; Neo-Hookean and Mooney--Rivlin finite strain; stateful 3D J2 plasticity |
+| Heat and dynamics | Steady/transient heat transfer; Newmark and generalized-alpha dynamics; central-difference explicit dynamics |
+| Time-dependent materials | Global power-law creep plus material-point Arrhenius, Kachanov--Rabotnov, Sinh, and fatigue assessment tools |
+| Fracture interfaces | Fixed-path cohesive interfaces, cyclic cohesive fatigue, mixed-mode driving, cycle jump, rollback, and restart; advanced routes remain experimental |
+| Meshes and constraints | Structured/XDMF meshes, optional Gmsh and meshio, direct Abaqus C3D10H import, equation constraints, and distributed periodic workflows |
+| Results and automation | Unified fields and histories, progress, checkpoints, Golden benchmarks, campaigns, scientific datasets, surrogate validation, and FEM fallback |
+
+AgentFEM records capability maturity explicitly. A working material-point law,
+an integrated global solver, and an externally verified analysis are different
+levels of evidence; the software does not silently treat them as equivalent.
+See the [capability and verification guide](docs/scientific_verification.md)
+for the detailed scope.
+
+## Release Examples
+
+- [Static elasticity](examples/static_elasticity_2d.py) — the readable beginner
+  workflow.
+- [Transient heat transfer](examples/transient_heat_2d.py) — implicit time
+  integration, progress, and field output.
+- [Wave propagation with an inclusion](examples/wave_packet_inclusion_2d.py) —
+  dynamic fields, source amplitude, and boundary models.
+- [Abaqus C3D10H periodic cell](examples/abaqus_c3d10h_periodic_cell/) — direct
+  mesh/equation import, quasi-incompressible hyperelasticity, and homogenized
+  response.
+- [J2 plasticity](examples/j2_plasticity_3d.py) and
+  [global creep](examples/implicit_creep_relaxation_3d.py) — stateful nonlinear
+  material workflows with cutback and restart.
+- [Simulation-to-surrogate campaign](examples/static_elasticity_surrogate_campaign.py)
+  — accepted FEM data, surrogate validation, applicability guard, and FEM
+  fallback.
+
+These are executable release assets with numerical contracts, not only syntax
+demonstrations. More examples are indexed in [`examples/`](examples/) and on
+the [documentation site](https://haoming-luo.github.io/agentfem/).
+
+## Open and Extensible
+
+AgentFEM has three visible layers:
+
+```text
+Engineering workflow
+    -> reusable FEM operators, constitutive laws, constraints, and outputs
+        -> FEniCSx / DOLFINx / PETSc / MPI numerical kernel
 ```
 
-Models can be inspected before execution with `model.validate()`,
-`model.tree()`, and `model.manifest()`. Experimental AF-IR records can be
-written with `model.write_ir(...)` when a JSON-safe scientific record is
-useful.
-
-## Release Workflows
-
-- [`static_elasticity_2d.py`](examples/static_elasticity_2d.py) — the readable
-  beginner FEM path.
-- [`transient_heat_2d.py`](examples/transient_heat_2d.py) — implicit heat
-  transfer with structured progress and XDMF output.
-- [`wave_packet_inclusion_2d.py`](examples/wave_packet_inclusion_2d.py) — wave
-  propagation with an inclusion, source amplitude, and boundary models.
-- [`abaqus_c3d10h_periodic_cell/`](examples/abaqus_c3d10h_periodic_cell/) —
-  direct Abaqus C3D10H input, exact periodic equations, mixed pressure,
-  Neo-Hookean large deformation, and homogenized output.
-- [`creep_hot_wall_assessment.py`](examples/creep_hot_wall_assessment.py) —
-  thermoelastic FEM followed by an explicitly local creep assessment.
-- [`implicit_creep_relaxation_3d.py`](examples/implicit_creep_relaxation_3d.py)
-  — global isothermal power-law creep with real state-based cutback and
-  standard creep fields.
-- [`static_elasticity_surrogate_campaign.py`](examples/static_elasticity_surrogate_campaign.py)
-  — campaign, accepted dataset, surrogate validation, and FEM fallback.
-
-These examples are executable release assets with numerical contracts; they
-are not only syntax demonstrations.
+Users can stay in the concise engineering workflow or descend to operators,
+UFL, DOLFINx, PETSc, and custom constitutive implementations when a research
+problem needs a lower layer. This is also the extension path for user
+materials, new elements, private domain modules, GUIs, and agent tools.
 
 ## Documentation
 
-- [`WORKFLOW.md`](WORKFLOW.md) — the standard modeling sequence.
-- [`CONCEPTS.md`](CONCEPTS.md) — shared engineering and agent vocabulary.
-- [`AGENT_GUIDE.md`](AGENT_GUIDE.md) — the entry point for AI agents working
-  with the repository.
-- [`docs/product_roadmap.md`](docs/product_roadmap.md) — capability priorities
-  and release gates.
-- [`docs/nonlinear_solid_architecture.md`](docs/nonlinear_solid_architecture.md)
-  — the nonlinear-solid platform and quadrature-state contract.
-- [`docs/results_and_campaigns.md`](docs/results_and_campaigns.md) — results,
-  campaigns, datasets, and learning handoff.
-- [`docs/scientific_verification.md`](docs/scientific_verification.md) — trust
-  levels, quality policies, convergence studies, and evidence boundaries.
+- [Getting started](docs/getting_started.md)
+- [Standard modeling workflow](WORKFLOW.md)
+- [Engineering concepts](CONCEPTS.md)
+- [Scientific functions and theory](docs/reference/scientific_function_reference.md)
+- [Results, campaigns, and learning](docs/results_and_campaigns.md)
+- [AI-agent guide](AGENT_GUIDE.md)
+- [Roadmap and release gates](docs/product_roadmap.md)
 
-The complete design reference is under [`docs/`](docs/), and the generated
-static site can be rebuilt with `python build_docs.py`.
+The complete user and scientific reference is available at
+[haoming-luo.github.io/agentfem](https://haoming-luo.github.io/agentfem/).
 
-## Direction and Scope
+## Scope
 
-AgentFEM is an alpha-stage research and engineering platform, not yet a
-general-purpose CAE replacement. The near-term priority is depth rather than
-an inflated feature list: dependable nonlinear solids, thermal and dynamic
-procedures, practical mesh interoperability, consistent output, and a smooth
-path from simulation to trustworthy learning data.
-
-The current release does not claim temperature-coupled global creep, global
-creep damage or rupture prediction, portable MPI restart for quadrature
-material state, general UMAT/UHYPER binary
-compatibility, arbitrary-mesh automatic neural-operator training, industrial
-code compliance, or a fully tested native-Windows solver stack. These are
-visible engineering boundaries and roadmap gates, not hidden fine print.
+AgentFEM is an early-stage research and engineering platform. It prioritizes
+depth, transparent evidence, and a coherent user workflow over claiming every
+analysis available in mature general-purpose CAE systems. Current maturity and
+known boundaries are documented per capability so users can decide what is
+appropriate for exploration, research, or engineering use.
 
 ## Citation
 
 If AgentFEM helps your research or engineering work, please cite the project
-metadata in [`CITATION.cff`](CITATION.cff).
+metadata in [`CITATION.cff`](CITATION.cff). An accompanying software paper is
+being prepared for arXiv.
 
 ```yaml
 title: "AgentFEM: An AI-native open-source platform for finite-element computing"
@@ -269,7 +208,7 @@ authors:
   - family-names: Luo
     given-names: Haoming
     affiliation: "Materials Department, Xi'an Thermal Power Research Institute (TPRI)"
-date-released: 2026-08-03
+date-released: 2026-08-13
 ```
 
 ## Author
@@ -281,9 +220,6 @@ defect inspection, and simulation analysis for power-generation equipment.
 
 ## License
 
-AgentFEM is licensed under the Apache License, Version 2.0. The open-source core
-can be used in research, education, and commercial settings under that license.
-Commercial services, validated industrial workflows, hosted products, and
-proprietary extensions may be developed separately through the explicit,
-versioned [`agentfem.extensions`](docs/extensions_and_private_products.md)
-package boundary.
+AgentFEM is available under the [Apache License 2.0](LICENSE). It can be used,
+modified, and extended in research, education, and commercial products under
+the terms of that license.

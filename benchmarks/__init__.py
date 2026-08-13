@@ -32,6 +32,12 @@ from .dynamic_fracture import (
     plane_stress_thin_3d_crosscheck,
     prestressed_weak_interface_separation,
 )
+from .inelastic import (
+    InelasticStructuralBenchmark,
+    j2_plane_strain_first_yield_pressure,
+    j2_thick_cylinder_benchmark,
+    thick_cylinder_sector_mesh,
+)
 
 __all__ = [
     "BenchmarkSpec",
@@ -51,6 +57,7 @@ __all__ = [
     "WeakInterfaceTransitionBenchmark",
     "WeakInterfaceTransitionSuite",
     "WeakInterfaceConvergenceStudy",
+    "InelasticStructuralBenchmark",
     "classical_cohesive_crack",
     "assess_delamination_benchmark",
     "beam_theory_energy_release_curve",
@@ -63,7 +70,10 @@ __all__ = [
     "finite_strain_wave_arrival",
     "jmps_weak_interface_transition_v4",
     "jmps_weak_interface_convergence_v4",
+    "j2_plane_strain_first_yield_pressure",
+    "j2_thick_cylinder_benchmark",
     "plane_stress_thin_3d_crosscheck",
     "prestressed_weak_interface_separation",
+    "thick_cylinder_sector_mesh",
     "list_benchmarks",
 ]

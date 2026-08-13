@@ -2907,6 +2907,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release_0.2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AgentFEM 0.2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release_0.2.0a2/" class="md-nav__link">
         
   
@@ -5004,7 +5032,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>implicit_creep_step(*, displacement, material, duration: float, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, temperature = None, name: str = 'implicit_creep') -&gt; ImplicitCreepStep</code></td>
+<td><code>implicit_creep_step(*, displacement, material, duration: float, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, temperature = None, name: str = 'implicit_creep', _experimental_distributed: bool = False) -&gt; ImplicitCreepStep</code></td>
 <td>Build the first global 3D implicit power-law creep step.</td>
 </tr>
 <tr>
@@ -5024,7 +5052,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>j2_plasticity_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'j2_plasticity') -&gt; J2PlasticityStep</code></td>
+<td><code>j2_plasticity_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'j2_plasticity', _experimental_distributed: bool = False) -&gt; J2PlasticityStep</code></td>
 <td>Build a global 3D J2 step from a displacement and load operator.</td>
 </tr>
 </tbody>
@@ -5376,8 +5404,23 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>QuadratureMaterialMap</code></td>
+<td>Cell-region material dispatch shared by stateful solid procedures.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>QuadratureTransaction</code></td>
 <td>Shared trial/commit/rollback contract for integration-point state.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>load_portable_quadrature_state(path, state, *, material = None) -&gt; None</code></td>
+<td>Collectively restore committed state under a changed MPI partition.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>save_portable_quadrature_state(path, state, *, material = None) -&gt; Path</code></td>
+<td>Collectively save committed state by physical cell and point identity.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -7689,6 +7732,26 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>load_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, state: dict[str, object]) -&gt; dict[str, object]</code></td>
 <td>Restore a transient state after validating its scientific identity.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>save_portable_state_bundle(path, *, state: dict[str, object]) -&gt; dict[str, object]</code></td>
+<td>Collectively publish a portable nodal-state bundle.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>load_portable_state_bundle(path, *, state: dict[str, object], record: dict[str, object], identities: dict[str, object]) -&gt; None</code></td>
+<td>Collectively restore a bundle written by :func:<code>save_portable_state_bundle</code>.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>checkpoint_file_record(path) -&gt; dict[str, object]</code></td>
+<td>Describe one checkpoint payload by name, size, and digest.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>validate_checkpoint_record(directory, record: dict[str, object]) -&gt; Path</code></td>
+<td>Validate and return a payload referenced by a scientific manifest.</td>
 </tr>
 <tr>
 <td>function</td>

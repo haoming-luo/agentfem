@@ -7,9 +7,13 @@ global finite-element contract.
 
 ## Current boundary
 
-- 3D global power-law creep with backward Euler, shared quadrature state,
-  analytical tangent, physical-time cutback, creep fields, dissipation, and
-  serial restart;
+- 3D global power-law creep with regional materials, backward Euler, shared
+  quadrature state, analytical tangent, physical-time cutback, creep fields,
+  dissipation, and portable full-Step restart;
+- MPI-safe regional quadrature updates and rank-count-portable J2/creep
+  full-Step archives; J2 distributed global Newton has public thick-cylinder
+  structural evidence, while the creep route retains a NAFEMS structural
+  promotion gate;
 - optional scalar or finite-element temperature input consumed at creep
   integration points by a normalized Arrhenius rate law;
 - Kachanov–Rabotnov, Sinh, and related relations at explicitly marked

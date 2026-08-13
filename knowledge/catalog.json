@@ -134,6 +134,13 @@
       "title": "Nonuniform three-dimensional J2 bending path"
     },
     {
+      "id": "agentfem.benchmark.j2_thick_cylinder_mpi",
+      "physics": "three-dimensional extrusion of a plane-strain quarter cylinder with small-strain Mises plasticity and linear isotropic hardening",
+      "source": "knowledge/benchmarks/j2_thick_cylinder_mpi.json",
+      "status": "automated_external_structural_mpi",
+      "title": "Public thick-cylinder J2 structural benchmark in serial and MPI"
+    },
+    {
       "id": "agentfem.benchmark.jmps_weak_interface_convergence_v4",
       "physics": "near-incompressible finite-strain plane-stress Neo-Hookean strip with ten or more cells through the height, homogeneous preload, smooth remote impact, a fixed bilinear Mode-I cohesive interface, and a precrack",
       "source": "knowledge/benchmarks/jmps_weak_interface_convergence_v4.json",

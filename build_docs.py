@@ -237,7 +237,7 @@ def render_agent_manifest() -> str:
         "schema_version": "1.0",
         "project": "AgentFEM",
         "version": project_version(),
-        "maturity": "public-alpha",
+        "maturity": "early-release",
         "description": "AI-native finite-element computing for humans and agents.",
         "documentation": "https://haoming-luo.github.io/agentfem/",
         "repository": "https://github.com/haoming-luo/agentfem",

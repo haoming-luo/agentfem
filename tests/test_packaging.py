@@ -23,7 +23,7 @@ def test_release_gate_rejects_build_machine_bytecode_and_cache_members():
 def test_release_contract_is_complete_and_references_real_workflows():
     contract = release_gate.check_release_contract(source_root=PROJECT_ROOT)
 
-    assert contract["target_version"] == "0.2.0a3"
+    assert contract["target_version"] == "0.2.0"
     assert {item["maturity"] for item in contract["workflows"]} <= {
         "release",
         "engineering",

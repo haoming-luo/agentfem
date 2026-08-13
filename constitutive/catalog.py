@@ -56,13 +56,14 @@ _CAPABILITIES = {
         available_scope=(
             "3D small-strain global Newton path with shared quadrature "
             "transaction, analytical consistent tangent, cyclic tabular "
-            "amplitude, physical-increment cutback, work/energy history, "
-            "and serial restart"
+            "amplitude, regional material dispatch, physical-increment "
+            "cutback, work/energy history, structurally benchmarked "
+            "distributed Newton, and portable full-Step restart across MPI "
+            "rank counts"
         ),
         limitations=(
             "3D only; plane stress needs a constrained local return map",
-            "the first global provider and its checkpoint are serial-only",
-            "no multi-region or kinematic-hardening global driver",
+            "no kinematic-hardening global driver",
             "finite-strain plasticity is not implemented",
         ),
     ),
@@ -88,11 +89,12 @@ _CAPABILITIES = {
             "material-point constant-stress and relaxation checks plus a 3D "
             "small-strain global step with backward Euler, shared quadrature "
             "transaction, analytical tangent, automatic physical-time cutback, "
-            "standard creep fields, dissipation, serial restart, and a scalar "
-            "or finite-element temperature field for normalized Arrhenius rates"
+            "regional materials, standard creep fields, dissipation, portable "
+            "full-Step restart, MPI-portable quadrature state, and a scalar or "
+            "finite-element temperature field for normalized Arrhenius rates"
         ),
         limitations=(
-            "the first global provider is serial, 3D, and single-material",
+            "the first global Newton provider is 3D; its MPI route is experimental",
             "transient thermal-history transfer is not automated",
             "Sinh and K-R laws remain local consumers",
             "no external component benchmark or damage regularization",
@@ -139,8 +141,8 @@ _CAPABILITIES = {
     "cyclic_cohesive_fatigue": ConstitutiveCapability(
         name="cyclic_cohesive_fatigue",
         model=(
-            "replaceable Mode-I opening-range or proportional mixed-mode "
-            "cohesive-energy-range fatigue damage layered on a bilinear envelope"
+            "replaceable Mode-I opening-range or mixed-mode cohesive-energy "
+            "fatigue damage layered on a bilinear envelope"
         ),
         maturity="experimental_mixed_mode_global_lifecycle",
         available_scope=(
@@ -154,11 +156,12 @@ _CAPABILITIES = {
             "equilibrium with algorithmic tangent and strong-constraint reaction, "
             "3D failed-area/front/COD observations, complete local jump extrema, "
             "GI/GII cohesive-energy ranges, BK/power interaction, material-aware "
-            "cyclic fields, and cross-rank-count physical-facet state portability"
+            "cyclic fields, ordered non-proportional jump paths, segment-resolved "
+            "driving, and cross-rank-count physical-facet state portability"
         ),
         limitations=(
             "reference-point work and complete monotonic/fatigue energy closure remain",
-            "mixed-mode peak/valley driver is limited to proportional or near-proportional cycles; ordered non-proportional paths are rejected",
+            "peak/valley mixed-mode driving is limited to proportional cycles; non-proportional cycles require an explicitly ordered closed path",
             "reference fatigue evolution requires material/interface calibration",
             "local cohesive GI/GII drivers are not structural J-integral or VCCT energy-release rates",
             "no cylinder benchmark, cross-partition bulk restart, mixed-mode external validation, CT validation, or experimental prediction yet",
@@ -177,12 +180,12 @@ _CAPABILITIES = {
             "Coulomb resistance, analytical tangent, standard interface fields, "
             "serial/MPI assembly, physical-facet restart, rigid-mode preflight, "
             "Mode-I deviation audit, spherical arc-length continuation, and an "
-            "experimental proportional mixed-mode cyclic energy-range consumer"
+            "experimental proportional or ordered-path mixed-mode cyclic consumer"
         ),
         limitations=(
             "mixed-mode damage freezes mode mix at initiation and is intended for proportional or mildly changing paths",
             "friction is a smooth penalty regularization rather than a general contact active-set solver",
-            "non-proportional cyclic mixed-mode paths and free-path crack growth are not implemented",
+            "ordered non-proportional cycles are supported on fixed paths; free-path crack growth is not implemented",
             "no external mixed-mode structural benchmark has yet promoted this experimental law",
         ),
     ),

@@ -251,11 +251,11 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `CreepIncrementInfo` | Public AgentFEM object. |
 | class | `CreepPathInfo` | Public AgentFEM object. |
 | class | `ImplicitCreepStep` | Adaptive backward-Euler creep step with global Newton equilibrium. |
-| function | `implicit_creep_step(*, displacement, material, duration: float, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, temperature = None, name: str = 'implicit_creep') -> ImplicitCreepStep` | Build the first global 3D implicit power-law creep step. |
+| function | `implicit_creep_step(*, displacement, material, duration: float, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, temperature = None, name: str = 'implicit_creep', _experimental_distributed: bool = False) -> ImplicitCreepStep` | Build the first global 3D implicit power-law creep step. |
 | class | `J2IncrementInfo` | Public AgentFEM object. |
 | class | `J2LoadPathInfo` | Public AgentFEM object. |
 | class | `J2PlasticityStep` | Incremental global equilibrium for 3D small-strain J2 plasticity. |
-| function | `j2_plasticity_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'j2_plasticity') -> J2PlasticityStep` | Build a global 3D J2 step from a displacement and load operator. |
+| function | `j2_plasticity_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'j2_plasticity', _experimental_distributed: bool = False) -> J2PlasticityStep` | Build a global 3D J2 step from a displacement and load operator. |
 
 ## `agentfem.constitutive`
 
@@ -328,7 +328,10 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `CreepQuadratureState` | Committed/trial integration-point state for implicit 3D creep. |
 | class | `J2QuadratureState` | Committed/trial integration-point state for 3D small-strain J2. |
 | class | `QuadratureField` | A DOLFINx quadrature function with an explicit NumPy point view. |
+| class | `QuadratureMaterialMap` | Cell-region material dispatch shared by stateful solid procedures. |
 | class | `QuadratureTransaction` | Shared trial/commit/rollback contract for integration-point state. |
+| function | `load_portable_quadrature_state(path, state, *, material = None) -> None` | Collectively restore committed state under a changed MPI partition. |
+| function | `save_portable_quadrature_state(path, state, *, material = None) -> Path` | Collectively save committed state by physical cell and point identity. |
 | class | `AbaqusUserMaterialBridge` | Truthful capability description for an intended UMAT/UHYPER adapter. |
 | class | `MaterialPointInput` | Solver-neutral finite-strain input for one material-point update. |
 | class | `MaterialPointOutput` | Constitutive response returned to a nonlinear finite-element driver. |
@@ -851,6 +854,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `every(increments: int, *, directory = 'checkpoints', final: bool = True, prefix: str \| None = None, keep_last: int \| None = None, portable: bool = False) -> CheckpointPolicy` | Create an automatic checkpoint policy for accepted time increments. |
 | function | `save_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, completed_steps: int, state: dict[str, object], accepted_times = (), execution_events = (), history_records = (), auxiliary_state: dict[str, object] \| None = None, portable: bool = False)` | Write a transient restart, optionally with partition-independent state. |
 | function | `load_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, state: dict[str, object]) -> dict[str, object]` | Restore a transient state after validating its scientific identity. |
+| function | `save_portable_state_bundle(path, *, state: dict[str, object]) -> dict[str, object]` | Collectively publish a portable nodal-state bundle. |
+| function | `load_portable_state_bundle(path, *, state: dict[str, object], record: dict[str, object], identities: dict[str, object]) -> None` | Collectively restore a bundle written by :func:`save_portable_state_bundle`. |
+| function | `checkpoint_file_record(path) -> dict[str, object]` | Describe one checkpoint payload by name, size, and digest. |
+| function | `validate_checkpoint_record(directory, record: dict[str, object]) -> Path` | Validate and return a payload referenced by a scientific manifest. |
 | function | `function_portable_identity(function) -> dict[str, object]` | Return an MPI-partition-independent identity for a nodal field. |
 | function | `mesh_portable_identity(domain) -> dict[str, object]` | Hash cell geometry independently of local numbering and partition. |
 | function | `function_partition_identity(function) -> dict[str, object]` | Return a JSON-safe identity for one field on one mesh partition. |

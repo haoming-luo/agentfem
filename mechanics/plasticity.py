@@ -17,7 +17,11 @@ from .. import amplitudes
 from .. import steps as step_controls
 from ..constitutive import elasticity
 from ..constitutive.plasticity import J2LinearIsotropicHardening
-from ..constitutive.quadrature import J2QuadratureState
+from ..constitutive.quadrature import (
+    J2QuadratureState,
+    QuadratureField,
+    QuadratureMaterialMap,
+)
 from ..diagnostics import (
     SolveEventRecorder,
     StandardRunReporter,
@@ -173,7 +177,7 @@ class J2PlasticityStep:
 
     name: str
     solution: object
-    material: J2LinearIsotropicHardening
+    material: J2LinearIsotropicHardening | QuadratureMaterialMap
     state: J2QuadratureState
     residual_form: object
     tangent_form: object
@@ -401,14 +405,15 @@ class J2PlasticityStep:
         )
         return self.solution
 
-    def save_checkpoint(self, path) -> Path:
+    def save_checkpoint(self, path, *, portable: bool | None = None) -> Path:
         """Save displacement, accepted load factor, and committed state."""
 
-        if self.solution.function_space.mesh.comm.size != 1:
-            raise NotImplementedError(
-                "Portable distributed J2 checkpoints require global cell and "
-                "dof identities and are not implemented yet."
-            )
+        comm = self.solution.function_space.mesh.comm
+        selected_portable = comm.size != 1 if portable is None else bool(portable)
+        if selected_portable:
+            return self._save_portable_checkpoint(path)
+        if comm.size != 1:
+            raise ValueError("Distributed J2 checkpoints must use portable=True.")
         selected = Path(path)
         if selected.suffix != ".npz":
             selected = selected.with_suffix(".npz")
@@ -468,9 +473,23 @@ class J2PlasticityStep:
     def load_checkpoint(self, path) -> None:
         """Restore a serial checkpoint into the same mesh/function layout."""
 
+        selected = Path(path)
+        manifest = (
+            selected
+            if selected.name.endswith(".checkpoint.json")
+            else selected.with_suffix("").with_name(
+                selected.with_suffix("").name + ".checkpoint.json"
+            )
+        )
+        if manifest.is_file():
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            if payload.get("schema") == "agentfem.j2-step-checkpoint.v5":
+                self._load_portable_checkpoint(manifest, payload)
+                return
         if self.solution.function_space.mesh.comm.size != 1:
-            raise NotImplementedError(
-                "Portable distributed J2 checkpoints are not implemented yet."
+            raise ValueError(
+                "This legacy J2 checkpoint is partition-bound; use a v5 "
+                "portable checkpoint for distributed restart."
             )
         with np.load(path, allow_pickle=False) as data:
             schema = str(data["schema"])
@@ -554,6 +573,122 @@ class J2PlasticityStep:
                 self.state.evaluate_strain(elasticity.strain(self.solution)),
                 self.material,
             )
+
+    def _save_portable_checkpoint(self, path) -> Path:
+        from ..checkpointing import (
+            atomic_write_text,
+            checkpoint_file_record,
+            save_portable_state_bundle,
+        )
+
+        selected = Path(path)
+        if selected.suffix:
+            selected = selected.with_suffix("")
+        manifest = selected.with_name(selected.name + ".checkpoint.json")
+        bundle = save_portable_state_bundle(manifest, state={"U": self.solution})
+        quadrature = self.state.save(
+            manifest.with_name(f"{selected.name}.{bundle['generation']}.quadrature"),
+            material=self.material,
+        )
+        payload = {
+            "schema": "agentfem.j2-step-checkpoint.v5",
+            "step_identity": self._portable_checkpoint_identity(),
+            "coordinate": float(self.accepted_load_factor),
+            "nodal_state": bundle["record"],
+            "nodal_identity": bundle["identities"],
+            "quadrature_state": checkpoint_file_record(quadrature),
+            "accepted_increments": [item.as_dict() for item in self.accepted_increments],
+            "attempted_increments": [item.as_dict() for item in self.attempted_increments],
+            "execution_events": [item.as_dict() for item in self.execution_events],
+            "energy_history": [item.as_dict() for item in self.energy_history],
+            "next_increment_size": self.next_increment_size,
+        }
+        comm = self.solution.function_space.mesh.comm
+        error = None
+        if comm.rank == 0:
+            try:
+                atomic_write_text(
+                    manifest, json.dumps(payload, indent=2, sort_keys=True) + "\n"
+                )
+            except Exception as exc:
+                error = f"{type(exc).__name__}: {exc}"
+        error = comm.bcast(error, root=0)
+        if error is not None:
+            raise RuntimeError(f"J2 checkpoint manifest write failed: {error}")
+        comm.barrier()
+        from ..results import CheckpointRecord
+
+        self.checkpoints.append(
+            CheckpointRecord(
+                name=f"{self.name}_{self.accepted_load_factor:g}",
+                path=manifest,
+                schema="agentfem.j2-step-checkpoint.v5",
+                step_name=self.name,
+                coordinate_name="load_factor",
+                coordinate_value=self.accepted_load_factor,
+                portable=True,
+                metadata={"state_variables": ("U", "PE", "PEEQ")},
+            )
+        )
+        return manifest
+
+    def _load_portable_checkpoint(self, manifest: Path, payload: dict) -> None:
+        from ..checkpointing import (
+            load_portable_state_bundle,
+            validate_checkpoint_record,
+        )
+
+        current = json.loads(
+            json.dumps(self._portable_checkpoint_identity(), sort_keys=True)
+        )
+        if payload.get("step_identity") != current:
+            raise ValueError("Portable J2 checkpoint scientific identity differs.")
+        load_portable_state_bundle(
+            manifest,
+            state={"U": self.solution},
+            record=payload["nodal_state"],
+            identities=payload["nodal_identity"],
+        )
+        self.state.load(
+            validate_checkpoint_record(manifest.parent, payload["quadrature_state"]),
+            material=self.material,
+        )
+        self.accepted_load_factor = float(payload["coordinate"])
+        self.accepted_increments[:] = [
+            J2IncrementInfo.from_dict(item) for item in payload["accepted_increments"]
+        ]
+        self.attempted_increments[:] = [
+            J2IncrementInfo.from_dict(item) for item in payload["attempted_increments"]
+        ]
+        self.execution_events[:] = [
+            SolveEvent.from_dict(item) for item in payload["execution_events"]
+        ]
+        self.energy_history[:] = [
+            J2EnergyFrame.from_dict(item) for item in payload["energy_history"]
+        ]
+        self.next_increment_size = payload.get("next_increment_size")
+        self._apply_loading(self.accepted_load_factor)
+        self.last_solve_info = J2LoadPathInfo(
+            tuple(self.accepted_increments),
+            tuple(self.attempted_increments),
+            self.incrementation,
+        )
+        self.state.update(
+            self.state.evaluate_strain(elasticity.strain(self.solution)), self.material
+        )
+
+    def _portable_checkpoint_identity(self) -> dict[str, object]:
+        from ..checkpointing import function_portable_identity
+
+        return {
+            "step_name": self.name,
+            "procedure": self.procedure.summary(),
+            "material": self.material.as_dict(),
+            "amplitude": self.amplitude.summary(),
+            "incrementation": self.incrementation.summary(),
+            "solution": function_portable_identity(self.solution),
+            "quadrature": self.state.summary()["transaction"],
+        }
 
     def _checkpoint_identity(self) -> dict[str, object]:
         """Return the stateful procedure identity required for safe restart."""
@@ -691,12 +826,33 @@ class J2PlasticityStep:
                 "postprocessed": False,
             },
         )
-        peeq = self.state.equivalent_plastic_strain.values.reshape(-1)
+        reaction_map = reaction.function_space.dofmap.index_map
+        reaction_owned = int(reaction_map.size_local) * int(
+            reaction.function_space.dofmap.index_map_bs
+        )
+        reaction_local_squared = float(
+            np.vdot(
+                reaction.x.array[:reaction_owned],
+                reaction.x.array[:reaction_owned],
+            ).real
+        )
         result.add_quantities(
             {
-                "maximum_equivalent_plastic_strain": float(np.max(peeq)),
-                "plastic_integration_points": int(np.count_nonzero(peeq > 1.0e-14)),
-                "reaction_l2_norm": float(np.linalg.norm(reaction.x.array)),
+                "maximum_equivalent_plastic_strain": (
+                    self.state.equivalent_plastic_strain.global_max()
+                ),
+                "plastic_integration_points": (
+                    self.state.equivalent_plastic_strain.global_count_nonzero(
+                        tolerance=1.0e-14
+                    )
+                ),
+                "reaction_l2_norm": float(
+                    np.sqrt(
+                        self.state.domain.comm.allreduce(
+                            reaction_local_squared
+                        )
+                    )
+                ),
                 **self.internal_energy(),
             },
             kind="diagnostic",
@@ -791,8 +947,34 @@ class J2PlasticityStep:
             stress,
             strain - plastic_strain,
         )
-        hardening_density = 0.5 * self.material.hardening_modulus * peeq**2
-        dissipation_density = self.material.yield_stress * peeq
+        if isinstance(self.material, QuadratureMaterialMap):
+            hardening = QuadratureField.create(
+                self.state.domain,
+                name="HARDENING_MODULUS",
+                degree=self.state.degree,
+                scheme=self.state.scheme,
+            )
+            yield_stress = QuadratureField.create(
+                self.state.domain,
+                name="YIELD_STRESS",
+                degree=self.state.degree,
+                scheme=self.state.scheme,
+            )
+            points_per_cell = len(self.state.stress.points)
+            regions = np.repeat(self.material.cell_regions, points_per_cell)
+            hardening.assign(
+                [self.material.materials[int(region)].hardening_modulus for region in regions]
+            )
+            yield_stress.assign(
+                [self.material.materials[int(region)].yield_stress for region in regions]
+            )
+            hardening_coefficient = hardening.function
+            yield_coefficient = yield_stress.function
+        else:
+            hardening_coefficient = self.material.hardening_modulus
+            yield_coefficient = self.material.yield_stress
+        hardening_density = 0.5 * hardening_coefficient * peeq**2
+        dissipation_density = yield_coefficient * peeq
         values = []
         for density in (
             elastic_density,
@@ -991,18 +1173,18 @@ class J2PlasticityStep:
 
     def _correction_rhs(self):
         residual = fem_petsc.assemble_vector(self.residual_form)
-        residual.scale(-1.0)
         fem_petsc.apply_lifting(
             residual,
             [self.tangent_form],
             [self.bcs],
             x0=[self.solution.x.petsc_vec],
-            alpha=1.0,
+            alpha=-1.0,
         )
         residual.ghostUpdate(
             addv=PETSc.InsertMode.ADD,
             mode=PETSc.ScatterMode.REVERSE,
         )
+        residual.scale(-1.0)
         fem_petsc.set_bc(
             residual,
             self.bcs,
@@ -1141,23 +1323,27 @@ def j2_plasticity_step(
     status_file=None,
     amplitude=None,
     name: str = "j2_plasticity",
+    _experimental_distributed: bool = False,
 ) -> J2PlasticityStep:
     """Build a global 3D J2 step from a displacement and load operator."""
 
-    if not isinstance(material, J2LinearIsotropicHardening):
-        raise TypeError("j2_plasticity_step requires J2LinearIsotropicHardening.")
+    if not isinstance(material, (J2LinearIsotropicHardening, QuadratureMaterialMap)):
+        raise TypeError(
+            "j2_plasticity_step requires J2LinearIsotropicHardening or a "
+            "QuadratureMaterialMap of that family."
+        )
     if displacement.value.function_space.mesh.geometry.dim != 3:
         raise NotImplementedError(
             "The first global J2 driver supports 3D small-strain solids. "
             "Plane stress needs a separate local return-map constraint."
         )
     domain = displacement.value.function_space.mesh
-    if domain.comm.size != 1:
-        raise NotImplementedError(
-            "The first global J2 provider is serial-only. Distributed "
-            "quadrature ownership and portable cell identity must be verified "
-            "before MPI execution is advertised."
-        )
+    if isinstance(material, QuadratureMaterialMap) and material.domain is not domain:
+        raise ValueError("J2 quadrature material map belongs to a different mesh.")
+    # ``_experimental_distributed`` is retained temporarily for source
+    # compatibility with development cases. Distributed equilibrium is now
+    # public after partition-interface, cross-rank restart, and external
+    # thick-cylinder structural acceptance.
     state = J2QuadratureState.create(domain, degree=quadrature_degree)
     selected_amplitude = amplitudes.ramp() if amplitude is None else amplitudes.as_amplitude(
         amplitude,

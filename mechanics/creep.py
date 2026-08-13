@@ -18,7 +18,11 @@ from .. import procedures
 from .. import steps as step_controls
 from ..constitutive import elasticity
 from ..constitutive.creep import IsotropicPowerLawCreepMaterial
-from ..constitutive.quadrature import CreepQuadratureState, QuadratureField
+from ..constitutive.quadrature import (
+    CreepQuadratureState,
+    QuadratureField,
+    QuadratureMaterialMap,
+)
 from ..diagnostics import (
     SolveEventRecorder,
     StandardRunReporter,
@@ -176,7 +180,7 @@ class ImplicitCreepStep:
 
     name: str
     solution: object
-    material: IsotropicPowerLawCreepMaterial
+    material: IsotropicPowerLawCreepMaterial | QuadratureMaterialMap
     state: CreepQuadratureState
     residual_form: object
     tangent_form: object
@@ -207,7 +211,21 @@ class ImplicitCreepStep:
         self.duration = float(self.duration)
         if not np.isfinite(self.duration) or self.duration <= 0.0:
             raise ValueError("Implicit creep duration must be finite and positive.")
-        requires_temperature = self.material.temperature_dependence is not None
+        materials = (
+            tuple(self.material.materials.values())
+            if isinstance(self.material, QuadratureMaterialMap)
+            else (self.material,)
+        )
+        temperature_modes = {
+            item.temperature_dependence is not None for item in materials
+        }
+        if len(temperature_modes) != 1:
+            raise ValueError(
+                "One creep step cannot mix isothermal and Arrhenius material "
+                "regions; split the procedure or give every region the same "
+                "temperature-dependence contract."
+            )
+        requires_temperature = temperature_modes.pop()
         if requires_temperature and self.temperature is None:
             raise ValueError(
                 "Temperature-dependent creep requires temperature=... in kelvin."
@@ -578,18 +596,18 @@ class ImplicitCreepStep:
 
     def _correction_rhs(self):
         residual = fem_petsc.assemble_vector(self.residual_form)
-        residual.scale(-1.0)
         fem_petsc.apply_lifting(
             residual,
             [self.tangent_form],
             [self.bcs],
             x0=[self.solution.x.petsc_vec],
-            alpha=1.0,
+            alpha=-1.0,
         )
         residual.ghostUpdate(
             addv=PETSc.InsertMode.ADD,
             mode=PETSc.ScatterMode.REVERSE,
         )
+        residual.scale(-1.0)
         fem_petsc.set_bc(
             residual,
             self.bcs,
@@ -689,12 +707,13 @@ class ImplicitCreepStep:
         residual.destroy()
         return reaction
 
-    def save_checkpoint(self, path) -> Path:
-        if self.solution.function_space.mesh.comm.size != 1:
-            raise NotImplementedError(
-                "Portable distributed creep checkpoints require stable global "
-                "cell and quadrature identities."
-            )
+    def save_checkpoint(self, path, *, portable: bool | None = None) -> Path:
+        comm = self.solution.function_space.mesh.comm
+        selected_portable = comm.size != 1 if portable is None else bool(portable)
+        if selected_portable:
+            return self._save_portable_checkpoint(path)
+        if comm.size != 1:
+            raise ValueError("Distributed creep checkpoints must use portable=True.")
         selected = Path(path)
         if selected.suffix != ".npz":
             selected = selected.with_suffix(".npz")
@@ -748,9 +767,23 @@ class ImplicitCreepStep:
         return selected
 
     def load_checkpoint(self, path) -> None:
+        selected = Path(path)
+        manifest = (
+            selected
+            if selected.name.endswith(".checkpoint.json")
+            else selected.with_suffix("").with_name(
+                selected.with_suffix("").name + ".checkpoint.json"
+            )
+        )
+        if manifest.is_file():
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            if payload.get("schema") == "agentfem.implicit-creep-checkpoint.v2":
+                self._load_portable_checkpoint(manifest, payload)
+                return
         if self.solution.function_space.mesh.comm.size != 1:
-            raise NotImplementedError(
-                "Portable distributed creep checkpoints are not implemented yet."
+            raise ValueError(
+                "This legacy creep checkpoint is partition-bound; use a v2 "
+                "portable checkpoint for distributed restart."
             )
         with np.load(path, allow_pickle=False) as data:
             if str(data["schema"]) != "agentfem.implicit-creep-checkpoint.v1":
@@ -811,6 +844,141 @@ class ImplicitCreepStep:
                 self.state.evaluate_strain(elasticity.strain(self.solution)),
                 self.material,
             )
+
+    def _save_portable_checkpoint(self, path) -> Path:
+        from ..checkpointing import (
+            atomic_write_text,
+            checkpoint_file_record,
+            save_portable_state_bundle,
+        )
+
+        selected = Path(path)
+        if selected.suffix:
+            selected = selected.with_suffix("")
+        manifest = selected.with_name(selected.name + ".checkpoint.json")
+        bundle = save_portable_state_bundle(manifest, state={"U": self.solution})
+        quadrature = self.state.save(
+            manifest.with_name(f"{selected.name}.{bundle['generation']}.quadrature"),
+            material=self.material,
+        )
+        payload = {
+            "schema": "agentfem.implicit-creep-checkpoint.v2",
+            "step_identity": self._portable_checkpoint_identity(),
+            "coordinate": float(self.accepted_time),
+            "nodal_state": bundle["record"],
+            "nodal_identity": bundle["identities"],
+            "quadrature_state": checkpoint_file_record(quadrature),
+            "accepted_increments": [item.as_dict() for item in self.accepted_increments],
+            "attempted_increments": [item.as_dict() for item in self.attempted_increments],
+            "execution_events": [item.as_dict() for item in self.execution_events],
+            "energy_history": [item.as_dict() for item in self.energy_history],
+            "next_increment_size": self.next_increment_size,
+        }
+        comm = self.solution.function_space.mesh.comm
+        error = None
+        if comm.rank == 0:
+            try:
+                atomic_write_text(
+                    manifest, json.dumps(payload, indent=2, sort_keys=True) + "\n"
+                )
+            except Exception as exc:
+                error = f"{type(exc).__name__}: {exc}"
+        error = comm.bcast(error, root=0)
+        if error is not None:
+            raise RuntimeError(f"Creep checkpoint manifest write failed: {error}")
+        comm.barrier()
+        from ..results import CheckpointRecord
+
+        self.checkpoints.append(
+            CheckpointRecord(
+                name=f"{self.name}_{self.accepted_time:g}",
+                path=manifest,
+                schema="agentfem.implicit-creep-checkpoint.v2",
+                step_name=self.name,
+                coordinate_name="time",
+                coordinate_value=self.accepted_time,
+                portable=True,
+                metadata={"state_variables": ("U", "CE", "CEEQ")},
+            )
+        )
+        return manifest
+
+    def _load_portable_checkpoint(self, manifest: Path, payload: dict) -> None:
+        from ..checkpointing import (
+            load_portable_state_bundle,
+            validate_checkpoint_record,
+        )
+
+        current = json.loads(
+            json.dumps(self._portable_checkpoint_identity(), sort_keys=True)
+        )
+        if payload.get("step_identity") != current:
+            raise ValueError("Portable creep checkpoint scientific identity differs.")
+        load_portable_state_bundle(
+            manifest,
+            state={"U": self.solution},
+            record=payload["nodal_state"],
+            identities=payload["nodal_identity"],
+        )
+        self.state.load(
+            validate_checkpoint_record(manifest.parent, payload["quadrature_state"]),
+            material=self.material,
+        )
+        self.accepted_time = float(payload["coordinate"])
+        self.accepted_increments[:] = [
+            CreepIncrementInfo.from_dict(item) for item in payload["accepted_increments"]
+        ]
+        self.attempted_increments[:] = [
+            CreepIncrementInfo.from_dict(item) for item in payload["attempted_increments"]
+        ]
+        self.execution_events[:] = [
+            SolveEvent.from_dict(item) for item in payload["execution_events"]
+        ]
+        self.energy_history[:] = [
+            CreepEnergyFrame.from_dict(item) for item in payload["energy_history"]
+        ]
+        self.next_increment_size = payload.get("next_increment_size")
+        self._apply_loading(self.accepted_time)
+        self.last_solve_info = CreepPathInfo(
+            tuple(self.accepted_increments),
+            tuple(self.attempted_increments),
+            self.duration,
+            self.incrementation,
+        )
+        self.state.refresh_response(
+            self.state.evaluate_strain(elasticity.strain(self.solution)), self.material
+        )
+
+    def _portable_checkpoint_identity(self) -> dict[str, object]:
+        from ..checkpointing import function_portable_identity
+
+        return {
+            "step_name": self.name,
+            "procedure": self.procedure.summary(),
+            "duration": self.duration,
+            "material": self.material.as_dict(),
+            "amplitude": self.amplitude.summary(),
+            "incrementation": self.incrementation.summary(),
+            "solution": function_portable_identity(self.solution),
+            "quadrature": self.state.summary()["transaction"],
+            "temperature": self._portable_temperature_summary(),
+        }
+
+    def _portable_temperature_summary(self) -> dict[str, object] | None:
+        selected = getattr(self.temperature, "value", self.temperature)
+        if selected is None:
+            return None
+        if hasattr(selected, "function_space"):
+            from ..checkpointing import function_portable_identity
+
+            return {
+                "kind": "finite_element_field",
+                "unit": "K",
+                "field_name": getattr(selected, "name", None),
+                "identity": function_portable_identity(selected),
+            }
+        scalar = np.asarray(selected, dtype=float)
+        return {"kind": "constant", "unit": "K", "value": scalar.tolist()}
 
     def _checkpoint_identity(self) -> dict[str, object]:
         from ..checkpointing import function_partition_identity
@@ -909,12 +1077,15 @@ class ImplicitCreepStep:
             description="Full nodal residual for reaction extraction.",
             processing={"method": "assembled_equilibrium_residual"},
         )
-        ceeq = self.state.equivalent_creep_strain.values.reshape(-1)
         result.add_quantities(
             {
                 "analysis_time": self.accepted_time,
-                "maximum_equivalent_creep_strain": float(np.max(ceeq)),
-                "creeping_integration_points": int(np.count_nonzero(ceeq > 0.0)),
+                "maximum_equivalent_creep_strain": (
+                    self.state.equivalent_creep_strain.global_max()
+                ),
+                "creeping_integration_points": (
+                    self.state.equivalent_creep_strain.global_count_nonzero()
+                ),
             },
             kind="diagnostic",
         )
@@ -958,7 +1129,12 @@ class ImplicitCreepStep:
                     item.maximum_local_iterations for item in self.accepted_increments
                 ],
             }
-            if self.material.temperature_dependence is not None:
+            materials = (
+                tuple(self.material.materials.values())
+                if isinstance(self.material, QuadratureMaterialMap)
+                else (self.material,)
+            )
+            if all(item.temperature_dependence is not None for item in materials):
                 increment_histories.update(
                     {
                         "minimum_creep_temperature": [
@@ -1085,22 +1261,30 @@ def implicit_creep_step(
     amplitude=None,
     temperature=None,
     name: str = "implicit_creep",
+    _experimental_distributed: bool = False,
 ) -> ImplicitCreepStep:
     """Build the first global 3D implicit power-law creep step."""
 
-    if not isinstance(material, IsotropicPowerLawCreepMaterial):
+    if not isinstance(
+        material, (IsotropicPowerLawCreepMaterial, QuadratureMaterialMap)
+    ):
         raise TypeError(
-            "implicit_creep_step requires IsotropicPowerLawCreepMaterial."
+            "implicit_creep_step requires IsotropicPowerLawCreepMaterial or "
+            "a QuadratureMaterialMap of that family."
         )
     domain = displacement.value.function_space.mesh
+    if isinstance(material, QuadratureMaterialMap) and material.domain is not domain:
+        raise ValueError("Creep quadrature material map belongs to a different mesh.")
+    if domain.comm.size != 1 and not _experimental_distributed:
+        raise NotImplementedError(
+            "Distributed creep quadrature state and portable restart are "
+            "supported, but the custom global Newton equilibrium path has not "
+            "yet passed the MPI partition-interface patch test. Run this Step "
+            "in serial."
+        )
     if domain.geometry.dim != 3:
         raise NotImplementedError(
             "The first global creep driver supports 3D small-strain solids."
-        )
-    if domain.comm.size != 1:
-        raise NotImplementedError(
-            "The first global creep provider is serial-only until portable "
-            "quadrature identity is verified."
         )
     state = CreepQuadratureState.create(domain, degree=quadrature_degree)
     selected_amplitude = (

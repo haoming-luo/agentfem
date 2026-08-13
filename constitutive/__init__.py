@@ -89,7 +89,10 @@ from .quadrature import (
     CreepQuadratureState,
     J2QuadratureState,
     QuadratureField,
+    QuadratureMaterialMap,
     QuadratureTransaction,
+    load_portable_quadrature_state,
+    save_portable_quadrature_state,
 )
 from .user_material import (
     AbaqusUserMaterialBridge,
@@ -114,6 +117,7 @@ __all__ = [
     "BasquinCurve",
     "CreepHistory",
     "CreepQuadratureState",
+    "QuadratureMaterialMap",
     "ImplicitCreepState",
     "ImplicitCreepUpdate",
     "IsotropicPowerLawCreepMaterial",
@@ -142,6 +146,8 @@ __all__ = [
     "PowerLawCreep",
     "QuadratureField",
     "QuadratureTransaction",
+    "load_portable_quadrature_state",
+    "save_portable_quadrature_state",
     "TabulatedSNCurve",
     "SinhCreep",
     "UniaxialPlasticState",

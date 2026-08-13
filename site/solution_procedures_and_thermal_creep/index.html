@@ -2555,6 +2555,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../release_0.2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AgentFEM 0.2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../release_0.2.0a2/" class="md-nav__link">
         
   
@@ -3287,8 +3315,11 @@ temperature input for the normalized Arrhenius law. It provides:</p>
 <li>an analytical algorithmic consistent tangent consumed by global Newton;</li>
 <li>atomic commit after acceptance and rollback after Newton, local, or
   maximum-creep-increment failure;</li>
-<li>fixed or automatic physical-time increments, dissipation history, and
-  serial checkpoint/restart;</li>
+<li>complete regional material assignment, fixed or automatic physical-time
+  increments, dissipation history, and portable full-Step checkpoint/restart;</li>
+<li>MPI-safe regional constitutive dispatch and a portable quadrature-state
+  archive keyed by original physical cell, quadrature point, rule, material
+  contract, and mesh fingerprint;</li>
 <li>integration-point temperature consumption, <code>TEMP</code> output, increment-wise
   temperature evidence, and temperature identity in checkpoints;</li>
 <li>a three-dimensional homogeneous stress-relaxation Golden contract.</li>
@@ -3311,7 +3342,8 @@ or structural rupture prediction.</p>
 <li>sequential isotropic thermal expansion as a visible vector operator;</li>
 <li>normalized Arrhenius temperature dependence at material-point and global
   integration-point level;</li>
-<li>global 3D J2 quadrature state with analytical tangent and serial restart.</li>
+<li>global 3D J2 quadrature state with regional materials, analytical tangent,
+  and portable full-Step restart;</li>
 <li>cumulative J2 restart history, analytical uniaxial Golden verification,
   quadrature S/PE/PEEQ/MISES and nodal RF result fields, cyclic amplitude, physical-increment cutback,
   prescribed work, and internal-energy decomposition;</li>
@@ -3321,7 +3353,8 @@ or structural rupture prediction.</p>
   calibration and maturity boundaries.</li>
 <li>global 3D power-law creep with backward Euler, analytical tangent, shared
   transaction, automatic cutback, CE/CEEQ/S/MISES/RF/TEMP, prescribed
-  Arrhenius temperature fields, dissipation history, serial restart, and a
+  Arrhenius temperature fields, dissipation history, regional materials,
+  portable full-Step restart, MPI-portable quadrature state, and a
   relaxation Golden contract.</li>
 </ul>
 <p>Next gates:</p>
@@ -3329,12 +3362,12 @@ or structural rupture prediction.</p>
 <li>finish field/energy/checkpoint products on top of the common complete
    execution-event trace, accepted-increment histories, status files, and
    result manifest across heat, implicit dynamics, and explicit dynamics;</li>
-<li>portable MPI state identity based on global cells/material regions rather
-   than a rank-local array layout;</li>
+<li>exercise the portable full-Step archive on larger partition changes and
+   scheduled HPC restart campaigns;</li>
 <li>connect accepted transient heat-transfer histories to creep increments
    through an explicit field-transfer contract;</li>
-<li>add multi-element and external power-component benchmarks, then MPI-stable
-   global quadrature identity;</li>
+<li>add multi-element and external power-component benchmarks, then promote
+   the experimental global Newton MPI path;</li>
 <li>introduce K-R/Liu--Murakami damage only with near-failure time control and
    a declared mesh-regularization policy;</li>
 <li>monolithic coupling only after a real case demonstrates two-way feedback.</li>

@@ -72,8 +72,11 @@ temperature input for the normalized Arrhenius law. It provides:
 - an analytical algorithmic consistent tangent consumed by global Newton;
 - atomic commit after acceptance and rollback after Newton, local, or
   maximum-creep-increment failure;
-- fixed or automatic physical-time increments, dissipation history, and
-  serial checkpoint/restart;
+- complete regional material assignment, fixed or automatic physical-time
+  increments, dissipation history, and portable full-Step checkpoint/restart;
+- MPI-safe regional constitutive dispatch and a portable quadrature-state
+  archive keyed by original physical cell, quadrature point, rule, material
+  contract, and mesh fingerprint;
 - integration-point temperature consumption, `TEMP` output, increment-wise
   temperature evidence, and temperature identity in checkpoints;
 - a three-dimensional homogeneous stress-relaxation Golden contract.
@@ -99,7 +102,8 @@ Implemented now:
 - sequential isotropic thermal expansion as a visible vector operator;
 - normalized Arrhenius temperature dependence at material-point and global
   integration-point level;
-- global 3D J2 quadrature state with analytical tangent and serial restart.
+- global 3D J2 quadrature state with regional materials, analytical tangent,
+  and portable full-Step restart;
 - cumulative J2 restart history, analytical uniaxial Golden verification,
   quadrature S/PE/PEEQ/MISES and nodal RF result fields, cyclic amplitude, physical-increment cutback,
   prescribed work, and internal-energy decomposition;
@@ -109,7 +113,8 @@ Implemented now:
   calibration and maturity boundaries.
 - global 3D power-law creep with backward Euler, analytical tangent, shared
   transaction, automatic cutback, CE/CEEQ/S/MISES/RF/TEMP, prescribed
-  Arrhenius temperature fields, dissipation history, serial restart, and a
+  Arrhenius temperature fields, dissipation history, regional materials,
+  portable full-Step restart, MPI-portable quadrature state, and a
   relaxation Golden contract.
 
 Next gates:
@@ -117,12 +122,12 @@ Next gates:
 1. finish field/energy/checkpoint products on top of the common complete
    execution-event trace, accepted-increment histories, status files, and
    result manifest across heat, implicit dynamics, and explicit dynamics;
-2. portable MPI state identity based on global cells/material regions rather
-   than a rank-local array layout;
+2. exercise the portable full-Step archive on larger partition changes and
+   scheduled HPC restart campaigns;
 3. connect accepted transient heat-transfer histories to creep increments
    through an explicit field-transfer contract;
-4. add multi-element and external power-component benchmarks, then MPI-stable
-   global quadrature identity;
+4. add multi-element and external power-component benchmarks, then promote
+   the experimental global Newton MPI path;
 5. introduce K-R/Liu--Murakami damage only with near-failure time control and
    a declared mesh-regularization policy;
 6. monolithic coupling only after a real case demonstrates two-way feedback.

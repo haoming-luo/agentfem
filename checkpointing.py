@@ -315,6 +315,82 @@ def load_transient_checkpoint(
     return metadata
 
 
+def save_portable_state_bundle(path, *, state: dict[str, object]) -> dict[str, object]:
+    """Collectively publish a portable nodal-state bundle.
+
+    This small public primitive lets stateful procedures compose their nodal
+    field with a separately versioned integration-point archive.  The caller
+    publishes its scientific manifest only after both payloads exist.
+    """
+
+    functions = {name: fields.unwrap(value) for name, value in state.items()}
+    if not functions:
+        raise ValueError("A portable state bundle requires at least one field.")
+    comm = next(iter(functions.values())).function_space.mesh.comm
+    manifest = _manifest_path(path)
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    generation = comm.bcast(uuid4().hex[:16] if comm.rank == 0 else None, root=0)
+    record, identities = _write_portable_state(
+        manifest,
+        generation=generation,
+        functions=functions,
+        comm=comm,
+    )
+    return {
+        "generation": generation,
+        "record": record,
+        "identities": identities,
+        "manifest": str(manifest),
+    }
+
+
+def load_portable_state_bundle(
+    path,
+    *,
+    state: dict[str, object],
+    record: dict[str, object],
+    identities: dict[str, object],
+) -> None:
+    """Collectively restore a bundle written by :func:`save_portable_state_bundle`."""
+
+    functions = {name: fields.unwrap(value) for name, value in state.items()}
+    if not functions:
+        raise ValueError("A portable state bundle requires at least one field.")
+    comm = next(iter(functions.values())).function_space.mesh.comm
+    _restore_portable_state(
+        _manifest_path(path),
+        metadata={
+            "portable_state": record,
+            "portable_state_identity": identities,
+        },
+        functions=functions,
+        comm=comm,
+    )
+
+
+def checkpoint_file_record(path) -> dict[str, object]:
+    """Describe one checkpoint payload by name, size, and digest."""
+
+    selected = Path(path)
+    return {
+        "path": selected.name,
+        "size": int(selected.stat().st_size),
+        "sha256": _file_sha256(selected),
+    }
+
+
+def validate_checkpoint_record(directory, record: dict[str, object]) -> Path:
+    """Validate and return a payload referenced by a scientific manifest."""
+
+    selected = Path(directory) / str(record["path"])
+    _validate_checkpoint_file(
+        selected,
+        expected_size=int(record["size"]),
+        expected_digest=str(record["sha256"]),
+    )
+    return selected
+
+
 def _write_portable_state(manifest, *, generation, functions, comm):
     """Write a coordinate-keyed nodal state alongside rank-local shards."""
 

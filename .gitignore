@@ -27,6 +27,7 @@ examples_output/
 
 # Private planning notes, not part of the public package.
 local_notes/
+verification/
 
 # Keep the generated local documentation site unless intentionally removed.
 !site/

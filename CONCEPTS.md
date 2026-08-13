@@ -183,9 +183,9 @@ should also live here.
 A constitutive name does not imply a complete FEM analysis. AgentFEM records
 whether a capability is FEM-integrated, material-point verified, or a
 postprocessor. The first global J2 route has committed/trial quadrature state,
-an algorithmically consistent tangent, rollback/cutback, and restart
-equivalence evidence, but is deliberately serial-only while its distributed
-state contract is still being verified. Temperature-dependent Arrhenius
+an algorithmically consistent tangent, rollback/cutback, rank-count-portable
+restart, and serial/MPI evidence from a public thick-cylinder structural
+benchmark. Temperature-dependent Arrhenius
 power-law creep remains a local constitutive capability, not a claimed global
 creep analysis. Path-dependent material FEM integration additionally requires
 quadrature state, a consistent tangent or documented alternative, increment

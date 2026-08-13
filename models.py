@@ -2055,6 +2055,7 @@ class Model:
 
         from . import mechanics
         from .constitutive.plasticity import J2LinearIsotropicHardening
+        from .constitutive.quadrature import QuadratureMaterialMap
 
         self.check(
             target=target,
@@ -2066,15 +2067,20 @@ class Model:
                 physics="solid_mechanics",
             )
         if material is None:
-            if len(self.materials) != 1:
+            if not self.materials:
                 raise ValueError(
-                    "model.j2_plasticity_step requires material=... or exactly "
-                    "one registered material."
+                    "model.j2_plasticity_step requires registered material data."
                 )
-            material = self.materials[0].item
+            material = QuadratureMaterialMap.from_assignments(
+                target.value.function_space.mesh,
+                self.materials,
+                material_type=J2LinearIsotropicHardening,
+            )
+            if len(self.materials) == 1 and self.materials[0].region is None:
+                material = self.materials[0].item
         else:
             material = self._material_record(material).item
-        if not isinstance(material, J2LinearIsotropicHardening):
+        if not isinstance(material, (J2LinearIsotropicHardening, QuadratureMaterialMap)):
             raise TypeError(
                 "model.j2_plasticity_step requires "
                 "J2LinearIsotropicHardening."
@@ -2163,6 +2169,7 @@ class Model:
 
         from . import mechanics
         from .constitutive.creep import IsotropicPowerLawCreepMaterial
+        from .constitutive.quadrature import QuadratureMaterialMap
 
         self.check(target=target, step_options={"material": material})
         if hasattr(self.study, "require"):
@@ -2171,15 +2178,22 @@ class Model:
                 physics="solid_mechanics",
             )
         if material is None:
-            if len(self.materials) != 1:
+            if not self.materials:
                 raise ValueError(
-                    "model.creep_step requires material=... or exactly one "
-                    "registered material."
+                    "model.creep_step requires registered material data."
                 )
-            material = self.materials[0].item
+            material = QuadratureMaterialMap.from_assignments(
+                target.value.function_space.mesh,
+                self.materials,
+                material_type=IsotropicPowerLawCreepMaterial,
+            )
+            if len(self.materials) == 1 and self.materials[0].region is None:
+                material = self.materials[0].item
         else:
             material = self._material_record(material).item
-        if not isinstance(material, IsotropicPowerLawCreepMaterial):
+        if not isinstance(
+            material, (IsotropicPowerLawCreepMaterial, QuadratureMaterialMap)
+        ):
             raise TypeError(
                 "model.creep_step requires IsotropicPowerLawCreepMaterial."
             )

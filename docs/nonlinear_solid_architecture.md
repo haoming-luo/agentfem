@@ -70,8 +70,15 @@ result requests.
   Newmark/generalized-alpha/central-difference algorithm selection.
 - `J2QuadratureState` owns committed/trial `PE`, `PEEQ`, `S`, and `DDSDDE`;
   the 3D global J2 provider consumes the reusable `QuadratureTransaction`,
-  analytical algorithmic tangent, automatic cutback, non-monotone load
-  amplitude, and serial checkpoint.
+  regional material dispatch, analytical algorithmic tangent, automatic
+  cutback, non-monotone load amplitude, MPI global Newton, and portable
+  full-Step checkpoint. The distributed route also passes a public
+  thick-cylinder structural benchmark.
+- J2 and creep quadrature state can be written collectively and restored after
+  changing the MPI rank count. The archive uses DOLFINx original input-cell
+  identities rather than runtime global cell numbers, which change with the
+  partition; it also validates the quadrature rule, mesh fingerprint, state
+  schema, and regional material contract before restoring any field.
 - `steps.automatic(maximum_inelastic_increment=...)` can reject an otherwise
   converged J2 attempt when its equivalent plastic-strain increment is too
   large. Rejection restores displacement and every trial state field.
@@ -114,6 +121,13 @@ Python object per cell and not as a global material singleton. A global step
 must never mutate committed state during a rejected Newton iterate. Checkpoint
 and restart serialize the `StateLayout`, committed arrays, mesh/material
 identity, step time/load, and schema version together.
+
+The constitutive transaction is MPI-safe. The custom J2 global Newton path has
+partition-interface, cutback/rollback, cross-rank-count restart, and external
+thick-cylinder structural evidence. The creep global Newton path remains
+experimental until its NAFEMS thick-cylinder promotion benchmark passes. This
+boundary separates portable material state
+from global algebra rather than treating one as evidence for the other.
 
 This mirrors the old/current state distinction required by mature stateful
 material systems; see the

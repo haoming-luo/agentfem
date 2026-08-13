@@ -103,14 +103,20 @@ For a three-dimensional `nonlinear_static` study, `model.step(...)` now lowers
 this material to a global DOLFINx path. `PE` and `PEEQ` are committed at Basix
 quadrature points; `S` and `DDSDDE` are trial fields updated during Newton.
 Failed attempts restore displacement and committed material state before
-automatic cutback. An otherwise converged attempt is also rejected when its
+automatic cutback. Complete named `CellRegion` assignments may dispatch
+different J2 parameter sets without changing the Step API. An otherwise
+converged attempt is also rejected when its
 equivalent plastic-strain increment exceeds
-`maximum_inelastic_increment`. A serial checkpoint contains displacement,
+`maximum_inelastic_increment`. A portable checkpoint contains displacement,
 accepted step coordinate, the adaptive next-increment proposal, plastic
 state, energy/work history, amplitude identity, and schema version.
 
-The current boundary is explicit: 3D small strain, one material region,
-natural or strong-displacement loading, and serial execution/restart. A named
+The current boundary is explicit: 3D small strain, complete nonoverlapping
+material regions, natural or strong-displacement loading, structurally
+benchmarked MPI global equilibrium, and full-Step restart across MPI rank
+counts. Committed quadrature state can additionally be
+saved collectively and restored across MPI rank counts using physical-cell,
+quadrature-rule, mesh, material, and state-schema identity. A named
 tabular amplitude may load, unload, and reverse while the internal step
 coordinate remains monotone. Strong prescribed-displacement paths record
 generalized reaction, external work, internal energy, and balance histories.
@@ -118,7 +124,7 @@ The result retains `S/PE/PEEQ/MISES` at constitutive integration points and
 adds separately named `*_CELL` weighted DG0 recovery fields. The recovered
 fields preserve element and material boundaries and are never labeled as raw
 integration-point values or smoothed nodal contours.
-Plane stress, kinematic hardening, distributed execution/restart,
+Plane stress, kinematic hardening, external distributed structural benchmarks,
 finite-strain plasticity, and a general UMAT path remain future work.
 
 ## Power-Law Creep

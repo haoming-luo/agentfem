@@ -216,6 +216,23 @@ _BENCHMARKS = (
         ),
     ),
     BenchmarkSpec(
+        identifier="j2_thick_cylinder_mpi",
+        capability="j2_plasticity",
+        level="external_structural_mpi",
+        reference="knowledge/benchmarks/j2_thick_cylinder_mpi.json",
+        criterion=(
+            "a 3D plane-strain extrusion of the public Comet-FEniCSx "
+            "pressurised cylinder brackets the analytical Lamé/Mises first-"
+            "yield pressure and preserves displacement and quadrature state "
+            "between one and two MPI ranks"
+        ),
+        automated_test=(
+            "tests/test_external_inelastic_benchmark.py; "
+            "tests/external_inelastic_benchmark_driver.py"
+        ),
+        status="automated_external_structural_mpi",
+    ),
+    BenchmarkSpec(
         identifier="thermoelastic_free_expansion",
         capability="thermoelasticity",
         level="finite_element",

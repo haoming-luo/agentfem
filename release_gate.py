@@ -27,7 +27,7 @@ import zipfile
 
 
 ROOT = Path(__file__).resolve().parent
-RELEASE_CONTRACT = ROOT / "release" / "0.2.0a3.json"
+RELEASE_CONTRACT = ROOT / "release" / "0.2.0.json"
 REQUIRED_WHEEL_MEMBERS = (
     "agentfem/__init__.py",
     "agentfem/models.py",
@@ -49,6 +49,7 @@ REQUIRED_WHEEL_MEMBERS = (
     "agentfem/templates/structural-dynamics/case.py",
     "agentfem/verification.py",
     "agentfem/benchmarks/golden.py",
+    "agentfem/benchmarks/inelastic.py",
     "agentfem/constitutive/creep.py",
     "agentfem/fatigue_fracture.py",
     "agentfem/datasets/torch.py",
@@ -56,10 +57,11 @@ REQUIRED_WHEEL_MEMBERS = (
     "agentfem/surrogates/training.py",
     "agentfem/knowledge/catalog.json",
     "agentfem/knowledge/benchmarks/creep_abaqus_constant_stress.json",
+    "agentfem/knowledge/benchmarks/j2_thick_cylinder_mpi.json",
     "agentfem/knowledge/cards/integration_point_recovery.json",
     "agentfem/knowledge/cards/transient_checkpoint_portability.json",
     "agentfem/materials/data/steel_generic.json",
-    "agentfem/release/0.2.0a3.json",
+    "agentfem/release/0.2.0.json",
 )
 FORBIDDEN_DISTRIBUTION_PARTS = ("__pycache__",)
 FORBIDDEN_DISTRIBUTION_SUFFIXES = (".pyc", ".pyo")
@@ -184,7 +186,7 @@ def check_distributions(directory: Path) -> Path:
         "LICENSE",
         "NOTICE",
         "pyproject.toml",
-        "release/0.2.0a3.json",
+        "release/0.2.0.json",
     ):
         if required not in sdist_members:
             raise RuntimeError(f"Source distribution omits {required}.")

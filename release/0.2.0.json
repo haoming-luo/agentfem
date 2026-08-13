@@ -1,9 +1,9 @@
 {
   "schema": "agentfem.release-contract",
   "schema_version": "0.1.0",
-  "target_version": "0.2.0a3",
-  "channel": "alpha",
-  "status": "candidate",
+  "target_version": "0.2.0",
+  "channel": "stable",
+  "status": "released",
   "supported_python": "3.11",
   "platform_evidence": {
     "continuous_integration": "Linux",
@@ -47,7 +47,13 @@
       "id": "j2-plasticity",
       "maturity": "engineering",
       "example": "examples/j2_plasticity_3d.py",
-      "evidence": ["material-point-path", "global-cutback-tests", "restart-tests"]
+      "evidence": [
+        "material-point-path",
+        "global-cutback-tests",
+        "cross-rank-restart",
+        "external-thick-cylinder-yield-benchmark",
+        "serial-two-rank-equivalence"
+      ]
     },
     {
       "id": "implicit-power-law-creep",
@@ -75,6 +81,7 @@
         "global-cycle-transaction-tests",
         "physical-facet-restart-tests",
         "persistent-crack-identity-tests",
+        "mixed-mode-ordered-path-tests",
         "paris-postprocessing-tests"
       ]
     }

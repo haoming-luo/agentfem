@@ -102,6 +102,20 @@ jobs:
           mpirun -n 2 python tests/portable_cohesive_checkpoint_driver.py reject-inconsistent /tmp/agentfem-inconsistent-cohesive
           mpirun -n 2 python tests/portable_cohesive_dynamics_driver.py write /tmp/agentfem-portable-cohesive-dynamics
           python tests/portable_cohesive_dynamics_driver.py read /tmp/agentfem-portable-cohesive-dynamics
+          mpirun -n 2 python tests/portable_inelastic_quadrature_driver.py write /tmp/agentfem-portable-inelastic
+          python tests/portable_inelastic_quadrature_driver.py read /tmp/agentfem-portable-inelastic
+          mpirun -n 2 python tests/portable_inelastic_step_driver.py write /tmp/agentfem-portable-inelastic-step
+          python tests/portable_inelastic_step_driver.py read /tmp/agentfem-portable-inelastic-step
+          python tests/portable_inelastic_step_driver.py write /tmp/agentfem-portable-inelastic-step-reverse
+          mpirun -n 2 python tests/portable_inelastic_step_driver.py read /tmp/agentfem-portable-inelastic-step-reverse
+
+      - name: Verify distributed inelastic equilibrium and transactions
+        run: mpirun -n 2 python -m pytest tests/test_parallel_inelastic.py -k distributed
+
+      - name: Verify external J2 structure across MPI rank counts
+        run: |
+          python tests/external_inelastic_benchmark_driver.py write /tmp/agentfem-j2-cylinder.json
+          mpirun -n 2 python tests/external_inelastic_benchmark_driver.py compare /tmp/agentfem-j2-cylinder.json
 
   ml-verify:
     name: Verify the optional PyTorch bridge from the candidate wheel

@@ -6,8 +6,16 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
-- Continue external benchmark work for inelasticity and dynamic fracture.
-- Extend three-dimensional cohesive interfaces and mixed finite-strain solids.
+No user-visible changes have been recorded after 0.2.0.
+
+## [0.2.0] - 2026-08-13
+
+AgentFEM 0.2.0 is the first non-prerelease distribution. Scientific maturity
+remains capability-specific: experimental formulations are not promoted merely
+because the package version is stable.
+
+### Added
+
 - Add a solver-integrated cyclic cohesive fatigue lifecycle with exact cycle
   coordinates, adaptive cycle blocks, rollback, restart and named interfaces.
 - Add an explicit proportional mixed-mode cyclic law with complete local jump
@@ -28,6 +36,29 @@ experimental formulation to a validated one.
   identities and explicit birth, merge, split and death events.
 - Fit Paris relations strictly as postprocessing evidence from accepted crack
   histories, without prescribing crack advance in the solver.
+- Add MPI-portable quadrature state with stable physical identities for J2 and
+  creep histories, including cross-rank restart tests and regional materials.
+- Add a public thick-cylinder J2 benchmark based on an independently published
+  elastoplastic structure, with analytical first-yield pressure and serial/MPI
+  equivalence evidence.
+
+### Changed
+
+- Enable the public J2 global Newton route under MPI after the external
+  thick-cylinder structure benchmark; global creep MPI remains experimental.
+- Rework the README around the public value proposition, cross-platform
+  installation, first runnable project, release examples, and extension path.
+- Promote the package installation command from prerelease opt-in to ordinary
+  `pip install agentfem` while retaining explicit maturity labels per workflow.
+
+### Fixed
+
+- Make quadrature ownership, ghost synchronization, transaction rollback, and
+  checkpoint restore deterministic across MPI partition counts.
+- Re-equilibrate every degraded station of an ordered mixed-mode fatigue path
+  before accepting a cycle block.
+- Align the package version, citation metadata, release contract, wheel payload
+  checks, and documentation manifest for the immutable 0.2.0 artifacts.
 
 ## [0.2.0a2] - 2026-08-10
 
@@ -73,6 +104,7 @@ experimental formulation to a validated one.
   platform with readable study, model, step, result, campaign, and evidence
   contracts.
 
-[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.2.0a2...HEAD
+[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/haoming-luo/agentfem/compare/v0.2.0a2...v0.2.0
 [0.2.0a2]: https://github.com/haoming-luo/agentfem/compare/v0.2.0a1...v0.2.0a2
 [0.2.0a1]: https://github.com/haoming-luo/agentfem/releases/tag/v0.2.0a1

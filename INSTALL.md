@@ -1,7 +1,8 @@
 # Install AgentFEM
 
-AgentFEM depends on the FEniCSx/DOLFINx stack. For the MVP release, use
-conda-forge unless you already maintain a compatible MPI/PETSc/DOLFINx build.
+AgentFEM supports Linux, macOS, and Windows through WSL2. It depends on the
+compiled FEniCSx/DOLFINx stack, so use conda-forge unless you already maintain
+a compatible MPI/PETSc/DOLFINx build.
 
 ## Recommended Environment
 
@@ -11,7 +12,7 @@ mamba create -n agentfem-env -c conda-forge \
 mamba activate agentfem-env
 ```
 
-Install the released AgentFEM wheel from PyPI:
+Install AgentFEM from PyPI:
 
 ```bash
 python -m pip install agentfem
@@ -23,8 +24,10 @@ For source development, install from the repository root:
 python -m pip install -e .
 ```
 
-AgentFEM is not currently packaged on conda-forge. Conda supplies the compiled
-FEniCSx/PETSc/MPI runtime; PyPI or the source tree supplies AgentFEM.
+The AgentFEM conda-forge recipe is currently in review. Until it is published,
+conda supplies the compiled FEniCSx/PETSc/MPI runtime and PyPI or the source
+tree supplies AgentFEM. Once the recipe is available, both layers can be
+installed in one conda environment command.
 
 ## Windows
 
