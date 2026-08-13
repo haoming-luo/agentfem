@@ -1,5 +1,8 @@
 <p align="center"><img src="logo/AgentFEM_logo_transparent.png" alt="AgentFEM logo" width="280"></p>
 
+<h3 align="center">The First Generation of Open-Source AI-Native FEM</h3>
+<p align="center"><strong>全球第一代开源 AI 原生有限元平台</strong></p>
+
 # AgentFEM
 
 [![Test](https://github.com/haoming-luo/agentfem/actions/workflows/test.yml/badge.svg)](https://github.com/haoming-luo/agentfem/actions/workflows/test.yml)
