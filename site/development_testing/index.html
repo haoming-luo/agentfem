@@ -2464,6 +2464,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../release_0.2.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AgentFEM 0.2.1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../release_0.2.0/" class="md-nav__link">
         
   
@@ -2668,6 +2696,17 @@
     <span class="md-ellipsis">
       
         Validation layers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#source-and-installed-wheel-evidence-are-separate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Source and installed-wheel evidence are separate
       
     </span>
   </a>
@@ -3117,6 +3156,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#source-and-installed-wheel-evidence-are-separate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Source and installed-wheel evidence are separate
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#why-agentfem-still-runs-full-ci-frequently" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3292,6 +3342,15 @@ the most expensive command after every keystroke.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="source-and-installed-wheel-evidence-are-separate">Source and installed-wheel evidence are separate<a class="headerlink" href="#source-and-installed-wheel-evidence-are-separate" title="Permanent link">&para;</a></h2>
+<p>The repository root is also the Python package directory. Pytest is configured
+with <code>pythonpath = [".."]</code>, so <code>python -m pytest</code> and MPI pytest commands always
+exercise the current checkout rather than an older <code>agentfem</code> already present
+in the environment. The release gate follows the opposite rule: it installs
+the candidate wheel into an isolated target, rejects a source-checkout import,
+compares every packaged runtime file with the candidate source, and then runs
+the flagship workflows and installed project templates. A release therefore
+needs both source evidence and installed-artifact evidence.</p>
 <p>Targeted tests answer “did this edit break its owner?” Full tests answer “did
 this apparently local edit violate another public contract?” Both are needed.</p>
 <p>This repository uses the project directory itself as the <code>agentfem</code> package.
@@ -3306,6 +3365,14 @@ directory and prepend its parent:</p>
 <p>The printed path must point to the current checkout. Release CI instead builds
 and force-installs the candidate wheel before testing, intentionally verifying
 the artifact users receive.</p>
+<p>Direct MPI driver scripts do not pass through pytest's <code>pythonpath</code> setting.
+When they are used against an uninstalled checkout, prefix both serial and MPI
+commands with the checkout parent explicitly, for example:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">PYTHONPATH</span><span class="o">=</span><span class="s2">&quot;</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span><span class="s2">/..&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$CONDA_PREFIX</span><span class="s2">/bin/mpirun&quot;</span><span class="w"> </span>-n<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>python<span class="w"> </span>tests/portable_inelastic_step_driver.py<span class="w"> </span>write<span class="w"> </span>/tmp/agentfem-step
+</code></pre></div>
+<p>Release CI deliberately omits this prefix after force-installing the candidate
+wheel; those same drivers then provide installed-artifact evidence.</p>
 <h2 id="why-agentfem-still-runs-full-ci-frequently">Why AgentFEM still runs full CI frequently<a class="headerlink" href="#why-agentfem-still-runs-full-ci-frequently" title="Permanent link">&para;</a></h2>
 <p>AgentFEM currently has a compact suite: the local complete serial run is much
 cheaper than a nonlinear simulation campaign. Cross-module coupling is also

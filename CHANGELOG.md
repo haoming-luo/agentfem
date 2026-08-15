@@ -6,7 +6,37 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
-No user-visible changes have been recorded after 0.2.0.
+No user-visible changes have been recorded after 0.2.1.
+
+## [0.2.1] - 2026-08-15
+
+### Added
+
+- Add progressive `core`, `advanced`, and `expert` public API discovery to
+  Python, CLI capability JSON, and machine-readable documentation.
+- Add model-owned execution context so every built-in provider can retain its
+  target, material, model, and declared output product.
+
+### Changed
+
+- Unify static, nonlinear, heat-transfer, Standard dynamics, Explicit
+  dynamics, J2, and creep completion around `solve_result()` and
+  `SimulationResult`.
+- Allow output to be declared once through
+  `model.step(..., output="results.xdmf").solve_result()` while preserving
+  `solve_result(output=...)` and expert low-level routes.
+- Let field constructors and models consume imported mesh facades directly;
+  vector constraints also accept engineering axis names.
+- Migrate installed templates and release-facing examples to the converged
+  model-owned Step and result workflow.
+
+### Fixed
+
+- Make declarative output finalization idempotent during 0.2.x migration.
+- Make the generated API reference consume progressive module declarations
+  without importing the FEniCSx runtime.
+- Make MathJax rendering deterministic across direct loads and MkDocs instant
+  navigation without requiring a browser refresh.
 
 ## [0.2.0] - 2026-08-13
 
@@ -104,7 +134,8 @@ because the package version is stable.
   platform with readable study, model, step, result, campaign, and evidence
   contracts.
 
-[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/haoming-luo/agentfem/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/haoming-luo/agentfem/compare/v0.2.0a2...v0.2.0
 [0.2.0a2]: https://github.com/haoming-luo/agentfem/compare/v0.2.0a1...v0.2.0a2
 [0.2.0a1]: https://github.com/haoming-luo/agentfem/releases/tag/v0.2.0a1

@@ -158,6 +158,7 @@ nav:
           - Licensing: licensing.md
       - Releases:
           - Documentation Versions: project/versioning.md
+          - AgentFEM 0.2.1: release_0.2.1.md
           - AgentFEM 0.2.0: release_0.2.0.md
           - AgentFEM 0.2.0a2: release_0.2.0a2.md
           - AgentFEM 0.2.0a1: release_0.2.0a1.md

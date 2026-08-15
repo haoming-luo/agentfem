@@ -27,7 +27,6 @@ import zipfile
 
 
 ROOT = Path(__file__).resolve().parent
-RELEASE_CONTRACT = ROOT / "release" / "0.2.0.json"
 REQUIRED_WHEEL_MEMBERS = (
     "agentfem/__init__.py",
     "agentfem/models.py",
@@ -36,7 +35,9 @@ REQUIRED_WHEEL_MEMBERS = (
     "agentfem/provenance.py",
     "agentfem/results/core.py",
     "agentfem/results/execution.py",
+    "agentfem/results/lifecycle.py",
     "agentfem/results/recovery.py",
+    "agentfem/step_providers.py",
     "agentfem/cli.py",
     "agentfem/project.py",
     "agentfem/extensions.py",
@@ -61,7 +62,6 @@ REQUIRED_WHEEL_MEMBERS = (
     "agentfem/knowledge/cards/integration_point_recovery.json",
     "agentfem/knowledge/cards/transient_checkpoint_portability.json",
     "agentfem/materials/data/steel_generic.json",
-    "agentfem/release/0.2.0.json",
 )
 FORBIDDEN_DISTRIBUTION_PARTS = ("__pycache__",)
 FORBIDDEN_DISTRIBUTION_SUFFIXES = (".pyc", ".pyo")
@@ -128,6 +128,13 @@ def check_versions(*, tag: str | None = None) -> str:
     return project
 
 
+def release_contract_path(version: str | None = None) -> Path:
+    """Return the immutable contract matching the candidate package version."""
+
+    selected = source_version() if version is None else str(version)
+    return ROOT / "release" / f"{selected}.json"
+
+
 def check_dependency_boundaries() -> None:
     """Keep GPL Gmsh integration outside the Apache-2.0 core dependency set."""
 
@@ -170,7 +177,11 @@ def check_distributions(directory: Path) -> Path:
             f"Expected exactly one AgentFEM wheel and sdist in {directory}."
         )
     wheel_members = _archive_members(wheels[0])
-    missing = [name for name in REQUIRED_WHEEL_MEMBERS if name not in wheel_members]
+    version = check_versions()
+    required_wheel_members = REQUIRED_WHEEL_MEMBERS + (
+        f"agentfem/release/{version}.json",
+    )
+    missing = [name for name in required_wheel_members if name not in wheel_members]
     if missing:
         raise RuntimeError(f"Wheel omits required runtime assets: {missing}.")
     forbidden = _forbidden_distribution_members(wheel_members)
@@ -186,7 +197,7 @@ def check_distributions(directory: Path) -> Path:
         "LICENSE",
         "NOTICE",
         "pyproject.toml",
-        "release/0.2.0.json",
+        f"release/{version}.json",
     ):
         if required not in sdist_members:
             raise RuntimeError(f"Source distribution omits {required}.")
@@ -200,7 +211,13 @@ def check_release_contract(
 ) -> dict:
     """Validate the packaged scope and, when supplied, its source evidence."""
 
-    record = json.loads(RELEASE_CONTRACT.read_text(encoding="utf-8"))
+    contract_path = release_contract_path()
+    if not contract_path.is_file():
+        raise RuntimeError(
+            "The candidate package has no matching release contract: "
+            f"{contract_path.relative_to(ROOT)}."
+        )
+    record = json.loads(contract_path.read_text(encoding="utf-8"))
     if record.get("schema") != "agentfem.release-contract":
         raise RuntimeError("Release contract has an unknown schema.")
     target = record.get("target_version")

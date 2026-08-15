@@ -1,7 +1,7 @@
 from pathlib import Path
 import tomllib
 
-from agentfem import cli, release_gate
+from agentfem import __version__, cli, release_gate
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -23,7 +23,8 @@ def test_release_gate_rejects_build_machine_bytecode_and_cache_members():
 def test_release_contract_is_complete_and_references_real_workflows():
     contract = release_gate.check_release_contract(source_root=PROJECT_ROOT)
 
-    assert contract["target_version"] == "0.2.0"
+    assert contract["target_version"] == __version__
+    assert release_gate.release_contract_path().name == f"{__version__}.json"
     assert {item["maturity"] for item in contract["workflows"]} <= {
         "release",
         "engineering",
@@ -61,6 +62,7 @@ def test_test_workflow_runs_the_versioned_critical_static_analysis_gate():
     ).read_text(encoding="utf-8")
 
     assert configuration["tool"]["ruff"]["target-version"] == "py311"
+    assert configuration["tool"]["pytest"]["ini_options"]["pythonpath"] == [".."]
     assert configuration["tool"]["ruff"]["lint"]["select"] == [
         "E9",
         "F63",
@@ -70,3 +72,11 @@ def test_test_workflow_runs_the_versioned_critical_static_analysis_gate():
         "RUF009",
     ]
     assert "ruff check . --no-cache" in workflow
+
+
+def test_source_and_installed_distribution_evidence_are_separate():
+    configuration = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text())
+    assert configuration["tool"]["pytest"]["ini_options"]["pythonpath"] == [".."]
+    assert "_check_installed_identity(wheel=wheel)" in (
+        PROJECT_ROOT / "release_gate.py"
+    ).read_text()

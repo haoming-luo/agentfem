@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentfem"
-version = "0.2.0"
+version = "0.2.1"
 description = "AI-native finite-element workflows for humans and agents."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -124,6 +124,11 @@ packages = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+# The repository root is the ``agentfem`` package directory. Unit and MPI
+# tests intentionally exercise the checkout; release_gate.py separately
+# installs and verifies the exact wheel so the two evidence paths cannot be
+# confused with a stale environment installation.
+pythonpath = [".."]
 
 [tool.ruff]
 target-version = "py311"

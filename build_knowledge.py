@@ -14,10 +14,20 @@ import importlib
 import json
 from pathlib import Path
 import re
+import sys
 from typing import Iterable, Mapping
 
 
 ROOT = Path(__file__).resolve().parent
+# A checkout uses the package itself as the repository directory.  Put its
+# parent ahead of site-packages so ``--check-imports`` validates the source
+# being reviewed rather than a previously installed AgentFEM release.  An
+# unpacked sdist has a versioned directory name and therefore keeps using the
+# explicitly installed package in release environments.
+if ROOT.name == "agentfem" and (ROOT / "__init__.py").is_file():
+    source_parent = str(ROOT.parent)
+    if not sys.path or sys.path[0] != source_parent:
+        sys.path.insert(0, source_parent)
 KNOWLEDGE_DIR = ROOT / "knowledge"
 CARD_DIR = KNOWLEDGE_DIR / "cards"
 BENCHMARK_DIR = KNOWLEDGE_DIR / "benchmarks"

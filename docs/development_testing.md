@@ -15,6 +15,17 @@ the most expensive command after every keystroke.
 | Pull request and `main` | Wheel installation, full serial, MPI, checkpoint portability, examples, documentation, and optional PyTorch bridge | GitHub Actions `Test` workflow |
 | Release candidate/tag | All preceding checks plus distribution inspection and installed-wheel release smoke | `python release_gate.py --dist dist --smoke` |
 
+## Source and installed-wheel evidence are separate
+
+The repository root is also the Python package directory. Pytest is configured
+with `pythonpath = [".."]`, so `python -m pytest` and MPI pytest commands always
+exercise the current checkout rather than an older `agentfem` already present
+in the environment. The release gate follows the opposite rule: it installs
+the candidate wheel into an isolated target, rejects a source-checkout import,
+compares every packaged runtime file with the candidate source, and then runs
+the flagship workflows and installed project templates. A release therefore
+needs both source evidence and installed-artifact evidence.
+
 Targeted tests answer “did this edit break its owner?” Full tests answer “did
 this apparently local edit violate another public contract?” Both are needed.
 
@@ -33,6 +44,18 @@ PYTHONPATH="$(pwd)/.." python -m pytest -q
 The printed path must point to the current checkout. Release CI instead builds
 and force-installs the candidate wheel before testing, intentionally verifying
 the artifact users receive.
+
+Direct MPI driver scripts do not pass through pytest's `pythonpath` setting.
+When they are used against an uninstalled checkout, prefix both serial and MPI
+commands with the checkout parent explicitly, for example:
+
+```bash
+PYTHONPATH="$(pwd)/.." "$CONDA_PREFIX/bin/mpirun" -n 2 \
+  python tests/portable_inelastic_step_driver.py write /tmp/agentfem-step
+```
+
+Release CI deliberately omits this prefix after force-installing the candidate
+wheel; those same drivers then provide installed-artifact evidence.
 
 ## Why AgentFEM still runs full CI frequently
 

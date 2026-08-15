@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import subprocess
+import sys
 
 import build_docs
 
@@ -24,6 +26,18 @@ def test_documentation_machine_entrypoints_are_current():
     assert "models" in manifest["public_api"]["core"]
     assert "surrogates" in manifest["public_api"]["advanced"]
     assert "backends" in manifest["public_api"]["expert"]
+
+
+def test_knowledge_import_check_uses_the_current_checkout():
+    completed = subprocess.run(
+        [sys.executable, "build_knowledge.py", "--check", "--check-imports"],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "Validated 27 scientific function cards." in completed.stdout
 
 
 def test_generated_api_covers_public_workflow_objects():
@@ -63,6 +77,22 @@ def test_site_navigation_uses_scientific_manual_structure():
     assert config.index("Mesh Interoperability: mesh_interoperability.md") < config.index(
         "Results and Data:"
     )
+
+
+def test_math_rendering_survives_instant_navigation_and_late_startup():
+    config = (ROOT / "mkdocs.yml").read_text()
+    script = (ROOT / "docs" / "javascripts" / "mathjax.js").read_text()
+    assert config.index("javascripts/mathjax.js") < config.index(
+        "mathjax@3.2.2/es5/tex-mml-chtml.js"
+    )
+    assert "document$.subscribe(requestTypeset)" in script
+    assert "mathJax.startup.promise" in script
+    assert "waitForMathJax" in script
+    assert "requestAnimationFrame(resolve)" in script
+    assert "[data-md-component='content']" in script
+    assert '!node.querySelector("mjx-container")' in script
+    assert "mathJax.typesetPromise(pending)" in script
+    assert "typesetClear" not in script
 
 
 def test_theory_reference_states_equations_and_result_locations():
