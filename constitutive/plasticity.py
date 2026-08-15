@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import isfinite, sqrt
+from typing import ClassVar
 
 import numpy as np
 
@@ -81,6 +82,7 @@ class J2LinearIsotropicHardening:
     yield_stress: float
     hardening_modulus: float = 0.0
     name: str = "J2 linear isotropic hardening"
+    stateful_constitutive: ClassVar[bool] = True
 
     def __post_init__(self) -> None:
         values = {

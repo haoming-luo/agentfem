@@ -40,6 +40,12 @@ class Model:
     engineering_steps: list[object] = field(default_factory=list)
     unit_system: object | None = None
 
+    @property
+    def domain(self):
+        """Return the underlying DOLFINx domain for low-level operations."""
+
+        return _domain(self.mesh)
+
     def add_field(self, field_object):
         """Register an unknown or output field and return it."""
 

@@ -45,6 +45,7 @@ from .recovery import (
     recover_integration_point_field,
 )
 from .execution import add_execution_trace, execution_records
+from .lifecycle import complete_result, execution_context
 from .finite_strain import (
     HomogenizedFrame,
     LiveFiniteStrainCellFields,
@@ -127,6 +128,8 @@ __all__ = [
     "dof_statistics",
     "add_execution_trace",
     "execution_records",
+    "complete_result",
+    "execution_context",
     "from_solution",
     "average",
     "boundary_resultant",

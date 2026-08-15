@@ -167,13 +167,6 @@ def test_mixed_hybrid_affine_periodic_reduction_keeps_pressure_independent(tmp_p
         progress=False,
     )
     result = problem.solve_result()
-    result = output.finalize(
-        model=model,
-        step=problem,
-        result=result,
-        target=unknown.collapsed_displacement(name="U"),
-        material=material,
-    )
 
     assert problem.last_solve_info.converged
     assert all(
@@ -184,6 +177,14 @@ def test_mixed_hybrid_affine_periodic_reduction_keeps_pressure_independent(tmp_p
     assert np.max(np.abs(unknown.value.x.array)) == pytest.approx(0.0)
     assert (tmp_path / "mixed_periodic.xdmf").exists()
     assert "homogenized_first_piola_stress" in result.histories
+    assert result.metadata["output_plan"]["status"] == "completed"
+    assert output.finalize(
+        model=model,
+        step=problem,
+        result=result,
+        target=unknown.collapsed_displacement(name="U"),
+        material=material,
+    ) is result
 
 
 def test_abaqus_reference_controls_can_leave_both_transverse_components_free():

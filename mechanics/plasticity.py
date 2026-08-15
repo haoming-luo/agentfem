@@ -713,8 +713,10 @@ class J2PlasticityStep:
         self,
         *,
         output=None,
+        fields=(),
         output_fields=(),
         strict_output: bool = False,
+        metadata=None,
     ):
         """Solve and publish constitutive state through the common result path.
 
@@ -725,9 +727,14 @@ class J2PlasticityStep:
         """
         from ..results import (
             add_execution_trace,
+            complete_result,
             from_solution,
             recover_integration_point_field,
         )
+
+        if fields and output_fields:
+            raise ValueError("Pass fields=... or output_fields=..., not both.")
+        selected_output_fields = tuple(fields) or tuple(output_fields)
 
         solution = (
             self.solve()
@@ -919,16 +926,14 @@ class J2PlasticityStep:
                 )
         for checkpoint in self.checkpoints:
             result.add_checkpoint(checkpoint)
-        if output is not None:
-            from ..results.output import attach_result_field_output
-
-            attach_result_field_output(
-                result,
-                output,
-                names=output_fields,
-                strict=strict_output,
-            )
-        return result
+        return complete_result(
+            self,
+            result,
+            output=output,
+            fields=selected_output_fields,
+            strict_output=strict_output,
+            metadata=metadata,
+        )
 
     def internal_energy(self) -> dict[str, float]:
         """Return elastic, hardening, dissipated, and total internal energy.

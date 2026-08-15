@@ -74,6 +74,44 @@ class StepRequest:
 
 
 @dataclass(frozen=True)
+class StepExecutionContext:
+    """Public workflow assets retained by one lowered executable Step.
+
+    Providers remain responsible only for scientific capability selection and
+    lowering.  This compact context lets the common result lifecycle recover
+    the owning model, target, material, and declarative output without making
+    every solver-specific Step constructor depend on those workflow objects.
+    """
+
+    model: object
+    target: object
+    material: object | None = None
+    configured_output: object | None = None
+
+    @property
+    def output_target(self):
+        """Return the physical field used by post-processing output plans."""
+
+        if getattr(self.target, "kind", None) == "displacement_pressure":
+            return self.target.collapsed_displacement(name="U")
+        return self.target
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "model": getattr(self.model, "name", type(self.model).__name__),
+            "target": _target_summary(self.target),
+            "material": (
+                None if self.material is None else type(self.material).__name__
+            ),
+            "configured_output": (
+                None
+                if self.configured_output is None
+                else type(self.configured_output).__name__
+            ),
+        }
+
+
+@dataclass(frozen=True)
 class StepProvider:
     """One analysis lowering rule.
 
@@ -162,6 +200,19 @@ class StepProviderRegistry:
                     f"procedure {request.procedure.summary()!r}."
                 )
             created.procedure = request.procedure
+        context = StepExecutionContext(
+            model=model,
+            target=request.target,
+            material=_selected_material(model, request),
+            configured_output=request.option("output"),
+        )
+        try:
+            created.execution_context = context
+        except (AttributeError, TypeError):
+            # Third-party providers may return frozen/slotted executables.
+            # They remain valid; only the optional model-owned completion
+            # context is unavailable until that provider exposes a binding.
+            pass
         return created
 
 
@@ -308,9 +359,7 @@ def _resolve_procedure(model, *, analysis: str, options, requested):
         else tuple(record.item for record in registered)
     )
     stateful = analysis == "nonlinear_transient" or any(
-        type(selected).__name__
-        in {"J2LinearIsotropicHardening", "IsotropicPowerLawCreepMaterial"}
-        for selected in materials
+        _supports_stateful_constitutive(selected) for selected in materials
     )
     return procedures.resolve(
         analysis=analysis,
@@ -423,6 +472,30 @@ def _supports_conduction(material) -> bool:
 
 def _supports_heat_capacity(material) -> bool:
     return hasattr(material, "volumetric_heat_capacity")
+
+
+def _supports_stateful_constitutive(material) -> bool:
+    """Return whether a material declares committed constitutive history.
+
+    The protocol is intentionally structural so installed extensions can join
+    procedure dispatch without teaching AgentFEM their concrete class names.
+    Regional quadrature maps are stateful when every contained material makes
+    the same declaration.
+    """
+
+    if bool(getattr(material, "stateful_constitutive", False)):
+        return True
+    regional = getattr(material, "materials", None)
+    if regional is None:
+        return False
+    values = (
+        tuple(regional.values())
+        if hasattr(regional, "values")
+        else tuple(regional)
+    )
+    return bool(values) and all(
+        bool(getattr(item, "stateful_constitutive", False)) for item in values
+    )
 
 
 def _all_materials_support(model, request: StepRequest, predicate) -> bool:

@@ -10,6 +10,7 @@ from dolfinx import fem
 def lagrange_space(domain, degree: int = 1):
     """Create a scalar Lagrange function space."""
 
+    domain = _domain(domain)
     return fem.functionspace(domain, ("Lagrange", degree))
 
 
@@ -22,6 +23,7 @@ def scalar_space(domain, degree: int = 1):
 def vector_lagrange_space(domain, degree: int = 1, dim: int | None = None):
     """Create a vector Lagrange function space."""
 
+    domain = _domain(domain)
     value_dim = domain.geometry.dim if dim is None else dim
     return fem.functionspace(domain, ("Lagrange", degree, (value_dim,)))
 
@@ -46,6 +48,7 @@ def displacement_pressure_space(
     topology alone never selects this formulation implicitly.
     """
 
+    domain = _domain(domain)
     if int(displacement_degree) < 1:
         raise ValueError("displacement_degree must be at least one.")
     if int(pressure_degree) < 0:
@@ -87,3 +90,9 @@ def named_function(V, name: str, value=0.0):
     function.x.array[:] = value
     function.x.scatter_forward()
     return function
+
+
+def _domain(mesh_or_domain):
+    """Accept a DOLFINx mesh or an AgentFEM imported-mesh facade."""
+
+    return getattr(mesh_or_domain, "domain", mesh_or_domain)

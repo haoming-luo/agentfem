@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import exp, isfinite, log, sinh
+from typing import ClassVar
 
 import numpy as np
 
@@ -121,6 +122,7 @@ class IsotropicPowerLawCreepMaterial:
     creep: "PowerLawCreep"
     name: str = "isotropic power-law creep material"
     temperature_dependence: "ArrheniusPowerLawCreep | None" = None
+    stateful_constitutive: ClassVar[bool] = True
 
     @property
     def young(self) -> float:

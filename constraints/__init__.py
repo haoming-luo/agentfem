@@ -374,7 +374,7 @@ def fixed(
             ]
         )
 
-    component_ids = (int(components),) if isinstance(components, Integral) else tuple(components)
+    component_ids = _component_ids(components, target=target)
     component_values = _component_values(value, len(component_ids))
     return ConstraintSet(
         dirichlet=[
@@ -629,6 +629,32 @@ def _all_components_or_none(target) -> tuple[int, ...] | None:
             "Pass components explicitly for tensor-valued targets."
         )
     return tuple(range(int(shape[0])))
+
+
+def _component_ids(components, *, target) -> tuple[int, ...]:
+    """Normalize integer or x/y/z component names for a vector target."""
+
+    selected = (
+        (components,)
+        if isinstance(components, (Integral, str))
+        else tuple(components)
+    )
+    normalized = tuple(
+        _axis_component(item) if isinstance(item, str) else int(item)
+        for item in selected
+    )
+    available = _all_components_or_none(target)
+    if available is None:
+        raise ValueError("Scalar targets do not accept component selection.")
+    invalid = tuple(item for item in normalized if item not in available)
+    if invalid:
+        raise ValueError(
+            f"components={invalid!r} are unavailable; target components are "
+            f"{available!r}."
+        )
+    if len(set(normalized)) != len(normalized):
+        raise ValueError("components must not contain duplicates.")
+    return normalized
 
 
 def _component_values(value, count: int) -> tuple:

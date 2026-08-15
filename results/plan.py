@@ -478,6 +478,15 @@ class OutputPlan:
     ):
         """Write requested products and enrich ``result`` in one operation."""
 
+        identity = self.identity()
+        existing = result.metadata.get("output_plan")
+        if (
+            isinstance(existing, Mapping)
+            and existing.get("status") == "completed"
+            and existing.get("identity") == identity
+        ):
+            return result
+
         function = getattr(target, "value", target)
         domain = function.function_space.mesh
         comm = domain.comm
@@ -513,7 +522,11 @@ class OutputPlan:
             request.apply(context)
         if self.presentation is not None:
             self.presentation.apply(context)
-        result.metadata["output_plan"] = self.summary(step=step, artifacts=artifacts)
+        result.metadata["output_plan"] = {
+            **self.summary(step=step, artifacts=artifacts),
+            "status": "completed",
+            "identity": identity,
+        }
         if metadata:
             result.metadata.update(dict(metadata))
 
@@ -528,6 +541,11 @@ class OutputPlan:
                 result.write_manifest(manifest_path, include_histories=True)
         comm.barrier()
         return result
+
+    def identity(self) -> str:
+        """Return a deterministic identity used for idempotent finalization."""
+
+        return f"{self.directory.resolve()}::{self.basename}"
 
     def summary(
         self,

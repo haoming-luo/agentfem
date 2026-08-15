@@ -670,8 +670,17 @@ class IncrementalNonlinearVariationalProblem:
         )
         raise RuntimeError(message)
 
-    def solve_result(self):
-        from .results import add_execution_trace, from_solution
+    def solve_result(
+        self,
+        *,
+        output=None,
+        fields=(),
+        strict_output: bool = False,
+        metadata=None,
+    ):
+        """Solve and complete one model-owned nonlinear result lifecycle."""
+
+        from .results import add_execution_trace, complete_result, from_solution
 
         solution = self.solve()
         generated = (
@@ -697,8 +706,22 @@ class IncrementalNonlinearVariationalProblem:
                     "postprocessed": False,
                 },
             )
+        for selected in fields:
+            function = _unwrap_result_field(selected)
+            result.add_field(
+                getattr(function, "name", type(function).__name__),
+                function,
+                location=_field_location(function),
+            )
         add_execution_trace(result, self.execution_events)
-        return result
+        return complete_result(
+            self,
+            result,
+            output=output,
+            fields=fields,
+            strict_output=strict_output,
+            metadata=metadata,
+        )
 
     def reaction_field(self, *, name: str = "RF"):
         return _reaction_field(self.residual_form, self.solution, name=name)
@@ -816,8 +839,17 @@ class AffineNonlinearVariationalProblem:
         self.last_solve_info = info
         return solution
 
-    def solve_result(self):
-        from .results import from_solution
+    def solve_result(
+        self,
+        *,
+        output=None,
+        fields=(),
+        strict_output: bool = False,
+        metadata=None,
+    ):
+        """Solve and complete one affine nonlinear result lifecycle."""
+
+        from .results import complete_result, from_solution
 
         solution = self.solve()
         generated = (
@@ -843,7 +875,21 @@ class AffineNonlinearVariationalProblem:
                     "postprocessed": False,
                 },
             )
-        return result
+        for selected in fields:
+            function = _unwrap_result_field(selected)
+            result.add_field(
+                getattr(function, "name", type(function).__name__),
+                function,
+                location=_field_location(function),
+            )
+        return complete_result(
+            self,
+            result,
+            output=output,
+            fields=fields,
+            strict_output=strict_output,
+            metadata=metadata,
+        )
 
     def summary(self) -> dict[str, object]:
         return {
@@ -919,6 +965,7 @@ class AnalysisStep:
         fields=(),
         field_variables=None,
         strict_output: bool = False,
+        metadata=None,
     ):
         """Solve while retaining the existing ``solve()`` return contract.
 
@@ -931,7 +978,12 @@ class AnalysisStep:
         solver or projection plumbing in the top-level model.
         """
 
-        from .results import from_solution, static_force_balance, static_work_balance
+        from .results import (
+            complete_result,
+            from_solution,
+            static_force_balance,
+            static_work_balance,
+        )
 
         solution = self.problem.solve()
         if fields and field_variables is not None:
@@ -1033,16 +1085,13 @@ class AnalysisStep:
                     kind="diagnostic",
                 )
                 result.metadata["static_work"] = work.as_dict()
-        if output is not None:
-            from .results.output import attach_result_field_output
-
-            attach_result_field_output(
-                result,
-                output,
-                deformation_scale=0.0,
-                strict=strict_output,
-            )
-        return result
+        return complete_result(
+            self,
+            result,
+            output=output,
+            strict_output=strict_output,
+            metadata=metadata,
+        )
 
     def summary(self) -> dict[str, object]:
         """Return a compact, agent-readable step summary."""

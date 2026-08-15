@@ -103,3 +103,16 @@ def test_scientific_values_are_retained_from_backend_constant_wrappers():
 
 def test_public_inspection_modules_are_discoverable():
     assert {"diagnostics", "ir", "validation"}.issubset(public_api())
+
+
+def test_public_api_exposes_progressive_discovery_levels():
+    core = set(public_api("core"))
+    advanced = set(public_api("advanced"))
+    expert = set(public_api("expert"))
+
+    assert {"studies", "mesh", "models", "fields", "results"} <= core
+    assert {"fracture", "campaigns", "surrogates"} <= advanced
+    assert {"ir", "diagnostics", "validation"} <= expert
+    assert core | advanced | expert == set(public_api())
+    with pytest.raises(ValueError, match="core, advanced, expert, or all"):
+        public_api("beginnerish")

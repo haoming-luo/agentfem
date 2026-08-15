@@ -94,7 +94,7 @@ def run(
         name="periodic_cell_large_deformation",
     )
     model = models.create(study=study, mesh=cell, name="periodic_neo_hookean_cell")
-    unknown = model.field(fields.displacement_pressure(cell.domain))
+    unknown = model.field(fields.displacement_pressure(cell))
     material = model.material(
         constitutive.mixed_neo_hookean(
             shear_modulus=shear_modulus,
@@ -176,14 +176,7 @@ def run(
         status_file=output / "periodic_cell.sta",
         name="periodic_neo_hookean",
     )
-    result = step.solve_result()
-    output_target = unknown.collapsed_displacement(name="U")
-    result = output_request.finalize(
-        model=model,
-        step=step,
-        result=result,
-        target=output_target,
-        material=material,
+    result = step.solve_result(
         metadata={
             "case_definition": {
                 "mesh_source": "direct Abaqus C3D10H input",

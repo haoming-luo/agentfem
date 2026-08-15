@@ -47,54 +47,97 @@ from . import upgrades
 from . import validation
 from . import verification
 
-PUBLIC_WORKFLOW_MODULES = (
+CORE_WORKFLOW_MODULES = (
     "studies",
     "mesh",
     "models",
     "fields",
-    "fatigue_fracture",
-    "fracture",
     "materials",
-    "mechanics",
     "constitutive",
     "coordinates",
     "constraints",
     "amplitudes",
     "loads",
-    "operators",
-    "problems",
     "project",
-    "provenance",
-    "platforms",
     "procedures",
     "results",
     "solvers",
     "steps",
-    "time",
     "units",
-    "upgrades",
     "io",
-    "diagnostics",
-    "extensions",
-    "ir",
-    "interfaces",
-    "campaigns",
-    "checkpointing",
-    "datasets",
-    "surrogates",
-    "validation",
     "verification",
 )
 
+ADVANCED_WORKFLOW_MODULES = (
+    "boundary_models",
+    "campaigns",
+    "checkpointing",
+    "datasets",
+    "fatigue_fracture",
+    "fracture",
+    "interfaces",
+    "mechanics",
+    "operators",
+    "problems",
+    "surrogates",
+    "time",
+)
 
-def public_api() -> tuple[str, ...]:
-    """Return the stable beginner-facing AgentFEM workflow modules."""
+EXPERT_WORKFLOW_MODULES = (
+    "assembly",
+    "backends",
+    "benchmarks",
+    "dependencies",
+    "diagnostics",
+    "elements",
+    "extensions",
+    "forms",
+    "ir",
+    "platforms",
+    "provenance",
+    "spaces",
+    "upgrades",
+    "validation",
+)
 
-    return PUBLIC_WORKFLOW_MODULES
+# Compatibility inventory retained throughout the 0.2.x convergence series.
+PUBLIC_WORKFLOW_MODULES = tuple(
+    dict.fromkeys(
+        CORE_WORKFLOW_MODULES
+        + ADVANCED_WORKFLOW_MODULES
+        + EXPERT_WORKFLOW_MODULES
+    )
+)
+
+
+def public_api(level: str = "all") -> tuple[str, ...]:
+    """Return public modules at a declared discovery level.
+
+    ``public_api()`` preserves the complete 0.2.0 inventory. New frontends and
+    tutorials should query ``level="core"`` first, then disclose advanced or
+    expert modules only when the workflow requires them.
+    """
+
+    selected = str(level).lower().replace("-", "_").strip()
+    levels = {
+        "core": CORE_WORKFLOW_MODULES,
+        "advanced": ADVANCED_WORKFLOW_MODULES,
+        "expert": EXPERT_WORKFLOW_MODULES,
+        "all": PUBLIC_WORKFLOW_MODULES,
+    }
+    try:
+        return levels[selected]
+    except KeyError as exc:
+        raise ValueError(
+            "public_api level must be core, advanced, expert, or all."
+        ) from exc
 
 
 __all__ = [
     "PUBLIC_WORKFLOW_MODULES",
+    "CORE_WORKFLOW_MODULES",
+    "ADVANCED_WORKFLOW_MODULES",
+    "EXPERT_WORKFLOW_MODULES",
     "__version__",
     "amplitudes",
     "assembly",
@@ -111,6 +154,7 @@ __all__ = [
     "diagnostics",
     "fields",
     "fatigue_fracture",
+    "fracture",
     "elements",
     "extensions",
     "forms",

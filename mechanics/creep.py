@@ -1004,15 +1004,22 @@ class ImplicitCreepStep:
         self,
         *,
         output=None,
+        fields=(),
         output_fields=(),
         strict_output: bool = False,
+        metadata=None,
     ):
         """Solve and publish creep state through the common result path."""
         from ..results import (
             add_execution_trace,
+            complete_result,
             from_solution,
             recover_integration_point_field,
         )
+
+        if fields and output_fields:
+            raise ValueError("Pass fields=... or output_fields=..., not both.")
+        selected_output_fields = tuple(fields) or tuple(output_fields)
 
         solution = self.solve() if self.accepted_time < self.duration else self.solution
         result = from_solution(
@@ -1171,16 +1178,14 @@ class ImplicitCreepStep:
             )
         for checkpoint in self.checkpoints:
             result.add_checkpoint(checkpoint)
-        if output is not None:
-            from ..results.output import attach_result_field_output
-
-            attach_result_field_output(
-                result,
-                output,
-                names=output_fields,
-                strict=strict_output,
-            )
-        return result
+        return complete_result(
+            self,
+            result,
+            output=output,
+            fields=selected_output_fields,
+            strict_output=strict_output,
+            metadata=metadata,
+        )
 
     def summary(self) -> dict[str, object]:
         return {

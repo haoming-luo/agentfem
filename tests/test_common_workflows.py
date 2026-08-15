@@ -51,6 +51,49 @@ def test_cuboid_is_the_three_dimensional_structured_mesh_factory():
     assert summary.global_cells == 2
 
 
+def test_imported_mesh_facade_is_accepted_by_fields_and_model():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    imported = mesh.FEMMesh(domain)
+    study = studies.static_solid(dimension=2, assumption="plane_strain")
+    model = models.create(study=study, mesh=imported)
+    displacement = model.field(fields.displacement(imported))
+
+    assert displacement.value.function_space.mesh is domain
+    assert model.domain is domain
+
+
+def test_prescribed_component_accepts_engineering_axis_name():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    model = models.create(
+        study=studies.static_solid(dimension=2, assumption="plane_strain"),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    left = mesh.boundary(domain, _left, name="left", tag=1)
+
+    constraint = model.prescribe(
+        displacement,
+        0.0,
+        component="x",
+        on=left,
+    )
+
+    assert len(constraint.dirichlet) == 1
+    assert constraint.dirichlet[0].name.endswith("component_0")
+
+
 def test_static_solid_clamp_and_gravity_are_model_owned():
     domain = mesh.rectangle(
         (0.0, 0.0),
