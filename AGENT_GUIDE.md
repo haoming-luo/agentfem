@@ -46,6 +46,10 @@ finite-element simulation with AgentFEM.
   `model.step(...)`, including target-field shape and the material protocol
   needed by the default lowering; never work around `AFM-STUDY-002` by
   silently changing the Study.
+- API discovery: begin with `agentfem.public_api("core")` or the
+  `public_api.core` section of `agentfem capabilities --json`. Escalate to the
+  advanced or expert layer only when the task requires it; the flat
+  `public_modules` inventory remains a compatibility contract.
 - Model registration: use `model.field(...)`, `model.material(...)`,
   `model.fix(...)`, `model.traction(...)`, `model.surface_force(...)`,
   `model.distributing_coupling(...)`, and `model.elastic_foundation(...)` in
@@ -96,6 +100,9 @@ finite-element simulation with AgentFEM.
   solve/output/result lifecycle. Use `results.SimulationResult`, MPI-safe
   point/path probes, region integrals/averages, boundary resultants and field
   extrema in `results`, then attach additional XDMF/CSV artifacts from `io`.
+  A model-owned case may instead declare a path in
+  `model.step(..., output="results.xdmf")` and call `solve_result()` once; do
+  not send the same output request through custom case loops.
   Model-generated static elasticity produces projected `S/E/MISES`
   automatically; `SENER` is opt-in through `field_variables`. J2 and creep
   expose the same completed-result writer through `solve_result(output=...)`;

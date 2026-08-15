@@ -61,7 +61,8 @@ for AI agents.
 - For vector fields, application-level constraint constructors should make the
   common case short: `constraints.fixed(displacement, on=left)` fixes all
   displacement components, while `components=0` or `components=(0, 1)` selects
-  individual dofs.
+  individual dofs. Engineering axis names (`"x"`, `"y"`, `"z"`) are accepted
+  wherever a public component selector is unambiguous.
 - Prefer `on=...` for geometric targets in user-facing APIs. Keep `location=...`
   as a compatibility spelling for explicit region objects.
 - Provide model-level registration helpers such as `model.field(...)`,
@@ -75,6 +76,10 @@ for AI agents.
 - Prefer the model-owned `model.step(...)` procedure-dispatch entry point for
   beginner workflows. The step should expose its K/F system through summaries
   so it remains auditable rather than becoming a black box.
+- Prefer `solve_result()` as the common completion verb. An output product may
+  be supplied to `solve_result(output=...)` or declared once on
+  `model.step(..., output=...)`; provider constructors must not reinterpret it
+  as a numerical solver option.
 - Provide operator-level constructors for engineering FEM notation, such as
   `operators.stiffness(...)`, `operators.capacity_operator(...)`,
   `operators.conduction_operator(...)`, and `operators.load_vector(...)`.

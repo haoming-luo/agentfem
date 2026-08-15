@@ -288,6 +288,12 @@ default primary/state fields to one XDMF/HDF5 series, records every accepted
 time increment, and attaches those artifacts to the returned
 `SimulationResult`.
 
+A model-owned step may retain its completion request:
+`model.step(target=u, output="results.xdmf").solve_result()`. The numerical
+provider still owns assembly and advancement; the common completion layer owns
+result metadata and artifacts. This keeps output out of solver dispatch while
+allowing a case to declare its intended product beside the Step.
+
 Completed stateful static/transient procedures use the same result vocabulary.
 J2 and creep keep accepted integration-point fields as raw constitutive
 evidence and write separately named recovered cell fields when

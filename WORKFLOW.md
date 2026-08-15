@@ -38,9 +38,11 @@ this sequence visible unless there is a strong reason to encapsulate it.
 15. Run `model.validate()` or `model.check()` before execution. When the case
     is an auditable artifact, write `model.write_ir(...)`.
 16. Compile, assemble, and solve the step, or advance in time.
-17. Solve to a `results.SimulationResult` when the result will feed more than
-    one consumer. For transient heat or dynamics, prefer
-    `step.solve_result(output="results.xdmf")`; it writes the time series and
+17. Solve to a `results.SimulationResult` as the standard completion path.
+    Output may be declared while constructing the step and consumed without
+    repeating it: `model.step(target=u, output="results.xdmf").solve_result()`.
+    Passing the same request directly to `solve_result(output=...)` remains
+    supported. For transient heat or dynamics, this writes the time series and
     attaches the logical XDMF/HDF5 dataset to the same result.
     Declare compact transient probes, integrals, or other scalar histories
     through `history=(results.probe_history(...), results.history(...))` on
@@ -64,6 +66,11 @@ For an existing installed-use project, precede this sequence with
 `agentfem doctor`, `agentfem check`, and `agentfem upgrade`. Only deterministic
 project metadata may be migrated automatically; changes to scientific Python
 require semantic review and re-verification.
+
+Public discovery is progressive. `agentfem.public_api("core")` is the daily
+engineering language; `"advanced"` adds campaigns, fracture, mechanics, and
+learning bridges; `"expert"` exposes backend and extension seams. Calling
+`public_api()` without a level preserves the complete 0.2.0 inventory.
 
 For a collection of related cases, continue with:
 

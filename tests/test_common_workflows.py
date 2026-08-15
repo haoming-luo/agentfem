@@ -165,7 +165,7 @@ def test_surface_force_distributes_requested_resultant_over_reference_boundary()
     assert balance.relative_error < 1.0e-10
 
 
-def test_steady_heat_transfer_consumes_flux_and_convection():
+def test_steady_heat_transfer_consumes_flux_and_convection(tmp_path):
     domain = mesh.rectangle(
         (0.0, 0.0),
         (1.0, 0.2),
@@ -201,9 +201,11 @@ def test_steady_heat_transfer_consumes_flux_and_convection():
     simulation = model.step(
         target=temperature,
         K=model.conduction(temperature),
+        output=tmp_path / "steady_heat.xdmf",
     ).solve_result()
 
     assert simulation.status == "completed"
+    assert simulation.artifacts["fields_xdmf"].is_file()
     assert 300.0 < temperature.max_value() <= 400.0 + 1.0e-8
     summary = model.boundary_models[0].summary()
     assert summary["kind"] == "thermal_convection_boundary"
@@ -253,14 +255,19 @@ def test_transient_heat_transfer_consumes_convection_boundary(tmp_path):
         dt=1.0,
         steps=2,
         progress=False,
+        output=tmp_path / "cooling.xdmf",
     )
-    simulation = step.solve_result(output=tmp_path / "cooling.xdmf")
+    simulation = step.solve_result(
+        metadata={"case_role": "transient_contract_test"},
+    )
 
     assert simulation.status == "completed"
     assert float(np.mean(temperature.value.x.array)) < initial_mean
     assert float(convection.ambient_temperature.value) == 320.0
     assert simulation.artifacts["fields_xdmf"].is_file()
     assert simulation.artifacts["fields_hdf5"].is_file()
+    assert simulation.metadata["case_role"] == "transient_contract_test"
+    assert simulation.metadata["execution_context"]["model"] == "cooling"
     assert simulation.fields["Temperature"].artifact.name == "cooling.xdmf"
     assert simulation.histories["time_increment"].values.tolist() == [1.0, 1.0]
 

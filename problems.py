@@ -1300,7 +1300,14 @@ class ExplicitDynamicsStep:
         return self.state.u.value
 
     def solve_result(
-        self, *, output=None, fields=(), history=(), progress=None, comm=None
+        self,
+        *,
+        output=None,
+        fields=(),
+        history=(),
+        progress=None,
+        comm=None,
+        metadata=None,
     ):
         return _solve_transient_result(
             self,
@@ -1315,6 +1322,7 @@ class ExplicitDynamicsStep:
             history=history,
             progress=progress,
             comm=comm,
+            metadata=metadata,
         )
 
     def save_checkpoint(self, path, *, portable: bool = False) -> Path:
@@ -1518,7 +1526,14 @@ class ImplicitDynamicsStep:
         return self.state.u.value
 
     def solve_result(
-        self, *, output=None, fields=(), history=(), progress=None, comm=None
+        self,
+        *,
+        output=None,
+        fields=(),
+        history=(),
+        progress=None,
+        comm=None,
+        metadata=None,
     ):
         return _solve_transient_result(
             self,
@@ -1533,6 +1548,7 @@ class ImplicitDynamicsStep:
             history=history,
             progress=progress,
             comm=comm,
+            metadata=metadata,
         )
 
     def save_checkpoint(self, path, *, portable: bool = False) -> Path:
@@ -1748,7 +1764,14 @@ class FirstOrderTransientStep:
         return self.current
 
     def solve_result(
-        self, *, output=None, fields=(), history=(), progress=None, comm=None
+        self,
+        *,
+        output=None,
+        fields=(),
+        history=(),
+        progress=None,
+        comm=None,
+        metadata=None,
     ):
         return _solve_transient_result(
             self,
@@ -1759,6 +1782,7 @@ class FirstOrderTransientStep:
             history=history,
             progress=progress,
             comm=comm,
+            metadata=metadata,
         )
 
     def save_checkpoint(self, path, *, portable: bool = False) -> Path:
@@ -1815,20 +1839,33 @@ def _solve_transient_result(
     history,
     progress,
     comm,
+    metadata,
 ):
     """Shared transient solve/output/result lifecycle for all equation orders."""
 
     from .results import add_execution_trace, from_solution
 
+    context = getattr(step, "execution_context", None)
+    selected_output = output
+    if selected_output is None and context is not None:
+        selected_output = context.configured_output
+    if selected_output is not None:
+        from .results import OutputPlan
+
+        if isinstance(selected_output, OutputPlan):
+            raise ValueError(
+                "Declarative OutputPlan currently describes finite-strain "
+                "static output. Pass an XDMF path to a transient Step."
+            )
     _configure_transient_history(step, history)
-    if output is not None and step.completed_steps >= step.steps:
+    if selected_output is not None and step.completed_steps >= step.steps:
         raise RuntimeError(
             "Transient field output must be requested before completion; "
             "completed steps cannot be reconstructed from final state alone."
         )
-    if output is not None or step.completed_steps != step.steps:
+    if selected_output is not None or step.completed_steps != step.steps:
         step.run(
-            output=output,
+            output=selected_output,
             fields=fields,
             history=history,
             progress=progress,
@@ -1839,6 +1876,10 @@ def _solve_transient_result(
         name=step.name,
         metadata={"step": step.summary()},
     )
+    if metadata:
+        result.metadata.update(dict(metadata))
+    if context is not None:
+        result.metadata.setdefault("execution_context", context.summary())
     add_execution_trace(result, step.execution_events)
     _attach_transient_output(
         result,

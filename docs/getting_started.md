@@ -21,6 +21,11 @@ records the platform route, exact interpreter and imported package, core
 versions, and optional mesh, visualization, machine-learning, and
 distributed-MPC integrations.
 
+`agentfem capabilities --json` also separates the public Python surface into
+`core`, `advanced`, and `expert` layers. A generated first case should normally
+use only the core layer; this reduces API search without restricting direct
+access to advanced finite-element or backend capabilities.
+
 ## Create a project anywhere
 
 ```bash

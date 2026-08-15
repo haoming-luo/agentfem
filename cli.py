@@ -478,9 +478,13 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "capabilities":
             from . import constitutive, public_api
+            public_modules = {
+                level: public_api(level)
+                for level in ("core", "advanced", "expert")
+            }
             record = {
                 "schema": "agentfem.capabilities",
-                "schema_version": "0.1.0",
+                "schema_version": "0.2.0",
                 "agentfem_version": __version__,
                 "commands": (
                     "doctor",
@@ -494,7 +498,10 @@ def main(argv: list[str] | None = None) -> int:
                     "verify",
                     "extensions",
                 ),
+                # Keep the flat inventory for 0.2.0 clients while offering a
+                # progressive contract to new CLIs, GUIs, and agents.
                 "public_modules": public_api(),
+                "public_api": public_modules,
                 "templates": _templates(),
                 "runtime": platforms.runtime_report().summary(),
                 "constitutive": tuple(
