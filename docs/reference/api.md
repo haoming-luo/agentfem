@@ -123,111 +123,6 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `require_same_space(left, right) -> None` | Raise if two fields/functions are not on the same function space. |
 | function | `same_space(left, right) -> bool` | Return whether two fields/functions share the same function space. |
 
-## `agentfem.fatigue_fracture`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `ForceCycle` | One scalar cyclic-load definition expressed in test parameters. |
-| function | `force_cycle(*, minimum: float \| None = None, maximum: float \| None = None, fmin: float \| None = None, fmax: float \| None = None, frequency: float = 1.0, waveform: str = 'sine', hold_minimum_fraction: float = 0.0, hold_maximum_fraction: float = 0.0, table = (), name: str = 'force cycle') -> ForceCycle` | Create a cyclic force from ``minimum/maximum`` or ``fmin/fmax``. |
-| class | `CycleJumpDecision` | One inspectable proposal for advancing the independent cycle count. |
-| class | `CycleJumpPolicy` | Bound a cycle block by predicted damage and exact output landings. |
-| class | `CycleJumpRecord` | Accepted or rejected cycle-block evidence. |
-| class | `CycleJumpLedger(*, start_cycle: int = 0)` | Record exact cycle progress and every jump/cutback decision. |
-| class | `CyclicCohesiveResponse` | Mode-I response with separated monotonic and fatigue evidence. |
-| class | `CyclicCohesiveLaw` | Replaceable power-law range fatigue layered on a bilinear envelope. |
-| class | `CyclicCohesiveTransaction(law: CyclicCohesiveLaw, size: int)` | Atomic monotonic trials and cycle-block trials for cohesive points. |
-| class | `MixedModeEnergyRange` | Local cohesive-energy driver from one physical peak/valley pair. |
-| class | `OrderedJumpCyclePath` | One ordered closed cycle of complete local cohesive jump vectors. |
-| class | `MixedModeEnergyPath` | Segment-resolved local cohesive energy evidence for one ordered path. |
-| class | `OrderedMixedModeEnergyPathDriver` | Segment-resolved BK/power driver for ordered mixed-mode cycles. |
-| class | `MixedModeEnergyRangeDriver` | BK/power interaction for local mixed-mode cyclic energy ranges. |
-| class | `MixedModeCyclicCohesiveResponse` | Mixed-mode monotonic response with committed cyclic evidence. |
-| class | `MixedModeCyclicCohesiveLaw` | Replaceable cyclic damage layered on a mixed-mode cohesive envelope. |
-| class | `MixedModeCyclicCohesiveTransaction(law: MixedModeCyclicCohesiveLaw, size: int)` | Atomic full-vector cycle transaction with mixed-mode energy evidence. |
-| class | `FieldStateTransaction(fields, *, assets = None)` | In-memory rollback for bulk fields and other transactional assets. |
-| class | `GeneralizedWorkSample` | One named force--displacement pair at an accepted equilibrium point. |
-| function | `generalized_work_sample(name, *, force, displacement, role = 'natural_load') -> GeneralizedWorkSample` | Declare one generalized work-conjugate channel. |
-| function | `reference_point_work_sample(load, *, translation, rotation = None) -> GeneralizedWorkSample` | Pair a distributed reference load with measured rigid motion. |
-| class | `CyclicEnergyFrame` | One accepted or trial cycle-block work--energy closure. |
-| class | `CyclicWorkEnergyLedger(*, name = 'cyclic work-energy ledger')` | Transactional generalized-work and cycle-block energy accounting. |
-| function | `cyclic_work_energy_ledger(**options) -> CyclicWorkEnergyLedger` | Create a transactional cycle-block work--energy ledger. |
-| class | `CyclicEquilibriumPoint` | Evidence returned by one converged cyclic equilibrium solve. |
-| class | `CyclicFatigueBlock` | Accepted structure-level cycle block and its error evidence. |
-| class | `GlobalCyclicFatigueStep(*, cycle: ForceCycle, stop_cycle: int, interfaces, state, solve_equilibrium, jump: CycleJumpPolicy \| None = None, landing_cycles = (), maximum_opening_feedback: float = 0.02, maximum_energy_balance_error: float \| None = None, energy_ledger: CyclicWorkEnergyLedger \| None = None, ordered_path_phases = (), observe = None, name: str = 'cyclic fatigue')` | Quasi-static cyclic fatigue loop with global rollback and cutback. |
-| class | `SurfaceCrackComponent` | One connected failed component in a surface-crack observation. |
-| class | `SurfaceCrackObservation` | One cycle's geometric evidence on a triangular cohesive surface. |
-| class | `CrackTopologyEvent` | Auditable identity change between two accepted crack observations. |
-| class | `TrackedSurfaceCrack` | A connected crack component with identity stable across cycle blocks. |
-| class | `SurfaceCrackTrackingFrame` | Persistent component identities and topology events at one cycle. |
-| class | `SurfaceCrackTracker(*, interface_name: str, id_prefix: str \| None = None)` | Track cracks on one fixed cohesive surface by physical facet identity. |
-| class | `CrackInteractionObservation` | Two-crack geometry and growth evidence at one exact cycle. |
-| function | `observe_surface_crack(coordinates, facets, damage, opening, *, cycle: int, name: str = 'surface crack', damage_threshold: float = 0.95, include_boundary_front: bool = False, facet_ids = None) -> SurfaceCrackObservation` | Recover connected failed area and a three-dimensional crack front. |
-| function | `surface_crack_interaction(first: SurfaceCrackObservation, second: SurfaceCrackObservation, *, first_single_growth_rate: float \| None = None, second_single_growth_rate: float \| None = None, first_double_growth_rate: float \| None = None, second_double_growth_rate: float \| None = None, coalescence_tolerance: float = 0.0) -> CrackInteractionObservation` | Compare two named fronts without hiding the single-crack baseline. |
-| class | `ParisEvidence` | Postprocessed Paris-region evidence; never a crack-growth solver law. |
-| function | `paris_evidence(cycles, crack_size, driving_force, *, fit_cycle_range: tuple[float, float] \| None = None, fit_mask = None, derivative_window: int = 3, driving_force_name: str = 'Delta K', crack_size_name: str = 'a', driving_force_unit: str = 'declared', crack_size_unit: str = 'declared') -> ParisEvidence` | Fit a Paris relation after simulation from ``a(N)`` and a driver. |
-| function | `cyclic_cohesive(*, monotonic: BilinearCohesiveLaw \| MixedModeBilinearCohesiveLaw, fatigue_coefficient: float, fatigue_exponent: float, range_threshold: float, peak_exponent: float = 0.0, residual_exponent: float = 0.0, driver: MixedModeEnergyRangeDriver \| OrderedMixedModeEnergyPathDriver \| None = None, name: str \| None = None) -> CyclicCohesiveLaw \| MixedModeCyclicCohesiveLaw` | Create a Mode-I or mixed-mode cyclic cohesive law. |
-| function | `mixed_mode_energy_range_driver(**options) -> MixedModeEnergyRangeDriver` | Create the first proportional peak/valley mixed-mode fatigue driver. |
-| function | `ordered_jump_cycle(phases, jumps, *, name = 'ordered jump cycle')` | Create a closed, station-resolved local cohesive cycle. |
-| function | `ordered_mixed_mode_energy_path_driver(**options) -> OrderedMixedModeEnergyPathDriver` | Create a segment-resolved non-proportional mixed-mode driver. |
-| function | `field_state(fields = None, *, assets = None, **named_fields) -> FieldStateTransaction` | Create rollback state from a field mapping or named field arguments. |
-| function | `global_cyclic_fatigue_step(**kwargs) -> GlobalCyclicFatigueStep` | Create a reusable extrema- or ordered-path fatigue controller. |
-
-## `agentfem.fracture`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| function | `finite_strain_internal_force(displacement, test_function, material, *, measure = ufl.dx, name: str = 'F_internal_finite_strain') -> OperatorForm` | Return the current Total-Lagrangian hyperelastic internal force. |
-| class | `FiniteStrainEnergyMonitor` | Accepted-frame kinetic and hyperelastic bulk energy monitor. |
-| class | `DofMappedCohesiveForce(assembler, displacement, *, node_to_block_dof)` | Map a serial cohesive facet kernel to vector finite-element dofs. |
-| class | `NamedCohesiveResponse` | Responses and aggregate energy from several named interfaces. |
-| class | `CohesiveForceCollection(interfaces)` | Atomically compose independent named cohesive-interface forces. |
-| function | `named_cohesive_forces(**interfaces) -> CohesiveForceCollection` | Create an atomically managed collection from named cohesive forces. |
-| function | `named_mode_i_cohesive_forces(split, displacement, *, laws, normal_hints, thicknesses = None, tangential = 'free', tangential_stiffness = None, tolerance: float = 1e-10) -> CohesiveForceCollection` | Build independent named forces on one atomically split solver mesh. |
-| function | `cohesive_forces(split, displacement, *, laws, normal_hints, thicknesses = None, tangential = None, tangential_stiffness = None, tolerance: float = 1e-10) -> CohesiveForceCollection` | Build a recommended force for every named split interface. |
-| class | `DistributedDofMappedCohesiveForce(assembler, displacement, *, input_node_to_block_dof, input_node_owned, global_topology, global_facet_indices, local_input_nodes = None)` | MPI assembler for a physical-keyed split interface. |
-| function | `p1_input_node_to_block_dof(displacement, *, number_of_input_nodes: int)` | Recover the complete serial input-node to block-DOF map. |
-| function | `mode_i_cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law, *, normal_hint, thickness: float = 1.0, tolerance: float = 1e-10, tangential: str = 'free', tangential_stiffness: float \| None = None) -> DofMappedCohesiveForce \| DistributedDofMappedCohesiveForce` | Build a fixed-path cohesive force from a split mesh contract. |
-| function | `cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law, *, normal_hint, tangential: str \| None = None, tangential_stiffness: float \| None = None, thickness: float = 1.0, tolerance: float = 1e-10)` | Build the recommended full-vector fixed-path interface consumer. |
-| class | `FiniteStrainCohesiveResidual(bulk, cohesive)` | Assemble bulk UFL and paired-facet interface forces into one residual. |
-| class | `CohesiveNewtonSolveInfo` | Convergence evidence for one native bulk-plus-interface equilibrium. |
-| class | `ArcLengthOptions` | Crisfield-style spherical continuation controls. |
-| class | `ArcLengthSolveInfo` | Public AgentFEM object. |
-| class | `FiniteStrainCohesiveEquilibrium(residual: FiniteStrainCohesiveResidual, tangent, displacement, *, set_load = None, load_parameter = None, reference_load: float = 1.0, bcs = (), solver_options = None, control_displacement = None, reaction = None, bulk_strain_energy = None)` | Native Newton consumer for UFL bulk and zero-thickness interfaces. |
-| class | `FiniteStrainCohesiveArcLength(equilibrium: FiniteStrainCohesiveEquilibrium, options: ArcLengthOptions, *, initial_load: float = 0.0)` | Spherical arc-length continuation for cohesive equilibrium paths. |
-| class | `MassProportionalDampingResidual(base, *, mass, velocity, coefficient: float, dt: float)` | Add ``alpha M v_mid`` with transactional dissipation accounting. |
-| class | `DampingEnergyMonitor` | Add accepted viscous dissipation to an existing mechanical monitor. |
-| class | `FiniteStrainCohesiveEnergyMonitor` | Typed accepted-frame energy for bulk plus cohesive dynamics. |
-| class | `DynamicEnergyLedger` | Accepted-frame external work and mechanical-energy closure. |
-| class | `IsotropicWaveSpeeds` | Reference small-on-zero wave speeds for one isotropic material. |
-| class | `IncrementalWaveSpeeds` | Small-on-large bulk-wave modes about one homogeneous deformation. |
-| class | `PrincipalSurfaceWaveSpeed` | Reference-coordinate principal surface-wave secular solution. |
-| function | `neo_hookean_material_tangent(deformation_gradient, material) -> np.ndarray` | Return ``A[i,J,k,L] = dP[i,J]/dF[k,L]`` for a supported energy. |
-| function | `incremental_wave_speeds(deformation_gradient, direction, material, *, direction_configuration: str = 'current') -> IncrementalWaveSpeeds` | Return homogeneous small-on-large bulk-wave speeds. |
-| function | `principal_surface_wave_speed(deformation_gradient, material: hyperelasticity.NeoHookeanProperties, *, propagation_axis: int = 0, scan_points: int = 320) -> PrincipalSurfaceWaveSpeed` | Solve the 2D small-on-large principal surface-wave secular problem. |
-| function | `isotropic_reference_wave_speeds(material) -> IsotropicWaveSpeeds` | Return unstretched 3D isotropic ``c_d``, ``c_s``, and ``c_R``. |
-| class | `StableTimeIncrement` | Visible body/interface estimate for central difference. |
-| class | `CohesiveCrackHistory` | Crack-front position and window-fitted speed on a fixed path. |
-| class | `CrackPropagationFit` | Representative crack speed fitted across a declared path interval. |
-| class | `InterfaceFrontHistory` | Front position and fitted speed for one declared interface signal. |
-| class | `CohesiveFrontEnsemble` | Crack-front evidence from multiple thresholds and physical signals. |
-| class | `CohesiveInterfaceTrace` | Portable accepted-frame record on one fixed cohesive interface. |
-| class | `ScientificComparison` | Common scalar evidence for a simulation-to-observation comparison. |
-| class | `PreloadTransferReport` | Evidence for a quasi-static displacement to Explicit state transfer. |
-| function | `transfer_preload_to_explicit(preload_displacement, *, state, mass, residual, initial_velocity = None, mode: str = 'equilibrium', force_tolerance: float = 1e-08, acceleration_projection = None, energy_monitor = None, source_energy: float \| None = None, source_step: str \| None = None, destination_step: str \| None = None) -> PreloadTransferReport` | Initialize ``u/v/a`` consistently from a quasi-static preload state. |
-| function | `cohesive_crack_tip(path_coordinate, damage, *, threshold: float = 0.95, direction: str = 'increasing') -> float` | Locate the contiguous crack front by interpolating a damage threshold. |
-| function | `crack_tip_history(time_values, path_coordinate, damage_frames, *, threshold: float = 0.95, fit_window: int = 5, direction: str = 'increasing') -> CohesiveCrackHistory` | Build a crack history without single-failed-element speed spikes. |
-| function | `fit_crack_propagation_speed(history: CohesiveCrackHistory, *, start_position: float, end_position: float, minimum_samples: int = 3) -> CrackPropagationFit \| None` | Fit one representative speed over a fixed physical path interval. |
-| function | `interface_front_history(time_values, path_coordinate, signal_frames, *, signal: str, threshold: float, fit_window: int = 5, direction: str = 'increasing') -> InterfaceFrontHistory` | Track a contiguous interface front from any increasing damage signal. |
-| function | `cohesive_front_ensemble(trace: CohesiveInterfaceTrace, *, damage_thresholds = (0.5, 0.75, 0.95), opening_thresholds = (), dissipation_thresholds = (), fit_window: int = 5, direction: str = 'increasing') -> CohesiveFrontEnsemble` | Build observer-sensitivity evidence from a portable interface trace. |
-| function | `compare_curve(reference_coordinate, reference_values, simulation_coordinate, simulation_values, *, coordinate_name: str = 'coordinate', quantity_name: str = 'value') -> ScientificComparison` | Interpolate a simulated curve onto observed coordinates and compare. |
-| function | `compare_mach_cone(*, crack_speed: float, shear_wave_speed: float, observed_angle: float, unit: str = 'radian') -> ScientificComparison` | Compare an observed Mach angle with ``asin(c_s/v)``. |
-| function | `compare_rectilinear_field(reference_x, reference_y, reference_values, simulation_x, simulation_y, simulation_values, *, quantity_name: str = 'field', reference_mask = None, simulation_mask = None) -> ScientificComparison` | Compare scalar maps after bilinear interpolation on their overlap. |
-| function | `compare_rectilinear_observations(reference, simulation, *, quantity_name: str \| None = None) -> ScientificComparison` | Compare two portable rectilinear observations with semantic checks. |
-| function | `mach_cone_angle(*, crack_speed: float, shear_wave_speed: float) -> float` | Return the ideal Mach angle ``asin(c_s / v)`` in radians. |
-| function | `separation_regime(*, crack_speed: float, rayleigh_wave_speed: float, shear_wave_speed: float, failed_fraction: float, simultaneous_failed_fraction: float, spall_fraction: float = 0.8, rapid_failed_fraction: float \| None = None, ligament_traction_ratio: float \| None = None, pressure_wave_speed: float \| None = None) -> str` | Classify one frame with explicit crack-speed and spall evidence. |
-| function | `estimate_stable_time_increment(*, characteristic_length, dilatational_speed: float, safety_factor: float = 0.8, interface_stiffness: float \| None = None, interface_area: float \| None = None, negative_mass: float \| None = None, positive_mass: float \| None = None) -> StableTimeIncrement` | Estimate explicit stability from body transit and interface oscillator. |
-| function | `minimum_cell_nodal_spacing(domain) -> float` | Return an MPI-global conservative spacing from cell geometry nodes. |
-
 ## `agentfem.materials`
 
 | Kind | Public object | Purpose |
@@ -242,20 +137,6 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ElasticIsotropicProperties` | Isotropic linear-elastic material properties. |
 | class | `ThermoElasticIsotropicProperties` | Isotropic thermoelastic and heat-conduction properties. |
 | function | `validate_material_record(name: str, record: dict) -> None` | Validate one material-centered library record. |
-
-## `agentfem.mechanics`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `CreepEnergyFrame` | Public AgentFEM object. |
-| class | `CreepIncrementInfo` | Public AgentFEM object. |
-| class | `CreepPathInfo` | Public AgentFEM object. |
-| class | `ImplicitCreepStep` | Adaptive backward-Euler creep step with global Newton equilibrium. |
-| function | `implicit_creep_step(*, displacement, material, duration: float, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, temperature = None, name: str = 'implicit_creep', _experimental_distributed: bool = False) -> ImplicitCreepStep` | Build the first global 3D implicit power-law creep step. |
-| class | `J2IncrementInfo` | Public AgentFEM object. |
-| class | `J2LoadPathInfo` | Public AgentFEM object. |
-| class | `J2PlasticityStep` | Incremental global equilibrium for 3D small-strain J2 plasticity. |
-| function | `j2_plasticity_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'j2_plasticity', _experimental_distributed: bool = False) -> J2PlasticityStep` | Build a global 3D J2 step from a displacement and load operator. |
 
 ## `agentfem.constitutive`
 
@@ -430,6 +311,420 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `body_force_form(force, test_function)` | Create a body-force virtual-work form. |
 | function | `boundary_traction_form(traction, test_function, ds_measure)` | Create a boundary-traction virtual-work form. |
 
+## `agentfem.project`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| function | `new_run_id(now: datetime \| None = None) -> str` | Return a sortable, collision-resistant identifier for one execution. |
+| class | `ProjectConfig` | Operational metadata for an AgentFEM case directory. |
+| function | `discover(start: str \| Path \| None = None) -> ProjectConfig` | Find the nearest ``agentfem.toml`` from ``start`` upward. |
+| class | `RunContext` | Filesystem and identity contract shared by scripts, CLIs, GUIs, and agents. |
+| function | `current_run(*, project_root: str \| Path \| None = None, project_name: str \| None = None) -> RunContext` | Return the CLI-provided context or create one for direct Python use. |
+
+## `agentfem.procedures`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `SolutionProcedure` | Inspectable, backend-neutral description of a solution algorithm. |
+| function | `linear_static() -> SolutionProcedure` | Public AgentFEM object. |
+| function | `nonlinear_static(*, stateful: bool = False) -> SolutionProcedure` | Public AgentFEM object. |
+| function | `implicit_euler(*, nonlinear: bool = False, stateful: bool = True) -> SolutionProcedure` | Public AgentFEM object. |
+| function | `implicit_creep() -> SolutionProcedure` | Quasi-static backward-Euler creep with global Newton equilibrium. |
+| function | `newmark() -> SolutionProcedure` | Public AgentFEM object. |
+| function | `generalized_alpha() -> SolutionProcedure` | Public AgentFEM object. |
+| function | `central_difference() -> SolutionProcedure` | Public AgentFEM object. |
+| function | `cyclic_fatigue() -> SolutionProcedure` | Quasi-static peak/valley equilibrium with independent cycle blocks. |
+| function | `for_step(*, analysis: str, method: str \| None = None, stateful: bool = False)` | Resolve a procedure without coupling ``Study`` to one solver route. |
+| function | `resolve(*, analysis: str, requested: SolutionProcedure \| str \| None = None, preferred: str \| None = None, stateful: bool = False) -> SolutionProcedure` | Resolve and validate the numerical procedure for one analysis request. |
+
+## `agentfem.results`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `CheckpointRecord` | One restart asset with an explicit portability boundary. |
+| class | `FieldResult` | A named live field or an external field artifact. |
+| class | `HistoryResult` | Time, load, or iteration history with a fixed value shape. |
+| class | `ResultQuantity` | One scalar or fixed-shape quantity of interest. |
+| class | `SimulationResult` | Scientific results and artifacts from one simulation. |
+| function | `dof_statistics(field) -> dict[str, float \| int]` | Return global finite dof statistics for a DOLFINx-like field. |
+| function | `from_solution(solution, *, name: str = 'result', field_name: str \| None = None, unit: str \| None = None, metadata: Mapping[str, object] \| None = None) -> SimulationResult` | Wrap one solved field in a :class:`SimulationResult`. |
+| class | `ForceMomentResultant` | Integrated force and moment about an explicit physical point. |
+| class | `PathSample` | Values sampled along one straight physical-space path. |
+| class | `StaticForceBalance` | Global algebraic force equilibrium for one linear static solid. |
+| class | `StaticWorkBalance` | Energy closure including proportional prescribed boundary motion. |
+| function | `average(expression, *, measure = ufl.dx, comm = None)` | Return the measure-weighted global average of an expression. |
+| function | `boundary_resultant(traction, *, on)` | Integrate a traction/flux expression over a named boundary. |
+| function | `field_extrema(field, *, magnitude: bool = False, location: bool = False) -> dict[str, object]` | Return MPI-global field extrema, optionally with physical locations. |
+| function | `free_body_resultant(*, boundary_tractions = (), body_forces = (), about) -> ForceMomentResultant` | Integrate boundary and volume forces into one free-body resultant. |
+| function | `external_force_resultant(problem)` | Return the MPI-global resultant of a linear problem's assembled RHS. |
+| function | `integral(expression, *, measure = ufl.dx, comm = None)` | Return the global integral of a scalar, vector, or tensor expression. |
+| function | `l2_norm(expression, *, measure = ufl.dx, comm = None) -> float` | Return ``sqrt(integral(inner(value, value)))`` globally. |
+| function | `probe(field, *, at, padding: float = 1e-10)` | Return one scalar, vector, or tensor field value at a physical point. |
+| function | `quadrature_extrema(expression, domain, *, degree: int = 4) -> tuple[float, float]` | Return global min/max sampled at Basix quadrature points. |
+| function | `reaction_resultant(problem, *, on = None, component: int \| None = None, name: str = 'RF')` | Return an MPI-global strong-constraint reaction resultant. |
+| function | `region_average(expression, *, on)` | Return a measure-weighted average over a named mesh region. |
+| function | `region_integral(expression, *, on)` | Integrate a scalar, vector, or tensor over a named mesh region. |
+| function | `region_measure(*, on) -> float` | Return the global length, area, or volume of a named region. |
+| function | `sample_path(field, *, start, end, count: int = 101, padding: float = 1e-10, missing: str = 'raise') -> PathSample` | Sample a field along the straight segment from ``start`` to ``end``. |
+| function | `sample_points(field, points, *, padding: float = 1e-10, missing: str = 'raise') -> np.ndarray` | Evaluate a finite-element field at common physical points under MPI. |
+| function | `section_resultant(stress, *, on, normal = None, about = None) -> ForceMomentResultant` | Integrate section force and moment from a Cauchy/nominal stress field. |
+| function | `static_force_balance(problem) -> StaticForceBalance` | Evaluate ``R + F = 0`` for a converged linear static solid. |
+| function | `static_work_balance(problem, *, constraints = ()) -> StaticWorkBalance` | Evaluate linear-static work including nonzero strong Dirichlet data. |
+| function | `project(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField')` | Return the global L2 projection of a UFL expression. |
+| function | `project_piecewise(terms, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField')` | Project region-dependent expressions into one finite-element field. |
+| function | `small_strain_cell_fields(displacement, properties, *, study = None, variables = ('S', 'E', 'MISES', 'SENER'), degree: int = 0) -> tuple[object, ...]` | Create standard projected fields for linear small-strain elasticity. |
+| function | `small_strain_partition_fields(displacement, assignments, *, study = None, variables = ('S', 'E', 'MISES', 'SENER'), degree: int = 0) -> tuple[object, ...]` | Create standard fields for a complete regional material partition. |
+| class | `FieldRecovery` | A reviewable conversion from constitutive evidence to a field. |
+| function | `cell_average_recovery() -> FieldRecovery` | Return the standard scientific integration-point recovery policy. |
+| function | `recover_integration_point_field(source, *, name: str \| None = None, policy: FieldRecovery \| None = None, unit: str \| None = None, description: str = '') -> FieldResult` | Recover one ``QuadratureField`` without hiding its processing history. |
+| function | `add_execution_trace(result, events: Iterable[object]) -> tuple[dict[str, object], ...]` | Attach one complete execution trace and its standard histories. |
+| function | `execution_records(events: Iterable[object]) -> tuple[dict[str, object], ...]` | Normalize solver events without depending on a particular procedure. |
+| function | `complete_result(step, result, *, output = None, fields = (), strict_output: bool = False, deformation_scale: float = 0.0, metadata: Mapping[str, object] \| None = None)` | Complete output and metadata through one compatibility-safe path. |
+| function | `execution_context(step)` | Return the context bound by :meth:`Model.step`, when available. |
+| class | `HomogenizedFrame` | Macroscopic response reconstructed from one periodic-cell state. |
+| class | `LiveFiniteStrainCellFields` | Derived cell fields refreshed from active Explicit state at output time. |
+| function | `finite_strain_dynamic_cell_fields(displacement, velocity, properties, *, variables = ('SENER', 'KED', 'J'), pressure = None, density = None) -> LiveFiniteStrainCellFields` | Create reusable SED/KED/stress fields for Explicit saved frames. |
+| function | `finite_strain_diagnostics(displacement, *, constraint = None, quadrature_degree: int = 4) -> dict[str, object]` | Evaluate reusable physical checks for a finite-deformation solution. |
+| function | `finite_strain_cell_fields(displacement, properties, *, variables = ('F', 'E', 'GREEN', 'P', 'S', 'MISES', 'J', 'SENER', 'EVOL'), pressure = None, velocity = None, density = None) -> tuple[object, ...]` | Create requested standard P0 finite-strain cell fields. |
+| function | `homogenize_periodic_cell(displacement, properties, *, pressure = None, macro_deformation_gradient, cell_reference_volume: float, load_factor: float) -> HomogenizedFrame` | Return volume-normalized macroscopic finite-strain response. |
+| function | `homogenize_periodic_path(snapshots, properties, *, constraint) -> tuple[HomogenizedFrame, ...]` | Homogenize every saved state of an affine periodic-cell analysis. |
+| function | `write_homogenized_csv(path: str \| Path, frames) -> Path` | Write flattened macro tensors in a human-readable table. |
+| function | `write_homogenized_history(path: str \| Path, frames) -> Path` | Write an exact, compact NumPy history for plotting and ML reuse. |
+| class | `FieldVariable` | Stable public meaning of one result variable. |
+| function | `field_variable(name: str, *, finite_strain: bool = False) -> FieldVariable` | Resolve a standard variable, including the context-dependent ``E`` alias. |
+| function | `preselected_fields(*, physics: str, finite_strain: bool = False) -> tuple[str, ...]` | Return the engineering-default field set for one physics context. |
+| function | `resolve_field_variables(names, *, finite_strain: bool = False) -> tuple[FieldVariable, ...]` | Resolve aliases, preserve request order, and remove duplicates. |
+| class | `FieldOutput` | What fields to save, how often, and in which configuration. |
+| class | `FieldOutputArtifacts` | Files and final live fields produced by one output plan. |
+| class | `ResultFieldArtifacts` | One completed-result field dataset and its explicit layout contract. |
+| function | `field_output(*variables, every: int \| str \| None = None, intervals: int \| None = None, configuration: str = 'deformed', deformation_scale: float = 1.0, backend: str = 'xdmf') -> FieldOutput` | Create a concise, inspectable field-output request. |
+| function | `read_unified_xdmf_series(xdmf_path) -> tuple[object, ...]` | Read AgentFEM's compact XDMF/HDF5 frames as PyVista grids. |
+| function | `write_deformed_vtk_series(pvd_path, snapshots, cell_fields, *, deformation_scale: float = 1.0) -> tuple[Path, tuple[Path, ...]]` | Write one deformed VTU grid per frame and a ParaView PVD collection. |
+| function | `write_parallel_vtk_series(path, snapshots, fields_by_frame) -> Path` | Write collective single-dataset ParaView frames under MPI. |
+| function | `write_result_fields(result, path, *, time: float = 0.0, names = (), deformation_scale: float = 0.0) -> ResultFieldArtifacts` | Write the live, visualization-ready fields of one SimulationResult. |
+| function | `write_unified_xdmf_series(xdmf_path, snapshots, cell_fields, *, deformation_scale: float = 1.0, store_reference_geometry: bool = True, compression: int = 4) -> Path` | Write one temporal XDMF and one compressed HDF5 heavy-data file. |
+| class | `FiniteStrainDiagnosticRequest` | Record physical admissibility and constraint checks. |
+| class | `HistoryRequest` | Evaluate one scientific quantity on every accepted output frame. |
+| class | `OutputPlan` | One declarative output contract for a completed finite-strain step. |
+| class | `PeriodicCellHistoryRequest` | Record complete tensor histories for a finite-strain periodic cell. |
+| class | `ProbeHistoryRequest` | Record a field value at one physical point on every accepted frame. |
+| class | `PresentationOutput` | Optional serial rendering from the scientific XDMF/HDF5 series. |
+| class | `SolverHistoryRequest` | Record accepted-increment convergence history. |
+| class | `SourceNodeHistoryRequest` | Record U and current coordinates using source-mesh node labels. |
+| function | `finite_strain_checks(*, constraint = None, quadrature_degree: int = 4) -> FiniteStrainDiagnosticRequest` | Public AgentFEM object. |
+| function | `history(name: str, evaluate, *, coordinate = None, unit: str \| None = None, abscissa_name: str \| None = None, abscissa_unit: str \| None = None, description: str = '') -> HistoryRequest` | Create a scalar history evaluated on accepted analysis states. |
+| function | `output_plan(directory, *, field: FieldOutput \| None = None, requests = (), presentation: PresentationOutput \| None = None, basename: str = 'results') -> OutputPlan` | Create a complete finite-strain output plan. |
+| function | `periodic_cell_history(constraint, *, basename: str = 'homogenized_history') -> PeriodicCellHistoryRequest` | Public AgentFEM object. |
+| function | `probe_history(name: str, *, at, field = None, component: int \| None = None, unit: str \| None = None, description: str = '') -> ProbeHistoryRequest` | Create a point-probe history for accepted static or transient states. |
+| function | `presentation(*, comparison: bool = True, animation: str \| None = 'gif', scalar: str = 'UMAG', fps: int = 2) -> PresentationOutput` | Public AgentFEM object. |
+| function | `solver_history() -> SolverHistoryRequest` | Public AgentFEM object. |
+| function | `source_node_history(nodes, **points: int) -> SourceNodeHistoryRequest` | Public AgentFEM object. |
+| function | `render_deformation_animation(undeformed_path, snapshots, nodes, output_path, *, fps: int = 2) -> Path` | Render scale-one deformation history as GIF or MP4. |
+| function | `render_deformation_comparison(undeformed_path, deformed_path, output_path, *, scalar: str = 'DisplacementMagnitude') -> Path` | Render side-by-side undeformed/deformed surfaces with PyVista. |
+| function | `render_unified_xdmf_animation(xdmf_path, output_path, *, scalar: str = 'UMAG', fps: int = 2) -> Path` | Render a GIF or MP4 from AgentFEM's single XDMF/HDF5 series. |
+| function | `render_unified_xdmf_comparison(xdmf_path, output_path, *, scalar: str = 'UMAG') -> Path` | Render the first and final grids from a unified XDMF series. |
+| function | `render_vtk_series_animation(frame_paths, output_path, *, scalar: str = 'UMAG', fps: int = 2) -> Path` | Render a GIF directly from a combined-field deformed VTU series. |
+
+## `agentfem.solvers`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `LinearSolverOptions` | PETSc KSP options for a linear solve. |
+| function | `direct_solver(*, package: str \| None = None) -> LinearSolverOptions` | Create a direct linear-solver policy without PETSc option names. |
+| class | `NonlinearSolverOptions` | PETSc SNES/KSP policy for nonlinear finite-element solves. |
+| class | `NewtonSolverOptions` | Backend-neutral Newton policy for nonlinear equilibrium. |
+| function | `newton(*, relative_tolerance: float = 1e-08, absolute_tolerance: float = 1e-09, maximum_iterations: int = 30, line_search: str \| None = 'backtracking', linear_solver: LinearSolverOptions \| None = None, error_if_not_converged: bool = True) -> NewtonSolverOptions` | Create one Newton policy for ordinary and affine-constrained steps. |
+| class | `NonlinearSolveInfo` | Convergence evidence returned by a PETSc SNES solve. |
+| class | `AffineNewtonOptions` | Newton policy for an affine-reduced nonlinear equilibrium path. |
+| class | `AffineLoadIncrementInfo` | Convergence evidence for one macroscopic load increment. |
+| class | `AffineLoadPathInfo` | Convergence evidence for an incrementally applied affine constraint. |
+| class | `SolveEvent` | One structured event emitted by an analysis procedure. |
+| function | `create_ksp(comm, options: LinearSolverOptions \| None = None)` | Create and configure a PETSc KSP object. |
+| class | `LinearSolveInfo` | PETSc KSP convergence evidence for one linear system solve. |
+| function | `solve_matrix_system(A, b, x, options: LinearSolverOptions \| None = None, *, raise_on_failure: bool \| None = None) -> LinearSolveInfo` | Solve ``A x = b`` and return explicit PETSc convergence evidence. |
+| function | `solve_linear_problem(bilinear_form, linear_form, solution, *, bcs = None, options: LinearSolverOptions \| None = None, return_info: bool = False)` | Assemble and solve a standard linear variational problem. |
+| function | `solve_nonlinear_problem(residual_form, solution, *, bcs = None, jacobian_form = None, options: NonlinearSolverOptions \| NewtonSolverOptions \| None = None, petsc_options_prefix: str = 'agentfem_nonlinear_') -> tuple[object, NonlinearSolveInfo]` | Solve ``R(u; v) = 0`` with the current DOLFINx PETSc/SNES interface. |
+| function | `solve_affine_nonlinear_path(residual_form, jacobian_form, solution, constraint, *, load_factors = None, incrementation = None, output_factors = (), options: AffineNewtonOptions \| NewtonSolverOptions \| None = None, on_increment = None, acceptance_check = None, reporter = None, step_name: str = 'affine_nonlinear', step_number: int = 1) -> tuple[object, AffineLoadPathInfo]` | Solve a nonlinear path under ``u = T q + u_bar`` constraints. |
+
+## `agentfem.steps`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `AutomaticIncrementation` | Adaptive load/time incrementation for one analysis step. |
+| class | `FixedIncrementation` | A prescribed monotone load-factor path for one analysis step. |
+| function | `automatic(*, initial: float = 0.1, minimum: float = 1e-05, maximum: float = 0.25, max_increments: int = 100, max_cutbacks: int = 5, cutback_factor: float = 0.25, growth_factor: float = 1.5, fast_iterations: int = 4, slow_iterations: int = 10, maximum_inelastic_increment: float \| None = None) -> AutomaticIncrementation` | Create inspectable Abaqus-style automatic incrementation. |
+| function | `fixed(increments: int) -> FixedIncrementation` | Divide the normalized step interval into exactly ``increments`` parts. |
+| function | `at(*load_factors: float) -> FixedIncrementation` | Create a prescribed, nonuniform load-factor path. |
+| function | `normalize(value = None, *, increments: int \| None = None, load_factors = None)` | Normalize public and compatibility incrementation inputs. |
+| class | `EngineeringStep` | Named inherited activation state, separate from solver controls. |
+| function | `engineering_step(name: str, *, previous: EngineeringStep \| None = None, inherit_model_loads: bool = False, inherit_model_constraints: bool = True)` | Public AgentFEM object. |
+
+## `agentfem.units`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `UnitSystem` | Named consistent base-unit contract attached to a model. |
+| function | `consistent(*, length, mass, time, temperature = 'K', name = 'consistent_units')` | Declare the base units used consistently by all model inputs. |
+| function | `si(*, temperature = 'K') -> UnitSystem` | Return the SI ``m-kg-s`` engineering contract. |
+| function | `n_mm_mpa(*, temperature = 'K') -> UnitSystem` | Return the common ``mm-N-s-MPa`` consistent system. |
+
+## `agentfem.io`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| function | `ensure_output_dir(path: Path, comm: MPI.Comm) -> None` | Create an output directory once, then synchronize all ranks. |
+| class | `CSVLogger` | Rank-zero CSV writer for time histories and scalar diagnostics. |
+| class | `XDMFTimeSeries(path: Path, domain, mode: str = 'w') -> None` | Small context manager for writing a mesh and time-dependent fields. |
+| class | `ParaViewTimeSeries(path: Path, domain, mode: str = 'w') -> None` | Collective VTK/PVD series with one geometry carrying all fields. |
+| class | `ResultWriter(path: Path, domain, fields = (), mode: str = 'w') -> None` | Named result writer for one mesh and a stable field list. |
+| function | `interpolate_for_xdmf(field, *, degree: int = 1, name: str \| None = None)` | Interpolate a field to an XDMF-friendly Lagrange output space. |
+
+## `agentfem.verification`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| function | `trust_rank(level: str) -> int` | Return the ordered rank of one public trust level. |
+| class | `VerificationClaim` | One explicit, machine-readable scientific acceptance claim. |
+| class | `VerificationReport` | Trust decision derived from execution state and scientific claims. |
+| class | `QualityPolicy` | Low-ceremony acceptance policy for one result or dataset boundary. |
+| class | `ConvergenceSample` | One observable evaluated at a declared discretization size. |
+| class | `ConvergenceStudy` | A coarse-to-fine mesh or time-step convergence sequence. |
+| function | `report(*claims: VerificationClaim, computed: bool = True, converged: bool = True, scope: str = 'simulation') -> VerificationReport` | Concise public constructor for a verification report. |
+| function | `quality_policy(value: str \| QualityPolicy) -> QualityPolicy` | Return one named public quality policy. |
+| function | `assess(result, quality: str \| QualityPolicy = 'engineering', *, claims: Iterable[VerificationClaim] = (), converged: bool \| None = None, required_quantities: Iterable[str] = (), required_histories: Iterable[str] = (), required_artifacts: Iterable[str] = (), attach: bool = True) -> VerificationReport` | Apply a quality preset and inexpensive deterministic result checks. |
+| function | `convergence_study(name: str, observable: str, samples: Iterable[ConvergenceSample], *, discretization: str = 'mesh') -> ConvergenceStudy` | Public AgentFEM object. |
+
+## `agentfem.boundary_models`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `ElasticFoundation` | Distributed linear spring support on a solid boundary. |
+| function | `elastic_foundation(*, on = None, location = None, stiffness, mode: str = 'isotropic', normal = None, name: str = 'elastic_foundation') -> ElasticFoundation` | Public AgentFEM object. |
+| class | `ConvectionBoundary` | Linear convection ``-k grad(T).n = h (T - T_inf)``. |
+| function | `convection(*, on = None, location = None, coefficient, ambient_temperature, name: str = 'convection') -> ConvectionBoundary` | Create a linear thermal convection boundary condition. |
+
+## `agentfem.campaigns`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `Campaign(*, name: str, parameter_space: ParameterSpace, outputs: tuple[Quantity, ...], evaluate: Callable[[object], Mapping[str, object] \| CaseOutcome \| SimulationResult], build: Callable[[Mapping[str, object]], object] \| None = None, metadata: Mapping[str, object] \| None = None, execution: ExecutionPolicy \| None = None) -> None` | Build and evaluate a collection of immutable scientific cases. |
+| class | `CampaignCase` | One immutable case in a campaign plan. |
+| class | `CampaignPlan` | Immutable cases and their design-of-experiment evidence. |
+| class | `CampaignReport` | Case-level evidence and the successful scientific dataset. |
+| class | `CaseOutcome` | Successful case outputs plus links to scientific evidence. |
+| class | `CaseRunRecord` | Execution evidence for one attempted case. |
+| class | `ExecutionPolicy` | Declared execution behavior for the current campaign runner. |
+| function | `case_id(campaign_name: str, parameters: Mapping[str, object], *, schema_version: str = CAMPAIGN_SCHEMA_VERSION) -> str` | Return a deterministic scientific case identity. |
+| function | `create(**kwargs) -> Campaign` | Create a :class:`Campaign` using the public functional spelling. |
+| class | `CampaignSpecification` | Validated declarative part of a campaign. |
+| function | `load_specification(path: str \| Path) -> CampaignSpecification` | Load a safe JSON campaign specification. |
+| function | `specification_from_dict(record: Mapping[str, object]) -> CampaignSpecification` | Validate a dictionary and construct a campaign specification. |
+| class | `ChoiceParameter` | Finite categorical or policy parameter. |
+| class | `IntegerParameter` | Bounded integer parameter. |
+| class | `ParameterSpace` | Ordered scientific input schema for a campaign. |
+| class | `RealParameter` | Bounded continuous parameter with optional units and log scaling. |
+| class | `SamplingPlan` | Immutable, validated collection of parameter samples. |
+| function | `explicit(space: ParameterSpace, samples: Iterable[Mapping[str, object]], *, metadata: Mapping[str, object] \| None = None) -> SamplingPlan` | Create a plan from caller-supplied samples. |
+| function | `full_factorial(space: ParameterSpace, levels: int \| Mapping[str, int] = 3) -> SamplingPlan` | Create a full-factorial design in normalized coordinates. |
+| function | `latin_hypercube(space: ParameterSpace, count: int, *, seed: int = 0) -> SamplingPlan` | Draw a reproducible Latin-hypercube design. |
+| function | `random(space: ParameterSpace, count: int, *, seed: int = 0) -> SamplingPlan` | Draw reproducible independent uniform samples in normalized space. |
+
+## `agentfem.checkpointing`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `CheckpointPolicy` | Automatic accepted-increment checkpoint cadence for transient steps. |
+| function | `every(increments: int, *, directory = 'checkpoints', final: bool = True, prefix: str \| None = None, keep_last: int \| None = None, portable: bool = False) -> CheckpointPolicy` | Create an automatic checkpoint policy for accepted time increments. |
+| function | `save_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, completed_steps: int, state: dict[str, object], accepted_times = (), execution_events = (), history_records = (), auxiliary_state: dict[str, object] \| None = None, portable: bool = False)` | Write a transient restart, optionally with partition-independent state. |
+| function | `load_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, state: dict[str, object]) -> dict[str, object]` | Restore a transient state after validating its scientific identity. |
+| function | `save_portable_state_bundle(path, *, state: dict[str, object]) -> dict[str, object]` | Collectively publish a portable nodal-state bundle. |
+| function | `load_portable_state_bundle(path, *, state: dict[str, object], record: dict[str, object], identities: dict[str, object]) -> None` | Collectively restore a bundle written by :func:`save_portable_state_bundle`. |
+| function | `checkpoint_file_record(path) -> dict[str, object]` | Describe one checkpoint payload by name, size, and digest. |
+| function | `validate_checkpoint_record(directory, record: dict[str, object]) -> Path` | Validate and return a payload referenced by a scientific manifest. |
+| function | `function_portable_identity(function) -> dict[str, object]` | Return an MPI-partition-independent identity for a nodal field. |
+| function | `mesh_portable_identity(domain) -> dict[str, object]` | Hash cell geometry independently of local numbering and partition. |
+| function | `function_partition_identity(function) -> dict[str, object]` | Return a JSON-safe identity for one field on one mesh partition. |
+| function | `atomic_savez(path, **arrays) -> Path` | Atomically publish one NumPy archive in its destination directory. |
+| function | `atomic_write_text(path, content: str) -> Path` | Atomically publish UTF-8 text in its destination directory. |
+
+## `agentfem.datasets`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `DatasetSplit` | Reproducible train/validation partition. |
+| class | `ScientificDataset` | A numeric dataset whose columns retain scientific meaning. |
+| class | `ExternalDatasetAudit` | Local evidence that downloaded public data matches its manifest. |
+| class | `ExternalDatasetManifest` | Versioned public dataset identity, scope, and local audit policy. |
+| class | `ExternalFile` | One immutable file identity in a public scientific dataset. |
+| class | `SpreadsheetSheet` | Rectangular values from one XLSX worksheet. |
+| class | `SpreadsheetWorkbook` | Dependency-free, read-only representation of one XLSX workbook. |
+| function | `read_xlsx_workbook(path: str \| Path) -> SpreadsheetWorkbook` | Read values and cached formula results from an XLSX without pandas. |
+| function | `science_supershear_dryad_manifest() -> ExternalDatasetManifest` | Return the pinned CC0 Dryad v7 manifest for Science 2023. |
+| function | `science_supershear_v5_research_task() -> dict[str, object]` | Return the installed machine-readable V5 research handoff. |
+| class | `Quantity` | One scalar, curve, vector, or sampled-field output contract. |
+| class | `Sample` | One successful simulation sample and its scientific lineage. |
+| function | `decode_quantities(quantities: tuple[Quantity, ...], row) -> dict[str, object]` | Restore one flattened numeric row to declared named quantities. |
+| class | `RectilinearObservation` | One scalar field on explicit physical ``x``/``y`` axes. |
+| class | `FEMFieldSample` | One FEM field representation with coordinates and scientific encoding. |
+| class | `TorchDatasetBundle` | PyTorch dataset plus the schema needed to interpret its columns. |
+| function | `fem_field_sample(function, encoding) -> FEMFieldSample` | Export owned nodal coefficients for external neural/PINN tooling. |
+| function | `fem_observation_sample(function, grid, *, name: str \| None = None, unit: str \| None = None, role: str = 'output', components = (), outside: str = 'raise', fill_value: float = 0.0, coordinate_map = None, configuration: str = 'reference') -> FEMFieldSample` | Sample a FEM field on a reusable structured observation grid. |
+| function | `to_torch(dataset: ScientificDataset, *, normalized_inputs: bool = True, dtype: str = 'float32', device: str = 'cpu') -> TorchDatasetBundle` | Expose a validated campaign dataset as a PyTorch ``TensorDataset``. |
+
+## `agentfem.fatigue_fracture`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `ForceCycle` | One scalar cyclic-load definition expressed in test parameters. |
+| function | `force_cycle(*, minimum: float \| None = None, maximum: float \| None = None, fmin: float \| None = None, fmax: float \| None = None, frequency: float = 1.0, waveform: str = 'sine', hold_minimum_fraction: float = 0.0, hold_maximum_fraction: float = 0.0, table = (), name: str = 'force cycle') -> ForceCycle` | Create a cyclic force from ``minimum/maximum`` or ``fmin/fmax``. |
+| class | `CycleJumpDecision` | One inspectable proposal for advancing the independent cycle count. |
+| class | `CycleJumpPolicy` | Bound a cycle block by predicted damage and exact output landings. |
+| class | `CycleJumpRecord` | Accepted or rejected cycle-block evidence. |
+| class | `CycleJumpLedger(*, start_cycle: int = 0)` | Record exact cycle progress and every jump/cutback decision. |
+| class | `CyclicCohesiveResponse` | Mode-I response with separated monotonic and fatigue evidence. |
+| class | `CyclicCohesiveLaw` | Replaceable power-law range fatigue layered on a bilinear envelope. |
+| class | `CyclicCohesiveTransaction(law: CyclicCohesiveLaw, size: int)` | Atomic monotonic trials and cycle-block trials for cohesive points. |
+| class | `MixedModeEnergyRange` | Local cohesive-energy driver from one physical peak/valley pair. |
+| class | `OrderedJumpCyclePath` | One ordered closed cycle of complete local cohesive jump vectors. |
+| class | `MixedModeEnergyPath` | Segment-resolved local cohesive energy evidence for one ordered path. |
+| class | `OrderedMixedModeEnergyPathDriver` | Segment-resolved BK/power driver for ordered mixed-mode cycles. |
+| class | `MixedModeEnergyRangeDriver` | BK/power interaction for local mixed-mode cyclic energy ranges. |
+| class | `MixedModeCyclicCohesiveResponse` | Mixed-mode monotonic response with committed cyclic evidence. |
+| class | `MixedModeCyclicCohesiveLaw` | Replaceable cyclic damage layered on a mixed-mode cohesive envelope. |
+| class | `MixedModeCyclicCohesiveTransaction(law: MixedModeCyclicCohesiveLaw, size: int)` | Atomic full-vector cycle transaction with mixed-mode energy evidence. |
+| class | `FieldStateTransaction(fields, *, assets = None)` | In-memory rollback for bulk fields and other transactional assets. |
+| class | `GeneralizedWorkSample` | One named force--displacement pair at an accepted equilibrium point. |
+| function | `generalized_work_sample(name, *, force, displacement, role = 'natural_load') -> GeneralizedWorkSample` | Declare one generalized work-conjugate channel. |
+| function | `reference_point_work_sample(load, *, translation, rotation = None) -> GeneralizedWorkSample` | Pair a distributed reference load with measured rigid motion. |
+| class | `CyclicEnergyFrame` | One accepted or trial cycle-block work--energy closure. |
+| class | `CyclicWorkEnergyLedger(*, name = 'cyclic work-energy ledger')` | Transactional generalized-work and cycle-block energy accounting. |
+| function | `cyclic_work_energy_ledger(**options) -> CyclicWorkEnergyLedger` | Create a transactional cycle-block work--energy ledger. |
+| class | `CyclicEquilibriumPoint` | Evidence returned by one converged cyclic equilibrium solve. |
+| class | `CyclicFatigueBlock` | Accepted structure-level cycle block and its error evidence. |
+| class | `GlobalCyclicFatigueStep(*, cycle: ForceCycle, stop_cycle: int, interfaces, state, solve_equilibrium, jump: CycleJumpPolicy \| None = None, landing_cycles = (), maximum_opening_feedback: float = 0.02, maximum_energy_balance_error: float \| None = None, energy_ledger: CyclicWorkEnergyLedger \| None = None, ordered_path_phases = (), observe = None, name: str = 'cyclic fatigue')` | Quasi-static cyclic fatigue loop with global rollback and cutback. |
+| class | `SurfaceCrackComponent` | One connected failed component in a surface-crack observation. |
+| class | `SurfaceCrackObservation` | One cycle's geometric evidence on a triangular cohesive surface. |
+| class | `CrackTopologyEvent` | Auditable identity change between two accepted crack observations. |
+| class | `TrackedSurfaceCrack` | A connected crack component with identity stable across cycle blocks. |
+| class | `SurfaceCrackTrackingFrame` | Persistent component identities and topology events at one cycle. |
+| class | `SurfaceCrackTracker(*, interface_name: str, id_prefix: str \| None = None)` | Track cracks on one fixed cohesive surface by physical facet identity. |
+| class | `CrackInteractionObservation` | Two-crack geometry and growth evidence at one exact cycle. |
+| function | `observe_surface_crack(coordinates, facets, damage, opening, *, cycle: int, name: str = 'surface crack', damage_threshold: float = 0.95, include_boundary_front: bool = False, facet_ids = None) -> SurfaceCrackObservation` | Recover connected failed area and a three-dimensional crack front. |
+| function | `surface_crack_interaction(first: SurfaceCrackObservation, second: SurfaceCrackObservation, *, first_single_growth_rate: float \| None = None, second_single_growth_rate: float \| None = None, first_double_growth_rate: float \| None = None, second_double_growth_rate: float \| None = None, coalescence_tolerance: float = 0.0) -> CrackInteractionObservation` | Compare two named fronts without hiding the single-crack baseline. |
+| class | `ParisEvidence` | Postprocessed Paris-region evidence; never a crack-growth solver law. |
+| function | `paris_evidence(cycles, crack_size, driving_force, *, fit_cycle_range: tuple[float, float] \| None = None, fit_mask = None, derivative_window: int = 3, driving_force_name: str = 'Delta K', crack_size_name: str = 'a', driving_force_unit: str = 'declared', crack_size_unit: str = 'declared') -> ParisEvidence` | Fit a Paris relation after simulation from ``a(N)`` and a driver. |
+| function | `cyclic_cohesive(*, monotonic: BilinearCohesiveLaw \| MixedModeBilinearCohesiveLaw, fatigue_coefficient: float, fatigue_exponent: float, range_threshold: float, peak_exponent: float = 0.0, residual_exponent: float = 0.0, driver: MixedModeEnergyRangeDriver \| OrderedMixedModeEnergyPathDriver \| None = None, name: str \| None = None) -> CyclicCohesiveLaw \| MixedModeCyclicCohesiveLaw` | Create a Mode-I or mixed-mode cyclic cohesive law. |
+| function | `mixed_mode_energy_range_driver(**options) -> MixedModeEnergyRangeDriver` | Create the first proportional peak/valley mixed-mode fatigue driver. |
+| function | `ordered_jump_cycle(phases, jumps, *, name = 'ordered jump cycle')` | Create a closed, station-resolved local cohesive cycle. |
+| function | `ordered_mixed_mode_energy_path_driver(**options) -> OrderedMixedModeEnergyPathDriver` | Create a segment-resolved non-proportional mixed-mode driver. |
+| function | `field_state(fields = None, *, assets = None, **named_fields) -> FieldStateTransaction` | Create rollback state from a field mapping or named field arguments. |
+| function | `global_cyclic_fatigue_step(**kwargs) -> GlobalCyclicFatigueStep` | Create a reusable extrema- or ordered-path fatigue controller. |
+
+## `agentfem.fracture`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| function | `finite_strain_internal_force(displacement, test_function, material, *, measure = ufl.dx, name: str = 'F_internal_finite_strain') -> OperatorForm` | Return the current Total-Lagrangian hyperelastic internal force. |
+| class | `FiniteStrainEnergyMonitor` | Accepted-frame kinetic and hyperelastic bulk energy monitor. |
+| class | `DofMappedCohesiveForce(assembler, displacement, *, node_to_block_dof)` | Map a serial cohesive facet kernel to vector finite-element dofs. |
+| class | `NamedCohesiveResponse` | Responses and aggregate energy from several named interfaces. |
+| class | `CohesiveForceCollection(interfaces)` | Atomically compose independent named cohesive-interface forces. |
+| function | `named_cohesive_forces(**interfaces) -> CohesiveForceCollection` | Create an atomically managed collection from named cohesive forces. |
+| function | `named_mode_i_cohesive_forces(split, displacement, *, laws, normal_hints, thicknesses = None, tangential = 'free', tangential_stiffness = None, tolerance: float = 1e-10) -> CohesiveForceCollection` | Build independent named forces on one atomically split solver mesh. |
+| function | `cohesive_forces(split, displacement, *, laws, normal_hints, thicknesses = None, tangential = None, tangential_stiffness = None, tolerance: float = 1e-10) -> CohesiveForceCollection` | Build a recommended force for every named split interface. |
+| class | `DistributedDofMappedCohesiveForce(assembler, displacement, *, input_node_to_block_dof, input_node_owned, global_topology, global_facet_indices, local_input_nodes = None)` | MPI assembler for a physical-keyed split interface. |
+| function | `p1_input_node_to_block_dof(displacement, *, number_of_input_nodes: int)` | Recover the complete serial input-node to block-DOF map. |
+| function | `mode_i_cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law, *, normal_hint, thickness: float = 1.0, tolerance: float = 1e-10, tangential: str = 'free', tangential_stiffness: float \| None = None) -> DofMappedCohesiveForce \| DistributedDofMappedCohesiveForce` | Build a fixed-path cohesive force from a split mesh contract. |
+| function | `cohesive_force(split: interface_api.SplitInterfaceMesh, displacement, law, *, normal_hint, tangential: str \| None = None, tangential_stiffness: float \| None = None, thickness: float = 1.0, tolerance: float = 1e-10)` | Build the recommended full-vector fixed-path interface consumer. |
+| class | `FiniteStrainCohesiveResidual(bulk, cohesive)` | Assemble bulk UFL and paired-facet interface forces into one residual. |
+| class | `CohesiveNewtonSolveInfo` | Convergence evidence for one native bulk-plus-interface equilibrium. |
+| class | `ArcLengthOptions` | Crisfield-style spherical continuation controls. |
+| class | `ArcLengthSolveInfo` | Public AgentFEM object. |
+| class | `FiniteStrainCohesiveEquilibrium(residual: FiniteStrainCohesiveResidual, tangent, displacement, *, set_load = None, load_parameter = None, reference_load: float = 1.0, bcs = (), solver_options = None, control_displacement = None, reaction = None, bulk_strain_energy = None)` | Native Newton consumer for UFL bulk and zero-thickness interfaces. |
+| class | `FiniteStrainCohesiveArcLength(equilibrium: FiniteStrainCohesiveEquilibrium, options: ArcLengthOptions, *, initial_load: float = 0.0)` | Spherical arc-length continuation for cohesive equilibrium paths. |
+| class | `MassProportionalDampingResidual(base, *, mass, velocity, coefficient: float, dt: float)` | Add ``alpha M v_mid`` with transactional dissipation accounting. |
+| class | `DampingEnergyMonitor` | Add accepted viscous dissipation to an existing mechanical monitor. |
+| class | `FiniteStrainCohesiveEnergyMonitor` | Typed accepted-frame energy for bulk plus cohesive dynamics. |
+| class | `DynamicEnergyLedger` | Accepted-frame external work and mechanical-energy closure. |
+| class | `IsotropicWaveSpeeds` | Reference small-on-zero wave speeds for one isotropic material. |
+| class | `IncrementalWaveSpeeds` | Small-on-large bulk-wave modes about one homogeneous deformation. |
+| class | `PrincipalSurfaceWaveSpeed` | Reference-coordinate principal surface-wave secular solution. |
+| function | `neo_hookean_material_tangent(deformation_gradient, material) -> np.ndarray` | Return ``A[i,J,k,L] = dP[i,J]/dF[k,L]`` for a supported energy. |
+| function | `incremental_wave_speeds(deformation_gradient, direction, material, *, direction_configuration: str = 'current') -> IncrementalWaveSpeeds` | Return homogeneous small-on-large bulk-wave speeds. |
+| function | `principal_surface_wave_speed(deformation_gradient, material: hyperelasticity.NeoHookeanProperties, *, propagation_axis: int = 0, scan_points: int = 320) -> PrincipalSurfaceWaveSpeed` | Solve the 2D small-on-large principal surface-wave secular problem. |
+| function | `isotropic_reference_wave_speeds(material) -> IsotropicWaveSpeeds` | Return unstretched 3D isotropic ``c_d``, ``c_s``, and ``c_R``. |
+| class | `StableTimeIncrement` | Visible body/interface estimate for central difference. |
+| class | `CohesiveCrackHistory` | Crack-front position and window-fitted speed on a fixed path. |
+| class | `CrackPropagationFit` | Representative crack speed fitted across a declared path interval. |
+| class | `InterfaceFrontHistory` | Front position and fitted speed for one declared interface signal. |
+| class | `CohesiveFrontEnsemble` | Crack-front evidence from multiple thresholds and physical signals. |
+| class | `CohesiveInterfaceTrace` | Portable accepted-frame record on one fixed cohesive interface. |
+| class | `ScientificComparison` | Common scalar evidence for a simulation-to-observation comparison. |
+| class | `PreloadTransferReport` | Evidence for a quasi-static displacement to Explicit state transfer. |
+| function | `transfer_preload_to_explicit(preload_displacement, *, state, mass, residual, initial_velocity = None, mode: str = 'equilibrium', force_tolerance: float = 1e-08, acceleration_projection = None, energy_monitor = None, source_energy: float \| None = None, source_step: str \| None = None, destination_step: str \| None = None) -> PreloadTransferReport` | Initialize ``u/v/a`` consistently from a quasi-static preload state. |
+| function | `cohesive_crack_tip(path_coordinate, damage, *, threshold: float = 0.95, direction: str = 'increasing') -> float` | Locate the contiguous crack front by interpolating a damage threshold. |
+| function | `crack_tip_history(time_values, path_coordinate, damage_frames, *, threshold: float = 0.95, fit_window: int = 5, direction: str = 'increasing') -> CohesiveCrackHistory` | Build a crack history without single-failed-element speed spikes. |
+| function | `fit_crack_propagation_speed(history: CohesiveCrackHistory, *, start_position: float, end_position: float, minimum_samples: int = 3) -> CrackPropagationFit \| None` | Fit one representative speed over a fixed physical path interval. |
+| function | `interface_front_history(time_values, path_coordinate, signal_frames, *, signal: str, threshold: float, fit_window: int = 5, direction: str = 'increasing') -> InterfaceFrontHistory` | Track a contiguous interface front from any increasing damage signal. |
+| function | `cohesive_front_ensemble(trace: CohesiveInterfaceTrace, *, damage_thresholds = (0.5, 0.75, 0.95), opening_thresholds = (), dissipation_thresholds = (), fit_window: int = 5, direction: str = 'increasing') -> CohesiveFrontEnsemble` | Build observer-sensitivity evidence from a portable interface trace. |
+| function | `compare_curve(reference_coordinate, reference_values, simulation_coordinate, simulation_values, *, coordinate_name: str = 'coordinate', quantity_name: str = 'value') -> ScientificComparison` | Interpolate a simulated curve onto observed coordinates and compare. |
+| function | `compare_mach_cone(*, crack_speed: float, shear_wave_speed: float, observed_angle: float, unit: str = 'radian') -> ScientificComparison` | Compare an observed Mach angle with ``asin(c_s/v)``. |
+| function | `compare_rectilinear_field(reference_x, reference_y, reference_values, simulation_x, simulation_y, simulation_values, *, quantity_name: str = 'field', reference_mask = None, simulation_mask = None) -> ScientificComparison` | Compare scalar maps after bilinear interpolation on their overlap. |
+| function | `compare_rectilinear_observations(reference, simulation, *, quantity_name: str \| None = None) -> ScientificComparison` | Compare two portable rectilinear observations with semantic checks. |
+| function | `mach_cone_angle(*, crack_speed: float, shear_wave_speed: float) -> float` | Return the ideal Mach angle ``asin(c_s / v)`` in radians. |
+| function | `separation_regime(*, crack_speed: float, rayleigh_wave_speed: float, shear_wave_speed: float, failed_fraction: float, simultaneous_failed_fraction: float, spall_fraction: float = 0.8, rapid_failed_fraction: float \| None = None, ligament_traction_ratio: float \| None = None, pressure_wave_speed: float \| None = None) -> str` | Classify one frame with explicit crack-speed and spall evidence. |
+| function | `estimate_stable_time_increment(*, characteristic_length, dilatational_speed: float, safety_factor: float = 0.8, interface_stiffness: float \| None = None, interface_area: float \| None = None, negative_mass: float \| None = None, positive_mass: float \| None = None) -> StableTimeIncrement` | Estimate explicit stability from body transit and interface oscillator. |
+| function | `minimum_cell_nodal_spacing(domain) -> float` | Return an MPI-global conservative spacing from cell geometry nodes. |
+
+## `agentfem.interfaces`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `CohesiveResponse` | One Mode-I traction--separation update. |
+| class | `VectorCohesiveResponse` | Local-basis response of a two- or three-dimensional interface. |
+| class | `MixedModeBilinearCohesiveLaw` | Bilinear mixed-mode cohesive law for proportional loading paths. |
+| class | `BilinearCohesiveLaw` | Irreversible bilinear Mode-I cohesive law. |
+| class | `CohesiveTransaction(law: BilinearCohesiveLaw, size: int)` | Trial/commit/rollback state for a batch of cohesive points. |
+| class | `MixedModeCohesiveTransaction(law: MixedModeBilinearCohesiveLaw, size: int)` | Trial/commit state for :class:`MixedModeBilinearCohesiveLaw`. |
+| class | `PairedLineFacets` | Deterministically paired zero-thickness line facets for a 2D mesh. |
+| class | `PairedSurfaceFacets` | Deterministically paired zero-thickness triangular facets in 3D. |
+| class | `SplitInterfaceMesh` | Array-level result of splitting one conforming interface manifold. |
+| class | `NamedSplitInterfaceMesh` | One solver mesh carrying several disjoint named cohesive surfaces. |
+| class | `InterfaceRigidModeAudit` | Rigid-body constraint rank of a split-interface model. |
+| function | `audit_split_interface_rigid_modes(split: SplitInterfaceMesh \| NamedSplitInterfaceMesh, *, constrained_components, tangential = 'free', active_facets = None, rank_tolerance: float \| None = None, error_if_singular: bool = False) -> InterfaceRigidModeAudit` | Audit rigid translations and rotations before creating a solver mesh. |
+| function | `create_dolfinx_split_mesh(split: SplitInterfaceMesh \| NamedSplitInterfaceMesh, *, comm = None, cell_type: str \| None = None, input_order: str = 'counterclockwise')` | Create an executable DOLFINx mesh for an audited split interface. |
+| class | `CohesiveFacetResponse` | Trial force, kinematics and energy from paired interface facets. |
+| class | `ModeIKinematicsAudit` | Accepted-state check that a declared Mode-I path remains Mode-I. |
+| function | `audit_mode_i_kinematics(response: CohesiveFacetResponse, *, ratio_limit: float = 0.1, absolute_tolerance: float = 1e-12, error_if_exceeded: bool = False) -> ModeIKinematicsAudit` | Check tangential jump without changing cohesive history. |
+| class | `CohesiveElementTangents` | Element-node layouts and consistent scalar-dof tangent matrices. |
+| class | `ModeICohesiveFacetAssembler(topology: PairedLineFacets, law, *, number_of_nodes: int, thickness: float = 1.0, tangential: str = 'free', tangential_stiffness: float \| None = None)` | Two-point line integration for a fixed-path 2D interface. |
+| class | `ModeICohesiveSurfaceAssembler(topology: PairedSurfaceFacets, law, *, number_of_nodes: int, tangential: str = 'free', tangential_stiffness: float \| None = None)` | Three-point integration of linear triangular interfaces in 3D. |
+| function | `pair_coincident_surface_facets(coordinates, negative_facets, positive_facets, *, normal_hint, tolerance: float = 1e-10) -> PairedSurfaceFacets` | Pair coincident three-node triangular facets in 3D. |
+| function | `pair_coincident_line_facets(coordinates, negative_facets, positive_facets, *, normal_hint, tolerance: float = 1e-10) -> PairedLineFacets` | Pair coincident two-node line facets with a declared normal direction. |
+| function | `split_conforming_line_interface(coordinates, cells, interface_facets, *, positive_cells) -> SplitInterfaceMesh` | Duplicate nodes on a declared conforming 2D cell interface. |
+| function | `split_conforming_surface_interface(coordinates, cells, interface_facets, *, positive_cells) -> SplitInterfaceMesh` | Duplicate nodes on a declared conforming triangular surface in 3D. |
+| function | `split_conforming_named_interfaces(coordinates, cells, named_interfaces) -> NamedSplitInterfaceMesh` | Atomically split several disjoint conforming cohesive manifolds. |
+| function | `split_conforming_cell_interface(coordinates, cells, *, positive_cells) -> SplitInterfaceMesh` | Split the internal facet separating two declared cell partitions. |
+| class | `CohesiveSurface` | Public description of a fixed-path zero-thickness interface. |
+| function | `bilinear_cohesive(*, strength: float, fracture_energy: float, initial_stiffness: float, compression_stiffness: float \| None = None, name: str = 'bilinear Mode-I cohesive law') -> BilinearCohesiveLaw` | Create a bilinear Mode-I cohesive law. |
+| function | `mixed_mode_bilinear_cohesive(*, normal_strength: float, shear_strength: float, normal_fracture_energy: float, shear_fracture_energy: float, normal_stiffness: float, tangential_stiffness: float, interaction: str = 'bk', interaction_exponent: float = 1.45, compression_stiffness: float \| None = None, residual_tangential_fraction: float = 0.0, friction_coefficient: float = 0.0, friction_regularization: float = 1e-08, name: str = 'bilinear mixed-mode cohesive law') -> MixedModeBilinearCohesiveLaw` | Create a quadratic-initiation, energy-evolution mixed-mode law. |
+| function | `cohesive_surface(*, law, mode: str = 'normal', name: str = 'cohesive surface') -> CohesiveSurface` | Declare a fixed-path zero-thickness cohesive interface. |
+| function | `cohesive_characteristic_length(*, young: float, fracture_energy: float, strength: float) -> float` | Return the declared scale ``E * Gamma / strength**2``. |
+
+## `agentfem.mechanics`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `CreepEnergyFrame` | Public AgentFEM object. |
+| class | `CreepIncrementInfo` | Public AgentFEM object. |
+| class | `CreepPathInfo` | Public AgentFEM object. |
+| class | `ImplicitCreepStep` | Adaptive backward-Euler creep step with global Newton equilibrium. |
+| function | `implicit_creep_step(*, displacement, material, duration: float, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, temperature = None, name: str = 'implicit_creep', _experimental_distributed: bool = False) -> ImplicitCreepStep` | Build the first global 3D implicit power-law creep step. |
+| class | `J2IncrementInfo` | Public AgentFEM object. |
+| class | `J2LoadPathInfo` | Public AgentFEM object. |
+| class | `J2PlasticityStep` | Incremental global equilibrium for 3D small-strain J2 plasticity. |
+| function | `j2_plasticity_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'j2_plasticity', _experimental_distributed: bool = False) -> J2PlasticityStep` | Build a global 3D J2 step from a displacement and load operator. |
+
 ## `agentfem.operators`
 
 | Kind | Public object | Purpose |
@@ -516,378 +811,6 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `explicit_dynamics(*, state, integrator, residual, stiffness = None, dt: float, steps: int, study = None, prescribed = (), constraints = (), update_load = None, save_every: int \| None = None, print_every: int \| None = None, history_every: int = 1, progress = True, status_file = None, checkpoint_policy = None, history_monitor = None, stability = None, name: str = 'explicit_dynamics') -> ExplicitDynamicsStep` | Create a second-order explicit dynamics step. |
 | function | `implicit_dynamics(*, state, mass, stiffness, force, damping = None, dt: float, steps: int, parameters = None, study = None, constraints = (), bcs = None, solver_options: LinearSolverOptions \| None = None, update_load = None, progress = True, status_file = None, checkpoint_policy = None, save_every: int \| None = None, print_every: int \| None = None, name: str = 'implicit_dynamics') -> ImplicitDynamicsStep` | Create a linear Newmark or generalized-alpha dynamics step. |
 
-## `agentfem.project`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| function | `new_run_id(now: datetime \| None = None) -> str` | Return a sortable, collision-resistant identifier for one execution. |
-| class | `ProjectConfig` | Operational metadata for an AgentFEM case directory. |
-| function | `discover(start: str \| Path \| None = None) -> ProjectConfig` | Find the nearest ``agentfem.toml`` from ``start`` upward. |
-| class | `RunContext` | Filesystem and identity contract shared by scripts, CLIs, GUIs, and agents. |
-| function | `current_run(*, project_root: str \| Path \| None = None, project_name: str \| None = None) -> RunContext` | Return the CLI-provided context or create one for direct Python use. |
-
-## `agentfem.provenance`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| function | `seal_manifest(manifest: Mapping[str, object], *, base: str \| Path, producer_version: str) -> dict[str, object]` | Return a deterministic integrity seal for an unsealed manifest. |
-| class | `SealVerification` | Outcome of checking one stored provenance seal. |
-| function | `verify_manifest(path: str \| Path) -> SealVerification` | Verify a result manifest and every artifact recorded in its seal. |
-
-## `agentfem.platforms`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `PlatformSupport` | One operating-system support decision with explicit limitations. |
-| class | `RuntimeReport` | Compact runtime inventory for bug reports and agent inspection. |
-| function | `support_for(system: str, *, wsl: bool = False) -> PlatformSupport` | Return the first-release support tier for an operating-system route. |
-| function | `current_support() -> PlatformSupport` | Detect the current OS, including Windows Subsystem for Linux. |
-| function | `runtime_report() -> RuntimeReport` | Return versions and optional integrations useful in issue reports. |
-
-## `agentfem.procedures`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `SolutionProcedure` | Inspectable, backend-neutral description of a solution algorithm. |
-| function | `linear_static() -> SolutionProcedure` | Public AgentFEM object. |
-| function | `nonlinear_static(*, stateful: bool = False) -> SolutionProcedure` | Public AgentFEM object. |
-| function | `implicit_euler(*, nonlinear: bool = False, stateful: bool = True) -> SolutionProcedure` | Public AgentFEM object. |
-| function | `implicit_creep() -> SolutionProcedure` | Quasi-static backward-Euler creep with global Newton equilibrium. |
-| function | `newmark() -> SolutionProcedure` | Public AgentFEM object. |
-| function | `generalized_alpha() -> SolutionProcedure` | Public AgentFEM object. |
-| function | `central_difference() -> SolutionProcedure` | Public AgentFEM object. |
-| function | `cyclic_fatigue() -> SolutionProcedure` | Quasi-static peak/valley equilibrium with independent cycle blocks. |
-| function | `for_step(*, analysis: str, method: str \| None = None, stateful: bool = False)` | Resolve a procedure without coupling ``Study`` to one solver route. |
-| function | `resolve(*, analysis: str, requested: SolutionProcedure \| str \| None = None, preferred: str \| None = None, stateful: bool = False) -> SolutionProcedure` | Resolve and validate the numerical procedure for one analysis request. |
-
-## `agentfem.results`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `CheckpointRecord` | One restart asset with an explicit portability boundary. |
-| class | `FieldResult` | A named live field or an external field artifact. |
-| class | `HistoryResult` | Time, load, or iteration history with a fixed value shape. |
-| class | `ResultQuantity` | One scalar or fixed-shape quantity of interest. |
-| class | `SimulationResult` | Scientific results and artifacts from one simulation. |
-| function | `dof_statistics(field) -> dict[str, float \| int]` | Return global finite dof statistics for a DOLFINx-like field. |
-| function | `from_solution(solution, *, name: str = 'result', field_name: str \| None = None, unit: str \| None = None, metadata: Mapping[str, object] \| None = None) -> SimulationResult` | Wrap one solved field in a :class:`SimulationResult`. |
-| class | `ForceMomentResultant` | Integrated force and moment about an explicit physical point. |
-| class | `PathSample` | Values sampled along one straight physical-space path. |
-| class | `StaticForceBalance` | Global algebraic force equilibrium for one linear static solid. |
-| class | `StaticWorkBalance` | Energy closure including proportional prescribed boundary motion. |
-| function | `average(expression, *, measure = ufl.dx, comm = None)` | Return the measure-weighted global average of an expression. |
-| function | `boundary_resultant(traction, *, on)` | Integrate a traction/flux expression over a named boundary. |
-| function | `field_extrema(field, *, magnitude: bool = False, location: bool = False) -> dict[str, object]` | Return MPI-global field extrema, optionally with physical locations. |
-| function | `free_body_resultant(*, boundary_tractions = (), body_forces = (), about) -> ForceMomentResultant` | Integrate boundary and volume forces into one free-body resultant. |
-| function | `external_force_resultant(problem)` | Return the MPI-global resultant of a linear problem's assembled RHS. |
-| function | `integral(expression, *, measure = ufl.dx, comm = None)` | Return the global integral of a scalar, vector, or tensor expression. |
-| function | `l2_norm(expression, *, measure = ufl.dx, comm = None) -> float` | Return ``sqrt(integral(inner(value, value)))`` globally. |
-| function | `probe(field, *, at, padding: float = 1e-10)` | Return one scalar, vector, or tensor field value at a physical point. |
-| function | `quadrature_extrema(expression, domain, *, degree: int = 4) -> tuple[float, float]` | Return global min/max sampled at Basix quadrature points. |
-| function | `reaction_resultant(problem, *, on = None, component: int \| None = None, name: str = 'RF')` | Return an MPI-global strong-constraint reaction resultant. |
-| function | `region_average(expression, *, on)` | Return a measure-weighted average over a named mesh region. |
-| function | `region_integral(expression, *, on)` | Integrate a scalar, vector, or tensor over a named mesh region. |
-| function | `region_measure(*, on) -> float` | Return the global length, area, or volume of a named region. |
-| function | `sample_path(field, *, start, end, count: int = 101, padding: float = 1e-10, missing: str = 'raise') -> PathSample` | Sample a field along the straight segment from ``start`` to ``end``. |
-| function | `sample_points(field, points, *, padding: float = 1e-10, missing: str = 'raise') -> np.ndarray` | Evaluate a finite-element field at common physical points under MPI. |
-| function | `section_resultant(stress, *, on, normal = None, about = None) -> ForceMomentResultant` | Integrate section force and moment from a Cauchy/nominal stress field. |
-| function | `static_force_balance(problem) -> StaticForceBalance` | Evaluate ``R + F = 0`` for a converged linear static solid. |
-| function | `static_work_balance(problem, *, constraints = ()) -> StaticWorkBalance` | Evaluate linear-static work including nonzero strong Dirichlet data. |
-| function | `project(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField')` | Return the global L2 projection of a UFL expression. |
-| function | `project_piecewise(terms, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField')` | Project region-dependent expressions into one finite-element field. |
-| function | `small_strain_cell_fields(displacement, properties, *, study = None, variables = ('S', 'E', 'MISES', 'SENER'), degree: int = 0) -> tuple[object, ...]` | Create standard projected fields for linear small-strain elasticity. |
-| function | `small_strain_partition_fields(displacement, assignments, *, study = None, variables = ('S', 'E', 'MISES', 'SENER'), degree: int = 0) -> tuple[object, ...]` | Create standard fields for a complete regional material partition. |
-| class | `FieldRecovery` | A reviewable conversion from constitutive evidence to a field. |
-| function | `cell_average_recovery() -> FieldRecovery` | Return the standard scientific integration-point recovery policy. |
-| function | `recover_integration_point_field(source, *, name: str \| None = None, policy: FieldRecovery \| None = None, unit: str \| None = None, description: str = '') -> FieldResult` | Recover one ``QuadratureField`` without hiding its processing history. |
-| function | `add_execution_trace(result, events: Iterable[object]) -> tuple[dict[str, object], ...]` | Attach one complete execution trace and its standard histories. |
-| function | `execution_records(events: Iterable[object]) -> tuple[dict[str, object], ...]` | Normalize solver events without depending on a particular procedure. |
-| class | `HomogenizedFrame` | Macroscopic response reconstructed from one periodic-cell state. |
-| class | `LiveFiniteStrainCellFields` | Derived cell fields refreshed from active Explicit state at output time. |
-| function | `finite_strain_dynamic_cell_fields(displacement, velocity, properties, *, variables = ('SENER', 'KED', 'J'), pressure = None, density = None) -> LiveFiniteStrainCellFields` | Create reusable SED/KED/stress fields for Explicit saved frames. |
-| function | `finite_strain_diagnostics(displacement, *, constraint = None, quadrature_degree: int = 4) -> dict[str, object]` | Evaluate reusable physical checks for a finite-deformation solution. |
-| function | `finite_strain_cell_fields(displacement, properties, *, variables = ('F', 'E', 'GREEN', 'P', 'S', 'MISES', 'J', 'SENER', 'EVOL'), pressure = None, velocity = None, density = None) -> tuple[object, ...]` | Create requested standard P0 finite-strain cell fields. |
-| function | `homogenize_periodic_cell(displacement, properties, *, pressure = None, macro_deformation_gradient, cell_reference_volume: float, load_factor: float) -> HomogenizedFrame` | Return volume-normalized macroscopic finite-strain response. |
-| function | `homogenize_periodic_path(snapshots, properties, *, constraint) -> tuple[HomogenizedFrame, ...]` | Homogenize every saved state of an affine periodic-cell analysis. |
-| function | `write_homogenized_csv(path: str \| Path, frames) -> Path` | Write flattened macro tensors in a human-readable table. |
-| function | `write_homogenized_history(path: str \| Path, frames) -> Path` | Write an exact, compact NumPy history for plotting and ML reuse. |
-| class | `FieldVariable` | Stable public meaning of one result variable. |
-| function | `field_variable(name: str, *, finite_strain: bool = False) -> FieldVariable` | Resolve a standard variable, including the context-dependent ``E`` alias. |
-| function | `preselected_fields(*, physics: str, finite_strain: bool = False) -> tuple[str, ...]` | Return the engineering-default field set for one physics context. |
-| function | `resolve_field_variables(names, *, finite_strain: bool = False) -> tuple[FieldVariable, ...]` | Resolve aliases, preserve request order, and remove duplicates. |
-| class | `FieldOutput` | What fields to save, how often, and in which configuration. |
-| class | `FieldOutputArtifacts` | Files and final live fields produced by one output plan. |
-| class | `ResultFieldArtifacts` | One completed-result field dataset and its explicit layout contract. |
-| function | `field_output(*variables, every: int \| str \| None = None, intervals: int \| None = None, configuration: str = 'deformed', deformation_scale: float = 1.0, backend: str = 'xdmf') -> FieldOutput` | Create a concise, inspectable field-output request. |
-| function | `read_unified_xdmf_series(xdmf_path) -> tuple[object, ...]` | Read AgentFEM's compact XDMF/HDF5 frames as PyVista grids. |
-| function | `write_deformed_vtk_series(pvd_path, snapshots, cell_fields, *, deformation_scale: float = 1.0) -> tuple[Path, tuple[Path, ...]]` | Write one deformed VTU grid per frame and a ParaView PVD collection. |
-| function | `write_parallel_vtk_series(path, snapshots, fields_by_frame) -> Path` | Write collective single-dataset ParaView frames under MPI. |
-| function | `write_result_fields(result, path, *, time: float = 0.0, names = (), deformation_scale: float = 0.0) -> ResultFieldArtifacts` | Write the live, visualization-ready fields of one SimulationResult. |
-| function | `write_unified_xdmf_series(xdmf_path, snapshots, cell_fields, *, deformation_scale: float = 1.0, store_reference_geometry: bool = True, compression: int = 4) -> Path` | Write one temporal XDMF and one compressed HDF5 heavy-data file. |
-| class | `FiniteStrainDiagnosticRequest` | Record physical admissibility and constraint checks. |
-| class | `HistoryRequest` | Evaluate one scientific quantity on every accepted output frame. |
-| class | `OutputPlan` | One declarative output contract for a completed finite-strain step. |
-| class | `PeriodicCellHistoryRequest` | Record complete tensor histories for a finite-strain periodic cell. |
-| class | `ProbeHistoryRequest` | Record a field value at one physical point on every accepted frame. |
-| class | `PresentationOutput` | Optional serial rendering from the scientific XDMF/HDF5 series. |
-| class | `SolverHistoryRequest` | Record accepted-increment convergence history. |
-| class | `SourceNodeHistoryRequest` | Record U and current coordinates using source-mesh node labels. |
-| function | `finite_strain_checks(*, constraint = None, quadrature_degree: int = 4) -> FiniteStrainDiagnosticRequest` | Public AgentFEM object. |
-| function | `history(name: str, evaluate, *, coordinate = None, unit: str \| None = None, abscissa_name: str \| None = None, abscissa_unit: str \| None = None, description: str = '') -> HistoryRequest` | Create a scalar history evaluated on accepted analysis states. |
-| function | `output_plan(directory, *, field: FieldOutput \| None = None, requests = (), presentation: PresentationOutput \| None = None, basename: str = 'results') -> OutputPlan` | Create a complete finite-strain output plan. |
-| function | `periodic_cell_history(constraint, *, basename: str = 'homogenized_history') -> PeriodicCellHistoryRequest` | Public AgentFEM object. |
-| function | `probe_history(name: str, *, at, field = None, component: int \| None = None, unit: str \| None = None, description: str = '') -> ProbeHistoryRequest` | Create a point-probe history for accepted static or transient states. |
-| function | `presentation(*, comparison: bool = True, animation: str \| None = 'gif', scalar: str = 'UMAG', fps: int = 2) -> PresentationOutput` | Public AgentFEM object. |
-| function | `solver_history() -> SolverHistoryRequest` | Public AgentFEM object. |
-| function | `source_node_history(nodes, **points: int) -> SourceNodeHistoryRequest` | Public AgentFEM object. |
-| function | `render_deformation_animation(undeformed_path, snapshots, nodes, output_path, *, fps: int = 2) -> Path` | Render scale-one deformation history as GIF or MP4. |
-| function | `render_deformation_comparison(undeformed_path, deformed_path, output_path, *, scalar: str = 'DisplacementMagnitude') -> Path` | Render side-by-side undeformed/deformed surfaces with PyVista. |
-| function | `render_unified_xdmf_animation(xdmf_path, output_path, *, scalar: str = 'UMAG', fps: int = 2) -> Path` | Render a GIF or MP4 from AgentFEM's single XDMF/HDF5 series. |
-| function | `render_unified_xdmf_comparison(xdmf_path, output_path, *, scalar: str = 'UMAG') -> Path` | Render the first and final grids from a unified XDMF series. |
-| function | `render_vtk_series_animation(frame_paths, output_path, *, scalar: str = 'UMAG', fps: int = 2) -> Path` | Render a GIF directly from a combined-field deformed VTU series. |
-
-## `agentfem.solvers`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `LinearSolverOptions` | PETSc KSP options for a linear solve. |
-| function | `direct_solver(*, package: str \| None = None) -> LinearSolverOptions` | Create a direct linear-solver policy without PETSc option names. |
-| class | `NonlinearSolverOptions` | PETSc SNES/KSP policy for nonlinear finite-element solves. |
-| class | `NewtonSolverOptions` | Backend-neutral Newton policy for nonlinear equilibrium. |
-| function | `newton(*, relative_tolerance: float = 1e-08, absolute_tolerance: float = 1e-09, maximum_iterations: int = 30, line_search: str \| None = 'backtracking', linear_solver: LinearSolverOptions \| None = None, error_if_not_converged: bool = True) -> NewtonSolverOptions` | Create one Newton policy for ordinary and affine-constrained steps. |
-| class | `NonlinearSolveInfo` | Convergence evidence returned by a PETSc SNES solve. |
-| class | `AffineNewtonOptions` | Newton policy for an affine-reduced nonlinear equilibrium path. |
-| class | `AffineLoadIncrementInfo` | Convergence evidence for one macroscopic load increment. |
-| class | `AffineLoadPathInfo` | Convergence evidence for an incrementally applied affine constraint. |
-| class | `SolveEvent` | One structured event emitted by an analysis procedure. |
-| function | `create_ksp(comm, options: LinearSolverOptions \| None = None)` | Create and configure a PETSc KSP object. |
-| class | `LinearSolveInfo` | PETSc KSP convergence evidence for one linear system solve. |
-| function | `solve_matrix_system(A, b, x, options: LinearSolverOptions \| None = None, *, raise_on_failure: bool \| None = None) -> LinearSolveInfo` | Solve ``A x = b`` and return explicit PETSc convergence evidence. |
-| function | `solve_linear_problem(bilinear_form, linear_form, solution, *, bcs = None, options: LinearSolverOptions \| None = None, return_info: bool = False)` | Assemble and solve a standard linear variational problem. |
-| function | `solve_nonlinear_problem(residual_form, solution, *, bcs = None, jacobian_form = None, options: NonlinearSolverOptions \| NewtonSolverOptions \| None = None, petsc_options_prefix: str = 'agentfem_nonlinear_') -> tuple[object, NonlinearSolveInfo]` | Solve ``R(u; v) = 0`` with the current DOLFINx PETSc/SNES interface. |
-| function | `solve_affine_nonlinear_path(residual_form, jacobian_form, solution, constraint, *, load_factors = None, incrementation = None, output_factors = (), options: AffineNewtonOptions \| NewtonSolverOptions \| None = None, on_increment = None, acceptance_check = None, reporter = None, step_name: str = 'affine_nonlinear', step_number: int = 1) -> tuple[object, AffineLoadPathInfo]` | Solve a nonlinear path under ``u = T q + u_bar`` constraints. |
-
-## `agentfem.steps`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `AutomaticIncrementation` | Adaptive load/time incrementation for one analysis step. |
-| class | `FixedIncrementation` | A prescribed monotone load-factor path for one analysis step. |
-| function | `automatic(*, initial: float = 0.1, minimum: float = 1e-05, maximum: float = 0.25, max_increments: int = 100, max_cutbacks: int = 5, cutback_factor: float = 0.25, growth_factor: float = 1.5, fast_iterations: int = 4, slow_iterations: int = 10, maximum_inelastic_increment: float \| None = None) -> AutomaticIncrementation` | Create inspectable Abaqus-style automatic incrementation. |
-| function | `fixed(increments: int) -> FixedIncrementation` | Divide the normalized step interval into exactly ``increments`` parts. |
-| function | `at(*load_factors: float) -> FixedIncrementation` | Create a prescribed, nonuniform load-factor path. |
-| function | `normalize(value = None, *, increments: int \| None = None, load_factors = None)` | Normalize public and compatibility incrementation inputs. |
-| class | `EngineeringStep` | Named inherited activation state, separate from solver controls. |
-| function | `engineering_step(name: str, *, previous: EngineeringStep \| None = None, inherit_model_loads: bool = False, inherit_model_constraints: bool = True)` | Public AgentFEM object. |
-
-## `agentfem.time`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| function | `central_difference_predict_displacement(u_next, u, velocity, acceleration, dt: float) -> None` | Predict displacement with the explicit central-difference/Newmark formula. |
-| function | `acceleration_from_residual(acceleration, residual, inv_mass: np.ndarray) -> None` | Set acceleration from residual and inverse lumped mass. |
-| function | `central_difference_update_midstep_velocity(velocity_mid, velocity, acceleration, dt: float) -> None` | Update the central-difference mid-step velocity. |
-| function | `central_difference_correct_velocity(velocity_next, velocity, acceleration, acceleration_next, dt: float) -> None` | Correct velocity with the explicit central-difference/Newmark formula. |
-| function | `central_difference_update_velocity(velocity_next, velocity_mid, acceleration_next, dt: float) -> None` | Update whole-step velocity from mid-step velocity and new acceleration. |
-| class | `ProgressPrinter` | Rank-zero progress printer controlled by a fixed step interval. |
-| class | `TimeStep` | Metadata for one transient-solve step. |
-| class | `TimeStepper` | Iterate over transient-solve step metadata. |
-| function | `format_duration(seconds: float) -> str` | Format elapsed seconds as ``HH:MM:SS``. |
-| class | `GeneralizedAlphaParameters` | Parameters for Newmark/generalized-alpha time integration. |
-| function | `generalized_alpha(*, spectral_radius: float = 0.8)` | Second-order generalized-alpha parameters from ``rho_infinity``. |
-| function | `newmark(*, beta: float = 0.25, gamma: float = 0.5)` | Average-acceleration Newmark by default. |
-
-## `agentfem.units`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `UnitSystem` | Named consistent base-unit contract attached to a model. |
-| function | `consistent(*, length, mass, time, temperature = 'K', name = 'consistent_units')` | Declare the base units used consistently by all model inputs. |
-| function | `si(*, temperature = 'K') -> UnitSystem` | Return the SI ``m-kg-s`` engineering contract. |
-| function | `n_mm_mpa(*, temperature = 'K') -> UnitSystem` | Return the common ``mm-N-s-MPa`` consistent system. |
-
-## `agentfem.upgrades`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `UpgradeFinding` | One stable, addressable compatibility or migration finding. |
-| class | `UpgradeReport` | Dry-run migration plan for one installed-use project. |
-| function | `inspect_project(project: ProjectConfig) -> UpgradeReport` | Return a dry-run upgrade report without executing or changing the case. |
-| function | `apply_safe_metadata(project: ProjectConfig) -> tuple[Path, ...]` | Apply only deterministic project-metadata migrations, atomically. |
-| function | `migrate_cohesive_checkpoint(snapshot: dict[str, object], *, tangential: str, tangential_stiffness: float \| None = None, acknowledge_physics_change: bool = False) -> dict[str, object]` | Explicitly promote a physical-keyed scalar checkpoint to schema v5. |
-
-## `agentfem.io`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| function | `ensure_output_dir(path: Path, comm: MPI.Comm) -> None` | Create an output directory once, then synchronize all ranks. |
-| class | `CSVLogger` | Rank-zero CSV writer for time histories and scalar diagnostics. |
-| class | `XDMFTimeSeries(path: Path, domain, mode: str = 'w') -> None` | Small context manager for writing a mesh and time-dependent fields. |
-| class | `ParaViewTimeSeries(path: Path, domain, mode: str = 'w') -> None` | Collective VTK/PVD series with one geometry carrying all fields. |
-| class | `ResultWriter(path: Path, domain, fields = (), mode: str = 'w') -> None` | Named result writer for one mesh and a stable field list. |
-| function | `interpolate_for_xdmf(field, *, degree: int = 1, name: str \| None = None)` | Interpolate a field to an XDMF-friendly Lagrange output space. |
-
-## `agentfem.diagnostics`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `PerformanceLedger` | Low-overhead, rank-local timing evidence for one solver lifecycle. |
-| function | `comm_of(obj = None, default = MPI.COMM_WORLD)` | Return the MPI communicator associated with an object when possible. |
-| function | `is_root(obj = None, *, root: int = 0) -> bool` | Return whether the current MPI rank is the selected reporting rank. |
-| function | `print_on_root(obj, *args, root: int = 0, flush: bool = True, **kwargs) -> None` | Print a message only on the selected MPI root rank. |
-| class | `StandardRunReporter` | Immediate rank-zero progress for long-running analysis steps. |
-| class | `SolveEventRecorder` | In-memory structured execution trace shared by every procedure. |
-| class | `ReporterGroup` | Fan one solver event out to several independent consumers. |
-| function | `compose_reporters(*reporters) -> object \| None` | Compose progress, persistence, and agent observers without coupling. |
-| function | `kinetic_energy(mass_lumped: np.ndarray, velocity: fem.Function) -> float` | Global kinetic energy from a lumped mass vector and velocity field. |
-| class | `MechanicalEnergy` | Kinetic, recoverable strain, and total mechanical energy. |
-| function | `mechanical_energy(*, mass, stiffness, displacement, velocity) -> MechanicalEnergy` | Evaluate ``1/2 v^T M v`` and ``1/2 u^T K u`` from visible operators. |
-| class | `LinearStaticEnergy` | Energy closure for a proportional linear-static load path. |
-| function | `linear_static_energy(*, stiffness, force, displacement) -> LinearStaticEnergy` | Evaluate energy for loads ramped proportionally from zero to ``force``. |
-| class | `MechanicalEnergyMonitor` | Cache visible M/K operators and sample mechanical energy in time. |
-| class | `ThermalBalanceMonitor` | Sample discrete heat content, applied rate, outflow, and closure. |
-| class | `ThermalContentMonitor` | Backwards-compatible sensible-heat monitor without balance terms. |
-| function | `max_abs(function: fem.Function) -> float` | Global max absolute value of a finite-element field. |
-| function | `max_magnitude(function) -> float` | Global maximum magnitude of a scalar or vector finite-element field. |
-| class | `FieldStats` | Distributed scalar statistics for a finite-element field. |
-| class | `ScalarDiagnostic` | Named scalar diagnostic evaluated on demand. |
-| class | `DiagnosticSet` | Ordered collection of scalar diagnostics. |
-| function | `magnitude_stats(function, *, on = None, name: str \| None = None) -> FieldStats` | Return distributed magnitude statistics for a scalar or vector field. |
-| function | `field_stats(function, *, on = None, name: str \| None = None) -> FieldStats` | Alias for ``magnitude_stats`` for application-level diagnostics. |
-
-## `agentfem.extensions`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `ExtensionError` | An installed extension could not be discovered or activated safely. |
-| class | `ExtensionSpec` | Identity and compatibility contract published by one extension. |
-| class | `Extension` | One loadable extension and its side-effect-free registration callback. |
-| class | `ExtensionDescriptor` | Package metadata visible without importing extension code. |
-| class | `ExtensionContext` | Staging area exposed to an extension during activation. |
-| class | `LoadedExtension` | Activated identity and the capabilities registered into this process. |
-| function | `discover_extensions() -> tuple[ExtensionDescriptor, ...]` | Return installed extension metadata without importing extension code. |
-| function | `extension_status() -> dict[str, object]` | Return the machine-facing installed and activated extension inventory. |
-| function | `loaded_extensions() -> tuple[LoadedExtension, ...]` | Return activated extensions in stable name order. |
-| function | `missing_extensions(names) -> tuple[str, ...]` | Return required names that are not advertised by installed packages. |
-| function | `load_extension(name: str) -> LoadedExtension` | Explicitly import, validate, and activate one installed extension. |
-| function | `load_extensions(names) -> tuple[LoadedExtension, ...]` | Activate required extensions in declaration order. |
-
-## `agentfem.ir`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| function | `describe(item)` | Prefer semantic records over display-only summaries. |
-| function | `describe_many(items: Iterable[object]) -> tuple[object, ...]` | Describe a collection without retaining backend memory addresses. |
-| function | `model_document(model, *, agentfem_version: str, backend: Mapping[str, object] \| None = None, include_validation: bool = True, metadata: Mapping[str, object] \| None = None) -> IRDocument` | Build an experimental AF-IR model document. |
-| class | `IRDocument` | Canonical envelope for an AF-IR artifact. |
-| class | `IRSerializationError` | Raised when a value cannot be represented without hiding its meaning. |
-| function | `to_json_safe(value, *, path: str = '$')` | Convert scientific summaries to deterministic JSON-safe values. |
-| function | `write_document(document: IRDocument \| Mapping[str, object], path: str \| Path, *, indent: int = 2) -> Path` | Write one deterministic AF-IR JSON document and return its path. |
-| function | `describe_value(value)` | Return a JSON-safe coefficient value or an explicit opaque marker. |
-
-## `agentfem.interfaces`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `CohesiveResponse` | One Mode-I traction--separation update. |
-| class | `VectorCohesiveResponse` | Local-basis response of a two- or three-dimensional interface. |
-| class | `MixedModeBilinearCohesiveLaw` | Bilinear mixed-mode cohesive law for proportional loading paths. |
-| class | `BilinearCohesiveLaw` | Irreversible bilinear Mode-I cohesive law. |
-| class | `CohesiveTransaction(law: BilinearCohesiveLaw, size: int)` | Trial/commit/rollback state for a batch of cohesive points. |
-| class | `MixedModeCohesiveTransaction(law: MixedModeBilinearCohesiveLaw, size: int)` | Trial/commit state for :class:`MixedModeBilinearCohesiveLaw`. |
-| class | `PairedLineFacets` | Deterministically paired zero-thickness line facets for a 2D mesh. |
-| class | `PairedSurfaceFacets` | Deterministically paired zero-thickness triangular facets in 3D. |
-| class | `SplitInterfaceMesh` | Array-level result of splitting one conforming interface manifold. |
-| class | `NamedSplitInterfaceMesh` | One solver mesh carrying several disjoint named cohesive surfaces. |
-| class | `InterfaceRigidModeAudit` | Rigid-body constraint rank of a split-interface model. |
-| function | `audit_split_interface_rigid_modes(split: SplitInterfaceMesh \| NamedSplitInterfaceMesh, *, constrained_components, tangential = 'free', active_facets = None, rank_tolerance: float \| None = None, error_if_singular: bool = False) -> InterfaceRigidModeAudit` | Audit rigid translations and rotations before creating a solver mesh. |
-| function | `create_dolfinx_split_mesh(split: SplitInterfaceMesh \| NamedSplitInterfaceMesh, *, comm = None, cell_type: str \| None = None, input_order: str = 'counterclockwise')` | Create an executable DOLFINx mesh for an audited split interface. |
-| class | `CohesiveFacetResponse` | Trial force, kinematics and energy from paired interface facets. |
-| class | `ModeIKinematicsAudit` | Accepted-state check that a declared Mode-I path remains Mode-I. |
-| function | `audit_mode_i_kinematics(response: CohesiveFacetResponse, *, ratio_limit: float = 0.1, absolute_tolerance: float = 1e-12, error_if_exceeded: bool = False) -> ModeIKinematicsAudit` | Check tangential jump without changing cohesive history. |
-| class | `CohesiveElementTangents` | Element-node layouts and consistent scalar-dof tangent matrices. |
-| class | `ModeICohesiveFacetAssembler(topology: PairedLineFacets, law, *, number_of_nodes: int, thickness: float = 1.0, tangential: str = 'free', tangential_stiffness: float \| None = None)` | Two-point line integration for a fixed-path 2D interface. |
-| class | `ModeICohesiveSurfaceAssembler(topology: PairedSurfaceFacets, law, *, number_of_nodes: int, tangential: str = 'free', tangential_stiffness: float \| None = None)` | Three-point integration of linear triangular interfaces in 3D. |
-| function | `pair_coincident_surface_facets(coordinates, negative_facets, positive_facets, *, normal_hint, tolerance: float = 1e-10) -> PairedSurfaceFacets` | Pair coincident three-node triangular facets in 3D. |
-| function | `pair_coincident_line_facets(coordinates, negative_facets, positive_facets, *, normal_hint, tolerance: float = 1e-10) -> PairedLineFacets` | Pair coincident two-node line facets with a declared normal direction. |
-| function | `split_conforming_line_interface(coordinates, cells, interface_facets, *, positive_cells) -> SplitInterfaceMesh` | Duplicate nodes on a declared conforming 2D cell interface. |
-| function | `split_conforming_surface_interface(coordinates, cells, interface_facets, *, positive_cells) -> SplitInterfaceMesh` | Duplicate nodes on a declared conforming triangular surface in 3D. |
-| function | `split_conforming_named_interfaces(coordinates, cells, named_interfaces) -> NamedSplitInterfaceMesh` | Atomically split several disjoint conforming cohesive manifolds. |
-| function | `split_conforming_cell_interface(coordinates, cells, *, positive_cells) -> SplitInterfaceMesh` | Split the internal facet separating two declared cell partitions. |
-| class | `CohesiveSurface` | Public description of a fixed-path zero-thickness interface. |
-| function | `bilinear_cohesive(*, strength: float, fracture_energy: float, initial_stiffness: float, compression_stiffness: float \| None = None, name: str = 'bilinear Mode-I cohesive law') -> BilinearCohesiveLaw` | Create a bilinear Mode-I cohesive law. |
-| function | `mixed_mode_bilinear_cohesive(*, normal_strength: float, shear_strength: float, normal_fracture_energy: float, shear_fracture_energy: float, normal_stiffness: float, tangential_stiffness: float, interaction: str = 'bk', interaction_exponent: float = 1.45, compression_stiffness: float \| None = None, residual_tangential_fraction: float = 0.0, friction_coefficient: float = 0.0, friction_regularization: float = 1e-08, name: str = 'bilinear mixed-mode cohesive law') -> MixedModeBilinearCohesiveLaw` | Create a quadratic-initiation, energy-evolution mixed-mode law. |
-| function | `cohesive_surface(*, law, mode: str = 'normal', name: str = 'cohesive surface') -> CohesiveSurface` | Declare a fixed-path zero-thickness cohesive interface. |
-| function | `cohesive_characteristic_length(*, young: float, fracture_energy: float, strength: float) -> float` | Return the declared scale ``E * Gamma / strength**2``. |
-
-## `agentfem.campaigns`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `Campaign(*, name: str, parameter_space: ParameterSpace, outputs: tuple[Quantity, ...], evaluate: Callable[[object], Mapping[str, object] \| CaseOutcome \| SimulationResult], build: Callable[[Mapping[str, object]], object] \| None = None, metadata: Mapping[str, object] \| None = None, execution: ExecutionPolicy \| None = None) -> None` | Build and evaluate a collection of immutable scientific cases. |
-| class | `CampaignCase` | One immutable case in a campaign plan. |
-| class | `CampaignPlan` | Immutable cases and their design-of-experiment evidence. |
-| class | `CampaignReport` | Case-level evidence and the successful scientific dataset. |
-| class | `CaseOutcome` | Successful case outputs plus links to scientific evidence. |
-| class | `CaseRunRecord` | Execution evidence for one attempted case. |
-| class | `ExecutionPolicy` | Declared execution behavior for the current campaign runner. |
-| function | `case_id(campaign_name: str, parameters: Mapping[str, object], *, schema_version: str = CAMPAIGN_SCHEMA_VERSION) -> str` | Return a deterministic scientific case identity. |
-| function | `create(**kwargs) -> Campaign` | Create a :class:`Campaign` using the public functional spelling. |
-| class | `CampaignSpecification` | Validated declarative part of a campaign. |
-| function | `load_specification(path: str \| Path) -> CampaignSpecification` | Load a safe JSON campaign specification. |
-| function | `specification_from_dict(record: Mapping[str, object]) -> CampaignSpecification` | Validate a dictionary and construct a campaign specification. |
-| class | `ChoiceParameter` | Finite categorical or policy parameter. |
-| class | `IntegerParameter` | Bounded integer parameter. |
-| class | `ParameterSpace` | Ordered scientific input schema for a campaign. |
-| class | `RealParameter` | Bounded continuous parameter with optional units and log scaling. |
-| class | `SamplingPlan` | Immutable, validated collection of parameter samples. |
-| function | `explicit(space: ParameterSpace, samples: Iterable[Mapping[str, object]], *, metadata: Mapping[str, object] \| None = None) -> SamplingPlan` | Create a plan from caller-supplied samples. |
-| function | `full_factorial(space: ParameterSpace, levels: int \| Mapping[str, int] = 3) -> SamplingPlan` | Create a full-factorial design in normalized coordinates. |
-| function | `latin_hypercube(space: ParameterSpace, count: int, *, seed: int = 0) -> SamplingPlan` | Draw a reproducible Latin-hypercube design. |
-| function | `random(space: ParameterSpace, count: int, *, seed: int = 0) -> SamplingPlan` | Draw reproducible independent uniform samples in normalized space. |
-
-## `agentfem.checkpointing`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `CheckpointPolicy` | Automatic accepted-increment checkpoint cadence for transient steps. |
-| function | `every(increments: int, *, directory = 'checkpoints', final: bool = True, prefix: str \| None = None, keep_last: int \| None = None, portable: bool = False) -> CheckpointPolicy` | Create an automatic checkpoint policy for accepted time increments. |
-| function | `save_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, completed_steps: int, state: dict[str, object], accepted_times = (), execution_events = (), history_records = (), auxiliary_state: dict[str, object] \| None = None, portable: bool = False)` | Write a transient restart, optionally with partition-independent state. |
-| function | `load_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, state: dict[str, object]) -> dict[str, object]` | Restore a transient state after validating its scientific identity. |
-| function | `save_portable_state_bundle(path, *, state: dict[str, object]) -> dict[str, object]` | Collectively publish a portable nodal-state bundle. |
-| function | `load_portable_state_bundle(path, *, state: dict[str, object], record: dict[str, object], identities: dict[str, object]) -> None` | Collectively restore a bundle written by :func:`save_portable_state_bundle`. |
-| function | `checkpoint_file_record(path) -> dict[str, object]` | Describe one checkpoint payload by name, size, and digest. |
-| function | `validate_checkpoint_record(directory, record: dict[str, object]) -> Path` | Validate and return a payload referenced by a scientific manifest. |
-| function | `function_portable_identity(function) -> dict[str, object]` | Return an MPI-partition-independent identity for a nodal field. |
-| function | `mesh_portable_identity(domain) -> dict[str, object]` | Hash cell geometry independently of local numbering and partition. |
-| function | `function_partition_identity(function) -> dict[str, object]` | Return a JSON-safe identity for one field on one mesh partition. |
-| function | `atomic_savez(path, **arrays) -> Path` | Atomically publish one NumPy archive in its destination directory. |
-| function | `atomic_write_text(path, content: str) -> Path` | Atomically publish UTF-8 text in its destination directory. |
-
-## `agentfem.datasets`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `DatasetSplit` | Reproducible train/validation partition. |
-| class | `ScientificDataset` | A numeric dataset whose columns retain scientific meaning. |
-| class | `ExternalDatasetAudit` | Local evidence that downloaded public data matches its manifest. |
-| class | `ExternalDatasetManifest` | Versioned public dataset identity, scope, and local audit policy. |
-| class | `ExternalFile` | One immutable file identity in a public scientific dataset. |
-| class | `SpreadsheetSheet` | Rectangular values from one XLSX worksheet. |
-| class | `SpreadsheetWorkbook` | Dependency-free, read-only representation of one XLSX workbook. |
-| function | `read_xlsx_workbook(path: str \| Path) -> SpreadsheetWorkbook` | Read values and cached formula results from an XLSX without pandas. |
-| function | `science_supershear_dryad_manifest() -> ExternalDatasetManifest` | Return the pinned CC0 Dryad v7 manifest for Science 2023. |
-| function | `science_supershear_v5_research_task() -> dict[str, object]` | Return the installed machine-readable V5 research handoff. |
-| class | `Quantity` | One scalar, curve, vector, or sampled-field output contract. |
-| class | `Sample` | One successful simulation sample and its scientific lineage. |
-| function | `decode_quantities(quantities: tuple[Quantity, ...], row) -> dict[str, object]` | Restore one flattened numeric row to declared named quantities. |
-| class | `RectilinearObservation` | One scalar field on explicit physical ``x``/``y`` axes. |
-| class | `FEMFieldSample` | One FEM field representation with coordinates and scientific encoding. |
-| class | `TorchDatasetBundle` | PyTorch dataset plus the schema needed to interpret its columns. |
-| function | `fem_field_sample(function, encoding) -> FEMFieldSample` | Export owned nodal coefficients for external neural/PINN tooling. |
-| function | `fem_observation_sample(function, grid, *, name: str \| None = None, unit: str \| None = None, role: str = 'output', components = (), outside: str = 'raise', fill_value: float = 0.0, coordinate_map = None, configuration: str = 'reference') -> FEMFieldSample` | Sample a FEM field on a reusable structured observation grid. |
-| function | `to_torch(dataset: ScientificDataset, *, normalized_inputs: bool = True, dtype: str = 'float32', device: str = 'cpu') -> TorchDatasetBundle` | Expose a validated campaign dataset as a PyTorch ``TensorDataset``. |
-
 ## `agentfem.surrogates`
 
 | Kind | Public object | Purpose |
@@ -918,6 +841,219 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `SurrogateTrainingRun` | A trained model together with its independent validation evidence. |
 | function | `train(dataset: ScientificDataset, *, estimator = None, validation_fraction: float = 0.2, seed: int = 0, thresholds = None) -> SurrogateTrainingRun` | Split, fit, and independently validate one surrogate estimator. |
 
+## `agentfem.time`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| function | `central_difference_predict_displacement(u_next, u, velocity, acceleration, dt: float) -> None` | Predict displacement with the explicit central-difference/Newmark formula. |
+| function | `acceleration_from_residual(acceleration, residual, inv_mass: np.ndarray) -> None` | Set acceleration from residual and inverse lumped mass. |
+| function | `central_difference_update_midstep_velocity(velocity_mid, velocity, acceleration, dt: float) -> None` | Update the central-difference mid-step velocity. |
+| function | `central_difference_correct_velocity(velocity_next, velocity, acceleration, acceleration_next, dt: float) -> None` | Correct velocity with the explicit central-difference/Newmark formula. |
+| function | `central_difference_update_velocity(velocity_next, velocity_mid, acceleration_next, dt: float) -> None` | Update whole-step velocity from mid-step velocity and new acceleration. |
+| class | `ProgressPrinter` | Rank-zero progress printer controlled by a fixed step interval. |
+| class | `TimeStep` | Metadata for one transient-solve step. |
+| class | `TimeStepper` | Iterate over transient-solve step metadata. |
+| function | `format_duration(seconds: float) -> str` | Format elapsed seconds as ``HH:MM:SS``. |
+| class | `GeneralizedAlphaParameters` | Parameters for Newmark/generalized-alpha time integration. |
+| function | `generalized_alpha(*, spectral_radius: float = 0.8)` | Second-order generalized-alpha parameters from ``rho_infinity``. |
+| function | `newmark(*, beta: float = 0.25, gamma: float = 0.5)` | Average-acceleration Newmark by default. |
+
+## `agentfem.assembly`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| function | `make_form(ufl_form)` | Compile a UFL form for assembly. |
+| function | `assemble_vector(form)` | Assemble a vector and accumulate ghost contributions to owned entries. |
+| function | `assemble_matrix(form, bcs = None)` | Assemble a matrix and apply optional strong Dirichlet BC structure. |
+| function | `assemble_lumped_operator(V, coefficient = 1.0, measure = ufl.dx) -> np.ndarray` | Assemble a diagonal/lumped operator vector on ``V``. |
+| function | `assemble_lumped_mass(V, density = 1.0, measure = ufl.dx) -> np.ndarray` | Assemble a lumped mass vector for a scalar or vector space. |
+| function | `inverse_diagonal(diagonal: np.ndarray) -> np.ndarray` | Return a safe inverse for a diagonal vector. |
+
+## `agentfem.backends`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `BackendAdapter` | Minimal interface used by operator compilation and assembly. |
+| class | `BackendDescriptor` | Inspectable backend identity and capability statement. |
+| class | `FEniCSxBackend` | Current production backend for AgentFEM operator forms. |
+| function | `available_backends() -> tuple[str, ...]` | Return registered backend names without importing their dependencies. |
+| function | `backend_descriptors() -> tuple[BackendDescriptor, ...]` | Return descriptors for all registered backends. |
+| function | `default_backend_name() -> str` | Public AgentFEM object. |
+| function | `get_backend(name: str \| None = None) -> BackendAdapter` | Return a lazily constructed backend adapter. |
+| function | `register_backend(name: str, factory: BackendFactory, *, overwrite: bool = False) -> None` | Register a lazy backend factory. |
+| function | `set_default_backend(name: str) -> None` | Select the process-local default backend by registered name. |
+
+## `agentfem.benchmarks`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `BenchmarkSpec` | One verification obligation and its executable evidence. |
+| function | `benchmark(identifier: str) -> BenchmarkSpec` | Return one benchmark by stable identifier. |
+| function | `list_benchmarks(*, capability: str \| None = None) -> tuple[BenchmarkSpec, ...]` | Return all benchmarks or those for one capability. |
+| class | `GoldenBenchmark` | A named collection of numerical observables from a benchmark card. |
+| class | `GoldenQuantity` | One expected physical observable with explicit numerical tolerances. |
+| function | `golden_benchmark(identifier: str) -> GoldenBenchmark` | Load a numerical contract by stable benchmark-card identifier. |
+| class | `DelaminationBenchmarkAssessment` | Acceptance evidence for one structural cohesive benchmark. |
+| class | `DelaminationBenchmarkSpec` | Geometry and evidence contract for DCB, ENF or MMB verification. |
+| class | `DelaminationEnergyReleaseCurve` | Compliance-derived structural GI/GII evidence versus crack length. |
+| class | `MixedModeBendingComparison` | Curve-level errors under explicitly declared scientific tolerances. |
+| class | `MixedModeBendingCurve` | One traceable load/displacement/mode-mix curve versus crack length. |
+| function | `assess_delamination_benchmark(spec, predicted, reference, *, energy_release_relative_tolerance, minimum_process_zone_elements, required_process_zone_elements = 3.0, artificial_dissipation = 0.0, internal_energy = 1.0) -> DelaminationBenchmarkAssessment` | Apply curve, cohesive-zone resolution and dissipation guardrails. |
+| function | `beam_theory_energy_release_curve(spec, *, crack_length, load)` | Return a DCB/ENF analytical oracle through the same public contract. |
+| function | `compliance_energy_release_curve(spec: DelaminationBenchmarkSpec, *, crack_length, load, displacement = None, compliance = None, mode_i_fraction = None, source: str \| None = None) -> DelaminationEnergyReleaseCurve` | Recover structural energy release by the compliance derivative. |
+| function | `compare_mixed_mode_bending_curves(reference: MixedModeBendingCurve, predicted: MixedModeBendingCurve, *, load_relative_tolerance: float, displacement_relative_tolerance: float, mode_i_fraction_absolute_tolerance: float) -> MixedModeBendingComparison` | Compare a computed curve on the reference crack-length coordinates. |
+| function | `dcb_beam_compliance(spec, crack_length)` | Euler--Bernoulli DCB compliance for two arms of thickness ``h``. |
+| function | `delamination_benchmark_spec(kind, **geometry) -> DelaminationBenchmarkSpec` | Create a DCB, ENF or MMB numerical-verification specification. |
+| function | `enf_beam_compliance(spec, crack_length)` | Classical simple-beam ENF compliance with support half-span ``L``. |
+| class | `CohesiveEnergyBenchmark` | Energy closure for one uniformly separating cohesive interface. |
+| class | `ClassicalCrackBenchmark` | Fixed-path Mode-I crack propagation evidence for the V3 guardrail. |
+| class | `ThinThreeDimensionalCrossCheck` | Plane-stress condensation versus an affine thin-3D FEM patch. |
+| class | `WaveArrivalBenchmark` | Measured and acoustic-tensor wave speed in reference coordinates. |
+| class | `WeakInterfaceConvergenceStudy` | Two-dimensional mesh and time-step evidence for one V4 mechanism. |
+| class | `WeakInterfaceTransitionBenchmark` | One prestressed thin-sheet case in the JMPS V4 mechanism ladder. |
+| class | `WeakInterfaceTransitionSuite` | Auditable crack-like to supershear to spall-like V4 mechanism gate. |
+| function | `cohesive_energy_balance(*, dt: float = 0.001, loading_time: float = 0.2, opening: float = 0.08) -> CohesiveEnergyBenchmark` | Open one split interface through a smooth prescribed-motion history. |
+| function | `classical_cohesive_crack(*, cells: int = 60, length: float = 3.0, precrack_length: float = 0.5, opening: float = 0.0135, loading_time: float = 0.15, hold_time: float = 0.15, time_step_scale: float = 0.8, damping: float = 0.0) -> ClassicalCrackBenchmark` | Propagate a precracked cohesive strip below the classical limit. |
+| function | `finite_strain_wave_arrival(*, prestrain: float = 0.0, cells: int = 80, courant: float = 0.3, length: float = 2.0, source_position: float = 0.25, receiver_positions = (0.75, 1.25), pulse_width: float = 0.1) -> WaveArrivalBenchmark` | Measure a small longitudinal pulse about a held homogeneous stretch. |
+| function | `jmps_weak_interface_transition_v4(*, cells: int = 30, total_time: float = 0.1, history_every: int = 5) -> WeakInterfaceTransitionSuite` | Run the first fixed, executable JMPS-inspired V4 mechanism ladder. |
+| function | `jmps_weak_interface_convergence_v4(*, history_every: int = 20, spatial_speed_tolerance: float = 0.1, temporal_speed_tolerance: float = 0.02) -> WeakInterfaceConvergenceStudy` | Run the opt-in two-dimensional V4 supershear convergence contract. |
+| function | `plane_stress_thin_3d_crosscheck(*, axial_stretch: float = 1.12, reference_thickness: float = 0.02, cells = (2, 2, 1), young: float = 1000000.0, poisson: float = 0.49, density: float = 1000.0, tolerance: float = 1e-09) -> ThinThreeDimensionalCrossCheck` | Compare condensed 2D membrane response with a thin 3D FEM patch. |
+| function | `prestressed_weak_interface_separation(*, label: str = 'v4_candidate', cells: int = 60, transverse_cells: int = 2, length: float = 3.0, height: float = 1.0, precrack_length: float = 0.5, axial_strain: float = 0.12, strength: float = 10.0, fracture_energy: float = 0.1, initial_stiffness: float = 10000.0, young: float = 1000.0, poisson: float = 0.49, density: float = 1.0, total_time: float = 0.2, time_step_scale: float = 0.8, damping: float = 0.0, history_every: int = 1, impact_displacement: float = 0.0, impact_rise_time: float \| None = None, speed_fit_length: float \| None = None, bulk_material = None, retain_trace: bool = False) -> WeakInterfaceTransitionBenchmark` | Drive a precrack through a prestressed plane-stress weak interface. |
+| class | `InelasticStructuralBenchmark` | Compact, rank-independent evidence from one structural benchmark. |
+| function | `j2_plane_strain_first_yield_pressure(*, inner_radius: float, outer_radius: float, poisson: float, yield_stress: float) -> float` | Lamé plane-strain pressure at first Mises yield on the inner wall. |
+| function | `j2_thick_cylinder_benchmark(*, comm = MPI.COMM_WORLD, radial_cells: int = 4, angular_cells: int = 8, increments: int = 24) -> InelasticStructuralBenchmark` | Run the Comet-FEniCSx thick-cylinder first-yield benchmark. |
+| function | `thick_cylinder_sector_mesh(*, inner_radius: float, outer_radius: float, thickness: float, radial_cells: int, angular_cells: int, comm = MPI.COMM_WORLD)` | Create a one-layer 3D quarter-cylinder tetrahedral benchmark mesh. |
+
+## `agentfem.dependencies`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `OptionalDependencyError(*, package: str, extra: str, capability: str)` | Raised when a requested optional capability is not installed. |
+| class | `DependencyStatus` | Inspectable availability record for one optional integration. |
+| function | `require(package: str, *, extra: str, capability: str)` | Import an optional package or raise an installation-specific error. |
+| function | `status(package: str, *, extra: str, capability: str) -> DependencyStatus` | Return package availability without importing compiled extensions. |
+
+## `agentfem.diagnostics`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `PerformanceLedger` | Low-overhead, rank-local timing evidence for one solver lifecycle. |
+| function | `comm_of(obj = None, default = MPI.COMM_WORLD)` | Return the MPI communicator associated with an object when possible. |
+| function | `is_root(obj = None, *, root: int = 0) -> bool` | Return whether the current MPI rank is the selected reporting rank. |
+| function | `print_on_root(obj, *args, root: int = 0, flush: bool = True, **kwargs) -> None` | Print a message only on the selected MPI root rank. |
+| class | `StandardRunReporter` | Immediate rank-zero progress for long-running analysis steps. |
+| class | `SolveEventRecorder` | In-memory structured execution trace shared by every procedure. |
+| class | `ReporterGroup` | Fan one solver event out to several independent consumers. |
+| function | `compose_reporters(*reporters) -> object \| None` | Compose progress, persistence, and agent observers without coupling. |
+| function | `kinetic_energy(mass_lumped: np.ndarray, velocity: fem.Function) -> float` | Global kinetic energy from a lumped mass vector and velocity field. |
+| class | `MechanicalEnergy` | Kinetic, recoverable strain, and total mechanical energy. |
+| function | `mechanical_energy(*, mass, stiffness, displacement, velocity) -> MechanicalEnergy` | Evaluate ``1/2 v^T M v`` and ``1/2 u^T K u`` from visible operators. |
+| class | `LinearStaticEnergy` | Energy closure for a proportional linear-static load path. |
+| function | `linear_static_energy(*, stiffness, force, displacement) -> LinearStaticEnergy` | Evaluate energy for loads ramped proportionally from zero to ``force``. |
+| class | `MechanicalEnergyMonitor` | Cache visible M/K operators and sample mechanical energy in time. |
+| class | `ThermalBalanceMonitor` | Sample discrete heat content, applied rate, outflow, and closure. |
+| class | `ThermalContentMonitor` | Backwards-compatible sensible-heat monitor without balance terms. |
+| function | `max_abs(function: fem.Function) -> float` | Global max absolute value of a finite-element field. |
+| function | `max_magnitude(function) -> float` | Global maximum magnitude of a scalar or vector finite-element field. |
+| class | `FieldStats` | Distributed scalar statistics for a finite-element field. |
+| class | `ScalarDiagnostic` | Named scalar diagnostic evaluated on demand. |
+| class | `DiagnosticSet` | Ordered collection of scalar diagnostics. |
+| function | `magnitude_stats(function, *, on = None, name: str \| None = None) -> FieldStats` | Return distributed magnitude statistics for a scalar or vector field. |
+| function | `field_stats(function, *, on = None, name: str \| None = None) -> FieldStats` | Alias for ``magnitude_stats`` for application-level diagnostics. |
+
+## `agentfem.elements`
+
+This package exposes its public objects through focused submodules.
+
+## `agentfem.extensions`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `ExtensionError` | An installed extension could not be discovered or activated safely. |
+| class | `ExtensionSpec` | Identity and compatibility contract published by one extension. |
+| class | `Extension` | One loadable extension and its side-effect-free registration callback. |
+| class | `ExtensionDescriptor` | Package metadata visible without importing extension code. |
+| class | `ExtensionContext` | Staging area exposed to an extension during activation. |
+| class | `LoadedExtension` | Activated identity and the capabilities registered into this process. |
+| function | `discover_extensions() -> tuple[ExtensionDescriptor, ...]` | Return installed extension metadata without importing extension code. |
+| function | `extension_status() -> dict[str, object]` | Return the machine-facing installed and activated extension inventory. |
+| function | `loaded_extensions() -> tuple[LoadedExtension, ...]` | Return activated extensions in stable name order. |
+| function | `missing_extensions(names) -> tuple[str, ...]` | Return required names that are not advertised by installed packages. |
+| function | `load_extension(name: str) -> LoadedExtension` | Explicitly import, validate, and activate one installed extension. |
+| function | `load_extensions(names) -> tuple[LoadedExtension, ...]` | Activate required extensions in declaration order. |
+
+## `agentfem.forms`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| function | `stiffness_form(stress, strain_test, measure = ufl.dx)` | Internal stiffness/virtual-work form, ``sigma : epsilon(test)``. |
+| function | `mass_form(density, trial_function, test_function, measure = ufl.dx)` | Consistent mass form, ``rho * trial . test``. |
+| function | `damping_form(coefficient, trial_function, test_function, measure = ufl.dx)` | Viscous damping form, ``c * trial . test``. |
+| function | `diffusion_form(conductivity, trial_function, test_function, measure = ufl.dx)` | Diffusion/conduction form, ``k * grad(trial) . grad(test)``. |
+| function | `inertial_form(density, acceleration, test_function, measure = ufl.dx)` | Inertial virtual-work form, ``rho * acceleration . test``. |
+| function | `body_load_form(force, test_function, measure = ufl.dx)` | Body-force/source virtual-work form, ``force . test``. |
+| function | `boundary_load_form(load, test_function, measure)` | Boundary flux/traction virtual-work form, ``load . test``. |
+| function | `scalar_flux_form(flux, test_function, measure)` | Scalar flux weak form, ``flux * test`` on a boundary or domain measure. |
+| function | `robin_form(coefficient, trial_function, test_function, measure)` | Robin/impedance bilinear form, ``coefficient * trial * test``. |
+| function | `internal_virtual_work(stress, strain_test)` | Compatibility wrapper for ``stiffness_form``. |
+| function | `inertial_virtual_work(density, acceleration, test_function)` | Compatibility wrapper for ``inertial_form``. |
+| function | `body_force_virtual_work(force, test_function, measure = ufl.dx)` | Compatibility wrapper for ``body_load_form``. |
+| function | `boundary_flux_virtual_work(flux, test_function, ds_measure)` | Compatibility wrapper for ``boundary_load_form``. |
+
+## `agentfem.ir`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| function | `describe(item)` | Prefer semantic records over display-only summaries. |
+| function | `describe_many(items: Iterable[object]) -> tuple[object, ...]` | Describe a collection without retaining backend memory addresses. |
+| function | `model_document(model, *, agentfem_version: str, backend: Mapping[str, object] \| None = None, include_validation: bool = True, metadata: Mapping[str, object] \| None = None) -> IRDocument` | Build an experimental AF-IR model document. |
+| class | `IRDocument` | Canonical envelope for an AF-IR artifact. |
+| class | `IRSerializationError` | Raised when a value cannot be represented without hiding its meaning. |
+| function | `to_json_safe(value, *, path: str = '$')` | Convert scientific summaries to deterministic JSON-safe values. |
+| function | `write_document(document: IRDocument \| Mapping[str, object], path: str \| Path, *, indent: int = 2) -> Path` | Write one deterministic AF-IR JSON document and return its path. |
+| function | `describe_value(value)` | Return a JSON-safe coefficient value or an explicit opaque marker. |
+
+## `agentfem.platforms`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `PlatformSupport` | One operating-system support decision with explicit limitations. |
+| class | `RuntimeReport` | Compact runtime inventory for bug reports and agent inspection. |
+| function | `support_for(system: str, *, wsl: bool = False) -> PlatformSupport` | Return the first-release support tier for an operating-system route. |
+| function | `current_support() -> PlatformSupport` | Detect the current OS, including Windows Subsystem for Linux. |
+| function | `runtime_report() -> RuntimeReport` | Return versions and optional integrations useful in issue reports. |
+
+## `agentfem.provenance`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| function | `seal_manifest(manifest: Mapping[str, object], *, base: str \| Path, producer_version: str) -> dict[str, object]` | Return a deterministic integrity seal for an unsealed manifest. |
+| class | `SealVerification` | Outcome of checking one stored provenance seal. |
+| function | `verify_manifest(path: str \| Path) -> SealVerification` | Verify a result manifest and every artifact recorded in its seal. |
+
+## `agentfem.spaces`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| function | `lagrange_space(domain, degree: int = 1)` | Create a scalar Lagrange function space. |
+| function | `scalar_space(domain, degree: int = 1)` | Create a scalar Lagrange function space. |
+| function | `vector_lagrange_space(domain, degree: int = 1, dim: int \| None = None)` | Create a vector Lagrange function space. |
+| function | `vector_space(domain, degree: int = 1, dim: int \| None = None)` | Create a vector Lagrange function space. |
+| function | `displacement_pressure_space(domain, *, displacement_degree: int = 2, pressure_degree: int = 0)` | Create the mixed ``H1`` displacement / discontinuous-pressure space. |
+| function | `test_function(V)` | Create a UFL test function for a function space. |
+| function | `trial_function(V)` | Create a UFL trial function for a function space. |
+| function | `named_function(V, name: str, value = 0.0)` | Create a named finite-element function and optionally initialize it. |
+
+## `agentfem.upgrades`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `UpgradeFinding` | One stable, addressable compatibility or migration finding. |
+| class | `UpgradeReport` | Dry-run migration plan for one installed-use project. |
+| function | `inspect_project(project: ProjectConfig) -> UpgradeReport` | Return a dry-run upgrade report without executing or changing the case. |
+| function | `apply_safe_metadata(project: ProjectConfig) -> tuple[Path, ...]` | Apply only deterministic project-metadata migrations, atomically. |
+| function | `migrate_cohesive_checkpoint(snapshot: dict[str, object], *, tangential: str, tangential_stiffness: float \| None = None, acknowledge_physics_change: bool = False) -> dict[str, object]` | Explicitly promote a physical-keyed scalar checkpoint to schema v5. |
+
 ## `agentfem.validation`
 
 | Kind | Public object | Purpose |
@@ -926,18 +1062,3 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ValidationReport` | Immutable collection of structured validation issues. |
 | class | `ModelValidationError(report: ValidationReport)` | Raised when a structured model validation report contains errors. |
 | function | `issue(code: str, path: str, message: str, *, severity: Severity = 'error', hint: str \| None = None, **context) -> ValidationIssue` | Concise constructor used by model validators and backend adapters. |
-
-## `agentfem.verification`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| function | `trust_rank(level: str) -> int` | Return the ordered rank of one public trust level. |
-| class | `VerificationClaim` | One explicit, machine-readable scientific acceptance claim. |
-| class | `VerificationReport` | Trust decision derived from execution state and scientific claims. |
-| class | `QualityPolicy` | Low-ceremony acceptance policy for one result or dataset boundary. |
-| class | `ConvergenceSample` | One observable evaluated at a declared discretization size. |
-| class | `ConvergenceStudy` | A coarse-to-fine mesh or time-step convergence sequence. |
-| function | `report(*claims: VerificationClaim, computed: bool = True, converged: bool = True, scope: str = 'simulation') -> VerificationReport` | Concise public constructor for a verification report. |
-| function | `quality_policy(value: str \| QualityPolicy) -> QualityPolicy` | Return one named public quality policy. |
-| function | `assess(result, quality: str \| QualityPolicy = 'engineering', *, claims: Iterable[VerificationClaim] = (), converged: bool \| None = None, required_quantities: Iterable[str] = (), required_histories: Iterable[str] = (), required_artifacts: Iterable[str] = (), attach: bool = True) -> VerificationReport` | Apply a quality preset and inexpensive deterministic result checks. |
-| function | `convergence_study(name: str, observable: str, samples: Iterable[ConvergenceSample], *, discretization: str = 'mesh') -> ConvergenceStudy` | Public AgentFEM object. |

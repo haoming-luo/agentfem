@@ -62,6 +62,7 @@ def main() -> dict[str, float]:
     model.fix(temperature, on=right_boundary, value=300.0)
     model.check()
 
+    out = Path(__file__).resolve().parents[1] / "examples_output" / "transient_heat_2d.xdmf"
     step = model.step(
         target=temperature,
         dt=10.0,
@@ -70,11 +71,10 @@ def main() -> dict[str, float]:
         print_every=1 if smoke else 50,
         solver_options=LinearSolverOptions(ksp_type="preonly", pc_type="lu"),
         name="heat_implicit_euler",
+        output=out,
     )
 
-    out = Path(__file__).resolve().parents[1] / "examples_output" / "transient_heat_2d.xdmf"
     simulation = step.solve_result(
-        output=out,
         history=(
             results.probe_history(
                 "center_temperature",

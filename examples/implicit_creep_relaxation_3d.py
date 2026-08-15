@@ -46,6 +46,7 @@ def main() -> dict[str, float]:
         value=0.002,
     )
 
+    output = Path(__file__).resolve().parents[1] / "examples_output" / "implicit_creep"
     step = model.step(
         target=displacement,
         material=steel,
@@ -62,9 +63,9 @@ def main() -> dict[str, float]:
             maximum_iterations=20,
             line_search="backtracking",
         ),
+        output=output / "relaxation.xdmf",
     )
-    output = Path(__file__).resolve().parents[1] / "examples_output" / "implicit_creep"
-    simulation = step.solve_result(output=output / "relaxation.xdmf")
+    simulation = step.solve_result()
     observables = {
         "mean_axial_stress": results.average(
             step.state.stress.function[0, 0], measure=step.state.measure

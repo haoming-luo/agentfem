@@ -44,9 +44,9 @@ def main():
         steps=3,
         print_every=1,
         name="newmark_response",
+        output=run.artifact("dynamics.xdmf"),
     )
     simulation = step.solve_result(
-        output=run.artifact("dynamics.xdmf"),
         history=(
             results.probe_history(
                 "tip_U2",

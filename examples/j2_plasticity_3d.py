@@ -36,6 +36,7 @@ def main() -> None:
     model.fix(displacement, on=left, value=0.0)
     model.traction((250.0, 0.0, 0.0), on=right)
 
+    output = Path(__file__).resolve().parents[1] / "examples_output" / "j2_plasticity_3d.xdmf"
     step = model.step(
         target=displacement,
         material=steel,
@@ -50,9 +51,9 @@ def main() -> None:
             maximum_iterations=20,
             linear_solver=solvers.direct_solver(package="mumps"),
         ),
+        output=output,
     )
-    output = Path(__file__).resolve().parents[1] / "examples_output" / "j2_plasticity_3d.xdmf"
-    simulation = step.solve_result(output=output)
+    simulation = step.solve_result()
     if MPI.COMM_WORLD.rank == 0:
         simulation.write_manifest(output.with_suffix(".result.json"))
 

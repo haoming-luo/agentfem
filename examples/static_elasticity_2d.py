@@ -70,10 +70,16 @@ def main() -> dict[str, float]:
     model.check()
 
     # 7. Step and solve: assemble K u = F and solve the linear system.
+    out = (
+        Path(__file__).resolve().parents[1]
+        / "examples_output"
+        / "static_elasticity_2d.xdmf"
+    )
     step = model.step(
         target=displacement,
         solver_options=LinearSolverOptions(ksp_type="preonly", pc_type="lu"),
         name="cantilever_Ku_eq_F",
+        output=out,
     )
     ir_out = (
         Path(__file__).resolve().parents[1]
@@ -87,12 +93,7 @@ def main() -> dict[str, float]:
             "purpose": "executable AF-IR record before solve",
         },
     )
-    out = (
-        Path(__file__).resolve().parents[1]
-        / "examples_output"
-        / "static_elasticity_2d.xdmf"
-    )
-    simulation = step.solve_result(output=out)
+    simulation = step.solve_result()
     observables = {
         "maximum_displacement": max_magnitude(displacement.value),
     }

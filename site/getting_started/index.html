@@ -3286,6 +3286,10 @@ the AgentFEM wheel into it. Then check the actual runtime:</p>
 records the platform route, exact interpreter and imported package, core
 versions, and optional mesh, visualization, machine-learning, and
 distributed-MPC integrations.</p>
+<p><code>agentfem capabilities --json</code> also separates the public Python surface into
+<code>core</code>, <code>advanced</code>, and <code>expert</code> layers. A generated first case should normally
+use only the core layer; this reduces API search without restricting direct
+access to advanced finite-element or backend capabilities.</p>
 <h2 id="create-a-project-anywhere">Create a project anywhere<a class="headerlink" href="#create-a-project-anywhere" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>agentfem<span class="w"> </span>templates
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>mkdir<span class="w"> </span>beam

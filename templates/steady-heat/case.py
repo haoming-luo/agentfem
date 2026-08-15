@@ -39,9 +39,11 @@ def main():
     model.prescribed_temperature(temperature, 400.0, on=left)
     model.convection(on=right, coefficient=25.0, ambient_temperature=300.0)
 
-    simulation = model.step(target=temperature, name="steady_heat").solve_result(
+    simulation = model.step(
+        target=temperature,
+        name="steady_heat",
         output=run.artifact("temperature.xdmf"),
-    )
+    ).solve_result()
     simulation.add_dof_statistics(temperature, prefix="temperature", unit="K")
     if MPI.COMM_WORLD.rank == 0:
         run.publish(simulation)

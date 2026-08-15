@@ -41,9 +41,11 @@ def main():
     model.traction((0.0, -1.0e6), on=right)
     model.check()
 
-    simulation = model.step(target=displacement, name="static_load").solve_result(
+    simulation = model.step(
+        target=displacement,
+        name="static_load",
         output=run.artifact("fields.xdmf"),
-    )
+    ).solve_result()
     simulation.add_dof_statistics(displacement, prefix="displacement", unit="m")
     if MPI.COMM_WORLD.rank == 0:
         run.publish(simulation)

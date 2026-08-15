@@ -3287,7 +3287,8 @@ for AI agents.</p>
 <li>For vector fields, application-level constraint constructors should make the
   common case short: <code>constraints.fixed(displacement, on=left)</code> fixes all
   displacement components, while <code>components=0</code> or <code>components=(0, 1)</code> selects
-  individual dofs.</li>
+  individual dofs. Engineering axis names (<code>"x"</code>, <code>"y"</code>, <code>"z"</code>) are accepted
+  wherever a public component selector is unambiguous.</li>
 <li>Prefer <code>on=...</code> for geometric targets in user-facing APIs. Keep <code>location=...</code>
   as a compatibility spelling for explicit region objects.</li>
 <li>Provide model-level registration helpers such as <code>model.field(...)</code>,
@@ -3301,6 +3302,10 @@ for AI agents.</p>
 <li>Prefer the model-owned <code>model.step(...)</code> procedure-dispatch entry point for
   beginner workflows. The step should expose its K/F system through summaries
   so it remains auditable rather than becoming a black box.</li>
+<li>Prefer <code>solve_result()</code> as the common completion verb. An output product may
+  be supplied to <code>solve_result(output=...)</code> or declared once on
+  <code>model.step(..., output=...)</code>; provider constructors must not reinterpret it
+  as a numerical solver option.</li>
 <li>Provide operator-level constructors for engineering FEM notation, such as
   <code>operators.stiffness(...)</code>, <code>operators.capacity_operator(...)</code>,
   <code>operators.conduction_operator(...)</code>, and <code>operators.load_vector(...)</code>.</li>

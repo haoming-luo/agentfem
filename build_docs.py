@@ -19,9 +19,11 @@ AGENT_MANIFEST = DOCS_DIR / "agentfem.json"
 LLMS_ENTRY = DOCS_DIR / "llms.txt"
 LOGO_SOURCE = ROOT / "logo" / "AgentFEM_logo_transparent.png"
 LOGO_TARGET = DOCS_DIR / "assets" / "images" / LOGO_SOURCE.name
-PUBLIC_API_PATTERN = re.compile(
-    r"PUBLIC_WORKFLOW_MODULES\s*=\s*\((?P<body>.*?)\)", re.DOTALL
-)
+PUBLIC_API_LEVELS = {
+    "core": "CORE_WORKFLOW_MODULES",
+    "advanced": "ADVANCED_WORKFLOW_MODULES",
+    "expert": "EXPERT_WORKFLOW_MODULES",
+}
 
 
 @dataclass(frozen=True)
@@ -40,12 +42,45 @@ def project_version() -> str:
     return match.group(1)
 
 
+def public_api_levels() -> dict[str, tuple[str, ...]]:
+    """Read progressive API declarations without importing the FEM runtime."""
+
+    tree = ast.parse((ROOT / "__init__.py").read_text())
+    assignments = {
+        target.id: node.value
+        for node in tree.body
+        if isinstance(node, (ast.Assign, ast.AnnAssign))
+        for target in (
+            node.targets if isinstance(node, ast.Assign) else (node.target,)
+        )
+        if isinstance(target, ast.Name)
+    }
+    levels = {}
+    for level, name in PUBLIC_API_LEVELS.items():
+        try:
+            value = ast.literal_eval(assignments[name])
+        except (KeyError, ValueError, TypeError) as exc:
+            raise RuntimeError(
+                f"{name} must be a literal tuple in __init__.py"
+            ) from exc
+        if not isinstance(value, tuple) or any(
+            not isinstance(item, str) or not item for item in value
+        ):
+            raise RuntimeError(f"{name} must contain non-empty module names.")
+        levels[level] = value
+    return levels
+
+
 def public_modules() -> tuple[str, ...]:
-    text = (ROOT / "__init__.py").read_text()
-    match = PUBLIC_API_PATTERN.search(text)
-    if match is None:
-        raise RuntimeError("PUBLIC_WORKFLOW_MODULES is missing from __init__.py")
-    return tuple(re.findall(r'"([a-zA-Z0-9_]+)"', match.group("body")))
+    """Return the stable complete inventory in disclosure order."""
+
+    return tuple(
+        dict.fromkeys(
+            module
+            for modules in public_api_levels().values()
+            for module in modules
+        )
+    )
 
 
 def _annotation(node: ast.AST | None) -> str:
@@ -232,6 +267,7 @@ def render_api_reference() -> str:
 
 
 def render_agent_manifest() -> str:
+    api_levels = public_api_levels()
     manifest = {
         "schema": "agentfem.documentation-entry",
         "schema_version": "1.0",
@@ -261,6 +297,9 @@ def render_agent_manifest() -> str:
             "inspect": "agentfem inspect --json",
         },
         "public_workflow_modules": list(public_modules()),
+        "public_api": {
+            level: list(modules) for level, modules in api_levels.items()
+        },
         "workflow": [
             "study",
             "model",

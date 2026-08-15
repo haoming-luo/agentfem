@@ -21,6 +21,9 @@ def test_documentation_machine_entrypoints_are_current():
     assert manifest["human_entrypoints"]["examples"] == "examples/"
     assert manifest["agent_entrypoints"]["guide"] == "agents/"
     assert "models" in manifest["public_workflow_modules"]
+    assert "models" in manifest["public_api"]["core"]
+    assert "surrogates" in manifest["public_api"]["advanced"]
+    assert "backends" in manifest["public_api"]["expert"]
 
 
 def test_generated_api_covers_public_workflow_objects():
