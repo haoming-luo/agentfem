@@ -408,6 +408,17 @@
   overflow-x: auto;
 }
 
+/* Keep cold-load CHTML assembly invisible until its local fonts have settled.
+   A failed renderer reveals the TeX source rather than leaving blank content. */
+.af-math-pending .arithmatex {
+  visibility: hidden;
+}
+
+.af-math-ready .arithmatex,
+.af-math-failed .arithmatex {
+  visibility: visible;
+}
+
 mjx-container[jax="CHTML"][display="true"] {
   margin: 1.35rem 0 !important;
   overflow-x: auto;

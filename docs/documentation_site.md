@@ -105,7 +105,9 @@ It performs three tasks before the MkDocs build:
 The generated site is written to `site/`. Use `python build_docs.py --check` in
 CI to ensure generated references are current. `mkdocs build --strict` checks
 navigation and internal links. Mathematical notation is rendered through
-Arithmatex and MathJax from ordinary Markdown source.
+Arithmatex and a pinned, self-hosted MathJax runtime from ordinary Markdown
+source. Keeping the runtime and its fonts in the documentation artifact avoids
+a network-dependent first render while preserving instant navigation.
 
 ## Local preview
 

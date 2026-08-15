@@ -2,3 +2,7 @@ AgentFEM
 Copyright 2026 Haoming Luo
 
 AgentFEM is an agent-oriented finite-element workflow platform.
+
+The documentation distribution includes MathJax 3.2.2, Copyright 2009-2022
+The MathJax Consortium, licensed under the Apache License 2.0. Its license is
+included at docs/vendor/mathjax/3.2.2/LICENSE.

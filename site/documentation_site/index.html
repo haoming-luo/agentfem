@@ -3428,7 +3428,9 @@ force beginner pages to repeat the same equations.</p>
 <p>The generated site is written to <code>site/</code>. Use <code>python build_docs.py --check</code> in
 CI to ensure generated references are current. <code>mkdocs build --strict</code> checks
 navigation and internal links. Mathematical notation is rendered through
-Arithmatex and MathJax from ordinary Markdown source.</p>
+Arithmatex and a pinned, self-hosted MathJax runtime from ordinary Markdown
+source. Keeping the runtime and its fonts in the documentation artifact avoids
+a network-dependent first render while preserving instant navigation.</p>
 <h2 id="local-preview">Local preview<a class="headerlink" href="#local-preview" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>build_docs.py
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>mkdocs<span class="w"> </span>serve
@@ -3557,7 +3559,7 @@ into several unrelated pages.</p>
       
         <script src="../javascripts/mathjax.js"></script>
       
-        <script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+        <script src="../vendor/mathjax/3.2.2/tex-chtml-full.js"></script>
       
     
   </body>

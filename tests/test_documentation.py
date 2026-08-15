@@ -82,17 +82,31 @@ def test_site_navigation_uses_scientific_manual_structure():
 def test_math_rendering_survives_instant_navigation_and_late_startup():
     config = (ROOT / "mkdocs.yml").read_text()
     script = (ROOT / "docs" / "javascripts" / "mathjax.js").read_text()
+    stylesheet = (ROOT / "docs" / "stylesheets" / "extra.css").read_text()
+    runtime = ROOT / "docs" / "vendor" / "mathjax" / "3.2.2"
     assert config.index("javascripts/mathjax.js") < config.index(
-        "mathjax@3.2.2/es5/tex-mml-chtml.js"
+        "vendor/mathjax/3.2.2/tex-chtml-full.js"
     )
+    assert "cdn.jsdelivr.net/npm/mathjax" not in config
+    assert "unpkg.com/mathjax" not in config
+    assert (runtime / "tex-chtml-full.js").stat().st_size > 1_000_000
+    assert len(list((runtime / "output/chtml/fonts/woff-v2").glob("*.woff"))) == 23
+    assert (runtime / "LICENSE").is_file()
     assert "document$.subscribe(requestTypeset)" in script
     assert "mathJax.startup.promise" in script
     assert "waitForMathJax" in script
+    assert "performance.now() + 30000" in script
+    assert "await delay(50)" in script
+    assert "Promise.race([mathJax.startup.promise, delay(1000)])" in script
+    assert 'root.classList.add("af-math-pending")' in script
     assert "requestAnimationFrame(resolve)" in script
+    assert "await document.fonts.ready" in script
     assert "[data-md-component='content']" in script
     assert '!node.querySelector("mjx-container")' in script
     assert "mathJax.typesetPromise(pending)" in script
     assert "typesetClear" not in script
+    assert ".af-math-pending .arithmatex {" in stylesheet
+    assert ".af-math-failed .arithmatex" in stylesheet
 
 
 def test_theory_reference_states_equations_and_result_locations():

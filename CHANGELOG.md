@@ -36,7 +36,8 @@ No user-visible changes have been recorded after 0.2.1.
 - Make the generated API reference consume progressive module declarations
   without importing the FEniCSx runtime.
 - Make MathJax rendering deterministic across direct loads and MkDocs instant
-  navigation without requiring a browser refresh.
+  navigation without requiring a browser refresh; the pinned runtime and fonts
+  are served with the manual rather than fetched from a third-party CDN.
 
 ## [0.2.0] - 2026-08-13
 

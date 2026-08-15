@@ -1,0 +1,16 @@
+# Vendored MathJax runtime
+
+AgentFEM's documentation serves MathJax from the same GitHub Pages artifact so
+equations do not depend on a third-party CDN during first load or instant
+navigation.
+
+- Package: `mathjax`
+- Version: `3.2.2`
+- Source: <https://www.npmjs.com/package/mathjax/v/3.2.2>
+- Included component: `es5/tex-chtml-full.js`
+- Included assets: CommonHTML TeX web fonts
+- License: Apache-2.0; see `3.2.2/LICENSE`
+
+The full TeX component is intentional: AgentFEM's scientific manual uses
+`boldsymbol` and should not initiate a second extension download while a page
+is being rendered.
