@@ -103,8 +103,10 @@ def test_math_rendering_survives_instant_navigation_and_late_startup():
     assert "await document.fonts.ready" in script
     assert "[data-md-component='content']" in script
     assert '!node.querySelector("mjx-container")' in script
+    assert "mathJax.startup.output.clearCache()" in script
+    assert "mathJax.typesetClear()" in script
+    assert "mathJax.texReset()" in script
     assert "mathJax.typesetPromise(pending)" in script
-    assert "typesetClear" not in script
     assert ".af-math-pending .arithmatex {" in stylesheet
     assert ".af-math-failed .arithmatex" in stylesheet
 

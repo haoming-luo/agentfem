@@ -75,6 +75,20 @@ window.MathJax = {
       (node) => !node.querySelector("mjx-container"),
     );
     if (pending.length > 0) {
+      /* Material replaces the page body during instant navigation, including
+       * MathJax's adaptive CHTML style element.  Reset the matching internal
+       * cache before processing the new page; otherwise MathJax can believe
+       * that common glyph rules still exist and render only newly seen
+       * characters until a full browser refresh. */
+      if (mathJax.startup.output && mathJax.startup.output.clearCache) {
+        mathJax.startup.output.clearCache();
+      }
+      if (mathJax.typesetClear) {
+        mathJax.typesetClear();
+      }
+      if (mathJax.texReset) {
+        mathJax.texReset();
+      }
       await mathJax.typesetPromise(pending);
     }
 
