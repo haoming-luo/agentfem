@@ -19,8 +19,10 @@ The public manual follows a stable progression:
    scientific function cards, interoperability, and the Python API.
 6. **Extending AgentFEM** supports contributors, agent/GUI integration, and
    custom scientific components.
-7. **Project** preserves releases, trust policy, roadmap, and engineering
-   decisions without competing with the primary user journey.
+7. **Project** preserves the current release, trust policy, compatibility, and
+   roadmap without competing with the primary user journey. Historical release
+   notes and engineering records remain directly linkable but stay outside the
+   main sidebar.
 
 This structure is informed by mature engineering software documentation:
 Gmsh separates overview, tutorials, scripting/API, options, and file formats;
@@ -51,19 +53,20 @@ form one executable workflow; a reference page is split when unrelated
 domains, an unscannable contents list, or slow rendering makes lookup harder.
 
 The primary navigation therefore exposes short task-oriented labels and groups
-theory separately from function and API lookup. Internal audits remain under
-the collapsed Project section. The generated scientific-function and Python
-API references currently retain stable single-page indexes because tests,
-knowledge cards, and external links address their entries directly. When those
-indexes are split by domain, the original anchors must remain available through
-stable redirects rather than breaking existing human or agent references.
+theory separately from function and API lookup. Old releases, internal audits,
+and design records remain searchable and linkable without occupying the main
+reader path. The generated scientific-function and Python API references retain
+stable single-page indexes because tests, knowledge cards, and external links
+address their entries directly. When those indexes are split by domain, the
+original anchors must remain available through stable redirects.
 
-The sidebar uses one visual grammar throughout: muted chapter labels organize
-the manual, bold rows with chevrons expand a subsection, and regular rows open
-pages. Every multi-page chapter exposes its landing page explicitly as
-`Overview`; a chapter name never changes meaning between a link and a label.
-The redundant desktop root label is hidden, while the mobile drawer retains its
-project header and home control.
+The sidebar uses one visual grammar throughout: chapter rows are clickable and
+expandable, optional groups use the same chevron convention, and ordinary page
+rows remain regular weight. Only the active branch is expanded, so a new reader
+sees the manual structure before its details. Section index pages make the
+chapter title itself the landing page; redundant `Overview` rows are not shown.
+The desktop root label is hidden, while the mobile drawer retains its project
+header and home control.
 
 Footer previous/next links provide sequential reading. Numbered pagination is
 not added to ordinary manual pages because it hides context and makes technical

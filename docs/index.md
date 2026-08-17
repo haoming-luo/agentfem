@@ -13,9 +13,20 @@
 [Installation](getting_started.md) ·
 [Examples](examples/index.md) ·
 [Python API](reference/api.md) ·
+[Release 0.2.1](release_0.2.1.md) ·
 [Apache-2.0 license](licensing.md)
 
 </div>
+
+## Start here
+
+| I want to... | Go to... |
+| --- | --- |
+| Install AgentFEM and run one model | [Getting started](get_started/index.md) |
+| Build a solid, thermal, dynamic, or creep analysis | [User guide](guide/index.md) |
+| Reproduce an executable capability | [Examples](examples/index.md) |
+| Operate AgentFEM with a coding agent | [For AI agents](agents/index.md) |
+| Look up an equation, output variable, or function | [Theory and reference](reference/index.md) |
 
 The public workflow follows the concepts used in an engineering analysis:
 
@@ -100,7 +111,7 @@ artifacts, solver evidence, and verification state. The repository's
 [release example](https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_2d.py)
 adds a Golden benchmark and explicit release-quality checks.
 
-## User guide
+## Browse by task
 
 | Topic | Start here |
 | --- | --- |
@@ -112,6 +123,21 @@ adds a Golden benchmark and explicit release-quality checks.
 | Meshes, regions, loads, and constraints | [Model definition](guide/model_setup.md) |
 | Fields, histories, output, and post-processing | [Results](guide/results.md) |
 | Campaigns, datasets, PyTorch, and surrogates | [Simulation to learning](guide/simulation_to_learning.md) |
+
+## Current scope
+
+| Area | Available workflow |
+| --- | --- |
+| Solid mechanics | Linear elasticity, thermoelasticity, Neo-Hookean and Mooney--Rivlin finite strain, mixed displacement-pressure hyperelasticity, and stateful small-strain J2 plasticity |
+| Heat transfer | Steady conduction and implicit transient heat transfer |
+| Dynamics | Newmark/generalized-\(\alpha\) implicit dynamics and central-difference explicit wave propagation |
+| Time-dependent materials | Global isothermal/Arrhenius power-law creep plus reviewed material-point creep/damage tools |
+| Mesh and constraints | Structured/XDMF meshes, optional Gmsh and meshio routes, direct Abaqus C3D10H import, equation constraints, and distributed periodic workflows |
+| Results and verification | Standard fields, histories, resultants, progress, checkpoints, Golden benchmarks, and explicit quality policies |
+| Simulation and learning | Parameter campaigns, scientific datasets, NumPy/PyTorch adapters, surrogate baselines, applicability guards, and FEM fallback |
+
+Capabilities with different maturity levels are identified in the relevant
+guide and example instead of being presented as equally complete.
 
 ## Theory and reference
 
@@ -136,21 +162,6 @@ Use the reference according to the question being asked:
 - [Python API](reference/api.md) — public signatures and call-level lookup.
 - [Examples](examples/index.md) — executable workflows and their numerical
   maturity.
-
-## Current scope
-
-| Area | Available workflow |
-| --- | --- |
-| Solid mechanics | Linear elasticity, thermoelasticity, Neo-Hookean and Mooney--Rivlin finite strain, mixed displacement-pressure hyperelasticity, and stateful small-strain J2 plasticity |
-| Heat transfer | Steady conduction and implicit transient heat transfer |
-| Dynamics | Newmark/generalized-\(\alpha\) implicit dynamics and central-difference explicit wave propagation |
-| Time-dependent materials | Global isothermal/Arrhenius power-law creep plus reviewed material-point creep/damage tools |
-| Mesh and constraints | Structured/XDMF meshes, optional Gmsh and meshio routes, direct Abaqus C3D10H import, equation constraints, and distributed periodic workflows |
-| Results and verification | Standard fields, histories, resultants, progress, checkpoints, Golden benchmarks, and explicit quality policies |
-| Simulation and learning | Parameter campaigns, scientific datasets, NumPy/PyTorch adapters, surrogate baselines, applicability guards, and FEM fallback |
-
-Capabilities with different maturity levels are identified in the relevant
-guide and example instead of being presented as equally complete.
 
 ## Humans and agents
 

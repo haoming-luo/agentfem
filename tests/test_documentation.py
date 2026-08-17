@@ -93,16 +93,19 @@ def test_site_navigation_uses_scientific_manual_structure():
         "Project",
     ):
         assert f"  - {section}:" in config
-    assert "Engineering Notes:" in config
+    assert "Engineering Notes:" not in config
+    assert "project/engineering_notes.md" in config
+    assert "not_in_nav:" in config
     assert "Theory and Conventions: reference/theory_and_conventions.md" in config
     assert "navigation.tabs" not in config
     assert "navigation.instant" in config
     assert "navigation.instant.progress" in config
-    assert "navigation.sections" in config
-    assert "navigation.indexes" not in config
+    assert "navigation.sections" not in config
+    assert "navigation.indexes" in config
+    assert "navigation.prune" in config
     assert "search.suggest" in config
     assert "pymdownx.arithmatex" in config
-    assert "Overview: examples/index.md" in config
+    assert "      - examples/index.md" in config
     assert config.index("Mesh Interoperability: mesh_interoperability.md") < config.index(
         "Results and Data:"
     )

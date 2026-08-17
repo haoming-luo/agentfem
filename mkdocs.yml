@@ -8,6 +8,27 @@ docs_dir: docs
 site_dir: site
 copyright: Copyright &copy; 2026 Haoming Luo. AgentFEM is Apache-2.0 licensed.
 
+# These records remain linkable and searchable, but they are not part of the
+# primary reader journey. Keeping them out of the sidebar prevents release and
+# internal design history from competing with the user manual.
+not_in_nav: |
+  release_0.2.0.md
+  release_0.2.0a1.md
+  release_0.2.0a2.md
+  release_2026_08_26.md
+  publishing.md
+  development_testing.md
+  project/engineering_notes.md
+  architecture_review.md
+  fem_foundation_audit_2026_08_05.md
+  engineering_feedback_2026_08_05.md
+  release_audit_2026_08_05.md
+  air_architecture_roadmap.md
+  ai_native_learning.md
+  digital_twin_direction.md
+  tutorial_design.md
+  documentation_site.md
+
 theme:
   name: material
   language: en
@@ -32,7 +53,8 @@ theme:
   features:
     - navigation.instant
     - navigation.instant.progress
-    - navigation.sections
+    - navigation.indexes
+    - navigation.prune
     - navigation.path
     - navigation.footer
     - navigation.top
@@ -92,87 +114,67 @@ nav:
   - Introduction: index.md
 
   - Getting Started:
-      - Overview: get_started/index.md
+      - get_started/index.md
       - Install and First Project: getting_started.md
       - For AI Agents: agents/index.md
 
   - User Guide:
-      - Overview: guide/index.md
-      - Analysis Procedures:
+      - guide/index.md
+      - Core Analyses:
           - Solid Mechanics: guide/solid_mechanics.md
           - Heat Transfer: guide/heat_transfer.md
           - Dynamics and Waves: guide/dynamics.md
           - Creep and Inelasticity: guide/creep_and_inelasticity.md
-      - Model Definition:
-          - Meshes, Loads, and Constraints: guide/model_setup.md
+      - Build a Model:
+          - Meshes, Loads and Constraints: guide/model_setup.md
           - Mesh Interoperability: mesh_interoperability.md
-          - Engineering Workflows: engineering_workflows.md
+          - Engineering Workflow: engineering_workflows.md
       - Results and Data:
           - Results and Post-processing: guide/results.md
           - Results and Campaigns: results_and_campaigns.md
           - Simulation to Learning: guide/simulation_to_learning.md
-      - Nonlinear and Coupled Workflows:
+      - Advanced Workflows:
           - Nonlinear Materials: nonlinear_materials.md
-          - Nonlinear Solid Architecture: nonlinear_solid_architecture.md
-          - Dynamic Cohesive Fracture: dynamic_cohesive_fracture_architecture.md
+          - Thermal Stress and Creep: solution_procedures_and_thermal_creep.md
+          - Cohesive Fracture: dynamic_cohesive_fracture_architecture.md
           - Cyclic Cohesive Fatigue: cyclic_cohesive_fatigue_architecture.md
-          - Thermal Stress and Creep Procedures: solution_procedures_and_thermal_creep.md
+          - Nonlinear Architecture: nonlinear_solid_architecture.md
 
   - Examples:
-      - Overview: examples/index.md
-      - Abaqus C3D10H Periodic Cell: abaqus_c3d10h_periodic_cell.md
-      - Research Protocols:
-          - Science Supershear V5: research/science_supershear_v5.md
+      - examples/index.md
+      - C3D10H Periodic Cell: abaqus_c3d10h_periodic_cell.md
+      - Supershear Research Protocol: research/science_supershear_v5.md
 
   - Theory and Reference:
-      - Overview: reference/index.md
-      - Foundations:
-          - Theory and Conventions: reference/theory_and_conventions.md
-          - Operator Contracts: operator_contracts.md
-          - Output Variables: result_field_semantics.md
-          - Steps and Output: step_and_output_architecture.md
-      - Functions and APIs:
-          - Scientific Functions: reference/scientific_function_reference.md
-          - Python API: reference/api.md
-          - Module Map: module_map.md
+      - reference/index.md
+      - Theory and Conventions: reference/theory_and_conventions.md
+      - Scientific Functions: reference/scientific_function_reference.md
+      - Output Variables: result_field_semantics.md
+      - Operator Contracts: operator_contracts.md
+      - Steps, Progress and Output: step_and_output_architecture.md
+      - Python API: reference/api.md
+      - Module Map: module_map.md
 
   - Extending AgentFEM:
-      - Overview: extend/index.md
-      - Agent and GUI Integration: agent_gui_integration.md
-      - API Style: api_style.md
+      - extend/index.md
       - Extension Rules: extension_rules.md
-      - Private Products and Extensions: extensions_and_private_products.md
+      - API Style: api_style.md
+      - Agent and GUI Integration: agent_gui_integration.md
       - Abaqus User Materials: abaqus_user_material_bridge.md
+      - Private Extension Packages: extensions_and_private_products.md
       - AgentFEM Skill: agents/skill.md
 
   - Project:
-      - Overview: project/index.md
+      - project/index.md
       - Product Roadmap: product_roadmap.md
-      - Trust and Operations:
-          - trust/index.md
+      - Trust and Validation:
+          - Trust and Operations: trust/index.md
           - Scientific Trust and Verification: scientific_verification.md
           - Validation: validation.md
           - Result Provenance Seal: provenance_seal.md
+      - Platform and Compatibility:
           - Project Compatibility and Upgrades: project_upgrades.md
           - Platform and Optional Dependencies: platform_support.md
           - Licensing: licensing.md
-      - Releases:
-          - Documentation Versions: project/versioning.md
-          - AgentFEM 0.2.1: release_0.2.1.md
-          - AgentFEM 0.2.0: release_0.2.0.md
-          - AgentFEM 0.2.0a2: release_0.2.0a2.md
-          - AgentFEM 0.2.0a1: release_0.2.0a1.md
-          - 26 August 2026 Release Gate: release_2026_08_26.md
-          - Publishing: publishing.md
-          - Development and Verification: development_testing.md
-      - Engineering Notes:
-          - Engineering Notes Index: project/engineering_notes.md
-          - Architecture Review: architecture_review.md
-          - FEM Foundation Audit: fem_foundation_audit_2026_08_05.md
-          - Engineering Feedback Decisions: engineering_feedback_2026_08_05.md
-          - CTO Product Audit: release_audit_2026_08_05.md
-          - AIR Architecture Roadmap: air_architecture_roadmap.md
-          - AI-Native Campaigns and Learning: ai_native_learning.md
-          - Digital-twin Direction: digital_twin_direction.md
-          - Tutorial Design: tutorial_design.md
-          - Documentation Site: documentation_site.md
+      - Release 0.2.1: release_0.2.1.md
+      - Documentation Versions: project/versioning.md

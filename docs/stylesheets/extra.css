@@ -105,8 +105,8 @@
 }
 
 .md-nav {
-  font-size: 0.72rem;
-  line-height: 1.45;
+  font-size: 0.74rem;
+  line-height: 1.48;
 }
 
 .md-nav__title {
@@ -114,7 +114,7 @@
 }
 
 .md-nav__link[tabindex="0"] {
-  font-weight: 650;
+  font-weight: 620;
 }
 
 .md-nav__item .md-nav__link--active {
@@ -153,10 +153,10 @@
 }
 
 .af-home-lead {
-  align-items: center;
+  align-items: start;
   display: grid;
-  gap: 1.5rem;
-  grid-template-columns: 7.5rem minmax(0, 1fr);
+  gap: 1.1rem;
+  grid-template-columns: 6.25rem minmax(0, 1fr);
   margin: 0 0 1rem;
   padding: 0 0 1.35rem;
 }
@@ -164,7 +164,7 @@
 .af-home-logo {
   display: block;
   height: auto;
-  width: 7.5rem;
+  width: 6.25rem;
 }
 
 .md-typeset .af-home-lead__copy h1 {
@@ -439,25 +439,24 @@ mjx-container[jax="CHTML"][display="true"] {
 }
 
 @media screen and (min-width: 76.25em) {
-  /* Desktop navigation grammar: chapter label -> expandable group -> page. */
+  /* Desktop navigation grammar: chapter -> optional group -> page. */
   .md-nav--primary > .md-nav__title {
     display: none;
   }
 
-  .md-nav--primary > .md-nav__list > .md-nav__item--section {
-    margin-top: 1.2rem;
+  .md-nav--primary > .md-nav__list > .md-nav__item {
+    margin-top: 0.42rem;
   }
 
-  .md-nav--primary > .md-nav__list > .md-nav__item--section:first-child {
+  .md-nav--primary > .md-nav__list > .md-nav__item:first-child {
     margin-top: 0;
   }
 
-  .md-nav--primary > .md-nav__list > .md-nav__item--section > .md-nav__link {
-    color: var(--af-muted);
-    font-size: 0.65rem;
+  .md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link {
+    color: var(--af-ink);
+    font-size: 0.76rem;
     font-weight: 650;
-    letter-spacing: 0.045em;
-    text-transform: uppercase;
+    letter-spacing: -0.005em;
   }
 
   .md-footer__inner,
@@ -507,12 +506,30 @@ mjx-container[jax="CHTML"][display="true"] {
 
 @media screen and (max-width: 36rem) {
   .af-home-lead {
-    gap: 0.55rem;
-    grid-template-columns: minmax(0, 1fr);
+    gap: 0.65rem 0.85rem;
+    grid-template-columns: 4.25rem minmax(0, 1fr);
   }
 
   .af-home-logo {
-    width: 5.75rem;
+    grid-column: 1;
+    grid-row: 1;
+    width: 4.25rem;
+  }
+
+  .af-home-lead__copy {
+    display: contents;
+  }
+
+  .md-typeset .af-home-lead__copy h1 {
+    align-self: center;
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+  }
+
+  .md-typeset .af-home-lead__copy p {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 }
 
