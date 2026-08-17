@@ -95,6 +95,7 @@ extra_css:
 
 extra_javascript:
   - javascripts/navigation-state.js
+  - javascripts/toc-current.js
   - javascripts/mathjax.js
   - vendor/mathjax/3.2.2/tex-chtml-full.js
 

@@ -117,7 +117,7 @@
   font-weight: 620;
 }
 
-.md-nav__item .md-nav__link--active {
+.md-sidebar--primary .md-nav__item .md-nav__link--active {
   background: linear-gradient(
     90deg,
     color-mix(in srgb, var(--af-blue) 9%, transparent),
@@ -130,11 +130,30 @@
 }
 
 /* Replace the browser's select-like focus ring on expandable navigation rows. */
-.md-nav__link[tabindex="0"]:focus {
+.md-sidebar--primary .md-nav__link[tabindex="0"]:focus-visible {
   background: color-mix(in srgb, var(--af-blue) 7%, transparent);
   border-radius: 0.12rem;
   box-shadow: inset 0.15rem 0 var(--af-blue);
   outline: none;
+}
+
+/* Material changes its native TOC state only after a heading crosses the top
+   of the viewport. AgentFEM keeps headings below the fixed header, so a small
+   synchronizer marks the heading that has crossed the header instead. */
+.md-sidebar--secondary .md-nav__link--active {
+  color: inherit;
+  font-weight: inherit;
+}
+
+.md-sidebar--secondary .md-nav__link.af-toc-current {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--af-blue) 8%, transparent),
+    transparent 90%
+  );
+  border-radius: 0.12rem;
+  box-shadow: inset 0.1rem 0 var(--af-blue);
+  color: var(--af-blue);
 }
 
 .md-nav__toggle:checked + .md-nav__link[tabindex="0"] {
@@ -209,10 +228,6 @@
   font-size: 1.05rem;
   font-weight: 650;
   margin-top: 1.9rem;
-}
-
-.md-typeset [id] {
-  scroll-margin-top: 4rem;
 }
 
 .md-typeset p,

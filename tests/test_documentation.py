@@ -166,6 +166,9 @@ def test_manual_layout_keeps_navigation_and_footer_visually_separate():
     assert ".af-home-lead" in stylesheet
     assert ".md-nav--primary > .md-nav__title" in stylesheet
     assert "Desktop navigation grammar" in stylesheet
+    # Material couples its native scroll margin to the TOC observer. A custom
+    # heading margin makes the highlighted TOC entry lag one section behind.
+    assert "scroll-margin-top: 4rem;" not in stylesheet
 
 
 def test_primary_navigation_preserves_its_scroll_position_between_pages():
@@ -178,6 +181,17 @@ def test_primary_navigation_preserves_its_scroll_position_between_pages():
     assert "sessionStorage" in script
     assert "pagehide" in script
     assert ".md-sidebar--primary a.md-nav__link" in script
+
+
+def test_table_of_contents_tracks_the_heading_below_the_fixed_header():
+    config = (ROOT / "mkdocs.yml").read_text()
+    script = (ROOT / "docs" / "javascripts" / "toc-current.js").read_text()
+    stylesheet = (ROOT / "docs" / "stylesheets" / "extra.css").read_text()
+    assert "javascripts/toc-current.js" in config
+    assert ".md-sidebar--secondary" in script
+    assert "headerBottom + 12" in script
+    assert 'currentClass = "af-toc-current"' in script
+    assert ".md-sidebar--secondary .md-nav__link.af-toc-current" in stylesheet
 
 
 def test_homepage_starts_with_the_project_logo():
