@@ -3167,13 +3167,22 @@
 
 
 <h1 id="agentfem-skill">AgentFEM skill<a class="headerlink" href="#agentfem-skill" title="Permanent link">&para;</a></h1>
-<p>The repository ships an AgentFEM skill that teaches compatible coding agents
-the public workflow, project lifecycle, result contract, and safe extension
-rules.</p>
+<p>The repository ships a standards-compatible AgentFEM skill that teaches coding
+agents the public workflow, project lifecycle, result contract, scientific
+validation boundary, and safe extension rules.</p>
 <p>The canonical source is
 <a href="https://github.com/haoming-luo/agentfem/blob/main/skills/agentfem/SKILL.md"><code>skills/agentfem/SKILL.md</code></a>.
 It is versioned with the code so that agent behavior can evolve alongside API
 and project-format changes.</p>
+<p>The directory is self-contained: keep <code>SKILL.md</code>, <code>agents/</code>, and <code>references/</code>
+together. A skill-aware agent can load it directly from the repository. For a
+personal Codex installation, copy or link the complete <code>skills/agentfem/</code>
+directory to <code>$CODEX_HOME/skills/agentfem/</code> (or
+<code>~/.codex/skills/agentfem/</code> when <code>CODEX_HOME</code> is unset); copying only
+<code>SKILL.md</code> omits the scientific and implementation references.</p>
+<p>The main skill stays concise and routes detailed material progressively:
+workflow guidance is read for modeling tasks, while concepts, module ownership,
+validation, and extension rules are loaded only when the task requires them.</p>
 <h2 id="what-the-skill-is-for">What the skill is for<a class="headerlink" href="#what-the-skill-is-for" title="Permanent link">&para;</a></h2>
 <ul>
 <li>discover and validate an AgentFEM installation;</li>
@@ -3185,6 +3194,10 @@ and project-format changes.</p>
 <li>inspect declared private extensions without automatically executing or
   installing untrusted packages.</li>
 </ul>
+<p>The skill does not guess API keywords. It begins with
+<code>agentfem.public_api("core")</code>, <code>models.model_api("core")</code>, and the provider
+contracts reported by <code>agentfem capabilities --json</code>. Compatibility names may
+remain executable during 0.2.x, but new cases use the canonical vocabulary.</p>
 <p>The skill complements the machine-readable <code>/agentfem.json</code> manifest and
 scientific <code>knowledge/catalog.json</code>; it does not replace the public API or the
 solver's deterministic checks.</p>

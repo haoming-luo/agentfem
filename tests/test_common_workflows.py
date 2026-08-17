@@ -132,6 +132,40 @@ def test_static_solid_clamp_and_gravity_are_model_owned():
     assert displacement.max_abs() > 0.0
 
 
+def test_model_step_rejects_unknown_options_before_assembly():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    model = models.create(
+        study=studies.static_solid(dimension=2, assumption="plane_strain"),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    model.material(
+        elasticity.isotropic_elastic(
+            young=1.0e6,
+            poisson=0.3,
+            density=1.0,
+        )
+    )
+
+    capability = models.step_capability(
+        model,
+        target=displacement,
+        options={"solver_option": None},
+    )
+
+    assert capability["supported"] is False
+    assert capability["provider"]["name"] == "linear_static_operators"
+    assert capability["option_issues"][0]["code"] == "AFM-STEP-OPTION-001"
+    with pytest.raises(TypeError, match="Did you mean 'solver_options'"):
+        model.step(target=displacement, solver_option=None)
+
+
 def test_surface_force_distributes_requested_resultant_over_reference_boundary():
     domain = mesh.rectangle(
         (0.0, 0.0),

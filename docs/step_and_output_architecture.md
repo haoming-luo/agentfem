@@ -44,6 +44,14 @@ Newmark/generalized-alpha implicit dynamics, and central-difference explicit
 providers.
 The registry is public and inspectable through `models.step_providers()`.
 
+Each built-in provider also owns a `StepOptionContract`. This keeps the single
+`model.step(...)` entry point extensible without turning its `**options`
+boundary into an unchecked dictionary. Misspelled or procedure-inappropriate
+keywords fail before form assembly with a repair suggestion; required physical
+inputs such as `dt`, `steps`, or `duration` are checked at lowering. The same
+contract is emitted by `agentfem capabilities --json`, so command-line agents,
+IDEs, and future GUIs inspect exactly what runtime execution enforces.
+
 `model.step(...)` normalizes this call into an immutable `StepRequest`. The
 request carries the resolved `SolutionProcedure`, target, material reference,
 and a read-only option mapping through both `step_capability(...)` and provider

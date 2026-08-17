@@ -26,6 +26,35 @@ def test_documentation_machine_entrypoints_are_current():
     assert "models" in manifest["public_api"]["core"]
     assert "surrogates" in manifest["public_api"]["advanced"]
     assert "backends" in manifest["public_api"]["expert"]
+    assert "step" in manifest["model_api"]["core"]
+    assert "stiffness" in manifest["model_api"]["advanced"]
+    assert "linear_static_step" in manifest["model_api"]["compatibility"]
+
+
+def test_agentfem_skill_is_installable_and_routes_context_progressively():
+    skill_dir = ROOT / "skills" / "agentfem"
+    skill = (skill_dir / "SKILL.md").read_text()
+    interface = (skill_dir / "agents" / "openai.yaml").read_text()
+
+    assert skill.startswith("---\nname: agentfem\ndescription:")
+    assert "\n---\n\n# AgentFEM\n" in skill
+    assert "## Reference Routing" in skill
+    for reference in (
+        "workflow.md",
+        "concepts.md",
+        "module_map.md",
+        "validation.md",
+        "extension_rules.md",
+    ):
+        assert f"`references/{reference}`" in skill
+        assert (skill_dir / "references" / reference).is_file()
+
+    assert 'display_name: "AgentFEM"' in interface
+    assert "$agentfem" in interface
+    assert "allow_implicit_invocation: true" in interface
+
+    manifest = (ROOT / "MANIFEST.in").read_text()
+    assert "recursive-include skills *.md *.yaml" in manifest
 
 
 def test_knowledge_import_check_uses_the_current_checkout():

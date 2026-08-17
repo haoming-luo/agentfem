@@ -22,8 +22,7 @@ def main() -> dict[str, float]:
     comm = MPI.COMM_WORLD
 
     # 1. Study: define the analysis type and mechanical assumption.
-    study = studies.linear_static(
-        physics="solid_mechanics",
+    study = studies.static_solid(
         dimension=2,
         assumption="plane_strain",
         name="cantilever_plane_strain_static",

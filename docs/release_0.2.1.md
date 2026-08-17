@@ -14,6 +14,13 @@ J2 plasticity, and implicit creep. Each result retains the owning model,
 target, material, execution evidence, and output contract. Existing
 `solve_result(output=...)` calls remain valid.
 
+Every built-in Step provider declares its accepted and required options.
+Invalid or misspelled keywords are rejected before finite-element assembly,
+and the same contract is available to people, IDEs, GUIs, and agents through
+capability JSON. Bundled cases now use physical Study factories and the common
+`model.step(...).solve_result()` lifecycle while the 0.2.x compatibility
+surface remains executable.
+
 ## Public surface
 
 - `public_api("core")` identifies the daily engineering language.
@@ -23,6 +30,10 @@ target, material, execution evidence, and output contract. Existing
   and extension seams.
 - `agentfem capabilities --json` and `docs/agentfem.json` publish the same
   progressive discovery contract for agents, IDEs, and future GUIs.
+- `models.model_api("core" | "advanced" | "compatibility")` separates the
+  daily model language from expert and migration surfaces.
+- `skills/agentfem/` is a standards-compatible, progressively disclosed coding
+  skill that is versioned with the API and scientific validation rules.
 
 Imported `FEMMesh` and Abaqus mesh facades may be passed directly to public
 field constructors and models. Constraint component selectors accept either

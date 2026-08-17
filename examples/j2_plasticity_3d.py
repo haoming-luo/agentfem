@@ -11,9 +11,9 @@ from agentfem import constitutive, fields, mesh, models, solvers, steps, studies
 
 def main() -> None:
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_WORLD, 4, 2, 2)
-    study = studies.nonlinear_static(
-        physics="solid_mechanics",
+    study = studies.static_solid(
         dimension=3,
+        nonlinear=True,
         name="small_strain_j2_tension",
     )
     model = models.create(study=study, mesh=domain)

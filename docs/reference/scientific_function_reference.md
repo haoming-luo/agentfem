@@ -1847,7 +1847,7 @@ Each rank sends displacement traces and force contributions only for remote phys
 ### Minimal example
 
 ```python
-split = interfaces.split_conforming_cell_interface(points, cells, positive_cells=upper_cells); domain = interfaces.create_dolfinx_split_mesh(split, comm=MPI.COMM_WORLD); U = fields.displacement(domain); cohesive = fracture.mode_i_cohesive_force(split, U, law, normal_hint=(0, 1)); step = model.finite_strain_explicit_dynamics_step(target=U, material=material, cohesive_force=cohesive, dt=dt, steps=steps)
+split = interfaces.split_conforming_cell_interface(points, cells, positive_cells=upper_cells); domain = interfaces.create_dolfinx_split_mesh(split, comm=MPI.COMM_WORLD); U = fields.displacement(domain); cohesive = fracture.mode_i_cohesive_force(split, U, law, normal_hint=(0, 1)); step = model.step(target=U, material=material, cohesive_force=cohesive, dt=dt, steps=steps)
 ```
 
 ### Verification

@@ -198,6 +198,9 @@ def check_distributions(directory: Path) -> Path:
         "NOTICE",
         "pyproject.toml",
         f"release/{version}.json",
+        "skills/agentfem/SKILL.md",
+        "skills/agentfem/agents/openai.yaml",
+        "skills/agentfem/references/workflow.md",
     ):
         if required not in sdist_members:
             raise RuntimeError(f"Source distribution omits {required}.")

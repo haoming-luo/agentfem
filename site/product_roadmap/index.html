@@ -2186,6 +2186,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#public-language-convergence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Public-language convergence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#release-gates" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3237,6 +3248,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#public-language-convergence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Public-language convergence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#release-gates" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3562,6 +3584,29 @@ core, results, verification, and documentation have priority.</p>
 </table>
 <p>The same table is queryable in code through
 <code>constitutive.capabilities()</code> and <code>benchmarks.list_benchmarks()</code>.</p>
+<h2 id="public-language-convergence">Public-language convergence<a class="headerlink" href="#public-language-convergence" title="Permanent link">&para;</a></h2>
+<p>The 0.2.x application grammar is now fixed around physical Study factories,
+model-owned engineering verbs, one provider-dispatched <code>model.step(...)</code>, and
+one <code>solve_result()</code> completion lifecycle. <code>models.model_api(...)</code> separates
+the daily, advanced, and compatibility method vocabularies. Every built-in
+provider publishes an enforceable <code>StepOptionContract</code>; the same accepted and
+required keyword names are emitted by <code>agentfem capabilities --json</code> for
+agents, IDEs, and future GUIs. Bundled cases and scientific function cards are
+checked in CI so they cannot silently return to material-specific Step methods
+or compatibility target spellings.</p>
+<p>The next convergence work is internal and should not change ordinary case
+files:</p>
+<ol>
+<li>move material/procedure-specific builders out of the large <code>Model</code> class
+   while retaining it as the stable facade;</li>
+<li>give solver, output, history, and checkpoint policies equally inspectable
+   schemas instead of adding more loose Step keywords;</li>
+<li>attach explicit lifecycle/deprecation metadata to compatibility names and
+   teach <code>agentfem upgrade</code> to report semantic migrations without rewriting
+   scientific Python automatically;</li>
+<li>add static typing overloads only where they improve IDE guidance without
+   creating a second configuration language.</li>
+</ol>
 <h2 id="release-gates">Release Gates<a class="headerlink" href="#release-gates" title="Permanent link">&para;</a></h2>
 <p>A public solver/material capability advances through these levels:</p>
 <ol>

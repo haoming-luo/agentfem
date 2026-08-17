@@ -8,8 +8,98 @@ keeps case-specific choices out of user scripts and out of ``Model.step``.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from difflib import get_close_matches
 from types import MappingProxyType
 from typing import Callable, Mapping
+
+
+@dataclass(frozen=True)
+class StepOptionContract:
+    """Inspectable keyword contract for one public Step provider.
+
+    ``Model.step`` deliberately remains one stable user-facing method.  The
+    contract restores the precision that would otherwise be lost behind its
+    extensible ``**options`` boundary: humans receive immediate repairable
+    errors, while agents, IDEs, and GUIs can inspect the same option vocabulary
+    that the selected provider enforces at runtime.
+    """
+
+    accepted: tuple[str, ...]
+    required: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        raw = (*self.accepted, *self.required)
+        invalid = tuple(item for item in raw if not isinstance(item, str) or not item)
+        if invalid:
+            raise ValueError("Step option names must be non-empty strings.")
+        accepted = tuple(dict.fromkeys(self.accepted))
+        required = tuple(dict.fromkeys(self.required))
+        unknown_required = tuple(item for item in required if item not in accepted)
+        if unknown_required:
+            raise ValueError(
+                "Required Step options must also be accepted: "
+                f"{unknown_required!r}."
+            )
+        object.__setattr__(self, "accepted", accepted)
+        object.__setattr__(self, "required", required)
+
+    def issues(
+        self,
+        options: Mapping[str, object],
+        *,
+        require_required: bool = True,
+    ) -> tuple[dict[str, object], ...]:
+        """Return stable, machine-readable option issues without raising."""
+
+        accepted = set(self.accepted)
+        issues = []
+        for name in sorted(set(options).difference(accepted)):
+            suggestions = tuple(get_close_matches(name, self.accepted, n=3, cutoff=0.58))
+            issues.append(
+                {
+                    "code": "AFM-STEP-OPTION-001",
+                    "option": name,
+                    "message": f"Unsupported Step option {name!r}.",
+                    "suggestions": suggestions,
+                }
+            )
+        if require_required:
+            for name in self.required:
+                if name not in options or options[name] is None:
+                    issues.append(
+                        {
+                            "code": "AFM-STEP-OPTION-002",
+                            "option": name,
+                            "message": f"Required Step option {name!r} is missing.",
+                            "suggestions": (),
+                        }
+                    )
+        return tuple(issues)
+
+    def validate(self, options: Mapping[str, object], *, provider: str) -> None:
+        """Raise one concise error for an invalid provider request."""
+
+        issues = self.issues(options)
+        if not issues:
+            return
+        details = []
+        for issue in issues:
+            message = str(issue["message"])
+            suggestions = tuple(issue["suggestions"])
+            if suggestions:
+                message += " Did you mean " + ", ".join(repr(item) for item in suggestions) + "?"
+            details.append(message)
+        raise TypeError(
+            f"model.step request for provider {provider!r} is invalid: "
+            + " ".join(details)
+            + f" Accepted options are {self.accepted!r}."
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "accepted": self.accepted,
+            "required": self.required,
+        }
 
 
 @dataclass(frozen=True)
@@ -126,6 +216,7 @@ class StepProvider:
     priority: int = 0
     description: str = ""
     procedure: str | None = None
+    option_contract: StepOptionContract | None = None
 
     def __post_init__(self) -> None:
         normalized = tuple(_normalize(item) for item in self.analyses)
@@ -142,7 +233,23 @@ class StepProvider:
             "priority": self.priority,
             "description": self.description,
             "procedure": self.procedure,
+            "options": (
+                None
+                if self.option_contract is None
+                else self.option_contract.summary()
+            ),
         }
+
+    def option_issues(self, request: StepRequest) -> tuple[dict[str, object], ...]:
+        """Return request issues, preserving unrestricted extension providers."""
+
+        if self.option_contract is None:
+            return ()
+        return self.option_contract.issues(request.options)
+
+    def validate_options(self, request: StepRequest) -> None:
+        if self.option_contract is not None:
+            self.option_contract.validate(request.options, provider=self.name)
 
 
 class StepProviderRegistry:
@@ -173,9 +280,18 @@ class StepProviderRegistry:
             for provider in self.providers()
             if request.analysis in provider.analyses
         ]
+        option_rejections = []
         for provider in analysis_candidates:
             if provider.accepts(model, request):
-                return provider
+                issues = provider.option_issues(request)
+                if not issues:
+                    return provider
+                option_rejections.append(provider)
+        if option_rejections:
+            # A lower-priority provider may legitimately own a distinct option
+            # vocabulary for the same analysis. Only fail after every
+            # scientifically compatible candidate has rejected the request.
+            option_rejections[0].validate_options(request)
         registered_materials = [
             type(record.item).__name__
             for record in getattr(model, "materials", ())
@@ -267,6 +383,7 @@ def step_capability(
         if selected_analysis in provider.analyses
     )
     provider = None
+    option_issues = ()
     selected_target = targets[0]
     for candidate_target in targets:
         request = StepRequest(
@@ -279,7 +396,27 @@ def step_capability(
             item for item in candidates if item.accepts(model, request)
         )
         if accepted:
-            provider = accepted[0]
+            rejected = []
+            for candidate in accepted:
+                issues = (
+                    ()
+                    if candidate.option_contract is None
+                    else candidate.option_contract.issues(
+                        request.options,
+                        # Capability probes are intentionally partial:
+                        # internal builders pass only the options needed to
+                        # select a provider. Complete required-input
+                        # enforcement happens once, at lower_step.
+                        require_required=False,
+                    )
+                )
+                if not issues:
+                    provider = candidate
+                    option_issues = ()
+                    break
+                rejected.append((candidate, issues))
+            if provider is None and rejected:
+                provider, option_issues = rejected[0]
             selected_target = candidate_target
             break
     return {
@@ -287,7 +424,7 @@ def step_capability(
         "physics": getattr(getattr(model, "study", None), "physics", None),
         "dimension": getattr(getattr(model, "study", None), "dimension", None),
         "assumption": getattr(getattr(model, "study", None), "assumption", None),
-        "supported": provider is not None,
+        "supported": provider is not None and not option_issues,
         "target": _target_summary(selected_target),
         "procedure": (
             None
@@ -296,6 +433,7 @@ def step_capability(
         ),
         "provider": None if provider is None else provider.summary(),
         "candidate_providers": tuple(item.name for item in candidates),
+        "option_issues": option_issues,
     }
 
 
@@ -839,6 +977,26 @@ def _normalize(value: str) -> str:
     return aliases.get(normalized, normalized)
 
 
+_COMMON_STEP_OPTIONS = (
+    "K",
+    "F",
+    "constraints",
+    "solver_options",
+    "name",
+    "material",
+    "output",
+)
+
+
+def _option_contract(*extra: str, required=()) -> StepOptionContract:
+    """Build a deterministic built-in contract without repeated core names."""
+
+    return StepOptionContract(
+        accepted=tuple(dict.fromkeys((*_COMMON_STEP_OPTIONS, *extra))),
+        required=tuple(required),
+    )
+
+
 register_step_provider(
     StepProvider(
         name="neo_hookean_finite_strain_explicit_dynamics",
@@ -852,6 +1010,25 @@ register_step_provider(
             "difference."
         ),
         procedure="explicit/central_difference/total_lagrangian",
+        option_contract=_option_contract(
+            "dt",
+            "steps",
+            "method",
+            "residual",
+            "state",
+            "mass",
+            "cohesive_force",
+            "update_load",
+            "save_every",
+            "print_every",
+            "history_every",
+            "progress",
+            "status_file",
+            "checkpoint",
+            "stability_safety",
+            "mass_damping",
+            required=("steps",),
+        ),
     )
 )
 register_step_provider(
@@ -866,6 +1043,17 @@ register_step_provider(
             "state, consistent-tangent Newton equilibrium, and cutback."
         ),
         procedure="standard/backward_euler/stateful",
+        option_contract=_option_contract(
+            "duration",
+            "method",
+            "incrementation",
+            "quadrature_degree",
+            "progress",
+            "status_file",
+            "amplitude",
+            "temperature",
+            required=("duration",),
+        ),
     )
 )
 register_step_provider(
@@ -877,6 +1065,19 @@ register_step_provider(
         priority=100,
         description="Lower heat capacity/conduction/source to implicit Euler.",
         procedure="standard/implicit_euler",
+        option_contract=_option_contract(
+            "dt",
+            "steps",
+            "C",
+            "Q",
+            "update_load",
+            "save_every",
+            "print_every",
+            "progress",
+            "status_file",
+            "checkpoint",
+            required=("dt", "steps"),
+        ),
     )
 )
 register_step_provider(
@@ -888,6 +1089,7 @@ register_step_provider(
         priority=100,
         description="Lower K/F engineering operators to a linear static solve.",
         procedure="standard/linear",
+        option_contract=_option_contract(),
     )
 )
 register_step_provider(
@@ -902,6 +1104,13 @@ register_step_provider(
             "with algorithmic tangent and cutback."
         ),
         procedure="standard/newton/stateful",
+        option_contract=_option_contract(
+            "incrementation",
+            "quadrature_degree",
+            "progress",
+            "status_file",
+            "amplitude",
+        ),
     )
 )
 register_step_provider(
@@ -916,6 +1125,16 @@ register_step_provider(
             "hyperelastic equilibrium."
         ),
         procedure="standard/newton/mixed_constant_pressure",
+        option_contract=_option_contract(
+            "measure",
+            "petsc_options_prefix",
+            "incrementation",
+            "increments",
+            "load_factors",
+            "output_every",
+            "progress",
+            "status_file",
+        ),
     )
 )
 register_step_provider(
@@ -930,6 +1149,16 @@ register_step_provider(
             "total-Lagrangian equilibrium."
         ),
         procedure="standard/newton",
+        option_contract=_option_contract(
+            "measure",
+            "petsc_options_prefix",
+            "incrementation",
+            "increments",
+            "load_factors",
+            "output_every",
+            "progress",
+            "status_file",
+        ),
     )
 )
 register_step_provider(
@@ -941,6 +1170,22 @@ register_step_provider(
         priority=110,
         description="Lower second-order operators to Newmark/generalized-alpha.",
         procedure="standard/newmark_or_generalized_alpha",
+        option_contract=_option_contract(
+            "dt",
+            "steps",
+            "method",
+            "spectral_radius",
+            "M",
+            "C",
+            "state",
+            "update_load",
+            "progress",
+            "status_file",
+            "checkpoint",
+            "save_every",
+            "print_every",
+            required=("dt", "steps"),
+        ),
     )
 )
 register_step_provider(
@@ -952,5 +1197,22 @@ register_step_provider(
         priority=100,
         description="Lower a second-order study to explicit central difference.",
         procedure="explicit/central_difference",
+        option_contract=_option_contract(
+            "dt",
+            "steps",
+            "method",
+            "residual",
+            "state",
+            "mass",
+            "cohesive_force",
+            "prescribed",
+            "update_load",
+            "save_every",
+            "print_every",
+            "progress",
+            "status_file",
+            "checkpoint",
+            required=("dt", "steps"),
+        ),
     )
 )

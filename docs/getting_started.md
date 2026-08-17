@@ -25,6 +25,10 @@ distributed-MPC integrations.
 `core`, `advanced`, and `expert` layers. A generated first case should normally
 use only the core layer; this reduces API search without restricting direct
 access to advanced finite-element or backend capabilities.
+The same report separates the concise `Model` vocabulary from advanced and
+0.2.x compatibility methods, and lists the accepted/required options for every
+built-in Step provider. Agents and interfaces should consume those contracts
+instead of guessing solver arguments from examples.
 
 ## Create a project anywhere
 

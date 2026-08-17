@@ -1991,6 +1991,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#model-vocabulary-and-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model vocabulary and compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3186,6 +3197,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#model-vocabulary-and-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model vocabulary and compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3330,6 +3352,11 @@ for AI agents.</p>
 <li>Prefer the model-owned <code>model.step(...)</code> procedure-dispatch entry point for
   beginner workflows. The step should expose its K/F system through summaries
   so it remains auditable rather than becoming a black box.</li>
+<li>Every built-in Step provider must publish a <code>StepOptionContract</code>. The
+  contract is the single source for accepted and required keyword names,
+  pre-assembly typo detection, CLI capability JSON, and future IDE/GUI forms.
+  Third-party providers without a contract remain supported during 0.2.x, but
+  a provider is not considered workflow-ready until it declares one.</li>
 <li>Prefer <code>solve_result()</code> as the common completion verb. An output product may
   be supplied to <code>solve_result(output=...)</code> or declared once on
   <code>model.step(..., output=...)</code>; provider constructors must not reinterpret it
@@ -3373,6 +3400,31 @@ for AI agents.</p>
 <p>Raise errors that explain the modeling issue, not only the Python issue. For
 example, say that a normal vector is required for normal/tangential absorbing
 boundaries.</p>
+<h2 id="model-vocabulary-and-compatibility">Model vocabulary and compatibility<a class="headerlink" href="#model-vocabulary-and-compatibility" title="Permanent link">&para;</a></h2>
+<p>Bundled application cases should begin with the physical factories
+<code>studies.static_solid(...)</code>, <code>studies.steady_heat_transfer(...)</code>,
+<code>studies.transient_heat_transfer(...)</code>, <code>studies.dynamic_solid(...)</code>, or
+<code>studies.creep_solid(...)</code>. Generic analysis-order factories remain available
+for new physics and expert formulation work, but ordinary examples should not
+repeat <code>physics="solid_mechanics"</code> or <code>physics="heat_transfer"</code> when the
+physical factory already states it.</p>
+<p>The canonical application language is returned by <code>models.model_api("core")</code>.
+It includes registration and engineering verbs such as <code>field</code>, <code>material</code>,
+<code>clamp</code>, <code>traction</code>, <code>step</code>, and <code>check</code>. Operator construction, remote
+coupling, machine records, and other deliberate escape hatches are disclosed
+through <code>models.model_api("advanced")</code>.</p>
+<p>Historical <code>add_*</code> registration spellings and material/procedure-specific
+<code>*_step</code> factories remain executable throughout 0.2.x, but
+<code>models.model_api("compatibility")</code> identifies them so documentation, agents,
+IDEs, and future GUIs do not present them as parallel beginner workflows. New
+examples must use:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span><span class="n">material</span><span class="p">)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">unknown</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="s2">&quot;results.xdmf&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">result</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span>
+</code></pre></div>
+<p>Do not add another alias merely to save one word. A new public name must either
+express a distinct engineering concept or replace an older name through an
+explicit migration path.</p>
 
 
 

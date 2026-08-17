@@ -3219,6 +3219,12 @@ statics, transient heat transfer, Standard and Explicit structural dynamics,
 J2 plasticity, and implicit creep. Each result retains the owning model,
 target, material, execution evidence, and output contract. Existing
 <code>solve_result(output=...)</code> calls remain valid.</p>
+<p>Every built-in Step provider declares its accepted and required options.
+Invalid or misspelled keywords are rejected before finite-element assembly,
+and the same contract is available to people, IDEs, GUIs, and agents through
+capability JSON. Bundled cases now use physical Study factories and the common
+<code>model.step(...).solve_result()</code> lifecycle while the 0.2.x compatibility
+surface remains executable.</p>
 <h2 id="public-surface">Public surface<a class="headerlink" href="#public-surface" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>public_api("core")</code> identifies the daily engineering language.</li>
@@ -3228,6 +3234,10 @@ target, material, execution evidence, and output contract. Existing
   and extension seams.</li>
 <li><code>agentfem capabilities --json</code> and <code>docs/agentfem.json</code> publish the same
   progressive discovery contract for agents, IDEs, and future GUIs.</li>
+<li><code>models.model_api("core" | "advanced" | "compatibility")</code> separates the
+  daily model language from expert and migration surfaces.</li>
+<li><code>skills/agentfem/</code> is a standards-compatible, progressively disclosed coding
+  skill that is versioned with the API and scientific validation rules.</li>
 </ul>
 <p>Imported <code>FEMMesh</code> and Abaqus mesh facades may be passed directly to public
 field constructors and models. Constraint component selectors accept either

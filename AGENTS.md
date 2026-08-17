@@ -15,6 +15,9 @@ Python workflow for humans, terminals, GUI clients, and AI agents.
 
 - `Study` states the physical analysis; `SolutionProcedure` states the
   numerical route.
+- Start ordinary cases with the physical Study factories: `static_solid`,
+  `steady_heat_transfer`, `transient_heat_transfer`, `dynamic_solid`, or
+  `creep_solid`. Keep generic analysis-order factories for formulation work.
 - Keep materials, constraints, loads, boundary models, steps, and outputs as
   distinct concepts.
 - Add common finite-element functionality to its reusable module, not to one
@@ -34,6 +37,13 @@ Prefer `studies -> mesh -> models -> fields -> materials -> constraints/loads
 -> step -> SimulationResult`. Use `model.step(target=...)`, named regions,
 `project.current_run()`, and `RunContext.publish(result)` in new application
 templates.
+
+Use `models.model_api("core")` as the generated application vocabulary.
+Methods reported under `"compatibility"`, including material/procedure-specific
+`*_step` factories, remain executable in 0.2.x but must not appear in new
+application cases. Every built-in Step provider must publish and enforce a
+`StepOptionContract`; capability inspection and execution must consume the
+same contract.
 
 Read `WORKFLOW.md`, `CONCEPTS.md`, `AGENT_GUIDE.md`, and focused files under
 `docs/` before extending a scientific concept.

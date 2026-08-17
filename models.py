@@ -14,12 +14,120 @@ import numpy as np
 from . import constraints as constraint_api
 from . import loads as load_api
 from .step_providers import (
+    StepOptionContract,
     StepProvider,
     StepProviderRegistry,
     register_step_provider,
     step_capability,
     step_providers,
 )
+
+
+CORE_MODEL_API = (
+    "field",
+    "amplitude",
+    "material",
+    "constraint",
+    "fix",
+    "prescribe",
+    "clamp",
+    "prescribed_temperature",
+    "periodic",
+    "load",
+    "traction",
+    "surface_force",
+    "body_force",
+    "heat_flux",
+    "heat_source",
+    "gravity",
+    "pressure",
+    "symmetry",
+    "roller",
+    "convection",
+    "stage",
+    "step",
+    "validate",
+    "check",
+    "summary",
+    "tree",
+)
+
+ADVANCED_MODEL_API = (
+    "remote_displacement",
+    "distributing_coupling",
+    "remote_force",
+    "centrifugal",
+    "hydrostatic_pressure",
+    "absorbing_boundary",
+    "elastic_foundation",
+    "stiffness",
+    "mass",
+    "damping",
+    "conduction",
+    "heat_capacity",
+    "thermal_expansion",
+    "lumped_mass",
+    "load_vector",
+    "external_force",
+    "internal_force",
+    "boundary_force",
+    "force_balance",
+    "operator",
+    "add_region",
+    "bcs",
+    "audit_boundaries",
+    "manifest",
+    "to_ir",
+    "write_ir",
+)
+
+COMPATIBILITY_MODEL_API = (
+    "add_field",
+    "add_amplitude",
+    "add_material",
+    "add_constraint",
+    "add_load",
+    "add_step",
+    "add_boundary_model",
+    "internal_force_vector",
+    "linear_static_step",
+    "heat_transfer_step",
+    "hyperelastic_step",
+    "mixed_hyperelastic_step",
+    "j2_plasticity_step",
+    "creep_step",
+    "explicit_dynamics_step",
+    "finite_strain_explicit_dynamics_step",
+    "implicit_dynamics_step",
+)
+
+
+def model_api(level: str = "core") -> tuple[str, ...]:
+    """Return the recommended Model vocabulary at one discovery level.
+
+    This does not remove 0.2.x compatibility methods. It gives documentation,
+    agents, IDE integrations, and future GUIs a deterministic way to present
+    the concise engineering language before expert builders and historical
+    aliases.
+    """
+
+    selected = str(level).lower().replace("-", "_").strip()
+    levels = {
+        "core": CORE_MODEL_API,
+        "advanced": ADVANCED_MODEL_API,
+        "compatibility": COMPATIBILITY_MODEL_API,
+        "all": tuple(
+            dict.fromkeys(
+                CORE_MODEL_API + ADVANCED_MODEL_API + COMPATIBILITY_MODEL_API
+            )
+        ),
+    }
+    try:
+        return levels[selected]
+    except KeyError as exc:
+        raise ValueError(
+            "model_api level must be core, advanced, compatibility, or all."
+        ) from exc
 
 
 @dataclass
@@ -1246,10 +1354,18 @@ class Model:
         kind: str | None = None,
         target=None,
         procedure=None,
+        material=None,
+        incrementation=None,
+        dt: float | str | None = None,
+        steps: int | None = None,
+        duration: float | None = None,
         K=None,
         F=None,
         constraints=None,
         solver_options=None,
+        output=None,
+        progress: bool | None = None,
+        checkpoint=None,
         name: str | None = None,
         configuration=None,
         **kwargs,
@@ -1262,6 +1378,11 @@ class Model:
         ``procedure=`` only when the numerical route should be explicit or
         override the Study preference; capability inspection and lowering use
         that same resolved object.
+
+        Common cross-physics inputs are explicit keyword-only parameters for
+        useful IDE and agent discovery. Procedure-specific expert options stay
+        extensible through ``kwargs`` but are checked against the selected
+        provider's :class:`StepOptionContract` before assembly.
         """
 
         selected_kind = kind or getattr(self.study, "analysis", None)
@@ -1275,8 +1396,21 @@ class Model:
             "constraints": constraints,
             "solver_options": solver_options,
             "name": name,
-            **kwargs,
         }
+        common = {
+            "material": material,
+            "incrementation": incrementation,
+            "dt": dt,
+            "steps": steps,
+            "duration": duration,
+            "output": output,
+            "progress": progress,
+            "checkpoint": checkpoint,
+        }
+        options.update(
+            (key, value) for key, value in common.items() if value is not None
+        )
+        options.update(kwargs)
         if configuration is None:
             return lower_step(
                 self,
@@ -1459,7 +1593,13 @@ class Model:
 
         self.check(
             target=target,
-            step_options={"material": material, "K": K, "F": Q},
+            step_options={
+                "material": material,
+                "K": K,
+                "F": Q,
+                "dt": dt,
+                "steps": steps,
+            },
         )
         if hasattr(self.study, "require"):
             self.study.require(
@@ -2310,7 +2450,13 @@ class Model:
 
         self.check(
             target=target,
-            step_options={"mass": mass, "residual": residual},
+            step_options={
+                "mass": mass,
+                "residual": residual,
+                "method": "central_difference",
+                "dt": dt,
+                "steps": steps,
+            },
         )
         selected_state = state if state is not None else problems.second_order_state(target)
         selected_mass = mass if mass is not None else self.lumped_mass(target)
@@ -2386,7 +2532,15 @@ class Model:
         from . import time as time_api
         from .constitutive import hyperelasticity
 
-        self.check(target=target, step_options={"material": material})
+        self.check(
+            target=target,
+            step_options={
+                "material": material,
+                "method": "central_difference",
+                "dt": dt,
+                "steps": steps,
+            },
+        )
         if hasattr(self.study, "require"):
             self.study.require(
                 analysis="second_order_dynamics",
@@ -2590,7 +2744,14 @@ class Model:
 
         self.check(
             target=target,
-            step_options={"M": M, "K": K, "F": F},
+            step_options={
+                "M": M,
+                "K": K,
+                "F": F,
+                "method": method,
+                "dt": dt,
+                "steps": steps,
+            },
         )
         selected_state = (
             state if state is not None else problems.second_order_state(target)

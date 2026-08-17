@@ -71,6 +71,12 @@ Public discovery is progressive. `agentfem.public_api("core")` is the daily
 engineering language; `"advanced"` adds campaigns, fracture, mechanics, and
 learning bridges; `"expert"` exposes backend and extension seams. Calling
 `public_api()` without a level preserves the complete 0.2.0 inventory.
+Within the model facade, `models.model_api("core")` returns the recommended
+engineering verbs, while `"advanced"` discloses deliberate lower-layer seams
+and `"compatibility"` identifies historical aliases that remain executable but
+should not be generated in new cases. Built-in Step providers publish their
+accepted and required keyword contracts through `models.step_providers()` and
+`agentfem capabilities --json`.
 
 For a collection of related cases, continue with:
 

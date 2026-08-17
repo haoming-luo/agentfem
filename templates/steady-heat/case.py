@@ -6,7 +6,6 @@ import numpy as np
 from mpi4py import MPI
 
 from agentfem import constitutive, fields, mesh, models, project, studies
-from agentfem.diagnostics import print_on_root
 
 
 def main():
@@ -47,8 +46,8 @@ def main():
     simulation.add_dof_statistics(temperature, prefix="temperature", unit="K")
     if MPI.COMM_WORLD.rank == 0:
         run.publish(simulation)
-        print_on_root(MPI.COMM_WORLD, simulation.format())
-        print_on_root(MPI.COMM_WORLD, f"Result manifest: {run.manifest_path}")
+        print(simulation.format())
+        print(f"Result manifest: {run.manifest_path}")
     MPI.COMM_WORLD.barrier()
     return simulation
 

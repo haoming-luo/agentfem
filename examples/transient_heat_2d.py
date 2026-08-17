@@ -23,8 +23,7 @@ from agentfem.solvers import LinearSolverOptions
 def main() -> dict[str, float]:
     comm = MPI.COMM_WORLD
     smoke = os.environ.get("AGENTFEM_RELEASE_SMOKE") == "1"
-    study = studies.first_order_transient(
-        physics="heat_transfer",
+    study = studies.transient_heat_transfer(
         dimension=2,
         name="transient_heat_conduction",
     )

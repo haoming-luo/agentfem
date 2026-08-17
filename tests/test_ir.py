@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 from types import SimpleNamespace
 
@@ -116,3 +117,48 @@ def test_public_api_exposes_progressive_discovery_levels():
     assert core | advanced | expert == set(public_api())
     with pytest.raises(ValueError, match="core, advanced, expert, or all"):
         public_api("beginnerish")
+
+
+def test_model_api_separates_daily_advanced_and_compatibility_vocabulary():
+    core = set(models.model_api("core"))
+    advanced = set(models.model_api("advanced"))
+    compatibility = set(models.model_api("compatibility"))
+
+    assert {"field", "material", "clamp", "traction", "step", "check"} <= core
+    assert {"stiffness", "internal_force", "to_ir"} <= advanced
+    assert {"add_material", "linear_static_step", "creep_step"} <= compatibility
+    assert not core.intersection(advanced)
+    assert not core.intersection(compatibility)
+    assert not advanced.intersection(compatibility)
+    assert core | advanced | compatibility == set(models.model_api("all"))
+    public_methods = {
+        name
+        for name, value in vars(models.Model).items()
+        if callable(value) and not name.startswith("_")
+    }
+    assert public_methods == set(models.model_api("all"))
+    with pytest.raises(ValueError, match="core, advanced, compatibility, or all"):
+        models.model_api("beginnerish")
+
+
+def test_model_step_signature_exposes_common_cross_physics_inputs():
+    parameters = inspect.signature(models.Model.step).parameters
+
+    assert {
+        "target",
+        "procedure",
+        "material",
+        "incrementation",
+        "dt",
+        "steps",
+        "duration",
+        "solver_options",
+        "output",
+        "progress",
+        "checkpoint",
+    } <= set(parameters)
+    assert all(
+        parameters[name].kind is inspect.Parameter.KEYWORD_ONLY
+        for name in parameters
+        if name not in {"self", "kwargs"}
+    )

@@ -40,8 +40,9 @@ model.fix(displacement, on=left_boundary, value=0.0)
 model.traction(value=(0.0, -1.0e6), on=right_boundary)
 model.material(properties)
 step = model.step(target=displacement)
-step.solve()
+result = step.solve_result()
 print(model.tree())
+print(result.format())
 ```
 
 Do not start these tutorials with `V`, `du`, `v`, or `sigma : epsilon(v)` unless

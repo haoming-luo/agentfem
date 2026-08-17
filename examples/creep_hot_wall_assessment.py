@@ -44,7 +44,7 @@ def main() -> None:
     output = Path(__file__).resolve().parents[1] / "examples_output" / "creep_hot_wall"
 
     heat = models.create(
-        study=studies.first_order_transient(physics="heat_transfer", dimension=2),
+        study=studies.transient_heat_transfer(dimension=2),
         mesh=domain,
         name="hot_wall_heat_transfer",
     )
@@ -57,18 +57,16 @@ def main() -> None:
         dt=120.0,
         steps=4 if smoke else 30,
         save_every=1 if smoke else 5,
+        output=output / "temperature.xdmf",
     )
-    heat_step.run(output=output / "temperature.xdmf")
     heat_result = heat_step.solve_result()
-    heat_result.add_artifact("temperature", output / "temperature.xdmf")
     heat_result.verify(
         "engineering",
-        required_artifacts=("temperature",),
+        required_artifacts=("fields_xdmf",),
     ).require()
 
     mechanics = models.create(
-        study=studies.linear_static(
-            physics="solid_mechanics",
+        study=studies.static_solid(
             dimension=2,
             assumption="plane_strain",
         ),

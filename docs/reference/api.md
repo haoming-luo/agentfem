@@ -97,6 +97,7 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| function | `model_api(level: str = 'core') -> tuple[str, ...]` | Return the recommended Model vocabulary at one discovery level. |
 | class | `Model` | Finite-element model registry for humans and agents. |
 | function | `create(*, study, mesh = None, name: str = 'model', units = None) -> Model` | Create a lightweight model registry. |
 

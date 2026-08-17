@@ -3401,6 +3401,13 @@ finite-strain hyperelastic, 3D stateful J2 and creep,
 Newmark/generalized-alpha implicit dynamics, and central-difference explicit
 providers.
 The registry is public and inspectable through <code>models.step_providers()</code>.</p>
+<p>Each built-in provider also owns a <code>StepOptionContract</code>. This keeps the single
+<code>model.step(...)</code> entry point extensible without turning its <code>**options</code>
+boundary into an unchecked dictionary. Misspelled or procedure-inappropriate
+keywords fail before form assembly with a repair suggestion; required physical
+inputs such as <code>dt</code>, <code>steps</code>, or <code>duration</code> are checked at lowering. The same
+contract is emitted by <code>agentfem capabilities --json</code>, so command-line agents,
+IDEs, and future GUIs inspect exactly what runtime execution enforces.</p>
 <p><code>model.step(...)</code> normalizes this call into an immutable <code>StepRequest</code>. The
 request carries the resolved <code>SolutionProcedure</code>, target, material reference,
 and a read-only option mapping through both <code>step_capability(...)</code> and provider

@@ -7,7 +7,7 @@ authors:
   - family-names: Luo
     given-names: Haoming
     affiliation: "Materials Department, Xi'an Thermal Power Research Institute (TPRI)"
-date-released: 2026-08-15
+date-released: 2026-08-17
 repository-code: "https://github.com/haoming-luo/agentfem"
 url: "https://github.com/haoming-luo/agentfem"
 license: "Apache-2.0"

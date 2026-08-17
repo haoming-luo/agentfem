@@ -7,6 +7,13 @@ requires inspection and re-verification of the finite-element meaning.
 
 AgentFEM workflow:
 
+Public discovery is progressive. Begin with `agentfem.public_api("core")` and
+`models.model_api("core")`. Methods reported by
+`models.model_api("compatibility")` remain executable during 0.2.x but are not
+the language for new cases. Built-in Step providers publish accepted and
+required keyword names through `StepOptionContract`; inspect the same contracts
+with `agentfem capabilities --json` before generating a Step call.
+
 1. Study context: analysis type, physics, dimension, and assumptions
 2. Solution procedure preference when more than one algorithm can solve the
    same physical equation

@@ -10,7 +10,7 @@ scientific meaning.
 | --- | --- |
 | New material law | `constitutive/` or `mechanics/`, with state and tangent contract |
 | New load or boundary behavior | `loads.py` or `boundary_models/` |
-| New solution procedure | `procedures.py`, step provider, result lifecycle |
+| New solution procedure | `procedures.py`, step provider with `StepOptionContract`, result lifecycle |
 | New field or engineering quantity | `results/` with scientific/presentation semantics |
 | New mesh format | `mesh/` conversion plus provenance and fixtures |
 | New agent/GUI client | public Python API or structured CLI only |

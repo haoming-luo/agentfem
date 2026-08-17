@@ -8,7 +8,7 @@ experimental formulation to a validated one.
 
 No user-visible changes have been recorded after 0.2.1.
 
-## [0.2.1] - 2026-08-15
+## [0.2.1] - 2026-08-17
 
 ### Added
 
@@ -16,6 +16,12 @@ No user-visible changes have been recorded after 0.2.1.
   Python, CLI capability JSON, and machine-readable documentation.
 - Add model-owned execution context so every built-in provider can retain its
   target, material, model, and declared output product.
+- Add inspectable Step option contracts with accepted/required keyword names
+  to every built-in provider and expose them through capability JSON.
+- Add progressive `core`, `advanced`, and `compatibility` discovery for the
+  model-owned method vocabulary.
+- Ship the AgentFEM coding-agent guidance as a standards-compatible,
+  progressively disclosed Skill with versioned interface metadata.
 
 ### Changed
 
@@ -29,6 +35,10 @@ No user-visible changes have been recorded after 0.2.1.
   vector constraints also accept engineering axis names.
 - Migrate installed templates and release-facing examples to the converged
   model-owned Step and result workflow.
+- Reject misspelled or procedure-inappropriate `model.step(...)` options before
+  form assembly, with stable issue codes and repair suggestions.
+- Make bundled cases consistently use physical Study factories such as
+  `static_solid`, `transient_heat_transfer`, and `dynamic_solid`.
 
 ### Fixed
 
@@ -38,6 +48,8 @@ No user-visible changes have been recorded after 0.2.1.
 - Make MathJax rendering deterministic across direct loads and MkDocs instant
   navigation without requiring a browser refresh; the pinned runtime and fonts
   are served with the manual rather than fetched from a third-party CDN.
+- Preserve an explicitly selected Explicit/central-difference procedure during
+  internal capability checks even when the Study prefers Newmark.
 
 ## [0.2.0] - 2026-08-13
 

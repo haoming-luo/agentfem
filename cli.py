@@ -477,14 +477,14 @@ def main(argv: list[str] | None = None) -> int:
             _emit(record, as_json=args.json, human=human)
             return 0
         if args.command == "capabilities":
-            from . import constitutive, public_api
+            from . import constitutive, models, public_api
             public_modules = {
                 level: public_api(level)
                 for level in ("core", "advanced", "expert")
             }
             record = {
                 "schema": "agentfem.capabilities",
-                "schema_version": "0.2.0",
+                "schema_version": "0.2.1",
                 "agentfem_version": __version__,
                 "commands": (
                     "doctor",
@@ -502,10 +502,17 @@ def main(argv: list[str] | None = None) -> int:
                 # progressive contract to new CLIs, GUIs, and agents.
                 "public_modules": public_api(),
                 "public_api": public_modules,
+                "model_api": {
+                    level: models.model_api(level)
+                    for level in ("core", "advanced", "compatibility")
+                },
                 "templates": _templates(),
                 "runtime": platforms.runtime_report().summary(),
                 "constitutive": tuple(
                     item.as_dict() for item in constitutive.capabilities()
+                ),
+                "step_providers": tuple(
+                    item.summary() for item in models.step_providers()
                 ),
                 "extensions": extensions.extension_status(),
             }

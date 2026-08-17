@@ -134,10 +134,19 @@ def test_capability_command_is_json_serializable(capsys):
     assert "models" in record["public_api"]["core"]
     assert "surrogates" in record["public_api"]["advanced"]
     assert "backends" in record["public_api"]["expert"]
+    assert "step" in record["model_api"]["core"]
+    assert "stiffness" in record["model_api"]["advanced"]
+    assert "linear_static_step" in record["model_api"]["compatibility"]
     assert set(record["public_modules"]) == set().union(
         *map(set, record["public_api"].values())
     )
     assert any(item["name"] == "linear_elasticity" for item in record["constitutive"])
+    linear = next(
+        item
+        for item in record["step_providers"]
+        if item["name"] == "linear_static_operators"
+    )
+    assert "solver_options" in linear["options"]["accepted"]
     assert record["extensions"]["schema"] == "agentfem.extensions"
 
 

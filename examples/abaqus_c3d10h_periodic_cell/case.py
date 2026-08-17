@@ -88,9 +88,9 @@ def run(
     )
 
     # Model: a three-dimensional finite-deformation solid.
-    study = studies.nonlinear_static(
-        physics="solid_mechanics",
+    study = studies.static_solid(
         dimension=3,
+        nonlinear=True,
         name="periodic_cell_large_deformation",
     )
     model = models.create(study=study, mesh=cell, name="periodic_neo_hookean_cell")

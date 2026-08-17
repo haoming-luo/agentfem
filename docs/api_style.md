@@ -76,6 +76,11 @@ for AI agents.
 - Prefer the model-owned `model.step(...)` procedure-dispatch entry point for
   beginner workflows. The step should expose its K/F system through summaries
   so it remains auditable rather than becoming a black box.
+- Every built-in Step provider must publish a `StepOptionContract`. The
+  contract is the single source for accepted and required keyword names,
+  pre-assembly typo detection, CLI capability JSON, and future IDE/GUI forms.
+  Third-party providers without a contract remain supported during 0.2.x, but
+  a provider is not considered workflow-ready until it declares one.
 - Prefer `solve_result()` as the common completion verb. An output product may
   be supplied to `solve_result(output=...)` or declared once on
   `model.step(..., output=...)`; provider constructors must not reinterpret it
@@ -120,3 +125,35 @@ for AI agents.
 Raise errors that explain the modeling issue, not only the Python issue. For
 example, say that a normal vector is required for normal/tangential absorbing
 boundaries.
+
+## Model vocabulary and compatibility
+
+Bundled application cases should begin with the physical factories
+`studies.static_solid(...)`, `studies.steady_heat_transfer(...)`,
+`studies.transient_heat_transfer(...)`, `studies.dynamic_solid(...)`, or
+`studies.creep_solid(...)`. Generic analysis-order factories remain available
+for new physics and expert formulation work, but ordinary examples should not
+repeat `physics="solid_mechanics"` or `physics="heat_transfer"` when the
+physical factory already states it.
+
+The canonical application language is returned by `models.model_api("core")`.
+It includes registration and engineering verbs such as `field`, `material`,
+`clamp`, `traction`, `step`, and `check`. Operator construction, remote
+coupling, machine records, and other deliberate escape hatches are disclosed
+through `models.model_api("advanced")`.
+
+Historical `add_*` registration spellings and material/procedure-specific
+`*_step` factories remain executable throughout 0.2.x, but
+`models.model_api("compatibility")` identifies them so documentation, agents,
+IDEs, and future GUIs do not present them as parallel beginner workflows. New
+examples must use:
+
+```python
+model.material(material)
+step = model.step(target=unknown, output="results.xdmf")
+result = step.solve_result()
+```
+
+Do not add another alias merely to save one word. A new public name must either
+express a distinct engineering concept or replace an older name through an
+explicit migration path.

@@ -1,19 +1,30 @@
-# AgentFEM Skill
+---
+name: agentfem
+description: Build, review, run, validate, migrate, or extend AgentFEM finite-element projects. Use for AgentFEM studies, meshes, materials, constraints, loads, solution steps, results, campaigns, scientific datasets, surrogate/PINN/neural-operator integration, verification, public API extensions, and agent or GUI integration.
+---
+
+# AgentFEM
 
 Use this skill when building, reviewing, or extending finite-element simulations
 with AgentFEM.
 
-## Required Reading Order
+## Reference Routing
 
 When this file is installed as a Codex skill, the reference paths below are
 relative to the skill directory `skills/agentfem/`. In the generated
 documentation site, use the left navigation pages `Workflow`, `Concepts`, and
 `Module Map` instead.
 
-1. Read `references/workflow.md`.
-2. Read `references/concepts.md`.
-3. Read `references/module_map.md`.
-4. Read focused references only as needed.
+1. Read `references/workflow.md` for every model construction, execution, or
+   review task.
+2. Read `references/concepts.md` when choosing or explaining scientific
+   objects and maturity levels.
+3. Read `references/module_map.md` when locating implementation code or
+   deciding ownership.
+4. Read `references/validation.md` before changing executable scientific code
+   or promoting a verification claim.
+5. Read `references/extension_rules.md` before adding a public helper, provider,
+   constitutive family, or extension boundary.
 
 ## Rules
 
@@ -36,10 +47,11 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   Study/provider preflight. Do not advertise or lower a combination that no
   registered provider accepts.
 - Use AgentFEM modules before writing ad hoc DOLFINx/PETSc boilerplate.
-- Prefer the stable public workflow modules first: `studies`, `mesh`, `models`, `fields`,
-  `materials`, `constitutive`, `constraints`, `loads`, `operators`,
-  `problems`, `procedures`, `results`, `solvers`, `steps`, `time`, `io`, `campaigns`, `datasets`, and
-  `surrogates`.
+- Discover modules with `agentfem.public_api("core")` first. Disclose
+  `"advanced"` and `"expert"` only when the requested workflow needs them.
+  Within the model facade, generate methods from `models.model_api("core")`;
+  do not choose names reported under `models.model_api("compatibility")` for
+  new cases.
 - Treat `ir` and `validation` as public inspection/record interfaces. Treat
   `backends` as an advanced numerical boundary and `extensions` as the explicit
   installed-package boundary. FEniCSx is the only production backend in the
@@ -47,6 +59,9 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
 - Prefer `step = model.step(target=u)` when a model has a Study and registered
   materials, constraints, and loads. New analysis/material families belong in
   a registered step provider; do not add one public model method per material.
+  Every built-in provider must declare a `StepOptionContract`, and agents
+  should read provider option summaries from `agentfem capabilities --json`
+  rather than guessing keywords from one example.
   Use `model.stiffness(...)`,
   `model.external_force(...)`, and `operators.combine(...)` when an example
   must expose individual contributions.
@@ -74,9 +89,10 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   whether a law is FEM-integrated, material-point verified, or a
   postprocessor; never infer a global solver from a material-point update.
 - Stateful materials must use quadrature-owned committed/trial state and prove
-  rollback plus restart equivalence. The current global J2 and Arrhenius
-  power-law creep routes are serial, 3D, small-strain foundations with declared
-  limits; other creep laws remain material-point or assessment consumers.
+  rollback plus restart equivalence. The current global J2 route has declared
+  serial/MPI structural evidence; global Arrhenius power-law creep remains a
+  3D small-strain foundation with a stricter MPI maturity boundary. Other creep
+  laws remain material-point or assessment consumers.
 - Prefer sequential heat-transfer then thermal-stress analysis when coupling
   is one way. Do not claim fully coupled thermo-mechanics unless temperature
   and mechanics are solved in one consistent nonlinear system.

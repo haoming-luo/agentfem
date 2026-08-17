@@ -52,6 +52,17 @@ CARD_KINDS = {
 }
 CARD_STATUSES = {"supported", "experimental", "contract_only", "deprecated"}
 ID_PATTERN = re.compile(r"^agentfem\.[a-z0-9][a-z0-9_.-]*$")
+COMPATIBILITY_STEP_FACTORIES = {
+    "linear_static_step",
+    "heat_transfer_step",
+    "hyperelastic_step",
+    "mixed_hyperelastic_step",
+    "j2_plasticity_step",
+    "creep_step",
+    "explicit_dynamics_step",
+    "finite_strain_explicit_dynamics_step",
+    "implicit_dynamics_step",
+}
 
 
 class KnowledgeValidationError(ValueError):
@@ -205,11 +216,23 @@ def _validate_card(
 
     usage = _mapping(card["usage"], f"{label}.usage", errors)
     if usage is not None:
+        minimal_example = usage.get("minimal_example")
         _nonempty_string(
-            usage.get("minimal_example"),
+            minimal_example,
             f"{label}.usage.minimal_example",
             errors,
         )
+        if card["status"] != "deprecated" and isinstance(minimal_example, str):
+            legacy = sorted(
+                name
+                for name in COMPATIBILITY_STEP_FACTORIES
+                if f"model.{name}(" in minimal_example
+            )
+            if legacy:
+                errors.append(
+                    f"{label}.usage.minimal_example uses compatibility Step "
+                    f"factories {legacy}; use model.step(...)"
+                )
         _string_list(usage.get("examples"), f"{label}.usage.examples", errors)
         if isinstance(usage.get("examples"), list):
             for path in usage["examples"]:

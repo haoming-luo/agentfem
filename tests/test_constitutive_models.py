@@ -427,6 +427,76 @@ def test_step_provider_registry_is_extensible_and_deterministic():
         request.options["enabled"] = False
 
 
+def test_step_option_contract_is_inspectable_and_repairs_misspellings():
+    contract = models.StepOptionContract(
+        accepted=("dt", "steps", "solver_options"),
+        required=("dt", "steps"),
+    )
+
+    issues = contract.issues({"dt": 0.1, "steps": 4, "solver_option": None})
+
+    assert issues[0]["code"] == "AFM-STEP-OPTION-001"
+    assert issues[0]["option"] == "solver_option"
+    assert issues[0]["suggestions"] == ("solver_options",)
+    assert contract.summary() == {
+        "accepted": ("dt", "steps", "solver_options"),
+        "required": ("dt", "steps"),
+    }
+    with pytest.raises(TypeError, match="Did you mean 'solver_options'"):
+        contract.validate(
+            {"dt": 0.1, "steps": 4, "solver_option": None},
+            provider="test",
+        )
+
+
+def test_step_option_contract_reports_required_physical_time_inputs():
+    contract = models.StepOptionContract(
+        accepted=("dt", "steps", "progress"),
+        required=("dt", "steps"),
+    )
+
+    issues = contract.issues({"dt": 0.1})
+
+    assert issues == (
+        {
+            "code": "AFM-STEP-OPTION-002",
+            "option": "steps",
+            "message": "Required Step option 'steps' is missing.",
+            "suggestions": (),
+        },
+    )
+    with pytest.raises(ValueError, match="non-empty strings"):
+        models.StepOptionContract(accepted=("dt", 1))
+
+
+def test_provider_registry_tries_a_lower_priority_compatible_option_contract():
+    registry = models.StepProviderRegistry()
+    registry.register(
+        models.StepProvider(
+            name="strict",
+            analyses=("custom",),
+            accepts=lambda model, request: True,
+            lower=lambda model, request: "strict",
+            priority=10,
+            option_contract=models.StepOptionContract(accepted=("enabled",)),
+        )
+    )
+    registry.register(
+        models.StepProvider(
+            name="extension",
+            analyses=("custom",),
+            accepts=lambda model, request: True,
+            lower=lambda model, request: "extension",
+        )
+    )
+    request = __import__(
+        "agentfem.step_providers",
+        fromlist=["StepRequest"],
+    ).StepRequest("custom", None, {"extension_payload": 1})
+
+    assert registry.lower(object(), request) == "extension"
+
+
 def test_model_pressure_and_symmetry_keep_engineering_semantics_visible():
     domain = mesh.rectangle(
         (0.0, 0.0),

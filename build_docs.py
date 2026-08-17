@@ -24,6 +24,11 @@ PUBLIC_API_LEVELS = {
     "advanced": "ADVANCED_WORKFLOW_MODULES",
     "expert": "EXPERT_WORKFLOW_MODULES",
 }
+PUBLIC_MODEL_API_LEVELS = {
+    "core": "CORE_MODEL_API",
+    "advanced": "ADVANCED_MODEL_API",
+    "compatibility": "COMPATIBILITY_MODEL_API",
+}
 
 
 @dataclass(frozen=True)
@@ -81,6 +86,33 @@ def public_modules() -> tuple[str, ...]:
             for module in modules
         )
     )
+
+
+def public_model_api_levels() -> dict[str, tuple[str, ...]]:
+    """Read the Model facade vocabulary without importing FEniCSx."""
+
+    tree = ast.parse((ROOT / "models.py").read_text())
+    assignments = {
+        target.id: node.value
+        for node in tree.body
+        if isinstance(node, (ast.Assign, ast.AnnAssign))
+        for target in (
+            node.targets if isinstance(node, ast.Assign) else (node.target,)
+        )
+        if isinstance(target, ast.Name)
+    }
+    levels = {}
+    for level, name in PUBLIC_MODEL_API_LEVELS.items():
+        try:
+            value = ast.literal_eval(assignments[name])
+        except (KeyError, ValueError, TypeError) as exc:
+            raise RuntimeError(f"{name} must be a literal tuple in models.py") from exc
+        if not isinstance(value, tuple) or any(
+            not isinstance(item, str) or not item for item in value
+        ):
+            raise RuntimeError(f"{name} must contain non-empty method names.")
+        levels[level] = value
+    return levels
 
 
 def _annotation(node: ast.AST | None) -> str:
@@ -268,6 +300,7 @@ def render_api_reference() -> str:
 
 def render_agent_manifest() -> str:
     api_levels = public_api_levels()
+    model_api_levels = public_model_api_levels()
     manifest = {
         "schema": "agentfem.documentation-entry",
         "schema_version": "1.0",
@@ -299,6 +332,9 @@ def render_agent_manifest() -> str:
         "public_workflow_modules": list(public_modules()),
         "public_api": {
             level: list(modules) for level, modules in api_levels.items()
+        },
+        "model_api": {
+            level: list(methods) for level, methods in model_api_levels.items()
         },
         "workflow": [
             "study",

@@ -47,6 +47,31 @@ core, results, verification, and documentation have priority.
 The same table is queryable in code through
 `constitutive.capabilities()` and `benchmarks.list_benchmarks()`.
 
+## Public-language convergence
+
+The 0.2.x application grammar is now fixed around physical Study factories,
+model-owned engineering verbs, one provider-dispatched `model.step(...)`, and
+one `solve_result()` completion lifecycle. `models.model_api(...)` separates
+the daily, advanced, and compatibility method vocabularies. Every built-in
+provider publishes an enforceable `StepOptionContract`; the same accepted and
+required keyword names are emitted by `agentfem capabilities --json` for
+agents, IDEs, and future GUIs. Bundled cases and scientific function cards are
+checked in CI so they cannot silently return to material-specific Step methods
+or compatibility target spellings.
+
+The next convergence work is internal and should not change ordinary case
+files:
+
+1. move material/procedure-specific builders out of the large `Model` class
+   while retaining it as the stable facade;
+2. give solver, output, history, and checkpoint policies equally inspectable
+   schemas instead of adding more loose Step keywords;
+3. attach explicit lifecycle/deprecation metadata to compatibility names and
+   teach `agentfem upgrade` to report semantic migrations without rewriting
+   scientific Python automatically;
+4. add static typing overloads only where they improve IDE guidance without
+   creating a second configuration language.
+
 ## Release Gates
 
 A public solver/material capability advances through these levels:

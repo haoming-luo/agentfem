@@ -40,8 +40,7 @@ def build_case(parameters) -> StaticCase:
         comm=MPI.COMM_WORLD,
         cell_type="quadrilateral",
     )
-    study = studies.linear_static(
-        physics="solid_mechanics",
+    study = studies.static_solid(
         dimension=2,
         assumption="plane_strain",
         name="campaign_plane_strain",

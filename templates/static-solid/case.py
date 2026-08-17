@@ -7,7 +7,6 @@ from mpi4py import MPI
 
 from agentfem import fields, mesh, models, project, studies
 from agentfem.constitutive import elasticity
-from agentfem.diagnostics import print_on_root
 
 
 def main():
@@ -49,8 +48,8 @@ def main():
     simulation.add_dof_statistics(displacement, prefix="displacement", unit="m")
     if MPI.COMM_WORLD.rank == 0:
         run.publish(simulation)
-        print_on_root(MPI.COMM_WORLD, simulation.format())
-        print_on_root(MPI.COMM_WORLD, f"Result manifest: {run.manifest_path}")
+        print(simulation.format())
+        print(f"Result manifest: {run.manifest_path}")
     MPI.COMM_WORLD.barrier()
     return simulation
 

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import ast
+from pathlib import Path
+
 import numpy as np
 from mpi4py import MPI
 
@@ -19,6 +22,63 @@ from agentfem import (
 from agentfem.constitutive import elasticity
 
 
+def test_bundled_cases_use_the_canonical_model_language():
+    compatibility_steps = {
+        "linear_static_step",
+        "heat_transfer_step",
+        "hyperelastic_step",
+        "mixed_hyperelastic_step",
+        "j2_plasticity_step",
+        "creep_step",
+        "explicit_dynamics_step",
+        "finite_strain_explicit_dynamics_step",
+        "implicit_dynamics_step",
+    }
+    lower_level_study_factories = {
+        "linear_static",
+        "nonlinear_static",
+        "first_order_transient",
+        "second_order_dynamics",
+        "implicit_dynamics",
+        "explicit_dynamics",
+        "transient",
+    }
+    repository = Path(__file__).resolve().parents[1]
+    roots = (repository / "examples", repository / "templates")
+    violations = []
+    for root in roots:
+        for path in sorted(root.rglob("*.py")):
+            if "abaqus_reference" in path.parts:
+                continue
+            tree = ast.parse(path.read_text(), filename=str(path))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                if (
+                    isinstance(node.func, ast.Attribute)
+                    and node.func.attr in compatibility_steps
+                ):
+                    violations.append(
+                        f"{path.relative_to(root.parent)}:{node.lineno}:"
+                        f"{node.func.attr}"
+                    )
+                if (
+                    isinstance(node.func, ast.Attribute)
+                    and isinstance(node.func.value, ast.Name)
+                    and node.func.value.id == "studies"
+                    and node.func.attr in lower_level_study_factories
+                ):
+                    violations.append(
+                        f"{path.relative_to(root.parent)}:{node.lineno}:"
+                        f"studies.{node.func.attr}"
+                    )
+                if any(keyword.arg == "location" for keyword in node.keywords):
+                    violations.append(
+                        f"{path.relative_to(root.parent)}:{node.lineno}:location="
+                    )
+    assert not violations, "Canonical model-language violations: " + ", ".join(violations)
+
+
 def _wave_release_patch() -> dict[str, float]:
     """Run a small counterpart of the public inclusion-wave demo."""
 
@@ -32,10 +92,10 @@ def _wave_release_patch() -> dict[str, float]:
         comm=MPI.COMM_SELF,
         cell_type="quadrilateral",
     )
-    study = studies.second_order_dynamics(
-        physics="solid_mechanics",
+    study = studies.dynamic_solid(
         dimension=2,
         assumption="plane_strain",
+        method="explicit",
     )
     model = models.create(study=study, mesh=domain, name="wave_release_patch")
     displacement = model.field(fields.displacement(domain, degree=1))
@@ -117,7 +177,7 @@ def _wave_release_patch() -> dict[str, float]:
     )
     dt = 0.35 * min(length / cells[0], height / cells[1]) / inclusion_cp
     total_steps = 320
-    step = model.explicit_dynamics_step(
+    step = model.step(
         target=displacement,
         state=state,
         residual=residual,

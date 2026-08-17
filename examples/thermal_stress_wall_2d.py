@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 from mpi4py import MPI
 
-from agentfem import constitutive, fields, io, mesh, models, studies
+from agentfem import constitutive, fields, mesh, models, studies
 
 
 def main() -> None:
@@ -34,10 +34,7 @@ def main() -> None:
     )
 
     heat = models.create(
-        study=studies.first_order_transient(
-            physics="heat_transfer",
-            dimension=2,
-        ),
+        study=studies.transient_heat_transfer(dimension=2),
         mesh=domain,
         name="wall_heat_transfer",
     )
@@ -45,18 +42,17 @@ def main() -> None:
     heat.material(steel)
     heat.fix(temperature, on=hot, value=823.15)
     heat.fix(temperature, on=cold, value=573.15)
-    thermal_step = heat.step(
+    output_dir = Path(__file__).resolve().parents[1] / "examples_output"
+    heat_result = heat.step(
         target=temperature,
         dt=60.0,
         steps=60,
         save_every=5,
-    )
-    output_dir = Path(__file__).resolve().parents[1] / "examples_output"
-    thermal_step.run(output=output_dir / "thermal_stress_wall_temperature.xdmf")
+        output=output_dir / "thermal_stress_wall_temperature.xdmf",
+    ).solve_result()
 
     mechanics = models.create(
-        study=studies.linear_static(
-            physics="solid_mechanics",
+        study=studies.static_solid(
             dimension=2,
             assumption="plane_strain",
         ),
@@ -70,16 +66,14 @@ def main() -> None:
     )
     mechanics.fix(displacement, on=bottom, component=1, value=0.0)
     mechanics.fix(displacement, on=cold, component=0, value=0.0)
-    mechanics.step(
+    mechanics_result = mechanics.step(
         target=displacement,
         K=mechanics.stiffness(displacement),
         F=mechanics.thermal_expansion(displacement, temperature),
-    ).solve()
-    with io.XDMFTimeSeries(
-        output_dir / "thermal_stress_wall_displacement.xdmf",
-        domain,
-    ) as writer:
-        writer.write_fields(1.0, displacement.value, temperature.value)
+        output=output_dir / "thermal_stress_wall_displacement.xdmf",
+    ).solve_result()
+    heat_result.verify("engineering").require()
+    mechanics_result.verify("engineering").require()
 
 
 if __name__ == "__main__":

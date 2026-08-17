@@ -1,0 +1,7 @@
+interface:
+  display_name: "AgentFEM"
+  short_description: "Build and verify AI-native finite-element workflows"
+  default_prompt: "Use $agentfem to build or review this finite-element workflow through AgentFEM's public API and verification contracts."
+
+policy:
+  allow_implicit_invocation: true
