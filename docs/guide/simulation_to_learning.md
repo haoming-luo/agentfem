@@ -24,6 +24,23 @@ parameter space → reproducible FEM campaign → result policy
 - training/validation separation, applicability checks, and high-fidelity FEM
   fallback.
 
+## Two integration paths
+
+A user-owned neural-field solver can enter the same Step lifecycle directly:
+
+```python
+step = model.step(target=spec, executor=my_solver)
+result = step.solve_result()
+```
+
+This route is framework-neutral and requires neither inheritance from an
+AgentFEM model class nor an official learning package. When a maintained
+method binding, standard artifacts, examples, and benchmark evidence are
+useful, install a provider from the optional
+[AgentFEM-Learning](https://github.com/haoming-luo/agentfem-learning)
+companion. XDEM is its first experimental neural-field subdomain; it is not a
+separate official project or a general fracture claim.
+
 This observation and dataset contract is the basis for future neural operators
 and digital-twin state updating. Those directions require stable field
 encodings, sensor identity, time alignment, and uncertainty—not just another

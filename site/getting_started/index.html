@@ -1205,7 +1205,13 @@ array inspection: <code>results.region_integral(...)</code>,
 contract. Campaigns consume declared inputs and <code>SimulationResult</code> outputs,
 then create a <code>ScientificDataset</code> only when the selected evidence policy is
 satisfied. The dataset can be exported to NumPy, passed to built-in
-ridge/POD/PyTorch surrogates, or used by an existing user model.</p>
+ridge/POD/PyTorch surrogates, or used by an existing user model. A
+neural-field model can also participate directly in the ordinary Step lifecycle
+through <code>model.step(target=spec, executor=my_solver)</code>; no companion package or
+framework-specific base class is required. Maintained reference providers for
+selected methods live in the optional
+<a href="https://github.com/haoming-luo/agentfem-learning">AgentFEM-Learning</a>
+companion.</p>
 
 
 

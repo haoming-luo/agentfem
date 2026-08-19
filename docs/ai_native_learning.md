@@ -447,10 +447,11 @@ Installed provider packages remain useful when a method needs reusable
 lowering, dependency checks, standard artifacts, reference examples, and
 independent benchmarks, but they are accelerators rather than gatekeepers.
 
-The official companion project is organized as `agentfem-learning`, with
-method-specific subdomains such as `neural_fields.xdem`. The repository is
-broad enough to share packaging and evidence infrastructure; each provider
-keeps a narrow scientific identity. Neural operators remain separate from
+The optional official companion project is
+[AgentFEM-Learning](https://github.com/haoming-luo/agentfem-learning). It uses
+method-specific subdomains such as `neural_fields.xdem`: one broad repository
+shares packaging and evidence infrastructure while each provider keeps a
+narrow scientific identity. Neural operators remain separate from
 neural-field solvers even when both happen to use PyTorch.
 
 ## What Is Not Yet Claimed

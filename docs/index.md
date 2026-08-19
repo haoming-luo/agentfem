@@ -122,7 +122,7 @@ adds a Golden benchmark and explicit release-quality checks.
 | Plasticity, creep, state, and cutback | [Creep and inelasticity](guide/creep_and_inelasticity.md) |
 | Meshes, regions, loads, and constraints | [Model definition](guide/model_setup.md) |
 | Fields, histories, output, and post-processing | [Results](guide/results.md) |
-| Campaigns, datasets, PyTorch, and surrogates | [Simulation to learning](guide/simulation_to_learning.md) |
+| Campaigns, datasets, user models, and surrogates | [Simulation to learning](guide/simulation_to_learning.md) |
 
 ## Current scope
 
@@ -134,7 +134,7 @@ adds a Golden benchmark and explicit release-quality checks.
 | Time-dependent materials | Global isothermal/Arrhenius power-law creep plus reviewed material-point creep/damage tools |
 | Mesh and constraints | Structured/XDMF meshes, optional Gmsh and meshio routes, direct Abaqus C3D10H import, equation constraints, and distributed periodic workflows |
 | Results and verification | Standard fields, histories, resultants, progress, checkpoints, Golden benchmarks, and explicit quality policies |
-| Simulation and learning | Parameter campaigns, scientific datasets, NumPy/PyTorch adapters, surrogate baselines, applicability guards, and FEM fallback |
+| Simulation and learning | Parameter campaigns, scientific datasets, user-model execution, NumPy/PyTorch adapters, surrogate baselines, applicability guards, and FEM fallback |
 
 Capabilities with different maturity levels are identified in the relevant
 guide and example instead of being presented as equally complete.

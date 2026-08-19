@@ -230,4 +230,10 @@ One case and a parameter campaign should use the same case builder and result
 contract. Campaigns consume declared inputs and `SimulationResult` outputs,
 then create a `ScientificDataset` only when the selected evidence policy is
 satisfied. The dataset can be exported to NumPy, passed to built-in
-ridge/POD/PyTorch surrogates, or used by an existing user model.
+ridge/POD/PyTorch surrogates, or used by an existing user model. A
+neural-field model can also participate directly in the ordinary Step lifecycle
+through `model.step(target=spec, executor=my_solver)`; no companion package or
+framework-specific base class is required. Maintained reference providers for
+selected methods live in the optional
+[AgentFEM-Learning](https://github.com/haoming-luo/agentfem-learning)
+companion.

@@ -45,8 +45,8 @@ computation, data, and AI.
   reproducible data generation.
 
 - **Simulation to Learning** — results can flow into scientific datasets,
-  PyTorch, surrogate models, and high-fidelity fallback without rebuilding the
-  workflow around separate glue scripts.
+  user-owned models, PyTorch, surrogate models, and high-fidelity fallback
+  without rebuilding the workflow around separate glue scripts.
 
 - **Open at Every Layer** — users can begin with a clear engineering workflow
   and still reach operators, UFL, DOLFINx, PETSc, and custom constitutive
@@ -178,6 +178,14 @@ UFL, DOLFINx, PETSc, and custom constitutive implementations when a research
 problem needs a lower layer. This is also the extension path for user
 materials, new elements, private domain modules, GUIs, and agent tools.
 
+Learning follows the same rule. A laboratory-owned model can connect directly
+through the framework-neutral `model.step(target=spec, executor=...)`
+boundary. The optional
+[AgentFEM-Learning](https://github.com/haoming-luo/agentfem-learning)
+companion provides maintained providers, examples, and benchmark evidence for
+selected scientific-learning methods; it is not required to use a user's own
+model.
+
 ## Documentation
 
 - [Getting started](docs/getting_started.md)
@@ -185,6 +193,7 @@ materials, new elements, private domain modules, GUIs, and agent tools.
 - [Engineering concepts](CONCEPTS.md)
 - [Scientific functions and theory](docs/reference/scientific_function_reference.md)
 - [Results, campaigns, and learning](docs/results_and_campaigns.md)
+- [AI-native learning contracts](docs/ai_native_learning.md)
 - [AI-agent guide](AGENT_GUIDE.md)
 - [Roadmap and release gates](docs/product_roadmap.md)
 

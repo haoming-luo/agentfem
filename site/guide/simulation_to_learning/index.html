@@ -737,6 +737,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#two-integration-paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two integration paths
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#go-deeper" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1137,6 +1148,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#two-integration-paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two integration paths
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#go-deeper" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1254,6 +1276,18 @@ data much shorter and more systematic.</p>
 <li>training/validation separation, applicability checks, and high-fidelity FEM
   fallback.</li>
 </ul>
+<h2 id="two-integration-paths">Two integration paths<a class="headerlink" href="#two-integration-paths" title="Permanent link">&para;</a></h2>
+<p>A user-owned neural-field solver can enter the same Step lifecycle directly:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">spec</span><span class="p">,</span> <span class="n">executor</span><span class="o">=</span><span class="n">my_solver</span><span class="p">)</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">result</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span>
+</code></pre></div>
+<p>This route is framework-neutral and requires neither inheritance from an
+AgentFEM model class nor an official learning package. When a maintained
+method binding, standard artifacts, examples, and benchmark evidence are
+useful, install a provider from the optional
+<a href="https://github.com/haoming-luo/agentfem-learning">AgentFEM-Learning</a>
+companion. XDEM is its first experimental neural-field subdomain; it is not a
+separate official project or a general fracture claim.</p>
 <p>This observation and dataset contract is the basis for future neural operators
 and digital-twin state updating. Those directions require stable field
 encodings, sensor identity, time alignment, and uncertainty—not just another
