@@ -29,7 +29,7 @@ computation, data, and AI.
 ## All You Need Is an Agent
 
 > [!TIP]
-> **Copy this prompt into Codex or another coding agent:**
+> **Give this prompt to Codex, DS Harness, or another AI agent:**
 
 ```text
 Bring AgentFEM to life.
