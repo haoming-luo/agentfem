@@ -70,6 +70,11 @@
   independent validation, applicability, and out-of-domain behavior.
 - Neural operator: function-to-function model requiring explicit field,
   geometry, boundary, mesh, and projection encodings.
+- Neural-field solver: per-problem field optimization through residual,
+  variational/energy, data, and constraint objectives. PINN, DEM, and XDEM are
+  methods in this family, not surrogate aliases. User-owned implementations
+  can consume `NeuralFieldExecutionRequest` directly and return
+  `SimulationResult`; an installed provider is optional.
 - Physics-informed model: learning contract with explicit strong, weak, or
   discrete residuals and conditions; arbitrary UFL is not automatically a PINN
   residual.

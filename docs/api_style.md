@@ -119,6 +119,18 @@ for AI agents.
 - A surrogate prediction API should report its source, uncertainty semantics,
   applicability decision, and fallback behavior. It must not silently
   extrapolate or describe residual scale as calibrated epistemic uncertainty.
+- Use `learning` as the public umbrella while retaining the exact terms
+  surrogate, neural operator, neural-field solver, and learned constitutive
+  model. Do not describe every neural computation as a surrogate or PINN.
+- A neural-field contract separates the physical coefficient of an energy or
+  work term from its numerical loss-balancing weight. Loss tuning must never
+  silently change the declared mechanics.
+- Treat sampling, condition enforcement, inferred physical parameters, units,
+  scaling, provider identity, and verification evidence as inspectable assets.
+  Do not hide them in one optimizer dictionary.
+- Add an executable neural-field route through a registered Step provider and
+  `SimulationResult`; do not register it as a matrix/form backend merely
+  because it is implemented with PyTorch.
 
 ## Error Messages
 

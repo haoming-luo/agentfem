@@ -20,6 +20,13 @@ Python workflow for humans, terminals, GUI clients, and AI agents.
   `creep_solid`. Keep generic analysis-order factories for formulation work.
 - Keep materials, constraints, loads, boundary models, steps, and outputs as
   distinct concepts.
+- Keep surrogates, neural operators, neural-field solvers, and learned
+  constitutive models distinct under the public `learning` umbrella. A
+  neural-field solver is a SolutionProcedure lowered by a Step provider, not
+  a surrogate and not an operator-assembly backend.
+- Core owns learning semantics, result evidence, and extension compatibility;
+  optional frameworks and confidential domain assets belong in separately
+  installed extension packages.
 - Add common finite-element functionality to its reusable module, not to one
   example.
 - GUI and agent integrations call the public Python API or the structured CLI;

@@ -111,6 +111,52 @@ be maintained as a long-lived private branch of the open repository: a branch
 shares history and is easy to merge or publish accidentally, while a separate
 repository has an independent license, release cycle, access policy, and CI.
 
+## Open adapters and private domain products
+
+The same extension boundary supports two deliberately different ecosystems.
+
+An open companion package connects replaceable computational frameworks
+without making them mandatory AgentFEM dependencies. The official
+`agentfem-learning` project groups shared packaging and evidence machinery,
+while keeping method-specific providers in explicit subdomains such as
+`neural_fields.xdem`, `neural_fields.deepxde`, and `neural_operators`. A
+third-party method may still use its own distribution. Such a package should
+normally contain:
+
+- the provider binding and pinned upstream compatibility range;
+- one small readable example;
+- independent reference or FEM benchmark evidence;
+- capability and unsupported-case declarations;
+- its own tests, release cycle, and software license.
+
+The package boundary is not required for one laboratory-owned model. A user
+can pass an ordinary callable to `model.step(target=spec, executor=...)` and
+return `SimulationResult`. Promote that callable into a companion provider only
+when reusable lowering, dependency checks, standard artifacts, or benchmarked
+capability discovery justify a maintained package.
+
+A private domain package may contain confidential calibrated materials,
+component templates, proprietary acceptance rules, certified report logic, or
+customer-specific automation. It consumes the same public contracts but stays
+in a separate private repository and package registry. Private parameters and
+source code are not copied into an AgentFEM run record; the record retains only
+the extension identity and non-secret evidence explicitly published by that
+package.
+
+```text
+Apache-2.0 AgentFEM core
+        ├── open solver/learning adapters
+        ├── open community workflow packs
+        ├── private material and assessment packages
+        └── private or hosted user products
+```
+
+This is not an open-core feature-removal strategy. General scientific concepts,
+interoperability contracts, result evidence, and reference implementations
+belong in the open platform. Scarce domain assets, confidential data, regulated
+workflow policy, hosting, support, and customer-specific engineering may remain
+private or commercial.
+
 ## Compatibility policy
 
 The entry-point name is the stable operational identifier. The private package

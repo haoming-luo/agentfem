@@ -1025,6 +1025,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agentfemlearning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.learning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agentfemmechanics" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1702,6 +1713,17 @@
     <span class="md-ellipsis">
       
         agentfem.interfaces
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agentfemlearning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.learning
       
     </span>
   </a>
@@ -5165,6 +5187,53 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>cohesive_characteristic_length(*, young: float, fracture_energy: float, strength: float) -&gt; float</code></td>
 <td>Return the declared scale <code>E * Gamma / strength**2</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="agentfemlearning"><code>agentfem.learning</code><a class="headerlink" href="#agentfemlearning" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Public object</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>class</td>
+<td><code>ConditionSpec</code></td>
+<td>A physical condition and the declared way it enters an objective.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>NeuralFieldSpec</code></td>
+<td>Provider-neutral contract for PINN, DEM, XDEM, and related solvers.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>NeuralRepresentation</code></td>
+<td>How one neural function represents one or more unknown fields.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ObjectiveTerm</code></td>
+<td>One named contribution to a neural-field optimization objective.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>SamplingPlan</code></td>
+<td>Inspectable coordinates or integration samples for one physical set.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>TrainableParameter</code></td>
+<td>A physical parameter inferred jointly with one or more fields.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>NeuralFieldExecutionRequest</code></td>
+<td>Immutable input supplied to a user- or package-owned executor.</td>
 </tr>
 </tbody>
 </table>

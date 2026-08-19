@@ -997,6 +997,89 @@ def _option_contract(*extra: str, required=()) -> StepOptionContract:
     )
 
 
+def _accept_callable_neural_field(_model, request) -> bool:
+    from .learning import NeuralFieldSpec
+
+    executor = request.option("executor")
+    return isinstance(request.target, NeuralFieldSpec) and (
+        callable(executor) or callable(getattr(executor, "solve", None))
+    )
+
+
+def _lower_callable_neural_field(model, request):
+    from .learning.execution import (
+        CallableNeuralFieldStep,
+        NeuralFieldExecutionRequest,
+        executor_identity,
+    )
+
+    unsupported = {
+        name: request.option(name)
+        for name in ("K", "F", "constraints", "solver_options")
+        if request.option(name) is not None
+    }
+    if unsupported:
+        raise TypeError(
+            "A neural-field executor consumes NeuralFieldSpec objectives and "
+            f"conditions, not assembled FEM options: {tuple(unsupported)!r}."
+        )
+    executor = request.option("executor")
+    executor_name, executor_version = executor_identity(
+        executor,
+        name=request.option("executor_name"),
+        version=request.option("executor_version"),
+    )
+    executor_options = request.option("executor_options") or {}
+    if not isinstance(executor_options, Mapping):
+        raise TypeError("executor_options must be a mapping.")
+    execution_request = NeuralFieldExecutionRequest(
+        specification=request.target,
+        model=model,
+        analysis=request.analysis,
+        name=request.option("name") or "neural_field",
+        output_directory=request.option("output"),
+        options=executor_options,
+    )
+    step = CallableNeuralFieldStep(
+        execution_request,
+        executor,
+        executor_name=executor_name,
+        executor_version=executor_version,
+    )
+    return model.add_step(step)
+
+
+register_step_provider(
+    StepProvider(
+        name="callable_neural_field",
+        analyses=(
+            "linear_static",
+            "nonlinear_static",
+            "first_order_transient",
+            "nonlinear_transient",
+            "second_order_dynamics",
+            "explicit_dynamics",
+            "modal",
+        ),
+        accepts=_accept_callable_neural_field,
+        lower=_lower_callable_neural_field,
+        priority=450,
+        description=(
+            "Execute a NeuralFieldSpec through a user-owned callable while "
+            "retaining the common Step and SimulationResult lifecycle."
+        ),
+        procedure="learning/neural_field/user_executor",
+        option_contract=_option_contract(
+            "executor",
+            "executor_name",
+            "executor_version",
+            "executor_options",
+            required=("executor",),
+        ),
+    )
+)
+
+
 register_step_provider(
     StepProvider(
         name="neo_hookean_finite_strain_explicit_dynamics",

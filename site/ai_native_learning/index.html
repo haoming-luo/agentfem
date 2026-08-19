@@ -839,6 +839,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#neural-field-contracts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Neural-field contracts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Neural-field contracts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bring-your-own-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bring your own model
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-is-not-yet-claimed" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -913,33 +941,43 @@ traceable, reviewable, and safe to reconnect to simulation.</p>
 and future training services may supply learning algorithms. AgentFEM owns the
 meaning of inputs and outputs, case identity, simulation evidence, validation,
 applicability, and high-fidelity fallback.</p>
+<p>The public <code>learning</code> namespace is the umbrella for this boundary. It keeps
+four roles explicit:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>surrogate             parameter or reduced coordinates -&gt; declared response
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>neural operator       input functions -&gt; output functions
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>neural-field solver   one physical problem -&gt; optimized continuous field
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>learned constitutive  local state/history -&gt; local material response
+</code></pre></div>
+<p>The established <code>surrogates</code> module remains public throughout 0.2.x and is
+also available through <code>learning</code>. This additive entry improves the conceptual
+map without breaking released projects.</p>
 <h2 id="the-end-to-end-contract">The End-to-End Contract<a class="headerlink" href="#the-end-to-end-contract" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ParameterSpace
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>      |
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>      v
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>SamplingPlan -&gt; CampaignPlan -&gt; immutable case variants
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                                    |
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>                                    v
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>                         FEniCSx/PETSc execution
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>                                    |
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>                                    v
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>                      case records + AF-IR provenance
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>                                    |
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>                                    v
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>                         ScientificDataset
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>                           /      |       \
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>                          v       v        v
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>                    classical   neural   external
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>                    ROM/QoI     models   trainers
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>                          \       |        /
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>                           v      v       v
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>                    independent validation
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>                              |
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>                              v
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>                   applicability-domain guard
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>                       /                   \
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>                      v                     v
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>             surrogate prediction     FEM fallback
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>ParameterSpace
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>      |
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>      v
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>SamplingPlan -&gt; CampaignPlan -&gt; immutable case variants
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>                                    |
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>                                    v
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>                         FEniCSx/PETSc execution
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>                                    |
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>                                    v
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>                      case records + AF-IR provenance
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>                                    |
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>                                    v
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>                         ScientificDataset
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>                           /      |       \
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>                          v       v        v
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>                    classical   neural   external
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>                    ROM/QoI     models   trainers
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>                          \       |        /
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>                           v      v       v
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>                    independent validation
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>                              |
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>                              v
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>                   applicability-domain guard
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>                       /                   \
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>                      v                     v
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>             surrogate prediction     FEM fallback
 </code></pre></div>
 <p>This separation matters. A folder of arrays is not yet a scientific dataset,
 and a trained network is not yet a reliable simulation asset.</p>
@@ -956,14 +994,14 @@ and a trained network is not yet a reliable simulation asset.</p>
 <p>Every sample is validated before it becomes a case. Sampling is reproducible
 from a seed. Case IDs are hashes of the campaign identity, schema version, and
 canonical parameter values.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">agentfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">campaigns</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">space</span> <span class="o">=</span> <span class="n">campaigns</span><span class="o">.</span><span class="n">ParameterSpace</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">campaigns</span><span class="o">.</span><span class="n">RealParameter</span><span class="p">(</span><span class="s2">&quot;young&quot;</span><span class="p">,</span> <span class="mf">150e9</span><span class="p">,</span> <span class="mf">250e9</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;Pa&quot;</span><span class="p">),</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">campaigns</span><span class="o">.</span><span class="n">RealParameter</span><span class="p">(</span><span class="s2">&quot;traction_y&quot;</span><span class="p">,</span> <span class="o">-</span><span class="mf">2e6</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.2e6</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;Pa&quot;</span><span class="p">),</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;cantilever_design&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="p">)</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">sampling</span> <span class="o">=</span> <span class="n">campaigns</span><span class="o">.</span><span class="n">latin_hypercube</span><span class="p">(</span><span class="n">space</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">2026</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">agentfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">campaigns</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">space</span> <span class="o">=</span> <span class="n">campaigns</span><span class="o">.</span><span class="n">ParameterSpace</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">campaigns</span><span class="o">.</span><span class="n">RealParameter</span><span class="p">(</span><span class="s2">&quot;young&quot;</span><span class="p">,</span> <span class="mf">150e9</span><span class="p">,</span> <span class="mf">250e9</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;Pa&quot;</span><span class="p">),</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">campaigns</span><span class="o">.</span><span class="n">RealParameter</span><span class="p">(</span><span class="s2">&quot;traction_y&quot;</span><span class="p">,</span> <span class="o">-</span><span class="mf">2e6</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.2e6</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;Pa&quot;</span><span class="p">),</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;cantilever_design&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="p">)</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">sampling</span> <span class="o">=</span> <span class="n">campaigns</span><span class="o">.</span><span class="n">latin_hypercube</span><span class="p">(</span><span class="n">space</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">2026</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="campaign-execution">Campaign execution<a class="headerlink" href="#campaign-execution" title="Permanent link">&para;</a></h3>
 <p>A campaign requires two small functions:</p>
@@ -975,20 +1013,20 @@ canonical parameter values.</p>
 can leak state, compiled objects, boundary conditions, or solver history from
 one sample into another. A factory makes variants immutable by construction
 even though runtime objects themselves remain mutable.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">campaign</span> <span class="o">=</span> <span class="n">campaigns</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;cantilever_sweep&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">parameter_space</span><span class="o">=</span><span class="n">space</span><span class="p">,</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">outputs</span><span class="o">=</span><span class="p">(</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="n">datasets</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="s2">&quot;tip_displacement&quot;</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;m&quot;</span><span class="p">),</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="p">),</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">build</span><span class="o">=</span><span class="n">build_case</span><span class="p">,</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">evaluate</span><span class="o">=</span><span class="n">evaluate_case</span><span class="p">,</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">)</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">report</span> <span class="o">=</span> <span class="n">campaign</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="n">sampling</span><span class="p">,</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="n">output_directory</span><span class="o">=</span><span class="s2">&quot;campaign_output&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="n">comm</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">campaign</span> <span class="o">=</span> <span class="n">campaigns</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;cantilever_sweep&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">parameter_space</span><span class="o">=</span><span class="n">space</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">outputs</span><span class="o">=</span><span class="p">(</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="n">datasets</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="s2">&quot;tip_displacement&quot;</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;m&quot;</span><span class="p">),</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="p">),</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">build</span><span class="o">=</span><span class="n">build_case</span><span class="p">,</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">evaluate</span><span class="o">=</span><span class="n">evaluate_case</span><span class="p">,</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="p">)</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">report</span> <span class="o">=</span> <span class="n">campaign</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">sampling</span><span class="p">,</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="n">output_directory</span><span class="o">=</span><span class="s2">&quot;campaign_output&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">comm</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="p">)</span>
 </code></pre></div>
 <p>The first runner is intentionally serial across cases. When an MPI
 communicator is provided, all ranks cooperate on each FEniCSx solve while rank
@@ -1023,15 +1061,15 @@ their scientific interpretation. Continuous and integer inputs use normalized
 parameter coordinates; categorical inputs use explicit one-hot features rather
 than an invented ordinal distance. The manifest records the feature names and
 encoding so every value round-trips to its declared parameter.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">report</span><span class="o">.</span><span class="n">require_dataset</span><span class="p">(</span><span class="n">minimum_samples</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">split</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">validation_fraction</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">2026</span><span class="p">)</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">dataset</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;campaign_dataset&quot;</span><span class="p">)</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">restored</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">ScientificDataset</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;campaign_dataset&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">report</span><span class="o">.</span><span class="n">require_dataset</span><span class="p">(</span><span class="n">minimum_samples</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">split</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">validation_fraction</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">2026</span><span class="p">)</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">dataset</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;campaign_dataset&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">restored</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">ScientificDataset</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;campaign_dataset&quot;</span><span class="p">)</span>
 </code></pre></div>
 <p>When PyTorch is installed, the same reviewed dataset becomes an ordinary
 <code>TensorDataset</code>/<code>DataLoader</code> without losing its scientific column schema:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">bundle</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">to_torch</span><span class="p">()</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">loader</span> <span class="o">=</span> <span class="n">bundle</span><span class="o">.</span><span class="n">loader</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">2026</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">bundle</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">to_torch</span><span class="p">()</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">loader</span> <span class="o">=</span> <span class="n">bundle</span><span class="o">.</span><span class="n">loader</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">2026</span><span class="p">)</span>
 </code></pre></div>
 <p>For field learning, <code>datasets.fem_field_sample(field, encoding)</code> exports owned
 nodal coefficients and coordinates under an explicit <code>FieldEncoding</code>. The
@@ -1051,17 +1089,17 @@ model architecture.</p>
 plus numerical state. They are not included because linear models are always
 adequate. They provide a transparent reference that more complex models should
 outperform on independent evidence.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">trained</span> <span class="o">=</span> <span class="n">surrogates</span><span class="o">.</span><span class="n">PODRidgeSurrogate</span><span class="p">(</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">energy</span><span class="o">=</span><span class="mf">0.999</span><span class="p">,</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">max_modes</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">split</span><span class="o">.</span><span class="n">train</span><span class="p">)</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">validation</span> <span class="o">=</span> <span class="n">trained</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">split</span><span class="o">.</span><span class="n">validation</span><span class="p">,</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">thresholds</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;max_relative_l2&quot;</span><span class="p">:</span> <span class="mf">0.02</span><span class="p">},</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="p">)</span>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="nb">print</span><span class="p">(</span><span class="n">validation</span><span class="o">.</span><span class="n">format</span><span class="p">())</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="n">trained</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;trained_surrogate&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">trained</span> <span class="o">=</span> <span class="n">surrogates</span><span class="o">.</span><span class="n">PODRidgeSurrogate</span><span class="p">(</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">energy</span><span class="o">=</span><span class="mf">0.999</span><span class="p">,</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">max_modes</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">split</span><span class="o">.</span><span class="n">train</span><span class="p">)</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">validation</span> <span class="o">=</span> <span class="n">trained</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">split</span><span class="o">.</span><span class="n">validation</span><span class="p">,</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="n">thresholds</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;max_relative_l2&quot;</span><span class="p">:</span> <span class="mf">0.02</span><span class="p">},</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="p">)</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="nb">print</span><span class="p">(</span><span class="n">validation</span><span class="o">.</span><span class="n">format</span><span class="p">())</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="n">trained</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;trained_surrogate&quot;</span><span class="p">)</span>
 </code></pre></div>
 <p>The optional PyTorch MLP imports PyTorch only during training. AgentFEM records
 its architecture and scientific schema, but PyTorch remains responsible for
@@ -1077,14 +1115,14 @@ prediction contract.</p>
 it. <code>BoxApplicabilityDomain</code> records a first conservative envelope in
 normalized parameter space. <code>GuardedSurrogate</code> either predicts inside that
 domain, rejects the request, or invokes an explicit high-fidelity fallback.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">domain</span> <span class="o">=</span> <span class="n">surrogates</span><span class="o">.</span><span class="n">BoxApplicabilityDomain</span><span class="o">.</span><span class="n">from_dataset</span><span class="p">(</span><span class="n">split</span><span class="o">.</span><span class="n">train</span><span class="p">)</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">guarded</span> <span class="o">=</span> <span class="n">surrogates</span><span class="o">.</span><span class="n">GuardedSurrogate</span><span class="p">(</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">trained</span><span class="p">,</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">domain</span><span class="p">,</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">fallback</span><span class="o">=</span><span class="n">run_one_fenicsx_case</span><span class="p">,</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="p">)</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="n">prediction</span> <span class="o">=</span> <span class="n">guarded</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">candidate</span><span class="p">)</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">prediction</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">prediction</span><span class="o">.</span><span class="n">in_domain</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">domain</span> <span class="o">=</span> <span class="n">surrogates</span><span class="o">.</span><span class="n">BoxApplicabilityDomain</span><span class="o">.</span><span class="n">from_dataset</span><span class="p">(</span><span class="n">split</span><span class="o">.</span><span class="n">train</span><span class="p">)</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">guarded</span> <span class="o">=</span> <span class="n">surrogates</span><span class="o">.</span><span class="n">GuardedSurrogate</span><span class="p">(</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">trained</span><span class="p">,</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">domain</span><span class="p">,</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">fallback</span><span class="o">=</span><span class="n">run_one_fenicsx_case</span><span class="p">,</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">)</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="n">prediction</span> <span class="o">=</span> <span class="n">guarded</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">candidate</span><span class="p">)</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">prediction</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">prediction</span><span class="o">.</span><span class="n">in_domain</span><span class="p">)</span>
 </code></pre></div>
 <p>The box is only a first guard. It does not detect holes, sparse corners,
 geometry changes, phase changes, bifurcations, or unrepresented boundary
@@ -1096,15 +1134,21 @@ padding is requested.</p>
 <p>For the common split-fit-validate-guard sequence, a small convenience workflow
 keeps the evidence together without taking training ownership away from the
 estimator:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">training</span> <span class="o">=</span> <span class="n">surrogates</span><span class="o">.</span><span class="n">train</span><span class="p">(</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">dataset</span><span class="p">,</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">estimator</span><span class="o">=</span><span class="n">surrogates</span><span class="o">.</span><span class="n">RidgeSurrogate</span><span class="p">(),</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">validation_fraction</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">seed</span><span class="o">=</span><span class="mi">2026</span><span class="p">,</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">)</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="n">guarded</span> <span class="o">=</span> <span class="n">training</span><span class="o">.</span><span class="n">guard</span><span class="p">(</span><span class="n">fallback</span><span class="o">=</span><span class="n">run_one_fenicsx_case</span><span class="p">)</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">training</span><span class="o">.</span><span class="n">validation</span><span class="o">.</span><span class="n">format</span><span class="p">())</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">training</span> <span class="o">=</span> <span class="n">surrogates</span><span class="o">.</span><span class="n">train</span><span class="p">(</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">dataset</span><span class="p">,</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">estimator</span><span class="o">=</span><span class="n">surrogates</span><span class="o">.</span><span class="n">RidgeSurrogate</span><span class="p">(),</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">validation_fraction</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="n">seed</span><span class="o">=</span><span class="mi">2026</span><span class="p">,</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="p">)</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="n">guarded</span> <span class="o">=</span> <span class="n">training</span><span class="o">.</span><span class="n">guard</span><span class="p">(</span><span class="n">fallback</span><span class="o">=</span><span class="n">run_one_fenicsx_case</span><span class="p">)</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">training</span><span class="o">.</span><span class="n">validation</span><span class="o">.</span><span class="n">format</span><span class="p">())</span>
 </code></pre></div>
+<p>This workflow does not require an AgentFEM estimator class. A laboratory-owned
+surrogate may implement <code>fit(ScientificDataset)</code> and return an object exposing
+<code>validate(dataset, thresholds=...)</code>; alternatively, call <code>dataset.to_torch()</code>
+and retain the existing training loop unchanged. The stricter protocol is
+needed only when the model should participate in AgentFEM's common split,
+validation, applicability, and FEM-fallback workflow.</p>
 <h2 id="three-roles-for-learned-models">Three Roles for Learned Models<a class="headerlink" href="#three-roles-for-learned-models" title="Permanent link">&para;</a></h2>
 <h3 id="1-substitute-within-a-declared-domain">1. Substitute within a declared domain<a class="headerlink" href="#1-substitute-within-a-declared-domain" title="Permanent link">&para;</a></h3>
 <p>The learned model replaces repeated FEM solves only for a declared mapping and
@@ -1131,9 +1175,9 @@ scientifically approved.</p>
 <h2 id="neural-operators">Neural Operators<a class="headerlink" href="#neural-operators" title="Permanent link">&para;</a></h2>
 <p>A neural operator learns a map between functions rather than only between a
 small parameter vector and scalar quantities. Examples include:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>material/load/boundary fields -&gt; displacement or temperature field
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>initial state + forcing history -&gt; transient solution field
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>geometry encoding + coefficients -&gt; PDE solution field
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>material/load/boundary fields -&gt; displacement or temperature field
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>initial state + forcing history -&gt; transient solution field
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>geometry encoding + coefficients -&gt; PDE solution field
 </code></pre></div>
 <p>The difficult part is not naming FNO, DeepONet, graph neural operators, or mesh
 networks. It is specifying:</p>
@@ -1187,6 +1231,80 @@ explicit strong, weak, or discrete residual and explicit conditions. A spec
 remains <code>contract_only</code> until every named term is bound to reviewed executable
 callables. <code>TorchPINNAdapter</code> provides that binding mechanism; reusable
 strong-, weak-, and discrete-residual libraries remain future work.</p>
+<h2 id="neural-field-contracts">Neural-field contracts<a class="headerlink" href="#neural-field-contracts" title="Permanent link">&para;</a></h2>
+<p><code>learning.NeuralFieldSpec</code> generalizes the residual-only PINN contract without
+claiming a universal trainer. It composes:</p>
+<ul>
+<li>named <code>FieldEncoding</code> records;</li>
+<li>one or more <code>NeuralRepresentation</code> records stating which fields share a
+  network and which physical features or enrichments alter its approximation
+  space;</li>
+<li>residual, energy, data, and constraint <code>ObjectiveTerm</code> records;</li>
+<li>conditions with explicit hard, penalty, multiplier, Nitsche, or data
+  enforcement semantics;</li>
+<li>inspectable domain, boundary, interface, observation, or quadrature sampling;</li>
+<li>bounded, unit-aware physical parameters for inverse and hybrid workflows;</li>
+<li>independent reference, condition, balance/energy, sampling-convergence, and
+  optimization-repeatability checks.</li>
+</ul>
+<p>The physical coefficient of an objective is distinct from its positive
+optimization weight. For example, external work carries a negative physical
+coefficient in a total-potential-energy objective; changing loss balance must
+not change that sign.</p>
+<p><code>NeuralFieldSpec.from_pinn(...)</code> lifts the existing <code>PINNSpec</code> into this general
+contract. A declarative specification is not an executable solver. Execution
+may come from a user-owned callable or an installed provider for PyTorch,
+DeepXDE, PhysicsNeMo, DEM, XDEM, or a future framework. Both routes participate
+in the Step lifecycle and return a <code>SimulationResult</code> with provider,
+optimization, field, and verification evidence.</p>
+<p>XDEM is therefore an optional neural-field provider, not a fracture-specific
+special case in the open core. Its discontinuity and Williams crack-tip terms
+belong to <code>NeuralRepresentation</code>; its energy, work, phase-field, and
+irreversibility contributions use the shared objective contract.</p>
+<h3 id="bring-your-own-model">Bring your own model<a class="headerlink" href="#bring-your-own-model" title="Permanent link">&para;</a></h3>
+<p>No official learning package is required to execute a user-owned neural model.
+The smallest integration is an ordinary callable receiving one immutable
+<code>NeuralFieldExecutionRequest</code> and returning <code>SimulationResult</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">agentfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">results</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">solve_with_my_model</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="c1"># Build or train any PyTorch, JAX, DeepXDE, or laboratory model here.</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">SimulationResult</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">result</span><span class="o">.</span><span class="n">add_quantity</span><span class="p">(</span><span class="s2">&quot;relative_l2_error&quot;</span><span class="p">,</span> <span class="mf">0.012</span><span class="p">)</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">result</span><span class="o">.</span><span class="n">add_artifact</span><span class="p">(</span><span class="s2">&quot;weights&quot;</span><span class="p">,</span> <span class="s2">&quot;my_model.safetensors&quot;</span><span class="p">)</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="k">return</span> <span class="n">result</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>    <span class="n">target</span><span class="o">=</span><span class="n">neural_field_spec</span><span class="p">,</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>    <span class="n">executor</span><span class="o">=</span><span class="n">solve_with_my_model</span><span class="p">,</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>    <span class="n">executor_name</span><span class="o">=</span><span class="s2">&quot;laboratory.my_model&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>    <span class="n">executor_version</span><span class="o">=</span><span class="s2">&quot;1.0&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>    <span class="n">executor_options</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;epochs&quot;</span><span class="p">:</span> <span class="mi">2000</span><span class="p">},</span>
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>    <span class="n">output</span><span class="o">=</span><span class="s2">&quot;results/my_neural_field&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a><span class="p">)</span>
+<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a><span class="n">simulation</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span>
+</code></pre></div>
+<p>The executor owns tensors, architecture, optimization, devices, and framework
+checkpoints. AgentFEM owns the scientific request, executor identity, common
+result schema, evidence, and portable result manifest. <code>executor_options</code> is a
+single explicit mapping rather than an open collection of framework keywords;
+this keeps <code>model.step(...)</code> typo-checkable as providers and frameworks evolve.</p>
+<p>An executor object may expose <code>solve(request)</code> and optional <code>executor_name</code> and
+<code>executor_version</code> attributes. It does not inherit an AgentFEM model class.
+For a mesh-backed MPI model, <code>request.comm</code> exposes the model communicator and
+the executor is called collectively on every rank. The executor owns
+collective training and artifact semantics; AgentFEM creates the output
+directory collectively and writes the scalar result manifest on rank zero.
+Installed provider packages remain useful when a method needs reusable
+lowering, dependency checks, standard artifacts, reference examples, and
+independent benchmarks, but they are accelerators rather than gatekeepers.</p>
+<p>The official companion project is organized as <code>agentfem-learning</code>, with
+method-specific subdomains such as <code>neural_fields.xdem</code>. The repository is
+broad enough to share packaging and evidence infrastructure; each provider
+keeps a narrow scientific identity. Neural operators remain separate from
+neural-field solvers even when both happen to use PyTorch.</p>
 <h2 id="what-is-not-yet-claimed">What Is Not Yet Claimed<a class="headerlink" href="#what-is-not-yet-claimed" title="Permanent link">&para;</a></h2>
 <p>The first phase does not claim:</p>
 <ul>
@@ -1223,7 +1341,7 @@ strong-, weak-, and discrete-residual libraries remain future work.</p>
 </ol>
 <h2 id="reference-example">Reference Example<a class="headerlink" href="#reference-example" title="Permanent link">&para;</a></h2>
 <p>Run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>python<span class="w"> </span>examples/static_elasticity_surrogate_campaign.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>python<span class="w"> </span>examples/static_elasticity_surrogate_campaign.py
 </code></pre></div>
 <p>The example performs actual FEniCSx linear-elasticity cases, resumes completed
 case records, builds a scientific dataset, trains and independently validates a

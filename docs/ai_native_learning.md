@@ -15,6 +15,20 @@ and future training services may supply learning algorithms. AgentFEM owns the
 meaning of inputs and outputs, case identity, simulation evidence, validation,
 applicability, and high-fidelity fallback.
 
+The public `learning` namespace is the umbrella for this boundary. It keeps
+four roles explicit:
+
+```text
+surrogate             parameter or reduced coordinates -> declared response
+neural operator       input functions -> output functions
+neural-field solver   one physical problem -> optimized continuous field
+learned constitutive  local state/history -> local material response
+```
+
+The established `surrogates` module remains public throughout 0.2.x and is
+also available through `learning`. This additive entry improves the conceptual
+map without breaking released projects.
+
 ## The End-to-End Contract
 
 ```text
@@ -245,6 +259,13 @@ guarded = training.guard(fallback=run_one_fenicsx_case)
 print(training.validation.format())
 ```
 
+This workflow does not require an AgentFEM estimator class. A laboratory-owned
+surrogate may implement `fit(ScientificDataset)` and return an object exposing
+`validate(dataset, thresholds=...)`; alternatively, call `dataset.to_torch()`
+and retain the existing training loop unchanged. The stricter protocol is
+needed only when the model should participate in AgentFEM's common split,
+validation, applicability, and FEM-fallback workflow.
+
 ## Three Roles for Learned Models
 
 ### 1. Substitute within a declared domain
@@ -346,6 +367,91 @@ explicit strong, weak, or discrete residual and explicit conditions. A spec
 remains `contract_only` until every named term is bound to reviewed executable
 callables. `TorchPINNAdapter` provides that binding mechanism; reusable
 strong-, weak-, and discrete-residual libraries remain future work.
+
+## Neural-field contracts
+
+`learning.NeuralFieldSpec` generalizes the residual-only PINN contract without
+claiming a universal trainer. It composes:
+
+- named `FieldEncoding` records;
+- one or more `NeuralRepresentation` records stating which fields share a
+  network and which physical features or enrichments alter its approximation
+  space;
+- residual, energy, data, and constraint `ObjectiveTerm` records;
+- conditions with explicit hard, penalty, multiplier, Nitsche, or data
+  enforcement semantics;
+- inspectable domain, boundary, interface, observation, or quadrature sampling;
+- bounded, unit-aware physical parameters for inverse and hybrid workflows;
+- independent reference, condition, balance/energy, sampling-convergence, and
+  optimization-repeatability checks.
+
+The physical coefficient of an objective is distinct from its positive
+optimization weight. For example, external work carries a negative physical
+coefficient in a total-potential-energy objective; changing loss balance must
+not change that sign.
+
+`NeuralFieldSpec.from_pinn(...)` lifts the existing `PINNSpec` into this general
+contract. A declarative specification is not an executable solver. Execution
+may come from a user-owned callable or an installed provider for PyTorch,
+DeepXDE, PhysicsNeMo, DEM, XDEM, or a future framework. Both routes participate
+in the Step lifecycle and return a `SimulationResult` with provider,
+optimization, field, and verification evidence.
+
+XDEM is therefore an optional neural-field provider, not a fracture-specific
+special case in the open core. Its discontinuity and Williams crack-tip terms
+belong to `NeuralRepresentation`; its energy, work, phase-field, and
+irreversibility contributions use the shared objective contract.
+
+### Bring your own model
+
+No official learning package is required to execute a user-owned neural model.
+The smallest integration is an ordinary callable receiving one immutable
+`NeuralFieldExecutionRequest` and returning `SimulationResult`:
+
+```python
+from agentfem import results
+
+
+def solve_with_my_model(request):
+    # Build or train any PyTorch, JAX, DeepXDE, or laboratory model here.
+    result = results.SimulationResult(request.name)
+    result.add_quantity("relative_l2_error", 0.012)
+    result.add_artifact("weights", "my_model.safetensors")
+    return result
+
+
+step = model.step(
+    target=neural_field_spec,
+    executor=solve_with_my_model,
+    executor_name="laboratory.my_model",
+    executor_version="1.0",
+    executor_options={"epochs": 2000},
+    output="results/my_neural_field",
+)
+simulation = step.solve_result()
+```
+
+The executor owns tensors, architecture, optimization, devices, and framework
+checkpoints. AgentFEM owns the scientific request, executor identity, common
+result schema, evidence, and portable result manifest. `executor_options` is a
+single explicit mapping rather than an open collection of framework keywords;
+this keeps `model.step(...)` typo-checkable as providers and frameworks evolve.
+
+An executor object may expose `solve(request)` and optional `executor_name` and
+`executor_version` attributes. It does not inherit an AgentFEM model class.
+For a mesh-backed MPI model, `request.comm` exposes the model communicator and
+the executor is called collectively on every rank. The executor owns
+collective training and artifact semantics; AgentFEM creates the output
+directory collectively and writes the scalar result manifest on rank zero.
+Installed provider packages remain useful when a method needs reusable
+lowering, dependency checks, standard artifacts, reference examples, and
+independent benchmarks, but they are accelerators rather than gatekeepers.
+
+The official companion project is organized as `agentfem-learning`, with
+method-specific subdomains such as `neural_fields.xdem`. The repository is
+broad enough to share packaging and evidence infrastructure; each provider
+keeps a narrow scientific identity. Neural operators remain separate from
+neural-field solvers even when both happen to use PyTorch.
 
 ## What Is Not Yet Claimed
 

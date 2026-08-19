@@ -146,8 +146,12 @@ For a collection of related cases, continue with:
 - Parameter spaces, sampling, case identity, and resumable execution:
   `campaigns/`
 - Unit/shape-aware learning data and simulation provenance: `datasets/`
-- Surrogate/ROM baselines, validation, applicability guards, and
-  neural-operator/PINN contracts: `surrogates/`
+- Unified scientific-learning entry, including surrogate compatibility,
+  neural-operator contracts, provider-neutral neural-field objectives, and the
+  user-owned executor boundary:
+  `learning/`
+- Exact surrogate/ROM baselines, validation, applicability guards, and the
+  0.2.x PINN compatibility API: `surrogates/`
 
 For publication or sensor-aligned field evidence, use one
 `surrogates.AffineCoordinateMap` with `datasets.fem_observation_sample`, then

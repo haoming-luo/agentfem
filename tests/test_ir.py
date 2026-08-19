@@ -112,7 +112,7 @@ def test_public_api_exposes_progressive_discovery_levels():
     expert = set(public_api("expert"))
 
     assert {"studies", "mesh", "models", "fields", "results"} <= core
-    assert {"fracture", "campaigns", "surrogates"} <= advanced
+    assert {"fracture", "campaigns", "learning", "surrogates"} <= advanced
     assert {"ir", "diagnostics", "validation"} <= expert
     assert core | advanced | expert == set(public_api())
     with pytest.raises(ValueError, match="core, advanced, expert, or all"):

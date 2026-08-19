@@ -832,6 +832,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#open-adapters-and-private-domain-products" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open adapters and private domain products
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#compatibility-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1014,6 +1025,17 @@
     <span class="md-ellipsis">
       
         What belongs where
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-adapters-and-private-domain-products" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open adapters and private domain products
       
     </span>
   </a>
@@ -1213,6 +1235,45 @@ library.</p>
 be maintained as a long-lived private branch of the open repository: a branch
 shares history and is easy to merge or publish accidentally, while a separate
 repository has an independent license, release cycle, access policy, and CI.</p>
+<h2 id="open-adapters-and-private-domain-products">Open adapters and private domain products<a class="headerlink" href="#open-adapters-and-private-domain-products" title="Permanent link">&para;</a></h2>
+<p>The same extension boundary supports two deliberately different ecosystems.</p>
+<p>An open companion package connects replaceable computational frameworks
+without making them mandatory AgentFEM dependencies. The official
+<code>agentfem-learning</code> project groups shared packaging and evidence machinery,
+while keeping method-specific providers in explicit subdomains such as
+<code>neural_fields.xdem</code>, <code>neural_fields.deepxde</code>, and <code>neural_operators</code>. A
+third-party method may still use its own distribution. Such a package should
+normally contain:</p>
+<ul>
+<li>the provider binding and pinned upstream compatibility range;</li>
+<li>one small readable example;</li>
+<li>independent reference or FEM benchmark evidence;</li>
+<li>capability and unsupported-case declarations;</li>
+<li>its own tests, release cycle, and software license.</li>
+</ul>
+<p>The package boundary is not required for one laboratory-owned model. A user
+can pass an ordinary callable to <code>model.step(target=spec, executor=...)</code> and
+return <code>SimulationResult</code>. Promote that callable into a companion provider only
+when reusable lowering, dependency checks, standard artifacts, or benchmarked
+capability discovery justify a maintained package.</p>
+<p>A private domain package may contain confidential calibrated materials,
+component templates, proprietary acceptance rules, certified report logic, or
+customer-specific automation. It consumes the same public contracts but stays
+in a separate private repository and package registry. Private parameters and
+source code are not copied into an AgentFEM run record; the record retains only
+the extension identity and non-secret evidence explicitly published by that
+package.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Apache-2.0 AgentFEM core
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>        ├── open solver/learning adapters
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>        ├── open community workflow packs
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>        ├── private material and assessment packages
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        └── private or hosted user products
+</code></pre></div>
+<p>This is not an open-core feature-removal strategy. General scientific concepts,
+interoperability contracts, result evidence, and reference implementations
+belong in the open platform. Scarce domain assets, confidential data, regulated
+workflow policy, hosting, support, and customer-specific engineering may remain
+private or commercial.</p>
 <h2 id="compatibility-policy">Compatibility policy<a class="headerlink" href="#compatibility-policy" title="Permanent link">&para;</a></h2>
 <p>The entry-point name is the stable operational identifier. The private package
 should pin an AgentFEM version range and test its extension against the oldest

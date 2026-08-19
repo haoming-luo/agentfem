@@ -25,6 +25,7 @@ from . import io
 from . import ir
 from . import interfaces
 from . import loads
+from . import learning
 from . import materials
 from . import mechanics
 from . import mesh
@@ -76,6 +77,7 @@ ADVANCED_WORKFLOW_MODULES = (
     "fatigue_fracture",
     "fracture",
     "interfaces",
+    "learning",
     "mechanics",
     "operators",
     "problems",
@@ -161,6 +163,7 @@ __all__ = [
     "io",
     "ir",
     "loads",
+    "learning",
     "materials",
     "mechanics",
     "mesh",

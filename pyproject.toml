@@ -83,6 +83,7 @@ packages = [
   "agentfem.datasets",
   "agentfem.elements",
   "agentfem.kernel",
+  "agentfem.learning",
   "agentfem.knowledge",
   "agentfem.knowledge.benchmarks",
   "agentfem.knowledge.cards",

@@ -88,7 +88,7 @@ jobs:
         run: python -m pytest
 
       - name: Run distributed constraint and result tests
-        run: mpirun -n 2 python -m pytest tests/test_parallel_affine.py tests/test_parallel_cli.py tests/test_parallel_cohesive.py tests/test_parallel_mesh_semantics.py tests/test_parallel_mixed.py tests/test_parallel_results.py tests/test_parallel_transient.py
+        run: mpirun -n 2 python -m pytest tests/test_parallel_affine.py tests/test_parallel_cli.py tests/test_parallel_cohesive.py tests/test_parallel_learning.py tests/test_parallel_mesh_semantics.py tests/test_parallel_mixed.py tests/test_parallel_results.py tests/test_parallel_transient.py
 
       - name: Verify three-owner sparse cohesive exchange
         run: mpirun -n 3 python -m pytest tests/test_parallel_cohesive.py -k "interface_sparse or serial_nonuniform"

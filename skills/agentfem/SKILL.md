@@ -155,6 +155,16 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   run identity, artifacts, and manifest.
 - Treat `agentfem run --json` as the machine boundary. Read the versioned
   execution and result records; do not infer success by matching console text.
+- Use `learning` as the public umbrella but preserve exact roles. A surrogate,
+  neural operator, neural-field solver, and learned constitutive model are not
+  interchangeable. PINN/DEM/XDEM providers must consume explicit objectives,
+  conditions, sampling, and evidence contracts; do not hide them behind a
+  generic AI model label.
+- For a user-owned PINN, DEM, XDEM, or other neural-field implementation, use
+  `model.step(target=spec, executor=...)`. The executor receives one immutable
+  `learning.NeuralFieldExecutionRequest` and must return `SimulationResult`.
+  Do not require an official companion package, inherit an AgentFEM neural
+  model base class, or put live executable objects in result provenance.
 - Inspect external meshes before conversion, retain the conversion manifest,
   and do not call mesh conversion a full Abaqus/ANSYS model import.
 - Read an Abaqus `C3D10H` source directly with `mesh.read_abaqus_mesh(...)`,

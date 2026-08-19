@@ -712,6 +712,18 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `cohesive_surface(*, law, mode: str = 'normal', name: str = 'cohesive surface') -> CohesiveSurface` | Declare a fixed-path zero-thickness cohesive interface. |
 | function | `cohesive_characteristic_length(*, young: float, fracture_energy: float, strength: float) -> float` | Return the declared scale ``E * Gamma / strength**2``. |
 
+## `agentfem.learning`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `ConditionSpec` | A physical condition and the declared way it enters an objective. |
+| class | `NeuralFieldSpec` | Provider-neutral contract for PINN, DEM, XDEM, and related solvers. |
+| class | `NeuralRepresentation` | How one neural function represents one or more unknown fields. |
+| class | `ObjectiveTerm` | One named contribution to a neural-field optimization objective. |
+| class | `SamplingPlan` | Inspectable coordinates or integration samples for one physical set. |
+| class | `TrainableParameter` | A physical parameter inferred jointly with one or more fields. |
+| class | `NeuralFieldExecutionRequest` | Immutable input supplied to a user- or package-owned executor. |
+
 ## `agentfem.mechanics`
 
 | Kind | Public object | Purpose |

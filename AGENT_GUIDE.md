@@ -184,12 +184,15 @@ finite-element simulation with AgentFEM.
   advertise a backend until its capabilities are independently tested.
 - Parameter campaigns and learned models: read
   `docs/ai_native_learning.md`, then inspect `campaigns/`, `datasets/`, and
-  `surrogates/`. Build a fresh model per case; retain units, output shapes,
+  `learning/`. Build a fresh model per case; retain units, output shapes,
   case IDs, validation data, and applicability behavior. Do not present a
   training residual or successful prediction call as independent scientific
   validation. Use `require_dataset(quality="engineering")` for ordinary
   learning data and a release policy when every sample carries a scientific
-  release contract.
+  release contract. A user-owned neural-field model may enter through
+  `model.step(target=spec, executor=...)` without an official adapter, but it
+  must return `SimulationResult`; do not serialize the live callable into
+  provenance or infer scientific validation from training loss.
 - External meshes: inventory with `mesh.inspect_external_mesh(...)` before
   choosing cell/facet types. Preserve conversion manifests and never describe
   mesh conversion as full Abaqus/ANSYS deck import.

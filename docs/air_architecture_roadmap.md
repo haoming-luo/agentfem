@@ -620,10 +620,14 @@ case factory -> FEM execution -> case/run evidence -> scientific dataset
              -> prediction or explicit FEM fallback
 ```
 
-Neural-operator and PINN objects currently define contract-only records for
-field encoding, geometry/mesh policy, physical residuals, conditions, and
-required checks. They are intentionally not executable trainers. Arbitrary UFL
-is not assumed to lower to a differentiable strong residual.
+Neural-operator objects remain declarative, while the narrow
+`TorchPINNAdapter` provides an explicit PyTorch execution route for reviewed
+strong-form residuals. The broader `NeuralFieldSpec` records residual,
+variational-energy, data, and constraint objectives together with conditions,
+sampling, field representations, and inverse parameters. Production
+PINN/VPINN/Deep-Ritz/DEM/XDEM integrations remain optional providers rather
+than bundled trainers. Arbitrary UFL is not assumed to lower automatically to
+a differentiable strong residual.
 
 An MCP or other tool interface should expose operations such as:
 
@@ -855,8 +859,9 @@ The next concrete code changes should be:
     hosted runners produce the same case records.
 14. Add Gaussian-process/ensemble uncertainty adapters and active-learning
     proposal records before automatic retraining.
-15. Implement field projection and reviewed residual families before enabling
-    neural-operator or PINN training adapters.
+15. Implement reviewed field projections, residual/energy families, and
+    benchmark gates before promoting neural-operator or general neural-field
+    providers beyond experimental adapters.
 16. Revisit AF-IR loading/migration/object IDs only alongside an executable
     consumer and golden cases; do not let schema work displace product gates.
 

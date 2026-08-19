@@ -1811,10 +1811,14 @@ without claiming that AF-IR reconstruction or remote execution is complete.</p>
 <a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>             -&gt; learning adapter -&gt; validation -&gt; applicability guard
 <a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>             -&gt; prediction or explicit FEM fallback
 </code></pre></div>
-<p>Neural-operator and PINN objects currently define contract-only records for
-field encoding, geometry/mesh policy, physical residuals, conditions, and
-required checks. They are intentionally not executable trainers. Arbitrary UFL
-is not assumed to lower to a differentiable strong residual.</p>
+<p>Neural-operator objects remain declarative, while the narrow
+<code>TorchPINNAdapter</code> provides an explicit PyTorch execution route for reviewed
+strong-form residuals. The broader <code>NeuralFieldSpec</code> records residual,
+variational-energy, data, and constraint objectives together with conditions,
+sampling, field representations, and inverse parameters. Production
+PINN/VPINN/Deep-Ritz/DEM/XDEM integrations remain optional providers rather
+than bundled trainers. Arbitrary UFL is not assumed to lower automatically to
+a differentiable strong residual.</p>
 <p>An MCP or other tool interface should expose operations such as:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>validate_model
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>explain_model
@@ -2083,8 +2087,9 @@ state which rows are missing.</p>
     hosted runners produce the same case records.</li>
 <li>Add Gaussian-process/ensemble uncertainty adapters and active-learning
     proposal records before automatic retraining.</li>
-<li>Implement field projection and reviewed residual families before enabling
-    neural-operator or PINN training adapters.</li>
+<li>Implement reviewed field projections, residual/energy families, and
+    benchmark gates before promoting neural-operator or general neural-field
+    providers beyond experimental adapters.</li>
 <li>Revisit AF-IR loading/migration/object IDs only alongside an executable
     consumer and golden cases; do not let schema work displace product gates.</li>
 </ol>

@@ -55,5 +55,7 @@
 - `campaigns/`: typed parameters, deterministic sampling, case plans,
   resumable execution, and MPI-aware persistence
 - `datasets/`: unit/shape-aware learning data and case provenance
+- `learning/`: public scientific-learning umbrella and provider-neutral
+  neural-field objectives, conditions, sampling, and inferred parameters
 - `surrogates/`: baseline learned/ROM models, validation, applicability guards,
   and neural-operator/PINN contracts

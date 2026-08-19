@@ -485,6 +485,26 @@ encoding, projection to and from FEM spaces, and field/physics validation. An
 architecture name such as FNO or DeepONet does not supply this scientific
 contract by itself.
 
+## Neural Field Solver
+
+A method that represents the unknown field of one physical problem with a
+neural function and solves that problem by optimizing residual, variational,
+energy, data, or constraint objectives. Strong-form PINNs, VPINNs, Deep Ritz,
+DEM, and XDEM belong to this family. Unlike a surrogate or neural operator, a
+neural-field solver normally performs a new optimization for each physical
+problem or load history.
+
+`learning.NeuralFieldSpec` declares fields, objective terms, physical
+conditions, neural representations and enrichments, sampling, inferred
+parameters, and verification obligations without selecting PyTorch, DeepXDE,
+PhysicsNeMo, XDEM, or another provider.
+A user-owned callable may execute that contract directly through
+`model.step(target=spec, executor=...)`; it receives one immutable
+`NeuralFieldExecutionRequest` and must return `SimulationResult`. An installed
+provider remains appropriate for reusable lowering, dependency checks,
+standard artifacts, and benchmarked SolutionProcedures. Neither route makes a
+training framework part of the AgentFEM core.
+
 ## Physics-Informed Model
 
 A learning workflow with explicit strong, weak, or discrete physics residuals

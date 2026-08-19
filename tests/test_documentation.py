@@ -24,6 +24,7 @@ def test_documentation_machine_entrypoints_are_current():
     assert manifest["agent_entrypoints"]["guide"] == "agents/"
     assert "models" in manifest["public_workflow_modules"]
     assert "models" in manifest["public_api"]["core"]
+    assert "learning" in manifest["public_api"]["advanced"]
     assert "surrogates" in manifest["public_api"]["advanced"]
     assert "backends" in manifest["public_api"]["expert"]
     assert "step" in manifest["model_api"]["core"]
@@ -79,6 +80,8 @@ def test_generated_api_covers_public_workflow_objects():
     assert "rectangle" in reference
     assert "## `agentfem.results`" in reference
     assert "SimulationResult" in reference
+    assert "## `agentfem.learning`" in reference
+    assert "NeuralFieldSpec" in reference
 
 
 def test_site_navigation_uses_scientific_manual_structure():

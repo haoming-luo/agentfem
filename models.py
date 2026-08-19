@@ -1364,6 +1364,8 @@ class Model:
         constraints=None,
         solver_options=None,
         output=None,
+        executor=None,
+        executor_options=None,
         progress: bool | None = None,
         checkpoint=None,
         name: str | None = None,
@@ -1404,6 +1406,8 @@ class Model:
             "steps": steps,
             "duration": duration,
             "output": output,
+            "executor": executor,
+            "executor_options": executor_options,
             "progress": progress,
             "checkpoint": checkpoint,
         }

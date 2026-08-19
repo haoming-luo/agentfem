@@ -52,6 +52,7 @@ This map links FEM concepts to the current Python modules.
 | Explicit installed/private package discovery and staged registration | `extensions.py` |
 | Typed/JSON parameters, sampling, campaign plans, resumable case execution | `campaigns/` |
 | Scientific dataset schemas, arrays, provenance, splits, and FEM-field export | `datasets/` |
+| Unified learning entry; neural-field objectives, conditions, sampling, inferred parameters, and compatibility access | `learning/` |
 | Surrogate/ROM models, validation, applicability, observation grids, neural-operator/PINN contracts | `surrogates/` |
 
 Application geometry, case inputs, and problem-specific sources should stay in

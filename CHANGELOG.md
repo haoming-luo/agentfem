@@ -6,7 +6,26 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
-No user-visible changes have been recorded after 0.2.1.
+### Added
+
+- Add a framework-neutral neural-field executor boundary: user-owned PyTorch,
+  JAX, DeepXDE, or laboratory solvers can consume
+  `NeuralFieldExecutionRequest` through `model.step(..., executor=...)` and
+  return the common `SimulationResult` without an official learning package.
+- Add `agentfem.learning` as the public scientific-learning entry point while
+  preserving `agentfem.surrogates` throughout the 0.2.x compatibility line.
+- Add declarative neural-field contracts for residual, variational-energy,
+  data, and constraint objectives; boundary/initial/interface conditions;
+  sampling; neural representations; and inverse parameters. These contracts
+  cover future PINN, VPINN, Deep-Ritz/DEM, XDEM, and related providers without
+  claiming that those external trainers are bundled in the core package.
+
+### Changed
+
+- Clarify the open extension boundary: third-party learning engines belong in
+  optional provider distributions, while confidential customer data,
+  calibration assets, and domain products remain in independent private
+  packages rather than private branches of the open core.
 
 ## [0.2.1] - 2026-08-17
 
