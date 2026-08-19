@@ -28,11 +28,18 @@ computation, data, and AI.
 
 ## All You Need Is an Agent
 
-> [!IMPORTANT]
+> [!TIP]
 > **Copy this prompt into Codex or another coding agent:**
 
 ```text
-Use https://github.com/haoming-luo/agentfem to install AgentFEM in a compatible isolated environment. Read AGENT_GUIDE.md, run `agentfem doctor`, then create, run, verify, and explain my first finite-element model.
+Bring AgentFEM to life.
+
+Install it from https://github.com/haoming-luo/agentfem in a
+compatible isolated environment. Read AGENT_GUIDE.md and run
+`agentfem doctor`.
+
+When it is ready, reply briefly with the environment, AgentFEM
+version, and health-check result.
 ```
 
 AgentFEM includes the guidance and machine-readable interfaces an agent needs.
