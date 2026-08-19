@@ -10,19 +10,20 @@ include CONCEPTS.md
 include AGENT_GUIDE.md
 include pyproject.toml
 include environment.yml
+include src/agentfem/py.typed
 include logo/AgentFEM_logo.png
 include logo/AgentFEM_logo_transparent.png
 include logo/README.md
-recursive-include materials/data *.json
+recursive-include src/agentfem/materials/data *.json
 recursive-include docs *.md
-recursive-include release *.json
+recursive-include src/agentfem/release *.json
 recursive-include skills *.md *.yaml
-recursive-include templates *.py *.toml *.md
+recursive-include src/agentfem/templates *.py *.toml *.md
 recursive-include examples *.py *.md *.json *.inp *.dat *.mpc
-recursive-include benchmarks *.py *.md
-recursive-include knowledge *.json *.md
-recursive-include elements *.md
-recursive-include operators *.md
+recursive-include src/agentfem/benchmarks *.py *.md
+recursive-include src/agentfem/knowledge *.json *.md
+recursive-include src/agentfem/elements *.md
+recursive-include src/agentfem/operators *.md
 recursive-include tests *.py
 prune site
 prune examples_output

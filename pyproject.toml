@@ -71,7 +71,7 @@ ml = ["torch"]
 dev = ["build", "pytest", "ruff>=0.16,<0.17", "twine"]
 
 [tool.setuptools]
-package-dir = { "agentfem" = "." }
+package-dir = { "" = "src" }
 packages = [
   "agentfem",
   "agentfem.benchmarks",
@@ -125,11 +125,11 @@ packages = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
-# The repository root is the ``agentfem`` package directory. Unit and MPI
-# tests intentionally exercise the checkout; release_gate.py separately
+# The ``src/agentfem`` directory is the package source. Unit and MPI tests
+# intentionally exercise the checkout; release_gate.py separately
 # installs and verifies the exact wheel so the two evidence paths cannot be
 # confused with a stale environment installation.
-pythonpath = [".."]
+pythonpath = ["src"]
 
 [tool.ruff]
 target-version = "py311"

@@ -61,9 +61,8 @@ unless the example is intentionally advanced.
    Advanced interoperability and finite-deformation reference. Imports a real
    Abaqus `C3D10H` mesh, preserves hybrid identity and node labels, eliminates 4,212 periodic
    `*EQUATION` constraints, solves a 3D Neo-Hookean load path, and writes
-   scale-one deformed VTU/PNG evidence. Read the folder README before treating
-   it as an Abaqus comparison: the unavailable user material and user MPC are
-   deliberately replaced by explicit AgentFEM semantics.
+   scale-one deformed VTU/PNG evidence. Read the folder README for the source
+   mapping, boundary semantics, numerical formulation, and result contract.
 
 ## Run
 

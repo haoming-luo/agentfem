@@ -67,7 +67,7 @@ those immutable artifacts through:
 | Dynamic cohesive fracture and cyclic cohesive fatigue | Experimental |
 
 The machine-readable scope is
-[`release/0.2.0.json`](https://github.com/haoming-luo/agentfem/blob/main/release/0.2.0.json).
+[`agentfem/release/0.2.0.json`](https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/release/0.2.0.json).
 It states both executable evidence and claims that this release does not make.
 
 ## Upgrade notes

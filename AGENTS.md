@@ -2,6 +2,8 @@
 
 AgentFEM is a FEniCSx-first finite-element platform. Keep one readable public
 Python workflow for humans, terminals, GUI clients, and AI agents.
+Runtime package code lives under `src/agentfem/`; keep repository-level tools,
+examples, tests, and public documentation at the repository root.
 
 ## Environment and checks
 

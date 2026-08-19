@@ -1,5 +1,7 @@
 # Module Map Reference
 
+Repository package paths below are relative to `src/agentfem/`.
+
 - `mesh/`: mesh import/read/write, boundary/cell regions, summaries, tag
   checks, tags, and measures
 - `mesh/formats.py`: external CAE inventory, cell/facet conversion, set tags,

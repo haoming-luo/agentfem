@@ -1,7 +1,8 @@
 from pathlib import Path
 import tomllib
 
-from agentfem import __version__, cli, release_gate
+import release_gate
+from agentfem import __version__, cli
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -62,7 +63,7 @@ def test_test_workflow_runs_the_versioned_critical_static_analysis_gate():
     ).read_text(encoding="utf-8")
 
     assert configuration["tool"]["ruff"]["target-version"] == "py311"
-    assert configuration["tool"]["pytest"]["ini_options"]["pythonpath"] == [".."]
+    assert configuration["tool"]["pytest"]["ini_options"]["pythonpath"] == ["src"]
     assert configuration["tool"]["ruff"]["lint"]["select"] == [
         "E9",
         "F63",
@@ -76,7 +77,7 @@ def test_test_workflow_runs_the_versioned_critical_static_analysis_gate():
 
 def test_source_and_installed_distribution_evidence_are_separate():
     configuration = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text())
-    assert configuration["tool"]["pytest"]["ini_options"]["pythonpath"] == [".."]
+    assert configuration["tool"]["pytest"]["ini_options"]["pythonpath"] == ["src"]
     assert "_check_installed_identity(wheel=wheel)" in (
         PROJECT_ROOT / "release_gate.py"
     ).read_text()

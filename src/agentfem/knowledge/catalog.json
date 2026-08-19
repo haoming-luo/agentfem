@@ -3,231 +3,231 @@
     {
       "id": "agentfem.benchmark.arrhenius_global_creep",
       "physics": "three-dimensional small-strain Mises power-law creep with a prescribed nonuniform Arrhenius temperature field",
-      "source": "knowledge/benchmarks/arrhenius_global_creep.json",
+      "source": "src/agentfem/knowledge/benchmarks/arrhenius_global_creep.json",
       "status": "automated_regression",
       "title": "Nonuniform-temperature global Arrhenius creep patch"
     },
     {
       "id": "agentfem.benchmark.c3d10h_periodic_cell",
       "physics": "three-dimensional near-incompressible mixed Neo-Hookean periodic homogenization",
-      "source": "knowledge/benchmarks/c3d10h_periodic_cell.json",
+      "source": "src/agentfem/knowledge/benchmarks/c3d10h_periodic_cell.json",
       "status": "manual_release_regression",
       "title": "Imported C3D10H near-incompressible periodic cell"
     },
     {
       "id": "agentfem.benchmark.cae_reliability_cliffs",
       "physics": "cross-cutting finite-element verification",
-      "source": "knowledge/benchmarks/cae_reliability_cliffs.json",
+      "source": "src/agentfem/knowledge/benchmarks/cae_reliability_cliffs.json",
       "status": "partial_automated_suite",
       "title": "CAE reliability cliffs: orientation, discretization, and reference applicability"
     },
     {
       "id": "agentfem.benchmark.campaign_surrogate_pipeline",
       "physics": "parameterized small-strain isotropic linear elasticity",
-      "source": "knowledge/benchmarks/campaign_surrogate_pipeline.json",
+      "source": "src/agentfem/knowledge/benchmarks/campaign_surrogate_pipeline.json",
       "status": "executable_integration",
       "title": "Static-elasticity campaign to guarded surrogate pipeline"
     },
     {
       "id": "agentfem.benchmark.classical_sub_rayleigh_crack_v3",
       "physics": "precracked compressible Neo-Hookean strip with a fixed-path bilinear Mode-I cohesive interface",
-      "source": "knowledge/benchmarks/classical_sub_rayleigh_crack_v3.json",
+      "source": "src/agentfem/knowledge/benchmarks/classical_sub_rayleigh_crack_v3.json",
       "status": "experimental_v3_guardrail_automated",
       "title": "Classical sub-Rayleigh cohesive crack guardrail"
     },
     {
       "id": "agentfem.benchmark.creep_abaqus_constant_stress",
       "physics": "three-dimensional small-strain Mises time-hardening power-law creep",
-      "source": "knowledge/benchmarks/creep_abaqus_constant_stress.json",
+      "source": "src/agentfem/knowledge/benchmarks/creep_abaqus_constant_stress.json",
       "status": "automated_external_verification",
       "title": "Official Abaqus time-hardening constant-stress creep case"
     },
     {
       "id": "agentfem.benchmark.creep_damage_material_paths",
       "physics": "Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection",
-      "source": "knowledge/benchmarks/creep_damage_material_paths.json",
+      "source": "src/agentfem/knowledge/benchmarks/creep_damage_material_paths.json",
       "status": "automated_regression",
       "title": "Creep-damage material paths and curve projection"
     },
     {
       "id": "agentfem.benchmark.creep_hot_wall_release",
       "physics": "sequential transient heat conduction, plane-strain thermoelasticity, and local creep-damage assessment",
-      "source": "knowledge/benchmarks/creep_hot_wall_release.json",
+      "source": "src/agentfem/knowledge/benchmarks/creep_hot_wall_release.json",
       "status": "automated_regression",
       "title": "Sequential hot-wall creep assessment release contract"
     },
     {
       "id": "agentfem.benchmark.cyclic_cohesive_global_lifecycle",
       "physics": "Quasi-static force-controlled fixed-path Mode-I cohesive fatigue",
-      "source": "knowledge/benchmarks/cyclic_cohesive_global_lifecycle.json",
+      "source": "src/agentfem/knowledge/benchmarks/cyclic_cohesive_global_lifecycle.json",
       "status": "experimental_automated_foundation",
       "title": "Global cyclic cohesive transaction, cutback, restart and named 3D interfaces"
     },
     {
       "id": "agentfem.benchmark.delamination_structural_family",
       "physics": "Fixed-path delamination under DCB Mode I, ENF Mode II and MMB mixed-mode loading",
-      "source": "knowledge/benchmarks/delamination_structural_family.json",
+      "source": "src/agentfem/knowledge/benchmarks/delamination_structural_family.json",
       "status": "analytical_oracles_automated_external_curves_pending",
       "title": "DCB, ENF and MMB structural cohesive verification family"
     },
     {
       "id": "agentfem.benchmark.distributed_cohesive_force",
       "physics": "Two-dimensional normal and mixed-mode bilinear cohesive interfaces in finite-strain assembly and Explicit dynamics",
-      "source": "knowledge/benchmarks/distributed_cohesive_force.json",
+      "source": "src/agentfem/knowledge/benchmarks/distributed_cohesive_force.json",
       "status": "experimental_mpi_sparse_automated",
       "title": "Two-rank sparse fixed-path cohesive force and portable restart"
     },
     {
       "id": "agentfem.benchmark.dynamic_fracture_energy_v2",
       "physics": "Total-Lagrangian Neo-Hookean dynamics with optional Mode-I cohesive separation",
-      "source": "knowledge/benchmarks/dynamic_fracture_energy_v2.json",
+      "source": "src/agentfem/knowledge/benchmarks/dynamic_fracture_energy_v2.json",
       "status": "experimental_v2_automated",
       "title": "Finite-strain and cohesive dynamic energy closure"
     },
     {
       "id": "agentfem.benchmark.elasticity_foundation",
       "physics": "two- and three-dimensional small-strain linear elasticity",
-      "source": "knowledge/benchmarks/elasticity_foundation.json",
+      "source": "src/agentfem/knowledge/benchmarks/elasticity_foundation.json",
       "status": "automated",
       "title": "Foundational small-strain elasticity verification"
     },
     {
       "id": "agentfem.benchmark.finite_strain_incremental_waves_v1",
       "physics": "compressible Neo-Hookean small-on-large elastodynamics",
-      "source": "knowledge/benchmarks/finite_strain_incremental_waves_v1.json",
+      "source": "src/agentfem/knowledge/benchmarks/finite_strain_incremental_waves_v1.json",
       "status": "experimental_v1_automated",
       "title": "Neo-Hookean small-on-large wave oracle"
     },
     {
       "id": "agentfem.benchmark.implicit_creep_relaxation",
       "physics": "three-dimensional small-strain isotropic Mises power-law creep",
-      "source": "knowledge/benchmarks/implicit_creep_relaxation.json",
+      "source": "src/agentfem/knowledge/benchmarks/implicit_creep_relaxation.json",
       "status": "automated_regression",
       "title": "Three-dimensional implicit power-law creep relaxation and restart"
     },
     {
       "id": "agentfem.benchmark.j2_abaqus_rate_independent",
       "physics": "three-dimensional small-strain Mises plasticity with linear isotropic hardening",
-      "source": "knowledge/benchmarks/j2_abaqus_rate_independent.json",
+      "source": "src/agentfem/knowledge/benchmarks/j2_abaqus_rate_independent.json",
       "status": "automated_external_verification",
       "title": "Published Abaqus rate-independent Mises plasticity uniaxial state"
     },
     {
       "id": "agentfem.benchmark.j2_global_restart",
       "physics": "three-dimensional small-strain Mises plasticity with linear isotropic hardening",
-      "source": "knowledge/benchmarks/j2_global_restart.json",
+      "source": "src/agentfem/knowledge/benchmarks/j2_global_restart.json",
       "status": "automated_regression",
       "title": "Three-dimensional J2 path, physical cutback, cyclic amplitude, energy, and restart equivalence"
     },
     {
       "id": "agentfem.benchmark.j2_multielement_patch",
       "physics": "three-dimensional small-strain rate-independent J2 plasticity with linear isotropic hardening",
-      "source": "knowledge/benchmarks/j2_multielement_patch.json",
+      "source": "src/agentfem/knowledge/benchmarks/j2_multielement_patch.json",
       "status": "automated",
       "title": "Multi-element global J2 plasticity patch"
     },
     {
       "id": "agentfem.benchmark.j2_nonuniform_bending",
       "physics": "three-dimensional small-strain Mises plasticity with linear isotropic hardening under displacement-controlled bending",
-      "source": "knowledge/benchmarks/j2_nonuniform_bending.json",
+      "source": "src/agentfem/knowledge/benchmarks/j2_nonuniform_bending.json",
       "status": "automated_regression",
       "title": "Nonuniform three-dimensional J2 bending path"
     },
     {
       "id": "agentfem.benchmark.j2_thick_cylinder_mpi",
       "physics": "three-dimensional extrusion of a plane-strain quarter cylinder with small-strain Mises plasticity and linear isotropic hardening",
-      "source": "knowledge/benchmarks/j2_thick_cylinder_mpi.json",
+      "source": "src/agentfem/knowledge/benchmarks/j2_thick_cylinder_mpi.json",
       "status": "automated_external_structural_mpi",
       "title": "Public thick-cylinder J2 structural benchmark in serial and MPI"
     },
     {
       "id": "agentfem.benchmark.jmps_weak_interface_convergence_v4",
       "physics": "near-incompressible finite-strain plane-stress Neo-Hookean strip with ten or more cells through the height, homogeneous preload, smooth remote impact, a fixed bilinear Mode-I cohesive interface, and a precrack",
-      "source": "knowledge/benchmarks/jmps_weak_interface_convergence_v4.json",
+      "source": "src/agentfem/knowledge/benchmarks/jmps_weak_interface_convergence_v4.json",
       "status": "experimental_v4_2d_convergence_accepted",
       "title": "Two-dimensional weak-interface supershear refinement contract"
     },
     {
       "id": "agentfem.benchmark.jmps_weak_interface_transition_v4",
       "physics": "near-incompressible finite-strain plane-stress Neo-Hookean strip with homogeneous preload, smooth remote impact, a fixed zero-thickness bilinear Mode-I interface, and a precrack",
-      "source": "knowledge/benchmarks/jmps_weak_interface_transition_v4.json",
+      "source": "src/agentfem/knowledge/benchmarks/jmps_weak_interface_transition_v4.json",
       "status": "experimental_v4_mechanism_executable",
       "title": "Prestressed weak-interface crack-to-supershear-to-spall mechanism ladder"
     },
     {
       "id": "agentfem.benchmark.linear_static_cantilever",
       "physics": "small-strain isotropic linear elasticity in plane strain",
-      "source": "knowledge/benchmarks/linear_static_cantilever.json",
+      "source": "src/agentfem/knowledge/benchmarks/linear_static_cantilever.json",
       "status": "numerical_regression",
       "title": "Two-dimensional linear-static cantilever"
     },
     {
       "id": "agentfem.benchmark.mixed_mode_bending_external_contract",
       "physics": "Mixed-mode bending delamination or a mechanically equivalent fixed-path cohesive structure with measured load, displacement, crack length, and Mode-I fraction",
-      "source": "knowledge/benchmarks/mixed_mode_bending_external_contract.json",
+      "source": "src/agentfem/knowledge/benchmarks/mixed_mode_bending_external_contract.json",
       "status": "contract_ready_external_data_pending",
       "title": "Source-identified mixed-mode bending curve comparison"
     },
     {
       "id": "agentfem.benchmark.mixed_mode_cyclic_cohesive_foundation",
       "physics": "Fixed-path proportional and ordered non-proportional mixed-mode cyclic cohesive degradation",
-      "source": "knowledge/benchmarks/mixed_mode_cyclic_cohesive_foundation.json",
+      "source": "src/agentfem/knowledge/benchmarks/mixed_mode_cyclic_cohesive_foundation.json",
       "status": "experimental_automated_foundation",
       "title": "Mixed-mode cyclic cohesive paths, energy lifecycle and portable state"
     },
     {
       "id": "agentfem.benchmark.mooney_rivlin_material_paths",
       "physics": "incompressible plane-stress Mooney--Rivlin hyperelasticity",
-      "source": "knowledge/benchmarks/mooney_rivlin_material_paths.json",
+      "source": "src/agentfem/knowledge/benchmarks/mooney_rivlin_material_paths.json",
       "status": "experimental_automated_regression",
       "title": "Mooney--Rivlin material-path and Explicit-consumer contract"
     },
     {
       "id": "agentfem.benchmark.neo_hookean_release",
       "physics": "compressible Neo-Hookean hyperelasticity",
-      "source": "knowledge/benchmarks/neo_hookean_release.json",
+      "source": "src/agentfem/knowledge/benchmarks/neo_hookean_release.json",
       "status": "automated_regression",
       "title": "Compressible Neo-Hookean finite-strain release contract"
     },
     {
       "id": "agentfem.benchmark.operator_contracts",
       "physics": "backend-facing finite-element operator algebra",
-      "source": "knowledge/benchmarks/operator_contracts.json",
+      "source": "src/agentfem/knowledge/benchmarks/operator_contracts.json",
       "status": "automated",
       "title": "Operator role, system, and residual-linearization contracts"
     },
     {
       "id": "agentfem.benchmark.plane_stress_thin_3d_crosscheck",
       "physics": "compressible Neo-Hookean finite strain under homogeneous uniaxial stretch with traction-free lateral and thickness directions",
-      "source": "knowledge/benchmarks/plane_stress_thin_3d_crosscheck.json",
+      "source": "src/agentfem/knowledge/benchmarks/plane_stress_thin_3d_crosscheck.json",
       "status": "experimental_geometry_crosscheck_automated",
       "title": "Finite-strain plane-stress and thin-three-dimensional patch cross-check"
     },
     {
       "id": "agentfem.benchmark.thermoelastic_free_expansion",
       "physics": "small-strain isotropic plane-stress thermoelasticity under uniform temperature change",
-      "source": "knowledge/benchmarks/thermoelastic_free_expansion.json",
+      "source": "src/agentfem/knowledge/benchmarks/thermoelastic_free_expansion.json",
       "status": "automated_regression",
       "title": "Plane-stress isotropic free thermal expansion"
     },
     {
       "id": "agentfem.benchmark.transient_heat_release",
       "physics": "two-dimensional transient heat conduction with constant isotropic properties",
-      "source": "knowledge/benchmarks/transient_heat_release.json",
+      "source": "src/agentfem/knowledge/benchmarks/transient_heat_release.json",
       "status": "numerical_regression",
       "title": "Implicit-Euler transient heat release regression"
     },
     {
       "id": "agentfem.benchmark.vector_cohesive_interface",
       "physics": "Two- and three-dimensional fixed-path cohesive interfaces under normal, shear, mixed and compressive separation",
-      "source": "knowledge/benchmarks/vector_cohesive_interface.json",
+      "source": "src/agentfem/knowledge/benchmarks/vector_cohesive_interface.json",
       "status": "experimental_automated_foundation",
       "title": "Vector cohesive kinematics, mixed-mode energy and model rank"
     },
     {
       "id": "agentfem.benchmark.wave_release",
       "physics": "two-dimensional plane-strain linear elastodynamics",
-      "source": "knowledge/benchmarks/wave_release.json",
+      "source": "src/agentfem/knowledge/benchmarks/wave_release.json",
       "status": "automated_regression",
       "title": "Explicit elastic-wave inclusion release contract"
     }
@@ -247,7 +247,7 @@
         "agentfem.workflow.standard_result_projection",
         "agentfem.operator.system_contracts"
       ],
-      "source": "knowledge/cards/surface_resultant_load.json",
+      "source": "src/agentfem/knowledge/cards/surface_resultant_load.json",
       "status": "supported",
       "summary": "Converts an engineering total force into a uniform reference-boundary traction while preserving the requested MPI-global resultant.",
       "title": "Uniform boundary traction from a requested resultant force"
@@ -266,7 +266,7 @@
         "agentfem.material.j2_global_plasticity",
         "agentfem.workflow.thermoelastic_analysis"
       ],
-      "source": "knowledge/cards/creep_damage_assessment.json",
+      "source": "src/agentfem/knowledge/cards/creep_damage_assessment.json",
       "status": "supported",
       "summary": "Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, kept distinct from the implemented global isothermal/Arrhenius power-law creep route.",
       "title": "Creep damage and modified-theta assessment"
@@ -302,7 +302,7 @@
         "agentfem.workflow.distributed_cohesive_force",
         "agentfem.workflow.dynamic_fracture_v5_evidence"
       ],
-      "source": "knowledge/cards/cyclic_cohesive_fatigue.json",
+      "source": "src/agentfem/knowledge/cards/cyclic_cohesive_fatigue.json",
       "status": "experimental",
       "summary": "Layers a thresholded, irreversible opening-range fatigue state on the exact bilinear Mode-I monotonic limit and advances accepted integer cycle blocks through explicit begin, commit, rollback and restart semantics.",
       "title": "Cyclic cohesive damage with an independent cycle coordinate"
@@ -323,7 +323,7 @@
         "agentfem.workflow.solution_procedures",
         "agentfem.material.mixed_hybrid_hyperelasticity"
       ],
-      "source": "knowledge/cards/finite_strain_plane_stress.json",
+      "source": "src/agentfem/knowledge/cards/finite_strain_plane_stress.json",
       "status": "experimental",
       "summary": "Enforces P33=0 through a positive local thickness stretch and uses the same condensed energy, in-plane first-Piola stress, and Schur-complement tangent in static and Explicit finite-strain workflows.",
       "title": "Locally condensed finite-strain plane-stress Neo-Hookean membrane"
@@ -344,7 +344,7 @@
         "agentfem.material.creep_damage_assessment",
         "agentfem.workflow.solution_procedures"
       ],
-      "source": "knowledge/cards/global_implicit_creep.json",
+      "source": "src/agentfem/knowledge/cards/global_implicit_creep.json",
       "status": "supported",
       "summary": "Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, optional scalar or field-driven Arrhenius temperature dependence, atomic rollback, serial restart, and standard creep fields.",
       "title": "Global implicit power-law creep"
@@ -361,7 +361,7 @@
       "related_cards": [
         "agentfem.workflow.solution_procedures"
       ],
-      "source": "knowledge/cards/j2_global_plasticity.json",
+      "source": "src/agentfem/knowledge/cards/j2_global_plasticity.json",
       "status": "supported",
       "summary": "Three-dimensional Mises plasticity with linear isotropic hardening, a shared quadrature transaction, analytical algorithmic tangent, cyclic amplitude paths, physical-increment cutback, cumulative serial restart, standard fields, and work/energy histories verified on homogeneous and nonuniform structural paths.",
       "title": "Global small-strain J2 plasticity"
@@ -378,7 +378,7 @@
         "agentfem.load.surface_resultant",
         "agentfem.workflow.standard_result_projection"
       ],
-      "source": "knowledge/cards/mixed_hybrid_hyperelasticity.json",
+      "source": "src/agentfem/knowledge/cards/mixed_hybrid_hyperelasticity.json",
       "status": "supported",
       "summary": "Solves finite-strain equilibrium with quadratic displacement and one independent constant pressure unknown per cell, including automatic incrementation, Newton tangent, rollback, and positive-J acceptance.",
       "title": "Constant-pressure mixed Neo-Hookean solid"
@@ -407,7 +407,7 @@
         "agentfem.workflow.vector_cohesive_interface",
         "agentfem.workflow.cohesive_state_portability"
       ],
-      "source": "knowledge/cards/mixed_mode_cyclic_cohesive.json",
+      "source": "src/agentfem/knowledge/cards/mixed_mode_cyclic_cohesive.json",
       "status": "experimental",
       "summary": "Layers explicit proportional-extrema or ordered within-cycle local cohesive-energy drivers on the mixed-mode bilinear envelope while preserving full jump vectors, BK or power interaction, atomic cycle transactions and physically keyed restart.",
       "title": "Proportional and ordered-path mixed-mode cyclic cohesive damage"
@@ -425,7 +425,7 @@
         "agentfem.material.finite_strain_plane_stress",
         "agentfem.workflow.dynamic_fracture_v5_evidence"
       ],
-      "source": "knowledge/cards/mooney_rivlin_hyperelasticity.json",
+      "source": "src/agentfem/knowledge/cards/mooney_rivlin_hyperelasticity.json",
       "status": "experimental",
       "summary": "Provides a compressible three-dimensional Mooney--Rivlin energy and the exact incompressible plane-stress sheet reduction of Wang--Fineberg--Needleman Eq. (17), consumed by static and finite-strain Explicit workflows.",
       "title": "Mooney--Rivlin finite-strain solids and incompressible sheets"
@@ -447,7 +447,7 @@
         "agentfem.workflow.thermoelastic_analysis",
         "agentfem.material.j2_global_plasticity"
       ],
-      "source": "knowledge/cards/operator_system_contracts.json",
+      "source": "src/agentfem/knowledge/cards/operator_system_contracts.json",
       "status": "supported",
       "summary": "Names, composes, validates, and records matrix, vector, residual, scalar, and K/M/C/F system structure while delegating symbolic weak-form execution to UFL and DOLFINx.",
       "title": "Finite-element operator and system contracts"
@@ -465,7 +465,7 @@
         "agentfem.workflow.coordinate_reference_coupling",
         "agentfem.load.surface_resultant"
       ],
-      "source": "knowledge/cards/abaqus_engineering_regions.json",
+      "source": "src/agentfem/knowledge/cards/abaqus_engineering_regions.json",
       "status": "supported",
       "summary": "Promotes source-labelled Abaqus NSET and supported exterior SURFACE definitions into distinct DOLFINx node and facet regions.",
       "title": "Abaqus node sets and element-face surfaces as FEM regions"
@@ -483,7 +483,7 @@
         "agentfem.operator.system_contracts",
         "agentfem.workflow.solution_procedures"
       ],
-      "source": "knowledge/cards/campaign_learning_pipeline.json",
+      "source": "src/agentfem/knowledge/cards/campaign_learning_pipeline.json",
       "status": "supported",
       "summary": "Turns quality-gated deterministic simulations into scientific datasets, independent surrogate validation, optional PyTorch tensors, applicability decisions, and explicit high-fidelity fallback.",
       "title": "Simulation campaign to guarded learning workflow"
@@ -502,7 +502,7 @@
         "agentfem.workflow.dynamic_fracture_v5_evidence",
         "agentfem.workflow.distributed_cohesive_force"
       ],
-      "source": "knowledge/cards/cohesive_state_portability.json",
+      "source": "src/agentfem/knowledge/cards/cohesive_state_portability.json",
       "status": "experimental",
       "summary": "Assigns every locally visible cohesive facet one deterministic MPI owner and saves every declared committed quadrature-state field by ordered physical facet key, allowing a changed facet order or MPI rank count to recover the same irreversible monotonic or cyclic state.",
       "title": "Physical-keyed cohesive state across MPI partitions"
@@ -522,7 +522,7 @@
         "agentfem.load.surface_resultant",
         "agentfem.operator.system_contracts"
       ],
-      "source": "knowledge/cards/coordinate_reference_coupling.json",
+      "source": "src/agentfem/knowledge/cards/coordinate_reference_coupling.json",
       "status": "supported",
       "summary": "Maps explicit local components to global finite-element loads and applies force/moment or known rigid motion through a named continuum reference point.",
       "title": "Local coordinates and reference-point continuum coupling"
@@ -545,7 +545,7 @@
         "agentfem.material.cyclic_cohesive_fatigue",
         "agentfem.workflow.coordinate_reference_coupling"
       ],
-      "source": "knowledge/cards/cyclic_work_energy_ledger.json",
+      "source": "src/agentfem/knowledge/cards/cyclic_work_energy_ledger.json",
       "status": "experimental",
       "summary": "Accounts named force-motion and material-energy channels in the same begin/commit/rollback and restart boundary as a global fatigue cycle block.",
       "title": "Transactional generalized work and cycle-block energy ledger"
@@ -566,7 +566,7 @@
         "agentfem.workflow.dynamic_fracture_v5_evidence",
         "agentfem.workflow.transient_checkpoint_portability"
       ],
-      "source": "knowledge/cards/distributed_cohesive_force.json",
+      "source": "src/agentfem/knowledge/cards/distributed_cohesive_force.json",
       "status": "experimental",
       "summary": "Recovers a split two-dimensional interface from declared cell sides, builds one durable input-node owner schedule, exchanges only required remote traces and force contributions, evaluates every physical facet on exactly one balanced deterministic rank, and writes only owned displacement entries.",
       "title": "Sparse physical-keyed cohesive force assembly across MPI ranks"
@@ -595,7 +595,7 @@
         "agentfem.workflow.cohesive_state_portability",
         "agentfem.workflow.distributed_cohesive_force"
       ],
-      "source": "knowledge/cards/dynamic_fracture_v5_evidence.json",
+      "source": "src/agentfem/knowledge/cards/dynamic_fracture_v5_evidence.json",
       "status": "experimental",
       "summary": "Pins public fracture observations by version and hash, preserves accepted cohesive-interface traces, estimates fronts from multiple physical observers, and compares curves, Mach angles, and rectilinear fields without turning one fitted case into a validation claim.",
       "title": "Publication-data evidence for dynamic cohesive fracture"
@@ -614,7 +614,7 @@
         "agentfem.material.j2_global_plasticity",
         "agentfem.material.global_implicit_creep"
       ],
-      "source": "knowledge/cards/integration_point_recovery.json",
+      "source": "src/agentfem/knowledge/cards/integration_point_recovery.json",
       "status": "supported",
       "summary": "Converts J2 and creep quadrature evidence to separately named weighted DG0 cell fields without nodal extrapolation, interelement smoothing, or material-boundary averaging.",
       "title": "Traceable integration-point field recovery"
@@ -635,7 +635,7 @@
         "agentfem.workflow.result_field_sampling",
         "agentfem.workflow.campaign_learning_pipeline"
       ],
-      "source": "knowledge/cards/observation_grid_learning.json",
+      "source": "src/agentfem/knowledge/cards/observation_grid_learning.json",
       "status": "supported",
       "summary": "Samples serial or distributed FEM fields on stable Cartesian coordinates and exports explicit axes, array layout, units, components, and optional geometry masks for external neural-operator and digital-twin workflows.",
       "title": "Mesh-independent structured observation grids"
@@ -657,7 +657,7 @@
         "agentfem.workflow.observation_grid_learning",
         "agentfem.workflow.standard_result_projection"
       ],
-      "source": "knowledge/cards/result_field_sampling.json",
+      "source": "src/agentfem/knowledge/cards/result_field_sampling.json",
       "status": "supported",
       "summary": "Evaluates finite-element fields at named physical points and paths with deterministic MPI ownership, including shared accepted-increment probe histories for heat, Standard dynamics, and Explicit dynamics.",
       "title": "MPI-safe point and path field sampling"
@@ -679,7 +679,7 @@
         "agentfem.workflow.campaign_learning_pipeline",
         "agentfem.material.j2_global_plasticity"
       ],
-      "source": "knowledge/cards/scientific_verification.json",
+      "source": "src/agentfem/knowledge/cards/scientific_verification.json",
       "status": "supported",
       "summary": "Separates computed, converged, verified, and validated results while providing exploratory, engineering, and release policies for automatic runtime checks and campaign learning gates.",
       "title": "Scientific trust and verification workflow"
@@ -695,7 +695,7 @@
         "agentfem.workflow.abaqus_engineering_regions",
         "agentfem.workflow.scientific_verification"
       ],
-      "source": "knowledge/cards/simplex_mesh_quality.json",
+      "source": "src/agentfem/knowledge/cards/simplex_mesh_quality.json",
       "status": "supported",
       "summary": "Computes normalized triangle/tetrahedron mean-ratio quality and turns a declared threshold into MPI-global preflight evidence.",
       "title": "Collective simplex mesh-quality preflight"
@@ -718,7 +718,7 @@
         "agentfem.material.j2_global_plasticity",
         "agentfem.workflow.thermoelastic_analysis"
       ],
-      "source": "knowledge/cards/solution_procedures.json",
+      "source": "src/agentfem/knowledge/cards/solution_procedures.json",
       "status": "supported",
       "summary": "Separates physical analysis intent from Standard/Explicit selection, equation order, integration algorithm, state policy, and global-solve requirements.",
       "title": "Solution procedure vocabulary"
@@ -744,7 +744,7 @@
         "agentfem.workflow.result_field_sampling",
         "agentfem.operator.system_contracts"
       ],
-      "source": "knowledge/cards/standard_result_projection.json",
+      "source": "src/agentfem/knowledge/cards/standard_result_projection.json",
       "status": "supported",
       "summary": "Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell-average fields, extracts MPI-global resultants, and records assembled external-force versus strong-reaction equilibrium.",
       "title": "Projected small-strain fields, reactions, and static equilibrium"
@@ -761,7 +761,7 @@
       "related_cards": [
         "agentfem.workflow.solution_procedures"
       ],
-      "source": "knowledge/cards/thermoelastic_analysis.json",
+      "source": "src/agentfem/knowledge/cards/thermoelastic_analysis.json",
       "status": "supported",
       "summary": "One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve.",
       "title": "Sequential thermoelastic analysis"
@@ -780,7 +780,7 @@
         "agentfem.workflow.solution_procedures",
         "agentfem.workflow.result_field_sampling"
       ],
-      "source": "knowledge/cards/transient_checkpoint_portability.json",
+      "source": "src/agentfem/knowledge/cards/transient_checkpoint_portability.json",
       "status": "supported",
       "summary": "Adds an opt-in physical-node-keyed state beside fast MPI rank shards so a supported transient analysis can restart with a different MPI partition or rank count, including split interfaces with coincident independent nodes.",
       "title": "Portable transient checkpoint state"
@@ -803,7 +803,7 @@
         "agentfem.material.mixed_mode_cyclic_cohesive",
         "agentfem.workflow.cohesive_state_portability"
       ],
-      "source": "knowledge/cards/vector_cohesive_interface.json",
+      "source": "src/agentfem/knowledge/cards/vector_cohesive_interface.json",
       "status": "experimental",
       "summary": "Adds explicit vector jump and traction kinematics, intact and damage-compatible tangential transfer, mixed-mode bilinear damage, compression contact, standard fields, rigid-mode and Mode-I audits, serial/MPI restart, and spherical arc-length continuation to one reusable fixed-path interface contract.",
       "title": "Full-vector and mixed-mode cohesive interfaces"

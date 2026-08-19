@@ -94,6 +94,8 @@ For a collection of related cases, continue with:
 
 ## Module Map
 
+Package paths below are relative to `src/agentfem/`.
+
 - Mesh import, named regions, tags, summaries, checks, and measures: `mesh/`
 - Local coordinate systems and engineering reference points: `coordinates.py`
 - Consistent numerical unit contracts: `units.py`

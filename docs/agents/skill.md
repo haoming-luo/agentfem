@@ -37,5 +37,5 @@ contracts reported by `agentfem capabilities --json`. Compatibility names may
 remain executable during 0.2.x, but new cases use the canonical vocabulary.
 
 The skill complements the machine-readable `/agentfem.json` manifest and
-scientific `knowledge/catalog.json`; it does not replace the public API or the
+scientific `src/agentfem/knowledge/catalog.json`; it does not replace the public API or the
 solver's deterministic checks.

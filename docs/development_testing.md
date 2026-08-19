@@ -17,10 +17,10 @@ the most expensive command after every keystroke.
 
 ## Source and installed-wheel evidence are separate
 
-The repository root is also the Python package directory. Pytest is configured
-with `pythonpath = [".."]`, so `python -m pytest` and MPI pytest commands always
-exercise the current checkout rather than an older `agentfem` already present
-in the environment. The release gate follows the opposite rule: it installs
+The repository uses the standard `src/agentfem/` package layout. Pytest is
+configured with `pythonpath = ["src"]`, so `python -m pytest` exercises the
+current checkout rather than an older `agentfem` already present in the
+environment. The release gate follows the opposite rule: it installs
 the candidate wheel into an isolated target, rejects a source-checkout import,
 compares every packaged runtime file with the candidate source, and then runs
 the flagship workflows and installed project templates. A release therefore
@@ -29,16 +29,13 @@ needs both source evidence and installed-artifact evidence.
 Targeted tests answer “did this edit break its owner?” Full tests answer “did
 this apparently local edit violate another public contract?” Both are needed.
 
-This repository uses the project directory itself as the `agentfem` package.
-When an older wheel is also installed, running Python from the repository root
-can otherwise import that wheel while the tests still discover local files.
 For an explicit source-tree check, keep the repository root as the working
-directory and prepend its parent:
+directory and prepend its `src` directory:
 
 ```bash
-PYTHONPATH="$(pwd)/.." python -c \
+PYTHONPATH="$(pwd)/src" python -c \
   'import agentfem; print(agentfem.__file__)'
-PYTHONPATH="$(pwd)/.." python -m pytest -q
+PYTHONPATH="$(pwd)/src" python -m pytest -q
 ```
 
 The printed path must point to the current checkout. Release CI instead builds
@@ -50,7 +47,7 @@ When they are used against an uninstalled checkout, prefix both serial and MPI
 commands with the checkout parent explicitly, for example:
 
 ```bash
-PYTHONPATH="$(pwd)/.." "$CONDA_PREFIX/bin/mpirun" -n 2 \
+PYTHONPATH="$(pwd)/src" "$CONDA_PREFIX/bin/mpirun" -n 2 \
   python tests/portable_inelastic_step_driver.py write /tmp/agentfem-step
 ```
 

@@ -11,7 +11,7 @@ status and scientific evidence.
 | --- | --- |
 | `/llms.txt` | Short discovery document for language-model tools |
 | `/agentfem.json` | Versioned documentation and command manifest |
-| `knowledge/catalog.json` | Scientific cards, formulas, evidence, consumers, and maturity |
+| `src/agentfem/knowledge/catalog.json` | Scientific cards, formulas, evidence, consumers, and maturity |
 | `agentfem doctor --json` | Environment capability check |
 | `agentfem check --json` | Static project and upgrade check |
 | `agentfem run --json` | Addressable execution result |

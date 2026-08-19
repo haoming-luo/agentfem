@@ -1,5 +1,10 @@
 # Abaqus C3D10H periodic cell
 
+This benchmark is informed by Haoming Luo's research with Julie Diani and
+Kostas Danas on the finite-strain response of nonlinear elastic composites
+containing particles or voids. See [the related
+publication](https://www.sciencedirect.com/science/article/pii/S0997753823001687).
+
 This example demonstrates a quasi-incompressible, finite-deformation periodic
 cell assembled from reusable AgentFEM capabilities:
 

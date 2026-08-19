@@ -1,5 +1,12 @@
 # Abaqus C3D10H Periodic Cell
 
+## Research background
+
+This benchmark is informed by Haoming Luo's work with Julie Diani and Kostas
+Danas on the finite-strain response of nonlinear elastic composites containing
+particles or voids: [*Numerical estimation via remeshing and analytical
+modeling of nonlinear elastic composites*](https://www.sciencedirect.com/science/article/pii/S0997753823001687).
+
 ## What This Capability Proves
 
 The `examples/abaqus_c3d10h_periodic_cell/` workflow exercises several layers

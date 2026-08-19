@@ -12,6 +12,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent
+PACKAGE_DIR = ROOT / "src" / "agentfem"
 DOCS_DIR = ROOT / "docs"
 SITE_DIR = ROOT / "site"
 API_REFERENCE = DOCS_DIR / "reference" / "api.md"
@@ -50,7 +51,7 @@ def project_version() -> str:
 def public_api_levels() -> dict[str, tuple[str, ...]]:
     """Read progressive API declarations without importing the FEM runtime."""
 
-    tree = ast.parse((ROOT / "__init__.py").read_text())
+    tree = ast.parse((PACKAGE_DIR / "__init__.py").read_text())
     assignments = {
         target.id: node.value
         for node in tree.body
@@ -91,7 +92,7 @@ def public_modules() -> tuple[str, ...]:
 def public_model_api_levels() -> dict[str, tuple[str, ...]]:
     """Read the Model facade vocabulary without importing FEniCSx."""
 
-    tree = ast.parse((ROOT / "models.py").read_text())
+    tree = ast.parse((PACKAGE_DIR / "models.py").read_text())
     assignments = {
         target.id: node.value
         for node in tree.body
@@ -178,10 +179,10 @@ def _summary(node: ast.AST) -> str:
 
 
 def _module_path(module: str) -> Path | None:
-    file_path = ROOT / f"{module}.py"
+    file_path = PACKAGE_DIR / f"{module}.py"
     if file_path.exists():
         return file_path
-    package_path = ROOT / module / "__init__.py"
+    package_path = PACKAGE_DIR / module / "__init__.py"
     return package_path if package_path.exists() else None
 
 

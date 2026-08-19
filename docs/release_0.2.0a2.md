@@ -55,7 +55,7 @@ same-version installation cannot substitute for the candidate.
 | Dynamic cohesive fracture | Experimental | V0-V4 guardrails, energy and distributed-interface tests |
 
 The machine-readable counterpart is
-[`release/0.2.0a2.json`](https://github.com/haoming-luo/agentfem/blob/main/release/0.2.0a2.json).
+[`agentfem/release/0.2.0a2.json`](https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/release/0.2.0a2.json).
 It is checked by the same release gate as the distributions.
 
 ## Upgrade notes

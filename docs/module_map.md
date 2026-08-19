@@ -1,6 +1,8 @@
 # AgentFEM Module Map
 
 This map links FEM concepts to the current Python modules.
+Module paths in this table are relative to `src/agentfem/` unless stated
+otherwise; runnable examples remain in the repository-level `examples/`.
 
 | Concept | Module |
 | --- | --- |

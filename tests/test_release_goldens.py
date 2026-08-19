@@ -44,7 +44,10 @@ def test_bundled_cases_use_the_canonical_model_language():
         "transient",
     }
     repository = Path(__file__).resolve().parents[1]
-    roots = (repository / "examples", repository / "templates")
+    roots = (
+        repository / "examples",
+        repository / "src" / "agentfem" / "templates",
+    )
     violations = []
     for root in roots:
         for path in sorted(root.rglob("*.py")):

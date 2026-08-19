@@ -40,7 +40,7 @@ python examples/static_elasticity_2d.py
 
 [Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_2d.py)
 · [Linear-solid guide](../guide/solid_mechanics.md)
-· [Golden benchmark record](https://github.com/haoming-luo/agentfem/blob/main/knowledge/benchmarks/linear_static_cantilever.json)
+· [Golden benchmark record](https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/linear_static_cantilever.json)
 
 ## Transient heat transfer
 
@@ -65,6 +65,11 @@ An explicit wave propagates through a heterogeneous two-dimensional solid. The
 case combines material regions, a time-dependent source, boundary models,
 stable time integration, probes, progress events, and time-series fields.
 
+**Research background.** This benchmark is informed by Haoming Luo's work with
+Anne Tanguy, Anthony Gravouil, and Valentina Giordano on acoustic wave-packet
+propagation and attenuation in biphasic solids: [*Thermal Transport in a 2D
+Nanophononic Solid*](https://doi.org/10.3390/nano9101471).
+
 ```bash
 python examples/wave_packet_inclusion_2d.py
 ```
@@ -80,6 +85,11 @@ This workflow directly imports an Abaqus C3D10H mesh and equation constraints,
 preserves quadratic-node and hybrid/constant-pressure identity, solves a
 P2/DG0 finite-strain Neo-Hookean problem with exact periodic constraints, and
 writes homogenized and visualization results.
+
+**Research background.** This benchmark is informed by Haoming Luo's work with
+Julie Diani and Kostas Danas on the finite-strain response of nonlinear elastic
+composites containing particles or voids: [*Numerical estimation via remeshing
+and analytical modeling of nonlinear elastic composites*](https://www.sciencedirect.com/science/article/pii/S0997753823001687).
 
 Read the [complete periodic-cell workflow](../abaqus_c3d10h_periodic_cell.md) before
 running the case; it explains the source files, element mapping, periodic

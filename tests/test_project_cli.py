@@ -98,7 +98,13 @@ def test_cli_init_and_check_use_installed_template(tmp_path):
 
 
 def test_template_copy_ignores_runtime_cache_directories(tmp_path, monkeypatch):
-    source = Path(__file__).resolve().parents[1] / "templates" / "static-solid"
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "agentfem"
+        / "templates"
+        / "static-solid"
+    )
     cache = source / "__pycache__"
     cache.mkdir(exist_ok=True)
     target = tmp_path / "cached-template"

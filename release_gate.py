@@ -27,6 +27,7 @@ import zipfile
 
 
 ROOT = Path(__file__).resolve().parent
+SOURCE_PACKAGE = ROOT / "src" / "agentfem"
 REQUIRED_WHEEL_MEMBERS = (
     "agentfem/__init__.py",
     "agentfem/models.py",
@@ -95,7 +96,7 @@ INSTALLED_PROJECT_TEMPLATES = (
 
 
 def source_version() -> str:
-    tree = ast.parse((ROOT / "__init__.py").read_text(encoding="utf-8"))
+    tree = ast.parse((SOURCE_PACKAGE / "__init__.py").read_text(encoding="utf-8"))
     for node in tree.body:
         if (
             isinstance(node, ast.Assign)
@@ -134,7 +135,7 @@ def release_contract_path(version: str | None = None) -> Path:
     """Return the immutable contract matching the candidate package version."""
 
     selected = source_version() if version is None else str(version)
-    return ROOT / "release" / f"{selected}.json"
+    return SOURCE_PACKAGE / "release" / f"{selected}.json"
 
 
 def check_dependency_boundaries() -> None:
@@ -199,7 +200,7 @@ def check_distributions(directory: Path) -> Path:
         "LICENSE",
         "NOTICE",
         "pyproject.toml",
-        f"release/{version}.json",
+        f"src/agentfem/release/{version}.json",
         "skills/agentfem/SKILL.md",
         "skills/agentfem/agents/openai.yaml",
         "skills/agentfem/references/workflow.md",
@@ -350,7 +351,7 @@ def _check_installed_identity(*, wheel: Path | None = None) -> None:
             "Imported AgentFEM does not come from the selected installed "
             f"distribution: import={installed_root}, distribution={distribution_root}."
         )
-    if wheel is not None and installed_root == ROOT.resolve():
+    if wheel is not None and installed_root == SOURCE_PACKAGE.resolve():
         raise RuntimeError(
             "Wheel smoke imported the source checkout instead of the tested wheel."
         )
@@ -373,7 +374,7 @@ def _check_installed_identity(*, wheel: Path | None = None) -> None:
     mismatches = []
     for member in runtime_members:
         relative = Path(member).relative_to("agentfem")
-        source = ROOT / relative
+        source = SOURCE_PACKAGE / relative
         installed = distribution_root / relative
         if (
             not source.is_file()
