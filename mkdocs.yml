@@ -144,6 +144,7 @@ nav:
 
   - Examples:
       - examples/index.md
+      - Wave Packet with an Inclusion: examples/wave_packet_inclusion.md
       - C3D10H Periodic Cell: abaqus_c3d10h_periodic_cell.md
       - Supershear Research Protocol: research/science_supershear_v5.md
 

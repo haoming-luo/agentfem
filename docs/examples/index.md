@@ -10,21 +10,25 @@ problem-specific qualification.
 
 | Example | Physics and procedure | Maturity |
 | --- | --- | --- |
+| [Wave packet with an inclusion](wave_packet_inclusion.md) | Heterogeneous solid wave, explicit central difference | Release |
 | [2D static elasticity](#2d-static-elasticity) | Plane-strain linear solid, direct linear solve | Release |
 | [Transient heat transfer](#transient-heat-transfer) | Heat equation, backward Euler | Release |
-| [Wave packet with an inclusion](#wave-packet-with-an-inclusion) | Heterogeneous solid wave, explicit central difference | Release |
 | [Abaqus periodic hyperelastic cell](#abaqus-periodic-hyperelastic-cell) | Imported 3D quadratic mesh, equations, finite strain | Engineering |
 | [Implicit creep relaxation](#implicit-creep-relaxation) | 3D power-law creep, global/local Newton and cutback | Engineering |
 | [Elasticity surrogate campaign](#elasticity-surrogate-campaign) | Repeated FEM, accepted dataset, surrogate and fallback | Release |
 | [Science supershear data protocol](#science-supershear-data-protocol) | Public-data identity, XLSX inspection, research handoff | Experimental |
 
-## Science supershear data protocol
+## Wave packet with an inclusion
 
-`examples/science_supershear_v5_protocol.py` verifies the pinned Dryad file
-identities and inventories the public Science 2023 crack-speed, wave-speed,
-Mach-cone, material-response, and SED/KED workbooks. It is the data boundary
-for the [Science Supershear V5 protocol](../research/science_supershear_v5.md),
-not a parameter fit disguised as an example.
+<span class="af-status af-status--release">Release</span>
+
+A Gaussian-modulated elastic wave crosses a stiff circular inclusion. The
+workflow brings together heterogeneous material regions, explicit central
+difference, a time-dependent source, periodic projection, an absorbing
+boundary, probes, progress events, and time-series fields.
+
+[Read the complete flagship example](wave_packet_inclusion.md)
+· [Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/wave_packet_inclusion_2d.py)
 
 ## 2D static elasticity
 
@@ -56,26 +60,6 @@ python examples/transient_heat_2d.py
 
 [Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/transient_heat_2d.py)
 · [Heat-transfer guide](../guide/heat_transfer.md)
-
-## Wave packet with an inclusion
-
-<span class="af-status af-status--release">Release</span>
-
-An explicit wave propagates through a heterogeneous two-dimensional solid. The
-case combines material regions, a time-dependent source, boundary models,
-stable time integration, probes, progress events, and time-series fields.
-
-**Research background.** This benchmark is informed by Haoming Luo's work with
-Anne Tanguy, Anthony Gravouil, and Valentina Giordano on acoustic wave-packet
-propagation and attenuation in biphasic solids: [*Thermal Transport in a 2D
-Nanophononic Solid*](https://doi.org/10.3390/nano9101471).
-
-```bash
-python examples/wave_packet_inclusion_2d.py
-```
-
-[Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/wave_packet_inclusion_2d.py)
-· [Dynamics and waves](../guide/dynamics.md)
 
 ## Abaqus periodic hyperelastic cell
 
@@ -145,6 +129,14 @@ python examples/static_elasticity_surrogate_campaign.py
 
 [Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_surrogate_campaign.py)
 · [Simulation to learning](../guide/simulation_to_learning.md)
+
+## Science supershear data protocol
+
+`examples/science_supershear_v5_protocol.py` verifies the pinned Dryad file
+identities and inventories the public Science 2023 crack-speed, wave-speed,
+Mach-cone, material-response, and SED/KED workbooks. It is the data boundary
+for the [Science Supershear V5 protocol](../research/science_supershear_v5.md),
+not a parameter fit disguised as an example.
 
 ## Reading an example
 

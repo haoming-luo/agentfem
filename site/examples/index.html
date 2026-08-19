@@ -16,7 +16,7 @@
         <link rel="prev" href="../nonlinear_solid_architecture/">
       
       
-        <link rel="next" href="../abaqus_c3d10h_periodic_cell/">
+        <link rel="next" href="wave_packet_inclusion/">
       
       
         
@@ -424,6 +424,8 @@
       
         
       
+        
+      
     
     
     
@@ -473,6 +475,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="wave_packet_inclusion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wave Packet with an Inclusion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -774,10 +804,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#science-supershear-data-protocol" class="md-nav__link">
+  <a href="#wave-packet-with-an-inclusion" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Science supershear data protocol
+        Wave packet with an inclusion
       
     </span>
   </a>
@@ -800,17 +830,6 @@
     <span class="md-ellipsis">
       
         Transient heat transfer
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#wave-packet-with-an-inclusion" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Wave packet with an inclusion
       
     </span>
   </a>
@@ -855,6 +874,17 @@
     <span class="md-ellipsis">
       
         Elasticity surrogate campaign
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#science-supershear-data-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Science supershear data protocol
       
     </span>
   </a>
@@ -957,6 +987,11 @@ problem-specific qualification.</p>
 </thead>
 <tbody>
 <tr>
+<td><a href="wave_packet_inclusion/">Wave packet with an inclusion</a></td>
+<td>Heterogeneous solid wave, explicit central difference</td>
+<td>Release</td>
+</tr>
+<tr>
 <td><a href="#2d-static-elasticity">2D static elasticity</a></td>
 <td>Plane-strain linear solid, direct linear solve</td>
 <td>Release</td>
@@ -964,11 +999,6 @@ problem-specific qualification.</p>
 <tr>
 <td><a href="#transient-heat-transfer">Transient heat transfer</a></td>
 <td>Heat equation, backward Euler</td>
-<td>Release</td>
-</tr>
-<tr>
-<td><a href="#wave-packet-with-an-inclusion">Wave packet with an inclusion</a></td>
-<td>Heterogeneous solid wave, explicit central difference</td>
 <td>Release</td>
 </tr>
 <tr>
@@ -993,12 +1023,14 @@ problem-specific qualification.</p>
 </tr>
 </tbody>
 </table>
-<h2 id="science-supershear-data-protocol">Science supershear data protocol<a class="headerlink" href="#science-supershear-data-protocol" title="Permanent link">&para;</a></h2>
-<p><code>examples/science_supershear_v5_protocol.py</code> verifies the pinned Dryad file
-identities and inventories the public Science 2023 crack-speed, wave-speed,
-Mach-cone, material-response, and SED/KED workbooks. It is the data boundary
-for the <a href="../research/science_supershear_v5/">Science Supershear V5 protocol</a>,
-not a parameter fit disguised as an example.</p>
+<h2 id="wave-packet-with-an-inclusion">Wave packet with an inclusion<a class="headerlink" href="#wave-packet-with-an-inclusion" title="Permanent link">&para;</a></h2>
+<p><span class="af-status af-status--release">Release</span></p>
+<p>A Gaussian-modulated elastic wave crosses a stiff circular inclusion. The
+workflow brings together heterogeneous material regions, explicit central
+difference, a time-dependent source, periodic projection, an absorbing
+boundary, probes, progress events, and time-series fields.</p>
+<p><a href="wave_packet_inclusion/">Read the complete flagship example</a>
+· <a href="https://github.com/haoming-luo/agentfem/blob/main/examples/wave_packet_inclusion_2d.py">Source code</a></p>
 <h2 id="2d-static-elasticity">2D static elasticity<a class="headerlink" href="#2d-static-elasticity" title="Permanent link">&para;</a></h2>
 <p><span class="af-status af-status--release">Release</span></p>
 <p>A compact cantilever demonstrates Study, mesh, named boundaries, displacement,
@@ -1008,7 +1040,7 @@ isotropic elasticity, strong constraints, traction, a linear step, standard
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_2d.py">Source code</a>
 · <a href="../guide/solid_mechanics/">Linear-solid guide</a>
-· <a href="https://github.com/haoming-luo/agentfem/blob/main/knowledge/benchmarks/linear_static_cantilever.json">Golden benchmark record</a></p>
+· <a href="https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/linear_static_cantilever.json">Golden benchmark record</a></p>
 <h2 id="transient-heat-transfer">Transient heat transfer<a class="headerlink" href="#transient-heat-transfer" title="Permanent link">&para;</a></h2>
 <p><span class="af-status af-status--release">Release</span></p>
 <p>This case exercises capacity and conduction operators, backward-Euler time
@@ -1018,21 +1050,16 @@ output, and a release Golden observable.</p>
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/transient_heat_2d.py">Source code</a>
 · <a href="../guide/heat_transfer/">Heat-transfer guide</a></p>
-<h2 id="wave-packet-with-an-inclusion">Wave packet with an inclusion<a class="headerlink" href="#wave-packet-with-an-inclusion" title="Permanent link">&para;</a></h2>
-<p><span class="af-status af-status--release">Release</span></p>
-<p>An explicit wave propagates through a heterogeneous two-dimensional solid. The
-case combines material regions, a time-dependent source, boundary models,
-stable time integration, probes, progress events, and time-series fields.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>examples/wave_packet_inclusion_2d.py
-</code></pre></div>
-<p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/wave_packet_inclusion_2d.py">Source code</a>
-· <a href="../guide/dynamics/">Dynamics and waves</a></p>
 <h2 id="abaqus-periodic-hyperelastic-cell">Abaqus periodic hyperelastic cell<a class="headerlink" href="#abaqus-periodic-hyperelastic-cell" title="Permanent link">&para;</a></h2>
 <p><span class="af-status af-status--engineering">Engineering</span></p>
 <p>This workflow directly imports an Abaqus C3D10H mesh and equation constraints,
 preserves quadratic-node and hybrid/constant-pressure identity, solves a
 P2/DG0 finite-strain Neo-Hookean problem with exact periodic constraints, and
 writes homogenized and visualization results.</p>
+<p><strong>Research background.</strong> This benchmark is informed by Haoming Luo's work with
+Julie Diani and Kostas Danas on the finite-strain response of nonlinear elastic
+composites containing particles or voids: <a href="https://www.sciencedirect.com/science/article/pii/S0997753823001687"><em>Numerical estimation via remeshing
+and analytical modeling of nonlinear elastic composites</em></a>.</p>
 <p>Read the <a href="../abaqus_c3d10h_periodic_cell/">complete periodic-cell workflow</a> before
 running the case; it explains the source files, element mapping, periodic
 semantics, nonlinear controls, and output.</p>
@@ -1045,7 +1072,7 @@ backward-Euler constitutive integration, analytical consistent tangent,
 physical-time automatic incrementation, rollback/cutback, creep output, energy
 evidence, and restart. The same global step can consume a prescribed
 temperature field through the Arrhenius material factory.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>examples/implicit_creep_relaxation_3d.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>examples/implicit_creep_relaxation_3d.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/implicit_creep_relaxation_3d.py">Source code</a>
 · <a href="../guide/creep_and_inelasticity/">Creep and inelasticity</a>
@@ -1056,7 +1083,7 @@ temperature field through the Arrhenius material factory.</p>
 then an explicitly identified local creep assessment. It demonstrates how the
 software distinguishes a global field solution from a material-point or
 assessment-level model.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>examples/creep_hot_wall_assessment.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>examples/creep_hot_wall_assessment.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/creep_hot_wall_assessment.py">Source code</a></p>
 <h2 id="elasticity-surrogate-campaign">Elasticity surrogate campaign<a class="headerlink" href="#elasticity-surrogate-campaign" title="Permanent link">&para;</a></h2>
@@ -1064,10 +1091,16 @@ assessment-level model.</p>
 <p>The campaign varies declared parameters, runs the same finite-element model,
 records failures and evidence, creates an accepted scientific dataset, trains
 a surrogate, checks its applicability domain, and retains an FEM fallback.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>examples/static_elasticity_surrogate_campaign.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>examples/static_elasticity_surrogate_campaign.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_surrogate_campaign.py">Source code</a>
 · <a href="../guide/simulation_to_learning/">Simulation to learning</a></p>
+<h2 id="science-supershear-data-protocol">Science supershear data protocol<a class="headerlink" href="#science-supershear-data-protocol" title="Permanent link">&para;</a></h2>
+<p><code>examples/science_supershear_v5_protocol.py</code> verifies the pinned Dryad file
+identities and inventories the public Science 2023 crack-speed, wave-speed,
+Mach-cone, material-response, and SED/KED workbooks. It is the data boundary
+for the <a href="../research/science_supershear_v5/">Science Supershear V5 protocol</a>,
+not a parameter fit disguised as an example.</p>
 <h2 id="reading-an-example">Reading an example<a class="headerlink" href="#reading-an-example" title="Permanent link">&para;</a></h2>
 <p>Do not copy only the final solver call. Read the Study, dimensional assumption,
 mesh and regions, material data, loads and constraints, procedure, output
@@ -1128,13 +1161,13 @@ or loading may require new verification evidence.</p>
         
         
           
-          <a href="../abaqus_c3d10h_periodic_cell/" class="md-footer__link md-footer__link--next" aria-label="Next: C3D10H Periodic Cell">
+          <a href="wave_packet_inclusion/" class="md-footer__link md-footer__link--next" aria-label="Next: Wave Packet with an Inclusion">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                C3D10H Periodic Cell
+                Wave Packet with an Inclusion
               </div>
             </div>
             <div class="md-footer__button md-icon">

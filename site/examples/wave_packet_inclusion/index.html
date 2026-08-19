@@ -10,31 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://haoming-luo.github.io/agentfem/api_style/">
+        <link rel="canonical" href="https://haoming-luo.github.io/agentfem/examples/wave_packet_inclusion/">
       
       
-        <link rel="prev" href="../extension_rules/">
+        <link rel="prev" href="../">
       
       
-        <link rel="next" href="../agent_gui_integration/">
+        <link rel="next" href="../../abaqus_c3d10h_periodic_cell/">
       
       
         
       
       
-      <link rel="icon" href="../assets/images/AgentFEM_logo_transparent.png">
+      <link rel="icon" href="../../assets/images/AgentFEM_logo_transparent.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
-        <title>API Style - AgentFEM</title>
+        <title>Wave Packet with an Inclusion - AgentFEM</title>
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -47,9 +47,9 @@
       
     
     
-      <link rel="stylesheet" href="../stylesheets/extra.css">
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#agentfem-api-style" class="md-skip">
+        <a href="#wave-packet-with-an-inclusion" class="md-skip">
           Skip to content
         </a>
       
@@ -94,9 +94,9 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href=".." title="AgentFEM" class="md-header__button md-logo" aria-label="AgentFEM" data-md-component="logo">
+    <a href="../.." title="AgentFEM" class="md-header__button md-logo" aria-label="AgentFEM" data-md-component="logo">
       
-  <img src="../assets/images/AgentFEM_logo_transparent.png" alt="logo">
+  <img src="../../assets/images/AgentFEM_logo_transparent.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              API Style
+              Wave Packet with an Inclusion
             
           </span>
         </div>
@@ -236,9 +236,9 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href=".." title="AgentFEM" class="md-nav__button md-logo" aria-label="AgentFEM" data-md-component="logo">
+    <a href="../.." title="AgentFEM" class="md-nav__button md-logo" aria-label="AgentFEM" data-md-component="logo">
       
-  <img src="../assets/images/AgentFEM_logo_transparent.png" alt="logo">
+  <img src="../../assets/images/AgentFEM_logo_transparent.png" alt="logo">
 
     </a>
     AgentFEM
@@ -265,7 +265,7 @@
   
   
     <li class="md-nav__item">
-      <a href=".." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -317,7 +317,7 @@
   
   
   
-    <a href="../get_started/" class="md-nav__link">
+    <a href="../../get_started/" class="md-nav__link">
       
   
   
@@ -379,7 +379,7 @@
   
   
   
-    <a href="../guide/" class="md-nav__link">
+    <a href="../../guide/" class="md-nav__link">
       
   
   
@@ -409,134 +409,6 @@
       
   
   
-  
-  
-    
-    
-      
-        
-          
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-    
-      
-        
-        
-      
-    
-    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
-      
-        
-  
-  
-  
-    <a href="../examples/" class="md-nav__link">
-      
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Examples
-  
-
-    
-  </span>
-  
-  
-
-      
-        <span class="md-nav__icon md-icon"></span>
-      
-    </a>
-  
-
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-    
-      
-        
-        
-      
-    
-    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
-      
-        
-  
-  
-  
-    <a href="../reference/" class="md-nav__link">
-      
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Theory and Reference
-  
-
-    
-  </span>
-  
-  
-
-      
-        <span class="md-nav__icon md-icon"></span>
-      
-    </a>
-  
-
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
     
   
   
@@ -546,12 +418,6 @@
       
         
           
-        
-      
-        
-      
-        
-      
         
       
         
@@ -570,18 +436,18 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../extend/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
   <span class="md-ellipsis">
     
   
-    Extending AgentFEM
+    Examples
   
 
     
@@ -592,51 +458,23 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_6">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
   
-    Extending AgentFEM
+    Examples
   
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../extension_rules/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Extension Rules
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
               
             
               
@@ -662,7 +500,7 @@
   <span class="md-ellipsis">
     
   
-    API Style
+    Wave Packet with an Inclusion
   
 
     
@@ -680,7 +518,7 @@
   <span class="md-ellipsis">
     
   
-    API Style
+    Wave Packet with an Inclusion
   
 
     
@@ -706,10 +544,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#naming" class="md-nav__link">
+  <a href="#problem" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Naming
+        Problem
       
     </span>
   </a>
@@ -717,10 +555,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#inputs" class="md-nav__link">
+  <a href="#agentfem-workflow" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Inputs
+        AgentFEM workflow
       
     </span>
   </a>
@@ -728,10 +566,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#outputs" class="md-nav__link">
+  <a href="#run-the-example" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Outputs
+        Run the example
       
     </span>
   </a>
@@ -739,10 +577,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#semantic-constructors" class="md-nav__link">
+  <a href="#verification-contract" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Semantic Constructors
+        Verification contract
       
     </span>
   </a>
@@ -750,21 +588,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#error-messages" class="md-nav__link">
+  <a href="#research-background" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Error Messages
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#model-vocabulary-and-compatibility" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Model vocabulary and compatibility
+        Research background
       
     </span>
   </a>
@@ -787,14 +614,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../agent_gui_integration/" class="md-nav__link">
+      <a href="../../abaqus_c3d10h_periodic_cell/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Agent and GUI Integration
+    C3D10H Periodic Cell
   
 
     
@@ -815,70 +642,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../abaqus_user_material_bridge/" class="md-nav__link">
+      <a href="../../research/science_supershear_v5/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Abaqus User Materials
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../extensions_and_private_products/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Private Extension Packages
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../agents/skill/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    AgentFEM Skill
+    Supershear Research Protocol
   
 
     
@@ -922,6 +693,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -937,7 +712,137 @@
   
   
   
-    <a href="../project/" class="md-nav__link">
+    <a href="../../reference/" class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory and Reference
+  
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href="../../extend/" class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extending AgentFEM
+  
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href="../../project/" class="md-nav__link">
       
   
   
@@ -990,10 +895,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#naming" class="md-nav__link">
+  <a href="#problem" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Naming
+        Problem
       
     </span>
   </a>
@@ -1001,10 +906,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#inputs" class="md-nav__link">
+  <a href="#agentfem-workflow" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Inputs
+        AgentFEM workflow
       
     </span>
   </a>
@@ -1012,10 +917,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#outputs" class="md-nav__link">
+  <a href="#run-the-example" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Outputs
+        Run the example
       
     </span>
   </a>
@@ -1023,10 +928,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#semantic-constructors" class="md-nav__link">
+  <a href="#verification-contract" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Semantic Constructors
+        Verification contract
       
     </span>
   </a>
@@ -1034,21 +939,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#error-messages" class="md-nav__link">
+  <a href="#research-background" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Error Messages
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#model-vocabulary-and-compatibility" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Model vocabulary and compatibility
+        Research background
       
     </span>
   </a>
@@ -1080,7 +974,7 @@
   
   
     <li class="md-path__item">
-      <a href=".." class="md-path__link">
+      <a href="../.." class="md-path__link">
         
   <span class="md-ellipsis">
     Introduction
@@ -1098,10 +992,10 @@
     
     
       <li class="md-path__item">
-        <a href="../extend/" class="md-path__link">
+        <a href="../" class="md-path__link">
           
   <span class="md-ellipsis">
-    Extending AgentFEM
+    Examples
   </span>
 
         </a>
@@ -1123,167 +1017,156 @@
   
 
 
-<h1 id="agentfem-api-style">AgentFEM API Style<a class="headerlink" href="#agentfem-api-style" title="Permanent link">&para;</a></h1>
-<p>AgentFEM APIs should be readable by finite-element researchers and predictable
-for AI agents.</p>
-<h2 id="naming">Naming<a class="headerlink" href="#naming" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Use nouns for assets: <code>Amplitude</code>, <code>LoadSet</code>, <code>ConstraintSet</code>,
-  <code>TransientState</code>.</li>
-<li>Use verbs for actions: <code>assemble_vector</code>, <code>copy_function</code>, <code>solve_matrix_system</code>.</li>
-<li>Use explicit qualifiers when ambiguity matters: <code>DirichletConstraint</code>,
-  <code>NeumannLoad</code>, <code>ViscousAbsorbingBoundary</code>.</li>
-</ul>
-<h2 id="inputs">Inputs<a class="headerlink" href="#inputs" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Prefer explicit function-space arguments named <code>V</code>.</li>
-<li>Use <code>measure</code> for UFL integration measures.</li>
-<li>Use <code>test_function</code> and <code>trial_function</code> rather than single-letter names in
-  public APIs.</li>
-<li>Use <code>comm</code>, <code>model_rank</code>, and <code>gdim</code> explicitly for mesh import/read helpers.</li>
-<li>Keep optional file-format dependencies lazy. Import packages such as
-  <code>meshio</code> and Gmsh only at the capability boundary, and raise an actionable
-  <code>OptionalDependencyError</code> naming the relevant AgentFEM extra.</li>
-</ul>
-<h2 id="outputs">Outputs<a class="headerlink" href="#outputs" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Return DOLFINx/PETSc objects when the function is a low-level operation.</li>
-<li>Return dataclasses for reusable FEM assets.</li>
-<li>Give reusable dataclasses a <code>summary()</code> method when the object represents a
-  finite-element concept that humans or agents may audit.</li>
-<li>Give material-like dataclasses an <code>as_dict()</code> method when constants and
-  derived quantities are useful for logs or validation.</li>
-<li>Use <code>to_ir()</code> for a versioned scientific record. Do not use <code>repr()</code> as a
-  persistent fallback for backend objects because it may contain memory
-  addresses and no scientific semantics.</li>
-<li>Validation failures intended for repair should carry a stable code and an
-  object path in a <code>ValidationIssue</code>.</li>
-<li>Avoid hidden global state.</li>
-</ul>
-<h2 id="semantic-constructors">Semantic Constructors<a class="headerlink" href="#semantic-constructors" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Provide readable constructors for common concepts, such as
-  <code>constraints.dirichlet(...)</code>, <code>loads.neumann(...)</code>, and
-  <code>loads.body_load(...)</code>.</li>
-<li>Provide application-level constructors when they reduce boilerplate, such as
-  <code>constraints.fixed(...)</code> for fixed-value Dirichlet conditions.</li>
-<li>Field arithmetic should be eager and explicit for same-space field algebra:
-  <code>field_a + scalar * field_b</code> returns a numerical AgentFEM field, not a hidden
-  symbolic solve.</li>
-<li>Use <code>amplitudes</code> for reusable time histories and scale factors that can
-  drive loads, constraints, sources, or prescribed data.</li>
-<li>Hide backend scalar-type details inside concept constructors such as
-  <code>loads.traction(...)</code>, <code>loads.pressure(...)</code>, <code>constraints.fixed(...)</code>,
-  <code>constraints.symmetry(...)</code>, and material-property
-  loaders.</li>
-<li>Application examples should not call <code>PETSc.ScalarType</code> directly. Use
-  <code>kernel.constants.scalar_value(...)</code> in low-level helpers and
-  <code>amplitudes.Amplitude</code> with
-  <code>constraints.time_dependent_component_dirichlet(...)</code> for time-dependent
-  boundary data.</li>
-<li>For vector fields, application-level constraint constructors should make the
-  common case short: <code>constraints.fixed(displacement, on=left)</code> fixes all
-  displacement components, while <code>components=0</code> or <code>components=(0, 1)</code> selects
-  individual dofs. Engineering axis names (<code>"x"</code>, <code>"y"</code>, <code>"z"</code>) are accepted
-  wherever a public component selector is unambiguous.</li>
-<li>Prefer <code>on=...</code> for geometric targets in user-facing APIs. Keep <code>location=...</code>
-  as a compatibility spelling for explicit region objects.</li>
-<li>Provide model-level registration helpers such as <code>model.field(...)</code>,
-  <code>model.fix(...)</code>, <code>model.symmetry(...)</code>, <code>model.pressure(...)</code>, and
-  <code>model.traction(...)</code> when they keep the workflow
-  readable without hiding finite-element meaning.</li>
-<li>Provide model-level operator helpers such as <code>model.stiffness(...)</code>,
-  <code>model.internal_force(...)</code>, and <code>model.external_force(...)</code> for daily
-  application scripts. These helpers should delegate to <code>operators</code> and
-  preserve inspectable operator summaries.</li>
-<li>Prefer the model-owned <code>model.step(...)</code> procedure-dispatch entry point for
-  beginner workflows. The step should expose its K/F system through summaries
-  so it remains auditable rather than becoming a black box.</li>
-<li>Every built-in Step provider must publish a <code>StepOptionContract</code>. The
-  contract is the single source for accepted and required keyword names,
-  pre-assembly typo detection, CLI capability JSON, and future IDE/GUI forms.
-  Third-party providers without a contract remain supported during 0.2.x, but
-  a provider is not considered workflow-ready until it declares one.</li>
-<li>Prefer <code>solve_result()</code> as the common completion verb. An output product may
-  be supplied to <code>solve_result(output=...)</code> or declared once on
-  <code>model.step(..., output=...)</code>; provider constructors must not reinterpret it
-  as a numerical solver option.</li>
-<li>Provide operator-level constructors for engineering FEM notation, such as
-  <code>operators.stiffness(...)</code>, <code>operators.capacity_operator(...)</code>,
-  <code>operators.conduction_operator(...)</code>, and <code>operators.load_vector(...)</code>.</li>
-<li>Provide contribution-combination helpers such as <code>operators.combine(...)</code> for
-  explicit operator algebra. The <code>+</code> operator may be convenient shorthand, but
-  public examples should prefer <code>combine(...)</code> when names and summaries matter.</li>
-<li>Give matrix, vector, residual, and scalar operators explicit roles and check
-  those roles against UFL form arity before assembly. Preserve the visible
-  relation <code>K_t = dR/du</code> when UFL automatic differentiation linearizes a
-  nonlinear residual.</li>
-<li>Represent weak boundary-model residual terms with operator helpers such as
-  <code>operators.boundary_model_vector(...)</code> instead of writing UFL forms in
-  application examples.</li>
-<li>Keep explicit family constructors such as <code>operators.elastic_stiffness(...)</code>
-  available when ambiguity would be harmful.</li>
-<li>Prefer problem-level constructors such as
-  <code>problems.linear_static(K, F, study=..., unknown=..., constraints=...)</code> and
-  <code>problems.first_order_transient(capacity=C, stiffness=K, history=..., dt=...)</code>
-  when an example is intentionally teaching explicit operator notation.</li>
-<li>Keep lower-level dataclasses available for advanced users who need direct
-  control.</li>
-<li>Use concept names in errors and summaries: constraint, load, boundary model,
-  constitutive law, operator, state, and diagnostic.</li>
-<li>Prefer a repair address such as <code>model.materials[1].region</code> and a specific
-  hint over a generic execution error.</li>
-<li>Parameter-study APIs must carry bounds, units, and deterministic case IDs.
-  Prefer a fresh <code>build(parameters)</code> case factory over mutating one live backend
-  model across samples.</li>
-<li>Learning outputs must be declared with names, shapes, and units before a
-  campaign runs. Do not infer a scientific schema only from the first returned
-  NumPy array.</li>
-<li>A surrogate prediction API should report its source, uncertainty semantics,
-  applicability decision, and fallback behavior. It must not silently
-  extrapolate or describe residual scale as calibrated epistemic uncertainty.</li>
-<li>Use <code>learning</code> as the public umbrella while retaining the exact terms
-  surrogate, neural operator, neural-field solver, and learned constitutive
-  model. Do not describe every neural computation as a surrogate or PINN.</li>
-<li>A neural-field contract separates the physical coefficient of an energy or
-  work term from its numerical loss-balancing weight. Loss tuning must never
-  silently change the declared mechanics.</li>
-<li>Treat sampling, condition enforcement, inferred physical parameters, units,
-  scaling, provider identity, and verification evidence as inspectable assets.
-  Do not hide them in one optimizer dictionary.</li>
-<li>Add an executable neural-field route through a registered Step provider and
-  <code>SimulationResult</code>; do not register it as a matrix/form backend merely
-  because it is implemented with PyTorch.</li>
-</ul>
-<h2 id="error-messages">Error Messages<a class="headerlink" href="#error-messages" title="Permanent link">&para;</a></h2>
-<p>Raise errors that explain the modeling issue, not only the Python issue. For
-example, say that a normal vector is required for normal/tangential absorbing
-boundaries.</p>
-<h2 id="model-vocabulary-and-compatibility">Model vocabulary and compatibility<a class="headerlink" href="#model-vocabulary-and-compatibility" title="Permanent link">&para;</a></h2>
-<p>Bundled application cases should begin with the physical factories
-<code>studies.static_solid(...)</code>, <code>studies.steady_heat_transfer(...)</code>,
-<code>studies.transient_heat_transfer(...)</code>, <code>studies.dynamic_solid(...)</code>, or
-<code>studies.creep_solid(...)</code>. Generic analysis-order factories remain available
-for new physics and expert formulation work, but ordinary examples should not
-repeat <code>physics="solid_mechanics"</code> or <code>physics="heat_transfer"</code> when the
-physical factory already states it.</p>
-<p>The canonical application language is returned by <code>models.model_api("core")</code>.
-It includes registration and engineering verbs such as <code>field</code>, <code>material</code>,
-<code>clamp</code>, <code>traction</code>, <code>step</code>, and <code>check</code>. Operator construction, remote
-coupling, machine records, and other deliberate escape hatches are disclosed
-through <code>models.model_api("advanced")</code>.</p>
-<p>Historical <code>add_*</code> registration spellings and material/procedure-specific
-<code>*_step</code> factories remain executable throughout 0.2.x, but
-<code>models.model_api("compatibility")</code> identifies them so documentation, agents,
-IDEs, and future GUIs do not present them as parallel beginner workflows. New
-examples must use:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span><span class="n">material</span><span class="p">)</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">unknown</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="s2">&quot;results.xdmf&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">result</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span>
+<h1 id="wave-packet-with-an-inclusion">Wave packet with an inclusion<a class="headerlink" href="#wave-packet-with-an-inclusion" title="Permanent link">&para;</a></h1>
+<p><span class="af-status af-status--release">Release</span></p>
+<p>This example sends a Gaussian-modulated elastic wave packet through a stiff
+circular inclusion in a two-dimensional solid. It is the first flagship
+dynamic example because the physical model, time integration, boundary
+treatment, observations, and result fields remain visible in one executable
+workflow.</p>
+<h2 id="problem">Problem<a class="headerlink" href="#problem" title="Permanent link">&para;</a></h2>
+<p>The displacement field satisfies linear elastodynamics,</p>
+<div class="arithmatex">\[
+\rho \ddot{\mathbf u}=\nabla\!\cdot\boldsymbol\sigma,
+\qquad
+\boldsymbol\sigma
+=\lambda\,\operatorname{tr}(\boldsymbol\varepsilon)\mathbf I
++2\mu\boldsymbol\varepsilon,
+\]</div>
+<p>under a plane-strain assumption. The circular inclusion has the same density
+and Poisson ratio as the matrix and twice its Young modulus. A prescribed
+wave packet enters at the left boundary, the top and bottom boundaries are
+periodic, and a viscous absorbing boundary reduces reflection at the right
+edge.</p>
+<table>
+<thead>
+<tr>
+<th>Model choice</th>
+<th>Example value or route</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Domain</td>
+<td><span class="arithmatex">\(1.2\,\mu\mathrm{m}\times0.24\,\mu\mathrm{m}\)</span> plate</td>
+</tr>
+<tr>
+<td>Discretization</td>
+<td>structured quadrilateral mesh, first-order displacement</td>
+</tr>
+<tr>
+<td>Matrix</td>
+<td><span class="arithmatex">\(E=227.5\,\mathrm{GPa}\)</span>, <span class="arithmatex">\(\nu=0.27\)</span>, <span class="arithmatex">\(\rho=2900\,\mathrm{kg/m^3}\)</span></td>
+</tr>
+<tr>
+<td>Inclusion</td>
+<td><span class="arithmatex">\(E_\mathrm{i}=2E_\mathrm{m}\)</span>, equal <span class="arithmatex">\(\nu\)</span> and <span class="arithmatex">\(\rho\)</span></td>
+</tr>
+<tr>
+<td>Source</td>
+<td>Gaussian-modulated sinusoidal displacement at <span class="arithmatex">\(40.78\,\mathrm{GHz}\)</span></td>
+</tr>
+<tr>
+<td>Transverse boundary</td>
+<td>top--bottom periodic projection</td>
+</tr>
+<tr>
+<td>Outgoing boundary</td>
+<td>Lysmer--Kuhlemeyer viscous absorber</td>
+</tr>
+<tr>
+<td>Procedure</td>
+<td>lumped-mass explicit central difference</td>
+</tr>
+</tbody>
+</table>
+<h2 id="agentfem-workflow">AgentFEM workflow<a class="headerlink" href="#agentfem-workflow" title="Permanent link">&para;</a></h2>
+<p>The public script follows the same order as the engineering problem. Material
+regions, source history, boundary behavior, and the explicit solution step are
+declared rather than hidden inside a backend loop.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">study</span> <span class="o">=</span> <span class="n">studies</span><span class="o">.</span><span class="n">dynamic_solid</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">dimension</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">assumption</span><span class="o">=</span><span class="s2">&quot;plane_strain&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;explicit&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">model</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">study</span><span class="o">=</span><span class="n">study</span><span class="p">,</span> <span class="n">mesh</span><span class="o">=</span><span class="n">domain</span><span class="p">)</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">u</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">fields</span><span class="o">.</span><span class="n">displacement</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">degree</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">regions</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">partition_cells</span><span class="p">(</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">domain</span><span class="p">,</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">matrix</span><span class="o">=~</span><span class="n">inclusion</span><span class="p">,</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">stiff_inclusion</span><span class="o">=</span><span class="n">inclusion</span><span class="p">,</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="p">)</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span><span class="n">matrix_material</span><span class="p">,</span> <span class="n">region</span><span class="o">=</span><span class="n">regions</span><span class="o">.</span><span class="n">matrix</span><span class="p">)</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span><span class="n">inclusion_material</span><span class="p">,</span> <span class="n">region</span><span class="o">=</span><span class="n">regions</span><span class="o">.</span><span class="n">stiff_inclusion</span><span class="p">)</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">periodic</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">periodic</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">master</span><span class="o">=</span><span class="n">bottom</span><span class="p">,</span> <span class="n">slave</span><span class="o">=</span><span class="n">top</span><span class="p">,</span> <span class="n">match_axis</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">source</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">fix</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">left</span><span class="p">,</span> <span class="n">components</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">source_pulse</span><span class="p">)</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">absorbing</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">absorbing_boundary</span><span class="p">(</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="n">on</span><span class="o">=</span><span class="n">right</span><span class="p">,</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    <span class="n">density</span><span class="o">=</span><span class="n">matrix_material</span><span class="o">.</span><span class="n">density</span><span class="p">,</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="n">pressure_wave_speed</span><span class="o">=</span><span class="n">matrix_cp</span><span class="p">,</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>    <span class="n">shear_wave_speed</span><span class="o">=</span><span class="n">matrix_cs</span><span class="p">,</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="p">)</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="n">state</span> <span class="o">=</span> <span class="n">problems</span><span class="o">.</span><span class="n">second_order_state</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="n">residual</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">force_balance</span><span class="p">(</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    <span class="n">internal</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">internal_force</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">u</span><span class="p">),</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    <span class="n">absorbing</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">boundary_force</span><span class="p">(</span><span class="n">absorbing</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">v_mid</span><span class="p">),</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="p">)</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    <span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">,</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>    <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>    <span class="n">residual</span><span class="o">=</span><span class="n">residual</span><span class="p">,</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    <span class="n">prescribed</span><span class="o">=</span><span class="p">[</span><span class="n">source</span><span class="p">],</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>    <span class="n">constraints</span><span class="o">=</span><span class="p">[</span><span class="n">periodic</span><span class="p">],</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>    <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>    <span class="n">steps</span><span class="o">=</span><span class="n">steps</span><span class="p">,</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a><span class="p">)</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a><span class="n">result</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">solve_result</span><span class="p">(</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>    <span class="n">output</span><span class="o">=</span><span class="s2">&quot;wave_packet_inclusion_2d.xdmf&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>    <span class="n">fields</span><span class="o">=</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">u</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">v</span><span class="p">,</span> <span class="n">material_id</span><span class="p">),</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a><span class="p">)</span>
 </code></pre></div>
-<p>Do not add another alias merely to save one word. A new public name must either
-express a distinct engineering concept or replace an older name through an
-explicit migration path.</p>
+<p>The complete script also estimates material wave speeds, derives the stable
+increment from the fastest region, records inclusion probes and periodic
+mismatch, reports progress, and controls the field-output cadence.</p>
+<h2 id="run-the-example">Run the example<a class="headerlink" href="#run-the-example" title="Permanent link">&para;</a></h2>
+<p>From the repository root in an AgentFEM environment:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>examples/wave_packet_inclusion_2d.py
+</code></pre></div>
+<p>The full example writes
+<code>examples_output/wave_packet_inclusion_2d.xdmf</code> with displacement, velocity,
+and material-region fields over time. Open the XDMF file in ParaView to play
+the transient response, inspect the interaction with the inclusion, and plot
+receiver histories.</p>
+<p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/wave_packet_inclusion_2d.py">View the complete source</a>
+· <a href="../../guide/dynamics/">Dynamics and waves</a></p>
+<h2 id="verification-contract">Verification contract<a class="headerlink" href="#verification-contract" title="Permanent link">&para;</a></h2>
+<p>The release does not rely on visual inspection alone. A reduced counterpart
+of this workflow is pinned by the machine-readable
+<a href="https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/wave_release.json"><code>agentfem.benchmark.wave_release</code></a>
+contract. The automated test checks:</p>
+<ul>
+<li>matrix and inclusion wave speeds;</li>
+<li>the declared Courant number;</li>
+<li>peak global and receiver displacement;</li>
+<li>receiver threshold-arrival time;</li>
+<li>top--bottom periodic mismatch.</li>
+</ul>
+<p>Run the contract directly with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>tests/test_release_goldens.py::test_wave_release_patch_matches_versioned_golden
+</code></pre></div>
+<p>This Golden contract protects the public software path against regression. It
+is distinct from a mesh- and time-converged external validation of attenuation
+or absorbing-boundary accuracy.</p>
+<h2 id="research-background">Research background<a class="headerlink" href="#research-background" title="Permanent link">&para;</a></h2>
+<p>The example is informed by Haoming Luo's work with Anne Tanguy, Anthony
+Gravouil, and Valentina Giordano on acoustic wave-packet propagation and
+attenuation in biphasic solids:
+<a href="https://doi.org/10.3390/nano9101471"><em>Thermal Transport in a 2D Nanophononic Solid: Role of Bi-Phasic Materials
+Properties on Acoustic Attenuation and Thermal Diffusivity</em></a>.</p>
 
 
 
@@ -1321,7 +1204,7 @@ explicit migration path.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../extension_rules/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Extension Rules">
+          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="Previous: Examples">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1331,20 +1214,20 @@ explicit migration path.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Extension Rules
+                Examples
               </div>
             </div>
           </a>
         
         
           
-          <a href="../agent_gui_integration/" class="md-footer__link md-footer__link--next" aria-label="Next: Agent and GUI Integration">
+          <a href="../../abaqus_c3d10h_periodic_cell/" class="md-footer__link md-footer__link--next" aria-label="Next: C3D10H Periodic Cell">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Agent and GUI Integration
+                C3D10H Periodic Cell
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -1403,18 +1286,18 @@ explicit migration path.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.indexes", "navigation.prune", "navigation.path", "navigation.footer", "navigation.top", "navigation.tracking", "toc.follow", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.indexes", "navigation.prune", "navigation.path", "navigation.footer", "navigation.top", "navigation.tracking", "toc.follow", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
-        <script src="../javascripts/navigation-state.js"></script>
+        <script src="../../javascripts/navigation-state.js"></script>
       
-        <script src="../javascripts/toc-current.js"></script>
+        <script src="../../javascripts/toc-current.js"></script>
       
-        <script src="../javascripts/mathjax.js"></script>
+        <script src="../../javascripts/mathjax.js"></script>
       
-        <script src="../vendor/mathjax/3.2.2/tex-chtml-full.js"></script>
+        <script src="../../vendor/mathjax/3.2.2/tex-chtml-full.js"></script>
       
     
   </body>
