@@ -55,6 +55,7 @@ REQUIRED_WHEEL_MEMBERS = (
     "agentfem/fatigue_fracture.py",
     "agentfem/datasets/torch.py",
     "agentfem/learning/core.py",
+    "agentfem/learning/execution.py",
     "agentfem/surrogates/pinn_torch.py",
     "agentfem/surrogates/training.py",
     "agentfem/knowledge/catalog.json",

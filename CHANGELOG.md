@@ -6,6 +6,8 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-08-19
+
 ### Added
 
 - Add a framework-neutral neural-field executor boundary: user-owned PyTorch,
@@ -26,6 +28,12 @@ experimental formulation to a validated one.
   optional provider distributions, while confidential customer data,
   calibration assets, and domain products remain in independent private
   packages rather than private branches of the open core.
+- Add a README-first agent route that lets a coding agent discover the
+  environment, health check, project templates, execution lifecycle, and
+  verification contract before a new user has to reproduce the manual setup.
+- Establish AgentFEM-Learning as the optional official companion for maintained
+  scientific-learning providers while keeping user-owned models directly
+  executable through AgentFEM core.
 
 ## [0.2.1] - 2026-08-17
 
@@ -166,7 +174,8 @@ because the package version is stable.
   platform with readable study, model, step, result, campaign, and evidence
   contracts.
 
-[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/haoming-luo/agentfem/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/haoming-luo/agentfem/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/haoming-luo/agentfem/compare/v0.2.0a2...v0.2.0
 [0.2.0a2]: https://github.com/haoming-luo/agentfem/compare/v0.2.0a1...v0.2.0a2

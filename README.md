@@ -26,6 +26,19 @@ open-source FEM platform. Its longer-term vision is to make finite-element
 simulation an accessible scientific workspace connecting engineering,
 computation, data, and AI.
 
+## All You Need Is an Agent
+
+Give this repository to Codex or another coding agent and say:
+
+> Install AgentFEM from https://github.com/haoming-luo/agentfem, prepare a
+> compatible environment, run `agentfem doctor`, and build my first verified
+> finite-element model. Explain the model and results as you work.
+
+AgentFEM ships an agent guide, reusable Skill, machine-readable capabilities,
+project templates, validation commands, and structured results so an agent can
+move from environment setup to simulation without treating the solver as a
+black box. Prefer to work manually? Continue to [Install](#install).
+
 ## Why AgentFEM
 
 - **AI-Native FEM** — finite-element software designed from the start for
@@ -216,11 +229,12 @@ being prepared for arXiv.
 
 ```yaml
 title: "AgentFEM: An AI-native open-source platform for finite-element computing"
+version: "0.2.2"
 authors:
   - family-names: Luo
     given-names: Haoming
     affiliation: "Materials Department, Xi'an Thermal Power Research Institute (TPRI)"
-date-released: 2026-08-13
+date-released: 2026-08-19
 ```
 
 ## Author

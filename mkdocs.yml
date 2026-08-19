@@ -15,6 +15,7 @@ not_in_nav: |
   release_0.2.0.md
   release_0.2.0a1.md
   release_0.2.0a2.md
+  release_0.2.1.md
   release_2026_08_26.md
   publishing.md
   development_testing.md
@@ -177,5 +178,5 @@ nav:
           - Project Compatibility and Upgrades: project_upgrades.md
           - Platform and Optional Dependencies: platform_support.md
           - Licensing: licensing.md
-      - Release 0.2.1: release_0.2.1.md
+      - Release 0.2.2: release_0.2.2.md
       - Documentation Versions: project/versioning.md
