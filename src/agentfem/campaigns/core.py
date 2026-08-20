@@ -1,10 +1,4 @@
-"""Traceable, resumable campaign orchestration.
-
-The first implementation deliberately executes cases serially.  A campaign
-plan can be deterministically sharded for MPI jobs, schedulers, or services,
-but AgentFEM does not pretend that Python threads are a safe parallel FEM
-executor.
-"""
+"""Traceable, resumable serial, local-process, and sharded campaigns."""
 
 from __future__ import annotations
 
@@ -13,14 +7,23 @@ from datetime import datetime, timezone
 from hashlib import sha256
 import inspect
 import json
+import multiprocessing
+import os
 from pathlib import Path
+import socket
 from time import perf_counter
 from typing import Callable, Mapping
 
 from ..datasets import Quantity, Sample, ScientificDataset
 from ..ir.schema import to_json_safe
-from ..provenance import ORIGIN
+from ..provenance import (
+    ORIGIN,
+    content_fingerprint,
+    runtime_manifest,
+    scientific_input_manifest,
+)
 from ..results import SimulationResult
+from .execution import run_local_processes
 from .parameters import ParameterSpace, SamplingPlan
 
 
@@ -62,22 +65,27 @@ class ExecutionPolicy:
     mode: str = "serial"
     fail_fast: bool = False
     resume: bool = True
+    workers: int | None = None
 
     def __post_init__(self) -> None:
         mode = self.mode.lower().replace("-", "_")
-        if mode != "serial":
-            raise ValueError(
-                "AgentFEM 0.1 campaigns currently execute mode='serial'. "
-                "Use CampaignPlan.shard(...) to distribute independent plans "
-                "through an external MPI launcher, scheduler, or service."
-            )
+        if mode not in {"serial", "local_process"}:
+            raise ValueError("Campaign execution mode must be serial or local_process.")
+        workers = None if self.workers is None else int(self.workers)
+        if workers is not None and workers < 1:
+            raise ValueError("Campaign workers must be at least one.")
+        if mode == "serial" and workers not in {None, 1}:
+            raise ValueError("Serial campaign execution accepts at most one worker.")
         object.__setattr__(self, "mode", mode)
+        object.__setattr__(self, "workers", workers)
 
     def summary(self) -> dict[str, object]:
         return {
             "mode": self.mode,
             "fail_fast": self.fail_fast,
             "resume": self.resume,
+            "workers": self.workers,
+            "process_start_method": "spawn" if self.mode == "local_process" else None,
         }
 
 
@@ -192,6 +200,7 @@ class CaseRunRecord:
     error_type: str | None = None
     error_message: str | None = None
     reused: bool = False
+    execution: Mapping[str, object] = field(default_factory=dict)
 
     @property
     def successful(self) -> bool:
@@ -207,6 +216,7 @@ class CaseRunRecord:
             "reused": self.reused,
             "error_type": self.error_type,
             "error_message": self.error_message,
+            "execution": dict(self.execution),
         }
         if self.outcome is not None:
             result["outcome"] = {
@@ -226,6 +236,9 @@ class CampaignReport:
     records: tuple[CaseRunRecord, ...]
     dataset: ScientificDataset | None
     output_directory: Path | None = None
+    runtime: Mapping[str, object] = field(default_factory=dict)
+    execution: Mapping[str, object] = field(default_factory=dict)
+    scientific_inputs: Mapping[str, object] = field(default_factory=dict)
 
     @property
     def completed(self) -> int:
@@ -252,6 +265,9 @@ class CampaignReport:
             "output_directory": (
                 None if self.output_directory is None else str(self.output_directory)
             ),
+            "runtime": dict(self.runtime),
+            "execution": dict(self.execution),
+            "scientific_inputs": dict(self.scientific_inputs),
             "records": [record.summary() for record in self.records],
         }
 
@@ -416,6 +432,7 @@ class Campaign:
         ],
         build: Callable[[Mapping[str, object]], object] | None = None,
         metadata: Mapping[str, object] | None = None,
+        scientific_inputs: Mapping[str, object] | None = None,
         execution: ExecutionPolicy | None = None,
     ) -> None:
         selected_name = str(name).strip()
@@ -436,6 +453,7 @@ class Campaign:
         self.evaluate = evaluate
         self.build = build
         self.metadata = dict(metadata or {})
+        self.scientific_inputs = dict(scientific_inputs or {})
         self.execution = execution or ExecutionPolicy()
 
     def plan(self, sampling: SamplingPlan) -> CampaignPlan:
@@ -491,7 +509,28 @@ class Campaign:
         if comm is not None and hasattr(comm, "barrier"):
             comm.barrier()
 
-        records = []
+        records_by_id: dict[str, CaseRunRecord] = {}
+        pending_cases = []
+        runtime = runtime_manifest() if rank == 0 else None
+        campaign_inputs = (
+            scientific_input_manifest(
+                {
+                    "declared": self.scientific_inputs,
+                    "build": self.build,
+                    "evaluate": self.evaluate,
+                    "parameter_space": self.parameter_space.summary(),
+                    "outputs": [quantity.summary() for quantity in self.outputs],
+                },
+                label=f"campaign:{self.name}",
+            )
+            if rank == 0
+            else None
+        )
+        if comm is not None and hasattr(comm, "bcast"):
+            runtime = comm.bcast(runtime, root=0)
+            campaign_inputs = comm.bcast(campaign_inputs, root=0)
+        assert runtime is not None
+        assert campaign_inputs is not None
         for case in selected_plan.cases:
             record_path = None if output is None else output / "cases" / f"{case.case_id}.json"
             reused = (
@@ -502,18 +541,68 @@ class Campaign:
             if comm is not None and hasattr(comm, "bcast"):
                 reused = comm.bcast(reused, root=0)
             if reused is not None:
-                records.append(reused)
+                records_by_id[case.case_id] = reused
                 continue
-            record = _synchronize_mpi_record(
-                self._run_case(case),
-                comm=comm,
-                rank=rank,
+            pending_cases.append(case)
+
+        if selected_policy.mode == "local_process":
+            if comm is not None:
+                raise ValueError(
+                    "local_process executes independent cases and cannot be nested "
+                    "inside one within-case MPI communicator. Use plan shards for "
+                    "separate MPI jobs."
+                )
+            workers = selected_policy.workers or max(
+                1,
+                min(max(len(pending_cases), 1), os.cpu_count() or 1),
             )
-            records.append(record)
-            if record_path is not None and rank == 0:
-                _write_json(record_path, record.summary())
-            if not record.successful and selected_policy.fail_fast:
-                break
+            batch = run_local_processes(
+                self._run_case,
+                pending_cases,
+                workers=workers,
+                fail_fast=selected_policy.fail_fast,
+            )
+            execution_evidence = batch.evidence
+            for record in batch.records:
+                records_by_id[record.case.case_id] = record
+        else:
+            execution_evidence = {
+                "provider": "within_case_mpi" if comm is not None else "serial",
+                "start_method": None,
+                "requested_workers": 1,
+                "effective_workers": 1,
+                "case_count": 0,
+                "stopped_early": False,
+                "fail_fast_overshoot_limit": 0,
+            }
+            for case in pending_cases:
+                record = _synchronize_mpi_record(
+                    self._run_case(
+                        case,
+                        "within_case_mpi" if comm is not None else "serial",
+                    ),
+                    comm=comm,
+                    rank=rank,
+                )
+                records_by_id[case.case_id] = record
+                execution_evidence["case_count"] += 1
+                if not record.successful and selected_policy.fail_fast:
+                    execution_evidence["stopped_early"] = True
+                    break
+
+        records = tuple(
+            records_by_id[case.case_id]
+            for case in selected_plan.cases
+            if case.case_id in records_by_id
+        )
+        if output is not None and rank == 0:
+            for record in records:
+                if record.reused:
+                    continue
+                _write_json(
+                    output / "cases" / f"{record.case.case_id}.json",
+                    record.summary(),
+                )
 
         samples = tuple(
             Sample(
@@ -540,6 +629,13 @@ class Campaign:
                     "sampling": selected_plan.sampling.summary(),
                     "build": _callable_identity(self.build),
                     "evaluate": _callable_identity(self.evaluate),
+                    "runtime_fingerprint": runtime["fingerprint"],
+                    "scientific_input_fingerprint": campaign_inputs["fingerprint"],
+                    "scientific_input_coverage": {
+                        "complete": campaign_inputs["complete"],
+                        "missing": campaign_inputs["missing"],
+                    },
+                    "execution": execution_evidence,
                 },
             )
         )
@@ -549,6 +645,9 @@ class Campaign:
             records=tuple(records),
             dataset=dataset,
             output_directory=output,
+            runtime=runtime,
+            execution=execution_evidence,
+            scientific_inputs=campaign_inputs,
         )
         if output is not None and rank == 0:
             if dataset is not None:
@@ -558,7 +657,11 @@ class Campaign:
             comm.barrier()
         return report
 
-    def _run_case(self, case: CampaignCase) -> CaseRunRecord:
+    def _run_case(
+        self,
+        case: CampaignCase,
+        execution_mode: str = "serial",
+    ) -> CaseRunRecord:
         started_at = _utc_now()
         started = perf_counter()
         try:
@@ -587,8 +690,12 @@ class Campaign:
                 for quantity in self.outputs
             }
             provenance = {
-                **_case_provenance(built),
                 **dict(outcome.provenance),
+                **_case_provenance(
+                    built,
+                    parameters=case.parameters,
+                    declared=self.scientific_inputs,
+                ),
             }
             selected_outcome = CaseOutcome(
                 outputs=validated_outputs,
@@ -602,6 +709,7 @@ class Campaign:
                 finished_at=_utc_now(),
                 duration_seconds=perf_counter() - started,
                 outcome=selected_outcome,
+                execution=_worker_identity(execution_mode),
             )
         except Exception as exc:  # case failures are campaign data, not process failure
             return CaseRunRecord(
@@ -612,6 +720,7 @@ class Campaign:
                 duration_seconds=perf_counter() - started,
                 error_type=f"{type(exc).__module__}.{type(exc).__qualname__}",
                 error_message=str(exc),
+                execution=_worker_identity(execution_mode),
             )
 
     def summary(self) -> dict[str, object]:
@@ -624,6 +733,10 @@ class Campaign:
             "build": _callable_identity(self.build),
             "evaluate": _callable_identity(self.evaluate),
             "metadata": self.metadata,
+            "scientific_inputs": scientific_input_manifest(
+                self.scientific_inputs,
+                label=f"campaign:{self.name}:declared",
+            ),
             "execution": self.execution.summary(),
         }
 
@@ -632,6 +745,22 @@ def create(**kwargs) -> Campaign:
     """Create a :class:`Campaign` using the public functional spelling."""
 
     return Campaign(**kwargs)
+
+
+def local_processes(
+    *,
+    workers: int | None = None,
+    fail_fast: bool = False,
+    resume: bool = True,
+) -> ExecutionPolicy:
+    """Use spawned local processes for independent campaign cases."""
+
+    return ExecutionPolicy(
+        mode="local_process",
+        workers=workers,
+        fail_fast=fail_fast,
+        resume=resume,
+    )
 
 
 def _as_case_outcome(
@@ -662,8 +791,24 @@ def _as_case_outcome(
     )
 
 
-def _case_provenance(built) -> dict[str, object]:
-    provenance: dict[str, object] = {}
+def _case_provenance(
+    built,
+    *,
+    parameters: Mapping[str, object],
+    declared: Mapping[str, object],
+) -> dict[str, object]:
+    input_manifest = scientific_input_manifest(
+        {
+            "parameters": parameters,
+            "declared": declared,
+            "built": built,
+        },
+        label="campaign_case",
+    )
+    provenance: dict[str, object] = {
+        "scientific_inputs": input_manifest,
+        "scientific_input_fingerprint": input_manifest["fingerprint"],
+    }
     candidate = built
     if isinstance(built, Mapping):
         candidate = built.get("model", built)
@@ -671,9 +816,11 @@ def _case_provenance(built) -> dict[str, object]:
     to_ir = getattr(model, "to_ir", None)
     if callable(to_ir):
         try:
-            provenance["model_ir"] = to_ir(
+            model_ir = to_ir(
                 metadata={"purpose": "campaign_case_provenance"}
             )
+            provenance["model_ir"] = model_ir
+            provenance["model_fingerprint"] = content_fingerprint(model_ir)
         except (TypeError, ValueError):
             provenance["model_ir_available"] = False
     return provenance
@@ -779,9 +926,20 @@ def _load_completed_record(path: Path, case: CampaignCase) -> CaseRunRecord | No
                 artifacts=outcome.get("artifacts", {}),
             ),
             reused=True,
+            execution=record.get("execution", {}),
         )
     except (KeyError, TypeError, ValueError, json.JSONDecodeError):
         return None
+
+
+def _worker_identity(mode: str) -> dict[str, object]:
+    return {
+        "mode": mode,
+        "hostname": socket.gethostname(),
+        "process_id": os.getpid(),
+        "process_name": multiprocessing.current_process().name,
+        "start_method": multiprocessing.get_start_method(allow_none=True),
+    }
 
 
 __all__ = [
@@ -796,4 +954,5 @@ __all__ = [
     "ExecutionPolicy",
     "case_id",
     "create",
+    "local_processes",
 ]

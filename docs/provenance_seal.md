@@ -12,6 +12,13 @@ canonical repository, the open-source date, the Apache-2.0 license, and the
 project citation file. Thus attribution travels with ordinary result bundles
 rather than living only on the GitHub home page.
 
+Scientific input identity is a separate part of the result manifest. Use
+`SimulationResult.add_scientific_inputs(...)` for an individual analysis, or
+`Campaign(scientific_inputs=...)` for a parameter study. Source files are
+hashed by bytes, arrays by dtype/shape/content, and public scientific objects
+through their IR or summary contract. An opaque object is recorded as an
+explicit coverage gap; it is never silently converted into a complete claim.
+
 No account, server, key, optional dependency, or extra case code is required.
 The numerical fields are never modified. A user, agent, CI job, or future GUI
 can check a result directory with:
@@ -37,6 +44,31 @@ not answer, “Is the mesh adequate, did the nonlinear solve converge, or is the
 model validated for this engineering claim?” Those questions remain in the
 scientific verification report and its `computed`, `converged`, `verified`,
 and `validated` vocabulary.
+
+## Runtime identity and frozen campaigns
+
+Every newly written result manifest also records the runtime before the seal is
+calculated. The record includes AgentFEM, DOLFINx/UFL/Basix/FFCx, PETSc, MPI,
+Python, scalar precision, rank count, and source or installed-distribution
+identity. Diagnostic paths remain visible but are deliberately excluded from
+the compatibility fingerprint.
+
+For a blind or long-running campaign, freeze and enforce the environment:
+
+```python
+from agentfem import provenance
+
+provenance.freeze_runtime("frozen_runtime.json")
+provenance.require_runtime("frozen_runtime.json", policy="error")
+```
+
+Use `policy="warn"` only when the mismatch has been reviewed and must remain
+visible in evidence. A source checkout records its Git commit, tracked dirty
+state, and a deterministic digest of the importable package tree, including
+untracked package files without being polluted by case output directories. An
+installed distribution records available `.dist-info` evidence; the
+runtime does not invent an original wheel SHA256 when the installer did not
+retain the wheel archive.
 
 The current SHA-256 seal is deterministic integrity evidence, not proof against
 an adversary who can rewrite both the result and its seal. This is deliberate:

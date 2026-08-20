@@ -48,16 +48,20 @@ with `agentfem capabilities --json` before generating a Step call.
     diagnostic, and optional presentation requests
 20. Compact unified XDMF/HDF5 artifacts attached to the result; use PVD/VTU
     only when specifically required
+21. Optional runtime lock before a frozen or blind experiment
 
 For related-case collections:
 
-21. Typed parameter space and deterministic sampling plan, optionally from
+22. Typed parameter space and deterministic sampling plan, optionally from
     safe JSON
-22. Fresh model construction per case
-23. Resumable campaign execution; evaluators may return `SimulationResult`
-24. Named quality policy before dataset admission
-25. Scientific dataset plus independent train/validation split
-26. Surrogate/ROM validation, applicability guard, and explicit FEM fallback
+23. Fresh model construction per case
+24. Scientific-input declaration and fingerprint-coverage review
+25. Serial, spawned local-process, or externally sharded campaign execution
+26. Optional multi-axis convergence certificate with explicit fixed coordinates
+27. Optional response experiment lowered to baseline/perturbation Campaign cases
+28. Named quality policy before dataset admission
+29. Scientific dataset plus independent train/validation split
+30. Surrogate/ROM validation, applicability guard, and explicit FEM fallback
 
 Do not collapse these steps so aggressively that a reviewer cannot see the
 finite-element model.

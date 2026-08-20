@@ -1,0 +1,131 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.scalable_campaign_evidence",
+  "title": "Spawned campaign ensembles and convergence certificates",
+  "kind": "workflow",
+  "status": "supported",
+  "summary": "Runs independent cases through safe spawned local processes, fingerprints declared and resolved scientific inputs, and issues conservative multi-axis convergence certificates.",
+  "public_api": [
+    "agentfem.campaigns.local_processes",
+    "agentfem.convergence.axis",
+    "agentfem.convergence.observable",
+    "agentfem.convergence.audit",
+    "agentfem.provenance.scientific_input_manifest",
+    "agentfem.results.SimulationResult.add_scientific_inputs"
+  ],
+  "implementation": [
+    "campaigns/execution.py",
+    "campaigns/core.py",
+    "convergence.py",
+    "provenance.py"
+  ],
+  "science": {
+    "statement": "A scalable refinement study remains scientific evidence only when execution resources, failed cases, fixed coordinates, observable policies, and input identity coverage remain explicit.",
+    "equations": [
+      {
+        "label": "finest relative change",
+        "expression": "\\eta_q=\\frac{\\lVert q_{n}-q_{n-1}\\rVert}{\\max(\\lVert q_n\\rVert,\\epsilon)}",
+        "description": "The metric is evaluated per declared observable on an explicit coarse-to-fine slice."
+      },
+      {
+        "label": "uniform-ratio observed order",
+        "expression": "p=\\frac{\\log(\\lVert q_{n-2}-q_{n-1}\\rVert/\\lVert q_{n-1}-q_n\\rVert)}{\\log(h_{n-2}/h_{n-1})}",
+        "description": "Order is reported only for at least three samples with matching successive refinement ratios."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "campaign cases",
+        "type": "CampaignPlan plus build/evaluate contracts",
+        "unit_role": "parameter units retained",
+        "description": "Each independent case has a deterministic identity and fresh construction boundary."
+      },
+      {
+        "name": "refinement axes",
+        "type": "positive characteristic size or inverse resolution with fixed coordinates",
+        "unit_role": "declared by the corresponding parameter",
+        "description": "Prevents unrelated parameter changes from entering a convergence sequence."
+      },
+      {
+        "name": "scientific inputs",
+        "type": "files, arrays, mappings, or objects with IR/summary contracts",
+        "unit_role": "preserved by the public scientific record",
+        "description": "Opaque objects remain explicit coverage gaps."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "CampaignReport",
+        "type": "ordered case records, worker evidence, runtime and input manifests",
+        "unit_role": "inherits declared quantities",
+        "description": "Failed cases remain addressable and completed cases are resumable."
+      },
+      {
+        "name": "ConvergenceCertificate",
+        "type": "passed, failed, or inconclusive checks per axis and observable",
+        "unit_role": "relative metrics are dimensionless; absolute metrics inherit output units",
+        "description": "Includes case IDs, characteristic sizes, values, criteria, and a stable certificate identity."
+      }
+    ],
+    "assumptions": [
+      "Each local worker can import and serialize the Campaign build/evaluate callables.",
+      "Each case constructs fresh mutable solver state.",
+      "Convergence axes are positive and all other varying parameters are explicitly fixed.",
+      "Exact event/topology records are JSON-safe scientific evidence."
+    ],
+    "conventions": [
+      "Across-case local execution uses spawn and cannot be nested inside within-case MPI.",
+      "Characteristic sizes are ordered coarse-to-fine; inverse resolution converts element counts to decreasing size.",
+      "Missing or failed refinement cases make a check inconclusive."
+    ],
+    "applicability": [
+      "Local workstation parameter sweeps, mesh/time/cohesive resolution studies, event-order stability, topology checks, and evidence generation before learning or publication."
+    ],
+    "limitations": [
+      "No scheduler or independently launched MPI-job ensemble provider is included yet.",
+      "The initial certificate does not calculate generalized GCI or uncertainty intervals.",
+      "Field comparison uses declared numeric arrays; mesh-transfer norms require a future field policy.",
+      "Complete input identity depends on explicit files or public IR/summary contracts."
+    ]
+  },
+  "usage": {
+    "minimal_example": "campaign = campaigns.create(..., execution=campaigns.local_processes(workers=4), scientific_inputs={\"mesh\": Path(\"mesh.inp\")}); report = campaign.run(plan); certificate = convergence.audit(report, axes=(convergence.axis(\"h\", fixed={\"dt\": 1e-3}),), observables=(convergence.observable(\"response\", tolerance=0.01),))",
+    "examples": [
+      "docs/scientific_experiments.md"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_campaigns.py",
+      "tests/test_convergence_audit.py",
+      "tests/test_provenance.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Reject local-process nesting inside a within-case MPI communicator.",
+      "Reject duplicate axis or observable declarations.",
+      "Report failed, missing, duplicate-size, or insufficient refinement sequences as inconclusive.",
+      "Mark objects without scientific identity contracts as incomplete coverage."
+    ]
+  },
+  "references": [
+    {
+      "title": "AgentFEM scientific experiments",
+      "locator": "docs/scientific_experiments.md"
+    },
+    {
+      "title": "Python multiprocessing contexts and start methods",
+      "locator": "https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods"
+    },
+    {
+      "title": "W3C PROV-O recommendation",
+      "locator": "https://www.w3.org/TR/prov-o/"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.scientific_response_experiments",
+    "agentfem.workflow.scientific_verification",
+    "agentfem.workflow.campaign_learning_pipeline"
+  ]
+}

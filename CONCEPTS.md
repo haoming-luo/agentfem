@@ -159,6 +159,13 @@ An amplitude-driven nonlinear natural load supplies the complete load scale
 and is not multiplied by a second hidden ramp. A natural load without an
 amplitude follows the Step's default proportional ramp.
 
+An amplitude basis is an ordered set of named, serializable histories with a
+declared coefficient vector. It is a scientific input asset for multi-actuator
+loading, inverse problems, impact design, and response studies. Built-in
+histories expose value, velocity, acceleration, endpoint audits, and a content
+fingerprint. An arbitrary Python callable remains a supported escape hatch but
+is explicitly non-serializable unless the user supplies a separate record.
+
 ## Cycle Coordinate and Cycle Block
 
 Fatigue cycle count is an independent physical coordinate. It is not physical
@@ -391,7 +398,37 @@ fields, histories, solver/model metadata, and artifact links. XDMF, CSV, and
 NumPy files are result artifacts rather than the result abstraction itself.
 A simulation result can supply declared campaign outputs without serializing
 live finite-element fields into a tabular dataset. Execution status and
-scientific trust are separate attributes.
+scientific trust are separate attributes. A result can also attach a
+content-addressed scientific-input manifest before its artifact seal is
+written; an empty declaration remains explicitly incomplete.
+
+## Runtime Lock
+
+A runtime lock freezes the compatibility-relevant execution identity for a
+campaign: AgentFEM and backend versions, Python and scalar types, MPI vendor
+and rank count, and either the source commit/dirty state or installed
+distribution identity. Paths and the working directory remain evidence but do
+not gate compatibility. Runtime identity, scientific input identity, and the
+result artifact seal are distinct records; none of them is a validation claim.
+
+## Scientific Input Manifest
+
+A deterministic identity for the parameter values, mesh and source files,
+materials, loads, constraints, procedures, output/observer plans, and resolved
+model structure that a campaign can actually describe. Files are hashed by
+content; arrays by dtype, shape, and content; public scientific objects by
+their IR or summary contract; callable source files, defaults, closures, and
+bound state are included when available. The same manifest can be attached to
+one `SimulationResult`. Opaque runtime objects remain visible and make coverage
+incomplete rather than receiving a misleading identity.
+
+## Event Observation
+
+An event observation records when a declared response first crosses a physical
+threshold. It carries the sample bracket, localization rule, direction, and
+left/right censoring status. Linear interpolation is an assumption for a
+continuous monitored response, not an exact event solve for discontinuous
+damage, contact, or active-set changes.
 
 ## Verification Claim and Trust Level
 
@@ -456,8 +493,29 @@ fresh case construction, declared output quantities, execution evidence,
 failure records, and resumable artifacts.
 
 Within-case MPI and across-case distribution are distinct. All ranks may
-cooperate on one FEniCSx solve; deterministic campaign-plan shards may be sent
-to separate jobs. Python threads are not assumed to be a safe FEM executor.
+cooperate on one FEniCSx solve. Independent cases may use the spawned local
+process provider, while deterministic campaign-plan shards may be sent to
+separate MPI jobs or schedulers. Python threads and post-initialization process
+forking are not assumed to be safe FEM executors.
+
+## Convergence Certificate
+
+A multi-axis decision assembled from Campaign evidence. Each axis declares its
+characteristic size and fixes every other varying parameter. Each observable
+declares a relative, absolute, or exact comparison policy. Missing/failed
+cases, ambiguous slices, unavailable order evidence, and topology/event changes
+remain passed, failed, or inconclusive addressable checks rather than being
+removed from a plotted refinement curve.
+
+## Response Experiment
+
+A response experiment asks for derivatives of named outputs with respect to
+named scientific parameters. Its first provider uses forward, backward, or
+central finite differences lowered to an ordinary Campaign, so baseline and
+perturbed cases retain deterministic identities, failures, cache/restart
+behavior, units, and provenance. Future tangent-linear or adjoint providers
+must satisfy the same result contract; irreversible events are not assumed to
+be differentiable.
 
 ## Scientific Dataset
 

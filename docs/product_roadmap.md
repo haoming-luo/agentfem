@@ -39,8 +39,8 @@ core, results, verification, and documentation have priority.
 | Abaqus periodic equations | serial + two-rank displacement; serial mixed | exact chained affine elimination, distributed displacement `dolfinx_mpc`, 3D Neo-Hookean load path, and mixed P2/DG0 serial reduction that leaves pressure dofs independent | distributed mixed-space MPC, AMG near-nullspace transfer, reactions, and scaling studies remain |
 | Abaqus user-material bridge | interface contract | solver-neutral material-point input/output and migration specification | no compiled adapter or quadrature-state global driver |
 | Result/data flow | integrated foundation | declarative field/history/diagnostic/presentation plans; shared accepted-increment history and probe requests across heat, Standard, and Explicit procedures; serial compact single-grid XDMF/HDF5 plus collective MPI single-dataset PVD/PVTU presentation carrying point and cell fields; engineering-default U/S/E/MISES; explicit weighted integration-point-to-DG0 recovery; one structured event trace; atomic checkpoint cadence/retention, opt-in cross-rank nodal restart, and MPI-rank-count-portable J2/creep quadrature state; strong-BC resultants, nonzero prescribed-motion work and energy closure; verification reports and trust-gated learning bridge | compact MPI single-grid/VTKHDF, direct quadrature export, smooth material-domain nodal recovery, affine/weak reactions, full-Step stateful cross-partition restart, and broader conservation balances remain |
-| Scientific trust and provenance | integrated foundation | computed/converged/verified/validated vocabulary; exploratory/engineering/release policies; automatic runtime checks; explicit claims and applicability domains; coarse-to-fine convergence evidence; automatically sealed result manifests and artifact hashes; tagged-distribution attestation when repository visibility supports it; learning-data quality gates; orientation metamorphic regression | optional signed result identities, representative-family evidence inheritance, hole-stress and T-stiffener cliff families, GCI, and external-deck reproductions remain |
-| Campaign-to-learning flow | workflow integrated + declarative neural-field foundation | deterministic cases, resumable evidence, failure-aware dataset gate, reproducible train/validation workflow, ridge/POD/PyTorch adapters, applicability guard and FEM fallback; MPI-safe structured observation grids with units, layout, and geometry masks; one `agentfem.learning` entry point; provider-neutral residual/energy/data/constraint, sampling, representation, and inverse-parameter contracts | no production XDEM/DeepXDE/neural-operator provider, graph/basis field encoder, scheduler executor, active-learning governance, or calibrated epistemic uncertainty |
+| Scientific trust and provenance | integrated foundation | computed/converged/verified/validated vocabulary; exploratory/engineering/release policies; automatic runtime checks; explicit claims and applicability domains; coarse-to-fine and multi-axis observable-aware convergence certificates; automatically sealed result manifests and artifact hashes; runtime locks covering backend versions, scalar/MPI identity and source/distribution evidence; declared/built scientific-input manifests with file/array/object fingerprints and explicit opaque coverage; tagged-distribution attestation when repository visibility supports it; learning-data quality gates; orientation metamorphic regression | automatic coverage still depends on public IR/summary contracts or explicit input declaration; optional signed result identities, representative-family evidence inheritance, hole-stress and T-stiffener cliff families, GCI, and external-deck reproductions remain |
+| Campaign-to-learning flow | workflow integrated + declarative neural-field foundation | deterministic cases, resumable evidence, failure-aware dataset gate, reproducible train/validation workflow, ridge/POD/PyTorch adapters, applicability guard and FEM fallback; spawned local-process ensembles with worker/failure evidence; serializable amplitude bases with derivatives and endpoint audits; campaign-backed finite-difference response experiments with Jacobian/rank/conditioning evidence; generic first-passage localization and censoring; MPI-safe structured observation grids with units, layout, and geometry masks; one `agentfem.learning` entry point; provider-neutral residual/energy/data/constraint, sampling, representation, and inverse-parameter contracts | no scheduler or nested MPI-job ensemble executor, tangent-linear or adjoint response provider, production XDEM/DeepXDE/neural-operator provider, graph/basis field encoder, active-learning governance, or calibrated epistemic uncertainty |
 | Platform/install boundary | release foundation | Linux CI, macOS developer verification, WSL2 recommended for Windows, exact interpreter/import/distribution identity, versioned project schema, source-aware upgrade reports, Gmsh/meshio optional adapters | native Windows remains experimental; semantic Python migrations require human or agent review; AgentFEM is not yet a conda-forge package |
 | Open-core extension boundary | integrated foundation | lazy Python entry-point discovery, explicit activation, API compatibility, staged provider/backend/material registration, project requirements, CLI inventory, and execution provenance | no arbitrary hook bus; new registration kinds require a stable public consumer and conflict semantics |
 
@@ -125,6 +125,16 @@ an agent, user, or README from confusing these levels.
 - define amplitude coordinates once across single-solve static, normalized
   nonlinear static, and physical-time transient procedures; named histories
   must resolve identically for loads and prescribed values;
+- preserve frozen campaigns through a runtime lock that separates stable
+  compatibility fields from diagnostic paths, and attach the full runtime
+  record to every sealed result manifest;
+- represent multi-actuator and waveform studies with serializable amplitude
+  bases, declared coefficient order, analytical or audited derivatives, and
+  stable content fingerprints;
+- lower finite-difference response experiments to ordinary Campaign cases so
+  cache, resume, failures, MPI participation, and result evidence are shared;
+- preserve first-passage brackets, localization assumptions, and censoring
+  instead of reducing events to an unqualified output-frame index;
 - make project execution fail collectively when any MPI rank fails, preserving
   rank-addressable evidence rather than hanging at a completion barrier;
 - keep execution status distinct from scientific trust; release and training
@@ -336,6 +346,26 @@ paths, branching, and general contact do not enter this sequence early.
 - add tool/service endpoints around the same campaign/result contracts;
 - evolve AF-IR only when a loader, validator, migration, or independent
   consumer requires a stable semantic record.
+
+### P5: scalable scientific experiments
+
+- extend the spawned local-process provider with scheduler and separately
+  launched MPI-job ensemble providers while preserving the same Campaign
+  evidence and never nesting process pools inside an initialized MPI solve;
+- extend current multi-axis certificates with GCI/uncertainty estimates,
+  field-specific norms, energy-ledger policies, and publication table/figure
+  renderers;
+- let finite-difference, tangent-linear, and adjoint providers satisfy one
+  response-report contract; introduce tangent/adjoint routes first for smooth,
+  independently verified procedures;
+- add explicit parameter/output nondimensionalization and perturbation-step
+  convergence certificates before comparing condition numbers across unlike
+  quantities;
+- treat irreversible damage, contact activation, first-passage changes, and
+  topology transitions as event-aware or nonsmooth problems rather than
+  advertising universal automatic differentiation;
+- add campaign protocol freeze and bridge-comparison reports for deliberate
+  migration between released AgentFEM environments.
 
 ## Definition of “Better”
 

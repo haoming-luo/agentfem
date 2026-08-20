@@ -268,6 +268,7 @@ and evidence remain in the linked guides and scientific function reference.
 | Kind | Public object | Purpose |
 | --- | --- | --- |
 | class | `Amplitude` | Named scalar history function. |
+| class | `AmplitudeAudit` | Portable endpoint and range evidence for one amplitude. |
 | function | `as_amplitude(value, *, name: str = 'amplitude') -> Amplitude` | Convert a scalar, callable, or ``Amplitude`` into an ``Amplitude``. |
 | function | `constant(value: float, *, name: str = 'constant') -> Amplitude` | Create a constant amplitude. |
 | function | `ramp(start_value: float = 0.0, end_value: float = 1.0, *, start_time: float = 0.0, end_time: float = 1.0, name: str = 'ramp') -> Amplitude` | Create a clipped linear ramp amplitude. |
@@ -275,6 +276,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `tabular(times, values, *, name: str = 'tabular', left: float \| None = None, right: float \| None = None) -> Amplitude` | Create a linearly interpolated tabular amplitude. |
 | function | `sine(amplitude: float = 1.0, frequency: float = 1.0, *, phase: float = 0.0, offset: float = 0.0, name: str = 'sine') -> Amplitude` | Create a sinusoidal amplitude. |
 | function | `gaussian_modulated_sine(amplitude: float, frequency: float, width: float, *, center: float \| None = None, phase: float = 0.0, name: str = 'gaussian_modulated_sine') -> Amplitude` | Create a Gaussian-windowed sinusoidal pulse. |
+| class | `AmplitudeBasis` | Named, serializable loading modes with a declared coefficient order. |
+| function | `basis(*components: Amplitude, name: str = 'amplitude_basis', coefficient_names: Sequence[str] \| None = None, coordinate_name: str = 'time', coordinate_unit: str \| None = 's', value_unit: str \| None = None) -> AmplitudeBasis` | Create a named basis for control, inverse, and transient studies. |
 
 ## `agentfem.loads`
 
@@ -348,7 +351,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ResultQuantity` | One scalar or fixed-shape quantity of interest. |
 | class | `SimulationResult` | Scientific results and artifacts from one simulation. |
 | function | `dof_statistics(field) -> dict[str, float \| int]` | Return global finite dof statistics for a DOLFINx-like field. |
-| function | `from_solution(solution, *, name: str = 'result', field_name: str \| None = None, unit: str \| None = None, metadata: Mapping[str, object] \| None = None) -> SimulationResult` | Wrap one solved field in a :class:`SimulationResult`. |
+| function | `from_solution(solution, *, name: str = 'result', field_name: str \| None = None, unit: str \| None = None, metadata: Mapping[str, object] \| None = None, scientific_inputs: Mapping[str, object] \| None = None) -> SimulationResult` | Wrap one solved field in a :class:`SimulationResult`. |
 | class | `ForceMomentResultant` | Integrated force and moment about an explicit physical point. |
 | class | `PathSample` | Values sampled along one straight physical-space path. |
 | class | `StaticForceBalance` | Global algebraic force equilibrium for one linear static solid. |
@@ -425,6 +428,13 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `render_unified_xdmf_animation(xdmf_path, output_path, *, scalar: str = 'UMAG', fps: int = 2) -> Path` | Render a GIF or MP4 from AgentFEM's single XDMF/HDF5 series. |
 | function | `render_unified_xdmf_comparison(xdmf_path, output_path, *, scalar: str = 'UMAG') -> Path` | Render the first and final grids from a unified XDMF series. |
 | function | `render_vtk_series_animation(frame_paths, output_path, *, scalar: str = 'UMAG', fps: int = 2) -> Path` | Render a GIF directly from a combined-field deformed VTU series. |
+
+## `agentfem.events`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `FirstPassageEvent` | One threshold event with explicit localization and censoring evidence. |
+| function | `first_passage(abscissa, values = None, *, threshold: float, direction: EventDirection = 'rising', localization: str = 'linear', component: int \| tuple[int, ...] \| None = None, name: str = 'first_passage', coordinate_name: str \| None = None, coordinate_unit: str \| None = None, value_name: str \| None = None, value_unit: str \| None = None) -> FirstPassageEvent` | Locate the first threshold crossing in a history or numeric arrays. |
 
 ## `agentfem.solvers`
 
@@ -508,7 +518,7 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
-| class | `Campaign(*, name: str, parameter_space: ParameterSpace, outputs: tuple[Quantity, ...], evaluate: Callable[[object], Mapping[str, object] \| CaseOutcome \| SimulationResult], build: Callable[[Mapping[str, object]], object] \| None = None, metadata: Mapping[str, object] \| None = None, execution: ExecutionPolicy \| None = None) -> None` | Build and evaluate a collection of immutable scientific cases. |
+| class | `Campaign(*, name: str, parameter_space: ParameterSpace, outputs: tuple[Quantity, ...], evaluate: Callable[[object], Mapping[str, object] \| CaseOutcome \| SimulationResult], build: Callable[[Mapping[str, object]], object] \| None = None, metadata: Mapping[str, object] \| None = None, scientific_inputs: Mapping[str, object] \| None = None, execution: ExecutionPolicy \| None = None) -> None` | Build and evaluate a collection of immutable scientific cases. |
 | class | `CampaignCase` | One immutable case in a campaign plan. |
 | class | `CampaignPlan` | Immutable cases and their design-of-experiment evidence. |
 | class | `CampaignReport` | Case-level evidence and the successful scientific dataset. |
@@ -517,6 +527,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ExecutionPolicy` | Declared execution behavior for the current campaign runner. |
 | function | `case_id(campaign_name: str, parameters: Mapping[str, object], *, schema_version: str = CAMPAIGN_SCHEMA_VERSION) -> str` | Return a deterministic scientific case identity. |
 | function | `create(**kwargs) -> Campaign` | Create a :class:`Campaign` using the public functional spelling. |
+| function | `local_processes(*, workers: int \| None = None, fail_fast: bool = False, resume: bool = True) -> ExecutionPolicy` | Use spawned local processes for independent campaign cases. |
 | class | `CampaignSpecification` | Validated declarative part of a campaign. |
 | function | `load_specification(path: str \| Path) -> CampaignSpecification` | Load a safe JSON campaign specification. |
 | function | `specification_from_dict(record: Mapping[str, object]) -> CampaignSpecification` | Validate a dictionary and construct a campaign specification. |
@@ -529,6 +540,18 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `full_factorial(space: ParameterSpace, levels: int \| Mapping[str, int] = 3) -> SamplingPlan` | Create a full-factorial design in normalized coordinates. |
 | function | `latin_hypercube(space: ParameterSpace, count: int, *, seed: int = 0) -> SamplingPlan` | Draw a reproducible Latin-hypercube design. |
 | function | `random(space: ParameterSpace, count: int, *, seed: int = 0) -> SamplingPlan` | Draw reproducible independent uniform samples in normalized space. |
+
+## `agentfem.convergence`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `ConvergenceAxis` | One refinement coordinate with all other coordinates fixed explicitly. |
+| class | `ObservablePolicy` | How one scalar, vector, event, or topology record is compared. |
+| class | `ConvergenceCheck` | One observable checked along one explicitly selected refinement axis. |
+| class | `ConvergenceCertificate` | Auditable multi-axis convergence decision for one CampaignReport. |
+| function | `axis(parameter: str, *, fixed: Mapping[str, object] \| None = None, discretization: str = 'mesh', characteristic: Characteristic = 'value') -> ConvergenceAxis` | Public AgentFEM object. |
+| function | `observable(name: str, *, comparison: Comparison = 'relative', tolerance: float \| None = None, source: Source = 'output', path: str \| None = None, minimum_observed_order: float \| None = None, unit: str \| None = None) -> ObservablePolicy` | Public AgentFEM object. |
+| function | `audit(report: CampaignReport, *, axes: tuple[ConvergenceAxis, ...], observables: tuple[ObservablePolicy, ...], output: str \| Path \| None = None) -> ConvergenceCertificate` | Build a conservative convergence certificate from campaign evidence. |
 
 ## `agentfem.checkpointing`
 
@@ -824,6 +847,14 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `explicit_dynamics(*, state, integrator, residual, stiffness = None, dt: float, steps: int, study = None, prescribed = (), constraints = (), update_load = None, save_every: int \| None = None, print_every: int \| None = None, history_every: int = 1, progress = True, status_file = None, checkpoint_policy = None, history_monitor = None, stability = None, name: str = 'explicit_dynamics') -> ExplicitDynamicsStep` | Create a second-order explicit dynamics step. |
 | function | `implicit_dynamics(*, state, mass, stiffness, force, damping = None, dt: float, steps: int, parameters = None, study = None, constraints = (), bcs = None, solver_options: LinearSolverOptions \| None = None, update_load = None, progress = True, status_file = None, checkpoint_policy = None, save_every: int \| None = None, print_every: int \| None = None, name: str = 'implicit_dynamics') -> ImplicitDynamicsStep` | Create a linear Newmark or generalized-alpha dynamics step. |
 
+## `agentfem.responses`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `ResponseReport` | A finite-difference Jacobian and the cases that support it. |
+| class | `FiniteDifferenceResponse` | A method-neutral response contract with a finite-difference provider. |
+| function | `finite_difference(**kwargs) -> FiniteDifferenceResponse` | Create a campaign-backed finite-difference response experiment. |
+
 ## `agentfem.surrogates`
 
 | Kind | Public object | Purpose |
@@ -1040,7 +1071,14 @@ This package exposes its public objects through focused submodules.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| function | `content_fingerprint(record: object) -> str` | Return a canonical content identity for one JSON-safe scientific record. |
+| function | `scientific_input_manifest(value: object, *, label: str = 'scientific_inputs', require_nonempty: bool = False) -> dict[str, object]` | Describe and fingerprint scientific inputs without hiding opaque parts. |
 | function | `seal_manifest(manifest: Mapping[str, object], *, base: str \| Path, producer_version: str) -> dict[str, object]` | Return a deterministic integrity seal for an unsealed manifest. |
+| function | `runtime_manifest() -> dict[str, object]` | Capture runtime evidence and a stable compatibility identity. |
+| function | `freeze_runtime(path: str \| Path) -> Path` | Atomically write the current runtime lock for a frozen campaign. |
+| class | `RuntimeComparison` | Compatibility decision between a frozen and current runtime. |
+| function | `compare_runtime(expected: str \| Path \| Mapping[str, object], *, actual: Mapping[str, object] \| None = None) -> RuntimeComparison` | Compare a stored runtime identity with the current or supplied one. |
+| function | `require_runtime(expected: str \| Path \| Mapping[str, object], *, policy: str = 'error') -> RuntimeComparison` | Enforce or warn about a frozen runtime before a scientific campaign. |
 | class | `SealVerification` | Outcome of checking one stored provenance seal. |
 | function | `verify_manifest(path: str \| Path) -> SealVerification` | Verify a result manifest and every artifact recorded in its seal. |
 

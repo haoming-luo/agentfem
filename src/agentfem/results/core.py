@@ -255,6 +255,7 @@ class SimulationResult:
     checkpoints: dict[str, CheckpointRecord] = field(default_factory=dict)
     metadata: dict[str, object] = field(default_factory=dict)
     verification: object | None = None
+    scientific_inputs: dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.name = _name(self.name)
@@ -380,6 +381,41 @@ class SimulationResult:
         self.checkpoints[checkpoint.name] = checkpoint
         self.add_artifact(f"checkpoint_{checkpoint.name}", checkpoint.path)
         return checkpoint
+
+    def add_scientific_inputs(
+        self,
+        values: Mapping[str, object] | None = None,
+        **named: object,
+    ) -> dict[str, object]:
+        """Attach inputs whose content identity should travel with this result.
+
+        File inputs are hashed by content, arrays by dtype/shape/bytes, and
+        scientific objects through ``to_ir()``, ``as_dict()``, or ``summary()``.
+        Objects without one of these contracts remain visible as incomplete
+        coverage instead of receiving a misleading fingerprint.
+        """
+
+        selected = {} if values is None else dict(values)
+        overlap = set(selected).intersection(named)
+        if overlap:
+            raise ValueError(
+                "Scientific input names must be unique; duplicated "
+                f"{tuple(sorted(overlap))}."
+            )
+        selected.update(named)
+        self.scientific_inputs.update(selected)
+        return self.scientific_input_manifest()
+
+    def scientific_input_manifest(self) -> dict[str, object]:
+        """Return the current content-addressed scientific input record."""
+
+        from ..provenance import scientific_input_manifest
+
+        return scientific_input_manifest(
+            self.scientific_inputs,
+            label=f"result:{self.name}",
+            require_nonempty=True,
+        )
 
     def add_verification(self, report):
         """Attach scientific trust evidence without changing solver status.
@@ -521,6 +557,7 @@ class SimulationResult:
             "artifacts": {key: str(value) for key, value in self.artifacts.items()},
             "checkpoints": tuple(self.checkpoints),
             "metadata": _json_value(self.metadata),
+            "scientific_inputs": self.scientific_input_manifest(),
             "verification": (
                 None
                 if self.verification is None
@@ -604,7 +641,9 @@ class SimulationResult:
             artifact_base=output.parent if relative_artifacts else None,
         )
         from .. import __version__
-        from ..provenance import seal_manifest
+        from ..provenance import runtime_manifest, seal_manifest
+
+        record["runtime"] = runtime_manifest()
 
         record["provenance_seal"] = seal_manifest(
             record,
@@ -643,12 +682,16 @@ def from_solution(
     field_name: str | None = None,
     unit: str | None = None,
     metadata: Mapping[str, object] | None = None,
+    scientific_inputs: Mapping[str, object] | None = None,
 ) -> SimulationResult:
     """Wrap one solved field in a :class:`SimulationResult`."""
 
     result = SimulationResult(
         name=name,
         metadata={} if metadata is None else dict(metadata),
+        scientific_inputs=(
+            {} if scientific_inputs is None else dict(scientific_inputs)
+        ),
     )
     selected_name = field_name or getattr(solution, "name", "solution")
     result.add_field(

@@ -83,12 +83,16 @@ For a collection of related cases, continue with:
 21. Define a typed `campaigns.ParameterSpace` with bounds and units, directly
     or through a safe JSON campaign specification.
 22. Create a deterministic design of experiments and fresh model variants.
-23. Run or resume the campaign and extract declared `datasets.Quantity`
-    outputs.
-24. Require a named quality policy before admitting cases to a learning
+23. Declare reusable scientific inputs such as source meshes, materials,
+    loading bases, and observer plans so coverage and fingerprints are explicit.
+24. Run serially, through `campaigns.local_processes(...)`, or as deterministic
+    external shards; do not nest across-case processes inside within-case MPI.
+25. Audit mesh/time/other refinement axes with explicit fixed coordinates and
+    observable-specific convergence policies.
+26. Require a named quality policy before admitting cases to a learning
     dataset; use a raw minimum trust level only for a project-specific policy.
-25. Split the resulting `ScientificDataset` independently before training.
-26. Validate a surrogate or reduced-order model, declare its applicability
+27. Split the resulting `ScientificDataset` independently before training.
+28. Validate a surrogate or reduced-order model, declare its applicability
     domain, and retain a high-fidelity FEM fallback where extrapolation would
     be unsafe.
 
@@ -137,6 +141,7 @@ Package paths below are relative to `src/agentfem/`.
 - Solvers and convergence policy: `solvers.py`
 - Scientific result/QoI/dataset bridge: `results/`
 - Diagnostics: `diagnostics.py`
+- Threshold events, first-passage localization, and censoring: `events.py`
 - Output: `io.py`
 - Element/integration policies: `elements/`
 - Verification benchmarks: `benchmarks/`
@@ -147,6 +152,8 @@ Package paths below are relative to `src/agentfem/`.
 - Backend capabilities and compilation adapters: `backends/`
 - Parameter spaces, sampling, case identity, and resumable execution:
   `campaigns/`
+- Multi-axis, observable-aware convergence certificates: `convergence.py`
+- Campaign-backed finite-difference response experiments: `responses.py`
 - Unit/shape-aware learning data and simulation provenance: `datasets/`
 - Unified scientific-learning entry, including surrogate compatibility,
   neural-operator contracts, provider-neutral neural-field objectives, and the

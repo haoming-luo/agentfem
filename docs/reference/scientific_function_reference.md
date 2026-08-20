@@ -30,6 +30,8 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.workflow.integration_point_recovery`](#agentfem-workflow-integration_point_recovery) | Traceable integration-point field recovery | workflow | supported |
 | [`agentfem.workflow.observation_grid_learning`](#agentfem-workflow-observation_grid_learning) | Mesh-independent structured observation grids | workflow | supported |
 | [`agentfem.workflow.result_field_sampling`](#agentfem-workflow-result_field_sampling) | MPI-safe point and path field sampling | workflow | supported |
+| [`agentfem.workflow.scalable_campaign_evidence`](#agentfem-workflow-scalable_campaign_evidence) | Spawned campaign ensembles and convergence certificates | workflow | supported |
+| [`agentfem.workflow.scientific_response_experiments`](#agentfem-workflow-scientific_response_experiments) | Campaign-backed scientific response experiments | workflow | supported |
 | [`agentfem.workflow.scientific_verification`](#agentfem-workflow-scientific_verification) | Scientific trust and verification workflow | workflow | supported |
 | [`agentfem.workflow.simplex_mesh_quality`](#agentfem-workflow-simplex_mesh_quality) | Collective simplex mesh-quality preflight | workflow | supported |
 | [`agentfem.workflow.solution_procedures`](#agentfem-workflow-solution_procedures) | Solution procedure vocabulary | analysis_step | supported |
@@ -2325,6 +2327,223 @@ sensor = results.probe_history('tip_U2', at=(L, H/2), component=1, unit='m'); re
 ### References
 
 - DOLFINx geometry and finite-element function evaluation: `https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.geometry.html`
+
+<a id="agentfem-workflow-scalable_campaign_evidence"></a>
+
+## Spawned campaign ensembles and convergence certificates
+
+**Stable ID:** `agentfem.workflow.scalable_campaign_evidence`<br>
+**Kind:** `workflow`<br>
+**Status:** `supported`<br>
+**Source card:** `src/agentfem/knowledge/cards/scalable_campaign_evidence.json`
+
+Runs independent cases through safe spawned local processes, fingerprints declared and resolved scientific inputs, and issues conservative multi-axis convergence certificates.
+
+### Public API
+
+- `agentfem.campaigns.local_processes`
+- `agentfem.convergence.axis`
+- `agentfem.convergence.observable`
+- `agentfem.convergence.audit`
+- `agentfem.provenance.scientific_input_manifest`
+- `agentfem.results.SimulationResult.add_scientific_inputs`
+
+### Scientific contract
+
+A scalable refinement study remains scientific evidence only when execution resources, failed cases, fixed coordinates, observable policies, and input identity coverage remain explicit.
+
+**finest relative change**
+
+$$
+\eta_q=\frac{\lVert q_{n}-q_{n-1}\rVert}{\max(\lVert q_n\rVert,\epsilon)}
+$$
+
+The metric is evaluated per declared observable on an explicit coarse-to-fine slice.
+
+**uniform-ratio observed order**
+
+$$
+p=\frac{\log(\lVert q_{n-2}-q_{n-1}\rVert/\lVert q_{n-1}-q_n\rVert)}{\log(h_{n-2}/h_{n-1})}
+$$
+
+Order is reported only for at least three samples with matching successive refinement ratios.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| campaign cases | CampaignPlan plus build/evaluate contracts | parameter units retained | Each independent case has a deterministic identity and fresh construction boundary. |
+| refinement axes | positive characteristic size or inverse resolution with fixed coordinates | declared by the corresponding parameter | Prevents unrelated parameter changes from entering a convergence sequence. |
+| scientific inputs | files, arrays, mappings, or objects with IR/summary contracts | preserved by the public scientific record | Opaque objects remain explicit coverage gaps. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| CampaignReport | ordered case records, worker evidence, runtime and input manifests | inherits declared quantities | Failed cases remain addressable and completed cases are resumable. |
+| ConvergenceCertificate | passed, failed, or inconclusive checks per axis and observable | relative metrics are dimensionless; absolute metrics inherit output units | Includes case IDs, characteristic sizes, values, criteria, and a stable certificate identity. |
+
+#### Assumptions
+
+- Each local worker can import and serialize the Campaign build/evaluate callables.
+- Each case constructs fresh mutable solver state.
+- Convergence axes are positive and all other varying parameters are explicitly fixed.
+- Exact event/topology records are JSON-safe scientific evidence.
+
+#### Conventions
+
+- Across-case local execution uses spawn and cannot be nested inside within-case MPI.
+- Characteristic sizes are ordered coarse-to-fine; inverse resolution converts element counts to decreasing size.
+- Missing or failed refinement cases make a check inconclusive.
+
+#### Applicability
+
+- Local workstation parameter sweeps, mesh/time/cohesive resolution studies, event-order stability, topology checks, and evidence generation before learning or publication.
+
+#### Limitations
+
+- No scheduler or independently launched MPI-job ensemble provider is included yet.
+- The initial certificate does not calculate generalized GCI or uncertainty intervals.
+- Field comparison uses declared numeric arrays; mesh-transfer norms require a future field policy.
+- Complete input identity depends on explicit files or public IR/summary contracts.
+
+### Minimal example
+
+```python
+campaign = campaigns.create(..., execution=campaigns.local_processes(workers=4), scientific_inputs={"mesh": Path("mesh.inp")}); report = campaign.run(plan); certificate = convergence.audit(report, axes=(convergence.axis("h", fixed={"dt": 1e-3}),), observables=(convergence.observable("response", tolerance=0.01),))
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_campaigns.py`
+- `tests/test_convergence_audit.py`
+- `tests/test_provenance.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Reject local-process nesting inside a within-case MPI communicator.
+- Reject duplicate axis or observable declarations.
+- Report failed, missing, duplicate-size, or insufficient refinement sequences as inconclusive.
+- Mark objects without scientific identity contracts as incomplete coverage.
+
+### References
+
+- AgentFEM scientific experiments: `docs/scientific_experiments.md`
+- Python multiprocessing contexts and start methods: `https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods`
+- W3C PROV-O recommendation: `https://www.w3.org/TR/prov-o/`
+
+<a id="agentfem-workflow-scientific_response_experiments"></a>
+
+## Campaign-backed scientific response experiments
+
+**Stable ID:** `agentfem.workflow.scientific_response_experiments`<br>
+**Kind:** `workflow`<br>
+**Status:** `supported`<br>
+**Source card:** `src/agentfem/knowledge/cards/scientific_response_experiments.json`
+
+Freezes runtime evidence, composes serializable loading modes, lowers finite-difference perturbations to ordinary Campaign cases, and preserves first-passage localization and censoring.
+
+### Public API
+
+- `agentfem.provenance.freeze_runtime`
+- `agentfem.provenance.require_runtime`
+- `agentfem.amplitudes.AmplitudeBasis`
+- `agentfem.responses.FiniteDifferenceResponse`
+- `agentfem.events.first_passage`
+
+### Scientific contract
+
+A derived response is evidence only when its baseline, perturbations, outputs, runtime identity, failures, and event-localization assumptions remain inspectable.
+
+**central finite-difference response**
+
+$$
+J_{ji}\approx\frac{q_j(\mathbf{p}+h_i\mathbf{e}_i)-q_j(\mathbf{p}-h_i\mathbf{e}_i)}{2h_i}
+$$
+
+Each perturbed evaluation is a deterministic Campaign case rather than an anonymous solver call.
+
+**linearly localized first passage**
+
+$$
+t_*\approx t_k+\frac{q_*-q_k}{q_{k+1}-q_k}(t_{k+1}-t_k)
+$$
+
+The containing bracket and interpolation assumption remain part of the event record.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| parameters and perturbations | bounded real ParameterSpace, baseline, and finite-difference steps | declared per parameter | Defines the derivative coordinates and admissible perturbation cases. |
+| response quantities | named scalar/vector Quantity contracts | declared per output | Fixes output order, shape, and units before any case is run. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| ResponseReport | Jacobian, singular values, rank, condition number, nonlinearity and case identities | output unit divided by parameter unit | A complete report only when every required perturbation succeeded. |
+| FirstPassageEvent | observed or censored threshold event | inherits history coordinate and response units | Retains the sample bracket and localization rule. |
+
+#### Assumptions
+
+- Finite-difference parameters are continuous real quantities within declared bounds.
+- Linear first-passage localization assumes a continuous monitored response inside the sample bracket.
+- Every case is built fresh or safely reset by the Campaign builder.
+
+#### Conventions
+
+- Runtime compatibility is separate from scientific verification.
+- Central differences use baseline, plus, and minus cases with explicit absolute or relative steps.
+- A failed perturbation makes the response report incomplete.
+
+#### Applicability
+
+- Parameter sensitivity, actuator bases, inverse problems, local control studies, and response-space screening for deterministic FEM workflows.
+
+#### Limitations
+
+- Finite-difference cost grows with parameter dimension.
+- The first provider does not claim tangent-linear or adjoint differentiation.
+- Mixed-unit singular values and condition numbers require explicit nondimensional scaling.
+- Irreversible damage, contact, and topology changes can produce nonsmooth responses.
+
+### Minimal example
+
+```python
+operator = responses.finite_difference(parameter_space=space, baseline=baseline, outputs=quantities, perturbation=0.01); campaign_report, response = operator.run(build=build_case, evaluate=solve_case)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_scientific_experiments.py`
+- `tests/test_provenance.py`
+- `tests/test_platforms.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Reject perturbations outside parameter bounds.
+- Reject non-finite or wrong-shaped response quantities.
+- Report missing perturbation cases instead of forming a partial Jacobian.
+- Preserve first-passage brackets and censoring state.
+
+### References
+
+- AgentFEM scientific experiments: `docs/scientific_experiments.md`
+- OpenMDAO total derivative documentation: `https://openmdao.org/newdocs/versions/latest/features/core_features/working_with_derivatives/compute_totals.html`
+- W3C PROV-O recommendation: `https://www.w3.org/TR/prov-o/`
 
 <a id="agentfem-workflow-scientific_verification"></a>
 

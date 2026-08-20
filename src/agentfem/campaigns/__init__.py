@@ -14,6 +14,7 @@ from .core import (
     ExecutionPolicy,
     case_id,
     create,
+    local_processes,
 )
 from .config import (
     CampaignSpecification,
@@ -52,6 +53,7 @@ __all__ = [
     "full_factorial",
     "latin_hypercube",
     "load_specification",
+    "local_processes",
     "random",
     "specification_from_dict",
 ]

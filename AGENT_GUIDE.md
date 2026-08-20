@@ -74,6 +74,10 @@ finite-element simulation with AgentFEM.
   Attach histories to model loads, prescribed values, or supported boundary
   models. Transient procedures update registered histories automatically; use
   callbacks only for genuinely application-specific state.
+  For many related loading modes, use `amplitudes.basis(...)` and
+  `basis.combine(...)`; preserve coefficient order, derivatives, endpoint
+  audit, and the amplitude fingerprint. Do not represent a frozen campaign
+  waveform only as an anonymous callable.
 - Solves: inspect `solvers.py`.
 - Step incrementation: use `steps.automatic(...)` by default or
   `steps.fixed(...)` only when exact fixed subdivision is scientifically
@@ -135,6 +139,20 @@ finite-element simulation with AgentFEM.
   publishing, then use `agentfem verify ... --json`. Treat `verified` here as
   byte-integrity evidence only; scientific trust remains in
   `SimulationResult.verification`.
+- Runtime freeze: use `provenance.freeze_runtime(...)` before a frozen or blind
+  campaign and `provenance.require_runtime(...)` before continuing it. A
+  runtime match establishes execution compatibility, not scientific validity.
+- Scientific inputs: pass reusable mesh/source files as `Path` values and
+  materials, loading bases, procedures, and observer plans through
+  `Campaign(scientific_inputs=...)`. Review fingerprint coverage; an opaque
+  input is an explicit incomplete identity, not permission to ignore it.
+- For a single run, attach the same assets with
+  `result.add_scientific_inputs(...)` before writing its manifest. Pass source
+  files as `Path`, not filename strings, when byte identity matters.
+- Events: use `events.first_passage(...)` for threshold timing. Preserve its
+  bracket, localization method, and censoring state; for discontinuous damage
+  or contact, refine the solve rather than presenting linear interpolation as
+  an exact event time.
 - For long transient jobs, pass one `checkpointing.every(...)` policy through
   `model.step(checkpoint=...)`; do not implement cadence in a case loop. Set
   `keep_last` for bounded storage; do not delete checkpoint directories in
@@ -193,6 +211,19 @@ finite-element simulation with AgentFEM.
   `model.step(target=spec, executor=...)` without an official adapter, but it
   must return `SimulationResult`; do not serialize the live callable into
   provenance or infer scientific validation from training loss.
+- Across-case execution: use `campaigns.local_processes(workers=...)` only for
+  independent cases. It deliberately uses `spawn`. Do not nest it inside a
+  within-case MPI communicator; use deterministic plan shards for separate MPI
+  jobs or schedulers. Build/evaluate callables must be importable and
+  serializable, and each case must construct fresh mutable solver state.
+- Convergence certificates: use `convergence.audit(...)` with one explicit
+  refinement axis at a time, fixed values for every other varying parameter,
+  and an observable-specific relative, absolute, or exact comparison. Missing,
+  failed, ambiguous, or insufficient sequences remain inconclusive.
+- Response experiments: use `responses.finite_difference(...)` when baseline
+  and perturbation cases should share Campaign identity, cache, failures, and
+  evidence. Keep the parameter perturbation mode and output quantities
+  explicit. A failed perturbation makes the response report incomplete.
 - External meshes: inventory with `mesh.inspect_external_mesh(...)` before
   choosing cell/facet types. Preserve conversion manifests and never describe
   mesh conversion as full Abaqus/ANSYS deck import.

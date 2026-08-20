@@ -8,6 +8,16 @@ import pytest
 from agentfem import campaigns, datasets, results, verification
 
 
+def _spawn_evaluate(values):
+    return {"response": values["x"] ** 2}
+
+
+def _spawn_evaluate_with_failure(values):
+    if values["x"] == 2.0:
+        raise RuntimeError("planted spawned failure")
+    return {"response": values["x"]}
+
+
 def _space():
     return campaigns.ParameterSpace.create(
         campaigns.RealParameter("young", 100.0, 300.0, unit="GPa"),
@@ -122,6 +132,42 @@ def test_campaign_captures_model_ir_from_built_case():
 
     provenance = report.dataset.samples[0].provenance
     assert provenance["model_ir"]["kind"] == "test_model"
+    assert provenance["scientific_inputs"]["complete"] is True
+    assert provenance["scientific_input_fingerprint"].startswith("sha256:")
+
+
+def test_campaign_hashes_declared_scientific_assets(tmp_path):
+    mesh = tmp_path / "mesh.inp"
+    mesh.write_text("*NODE\n1, 0, 0, 0\n", encoding="utf-8")
+    space = campaigns.ParameterSpace.create(
+        campaigns.RealParameter("load", 0.0, 1.0)
+    )
+    campaign = campaigns.create(
+        name="declared_inputs",
+        parameter_space=space,
+        outputs=(datasets.Quantity("response"),),
+        evaluate=lambda values: {"response": values["load"]},
+        scientific_inputs={
+            "mesh": mesh,
+            "material": {"model": "linear_elastic", "E": 1.0},
+            "observer": {"kind": "point", "coordinates": (0.0, 0.0)},
+        },
+    )
+    report = campaign.run(
+        campaigns.explicit(space, ({"load": 0.5},)),
+    )
+
+    assert report.scientific_inputs["complete"] is True
+    assert (
+        report.scientific_inputs["record"]["declared"]["mesh"]["status"]
+        == "hashed"
+    )
+    sample = report.dataset.samples[0]
+    assert sample.provenance["scientific_inputs"]["complete"] is True
+    assert (
+        report.dataset.metadata["scientific_input_fingerprint"]
+        == report.scientific_inputs["fingerprint"]
+    )
 
 
 def test_campaign_does_not_hide_a_nonroot_mpi_failure():
@@ -328,3 +374,56 @@ def test_campaign_quality_preset_requires_assessment_and_records_the_decision():
     )
     with pytest.raises(RuntimeError, match="did not pass quality policy"):
         unassessed.require_dataset(quality="exploratory")
+
+
+def test_local_process_campaign_is_spawned_ordered_and_resumable(tmp_path):
+    space = campaigns.ParameterSpace.create(
+        campaigns.RealParameter("x", 0.0, 3.0)
+    )
+    campaign = campaigns.create(
+        name="spawned",
+        parameter_space=space,
+        outputs=(datasets.Quantity("response"),),
+        evaluate=_spawn_evaluate,
+        execution=campaigns.local_processes(workers=2),
+    )
+    sampling = campaigns.explicit(
+        space,
+        tuple({"x": float(value)} for value in range(4)),
+    )
+
+    first = campaign.run(sampling, output_directory=tmp_path)
+    second = campaign.run(sampling, output_directory=tmp_path)
+
+    assert first.completed == 4
+    assert first.execution["provider"] == "local_processes"
+    assert first.execution["start_method"] == "spawn"
+    assert first.execution["effective_workers"] == 2
+    assert len({record.execution["process_id"] for record in first.records}) >= 1
+    assert all(record.execution["mode"] == "local_process" for record in first.records)
+    assert [record.case.index for record in first.records] == [0, 1, 2, 3]
+    assert all(record.reused for record in second.records)
+
+
+def test_local_process_campaign_preserves_case_failure():
+    space = campaigns.ParameterSpace.create(
+        campaigns.RealParameter("x", 0.0, 3.0)
+    )
+    campaign = campaigns.create(
+        name="spawned_failure",
+        parameter_space=space,
+        outputs=(datasets.Quantity("response"),),
+        evaluate=_spawn_evaluate_with_failure,
+        execution=campaigns.local_processes(workers=2),
+    )
+    report = campaign.run(
+        campaigns.explicit(
+            space,
+            tuple({"x": float(value)} for value in range(4)),
+        )
+    )
+
+    assert report.completed == 3
+    assert report.failed == 1
+    failed = tuple(record for record in report.records if not record.successful)
+    assert failed[0].error_message == "planted spawned failure"

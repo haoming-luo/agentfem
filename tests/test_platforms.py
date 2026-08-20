@@ -64,8 +64,12 @@ def test_runtime_report_is_serializable_and_names_optional_integrations():
 
     assert report["python"]
     assert report["platform"]["level"]
+    assert report["operating_system"]["system"]
     assert report["packages"]["agentfem"] == __version__
     assert report["mpi"]["vendor"]
+    assert report["mpi"]["rank_count"] >= 1
+    assert report["numerics"]["numpy_default_float"] == "float64"
+    assert report["numerics"]["petsc_scalar_type"]
     assert "path_mismatch" in report["mpi"]
     assert report["execution"]["python_executable"] == sys.executable
     assert report["execution"]["imported_package"]
@@ -74,6 +78,12 @@ def test_runtime_report_is_serializable_and_names_optional_integrations():
         "installed_distribution",
     }
     assert isinstance(report["execution"]["distribution_mismatch"], bool)
+    assert "source" in report["execution"]
+    assert "distribution" in report["execution"]
+    if report["execution"]["mode"] == "source_checkout":
+        assert report["execution"]["source"]["commit"]
+        assert isinstance(report["execution"]["source"]["tracked_dirty"], bool)
+        assert len(report["execution"]["source"]["package_tree_sha256"]) == 64
     assert {item["package"] for item in report["optional"]} >= {
         "gmsh",
         "meshio",

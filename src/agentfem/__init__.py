@@ -8,6 +8,7 @@ from . import backends
 from . import boundary_models
 from . import benchmarks
 from . import campaigns
+from . import convergence
 from . import checkpointing
 from . import constraints
 from . import constitutive
@@ -15,6 +16,7 @@ from . import coordinates
 from . import datasets
 from . import dependencies
 from . import diagnostics
+from . import events
 from . import fields
 from . import fatigue_fracture
 from . import fracture
@@ -35,6 +37,7 @@ from . import platforms
 from . import problems
 from . import project
 from . import provenance
+from . import responses
 from . import procedures
 from . import results
 from . import solvers
@@ -62,6 +65,7 @@ CORE_WORKFLOW_MODULES = (
     "project",
     "procedures",
     "results",
+    "events",
     "solvers",
     "steps",
     "units",
@@ -72,6 +76,7 @@ CORE_WORKFLOW_MODULES = (
 ADVANCED_WORKFLOW_MODULES = (
     "boundary_models",
     "campaigns",
+    "convergence",
     "checkpointing",
     "datasets",
     "fatigue_fracture",
@@ -81,6 +86,7 @@ ADVANCED_WORKFLOW_MODULES = (
     "mechanics",
     "operators",
     "problems",
+    "responses",
     "surrogates",
     "time",
 )
@@ -147,6 +153,7 @@ __all__ = [
     "boundary_models",
     "benchmarks",
     "campaigns",
+    "convergence",
     "checkpointing",
     "constraints",
     "constitutive",
@@ -154,6 +161,7 @@ __all__ = [
     "datasets",
     "dependencies",
     "diagnostics",
+    "events",
     "fields",
     "fatigue_fracture",
     "fracture",
@@ -173,6 +181,7 @@ __all__ = [
     "problems",
     "project",
     "provenance",
+    "responses",
     "procedures",
     "results",
     "solvers",

@@ -23,6 +23,10 @@ detect a partial copy, replaced HDF5 payload, or edited manifest. This integrity
 check is deliberately separate from scientific verification; see
 `docs/provenance_seal.md`.
 
+For frozen runtime locks, serializable loading bases, campaign-backed response
+operators, and threshold-event localization, continue to
+`docs/scientific_experiments.md`.
+
 Linear problems, engineering `AnalysisStep` objects, and nonlinear problems
 provide `solve_result()` while preserving the older `solve()` field-return
 contract.
@@ -344,9 +348,25 @@ sampling, output contracts, and execution policy. Python still supplies the
 trusted model builder/evaluator. The JSON file never imports or evaluates
 arbitrary code.
 
-The current runner is serial across cases and MPI-aware within each FEM case.
-Use deterministic plan shards for schedulers or separate MPI jobs rather than
-Python threads.
+The runner supports serial execution, spawned local processes across
+independent cases, and MPI participation within one FEM case. Use
+`campaigns.local_processes(workers=...)` for a local parameter sweep. It does
+not use Python threads or fork an initialized numerical process, and it cannot
+be nested inside a within-case MPI communicator. Use deterministic plan shards
+for schedulers or separate MPI jobs.
+
+Campaigns may receive `scientific_inputs={...}`. Source meshes supplied as
+`Path` objects are hashed by content; materials, loads, procedures, and
+observer plans use their public IR/summary contracts. Opaque objects make
+coverage incomplete. After a refinement campaign, use `convergence.audit(...)`
+to issue an observable-aware multi-axis certificate rather than inferring
+convergence from a successful solve or a plotted curve.
+
+For a single analysis, call
+`simulation.add_scientific_inputs(mesh=Path(...), material=..., loading=...)`
+before `write_manifest(...)`. This stores the same content-addressed input
+record directly in the `SimulationResult`; it does not replace runtime,
+artifact-integrity, convergence, or validation evidence.
 
 Before training, require reviewed campaign evidence:
 

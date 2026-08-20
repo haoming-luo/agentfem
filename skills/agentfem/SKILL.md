@@ -78,6 +78,10 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   `studies.transient_heat_transfer`, and `studies.dynamic_solid` for common
   cases. Attach `amplitudes` to loads, prescribed values, and supported
   boundary models so procedures update them automatically.
+- Use `amplitudes.basis(...)` for multiple named loading modes. Preserve
+  coefficient order, value/velocity/acceleration behavior, endpoint audit, and
+  the content fingerprint. Anonymous callables remain valid but are not a
+  frozen scientific input record.
 - Keep operator notation such as `K = operators.stiffness(...)`,
   `F = operators.load_vector(...)`, and
   `step = problems.linear_static(K, F, study=..., ...)` available for
@@ -114,6 +118,19 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
 - After publishing, run `agentfem verify <result.json> --json` when results are
   copied, reused, or admitted to a campaign. This checks manifest/artifact
   integrity, not convergence or scientific validation.
+- Before a frozen or blind campaign, use
+  `provenance.freeze_runtime(...)`; require it on continuation with
+  `provenance.require_runtime(...)`. Review an intentional mismatch rather
+  than editing the stored lock.
+- Declare source meshes as `Path` values and reusable materials, loading,
+  procedures, and observers through `Campaign(scientific_inputs=...)`. Reject
+  claims of reproducibility when fingerprint coverage is incomplete unless the
+  opaque input has been reviewed and recorded.
+- For an individual result, call `result.add_scientific_inputs(...)` before
+  `write_manifest(...)`; pass file assets as `Path` so their bytes are hashed.
+- Use `events.first_passage(...)` for threshold timing and retain its bracket,
+  localization, and censoring. Refine discontinuous damage/contact events
+  instead of presenting interpolation as exact.
 - For heat, Standard dynamics, and Explicit dynamics, pause with
   `run(until_step=...)`, save with `save_checkpoint(...)`, rebuild the same
   step, then `load_checkpoint(...)`. Resume through
@@ -198,10 +215,21 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   evidence, split validation data independently, and guard learned-model
   applicability. Do not silently extrapolate or imply that neural-operator and
   PINN contract records are executable trainers.
+- Use `responses.finite_difference(...)` for campaign-backed baseline and
+  perturbation cases. Declare absolute or relative steps and output Quantity
+  contracts. A failed perturbation makes the response incomplete; do not fill
+  a missing Jacobian column with zeros.
 - A campaign evaluator may return a declared mapping, `CaseOutcome`, or
   `SimulationResult`. Prefer a safe JSON campaign specification for parameter
   and sampling policy when non-programmers or agents need to edit a sweep;
   keep trusted model construction in Python.
+- Use `campaigns.local_processes(workers=...)` for independent local cases. It
+  uses spawned processes; do not nest it inside within-case MPI or replace it
+  with threads. Use plan shards for separate MPI jobs and schedulers.
+- Use `convergence.audit(...)` only with explicit refinement axes, fixed
+  coordinates for every other varying parameter, and declared relative,
+  absolute, or exact observable policies. Preserve failed, missing, and
+  ambiguous sequences as inconclusive evidence.
 
 ## When Extending AgentFEM
 

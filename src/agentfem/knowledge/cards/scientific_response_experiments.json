@@ -1,0 +1,124 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.scientific_response_experiments",
+  "title": "Campaign-backed scientific response experiments",
+  "kind": "workflow",
+  "status": "supported",
+  "summary": "Freezes runtime evidence, composes serializable loading modes, lowers finite-difference perturbations to ordinary Campaign cases, and preserves first-passage localization and censoring.",
+  "public_api": [
+    "agentfem.provenance.freeze_runtime",
+    "agentfem.provenance.require_runtime",
+    "agentfem.amplitudes.AmplitudeBasis",
+    "agentfem.responses.FiniteDifferenceResponse",
+    "agentfem.events.first_passage"
+  ],
+  "implementation": [
+    "provenance.py",
+    "platforms.py",
+    "amplitudes.py",
+    "responses.py",
+    "events.py",
+    "campaigns/core.py"
+  ],
+  "science": {
+    "statement": "A derived response is evidence only when its baseline, perturbations, outputs, runtime identity, failures, and event-localization assumptions remain inspectable.",
+    "equations": [
+      {
+        "label": "central finite-difference response",
+        "expression": "J_{ji}\\approx\\frac{q_j(\\mathbf{p}+h_i\\mathbf{e}_i)-q_j(\\mathbf{p}-h_i\\mathbf{e}_i)}{2h_i}",
+        "description": "Each perturbed evaluation is a deterministic Campaign case rather than an anonymous solver call."
+      },
+      {
+        "label": "linearly localized first passage",
+        "expression": "t_*\\approx t_k+\\frac{q_*-q_k}{q_{k+1}-q_k}(t_{k+1}-t_k)",
+        "description": "The containing bracket and interpolation assumption remain part of the event record."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "parameters and perturbations",
+        "type": "bounded real ParameterSpace, baseline, and finite-difference steps",
+        "unit_role": "declared per parameter",
+        "description": "Defines the derivative coordinates and admissible perturbation cases."
+      },
+      {
+        "name": "response quantities",
+        "type": "named scalar/vector Quantity contracts",
+        "unit_role": "declared per output",
+        "description": "Fixes output order, shape, and units before any case is run."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "ResponseReport",
+        "type": "Jacobian, singular values, rank, condition number, nonlinearity and case identities",
+        "unit_role": "output unit divided by parameter unit",
+        "description": "A complete report only when every required perturbation succeeded."
+      },
+      {
+        "name": "FirstPassageEvent",
+        "type": "observed or censored threshold event",
+        "unit_role": "inherits history coordinate and response units",
+        "description": "Retains the sample bracket and localization rule."
+      }
+    ],
+    "assumptions": [
+      "Finite-difference parameters are continuous real quantities within declared bounds.",
+      "Linear first-passage localization assumes a continuous monitored response inside the sample bracket.",
+      "Every case is built fresh or safely reset by the Campaign builder."
+    ],
+    "conventions": [
+      "Runtime compatibility is separate from scientific verification.",
+      "Central differences use baseline, plus, and minus cases with explicit absolute or relative steps.",
+      "A failed perturbation makes the response report incomplete."
+    ],
+    "applicability": [
+      "Parameter sensitivity, actuator bases, inverse problems, local control studies, and response-space screening for deterministic FEM workflows."
+    ],
+    "limitations": [
+      "Finite-difference cost grows with parameter dimension.",
+      "The first provider does not claim tangent-linear or adjoint differentiation.",
+      "Mixed-unit singular values and condition numbers require explicit nondimensional scaling.",
+      "Irreversible damage, contact, and topology changes can produce nonsmooth responses."
+    ]
+  },
+  "usage": {
+    "minimal_example": "operator = responses.finite_difference(parameter_space=space, baseline=baseline, outputs=quantities, perturbation=0.01); campaign_report, response = operator.run(build=build_case, evaluate=solve_case)",
+    "examples": [
+      "docs/scientific_experiments.md"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_scientific_experiments.py",
+      "tests/test_provenance.py",
+      "tests/test_platforms.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Reject perturbations outside parameter bounds.",
+      "Reject non-finite or wrong-shaped response quantities.",
+      "Report missing perturbation cases instead of forming a partial Jacobian.",
+      "Preserve first-passage brackets and censoring state."
+    ]
+  },
+  "references": [
+    {
+      "title": "AgentFEM scientific experiments",
+      "locator": "docs/scientific_experiments.md"
+    },
+    {
+      "title": "OpenMDAO total derivative documentation",
+      "locator": "https://openmdao.org/newdocs/versions/latest/features/core_features/working_with_derivatives/compute_totals.html"
+    },
+    {
+      "title": "W3C PROV-O recommendation",
+      "locator": "https://www.w3.org/TR/prov-o/"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.campaign_learning_pipeline",
+    "agentfem.workflow.scientific_verification"
+  ]
+}

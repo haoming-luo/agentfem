@@ -895,6 +895,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agentfemevents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.events
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agentfemsolvers" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -965,6 +976,17 @@
     <span class="md-ellipsis">
       
         agentfem.campaigns
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agentfemconvergence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.convergence
       
     </span>
   </a>
@@ -1064,6 +1086,17 @@
     <span class="md-ellipsis">
       
         agentfem.problems
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agentfemresponses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.responses
       
     </span>
   </a>
@@ -1590,6 +1623,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agentfemevents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.events
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agentfemsolvers" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1660,6 +1704,17 @@
     <span class="md-ellipsis">
       
         agentfem.campaigns
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agentfemconvergence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.convergence
       
     </span>
   </a>
@@ -1759,6 +1814,17 @@
     <span class="md-ellipsis">
       
         agentfem.problems
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agentfemresponses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.responses
       
     </span>
   </a>
@@ -3184,6 +3250,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>Named scalar history function.</td>
 </tr>
 <tr>
+<td>class</td>
+<td><code>AmplitudeAudit</code></td>
+<td>Portable endpoint and range evidence for one amplitude.</td>
+</tr>
+<tr>
 <td>function</td>
 <td><code>as_amplitude(value, *, name: str = 'amplitude') -&gt; Amplitude</code></td>
 <td>Convert a scalar, callable, or <code>Amplitude</code> into an <code>Amplitude</code>.</td>
@@ -3217,6 +3288,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>gaussian_modulated_sine(amplitude: float, frequency: float, width: float, *, center: float \| None = None, phase: float = 0.0, name: str = 'gaussian_modulated_sine') -&gt; Amplitude</code></td>
 <td>Create a Gaussian-windowed sinusoidal pulse.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>AmplitudeBasis</code></td>
+<td>Named, serializable loading modes with a declared coefficient order.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>basis(*components: Amplitude, name: str = 'amplitude_basis', coefficient_names: Sequence[str] \| None = None, coordinate_name: str = 'time', coordinate_unit: str \| None = 's', value_unit: str \| None = None) -&gt; AmplitudeBasis</code></td>
+<td>Create a named basis for control, inverse, and transient studies.</td>
 </tr>
 </tbody>
 </table>
@@ -3533,7 +3614,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>from_solution(solution, *, name: str = 'result', field_name: str \| None = None, unit: str \| None = None, metadata: Mapping[str, object] \| None = None) -&gt; SimulationResult</code></td>
+<td><code>from_solution(solution, *, name: str = 'result', field_name: str \| None = None, unit: str \| None = None, metadata: Mapping[str, object] \| None = None, scientific_inputs: Mapping[str, object] \| None = None) -&gt; SimulationResult</code></td>
 <td>Wrap one solved field in a :class:<code>SimulationResult</code>.</td>
 </tr>
 <tr>
@@ -3918,6 +3999,28 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="agentfemevents"><code>agentfem.events</code><a class="headerlink" href="#agentfemevents" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Public object</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>class</td>
+<td><code>FirstPassageEvent</code></td>
+<td>One threshold event with explicit localization and censoring evidence.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>first_passage(abscissa, values = None, *, threshold: float, direction: EventDirection = 'rising', localization: str = 'linear', component: int \| tuple[int, ...] \| None = None, name: str = 'first_passage', coordinate_name: str \| None = None, coordinate_unit: str \| None = None, value_name: str \| None = None, value_unit: str \| None = None) -&gt; FirstPassageEvent</code></td>
+<td>Locate the first threshold crossing in a history or numeric arrays.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="agentfemsolvers"><code>agentfem.solvers</code><a class="headerlink" href="#agentfemsolvers" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4242,7 +4345,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tbody>
 <tr>
 <td>class</td>
-<td><code>Campaign(*, name: str, parameter_space: ParameterSpace, outputs: tuple[Quantity, ...], evaluate: Callable[[object], Mapping[str, object] \| CaseOutcome \| SimulationResult], build: Callable[[Mapping[str, object]], object] \| None = None, metadata: Mapping[str, object] \| None = None, execution: ExecutionPolicy \| None = None) -&gt; None</code></td>
+<td><code>Campaign(*, name: str, parameter_space: ParameterSpace, outputs: tuple[Quantity, ...], evaluate: Callable[[object], Mapping[str, object] \| CaseOutcome \| SimulationResult], build: Callable[[Mapping[str, object]], object] \| None = None, metadata: Mapping[str, object] \| None = None, scientific_inputs: Mapping[str, object] \| None = None, execution: ExecutionPolicy \| None = None) -&gt; None</code></td>
 <td>Build and evaluate a collection of immutable scientific cases.</td>
 </tr>
 <tr>
@@ -4284,6 +4387,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>create(**kwargs) -&gt; Campaign</code></td>
 <td>Create a :class:<code>Campaign</code> using the public functional spelling.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>local_processes(*, workers: int \| None = None, fail_fast: bool = False, resume: bool = True) -&gt; ExecutionPolicy</code></td>
+<td>Use spawned local processes for independent campaign cases.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -4344,6 +4452,53 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>random(space: ParameterSpace, count: int, *, seed: int = 0) -&gt; SamplingPlan</code></td>
 <td>Draw reproducible independent uniform samples in normalized space.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="agentfemconvergence"><code>agentfem.convergence</code><a class="headerlink" href="#agentfemconvergence" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Public object</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>class</td>
+<td><code>ConvergenceAxis</code></td>
+<td>One refinement coordinate with all other coordinates fixed explicitly.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ObservablePolicy</code></td>
+<td>How one scalar, vector, event, or topology record is compared.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ConvergenceCheck</code></td>
+<td>One observable checked along one explicitly selected refinement axis.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ConvergenceCertificate</code></td>
+<td>Auditable multi-axis convergence decision for one CampaignReport.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>axis(parameter: str, *, fixed: Mapping[str, object] \| None = None, discretization: str = 'mesh', characteristic: Characteristic = 'value') -&gt; ConvergenceAxis</code></td>
+<td>Public AgentFEM object.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>observable(name: str, *, comparison: Comparison = 'relative', tolerance: float \| None = None, source: Source = 'output', path: str \| None = None, minimum_observed_order: float \| None = None, unit: str \| None = None) -&gt; ObservablePolicy</code></td>
+<td>Public AgentFEM object.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>audit(report: CampaignReport, *, axes: tuple[ConvergenceAxis, ...], observables: tuple[ObservablePolicy, ...], output: str \| Path \| None = None) -&gt; ConvergenceCertificate</code></td>
+<td>Build a conservative convergence certificate from campaign evidence.</td>
 </tr>
 </tbody>
 </table>
@@ -5700,6 +5855,33 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="agentfemresponses"><code>agentfem.responses</code><a class="headerlink" href="#agentfemresponses" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Public object</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>class</td>
+<td><code>ResponseReport</code></td>
+<td>A finite-difference Jacobian and the cases that support it.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>FiniteDifferenceResponse</code></td>
+<td>A method-neutral response contract with a finite-difference provider.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>finite_difference(**kwargs) -&gt; FiniteDifferenceResponse</code></td>
+<td>Create a campaign-backed finite-difference response experiment.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="agentfemsurrogates"><code>agentfem.surrogates</code><a class="headerlink" href="#agentfemsurrogates" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -6611,8 +6793,43 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tbody>
 <tr>
 <td>function</td>
+<td><code>content_fingerprint(record: object) -&gt; str</code></td>
+<td>Return a canonical content identity for one JSON-safe scientific record.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>scientific_input_manifest(value: object, *, label: str = 'scientific_inputs', require_nonempty: bool = False) -&gt; dict[str, object]</code></td>
+<td>Describe and fingerprint scientific inputs without hiding opaque parts.</td>
+</tr>
+<tr>
+<td>function</td>
 <td><code>seal_manifest(manifest: Mapping[str, object], *, base: str \| Path, producer_version: str) -&gt; dict[str, object]</code></td>
 <td>Return a deterministic integrity seal for an unsealed manifest.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>runtime_manifest() -&gt; dict[str, object]</code></td>
+<td>Capture runtime evidence and a stable compatibility identity.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>freeze_runtime(path: str \| Path) -&gt; Path</code></td>
+<td>Atomically write the current runtime lock for a frozen campaign.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>RuntimeComparison</code></td>
+<td>Compatibility decision between a frozen and current runtime.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>compare_runtime(expected: str \| Path \| Mapping[str, object], *, actual: Mapping[str, object] \| None = None) -&gt; RuntimeComparison</code></td>
+<td>Compare a stored runtime identity with the current or supplied one.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>require_runtime(expected: str \| Path \| Mapping[str, object], *, policy: str = 'error') -&gt; RuntimeComparison</code></td>
+<td>Enforce or warn about a frozen runtime before a scientific campaign.</td>
 </tr>
 <tr>
 <td>class</td>

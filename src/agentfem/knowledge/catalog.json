@@ -663,6 +663,46 @@
       "title": "MPI-safe point and path field sampling"
     },
     {
+      "id": "agentfem.workflow.scalable_campaign_evidence",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.campaigns.local_processes",
+        "agentfem.convergence.axis",
+        "agentfem.convergence.observable",
+        "agentfem.convergence.audit",
+        "agentfem.provenance.scientific_input_manifest",
+        "agentfem.results.SimulationResult.add_scientific_inputs"
+      ],
+      "related_cards": [
+        "agentfem.workflow.scientific_response_experiments",
+        "agentfem.workflow.scientific_verification",
+        "agentfem.workflow.campaign_learning_pipeline"
+      ],
+      "source": "src/agentfem/knowledge/cards/scalable_campaign_evidence.json",
+      "status": "supported",
+      "summary": "Runs independent cases through safe spawned local processes, fingerprints declared and resolved scientific inputs, and issues conservative multi-axis convergence certificates.",
+      "title": "Spawned campaign ensembles and convergence certificates"
+    },
+    {
+      "id": "agentfem.workflow.scientific_response_experiments",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.provenance.freeze_runtime",
+        "agentfem.provenance.require_runtime",
+        "agentfem.amplitudes.AmplitudeBasis",
+        "agentfem.responses.FiniteDifferenceResponse",
+        "agentfem.events.first_passage"
+      ],
+      "related_cards": [
+        "agentfem.workflow.campaign_learning_pipeline",
+        "agentfem.workflow.scientific_verification"
+      ],
+      "source": "src/agentfem/knowledge/cards/scientific_response_experiments.json",
+      "status": "supported",
+      "summary": "Freezes runtime evidence, composes serializable loading modes, lowers finite-difference perturbations to ordinary Campaign cases, and preserves first-passage localization and censoring.",
+      "title": "Campaign-backed scientific response experiments"
+    },
+    {
       "id": "agentfem.workflow.scientific_verification",
       "kind": "workflow",
       "public_api": [

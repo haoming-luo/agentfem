@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
+
+import numpy as np
+import pytest
 
 from agentfem import cli, provenance, results
 
@@ -27,6 +31,8 @@ def test_result_manifest_seal_verifies_registered_artifacts(tmp_path):
         "/haoming-luo/agentfem"
     )
     assert record["provenance_seal"]["completeness"] == "complete"
+    assert record["runtime"]["schema"] == "agentfem.runtime-lock"
+    assert record["runtime"]["identity"]["mpi"]["rank_count"] >= 1
     assert report.status == "verified"
     assert report.verified is True
 
@@ -106,3 +112,140 @@ def test_unsealed_legacy_manifest_remains_readable_but_not_verified(tmp_path):
     report = provenance.verify_manifest(manifest)
     assert report.status == "unsealed"
     assert report.issues[0]["code"] == "AFM-SEAL-001"
+
+
+def test_runtime_lock_round_trip_and_addressable_mismatch(tmp_path):
+    lock = provenance.freeze_runtime(tmp_path / "runtime.lock.json")
+    stored = json.loads(lock.read_text(encoding="utf-8"))
+    matching = provenance.compare_runtime(stored, actual=deepcopy(stored))
+
+    assert matching.compatible is True
+    assert matching.mismatches == ()
+
+    changed = deepcopy(stored)
+    changed["identity"]["mpi"]["rank_count"] += 1
+    changed["fingerprint"] = provenance.content_fingerprint(changed["identity"])
+    comparison = provenance.compare_runtime(stored, actual=changed)
+    assert comparison.compatible is False
+    assert comparison.mismatches[0]["path"] == "mpi.rank_count"
+
+    tampered = deepcopy(stored)
+    tampered["identity"]["machine"] = "different"
+    with pytest.raises(ValueError, match="fingerprint"):
+        provenance.compare_runtime(tampered, actual=stored)
+
+
+def test_runtime_requirement_can_warn_or_refuse(monkeypatch):
+    frozen = provenance.runtime_manifest()
+    changed = deepcopy(frozen)
+    changed["identity"]["packages"]["agentfem"] = "different"
+    changed["fingerprint"] = provenance.content_fingerprint(changed["identity"])
+    monkeypatch.setattr(provenance, "runtime_manifest", lambda: changed)
+
+    with pytest.warns(RuntimeWarning, match="packages.agentfem"):
+        report = provenance.require_runtime(frozen, policy="warn")
+    assert report.compatible is False
+    with pytest.raises(RuntimeError, match="packages.agentfem"):
+        provenance.require_runtime(frozen, policy="error")
+
+
+def test_scientific_input_manifest_hashes_files_arrays_and_declared_objects(tmp_path):
+    class Declared:
+        def summary(self):
+            return {"kind": "material", "young_modulus": 210.0e9}
+
+    mesh = tmp_path / "mesh.inp"
+    mesh.write_text("*NODE\n1, 0, 0, 0\n", encoding="utf-8")
+    inputs = {
+        "mesh": mesh,
+        "material": Declared(),
+        "observer_points": np.asarray(((0.0, 0.0), (1.0, 0.0))),
+    }
+
+    first = provenance.scientific_input_manifest(inputs)
+    mesh.write_text("*NODE\n1, 0, 0, 0\n2, 1, 0, 0\n", encoding="utf-8")
+    second = provenance.scientific_input_manifest(inputs)
+
+    assert first["complete"] is True
+    assert first["record"]["mesh"]["status"] == "hashed"
+    assert first["record"]["observer_points"]["kind"] == "array"
+    assert first["fingerprint"] != second["fingerprint"]
+
+
+def test_scientific_input_manifest_exposes_opaque_coverage_gap():
+    class Opaque:
+        pass
+
+    manifest = provenance.scientific_input_manifest({"solver_object": Opaque()})
+
+    assert manifest["complete"] is False
+    assert manifest["missing"] == (
+        {
+            "path": "scientific_inputs.solver_object",
+            "reason": "no_scientific_identity_contract",
+        },
+    )
+    assert manifest["record"]["solver_object"]["fingerprinted"] is False
+
+
+def test_result_manifest_carries_content_addressed_scientific_inputs(tmp_path):
+    mesh = tmp_path / "mesh.inp"
+    mesh.write_text("*NODE\n1, 0, 0, 0\n", encoding="utf-8")
+    result = results.SimulationResult("identified")
+
+    attached = result.add_scientific_inputs(
+        mesh=mesh,
+        material={"model": "elastic", "young": np.float64(210.0e9)},
+    )
+    saved = json.loads(
+        result.write_manifest(tmp_path / "identified.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert attached["complete"] is True
+    assert saved["scientific_inputs"]["fingerprint"] == attached["fingerprint"]
+    assert saved["scientific_inputs"]["record"]["mesh"]["status"] == "hashed"
+
+
+def test_scientific_input_manifest_reports_recursive_containers():
+    recursive = []
+    recursive.append(recursive)
+
+    manifest = provenance.scientific_input_manifest({"recursive": recursive})
+
+    assert manifest["complete"] is False
+    assert manifest["missing"] == (
+        {
+            "path": "scientific_inputs.recursive[0]",
+            "reason": "cyclic_object_graph",
+        },
+    )
+
+
+def test_callable_fingerprint_includes_bound_defaults_and_source_file():
+    def evaluator_factory(scale):
+        def evaluator(value, factor=scale):
+            return factor * value
+
+        return evaluator
+
+    first = provenance.scientific_input_manifest(evaluator_factory(1.0))
+    second = provenance.scientific_input_manifest(evaluator_factory(2.0))
+
+    assert first["complete"] is True
+    assert first["record"]["source_file_sha256"]
+    assert first["record"]["defaults"] == [1.0]
+    assert first["fingerprint"] != second["fingerprint"]
+
+
+def test_empty_result_does_not_claim_complete_input_coverage():
+    manifest = results.SimulationResult("undeclared").scientific_input_manifest()
+
+    assert manifest["complete"] is False
+    assert manifest["missing"] == (
+        {
+            "path": "result:undeclared",
+            "reason": "no_scientific_inputs_declared",
+        },
+    )

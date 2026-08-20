@@ -47,3 +47,13 @@ For campaigns, verify `SimulationResult -> declared QoIs -> ScientificDataset`
 without serializing live fields. Use `quality="engineering"` for ordinary
 simulation-to-learning admission and `quality="release"` only when every
 sample carries release-grade scientific evidence.
+Review the campaign scientific-input manifest: files must be content-hashed,
+public objects must expose an IR/summary contract, and opaque paths must remain
+an explicit coverage gap. For convergence, require explicit fixed coordinates
+for all non-refined parameters and retain failed or missing cases as
+inconclusive evidence.
+For response experiments, verify every baseline/perturbation case, parameter
+bound, output shape, step convention, and missing-case decision. Check
+finite-difference step sensitivity before interpreting a derivative. Preserve
+event brackets and censoring; interpolation does not replace local time-step
+refinement for discontinuous events.

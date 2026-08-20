@@ -28,6 +28,8 @@ validation, and extension rules are loaded only when the task requires them.
 - preserve the distinction between execution and scientific verification;
 - route reusable finite-element functionality to the correct module;
 - upgrade older projects without silently rewriting scientific intent.
+- freeze runtime and scientific-input evidence, run safe local ensembles, and
+  build traceable convergence/loading/response experiments;
 - inspect declared private extensions without automatically executing or
   installing untrusted packages.
 

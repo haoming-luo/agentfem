@@ -105,6 +105,7 @@ def specification_from_dict(record: Mapping[str, object]) -> CampaignSpecificati
         mode=str(execution_record.get("mode", "serial")),
         fail_fast=bool(execution_record.get("fail_fast", False)),
         resume=bool(execution_record.get("resume", True)),
+        workers=execution_record.get("workers"),
     )
     return CampaignSpecification(
         name=name,

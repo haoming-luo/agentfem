@@ -134,6 +134,7 @@ nav:
       - Results and Data:
           - Results and Post-processing: guide/results.md
           - Results and Campaigns: results_and_campaigns.md
+          - Scientific Experiments: scientific_experiments.md
           - Simulation to Learning: guide/simulation_to_learning.md
       - Advanced Workflows:
           - Nonlinear Materials: nonlinear_materials.md

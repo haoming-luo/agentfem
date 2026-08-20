@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha256
 from importlib import metadata
+import json
 import platform as _platform
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 
 from . import dependencies
@@ -53,8 +56,10 @@ class RuntimeReport:
     platform: PlatformSupport
     python: str
     machine: str
+    operating_system: dict[str, str]
     packages: dict[str, str | None]
     mpi: dict[str, object]
+    numerics: dict[str, object]
     optional: tuple[dependencies.DependencyStatus, ...]
     execution: dict[str, object]
 
@@ -63,19 +68,27 @@ class RuntimeReport:
             "platform": self.platform.summary(),
             "python": self.python,
             "machine": self.machine,
+            "operating_system": dict(self.operating_system),
             "packages": dict(self.packages),
             "mpi": dict(self.mpi),
+            "numerics": dict(self.numerics),
             "optional": tuple(item.summary() for item in self.optional),
             "execution": dict(self.execution),
         }
 
     def format(self) -> str:
         lines = [self.platform.format(), f"  Python: {self.python}", f"  machine: {self.machine}"]
+        lines.append(
+            "  OS: "
+            f"{self.operating_system['system']} {self.operating_system['release']}"
+        )
         lines.extend(
             f"  {name}: {version or 'not installed'}"
             for name, version in self.packages.items()
         )
         lines.append(f"  MPI vendor: {self.mpi['vendor']}")
+        lines.append(f"  MPI ranks: {self.mpi['rank_count']}")
+        lines.append(f"  PETSc scalar: {self.numerics['petsc_scalar_type']}")
         lines.append(f"  MPI launcher: {self.mpi['recommended_launcher']}")
         lines.append(f"  Python executable: {self.execution['python_executable']}")
         lines.append(f"  imported AgentFEM: {self.execution['imported_package']}")
@@ -177,6 +190,8 @@ def runtime_report() -> RuntimeReport:
     core_packages = (
         "fenics-dolfinx",
         "fenics-ufl",
+        "fenics-basix",
+        "fenics-ffcx",
         "numpy",
         "mpi4py",
         "petsc4py",
@@ -186,11 +201,17 @@ def runtime_report() -> RuntimeReport:
         platform=current_support(),
         python=_platform.python_version(),
         machine=_platform.machine(),
+        operating_system={
+            "system": _platform.system(),
+            "release": _platform.release(),
+            "version": _platform.version(),
+        },
         packages={
             "agentfem": runtime_version,
             **{name: _version(name) for name in core_packages},
         },
         mpi=_mpi_runtime(),
+        numerics=_numeric_runtime(),
         optional=(
             dependencies.status(
                 "meshio",
@@ -238,7 +259,9 @@ def _execution_identity() -> dict[str, object]:
         distribution_package is not None
         and distribution_package != imported_package
     )
-    source_checkout = (imported_package / "pyproject.toml").is_file()
+    source_root = _source_root(imported_package)
+    source_identity = _git_identity(source_root)
+    distribution_identity = _distribution_identity()
     return {
         "python_executable": sys.executable,
         "working_directory": str(Path.cwd()),
@@ -247,7 +270,10 @@ def _execution_identity() -> dict[str, object]:
             None if distribution_package is None else str(distribution_package)
         ),
         "distribution_mismatch": mismatch,
-        "mode": "source_checkout" if source_checkout else "installed_distribution",
+        "mode": "source_checkout" if source_root is not None else "installed_distribution",
+        "source_root": None if source_root is None else str(source_root),
+        "source": source_identity,
+        "distribution": distribution_identity,
     }
 
 
@@ -259,8 +285,10 @@ def _mpi_runtime() -> dict[str, object]:
 
         vendor_name, vendor_version = MPI.get_vendor()
         vendor = f"{vendor_name} {'.'.join(str(item) for item in vendor_version)}"
+        rank_count = int(MPI.COMM_WORLD.size)
     except Exception as exc:
         vendor = f"unavailable ({type(exc).__name__}: {exc})"
+        rank_count = 1
     environment_launcher = Path(sys.prefix) / "bin" / "mpiexec"
     path_launcher = shutil.which("mpiexec") or shutil.which("mpirun")
     recommended = (
@@ -276,12 +304,127 @@ def _mpi_runtime() -> dict[str, object]:
             mismatch = str(Path(path_launcher).resolve()) != str(environment_launcher.resolve())
     return {
         "vendor": vendor,
+        "rank_count": rank_count,
         "environment_launcher": (
             str(environment_launcher) if environment_launcher.is_file() else None
         ),
         "path_launcher": path_launcher,
         "recommended_launcher": recommended,
         "path_mismatch": mismatch,
+    }
+
+
+def _numeric_runtime() -> dict[str, object]:
+    """Return the scalar and floating-point contract used by this process."""
+
+    import numpy as np
+
+    petsc_scalar = "unavailable"
+    petsc_real = "unavailable"
+    try:
+        from petsc4py import PETSc
+
+        petsc_scalar = np.dtype(PETSc.ScalarType).name
+        petsc_real = np.dtype(PETSc.RealType).name
+    except Exception:
+        pass
+    return {
+        "python_float_mantissa_bits": int(sys.float_info.mant_dig),
+        "numpy_default_float": np.dtype(float).name,
+        "petsc_scalar_type": petsc_scalar,
+        "petsc_real_type": petsc_real,
+        "petsc_complex": bool(np.issubdtype(np.dtype(petsc_scalar), np.complexfloating))
+        if petsc_scalar != "unavailable"
+        else None,
+    }
+
+
+def _source_root(imported_package: Path) -> Path | None:
+    """Locate a ``src``-layout checkout without assuming package-root metadata."""
+
+    for candidate in imported_package.parents:
+        if not (candidate / "pyproject.toml").is_file():
+            continue
+        try:
+            if (candidate / "src" / "agentfem").resolve() == imported_package:
+                return candidate
+        except OSError:
+            continue
+    return None
+
+
+def _git_identity(root: Path | None) -> dict[str, object] | None:
+    if root is None or not (root / ".git").exists():
+        return None
+    try:
+        commit = subprocess.run(
+            ("git", "rev-parse", "HEAD"),
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        status = subprocess.run(
+            ("git", "status", "--porcelain", "--untracked-files=no"),
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return {
+        "commit": commit,
+        "tracked_dirty": bool(status.strip()),
+        "package_tree_sha256": _source_tree_digest(root / "src" / "agentfem"),
+    }
+
+
+def _source_tree_digest(package_root: Path) -> str | None:
+    """Hash the importable source tree without including build/cache noise."""
+
+    if not package_root.is_dir():
+        return None
+    checksum = sha256()
+    selected = tuple(
+        path
+        for path in sorted(package_root.rglob("*"))
+        if path.is_file()
+        and "__pycache__" not in path.parts
+        and path.suffix not in {".pyc", ".pyo"}
+    )
+    for path in selected:
+        relative = path.relative_to(package_root).as_posix().encode("utf-8")
+        checksum.update(len(relative).to_bytes(8, byteorder="big"))
+        checksum.update(relative)
+        with path.open("rb") as stream:
+            while chunk := stream.read(1024 * 1024):
+                checksum.update(chunk)
+    return checksum.hexdigest()
+
+
+def _distribution_identity() -> dict[str, object] | None:
+    """Record installed-distribution evidence without inventing a wheel hash."""
+
+    try:
+        distribution = metadata.distribution("agentfem")
+    except metadata.PackageNotFoundError:
+        return None
+    direct_url = distribution.read_text("direct_url.json")
+    record = distribution.read_text("RECORD")
+    parsed_url = None
+    if direct_url:
+        try:
+            parsed_url = json.loads(direct_url)
+        except json.JSONDecodeError:
+            parsed_url = {"unparsed": direct_url}
+    return {
+        "version": distribution.version,
+        "installer": distribution.read_text("INSTALLER"),
+        "direct_url": parsed_url,
+        "record_sha256": (
+            None if record is None else sha256(record.encode("utf-8")).hexdigest()
+        ),
     }
 
 
