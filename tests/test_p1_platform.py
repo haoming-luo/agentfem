@@ -11,6 +11,7 @@ from agentfem import (
     constitutive,
     diagnostics,
     fields,
+    histories,
     mesh,
     models,
     procedures,
@@ -989,6 +990,141 @@ def test_global_arrhenius_creep_consumes_nonuniform_temperature_field(tmp_path):
     )
     with pytest.raises(ValueError, match="temperature.*differs"):
         incompatible.load_checkpoint(checkpoint)
+
+
+def test_global_arrhenius_creep_consumes_physical_temperature_history():
+    step, _ = _creep_relaxation_patch(
+        arrhenius_temperature_range=(800.0, 850.0),
+        duration=1.0,
+        incrementation=steps.fixed(2),
+    )
+    temperature = step.temperature
+    thermal_history = histories.temperature(temperature)
+    thermal_history.record(0.0)
+    temperature.value.x.array[:] += 100.0
+    temperature.value.x.scatter_forward()
+    thermal_history.record(1.0)
+    step.temperature = thermal_history
+
+    step.solve()
+
+    assert thermal_history.active_time == pytest.approx(1.0)
+    assert step.accepted_increments[0].minimum_temperature > 840.0
+    assert step.accepted_increments[-1].minimum_temperature > 890.0
+    assert step.summary()["temperature"]["history"]["frame_count"] == 2
+
+
+def test_transient_heat_history_drives_global_arrhenius_creep_component():
+    """Accepted thermal states become the physical clock for global creep."""
+
+    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 2, 1, 1)
+    heat_model = models.create(
+        study=studies.transient_heat_transfer(dimension=3),
+        mesh=domain,
+        name="heat_to_creep_component",
+    )
+    temperature = heat_model.field(fields.temperature(domain, value=800.0))
+    heat_model.material(
+        constitutive.thermoelastic(
+            young=200.0e3,
+            poisson=0.3,
+            density=1.0,
+            thermal_expansion=1.0e-5,
+            conductivity=1.0,
+            specific_heat=1.0,
+            reference_temperature=800.0,
+        )
+    )
+    heat_model.prescribed_temperature(
+        temperature,
+        900.0,
+        on=mesh.face(domain, axis="x", value=0.0, name="hot", tag=1),
+    )
+    heat_model.prescribed_temperature(
+        temperature,
+        800.0,
+        on=mesh.face(domain, axis="x", value=1.0, name="cold", tag=2),
+    )
+    heat_step = heat_model.step(
+        target=temperature,
+        dt=0.25,
+        steps=2,
+        progress=False,
+    )
+    thermal_history = heat_step.capture_history(
+        name="temperature",
+        unit="K",
+    )
+    heat_step.run()
+
+    creep_model = models.create(
+        study=studies.creep_solid(),
+        mesh=domain,
+        name="heat_to_creep_component",
+    )
+    displacement = creep_model.field(fields.displacement(domain))
+    creep_model.material(
+        constitutive.isotropic_arrhenius_power_law(
+            young=200.0e3,
+            poisson=0.3,
+            density=1.0,
+            coefficient=1.0e-6,
+            stress_exponent=3.0,
+            reference_stress=100.0,
+            activation_energy=120.0e3,
+            reference_temperature=800.0,
+        )
+    )
+    creep_model.fix(
+        displacement,
+        on=mesh.face(domain, axis="x", value=0.0, name="left", tag=3),
+        component=0,
+        value=0.0,
+    )
+    creep_model.fix(
+        displacement,
+        on=mesh.face(domain, axis="y", value=0.0, name="y_symmetry", tag=4),
+        component=1,
+        value=0.0,
+    )
+    creep_model.fix(
+        displacement,
+        on=mesh.face(domain, axis="z", value=0.0, name="z_symmetry", tag=5),
+        component=2,
+        value=0.0,
+    )
+    creep_model.fix(
+        displacement,
+        on=mesh.face(domain, axis="x", value=1.0, name="right", tag=6),
+        component=0,
+        value=0.002,
+    )
+    creep_step = creep_model.step(
+        target=displacement,
+        duration=0.5,
+        temperature=thermal_history,
+        incrementation=steps.fixed(2),
+        solver_options=solvers.newton(
+            relative_tolerance=1.0e-9,
+            absolute_tolerance=1.0e-10,
+            maximum_iterations=20,
+            line_search="backtracking",
+        ),
+        progress=False,
+    )
+
+    simulation = creep_step.solve_result()
+
+    assert thermal_history.times == pytest.approx((0.0, 0.25, 0.5))
+    assert thermal_history.active_time == pytest.approx(0.5)
+    assert "TEMP" in simulation.fields
+    assert len(creep_step.accepted_increments) == 2
+    assert (
+        creep_step.accepted_increments[0].maximum_temperature
+        < creep_step.accepted_increments[-1].maximum_temperature
+    )
+    assert np.ptp(creep_step.state.equivalent_creep_strain.values) > 0.0
+    assert simulation.histories["maximum_creep_temperature"].latest > 850.0
 
 
 def _creep_external_abaqus_constant_stress_patch():

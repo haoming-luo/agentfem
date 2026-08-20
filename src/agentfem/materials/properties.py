@@ -13,6 +13,111 @@ import numpy as np
 
 
 @dataclass(frozen=True)
+class TemperaturePropertyTable:
+    """One material property tabulated against absolute temperature.
+
+    Numerical evaluation rejects out-of-range temperatures by default.
+    ``extrapolation="constant"`` is an explicit endpoint-holding policy and
+    is required when the table is turned into a bounded UFL expression.
+    """
+
+    temperatures: np.ndarray
+    values: np.ndarray
+    name: str = "property"
+    unit: str | None = None
+    interpolation: str = "linear"
+    extrapolation: str = "error"
+
+    def __post_init__(self) -> None:
+        temperatures = np.asarray(self.temperatures, dtype=float)
+        values = np.asarray(self.values, dtype=float)
+        if temperatures.ndim != 1 or values.ndim != 1:
+            raise ValueError("TemperaturePropertyTable inputs must be one-dimensional.")
+        if temperatures.size < 2 or values.size != temperatures.size:
+            raise ValueError(
+                "TemperaturePropertyTable requires equally sized arrays with at least two points."
+            )
+        if not np.all(np.isfinite(temperatures)) or not np.all(np.isfinite(values)):
+            raise ValueError("TemperaturePropertyTable values must be finite.")
+        if np.any(temperatures <= 0.0) or np.any(np.diff(temperatures) <= 0.0):
+            raise ValueError(
+                "TemperaturePropertyTable temperatures must be positive kelvin and strictly increasing."
+            )
+        interpolation = str(self.interpolation).lower().replace("-", "_")
+        extrapolation = str(self.extrapolation).lower().replace("-", "_")
+        if interpolation != "linear":
+            raise ValueError("TemperaturePropertyTable currently supports linear interpolation.")
+        if extrapolation not in {"error", "constant"}:
+            raise ValueError(
+                "TemperaturePropertyTable extrapolation must be error or constant."
+            )
+        object.__setattr__(self, "temperatures", temperatures)
+        object.__setattr__(self, "values", values)
+        object.__setattr__(self, "interpolation", interpolation)
+        object.__setattr__(self, "extrapolation", extrapolation)
+
+    def __call__(self, temperature):
+        selected = np.asarray(temperature, dtype=float)
+        lower = float(self.temperatures[0])
+        upper = float(self.temperatures[-1])
+        if self.extrapolation == "error" and (
+            np.any(selected < lower) or np.any(selected > upper)
+        ):
+            raise ValueError(
+                f"Temperature property {self.name!r} covers [{lower:g}, {upper:g}] K."
+            )
+        result = np.interp(selected, self.temperatures, self.values)
+        return float(result) if result.ndim == 0 else result
+
+    def ufl_value(self, temperature):
+        """Return a piecewise-linear UFL coefficient with explicit bounds."""
+
+        if self.extrapolation != "constant":
+            raise ValueError(
+                f"Temperature property {self.name!r} uses extrapolation='error'. "
+                "Validate a finite-element temperature range first and select "
+                "extrapolation='constant' explicitly for a bounded UFL coefficient."
+            )
+        import ufl
+
+        expression = float(self.values[-1])
+        for index in range(len(self.temperatures) - 2, -1, -1):
+            left_t = float(self.temperatures[index])
+            right_t = float(self.temperatures[index + 1])
+            left_v = float(self.values[index])
+            right_v = float(self.values[index + 1])
+            segment = left_v + (right_v - left_v) * (
+                (temperature - left_t) / (right_t - left_t)
+            )
+            expression = ufl.conditional(
+                ufl.lt(temperature, right_t), segment, expression
+            )
+        return ufl.conditional(
+            ufl.le(temperature, float(self.temperatures[0])),
+            float(self.values[0]),
+            expression,
+        )
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "temperature_property_table",
+            "name": self.name,
+            "unit": self.unit,
+            "temperature_unit": "K",
+            "temperatures": self.temperatures.tolist(),
+            "values": self.values.tolist(),
+            "interpolation": self.interpolation,
+            "extrapolation": self.extrapolation,
+        }
+
+
+def temperature_property(temperatures, values, **kwargs) -> TemperaturePropertyTable:
+    """Create an inspectable temperature-dependent material property."""
+
+    return TemperaturePropertyTable(temperatures, values, **kwargs)
+
+
+@dataclass(frozen=True)
 class ElasticIsotropicProperties:
     """Isotropic linear-elastic material properties."""
 
@@ -133,6 +238,105 @@ class ThermoElasticIsotropicProperties(ElasticIsotropicProperties):
             f"E={self.young:.6e}, nu={self.poisson:.6g}, "
             f"alpha={self.thermal_expansion:.6e}, k={self.conductivity:.6e}"
         )
+
+
+@dataclass(frozen=True)
+class TemperatureDependentThermoElasticProperties:
+    """Isotropic thermoelastic properties containing constants or tables.
+
+    Density and reference temperature remain scalar in this first contract.
+    ``at_temperature`` resolves a conventional constant property record, while
+    ``coefficient`` supplies a known temperature field to sequential mechanics.
+    """
+
+    name: str
+    young: float | TemperaturePropertyTable
+    density: float
+    poisson: float | TemperaturePropertyTable
+    thermal_expansion: float | TemperaturePropertyTable
+    conductivity: float | TemperaturePropertyTable
+    specific_heat: float | TemperaturePropertyTable
+    reference_temperature: float = 293.15
+
+    def __post_init__(self) -> None:
+        if not isfinite(float(self.density)) or self.density <= 0.0:
+            raise ValueError("density must be finite and positive.")
+        if not isfinite(float(self.reference_temperature)) or self.reference_temperature <= 0.0:
+            raise ValueError("reference_temperature must be positive in kelvin.")
+        checks = {
+            "young": (0.0, None),
+            "poisson": (-1.0, 0.5),
+            "thermal_expansion": (0.0, None),
+            "conductivity": (0.0, None),
+            "specific_heat": (0.0, None),
+        }
+        for property_name, (minimum, maximum) in checks.items():
+            item = getattr(self, property_name)
+            values = item.values if isinstance(item, TemperaturePropertyTable) else np.asarray([item])
+            if not np.all(np.isfinite(values)):
+                raise ValueError(f"{property_name} values must be finite.")
+            if property_name == "thermal_expansion":
+                valid_lower = np.all(values >= minimum)
+            else:
+                valid_lower = np.all(values > minimum)
+            if not valid_lower or (maximum is not None and not np.all(values < maximum)):
+                raise ValueError(f"Invalid temperature-dependent {property_name} values.")
+
+    def coefficient(self, name: str, temperature):
+        item = getattr(self, name)
+        if isinstance(item, TemperaturePropertyTable):
+            if isinstance(temperature, (int, float, np.ndarray, np.number)):
+                return item(temperature)
+            return item.ufl_value(temperature)
+        return float(item)
+
+    def at_temperature(self, temperature: float) -> ThermoElasticIsotropicProperties:
+        selected = float(temperature)
+        return ThermoElasticIsotropicProperties(
+            name=self.name,
+            young=self.coefficient("young", selected),
+            density=self.density,
+            poisson=self.coefficient("poisson", selected),
+            thermal_expansion=self.coefficient("thermal_expansion", selected),
+            conductivity=self.coefficient("conductivity", selected),
+            specific_heat=self.coefficient("specific_heat", selected),
+            reference_temperature=self.reference_temperature,
+        )
+
+    def as_dict(self) -> dict[str, object]:
+        def encoded(value):
+            return value.as_dict() if hasattr(value, "as_dict") else float(value)
+
+        return {
+            "name": self.name,
+            "model": "temperature_dependent_isotropic_linear_thermoelastic",
+            "density": self.density,
+            "reference_temperature": self.reference_temperature,
+            **{
+                name: encoded(getattr(self, name))
+                for name in (
+                    "young",
+                    "poisson",
+                    "thermal_expansion",
+                    "conductivity",
+                    "specific_heat",
+                )
+            },
+        }
+
+    def summary(self) -> str:
+        tabulated = [
+            name
+            for name in (
+                "young",
+                "poisson",
+                "thermal_expansion",
+                "conductivity",
+                "specific_heat",
+            )
+            if isinstance(getattr(self, name), TemperaturePropertyTable)
+        ]
+        return f"{self.name}: temperature-dependent thermoelastic ({', '.join(tabulated)})"
 
 
 @dataclass(frozen=True)

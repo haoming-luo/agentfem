@@ -1379,9 +1379,14 @@ meaningfully affect heat transfer, the transparent route is:</p>
 <li>solve mechanical equilibrium with the named equivalent operator
    <span class="arithmatex">\(F_{\mathrm{thermal}}\)</span>.</li>
 </ol>
-<p>AgentFEM now stores <span class="arithmatex">\(E,\nu,\rho,\alpha,k,c_p,T_{\mathrm{ref}}\)</span> in one
-thermoelastic property object, while heat and mechanics remain separate
-models sharing the mesh, material, and temperature field. Plane strain keeps
+<p>AgentFEM stores <span class="arithmatex">\(E,\nu,\rho,\alpha,k,c_p,T_{\mathrm{ref}}\)</span> in one
+thermoelastic property object. Constants may be replaced by inspectable
+temperature tables for sequential mechanics. The thermal step can capture its
+accepted fields in a <code>FieldHistory</code>; the receiving creep step samples that
+history at its own physical increment endpoints. Interpolation, range policy,
+units, time coordinates, and the content hash remain part of the transfer
+contract. Saved nodal histories are keyed by physical DOF coordinates and can
+be restored across changed MPI partitions and rank counts. Plane strain keeps
 the constrained out-of-plane thermal strain; plane stress uses the reduced
 constitutive relation.</p>
 <p>This follows the same modeling distinction documented by Abaqus: fully
@@ -1413,6 +1418,9 @@ temperature input for the normalized Arrhenius law. It provides:</p>
   contract, and mesh fingerprint;</li>
 <li>integration-point temperature consumption, <code>TEMP</code> output, increment-wise
   temperature evidence, and temperature identity in checkpoints;</li>
+<li>scalar, finite-element, or physical-time <code>FieldHistory</code> temperature input;
+  attempted increments move the live temperature to their endpoint, while
+  rollback and restart restore it to the accepted physical time;</li>
 <li>a three-dimensional homogeneous stress-relaxation Golden contract.</li>
 </ul>
 <p>This is implemented by reusing <code>QuadratureTransaction</code>; creep does not own a
@@ -1421,15 +1429,19 @@ from displacement and committed <code>CE</code> without advancing a fictitious t
 increment. The route follows the same consistent-linearization principle that
 underpins robust Newton convergence in inelastic finite elements.</p>
 <p>Arrhenius power-law creep is therefore a global consumer, while Sinh and
-Kachanov--Rabotnov remain material-point capabilities. A prescribed
-temperature field is not yet an automatic transfer of an entire transient
-thermal history, and it does not silently promote damage, mesh regularization,
-or structural rupture prediction.</p>
+Kachanov--Rabotnov remain material-point capabilities. The accepted transient
+temperature history is now an explicit transfer object; it does not silently
+promote damage, mesh regularization, or structural rupture prediction.</p>
 <h2 id="current-boundary-and-next-gates">Current boundary and next gates<a class="headerlink" href="#current-boundary-and-next-gates" title="Permanent link">&para;</a></h2>
 <p>Implemented now:</p>
 <ul>
 <li>explicit central difference and implicit Newmark/generalized-<span class="arithmatex">\(\alpha\)</span>;</li>
 <li>implicit-Euler heat transfer as a model-owned Step;</li>
+<li>accepted-time field capture and temperature-history transfer to creep;</li>
+<li>coordinate-keyed field-history persistence verified in both two-rank-to-one
+  and one-rank-to-two-rank directions;</li>
+<li>bounded temperature-property tables for sequential thermoelastic stiffness
+  and thermal expansion;</li>
 <li>sequential isotropic thermal expansion as a visible vector operator;</li>
 <li>normalized Arrhenius temperature dependence at material-point and global
   integration-point level;</li>
@@ -1446,7 +1458,9 @@ or structural rupture prediction.</p>
   transaction, automatic cutback, CE/CEEQ/S/MISES/RF/TEMP, prescribed
   Arrhenius temperature fields, dissipation history, regional materials,
   portable full-Step restart, MPI-portable quadrature state, and a
-  relaxation Golden contract.</li>
+  relaxation Golden contract;</li>
+<li>a 3D component contract in which accepted transient heat states drive the
+  global Arrhenius creep step on the same physical clock.</li>
 </ul>
 <p>Next gates:</p>
 <ol>
@@ -1455,12 +1469,12 @@ or structural rupture prediction.</p>
    result manifest across heat, implicit dynamics, and explicit dynamics;</li>
 <li>exercise the portable full-Step archive on larger partition changes and
    scheduled HPC restart campaigns;</li>
-<li>connect accepted transient heat-transfer histories to creep increments
-   through an explicit field-transfer contract;</li>
 <li>add multi-element and external power-component benchmarks, then promote
    the experimental global Newton MPI path;</li>
 <li>introduce K-R/Liu--Murakami damage only with near-failure time control and
    a declared mesh-regularization policy;</li>
+<li>add a distributed archive backend only when field histories outgrow the
+   current compact root-gathered format;</li>
 <li>monolithic coupling only after a real case demonstrates two-way feedback.</li>
 </ol>
 <p>References:</p>

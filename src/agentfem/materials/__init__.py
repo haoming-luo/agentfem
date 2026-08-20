@@ -12,6 +12,9 @@ from .properties import (
     ElasticAnisotropic2DProperties,
     ElasticIsotropicProperties,
     ThermoElasticIsotropicProperties,
+    TemperatureDependentThermoElasticProperties,
+    TemperaturePropertyTable,
+    temperature_property,
 )
 from .schemas import validate_material_record
 
@@ -19,6 +22,9 @@ __all__ = [
     "ElasticAnisotropic2DProperties",
     "ElasticIsotropicProperties",
     "ThermoElasticIsotropicProperties",
+    "TemperatureDependentThermoElasticProperties",
+    "TemperaturePropertyTable",
+    "temperature_property",
     "MaterialRecord",
     "list_material_models",
     "list_materials",

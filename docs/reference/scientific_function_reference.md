@@ -44,7 +44,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 
 | Stable ID | Title | Physics | Status |
 | --- | --- | --- | --- |
-| `agentfem.benchmark.arrhenius_global_creep` | Nonuniform-temperature global Arrhenius creep patch | three-dimensional small-strain Mises power-law creep with a prescribed nonuniform Arrhenius temperature field | automated_regression |
+| `agentfem.benchmark.arrhenius_global_creep` | Transient heat to global Arrhenius creep contract | three-dimensional small-strain Mises power-law creep with prescribed or time-varying Arrhenius temperature fields | automated_regression |
 | `agentfem.benchmark.c3d10h_periodic_cell` | Imported C3D10H near-incompressible periodic cell | three-dimensional near-incompressible mixed Neo-Hookean periodic homogenization | manual_release_regression |
 | `agentfem.benchmark.cae_reliability_cliffs` | CAE reliability cliffs: orientation, discretization, and reference applicability | cross-cutting finite-element verification | partial_automated_suite |
 | `agentfem.benchmark.campaign_surrogate_pipeline` | Static-elasticity campaign to guarded surrogate pipeline | parameterized small-strain isotropic linear elasticity | executable_integration |
@@ -545,7 +545,7 @@ step = model.step(target=u, material=material, steps=100)
 **Status:** `supported`<br>
 **Source card:** `src/agentfem/knowledge/cards/global_implicit_creep.json`
 
-Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, optional scalar or field-driven Arrhenius temperature dependence, atomic rollback, serial restart, and standard creep fields.
+Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, optional scalar, field, or physical-time-history Arrhenius temperature dependence, atomic rollback, portable restart, regional materials, and standard creep fields.
 
 ### Public API
 
@@ -554,6 +554,7 @@ Three-dimensional small-strain Mises power-law creep with backward-Euler integra
 - `agentfem.constitutive.isotropic_arrhenius_power_law`
 - `agentfem.constitutive.IsotropicPowerLawCreepMaterial`
 - `agentfem.constitutive.CreepQuadratureState`
+- `agentfem.histories.FieldHistory`
 - `agentfem.models.Model.step`
 
 ### Scientific contract
@@ -590,7 +591,7 @@ The global Newton matrix consumes the analytical algorithmic consistent tangent 
 | --- | --- | --- | --- |
 | elastic and creep parameters | E, nu, density, A, n, optional time exponent and reference scales | one declared consistent stress-time system | Use isotropic_power_law to keep instantaneous elasticity and creep flow in one material record. |
 | physical duration and increment controls | positive duration plus fixed or automatic incrementation | time | Normalized increment sizes map to physical time; amplitudes are evaluated in physical time. |
-| temperature | positive scalar or scalar finite-element field | absolute temperature in kelvin | Required for an Arrhenius material and evaluated at the same quadrature identity as creep state. |
+| temperature | positive scalar, scalar finite-element field, or physical-time FieldHistory | absolute temperature in kelvin | Required for an Arrhenius material, sampled at attempted physical time, and evaluated at the same quadrature identity as creep state. |
 
 #### Outputs
 
@@ -605,7 +606,7 @@ The global Newton matrix consumes the analytical algorithmic consistent tangent 
 
 - Small strain, three spatial dimensions, isotropic elasticity, and associative Mises creep; temperature changes the Arrhenius rate but not elastic properties.
 - Quasi-static equilibrium; inertia is not part of this procedure.
-- One material covers the current convenience-step domain.
+- Each integration point resolves exactly one declared regional material.
 
 #### Conventions
 
@@ -613,6 +614,7 @@ The global Newton matrix consumes the analytical algorithmic consistent tangent 
 - CE and CEEQ are committed only after local integration, global Newton convergence, and increment-level acceptance all succeed.
 - maximum_inelastic_increment limits the maximum quadrature-point CEEQ increment and causes rollback/cutback when exceeded.
 - Checkpoint restore reconstructs stress from accepted strain and CE without advancing a fictitious time increment.
+- A failed attempt restores the temperature history to the accepted increment start time together with displacement and quadrature state.
 
 #### Applicability
 
@@ -621,8 +623,8 @@ The global Newton matrix consumes the analytical algorithmic consistent tangent 
 
 #### Limitations
 
-- The provider and checkpoint are serial-only and do not yet support multiple material regions.
-- Automatic transfer and time alignment of a transient thermal history, damage, and mesh regularization are not part of this global route.
+- The MPI global Newton route remains experimental pending an independent component benchmark.
+- Portable nodal histories are root-gathered; global damage and mesh regularization are not part of this route.
 - External component or code-standard validation remains required before application-specific qualification.
 
 ### Minimal example
@@ -636,6 +638,8 @@ Create studies.creep_solid(), register constitutive.isotropic_power_law(...) or 
 **Tests**
 
 - `tests/test_p1_platform.py`
+- `tests/test_histories.py`
+- `tests/portable_field_history_driver.py`
 
 **Benchmarks**
 
@@ -644,7 +648,7 @@ Create studies.creep_solid(), register constitutive.isotropic_power_law(...) or 
 
 **Validation rules**
 
-- Reject non-3D, multi-rank, nonpositive-duration, or incompatible material use.
+- Reject non-3D, nonpositive-duration, uncovered regional quadrature points, or incompatible material use.
 - Verify the analytical tangent independently against a centered material-point derivative.
 - Commit shared transaction state only after a globally accepted physical-time increment.
 - Evaluate and record positive kelvin temperatures at the creep quadrature identity for every attempted increment.
@@ -3007,11 +3011,14 @@ peak = results.field_extrema(result.fields['MISES'], location=True)
 **Status:** `supported`<br>
 **Source card:** `src/agentfem/knowledge/cards/thermoelastic_analysis.json`
 
-One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve.
+One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve, with accepted-time field histories and bounded temperature-property tables for sequential transfer.
 
 ### Public API
 
 - `agentfem.constitutive.thermoelastic`
+- `agentfem.constitutive.temperature_dependent_thermoelastic`
+- `agentfem.materials.temperature_property`
+- `agentfem.histories.temperature`
 - `agentfem.operators.thermal_expansion_vector`
 - `agentfem.constitutive.ArrheniusPowerLawCreep`
 - `agentfem.models.Model.step`
@@ -3057,7 +3064,8 @@ The local creep coefficient retains its fitted meaning at the declared reference
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | thermomechanical properties | E, nu, rho, alpha, k, c_p, T_ref | consistent absolute-temperature system | One immutable material record shared by thermal and mechanical models. |
-| temperature field | scalar finite-element field | absolute temperature | Solved or prescribed temperature consumed by thermal expansion. |
+| temperature field | scalar finite-element field or FieldHistory | absolute temperature | Solved or prescribed temperature consumed by thermal expansion or sampled at the receiving creep step's physical time. |
+| temperature-dependent properties | constant or TemperaturePropertyTable | declared property unit against kelvin | Piecewise-linear tables preserve bounds, interpolation, provenance, and an explicit extrapolation policy. |
 
 #### Outputs
 
@@ -3071,7 +3079,7 @@ The local creep coefficient retains its fitted meaning at the declared reference
 
 - Small-strain isotropic thermoelasticity.
 - Sequential coupling: temperature affects mechanics but mechanical dissipation and deformation do not feed back into heat transfer.
-- Material constants are temperature independent in the current global operators.
+- Temperature-dependent E, nu, and alpha are known coefficients in a sequential mechanical solve; heat-to-mechanics feedback remains one way.
 
 #### Conventions
 
@@ -3088,12 +3096,13 @@ The local creep coefficient retains its fitted meaning at the declared reference
 
 - No monolithic fully coupled temperature-displacement solve.
 - No convection/radiation convenience boundary in this card.
-- Global Arrhenius creep accepts a prescribed scalar or finite-element temperature; automatic transient-history transfer is not yet provided.
+- Portable nodal histories are compact root-gathered archives rather than an extreme-scale parallel field database.
+- Temperature-dependent conductivity and capacity iteration is not yet part of the linear implicit heat step.
 
 ### Minimal example
 
 ```python
-Solve a heat-transfer Model with the shared material, then pass its Temperature field to mechanics.thermal_expansion(u, temperature) in a solid-mechanics Model.
+Call temperature_history = heat_step.capture_history(name='temperature', unit='K') before solving, then pass that object to an Arrhenius creep step; use materials.temperature_property(...) for bounded sequential thermoelastic coefficients.
 ```
 
 ### Verification
@@ -3101,6 +3110,8 @@ Solve a heat-transfer Model with the shared material, then pass its Temperature 
 **Tests**
 
 - `tests/test_p1_platform.py`
+- `tests/test_histories.py`
+- `tests/portable_field_history_driver.py`
 
 **Benchmarks**
 
@@ -3110,6 +3121,7 @@ Solve a heat-transfer Model with the shared material, then pass its Temperature 
 
 - Reject nonpositive conductivity, specific heat, density, or absolute reference temperature.
 - Require an explicit 2D solid assumption for thermoelastic stress.
+- Reject silent temperature-history extrapolation and invalid or unordered property tables.
 
 ### References
 

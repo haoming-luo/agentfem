@@ -1038,6 +1038,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agentfemhistories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.histories
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agentfeminterfaces" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1759,6 +1770,17 @@
     <span class="md-ellipsis">
       
         agentfem.fracture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agentfemhistories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.histories
       
     </span>
   </a>
@@ -2647,6 +2669,21 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>Isotropic thermoelastic and heat-conduction properties.</td>
 </tr>
 <tr>
+<td>class</td>
+<td><code>TemperatureDependentThermoElasticProperties</code></td>
+<td>Isotropic thermoelastic properties containing constants or tables.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>TemperaturePropertyTable</code></td>
+<td>One material property tabulated against absolute temperature.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>temperature_property(temperatures, values, **kwargs) -&gt; TemperaturePropertyTable</code></td>
+<td>Create an inspectable temperature-dependent material property.</td>
+</tr>
+<tr>
 <td>function</td>
 <td><code>validate_material_record(name: str, record: dict) -&gt; None</code></td>
 <td>Validate one material-centered library record.</td>
@@ -2765,7 +2802,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>isotropic_stress(displacement, properties: ElasticIsotropicProperties, *, study = None)</code></td>
+<td><code>isotropic_stress(displacement, properties: ElasticIsotropicProperties, *, study = None, temperature = None)</code></td>
 <td>Small-strain isotropic stress, <code>sigma(u)</code>.</td>
 </tr>
 <tr>
@@ -2790,6 +2827,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
+<td><code>temperature_dependent_thermoelastic(*, young, density: float, poisson, thermal_expansion, conductivity, specific_heat, reference_temperature: float = 293.15, name: str = 'temperature-dependent isotropic thermoelastic') -&gt; TemperatureDependentThermoElasticProperties</code></td>
+<td>Create tabulated properties for sequential thermo-mechanics.</td>
+</tr>
+<tr>
+<td>function</td>
 <td><code>thermoelastic_stress(displacement, temperature, properties, *, study = None)</code></td>
 <td>Small-strain isotropic stress including thermal eigenstrain.</td>
 </tr>
@@ -2800,7 +2842,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>stress(displacement, properties, *, study = None)</code></td>
+<td><code>stress(displacement, properties, *, study = None, temperature = None)</code></td>
 <td>Dispatch to the matching elastic stress relation.</td>
 </tr>
 <tr>
@@ -5185,6 +5227,33 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="agentfemhistories"><code>agentfem.histories</code><a class="headerlink" href="#agentfemhistories" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Public object</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>class</td>
+<td><code>FieldHistory</code></td>
+<td>A sampled scalar or finite-element field over physical time.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>field_history(source, **kwargs) -&gt; FieldHistory</code></td>
+<td>Create a generic field-history recorder.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>temperature(source, *, name: str = 'temperature', unit: str = 'K', **kwargs) -&gt; FieldHistory</code></td>
+<td>Create a physical-time temperature history.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="agentfeminterfaces"><code>agentfem.interfaces</code><a class="headerlink" href="#agentfeminterfaces" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -5643,7 +5712,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>stiffness(field, properties = None, *, law = None, study = None, measure = ufl.dx) -&gt; OperatorForm</code></td>
+<td><code>stiffness(field, properties = None, *, law = None, study = None, temperature = None, measure = ufl.dx) -&gt; OperatorForm</code></td>
 <td>Create the primary stiffness-like operator <code>K</code> for an unknown field.</td>
 </tr>
 <tr>
@@ -5663,7 +5732,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>elastic_stiffness(displacement, properties, *, study = None, measure = ufl.dx) -&gt; OperatorForm</code></td>
+<td><code>elastic_stiffness(displacement, properties, *, study = None, temperature = None, measure = ufl.dx) -&gt; OperatorForm</code></td>
 <td>Create an elastic stiffness operator <code>K</code> from a displacement unknown.</td>
 </tr>
 <tr>
@@ -5673,7 +5742,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>stiffness_operator(displacement, test_function = None, properties = None, *, study = None, measure = ufl.dx) -&gt; OperatorForm</code></td>
+<td><code>stiffness_operator(displacement, test_function = None, properties = None, *, study = None, temperature = None, measure = ufl.dx) -&gt; OperatorForm</code></td>
 <td>Create an elastic stiffness/internal virtual-work operator <code>K</code>.</td>
 </tr>
 <tr>

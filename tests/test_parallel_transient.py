@@ -7,7 +7,15 @@ import numpy as np
 import pytest
 from mpi4py import MPI
 
-from agentfem import checkpointing, constitutive, fields, mesh, models, studies
+from agentfem import (
+    checkpointing,
+    constitutive,
+    fields,
+    histories,
+    mesh,
+    models,
+    studies,
+)
 
 
 def _distributed_heat_step(*, checkpoint=None):
@@ -64,6 +72,47 @@ def test_distributed_checkpoint_policy_writes_cadence_and_final(tmp_path):
         for record in step.checkpoints:
             manifest = json.loads(record.path.read_text(encoding="utf-8"))
             assert len(manifest["shards"]) == 2
+
+
+def test_distributed_heat_capture_uses_one_physical_time_contract_per_rank():
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("distributed field-history capture requires at least two MPI ranks")
+
+    step = _distributed_heat_step()
+    history = step.capture_history(name="temperature", unit="K")
+
+    step.run()
+
+    assert history.times == pytest.approx((0.0, 0.5, 1.0, 1.5))
+    assert history.frame_count == 4
+    assert np.all(np.isfinite(history.sample(0.75)))
+    frame_counts = MPI.COMM_WORLD.allgather(history.frame_count)
+    assert frame_counts == [4] * MPI.COMM_WORLD.size
+
+
+def test_distributed_temperature_history_has_portable_archive(tmp_path):
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("portable field-history evidence requires at least two MPI ranks")
+
+    root = str(tmp_path) if MPI.COMM_WORLD.rank == 0 else None
+    root = MPI.COMM_WORLD.bcast(root, root=0)
+    step = _distributed_heat_step()
+    history = step.capture_history(name="temperature", unit="K")
+    step.run()
+    archive = history.save(Path(root) / "temperature_history")
+
+    receiving_step = _distributed_heat_step()
+    restored = histories.FieldHistory.load(
+        archive,
+        source=receiving_step.current,
+    )
+
+    np.testing.assert_allclose(restored.sample(0.75), history.sample(0.75))
+    assert restored.portable_identity() == history.portable_identity()
+    if MPI.COMM_WORLD.rank == 0:
+        with np.load(archive, allow_pickle=False) as payload:
+            assert str(payload["schema"]) == "agentfem.field-history.v2"
+            assert payload["snapshots"].shape[0] == 4
 
 
 def test_distributed_checkpoint_retention_removes_complete_old_generations(tmp_path):

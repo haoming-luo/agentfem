@@ -100,6 +100,21 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
 - Prefer sequential heat-transfer then thermal-stress analysis when coupling
   is one way. Do not claim fully coupled thermo-mechanics unless temperature
   and mechanics are solved in one consistent nonlinear system.
+- For an evolving one-way thermal input, call
+  `temperature_history = heat_step.capture_history(name="temperature", unit="K")`
+  before solving and pass that object to the receiving Arrhenius creep Step.
+  Treat its coordinate as physical time, not an output frame or increment
+  number. Keep interpolation and out-of-range behavior explicit; cutback must
+  restore the temperature to the accepted start time. Use `save(...)` and
+  `FieldHistory.load(...)` when the handoff crosses runs: nodal archives use a
+  physical-DOF identity and are portable across MPI partition counts. The
+  compact archive is root-gathered, so do not present it as an extreme-scale
+  parallel field database.
+- Use `materials.temperature_property(...)` and
+  `constitutive.temperature_dependent_thermoelastic(...)` for tabulated
+  sequential properties. Do not hide interpolation in an anonymous callback
+  or silently extrapolate outside laboratory data. A field-valued UFL
+  coefficient requires an explicit bounded extrapolation policy.
 - Put weak boundary physics under `boundary_models/`.
 - Put Dirichlet, periodic, and MPC relations under `constraints`.
 - Put Neumann, traction, flux, and body sources under `loads`.

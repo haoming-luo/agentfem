@@ -2,10 +2,10 @@
   "benchmarks": [
     {
       "id": "agentfem.benchmark.arrhenius_global_creep",
-      "physics": "three-dimensional small-strain Mises power-law creep with a prescribed nonuniform Arrhenius temperature field",
+      "physics": "three-dimensional small-strain Mises power-law creep with prescribed or time-varying Arrhenius temperature fields",
       "source": "src/agentfem/knowledge/benchmarks/arrhenius_global_creep.json",
       "status": "automated_regression",
-      "title": "Nonuniform-temperature global Arrhenius creep patch"
+      "title": "Transient heat to global Arrhenius creep contract"
     },
     {
       "id": "agentfem.benchmark.c3d10h_periodic_cell",
@@ -337,6 +337,7 @@
         "agentfem.constitutive.isotropic_arrhenius_power_law",
         "agentfem.constitutive.IsotropicPowerLawCreepMaterial",
         "agentfem.constitutive.CreepQuadratureState",
+        "agentfem.histories.FieldHistory",
         "agentfem.models.Model.step"
       ],
       "related_cards": [
@@ -346,7 +347,7 @@
       ],
       "source": "src/agentfem/knowledge/cards/global_implicit_creep.json",
       "status": "supported",
-      "summary": "Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, optional scalar or field-driven Arrhenius temperature dependence, atomic rollback, serial restart, and standard creep fields.",
+      "summary": "Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, optional scalar, field, or physical-time-history Arrhenius temperature dependence, atomic rollback, portable restart, regional materials, and standard creep fields.",
       "title": "Global implicit power-law creep"
     },
     {
@@ -794,6 +795,9 @@
       "kind": "workflow",
       "public_api": [
         "agentfem.constitutive.thermoelastic",
+        "agentfem.constitutive.temperature_dependent_thermoelastic",
+        "agentfem.materials.temperature_property",
+        "agentfem.histories.temperature",
         "agentfem.operators.thermal_expansion_vector",
         "agentfem.constitutive.ArrheniusPowerLawCreep",
         "agentfem.models.Model.step"
@@ -803,7 +807,7 @@
       ],
       "source": "src/agentfem/knowledge/cards/thermoelastic_analysis.json",
       "status": "supported",
-      "summary": "One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve.",
+      "summary": "One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve, with accepted-time field histories and bounded temperature-property tables for sequential transfer.",
       "title": "Sequential thermoelastic analysis"
     },
     {

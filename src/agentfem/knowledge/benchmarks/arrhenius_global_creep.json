@@ -2,20 +2,22 @@
   "schema": "agentfem.benchmark-card",
   "schema_version": "0.1.0",
   "id": "agentfem.benchmark.arrhenius_global_creep",
-  "title": "Nonuniform-temperature global Arrhenius creep patch",
+  "title": "Transient heat to global Arrhenius creep contract",
   "status": "automated_regression",
-  "purpose": "Verify that a finite-element temperature field is evaluated at the shared creep quadrature identity and is consumed by the same backward-Euler update, analytical tangent, Newton path, output, and checkpoint identity as the global power-law creep state.",
-  "physics": "three-dimensional small-strain Mises power-law creep with a prescribed nonuniform Arrhenius temperature field",
+  "purpose": "Verify that prescribed and physical-time temperature fields are evaluated at the shared creep quadrature identity and consumed by the same backward-Euler update, analytical tangent, Newton path, rollback, output, and checkpoint identity as the global power-law creep state.",
+  "physics": "three-dimensional small-strain Mises power-law creep with prescribed or time-varying Arrhenius temperature fields",
   "execution": {
-    "command": "python -m pytest -q tests/test_p1_platform.py::test_global_arrhenius_creep_consumes_nonuniform_temperature_field",
+    "command": "python -m pytest -q tests/test_p1_platform.py -k 'global_arrhenius_creep_consumes'",
     "example": "examples/implicit_creep_relaxation_3d.py",
-    "evidence": "A unit-cube relaxation patch carries a linear 800--900 K temperature field. The accepted integration-point temperature range and nonuniform equivalent creep strain are retained in the structured result."
+    "evidence": "A unit-cube relaxation patch carries prescribed or synthetic temperature fields, and a separate three-dimensional component test solves transient heat first and passes its accepted physical-time history directly to global creep. The accepted integration-point temperature range and nonuniform equivalent creep strain are retained in the structured result."
   },
   "observables": [
     "TEMP is present as the finite-element field supplied to the constitutive step.",
     "Every accepted increment records the minimum and maximum temperature evaluated at creep quadrature points.",
     "The hotter and colder integration points develop different CEEQ under the same imposed displacement path.",
-    "The temperature description participates in checkpoint compatibility."
+    "The temperature description participates in checkpoint compatibility.",
+    "A solved physical-time heat history is interpolated at each creep increment endpoint and becomes part of the step summary.",
+    "The nodal history archive is restored in both two-rank-to-one-rank and one-rank-to-two-rank directions."
   ],
   "acceptance": [
     "All consumed temperatures are finite and positive kelvin values.",
@@ -24,7 +26,7 @@
     "Temperature extrema are available both as quantities and accepted-increment histories."
   ],
   "limitations": [
-    "The temperature field is prescribed for the creep solve; this benchmark does not transfer an evolving transient heat history.",
+    "The internal component contract is not an external power-component validation case.",
     "Elastic and creep parameters other than the normalized Arrhenius coefficient remain temperature independent.",
     "This is a regression and integration benchmark, not external component validation."
   ]

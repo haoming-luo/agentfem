@@ -840,7 +840,7 @@ def load_vector(target, loads=None, *, load=None) -> OperatorForm:
     return force_vector(target=target, loads=loads, load=load)
 
 
-def stiffness(field, properties=None, *, law=None, study=None, measure=ufl.dx) -> OperatorForm:
+def stiffness(field, properties=None, *, law=None, study=None, temperature=None, measure=ufl.dx) -> OperatorForm:
     """Create the primary stiffness-like operator ``K`` for an unknown field.
 
     This is the beginner-facing K entry point. When a constitutive ``law`` is
@@ -860,7 +860,13 @@ def stiffness(field, properties=None, *, law=None, study=None, measure=ufl.dx) -
         if properties is None:
             raise ValueError("operators.stiffness(displacement, ...) requires material properties.")
         _require_study_physics(study, "solid_mechanics")
-        return elastic_stiffness(field, properties, study=study, measure=measure)
+        return elastic_stiffness(
+            field,
+            properties,
+            study=study,
+            temperature=temperature,
+            measure=measure,
+        )
     raise ValueError(
         "operators.stiffness currently dispatches displacement fields to elastic stiffness. "
         "Use operators.conduction_operator(...) for scalar diffusion/conduction, or pass law=..."

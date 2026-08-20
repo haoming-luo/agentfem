@@ -6,6 +6,30 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+### Added
+
+- Add accepted-physical-time `FieldHistory` capture for transient scalar
+  fields, with explicit interpolation/range policy, compact persistence,
+  scientific content identity, and coordinate-keyed portability across MPI
+  partitions and rank counts.
+- Let global Arrhenius creep consume a temperature history at attempted
+  increment endpoints; cutback and restart restore the accepted temperature
+  together with displacement and quadrature state.
+- Add inspectable temperature-property tables and a temperature-dependent
+  isotropic thermoelastic property record for sequential stiffness and thermal
+  expansion.
+- Add a three-dimensional heat-to-creep component contract in which accepted
+  transient temperature states directly drive global Arrhenius creep on the
+  same physical clock.
+
+### Changed
+
+- Record captured thermal histories in transient Step summaries and publish
+  the heat-to-creep transfer contract through the manual, Agent Skill,
+  roadmap, and scientific knowledge catalog.
+- Reject silent history extrapolation and unsafe MPI NPZ history writes; field
+  histories use the same physical-DOF identity as portable transient state.
+
 ## [0.2.2] - 2026-08-19
 
 ### Added

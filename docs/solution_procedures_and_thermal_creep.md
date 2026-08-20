@@ -40,9 +40,14 @@ meaningfully affect heat transfer, the transparent route is:
 4. solve mechanical equilibrium with the named equivalent operator
    \(F_{\mathrm{thermal}}\).
 
-AgentFEM now stores \(E,\nu,\rho,\alpha,k,c_p,T_{\mathrm{ref}}\) in one
-thermoelastic property object, while heat and mechanics remain separate
-models sharing the mesh, material, and temperature field. Plane strain keeps
+AgentFEM stores \(E,\nu,\rho,\alpha,k,c_p,T_{\mathrm{ref}}\) in one
+thermoelastic property object. Constants may be replaced by inspectable
+temperature tables for sequential mechanics. The thermal step can capture its
+accepted fields in a `FieldHistory`; the receiving creep step samples that
+history at its own physical increment endpoints. Interpolation, range policy,
+units, time coordinates, and the content hash remain part of the transfer
+contract. Saved nodal histories are keyed by physical DOF coordinates and can
+be restored across changed MPI partitions and rank counts. Plane strain keeps
 the constrained out-of-plane thermal strain; plane stress uses the reduced
 constitutive relation.
 
@@ -79,6 +84,9 @@ temperature input for the normalized Arrhenius law. It provides:
   contract, and mesh fingerprint;
 - integration-point temperature consumption, `TEMP` output, increment-wise
   temperature evidence, and temperature identity in checkpoints;
+- scalar, finite-element, or physical-time `FieldHistory` temperature input;
+  attempted increments move the live temperature to their endpoint, while
+  rollback and restart restore it to the accepted physical time;
 - a three-dimensional homogeneous stress-relaxation Golden contract.
 
 This is implemented by reusing `QuadratureTransaction`; creep does not own a
@@ -88,10 +96,9 @@ increment. The route follows the same consistent-linearization principle that
 underpins robust Newton convergence in inelastic finite elements.
 
 Arrhenius power-law creep is therefore a global consumer, while Sinh and
-Kachanov--Rabotnov remain material-point capabilities. A prescribed
-temperature field is not yet an automatic transfer of an entire transient
-thermal history, and it does not silently promote damage, mesh regularization,
-or structural rupture prediction.
+Kachanov--Rabotnov remain material-point capabilities. The accepted transient
+temperature history is now an explicit transfer object; it does not silently
+promote damage, mesh regularization, or structural rupture prediction.
 
 ## Current boundary and next gates
 
@@ -99,6 +106,11 @@ Implemented now:
 
 - explicit central difference and implicit Newmark/generalized-\(\alpha\);
 - implicit-Euler heat transfer as a model-owned Step;
+- accepted-time field capture and temperature-history transfer to creep;
+- coordinate-keyed field-history persistence verified in both two-rank-to-one
+  and one-rank-to-two-rank directions;
+- bounded temperature-property tables for sequential thermoelastic stiffness
+  and thermal expansion;
 - sequential isotropic thermal expansion as a visible vector operator;
 - normalized Arrhenius temperature dependence at material-point and global
   integration-point level;
@@ -115,7 +127,9 @@ Implemented now:
   transaction, automatic cutback, CE/CEEQ/S/MISES/RF/TEMP, prescribed
   Arrhenius temperature fields, dissipation history, regional materials,
   portable full-Step restart, MPI-portable quadrature state, and a
-  relaxation Golden contract.
+  relaxation Golden contract;
+- a 3D component contract in which accepted transient heat states drive the
+  global Arrhenius creep step on the same physical clock.
 
 Next gates:
 
@@ -124,12 +138,12 @@ Next gates:
    result manifest across heat, implicit dynamics, and explicit dynamics;
 2. exercise the portable full-Step archive on larger partition changes and
    scheduled HPC restart campaigns;
-3. connect accepted transient heat-transfer histories to creep increments
-   through an explicit field-transfer contract;
-4. add multi-element and external power-component benchmarks, then promote
+3. add multi-element and external power-component benchmarks, then promote
    the experimental global Newton MPI path;
-5. introduce K-R/Liu--Murakami damage only with near-failure time control and
+4. introduce K-R/Liu--Murakami damage only with near-failure time control and
    a declared mesh-regularization policy;
+5. add a distributed archive backend only when field histories outgrow the
+   current compact root-gathered format;
 6. monolithic coupling only after a real case demonstrates two-way feedback.
 
 References:

@@ -10,6 +10,7 @@ from agentfem.materials.properties import (
     ElasticAnisotropic2DProperties,
     ElasticIsotropicProperties,
     ThermoElasticIsotropicProperties,
+    TemperatureDependentThermoElasticProperties,
 )
 
 
@@ -72,7 +73,7 @@ def estimate_elastic_wave_speeds(material) -> tuple[float, float]:
     raise TypeError("material does not provide enough elastic data to estimate wave speeds.")
 
 
-def isotropic_stress(displacement, properties: ElasticIsotropicProperties, *, study=None):
+def isotropic_stress(displacement, properties: ElasticIsotropicProperties, *, study=None, temperature=None):
     """Small-strain isotropic stress, ``sigma(u)``.
 
     Without a study, this uses the classical isotropic relation in the
@@ -84,14 +85,17 @@ def isotropic_stress(displacement, properties: ElasticIsotropicProperties, *, st
     if study is not None:
         _require_elastic_study_supported(study)
         if study.dimension == 2 and study.assumption == "plane_stress":
-            return isotropic_plane_stress_2d(displacement, properties)
+            return isotropic_plane_stress_2d(displacement, properties, temperature=temperature)
         if study.dimension == 2 and study.assumption == "plane_strain":
-            return isotropic_plane_strain_2d(displacement, properties)
+            return isotropic_plane_strain_2d(displacement, properties, temperature=temperature)
 
     eps = strain(displacement)
+    young, poisson = _elastic_coefficients(properties, temperature)
+    lambda_ = young * poisson / ((1.0 + poisson) * (1.0 - 2.0 * poisson))
+    mu = young / (2.0 * (1.0 + poisson))
     return (
-        properties.lambda_ * ufl.tr(eps) * ufl.Identity(len(displacement))
-        + 2.0 * properties.mu * eps
+        lambda_ * ufl.tr(eps) * ufl.Identity(len(displacement))
+        + 2.0 * mu * eps
     )
 
 
@@ -100,7 +104,8 @@ def thermal_strain(temperature, properties, *, dimension: int):
 
     selected = field_api.unwrap(temperature)
     increment = selected - properties.reference_temperature
-    return properties.thermal_expansion * increment * ufl.Identity(int(dimension))
+    alpha = _coefficient(properties, "thermal_expansion", selected)
+    return alpha * increment * ufl.Identity(int(dimension))
 
 
 def thermoelastic_stress(displacement, temperature, properties, *, study=None):
@@ -116,28 +121,31 @@ def thermoelastic_stress(displacement, temperature, properties, *, study=None):
         _require_elastic_study_supported(study)
     dimension = len(displacement)
     delta_temperature = selected_temperature - properties.reference_temperature
-    alpha_delta = properties.thermal_expansion * delta_temperature
+    young, poisson = _elastic_coefficients(properties, selected_temperature)
+    lambda_ = young * poisson / ((1.0 + poisson) * (1.0 - 2.0 * poisson))
+    mu = young / (2.0 * (1.0 + poisson))
+    alpha_delta = _coefficient(properties, "thermal_expansion", selected_temperature) * delta_temperature
     eps = strain(displacement)
     if dimension == 2 and getattr(study, "assumption", None) == "plane_stress":
         mechanical = eps - alpha_delta * ufl.Identity(2)
-        plane_stress_lambda = properties.young * properties.poisson / (
-            1.0 - properties.poisson**2
+        plane_stress_lambda = young * poisson / (
+            1.0 - poisson**2
         )
         return (
             plane_stress_lambda * ufl.tr(mechanical) * ufl.Identity(2)
-            + 2.0 * properties.mu * mechanical
+            + 2.0 * mu * mechanical
         )
     if dimension == 2 and getattr(study, "assumption", None) == "plane_strain":
         return (
-            properties.lambda_
+            lambda_
             * (ufl.tr(eps) - 3.0 * alpha_delta)
             * ufl.Identity(2)
-            + 2.0 * properties.mu * (eps - alpha_delta * ufl.Identity(2))
+            + 2.0 * mu * (eps - alpha_delta * ufl.Identity(2))
         )
     mechanical = eps - alpha_delta * ufl.Identity(dimension)
     return (
-        properties.lambda_ * ufl.tr(mechanical) * ufl.Identity(dimension)
-        + 2.0 * properties.mu * mechanical
+        lambda_ * ufl.tr(mechanical) * ufl.Identity(dimension)
+        + 2.0 * mu * mechanical
     )
 
 
@@ -148,44 +156,48 @@ def thermal_expansion_stress(temperature, properties, *, study=None, dimension=N
     selected_dimension = int(
         dimension if dimension is not None else getattr(study, "dimension", 3)
     )
-    alpha_delta = (
-        properties.thermal_expansion
-        * (selected - properties.reference_temperature)
+    young, poisson = _elastic_coefficients(properties, selected)
+    lambda_ = young * poisson / ((1.0 + poisson) * (1.0 - 2.0 * poisson))
+    mu = young / (2.0 * (1.0 + poisson))
+    alpha_delta = _coefficient(properties, "thermal_expansion", selected) * (
+        selected - properties.reference_temperature
     )
     if selected_dimension == 2 and getattr(study, "assumption", None) == "plane_stress":
-        plane_stress_lambda = properties.young * properties.poisson / (
-            1.0 - properties.poisson**2
+        plane_stress_lambda = young * poisson / (
+            1.0 - poisson**2
         )
-        factor = 2.0 * (properties.mu + plane_stress_lambda)
+        factor = 2.0 * (mu + plane_stress_lambda)
     elif selected_dimension == 2 and getattr(study, "assumption", None) == "plane_strain":
-        factor = 2.0 * properties.mu + 3.0 * properties.lambda_
+        factor = 2.0 * mu + 3.0 * lambda_
     else:
-        factor = 2.0 * properties.mu + selected_dimension * properties.lambda_
+        factor = 2.0 * mu + selected_dimension * lambda_
     return factor * alpha_delta * ufl.Identity(selected_dimension)
 
 
-def isotropic_plane_strain_2d(displacement, properties: ElasticIsotropicProperties):
+def isotropic_plane_strain_2d(displacement, properties: ElasticIsotropicProperties, *, temperature=None):
     """2D isotropic plane-strain stress."""
 
     displacement = field_api.unwrap(displacement)
     eps = strain(displacement)
-    return (
-        properties.lambda_ * ufl.tr(eps) * ufl.Identity(2)
-        + 2.0 * properties.mu * eps
-    )
+    young, poisson = _elastic_coefficients(properties, temperature)
+    lambda_ = young * poisson / ((1.0 + poisson) * (1.0 - 2.0 * poisson))
+    mu = young / (2.0 * (1.0 + poisson))
+    return lambda_ * ufl.tr(eps) * ufl.Identity(2) + 2.0 * mu * eps
 
 
-def isotropic_plane_stress_2d(displacement, properties: ElasticIsotropicProperties):
+def isotropic_plane_stress_2d(displacement, properties: ElasticIsotropicProperties, *, temperature=None):
     """2D isotropic plane-stress stress."""
 
     displacement = field_api.unwrap(displacement)
     eps = strain(displacement)
-    plane_stress_lambda = properties.young * properties.poisson / (
-        1.0 - properties.poisson**2
+    young, poisson = _elastic_coefficients(properties, temperature)
+    mu = young / (2.0 * (1.0 + poisson))
+    plane_stress_lambda = young * poisson / (
+        1.0 - poisson**2
     )
     return (
         plane_stress_lambda * ufl.tr(eps) * ufl.Identity(2)
-        + 2.0 * properties.mu * eps
+        + 2.0 * mu * eps
     )
 
 
@@ -200,18 +212,35 @@ def anisotropic_stress_2d(displacement, properties: ElasticAnisotropic2DProperti
     return stress_voigt_to_tensor_2d(stress_voigt)
 
 
-def stress(displacement, properties, *, study=None):
+def stress(displacement, properties, *, study=None, temperature=None):
     """Dispatch to the matching elastic stress relation."""
 
     if isinstance(properties, ElasticIsotropicProperties):
-        return isotropic_stress(displacement, properties, study=study)
+        return isotropic_stress(displacement, properties, study=study, temperature=temperature)
     if isinstance(properties, ElasticAnisotropic2DProperties):
         return anisotropic_stress_2d(displacement, properties, study=study)
     if hasattr(properties, "stiffness_voigt"):
         return anisotropic_stress_2d(displacement, properties, study=study)
     if hasattr(properties, "young") and hasattr(properties, "poisson"):
-        return isotropic_stress(displacement, properties, study=study)
+        return isotropic_stress(displacement, properties, study=study, temperature=temperature)
     raise TypeError(f"unsupported elastic properties object: {type(properties)!r}")
+
+
+def _coefficient(properties, name: str, temperature=None):
+    if hasattr(properties, "coefficient"):
+        if temperature is None:
+            raise ValueError(
+                f"Temperature-dependent {name} requires a known temperature field."
+            )
+        return properties.coefficient(name, temperature)
+    return getattr(properties, name)
+
+
+def _elastic_coefficients(properties, temperature=None):
+    return (
+        _coefficient(properties, "young", temperature),
+        _coefficient(properties, "poisson", temperature),
+    )
 
 
 def _require_elastic_study_supported(study) -> None:
@@ -261,6 +290,31 @@ def thermoelastic(
     """Create one material record for sequential thermal-stress workflows."""
 
     return ThermoElasticIsotropicProperties(
+        name=name,
+        young=young,
+        density=density,
+        poisson=poisson,
+        thermal_expansion=thermal_expansion,
+        conductivity=conductivity,
+        specific_heat=specific_heat,
+        reference_temperature=reference_temperature,
+    )
+
+
+def temperature_dependent_thermoelastic(
+    *,
+    young,
+    density: float,
+    poisson,
+    thermal_expansion,
+    conductivity,
+    specific_heat,
+    reference_temperature: float = 293.15,
+    name: str = "temperature-dependent isotropic thermoelastic",
+) -> TemperatureDependentThermoElasticProperties:
+    """Create tabulated properties for sequential thermo-mechanics."""
+
+    return TemperatureDependentThermoElasticProperties(
         name=name,
         young=young,
         density=density,

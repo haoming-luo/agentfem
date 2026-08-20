@@ -5,9 +5,12 @@
   "title": "Sequential thermoelastic analysis",
   "kind": "workflow",
   "status": "supported",
-  "summary": "One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve.",
+  "summary": "One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve, with accepted-time field histories and bounded temperature-property tables for sequential transfer.",
   "public_api": [
     "agentfem.constitutive.thermoelastic",
+    "agentfem.constitutive.temperature_dependent_thermoelastic",
+    "agentfem.materials.temperature_property",
+    "agentfem.histories.temperature",
     "agentfem.operators.thermal_expansion_vector",
     "agentfem.constitutive.ArrheniusPowerLawCreep",
     "agentfem.models.Model.step"
@@ -16,6 +19,7 @@
     "materials/properties.py",
     "constitutive/elasticity.py",
     "constitutive/creep.py",
+    "histories.py",
     "operators/elasticity.py",
     "models.py"
   ],
@@ -52,9 +56,15 @@
       },
       {
         "name": "temperature field",
-        "type": "scalar finite-element field",
+        "type": "scalar finite-element field or FieldHistory",
         "unit_role": "absolute temperature",
-        "description": "Solved or prescribed temperature consumed by thermal expansion."
+        "description": "Solved or prescribed temperature consumed by thermal expansion or sampled at the receiving creep step's physical time."
+      },
+      {
+        "name": "temperature-dependent properties",
+        "type": "constant or TemperaturePropertyTable",
+        "unit_role": "declared property unit against kelvin",
+        "description": "Piecewise-linear tables preserve bounds, interpolation, provenance, and an explicit extrapolation policy."
       }
     ],
     "outputs": [
@@ -80,7 +90,7 @@
     "assumptions": [
       "Small-strain isotropic thermoelasticity.",
       "Sequential coupling: temperature affects mechanics but mechanical dissipation and deformation do not feed back into heat transfer.",
-      "Material constants are temperature independent in the current global operators."
+      "Temperature-dependent E, nu, and alpha are known coefficients in a sequential mechanical solve; heat-to-mechanics feedback remains one way."
     ],
     "conventions": [
       "All Arrhenius temperatures are kelvin.",
@@ -94,25 +104,29 @@
     "limitations": [
       "No monolithic fully coupled temperature-displacement solve.",
       "No convection/radiation convenience boundary in this card.",
-      "Global Arrhenius creep accepts a prescribed scalar or finite-element temperature; automatic transient-history transfer is not yet provided."
+      "Portable nodal histories are compact root-gathered archives rather than an extreme-scale parallel field database.",
+      "Temperature-dependent conductivity and capacity iteration is not yet part of the linear implicit heat step."
     ]
   },
   "usage": {
-    "minimal_example": "Solve a heat-transfer Model with the shared material, then pass its Temperature field to mechanics.thermal_expansion(u, temperature) in a solid-mechanics Model.",
+    "minimal_example": "Call temperature_history = heat_step.capture_history(name='temperature', unit='K') before solving, then pass that object to an Arrhenius creep step; use materials.temperature_property(...) for bounded sequential thermoelastic coefficients.",
     "examples": [
       "examples/thermal_stress_wall_2d.py"
     ]
   },
   "verification": {
     "tests": [
-      "tests/test_p1_platform.py"
+      "tests/test_p1_platform.py",
+      "tests/test_histories.py",
+      "tests/portable_field_history_driver.py"
     ],
     "benchmarks": [
       "agentfem.benchmark.thermoelastic_free_expansion"
     ],
     "validation_rules": [
       "Reject nonpositive conductivity, specific heat, density, or absolute reference temperature.",
-      "Require an explicit 2D solid assumption for thermoelastic stress."
+      "Require an explicit 2D solid assumption for thermoelastic stress.",
+      "Reject silent temperature-history extrapolation and invalid or unordered property tables."
     ]
   },
   "references": [

@@ -1681,6 +1681,37 @@ class FirstOrderTransientStep:
     completed_steps: int = field(default=0, init=False)
     history_records: list[dict[str, float]] = field(default_factory=list, init=False)
     checkpoints: list[object] = field(default_factory=list, init=False)
+    captured_histories: list[object] = field(default_factory=list, init=False)
+
+    def capture_history(
+        self,
+        source=None,
+        *,
+        name: str | None = None,
+        unit: str | None = None,
+        every: int = 1,
+        interpolation: str = "linear",
+        outside: str = "error",
+    ):
+        """Capture a scalar field at accepted physical times.
+
+        The returned :class:`agentfem.histories.FieldHistory` can be passed
+        directly to a later thermo-mechanical or creep step.
+        """
+
+        from . import histories
+
+        selected = self.current if source is None else source
+        recorder = histories.FieldHistory(
+            selected,
+            name=name or getattr(getattr(selected, "value", selected), "name", "field"),
+            unit=unit,
+            every=every,
+            interpolation=interpolation,
+            outside=outside,
+        )
+        self.captured_histories.append(recorder)
+        return recorder
 
     def run(
         self,
@@ -1732,6 +1763,7 @@ class FirstOrderTransientStep:
 
         _emit_transient_started(reporter, self)
         _record_transient_history(self, self.completed_steps * self.dt)
+        self._record_captured_histories(force=True)
 
         def advance(info):
             if self.update_load is not None:
@@ -1742,6 +1774,9 @@ class FirstOrderTransientStep:
             _accept_transient_increment(
                 self, info, reporter, selected_progress, self.current,
                 selected_comm,
+            )
+            self._record_captured_histories(
+                force=self.completed_steps == self.steps
             )
 
         if output is None:
@@ -1758,6 +1793,12 @@ class FirstOrderTransientStep:
                     xdmf.write_fields(info.time, *selected_fields)
         _emit_transient_completed(reporter, self)
         return self
+
+    def _record_captured_histories(self, *, force: bool = False) -> None:
+        selected_time = self.completed_steps * self.dt
+        for recorder in self.captured_histories:
+            if force or self.completed_steps % recorder.every == 0:
+                recorder.record(selected_time)
 
     def solve(self):
         self.run()
@@ -1824,6 +1865,9 @@ class FirstOrderTransientStep:
             ),
             "history_requests": [
                 request.summary() for request in self.history_requests
+            ],
+            "captured_histories": [
+                recorder.summary() for recorder in self.captured_histories
             ],
             "problem": self.problem.summary(),
         }

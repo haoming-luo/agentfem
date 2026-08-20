@@ -137,6 +137,9 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ElasticAnisotropic2DProperties` | 2D linear-elastic properties using engineering-strain Voigt notation. |
 | class | `ElasticIsotropicProperties` | Isotropic linear-elastic material properties. |
 | class | `ThermoElasticIsotropicProperties` | Isotropic thermoelastic and heat-conduction properties. |
+| class | `TemperatureDependentThermoElasticProperties` | Isotropic thermoelastic properties containing constants or tables. |
+| class | `TemperaturePropertyTable` | One material property tabulated against absolute temperature. |
+| function | `temperature_property(temperatures, values, **kwargs) -> TemperaturePropertyTable` | Create an inspectable temperature-dependent material property. |
 | function | `validate_material_record(name: str, record: dict) -> None` | Validate one material-centered library record. |
 
 ## `agentfem.constitutive`
@@ -163,14 +166,15 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `anisotropic_stress_2d(displacement, properties: ElasticAnisotropic2DProperties, *, study = None)` | 2D anisotropic stress from engineering-strain Voigt stiffness. |
 | function | `anisotropic_elastic_2d(*, stiffness_voigt, density: float, name: str = 'anisotropic elastic 2D') -> ElasticAnisotropic2DProperties` | Create 2D anisotropic linear-elastic properties. |
 | function | `estimate_elastic_wave_speeds(material) -> tuple[float, float]` | Return approximate ``(pressure_speed, shear_speed)`` for a material. |
-| function | `isotropic_stress(displacement, properties: ElasticIsotropicProperties, *, study = None)` | Small-strain isotropic stress, ``sigma(u)``. |
+| function | `isotropic_stress(displacement, properties: ElasticIsotropicProperties, *, study = None, temperature = None)` | Small-strain isotropic stress, ``sigma(u)``. |
 | function | `isotropic_elastic(*, young: float, density: float, poisson: float, name: str = 'isotropic elastic') -> ElasticIsotropicProperties` | Create isotropic linear-elastic properties. |
 | function | `thermal_expansion_stress(temperature, properties, *, study = None, dimension = None)` | Return positive ``C:epsilon_thermal`` for an equivalent thermal load. |
 | function | `thermal_strain(temperature, properties, *, dimension: int)` | Return isotropic free thermal strain ``alpha (T-T_ref) I``. |
 | function | `thermoelastic(*, young: float, density: float, poisson: float, thermal_expansion: float, conductivity: float, specific_heat: float, reference_temperature: float = 293.15, name: str = 'isotropic thermoelastic') -> ThermoElasticIsotropicProperties` | Create one material record for sequential thermal-stress workflows. |
+| function | `temperature_dependent_thermoelastic(*, young, density: float, poisson, thermal_expansion, conductivity, specific_heat, reference_temperature: float = 293.15, name: str = 'temperature-dependent isotropic thermoelastic') -> TemperatureDependentThermoElasticProperties` | Create tabulated properties for sequential thermo-mechanics. |
 | function | `thermoelastic_stress(displacement, temperature, properties, *, study = None)` | Small-strain isotropic stress including thermal eigenstrain. |
 | function | `orthotropic_plane_stress_2d(*, ex: float, ey: float, nuxy: float, gxy: float, density: float, name: str = 'orthotropic plane-stress elastic 2D') -> ElasticAnisotropic2DProperties` | Create 2D orthotropic plane-stress elastic properties. |
-| function | `stress(displacement, properties, *, study = None)` | Dispatch to the matching elastic stress relation. |
+| function | `stress(displacement, properties, *, study = None, temperature = None)` | Dispatch to the matching elastic stress relation. |
 | class | `BasquinCurve` | Fully reversed stress-life curve ``sigma_a = sigma_f' (2N)^b``. |
 | class | `FatigueAssessment` | Auditable stress-life assessment derived from one scalar history. |
 | class | `FatigueBlock` | One constant-amplitude block for cumulative-damage assessment. |
@@ -700,6 +704,14 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `estimate_stable_time_increment(*, characteristic_length, dilatational_speed: float, safety_factor: float = 0.8, interface_stiffness: float \| None = None, interface_area: float \| None = None, negative_mass: float \| None = None, positive_mass: float \| None = None) -> StableTimeIncrement` | Estimate explicit stability from body transit and interface oscillator. |
 | function | `minimum_cell_nodal_spacing(domain) -> float` | Return an MPI-global conservative spacing from cell geometry nodes. |
 
+## `agentfem.histories`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `FieldHistory` | A sampled scalar or finite-element field over physical time. |
+| function | `field_history(source, **kwargs) -> FieldHistory` | Create a generic field-history recorder. |
+| function | `temperature(source, *, name: str = 'temperature', unit: str = 'K', **kwargs) -> FieldHistory` | Create a physical-time temperature history. |
+
 ## `agentfem.interfaces`
 
 | Kind | Public object | Purpose |
@@ -801,13 +813,13 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `robin_source_vector(target, coefficient, reference_value, *, measure = None, location = None) -> OperatorForm` | Create the Robin environment vector ``F_R = integral(h x_ref test)``. |
 | function | `scale(operator, factor, *, name: str \| None = None, kind: str \| None = None) -> OperatorForm` | Scale an operator or vector form while preserving its engineering role. |
 | function | `source_vector(source, target, *, measure = ufl.dx) -> OperatorForm` | Create a scalar or vector source/load vector for a target unknown. |
-| function | `stiffness(field, properties = None, *, law = None, study = None, measure = ufl.dx) -> OperatorForm` | Create the primary stiffness-like operator ``K`` for an unknown field. |
+| function | `stiffness(field, properties = None, *, law = None, study = None, temperature = None, measure = ufl.dx) -> OperatorForm` | Create the primary stiffness-like operator ``K`` for an unknown field. |
 | function | `quadratic_form(operator, field) -> float` | Return the algebraic scalar ``field^T operator field``. |
 | function | `xtmx(field, operator) -> float` | Cast3M-style alias for ``field^T operator field``. |
 | function | `xtmy(left, operator, right) -> float` | Cast3M-style alias for ``left^T operator right``. |
-| function | `elastic_stiffness(displacement, properties, *, study = None, measure = ufl.dx) -> OperatorForm` | Create an elastic stiffness operator ``K`` from a displacement unknown. |
+| function | `elastic_stiffness(displacement, properties, *, study = None, temperature = None, measure = ufl.dx) -> OperatorForm` | Create an elastic stiffness operator ``K`` from a displacement unknown. |
 | function | `internal_force_vector(displacement, test_function = None, properties = None, *, study = None, measure = ufl.dx) -> OperatorForm` | Create an elastic internal-force vector contribution. |
-| function | `stiffness_operator(displacement, test_function = None, properties = None, *, study = None, measure = ufl.dx) -> OperatorForm` | Create an elastic stiffness/internal virtual-work operator ``K``. |
+| function | `stiffness_operator(displacement, test_function = None, properties = None, *, study = None, temperature = None, measure = ufl.dx) -> OperatorForm` | Create an elastic stiffness/internal virtual-work operator ``K``. |
 | function | `thermal_expansion_vector(target, temperature, properties, *, study = None, measure = ufl.dx, name: str = 'F_thermal') -> OperatorForm` | Equivalent nodal load produced by isotropic thermal expansion. |
 | class | `FirstOrderSystem` | First-order transient system, ``C x_dot + K x = F``. |
 | class | `LinearSystem` | Engineering-level static system, usually ``K x = F``. |

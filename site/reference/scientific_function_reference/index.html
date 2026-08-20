@@ -9621,8 +9621,8 @@ the compact machine-readable <code>agentfem/knowledge/catalog.json</code>.</p>
 <tbody>
 <tr>
 <td><code>agentfem.benchmark.arrhenius_global_creep</code></td>
-<td>Nonuniform-temperature global Arrhenius creep patch</td>
-<td>three-dimensional small-strain Mises power-law creep with a prescribed nonuniform Arrhenius temperature field</td>
+<td>Transient heat to global Arrhenius creep contract</td>
+<td>three-dimensional small-strain Mises power-law creep with prescribed or time-varying Arrhenius temperature fields</td>
 <td>automated_regression</td>
 </tr>
 <tr>
@@ -10357,7 +10357,7 @@ P_{33}(F_{\alpha\beta},\lambda_3)=\partial\psi/\partial\lambda_3=0,\quad \lambda
 <strong>Kind:</strong> <code>material</code><br>
 <strong>Status:</strong> <code>supported</code><br>
 <strong>Source card:</strong> <code>src/agentfem/knowledge/cards/global_implicit_creep.json</code></p>
-<p>Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, optional scalar or field-driven Arrhenius temperature dependence, atomic rollback, serial restart, and standard creep fields.</p>
+<p>Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, optional scalar, field, or physical-time-history Arrhenius temperature dependence, atomic rollback, portable restart, regional materials, and standard creep fields.</p>
 <h3 id="public-api_4">Public API<a class="headerlink" href="#public-api_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>agentfem.studies.creep_solid</code></li>
@@ -10365,6 +10365,7 @@ P_{33}(F_{\alpha\beta},\lambda_3)=\partial\psi/\partial\lambda_3=0,\quad \lambda
 <li><code>agentfem.constitutive.isotropic_arrhenius_power_law</code></li>
 <li><code>agentfem.constitutive.IsotropicPowerLawCreepMaterial</code></li>
 <li><code>agentfem.constitutive.CreepQuadratureState</code></li>
+<li><code>agentfem.histories.FieldHistory</code></li>
 <li><code>agentfem.models.Model.step</code></li>
 </ul>
 <h3 id="scientific-contract_4">Scientific contract<a class="headerlink" href="#scientific-contract_4" title="Permanent link">&para;</a></h3>
@@ -10409,9 +10410,9 @@ q_{n+1}=q_{\mathrm{trial}}-3G\,\Delta\gamma
 </tr>
 <tr>
 <td>temperature</td>
-<td>positive scalar or scalar finite-element field</td>
+<td>positive scalar, scalar finite-element field, or physical-time FieldHistory</td>
 <td>absolute temperature in kelvin</td>
-<td>Required for an Arrhenius material and evaluated at the same quadrature identity as creep state.</td>
+<td>Required for an Arrhenius material, sampled at attempted physical time, and evaluated at the same quadrature identity as creep state.</td>
 </tr>
 </tbody>
 </table>
@@ -10456,7 +10457,7 @@ q_{n+1}=q_{\mathrm{trial}}-3G\,\Delta\gamma
 <ul>
 <li>Small strain, three spatial dimensions, isotropic elasticity, and associative Mises creep; temperature changes the Arrhenius rate but not elastic properties.</li>
 <li>Quasi-static equilibrium; inertia is not part of this procedure.</li>
-<li>One material covers the current convenience-step domain.</li>
+<li>Each integration point resolves exactly one declared regional material.</li>
 </ul>
 <h4 id="conventions_4">Conventions<a class="headerlink" href="#conventions_4" title="Permanent link">&para;</a></h4>
 <ul>
@@ -10464,6 +10465,7 @@ q_{n+1}=q_{\mathrm{trial}}-3G\,\Delta\gamma
 <li>CE and CEEQ are committed only after local integration, global Newton convergence, and increment-level acceptance all succeed.</li>
 <li>maximum_inelastic_increment limits the maximum quadrature-point CEEQ increment and causes rollback/cutback when exceeded.</li>
 <li>Checkpoint restore reconstructs stress from accepted strain and CE without advancing a fictitious time increment.</li>
+<li>A failed attempt restores the temperature history to the accepted increment start time together with displacement and quadrature state.</li>
 </ul>
 <h4 id="applicability_4">Applicability<a class="headerlink" href="#applicability_4" title="Permanent link">&para;</a></h4>
 <ul>
@@ -10472,8 +10474,8 @@ q_{n+1}=q_{\mathrm{trial}}-3G\,\Delta\gamma
 </ul>
 <h4 id="limitations_4">Limitations<a class="headerlink" href="#limitations_4" title="Permanent link">&para;</a></h4>
 <ul>
-<li>The provider and checkpoint are serial-only and do not yet support multiple material regions.</li>
-<li>Automatic transfer and time alignment of a transient thermal history, damage, and mesh regularization are not part of this global route.</li>
+<li>The MPI global Newton route remains experimental pending an independent component benchmark.</li>
+<li>Portable nodal histories are root-gathered; global damage and mesh regularization are not part of this route.</li>
 <li>External component or code-standard validation remains required before application-specific qualification.</li>
 </ul>
 <h3 id="minimal-example_4">Minimal example<a class="headerlink" href="#minimal-example_4" title="Permanent link">&para;</a></h3>
@@ -10483,6 +10485,8 @@ q_{n+1}=q_{\mathrm{trial}}-3G\,\Delta\gamma
 <p><strong>Tests</strong></p>
 <ul>
 <li><code>tests/test_p1_platform.py</code></li>
+<li><code>tests/test_histories.py</code></li>
+<li><code>tests/portable_field_history_driver.py</code></li>
 </ul>
 <p><strong>Benchmarks</strong></p>
 <ul>
@@ -10491,7 +10495,7 @@ q_{n+1}=q_{\mathrm{trial}}-3G\,\Delta\gamma
 </ul>
 <p><strong>Validation rules</strong></p>
 <ul>
-<li>Reject non-3D, multi-rank, nonpositive-duration, or incompatible material use.</li>
+<li>Reject non-3D, nonpositive-duration, uncovered regional quadrature points, or incompatible material use.</li>
 <li>Verify the analytical tangent independently against a centered material-point derivative.</li>
 <li>Commit shared transaction state only after a globally accepted physical-time increment.</li>
 <li>Evaluate and record positive kelvin temperatures at the creep quadrature identity for every attempted increment.</li>
@@ -13264,10 +13268,13 @@ W_{\mathrm{ext}}=\tfrac{1}{2}\mathbf{u}^{T}\mathbf{F}+\tfrac{1}{2}\mathbf{R}_{c}
 <strong>Kind:</strong> <code>workflow</code><br>
 <strong>Status:</strong> <code>supported</code><br>
 <strong>Source card:</strong> <code>src/agentfem/knowledge/cards/thermoelastic_analysis.json</code></p>
-<p>One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve.</p>
+<p>One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve, with accepted-time field histories and bounded temperature-property tables for sequential transfer.</p>
 <h3 id="public-api_26">Public API<a class="headerlink" href="#public-api_26" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>agentfem.constitutive.thermoelastic</code></li>
+<li><code>agentfem.constitutive.temperature_dependent_thermoelastic</code></li>
+<li><code>agentfem.materials.temperature_property</code></li>
+<li><code>agentfem.histories.temperature</code></li>
 <li><code>agentfem.operators.thermal_expansion_vector</code></li>
 <li><code>agentfem.constitutive.ArrheniusPowerLawCreep</code></li>
 <li><code>agentfem.models.Model.step</code></li>
@@ -13313,9 +13320,15 @@ A(T)=A_{\mathrm{ref}}\exp\!\left[-\frac{Q}{R}\left(\frac{1}{T}-\frac{1}{T_{\math
 </tr>
 <tr>
 <td>temperature field</td>
-<td>scalar finite-element field</td>
+<td>scalar finite-element field or FieldHistory</td>
 <td>absolute temperature</td>
-<td>Solved or prescribed temperature consumed by thermal expansion.</td>
+<td>Solved or prescribed temperature consumed by thermal expansion or sampled at the receiving creep step's physical time.</td>
+</tr>
+<tr>
+<td>temperature-dependent properties</td>
+<td>constant or TemperaturePropertyTable</td>
+<td>declared property unit against kelvin</td>
+<td>Piecewise-linear tables preserve bounds, interpolation, provenance, and an explicit extrapolation policy.</td>
 </tr>
 </tbody>
 </table>
@@ -13354,7 +13367,7 @@ A(T)=A_{\mathrm{ref}}\exp\!\left[-\frac{Q}{R}\left(\frac{1}{T}-\frac{1}{T_{\math
 <ul>
 <li>Small-strain isotropic thermoelasticity.</li>
 <li>Sequential coupling: temperature affects mechanics but mechanical dissipation and deformation do not feed back into heat transfer.</li>
-<li>Material constants are temperature independent in the current global operators.</li>
+<li>Temperature-dependent E, nu, and alpha are known coefficients in a sequential mechanical solve; heat-to-mechanics feedback remains one way.</li>
 </ul>
 <h4 id="conventions_26">Conventions<a class="headerlink" href="#conventions_26" title="Permanent link">&para;</a></h4>
 <ul>
@@ -13371,15 +13384,18 @@ A(T)=A_{\mathrm{ref}}\exp\!\left[-\frac{Q}{R}\left(\frac{1}{T}-\frac{1}{T_{\math
 <ul>
 <li>No monolithic fully coupled temperature-displacement solve.</li>
 <li>No convection/radiation convenience boundary in this card.</li>
-<li>Global Arrhenius creep accepts a prescribed scalar or finite-element temperature; automatic transient-history transfer is not yet provided.</li>
+<li>Portable nodal histories are compact root-gathered archives rather than an extreme-scale parallel field database.</li>
+<li>Temperature-dependent conductivity and capacity iteration is not yet part of the linear implicit heat step.</li>
 </ul>
 <h3 id="minimal-example_26">Minimal example<a class="headerlink" href="#minimal-example_26" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="n">Solve</span> <span class="n">a</span> <span class="n">heat</span><span class="o">-</span><span class="n">transfer</span> <span class="n">Model</span> <span class="k">with</span> <span class="n">the</span> <span class="n">shared</span> <span class="n">material</span><span class="p">,</span> <span class="n">then</span> <span class="k">pass</span> <span class="n">its</span> <span class="n">Temperature</span> <span class="n">field</span> <span class="n">to</span> <span class="n">mechanics</span><span class="o">.</span><span class="n">thermal_expansion</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">temperature</span><span class="p">)</span> <span class="ow">in</span> <span class="n">a</span> <span class="n">solid</span><span class="o">-</span><span class="n">mechanics</span> <span class="n">Model</span><span class="o">.</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="n">Call</span> <span class="n">temperature_history</span> <span class="o">=</span> <span class="n">heat_step</span><span class="o">.</span><span class="n">capture_history</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;temperature&#39;</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s1">&#39;K&#39;</span><span class="p">)</span> <span class="n">before</span> <span class="n">solving</span><span class="p">,</span> <span class="n">then</span> <span class="k">pass</span> <span class="n">that</span> <span class="nb">object</span> <span class="n">to</span> <span class="n">an</span> <span class="n">Arrhenius</span> <span class="n">creep</span> <span class="n">step</span><span class="p">;</span> <span class="n">use</span> <span class="n">materials</span><span class="o">.</span><span class="n">temperature_property</span><span class="p">(</span><span class="o">...</span><span class="p">)</span> <span class="k">for</span> <span class="n">bounded</span> <span class="n">sequential</span> <span class="n">thermoelastic</span> <span class="n">coefficients</span><span class="o">.</span>
 </code></pre></div>
 <h3 id="verification_26">Verification<a class="headerlink" href="#verification_26" title="Permanent link">&para;</a></h3>
 <p><strong>Tests</strong></p>
 <ul>
 <li><code>tests/test_p1_platform.py</code></li>
+<li><code>tests/test_histories.py</code></li>
+<li><code>tests/portable_field_history_driver.py</code></li>
 </ul>
 <p><strong>Benchmarks</strong></p>
 <ul>
@@ -13389,6 +13405,7 @@ A(T)=A_{\mathrm{ref}}\exp\!\left[-\frac{Q}{R}\left(\frac{1}{T}-\frac{1}{T_{\math
 <ul>
 <li>Reject nonpositive conductivity, specific heat, density, or absolute reference temperature.</li>
 <li>Require an explicit 2D solid assumption for thermoelastic stress.</li>
+<li>Reject silent temperature-history extrapolation and invalid or unordered property tables.</li>
 </ul>
 <h3 id="references_26">References<a class="headerlink" href="#references_26" title="Permanent link">&para;</a></h3>
 <ul>

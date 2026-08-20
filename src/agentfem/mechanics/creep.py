@@ -617,6 +617,8 @@ class ImplicitCreepStep:
         return residual, float(residual.norm())
 
     def _apply_loading(self, physical_time: float) -> None:
+        if self.temperature is not None and hasattr(self.temperature, "apply"):
+            self.temperature.apply(physical_time)
         value = self.amplitude(physical_time)
         self.load_factor.value = PETSc.ScalarType(value)
         for constant, target, _bc in self.prescribed_values:
@@ -649,7 +651,7 @@ class ImplicitCreepStep:
             return None
         canonical = np.ascontiguousarray(values, dtype=np.float64)
         selected = getattr(self.temperature, "value", self.temperature)
-        return {
+        result = {
             "kind": (
                 "finite_element_field"
                 if hasattr(selected, "function_space")
@@ -662,6 +664,10 @@ class ImplicitCreepStep:
             "quadrature_values_sha256": sha256(canonical.tobytes()).hexdigest(),
             "field_name": getattr(selected, "name", None),
         }
+        if hasattr(self.temperature, "scientific_identity"):
+            result["history"] = self.temperature.scientific_identity()
+            result["active_time"] = getattr(self.temperature, "active_time", None)
+        return result
 
     def _record_energy(self, time: float, old_state) -> None:
         mechanical_strain = elasticity.strain(self.solution) - self.state.creep_strain.function
@@ -965,6 +971,10 @@ class ImplicitCreepStep:
         }
 
     def _portable_temperature_summary(self) -> dict[str, object] | None:
+        if hasattr(self.temperature, "portable_identity"):
+            return self.temperature.portable_identity()
+        if hasattr(self.temperature, "scientific_identity"):
+            return self.temperature.scientific_identity()
         selected = getattr(self.temperature, "value", self.temperature)
         if selected is None:
             return None

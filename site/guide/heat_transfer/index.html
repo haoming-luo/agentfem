@@ -595,6 +595,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#temperature-history-handoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Temperature history handoff
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#go-deeper" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1169,6 +1180,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#temperature-history-handoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Temperature history handoff
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#go-deeper" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1272,7 +1294,8 @@ the same study/model/step/result lifecycle used by solid mechanics.</p>
 <ul>
 <li>steady heat transfer with conductivity and thermal boundary conditions;</li>
 <li>implicit Euler transient heat transfer with structured increments;</li>
-<li>temperature field output and history recording;</li>
+<li>accepted-time temperature-field capture with explicit interpolation,
+  out-of-range policy, partition-portable persistence, and content identity;</li>
 <li>thermal-field handoff to thermoelastic stress workflows;</li>
 <li>common result, progress, checkpoint, and verification concepts.</li>
 </ul>
@@ -1281,8 +1304,60 @@ the same study/model/step/result lifecycle used by solid mechanics.</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>              → temperature/flux/convection conditions → transient or steady step
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>              → temperature/flux histories → verification → optional stress handoff
 </code></pre></div>
-<p>The most important next depth is energy accounting, richer surface exchange,
-robust transient checkpointing, and coupled thermo-mechanical state transfer.</p>
+<h2 id="temperature-history-handoff">Temperature history handoff<a class="headerlink" href="#temperature-history-handoff" title="Permanent link">&para;</a></h2>
+<p>The transient step can retain the solved field as a physical-time object:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">step</span> <span class="o">=</span> <span class="n">thermal_model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">temperature</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">temperature_history</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">capture_history</span><span class="p">(</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;temperature&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;K&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">interpolation</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">)</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">step</span><span class="o">.</span><span class="n">solve_result</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="s2">&quot;temperature.xdmf&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">creep_step</span> <span class="o">=</span> <span class="n">mechanical_model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">target</span><span class="o">=</span><span class="n">displacement</span><span class="p">,</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">material</span><span class="o">=</span><span class="n">creep_material</span><span class="p">,</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="n">duration</span><span class="o">=</span><span class="mf">1000.0</span><span class="p">,</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="n">temperature</span><span class="o">=</span><span class="n">temperature_history</span><span class="p">,</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="p">)</span>
+</code></pre></div>
+<p><code>temperature_history</code> is not an output-frame index. It is sampled using the
+physical time requested by the receiving step. Creep cutback therefore
+restores both material state and temperature to the attempted increment's
+starting time. The default rejects requests beyond the recorded interval;
+endpoint holding requires <code>outside="clamp"</code> explicitly.</p>
+<p>Saved nodal histories use coordinate-keyed physical DOF identities rather
+than MPI-local array numbering. The same archive can therefore be written with
+one partition count and restored with another, provided the mesh and function
+space are scientifically identical. The first format is deliberately
+root-gathered and compact; it is a reproducible transfer/checkpoint artifact,
+not yet an extreme-scale parallel field database.</p>
+<p>Temperature-dependent sequential material data use inspectable property
+tables rather than anonymous interpolation functions:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">young</span> <span class="o">=</span> <span class="n">materials</span><span class="o">.</span><span class="n">temperature_property</span><span class="p">(</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="p">[</span><span class="mf">300.0</span><span class="p">,</span> <span class="mf">500.0</span><span class="p">,</span> <span class="mf">700.0</span><span class="p">],</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="p">[</span><span class="mf">210e9</span><span class="p">,</span> <span class="mf">190e9</span><span class="p">,</span> <span class="mf">160e9</span><span class="p">],</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;young&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;Pa&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">extrapolation</span><span class="o">=</span><span class="s2">&quot;constant&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="p">)</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">material</span> <span class="o">=</span> <span class="n">constitutive</span><span class="o">.</span><span class="n">temperature_dependent_thermoelastic</span><span class="p">(</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">young</span><span class="o">=</span><span class="n">young</span><span class="p">,</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="n">poisson</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="n">density</span><span class="o">=</span><span class="mf">7800.0</span><span class="p">,</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="n">thermal_expansion</span><span class="o">=</span><span class="mf">12e-6</span><span class="p">,</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="n">conductivity</span><span class="o">=</span><span class="mf">45.0</span><span class="p">,</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    <span class="n">specific_heat</span><span class="o">=</span><span class="mf">500.0</span><span class="p">,</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="p">)</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="n">K</span> <span class="o">=</span> <span class="n">mechanical_model</span><span class="o">.</span><span class="n">stiffness</span><span class="p">(</span><span class="n">displacement</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="n">temperature</span><span class="p">)</span>
+</code></pre></div>
+<p>The explicit <code>constant</code> extrapolation is required for a bounded UFL
+coefficient; scalar evaluation defaults to an error outside the supplied
+temperature range.</p>
+<p>The next depth is temperature-dependent conduction/capacity iteration, heat
+generated by inelastic dissipation, larger component-level thermal-to-creep
+verification, and monolithic coupling where two-way feedback is physically
+necessary.</p>
 <h2 id="go-deeper">Go deeper<a class="headerlink" href="#go-deeper" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../solution_procedures_and_thermal_creep/">Thermal stress and creep procedures</a></li>

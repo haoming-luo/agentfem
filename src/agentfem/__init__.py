@@ -20,6 +20,7 @@ from . import events
 from . import fields
 from . import fatigue_fracture
 from . import fracture
+from . import histories
 from . import elements
 from . import extensions
 from . import forms
@@ -81,6 +82,7 @@ ADVANCED_WORKFLOW_MODULES = (
     "datasets",
     "fatigue_fracture",
     "fracture",
+    "histories",
     "interfaces",
     "learning",
     "mechanics",

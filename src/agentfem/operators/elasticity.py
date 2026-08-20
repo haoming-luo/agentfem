@@ -9,7 +9,7 @@ from agentfem.constitutive import elasticity
 from agentfem.operators.core import OperatorForm
 
 
-def stiffness_operator(displacement, test_function=None, properties=None, *, study=None, measure=ufl.dx) -> OperatorForm:
+def stiffness_operator(displacement, test_function=None, properties=None, *, study=None, temperature=None, measure=ufl.dx) -> OperatorForm:
     """Create an elastic stiffness/internal virtual-work operator ``K``."""
 
     if study is not None and hasattr(study, "require"):
@@ -21,17 +21,17 @@ def stiffness_operator(displacement, test_function=None, properties=None, *, stu
         role="matrix",
         family="elasticity",
         expression=forms.stiffness_form(
-            elasticity.stress(trial, props, study=study),
+            elasticity.stress(trial, props, study=study, temperature=temperature),
             elasticity.strain(test),
             measure=measure,
         ),
     )
 
 
-def elastic_stiffness(displacement, properties, *, study=None, measure=ufl.dx) -> OperatorForm:
+def elastic_stiffness(displacement, properties, *, study=None, temperature=None, measure=ufl.dx) -> OperatorForm:
     """Create an elastic stiffness operator ``K`` from a displacement unknown."""
 
-    return stiffness_operator(displacement, properties, study=study, measure=measure)
+    return stiffness_operator(displacement, properties, study=study, temperature=temperature, measure=measure)
 
 
 def internal_force_vector(displacement, test_function=None, properties=None, *, study=None, measure=ufl.dx) -> OperatorForm:
@@ -88,7 +88,11 @@ def thermal_expansion_vector(
         ),
         metadata={
             "reference_temperature": properties.reference_temperature,
-            "thermal_expansion": properties.thermal_expansion,
+            "thermal_expansion": (
+                properties.thermal_expansion.as_dict()
+                if hasattr(properties.thermal_expansion, "as_dict")
+                else properties.thermal_expansion
+            ),
         },
     )
 

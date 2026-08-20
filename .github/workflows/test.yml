@@ -97,6 +97,10 @@ jobs:
         run: |
           mpirun -n 2 python tests/portable_checkpoint_driver.py write /tmp/agentfem-portable-heat
           python tests/portable_checkpoint_driver.py read /tmp/agentfem-portable-heat
+          mpirun -n 2 python tests/portable_field_history_driver.py write /tmp/agentfem-portable-field-history
+          python tests/portable_field_history_driver.py read /tmp/agentfem-portable-field-history.npz
+          python tests/portable_field_history_driver.py write /tmp/agentfem-portable-field-history-reverse
+          mpirun -n 2 python tests/portable_field_history_driver.py read /tmp/agentfem-portable-field-history-reverse.npz
           mpirun -n 2 python tests/portable_cohesive_checkpoint_driver.py write /tmp/agentfem-portable-cohesive
           python tests/portable_cohesive_checkpoint_driver.py read /tmp/agentfem-portable-cohesive
           mpirun -n 2 python tests/portable_mixed_cyclic_cohesive_driver.py write /tmp/agentfem-portable-mixed-cyclic

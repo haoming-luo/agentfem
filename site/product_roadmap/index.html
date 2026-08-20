@@ -1390,8 +1390,8 @@ core, results, verification, and documentation have priority.</p>
 <tr>
 <td>Thermoelasticity</td>
 <td>FEM-integrated</td>
-<td>steady/implicit-transient heat transfer, regional multi-material conductivity and capacity, amplitude-driven sources/ambient conditions, and sequential isotropic thermal stress in 2D/3D</td>
-<td>no property tables or monolithic two-way coupling</td>
+<td>steady/implicit-transient heat transfer, regional multi-material conductivity and capacity, amplitude-driven sources/ambient conditions, accepted-time temperature histories with coordinate-keyed cross-partition persistence, bounded temperature-property tables, and sequential isotropic thermal stress in 2D/3D</td>
+<td>temperature-dependent conduction/capacity iteration, extreme-scale history storage, and monolithic two-way coupling remain</td>
 </tr>
 <tr>
 <td>Structural dynamics</td>
@@ -1420,8 +1420,8 @@ core, results, verification, and documentation have priority.</p>
 <tr>
 <td>Creep and creep damage</td>
 <td>FEM-integrated power-law foundation + local damage assessment</td>
-<td>3D power-law backward Euler with complete regional material dispatch, shared quadrature state, analytical tangent, automatic physical-time cutback, experimental MPI global Newton, CE/CEEQ/S/MISES/RF plus weighted DG0 recovery, dissipation and portable full-Step restart across rank counts; scalar/field Arrhenius temperature consumed at quadrature points; official Abaqus constant-stress external contract; local K-R, Sinh, modified-theta and hot-wall assessment</td>
-<td>no automatic transient thermal-history transfer, external component MPI validation, or damage regularization</td>
+<td>3D power-law backward Euler with complete regional material dispatch, shared quadrature state, analytical tangent, automatic physical-time cutback, experimental MPI global Newton, CE/CEEQ/S/MISES/RF plus weighted DG0 recovery, dissipation and portable full-Step restart across rank counts; scalar/field/physical-time-history Arrhenius temperature consumed at quadrature points with rollback semantics; cross-partition temperature-history transfer and a 3D heat-to-creep component contract; official Abaqus constant-stress external contract; local K-R, Sinh, modified-theta and hot-wall assessment</td>
+<td>no external power-component thermal-creep benchmark, global damage regularization, or temperature-dependent elastic creep law</td>
 </tr>
 <tr>
 <td>Stress-life fatigue</td>
@@ -1637,9 +1637,9 @@ than depend on Abaqus interfaces directly.</p>
 <li>harden the implemented global power-law step with time-step
   convergence, multi-element paths, natural-load work/energy balance, and an
   external benchmark;</li>
-<li>transfer accepted transient temperature histories into creep increments
-  without hiding interpolation or time alignment; keep Sinh and K-R as
-  separate material consumers rather than one flag-heavy solver;</li>
+<li>exercise the implemented cross-partition accepted-temperature-history
+  transfer on a larger external power-component benchmark; keep Sinh and K-R
+  as separate material consumers rather than one flag-heavy solver;</li>
 <li>treat sequential temperature-to-creep as the first useful power-component
   route; add monolithic coupling only for cases with material heat generation
   or meaningful mechanical feedback;</li>
@@ -1667,9 +1667,12 @@ than depend on Abaqus interfaces directly.</p>
    equivalence, and the official Abaqus held-stress case pass; time-step
    convergence, multi-element nonuniform paths, and an external component case
    remain;</li>
-<li><strong>method decision retained:</strong> automate transient thermal-history transfer
-   next; add K-R/Liu--Murakami damage only after near-failure control and
-   mesh-dependence policy are explicit.</li>
+<li><strong>implemented foundation:</strong> accepted transient fields carry physical time,
+   interpolation, bounds, coordinate-keyed cross-partition persistence, and
+   identity into Arrhenius creep; a 3D heat-to-creep component contract passes.
+   A larger external component benchmark remains before broader promotion. Add
+   K-R/Liu--Murakami damage only after near-failure control and mesh-dependence
+   policy are explicit.</li>
 </ol>
 <h3 id="shared-transient-and-mpi-state-identity">Shared transient and MPI state identity<a class="headerlink" href="#shared-transient-and-mpi-state-identity" title="Permanent link">&para;</a></h3>
 <p>The transient checkpoint envelope and portable quadrature identity are common

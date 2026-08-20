@@ -825,6 +825,7 @@ class Model:
         *,
         measure=None,
         law=None,
+        temperature=None,
         study=None,
         name: str = "K",
     ):
@@ -847,6 +848,7 @@ class Model:
                 study=selected_study,
                 measure=measure,
                 law=law,
+                temperature=temperature,
                 name=name,
             )
 
@@ -865,6 +867,7 @@ class Model:
                 study=selected_study,
                 measure=measure,
                 law=law,
+                temperature=temperature,
                 name=name,
             )
 
@@ -882,6 +885,7 @@ class Model:
                     study=selected_study,
                     measure=record.region.measure,
                     law=law,
+                    temperature=temperature,
                     name=f"K_{getattr(record.region, 'name', len(parts))}",
                 )
             )
@@ -1522,8 +1526,7 @@ class Model:
             getattr(self.study, "is_solid_mechanics", False)
             and self.materials
             and all(
-                float(getattr(record.item, "thermal_expansion", 0.0) or 0.0)
-                == 0.0
+                _thermal_expansion_is_zero(record.item)
                 for record in self.materials
             )
         ):
@@ -3321,6 +3324,13 @@ def create(*, study, mesh=None, name: str = "model", units=None) -> Model:
     return Model(study=study, mesh=mesh, name=name, unit_system=units)
 
 
+def _thermal_expansion_is_zero(material) -> bool:
+    selected = getattr(material, "thermal_expansion", 0.0)
+    if hasattr(selected, "values"):
+        return bool(np.all(np.asarray(selected.values, dtype=float) == 0.0))
+    return float(selected or 0.0) == 0.0
+
+
 def _stiffness_from_record(
     target,
     record: _WithRegion,
@@ -3329,6 +3339,7 @@ def _stiffness_from_record(
     study,
     measure=None,
     law=None,
+    temperature=None,
     name: str = "K",
 ):
     from .constitutive import hyperelasticity
@@ -3345,6 +3356,8 @@ def _stiffness_from_record(
     kwargs = {"study": study}
     if law is not None:
         kwargs["law"] = law
+    if temperature is not None:
+        kwargs["temperature"] = getattr(temperature, "value", temperature)
     if selected_measure is not None:
         kwargs["measure"] = selected_measure
     operator = operators.stiffness(target, record.item, **kwargs)
