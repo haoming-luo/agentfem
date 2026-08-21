@@ -230,8 +230,9 @@ appropriate for exploration, research, or engineering use.
 ## Citation
 
 If AgentFEM helps your research or engineering work, please cite the project
-metadata in [`CITATION.cff`](CITATION.cff). An accompanying software paper is
-being prepared for arXiv.
+metadata in [`CITATION.cff`](CITATION.cff). The public platform paper,
+*AgentFEM: An AI-Native Open-Source Platform for Finite-Element Computing*, is
+available as a [preprint and technical report](https://haoming-luo.github.io/agentfem/publications/agentfem-platform/).
 
 ```yaml
 title: "AgentFEM: An AI-native open-source platform for finite-element computing"
