@@ -41,10 +41,10 @@ def from_geometry_spec(
 ):
     """Create an :class:`agentfem.mesh.FEMMesh` from a public geometry spec.
 
-    Structured unit domains use DOLFINx directly.  General planar domains use
-    the optional Gmsh integration and carry one domain and one exterior
-    boundary physical group.  ``periodic_square`` describes geometry only;
-    periodic equality remains an explicit constraint decision.
+    Structured rectangular domains use DOLFINx directly. General planar
+    domains use the optional Gmsh integration and carry one domain and one
+    exterior boundary physical group. ``periodic_square`` describes geometry
+    only; periodic equality remains an explicit constraint decision.
     """
 
     from agentfem import mesh as mesh_api
@@ -75,6 +75,28 @@ def from_geometry_spec(
             (selected_resolution,) * 3,
             comm=comm,
             cell_type="tetrahedron",
+        )
+        return mesh_api.FEMMesh(domain)
+    if kind == "periodic_square":
+        params = _mapping(spec.get("geometry_params", {}), "geometry_params")
+        bounds = tuple(
+            float(value)
+            for value in params.get(
+                "bounds",
+                params.get("extents", (0.0, 1.0, 0.0, 1.0)),
+            )
+        )
+        if len(bounds) != 4 or bounds[1] <= bounds[0] or bounds[3] <= bounds[2]:
+            raise ValueError(
+                "periodic_square bounds must be (xmin, xmax, ymin, ymax) "
+                "with positive spans."
+            )
+        domain = mesh_api.rectangle(
+            (bounds[0], bounds[2]),
+            (bounds[1], bounds[3]),
+            (selected_resolution, selected_resolution),
+            comm=comm,
+            cell_type="triangle",
         )
         return mesh_api.FEMMesh(domain)
 
@@ -212,9 +234,6 @@ def _build_occ_geometry(gmsh, kind: str, spec: Mapping[str, object]):
         right = occ.addDisk(*rc, 0.0, float(right_cfg["r"]), float(right_cfg["r"]))
         bar = occ.addRectangle(float(bridge["x_min"]), float(bridge["y_min"]), 0.0, float(bridge["x_max"]) - float(bridge["x_min"]), float(bridge["y_max"]) - float(bridge["y_min"]))
         return occ.fuse([(2, left)], [(2, right), (2, bar)], removeObject=True, removeTool=True)[0]
-    if kind == "periodic_square":
-        bounds = tuple(float(v) for v in params.get("bounds", params.get("extents", (0, 1, 0, 1))))
-        return [(2, occ.addRectangle(bounds[0], bounds[2], 0.0, bounds[1] - bounds[0], bounds[3] - bounds[2]))]
     if kind == "sector":
         center = _point2(params.get("center", (0, 0)))
         radius = float(params.get("radius", 1.0))

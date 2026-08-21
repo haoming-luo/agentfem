@@ -70,6 +70,29 @@ def _source_mesh():
     )
 
 
+def test_periodic_square_uses_native_mesh_without_gmsh(monkeypatch):
+    from mpi4py import MPI
+
+    def fail_if_requested():
+        raise AssertionError("periodic_square must not require optional Gmsh")
+
+    monkeypatch.setattr(mesh_api, "require_gmsh", fail_if_requested)
+    imported = mesh_api.from_spec(
+        {
+            "type": "periodic_square",
+            "geometry_params": {"bounds": [-2.0, 3.0, -1.0, 4.0]},
+        },
+        resolution=3,
+        comm=MPI.COMM_SELF,
+    )
+
+    coordinates = imported.domain.geometry.x
+    assert np.isclose(coordinates[:, 0].min(), -2.0)
+    assert np.isclose(coordinates[:, 0].max(), 3.0)
+    assert np.isclose(coordinates[:, 1].min(), -1.0)
+    assert np.isclose(coordinates[:, 1].max(), 4.0)
+
+
 def test_external_mesh_inventory_exposes_blocks_and_named_sets():
     summary = formats.summarize_external_mesh("model.inp", _source_mesh())
 
