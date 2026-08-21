@@ -27,6 +27,11 @@ For constitutive changes, record one of these maturity levels:
 
 Every advancement requires a benchmark-registry entry and automated test.
 For external meshes, verify both volume and boundary named-set preservation.
+For external scientific benchmarks, pin the upstream commit, retain the exact
+public input view, classify execution/accuracy/time failures separately, and
+stratify incompatible or inconsistent dataset subsets rather than adding
+case-specific exceptions. Never use withheld reference fields to select a
+mesh, formulation, or answer.
 For Abaqus equation-driven workflows, additionally verify source node-label
 mapping, unique/cycle-free slave equations, exact post-solve equation
 mismatch, positive sampled `det(F)`, and scale-one deformed output. A serial

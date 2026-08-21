@@ -84,6 +84,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `cell_measure(domain, cell_tags = None)` | Create a domain integration measure. |
 | function | `facet_normal(domain)` | Return the outward facet normal for boundary models. |
 | function | `tagged_boundary_measure(domain, marker, tag: int)` | Locate/tag exterior facets and return ``(ds, facet_tags)``. |
+| function | `from_geometry_spec(specification: Mapping[str, object], *, resolution: int = 32, comm: MPI.Comm = MPI.COMM_WORLD)` | Create an :class:`agentfem.mesh.FEMMesh` from a public geometry spec. |
 | class | `RegionSet` | Named collection of regions sharing one mesh tag object. |
 | class | `Selector` | Boolean selector evaluated on coordinate arrays. |
 | function | `ball(center, radius: float) -> Selector` | Select points inside a 3D ball. |
@@ -404,15 +405,6 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `field_variable(name: str, *, finite_strain: bool = False) -> FieldVariable` | Resolve a standard variable, including the context-dependent ``E`` alias. |
 | function | `preselected_fields(*, physics: str, finite_strain: bool = False) -> tuple[str, ...]` | Return the engineering-default field set for one physics context. |
 | function | `resolve_field_variables(names, *, finite_strain: bool = False) -> tuple[FieldVariable, ...]` | Resolve aliases, preserve request order, and remove duplicates. |
-| class | `FieldOutput` | What fields to save, how often, and in which configuration. |
-| class | `FieldOutputArtifacts` | Files and final live fields produced by one output plan. |
-| class | `ResultFieldArtifacts` | One completed-result field dataset and its explicit layout contract. |
-| function | `field_output(*variables, every: int \| str \| None = None, intervals: int \| None = None, configuration: str = 'deformed', deformation_scale: float = 1.0, backend: str = 'xdmf') -> FieldOutput` | Create a concise, inspectable field-output request. |
-| function | `read_unified_xdmf_series(xdmf_path) -> tuple[object, ...]` | Read AgentFEM's compact XDMF/HDF5 frames as PyVista grids. |
-| function | `write_deformed_vtk_series(pvd_path, snapshots, cell_fields, *, deformation_scale: float = 1.0) -> tuple[Path, tuple[Path, ...]]` | Write one deformed VTU grid per frame and a ParaView PVD collection. |
-| function | `write_parallel_vtk_series(path, snapshots, fields_by_frame) -> Path` | Write collective single-dataset ParaView frames under MPI. |
-| function | `write_result_fields(result, path, *, time: float = 0.0, names = (), deformation_scale: float = 0.0) -> ResultFieldArtifacts` | Write the live, visualization-ready fields of one SimulationResult. |
-| function | `write_unified_xdmf_series(xdmf_path, snapshots, cell_fields, *, deformation_scale: float = 1.0, store_reference_geometry: bool = True, compression: int = 4) -> Path` | Write one temporal XDMF and one compressed HDF5 heavy-data file. |
 | class | `FiniteStrainDiagnosticRequest` | Record physical admissibility and constraint checks. |
 | class | `HistoryRequest` | Evaluate one scientific quantity on every accepted output frame. |
 | class | `OutputPlan` | One declarative output contract for a completed finite-strain step. |
@@ -429,6 +421,15 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `presentation(*, comparison: bool = True, animation: str \| None = 'gif', scalar: str = 'UMAG', fps: int = 2) -> PresentationOutput` | Public AgentFEM object. |
 | function | `solver_history() -> SolverHistoryRequest` | Public AgentFEM object. |
 | function | `source_node_history(nodes, **points: int) -> SourceNodeHistoryRequest` | Public AgentFEM object. |
+| class | `FieldOutput` | What fields to save, how often, and in which configuration. |
+| class | `FieldOutputArtifacts` | Files and final live fields produced by one output plan. |
+| class | `ResultFieldArtifacts` | One completed-result field dataset and its explicit layout contract. |
+| function | `field_output(*variables, every: int \| str \| None = None, intervals: int \| None = None, configuration: str = 'deformed', deformation_scale: float = 1.0, backend: str = 'xdmf') -> FieldOutput` | Create a concise, inspectable field-output request. |
+| function | `read_unified_xdmf_series(xdmf_path) -> tuple[object, ...]` | Read AgentFEM's compact XDMF/HDF5 frames as PyVista grids. |
+| function | `write_deformed_vtk_series(pvd_path, snapshots, cell_fields, *, deformation_scale: float = 1.0) -> tuple[Path, tuple[Path, ...]]` | Write one deformed VTU grid per frame and a ParaView PVD collection. |
+| function | `write_parallel_vtk_series(path, snapshots, fields_by_frame) -> Path` | Write collective single-dataset ParaView frames under MPI. |
+| function | `write_result_fields(result, path, *, time: float = 0.0, names = (), deformation_scale: float = 0.0) -> ResultFieldArtifacts` | Write the live, visualization-ready fields of one SimulationResult. |
+| function | `write_unified_xdmf_series(xdmf_path, snapshots, cell_fields, *, deformation_scale: float = 1.0, store_reference_geometry: bool = True, compression: int = 4) -> Path` | Write one temporal XDMF and one compressed HDF5 heavy-data file. |
 | function | `render_deformation_animation(undeformed_path, snapshots, nodes, output_path, *, fps: int = 2) -> Path` | Render scale-one deformation history as GIF or MP4. |
 | function | `render_deformation_comparison(undeformed_path, deformed_path, output_path, *, scalar: str = 'DisplacementMagnitude') -> Path` | Render side-by-side undeformed/deformed surfaces with PyVista. |
 | function | `render_unified_xdmf_animation(xdmf_path, output_path, *, scalar: str = 'UMAG', fps: int = 2) -> Path` | Render a GIF or MP4 from AgentFEM's single XDMF/HDF5 series. |
@@ -537,6 +538,15 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| class | `ChoiceParameter` | Finite categorical or policy parameter. |
+| class | `IntegerParameter` | Bounded integer parameter. |
+| class | `ParameterSpace` | Ordered scientific input schema for a campaign. |
+| class | `RealParameter` | Bounded continuous parameter with optional units and log scaling. |
+| class | `SamplingPlan` | Immutable, validated collection of parameter samples. |
+| function | `explicit(space: ParameterSpace, samples: Iterable[Mapping[str, object]], *, metadata: Mapping[str, object] \| None = None) -> SamplingPlan` | Create a plan from caller-supplied samples. |
+| function | `full_factorial(space: ParameterSpace, levels: int \| Mapping[str, int] = 3) -> SamplingPlan` | Create a full-factorial design in normalized coordinates. |
+| function | `latin_hypercube(space: ParameterSpace, count: int, *, seed: int = 0) -> SamplingPlan` | Draw a reproducible Latin-hypercube design. |
+| function | `random(space: ParameterSpace, count: int, *, seed: int = 0) -> SamplingPlan` | Draw reproducible independent uniform samples in normalized space. |
 | class | `Campaign(*, name: str, parameter_space: ParameterSpace, outputs: tuple[Quantity, ...], evaluate: Callable[[object], Mapping[str, object] \| CaseOutcome \| SimulationResult], build: Callable[[Mapping[str, object]], object] \| None = None, metadata: Mapping[str, object] \| None = None, scientific_inputs: Mapping[str, object] \| None = None, execution: ExecutionPolicy \| None = None) -> None` | Build and evaluate a collection of immutable scientific cases. |
 | class | `CampaignCase` | One immutable case in a campaign plan. |
 | class | `CampaignPlan` | Immutable cases and their design-of-experiment evidence. |
@@ -550,15 +560,6 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `CampaignSpecification` | Validated declarative part of a campaign. |
 | function | `load_specification(path: str \| Path) -> CampaignSpecification` | Load a safe JSON campaign specification. |
 | function | `specification_from_dict(record: Mapping[str, object]) -> CampaignSpecification` | Validate a dictionary and construct a campaign specification. |
-| class | `ChoiceParameter` | Finite categorical or policy parameter. |
-| class | `IntegerParameter` | Bounded integer parameter. |
-| class | `ParameterSpace` | Ordered scientific input schema for a campaign. |
-| class | `RealParameter` | Bounded continuous parameter with optional units and log scaling. |
-| class | `SamplingPlan` | Immutable, validated collection of parameter samples. |
-| function | `explicit(space: ParameterSpace, samples: Iterable[Mapping[str, object]], *, metadata: Mapping[str, object] \| None = None) -> SamplingPlan` | Create a plan from caller-supplied samples. |
-| function | `full_factorial(space: ParameterSpace, levels: int \| Mapping[str, int] = 3) -> SamplingPlan` | Create a full-factorial design in normalized coordinates. |
-| function | `latin_hypercube(space: ParameterSpace, count: int, *, seed: int = 0) -> SamplingPlan` | Draw a reproducible Latin-hypercube design. |
-| function | `random(space: ParameterSpace, count: int, *, seed: int = 0) -> SamplingPlan` | Draw reproducible independent uniform samples in normalized space. |
 
 ## `agentfem.convergence`
 
@@ -1072,6 +1073,10 @@ This package exposes its public objects through focused submodules.
 | function | `inertial_virtual_work(density, acceleration, test_function)` | Compatibility wrapper for ``inertial_form``. |
 | function | `body_force_virtual_work(force, test_function, measure = ufl.dx)` | Compatibility wrapper for ``body_load_form``. |
 | function | `boundary_flux_virtual_work(flux, test_function, ds_measure)` | Compatibility wrapper for ``boundary_load_form``. |
+
+## `agentfem.integrations`
+
+This package exposes its public objects through focused submodules.
 
 ## `agentfem.ir`
 

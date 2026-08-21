@@ -18,11 +18,15 @@ from . import formats
 from . import quality
 from . import abaqus
 from . import selectors as select
+from .specs import SUPPORTED_GEOMETRIES, from_geometry_spec
 from .regions import RegionSet
 from .selectors import Selector, ball, box, disk, layer, plane, where
 
 audit_quality = quality.audit
 cell_quality = quality.cell_quality
+
+# A short public alias for configuration, GUI, and agent-authored models.
+from_spec = from_geometry_spec
 
 
 @dataclass(frozen=True)

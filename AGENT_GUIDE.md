@@ -136,6 +136,11 @@ finite-element simulation with AgentFEM.
   `results.sample_rectilinear_grid(...)`; its physical-axis `shape=(nx, ny,
   nz)` is returned in array order `(nz, ny, nx)` and its `inside` mask must be
   retained for non-rectangular domains.
+  For the pinned PDEAgent-Bench contract, use
+  `integrations.pdeagent_bench.solve_case(...)` and read
+  `docs/pdeagent_bench.md`. Do not read oracle-only mesh, FEM, solver, or
+  manufactured-solution fields, dispatch on case IDs, or infer success from
+  execution alone. Preserve the benchmark commit and failure taxonomy.
   When observations and the FEM mesh use different axes or origins, pass an
   explicit `surrogates.AffineCoordinateMap`; for publication maps convert the
   result to `datasets.RectilinearObservation` before comparison. Never infer a

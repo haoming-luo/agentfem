@@ -49,6 +49,7 @@ Repository package paths below are relative to `src/agentfem/`.
 - `io.py`: output writers and scalar logs
 - `elements/`: element and integration-policy namespace
 - `benchmarks/`: test-linked verification registry
+- `integrations/`: versioned external scientific contracts and adapters
 - `ir/`: experimental versioned AF-IR scientific records
 - `validation.py`: structured issue codes, paths, hints, and reports
 - `verification.py`: scientific claims, trust levels, and convergence evidence

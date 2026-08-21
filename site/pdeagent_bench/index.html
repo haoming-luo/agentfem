@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://haoming-luo.github.io/agentfem/provenance_seal/">
+        <link rel="canonical" href="https://haoming-luo.github.io/agentfem/pdeagent_bench/">
       
       
-        <link rel="prev" href="../validation/">
+        <link rel="prev" href="../scientific_verification/">
       
       
-        <link rel="next" href="../project_upgrades/">
+        <link rel="next" href="../validation/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Result Provenance Seal - AgentFEM</title>
+        <title>PDEAgent-Bench Integration - AgentFEM</title>
       
     
     
@@ -77,7 +77,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#result-provenance-seal" class="md-skip">
+        <a href="#pdeagent-bench-integration" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Result Provenance Seal
+              PDEAgent-Bench Integration
             
           </span>
         </div>
@@ -812,10 +812,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../pdeagent_bench/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PDEAgent-Bench Integration
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -831,6 +858,81 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#boundaries-of-the-adapter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Boundaries of the Adapter
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#official-runner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Official Runner
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#three-separate-claims" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Three Separate Claims
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verified-development-snapshot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verified Development Snapshot
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#expansion-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Expansion Gates
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -868,37 +970,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Result Provenance Seal
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../provenance_seal/" class="md-nav__link">
         
   
   
@@ -914,59 +989,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#integrity-is-not-scientific-validation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Integrity is not scientific validation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#runtime-identity-and-frozen-campaigns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Runtime identity and frozen campaigns
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#artifact-discipline" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Artifact discipline
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1179,10 +1201,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#integrity-is-not-scientific-validation" class="md-nav__link">
+  <a href="#boundaries-of-the-adapter" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Integrity is not scientific validation
+        Boundaries of the Adapter
       
     </span>
   </a>
@@ -1190,10 +1212,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#runtime-identity-and-frozen-campaigns" class="md-nav__link">
+  <a href="#official-runner" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Runtime identity and frozen campaigns
+        Official Runner
       
     </span>
   </a>
@@ -1201,10 +1223,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#artifact-discipline" class="md-nav__link">
+  <a href="#three-separate-claims" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Artifact discipline
+        Three Separate Claims
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verified-development-snapshot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verified Development Snapshot
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#expansion-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Expansion Gates
       
     </span>
   </a>
@@ -1297,96 +1341,159 @@
   
 
 
-<h1 id="result-provenance-seal">Result Provenance Seal<a class="headerlink" href="#result-provenance-seal" title="Permanent link">&para;</a></h1>
-<p>Every <code>SimulationResult.write_manifest(...)</code> now adds a lightweight provenance
-seal automatically. The seal binds three things:</p>
-<ol>
-<li>the canonical scientific result record;</li>
-<li>the AgentFEM version that produced it;</li>
-<li>the byte content and size of every registered artifact.</li>
-</ol>
-<p>The seal also carries a compact origin block naming AgentFEM, Haoming Luo, the
-canonical repository, the open-source date, the Apache-2.0 license, and the
-project citation file. Thus attribution travels with ordinary result bundles
-rather than living only on the GitHub home page.</p>
-<p>Scientific input identity is a separate part of the result manifest. Use
-<code>SimulationResult.add_scientific_inputs(...)</code> for an individual analysis, or
-<code>Campaign(scientific_inputs=...)</code> for a parameter study. Source files are
-hashed by bytes, arrays by dtype/shape/content, and public scientific objects
-through their IR or summary contract. An opaque object is recorded as an
-explicit coverage gap; it is never silently converted into a complete claim.</p>
-<p>No account, server, key, optional dependency, or extra case code is required.
-The numerical fields are never modified. A user, agent, CI job, or future GUI
-can check a result directory with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>agentfem<span class="w"> </span>verify<span class="w"> </span>path/to/result.json
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>agentfem<span class="w"> </span>verify<span class="w"> </span>--project<span class="w"> </span>path/to/project<span class="w"> </span>--json
-</code></pre></div>
-<p>The second form follows the project's <code>latest.json</code> pointer. The command
-returns one of four explicit states:</p>
+<h1 id="pdeagent-bench-integration">PDEAgent-Bench Integration<a class="headerlink" href="#pdeagent-bench-integration" title="Permanent link">&para;</a></h1>
+<p>AgentFEM maintains a fixed-solver integration for
+<a href="https://github.com/YusanX/pde-agent-bench">PDEAgent-Bench</a>. The integration
+answers a narrow question before any model-generation experiment is claimed:</p>
+<blockquote>
+<p>Given only the case information exposed to an AI agent, how much of the
+benchmark can the AgentFEM scientific workflow solve accurately and within
+the official time gate?</p>
+</blockquote>
+<p>The current adapter is pinned to benchmark commit
+<code>0ba9853f82a78196796fa4eeaf0951eb4c000a00</code>. This matters because the public
+README, paper, dataset, and runner have changed at different rates. Results
+without a benchmark commit and AgentFEM source identity are not comparable.</p>
+<h2 id="boundaries-of-the-adapter">Boundaries of the Adapter<a class="headerlink" href="#boundaries-of-the-adapter" title="Permanent link">&para;</a></h2>
+<p>The adapter consumes the official agent view only:</p>
 <ul>
-<li><code>verified</code>: the manifest and every registered artifact match the seal;</li>
-<li><code>modified</code>: sealed content has changed or disappeared;</li>
-<li><code>incomplete</code>: the seal is consistent, but an artifact was unavailable when
-  it was created;</li>
-<li><code>unsealed</code>: a legacy or external manifest has no AgentFEM seal.</li>
+<li>PDE type, coefficients, source, and time data;</li>
+<li>domain geometry and boundary conditions;</li>
+<li>required output grid;</li>
+<li>public evaluation configuration and agent knobs.</li>
 </ul>
-<h2 id="integrity-is-not-scientific-validation">Integrity is not scientific validation<a class="headerlink" href="#integrity-is-not-scientific-validation" title="Permanent link">&para;</a></h2>
-<p>The provenance seal answers, “Is this still the same recorded result?” It does
-not answer, “Is the mesh adequate, did the nonlinear solve converge, or is the
-model validated for this engineering claim?” Those questions remain in the
-scientific verification report and its <code>computed</code>, <code>converged</code>, <code>verified</code>,
-and <code>validated</code> vocabulary.</p>
-<h2 id="runtime-identity-and-frozen-campaigns">Runtime identity and frozen campaigns<a class="headerlink" href="#runtime-identity-and-frozen-campaigns" title="Permanent link">&para;</a></h2>
-<p>Every newly written result manifest also records the runtime before the seal is
-calculated. The record includes AgentFEM, DOLFINx/UFL/Basix/FFCx, PETSc, MPI,
-Python, scalar precision, rank count, and source or installed-distribution
-identity. Diagnostic paths remain visible but are deliberately excluded from
-the compatibility fingerprint.</p>
-<p>For a blind or long-running campaign, freeze and enforce the environment:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">agentfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">provenance</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">provenance</span><span class="o">.</span><span class="n">freeze_runtime</span><span class="p">(</span><span class="s2">&quot;frozen_runtime.json&quot;</span><span class="p">)</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">provenance</span><span class="o">.</span><span class="n">require_runtime</span><span class="p">(</span><span class="s2">&quot;frozen_runtime.json&quot;</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="s2">&quot;error&quot;</span><span class="p">)</span>
+<p>It does <strong>not</strong> consume the oracle mesh, oracle element order, oracle solver,
+manufactured solution, or case-specific hidden reference. The numerical policy
+uses exposed dimension, geometry scale, and expression bandwidth; it does not
+dispatch on case identifiers.</p>
+<p>The initial supported families are Poisson, heat, linear elasticity, and
+Helmholtz. General geometry specifications are lowered through
+<code>mesh.from_spec(...)</code>; structured unit domains remain independent of Gmsh,
+while general planar domains use the optional Gmsh integration.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">agentfem.integrations.pdeagent_bench</span><span class="w"> </span><span class="kn">import</span> <span class="n">solve_case</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">answer</span> <span class="o">=</span> <span class="n">solve_case</span><span class="p">(</span><span class="n">public_case_spec</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">u_grid</span> <span class="o">=</span> <span class="n">answer</span><span class="p">[</span><span class="s2">&quot;u&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">evidence</span> <span class="o">=</span> <span class="n">answer</span><span class="p">[</span><span class="s2">&quot;solver_info&quot;</span><span class="p">]</span>
 </code></pre></div>
-<p>Use <code>policy="warn"</code> only when the mismatch has been reviewed and must remain
-visible in evidence. A source checkout records its Git commit, tracked dirty
-state, and a deterministic digest of the importable package tree, including
-untracked package files without being polluted by case output directories. An
-installed distribution records available <code>.dist-info</code> evidence; the
-runtime does not invent an original wheel SHA256 when the installer did not
-retain the wheel archive.</p>
-<p>The current SHA-256 seal is deterministic integrity evidence, not proof against
-an adversary who can rewrite both the result and its seal. This is deliberate:
-it makes provenance ubiquitous without infrastructure or workflow cost. If
-release, regulatory, or industrial use requires non-forgeable authorship, a
-later optional layer can sign the stable <code>seal_id</code> with a maintainer identity
-and publish it to a transparency log. Existing manifests and user commands do
-not need to change.</p>
-<p>No technical marker in openly editable source code is literally impossible to
-remove. Durable credit comes from several reinforcing records: retained
-license/NOTICE obligations, public Git and release history, result origin
-blocks, and—later—signed release and result identities. This gives an
-independent chronology and evidence chain without contaminating scientific
-fields with hidden numerical watermarks.</p>
-<p>Official tagged wheel and source distributions add the next level of this
-chain: when repository visibility supports GitHub artifact attestations, the
-release workflow publishes one before the same files are sent to PyPI. Those
-distributions can be checked against the canonical repository with GitHub's
-attestation verifier. The attestation proves the official build origin; the
-result seal proves the later integrity of a particular simulation bundle.</p>
-<h2 id="artifact-discipline">Artifact discipline<a class="headerlink" href="#artifact-discipline" title="Permanent link">&para;</a></h2>
-<p>Only artifacts registered on <code>SimulationResult</code> are sealed. Writers should
-therefore attach XDMF, HDF5, CSV, checkpoint, report, and dataset files before
-publishing the result. An intentionally deferred path is recorded as
-<code>incomplete</code>; it is never silently presented as verified.</p>
-<p>The XDMF index and HDF5 heavy-data file are separate files and both must be
-registered. Their individual hashes prevent a valid index from disguising a
-replaced numerical payload.</p>
-<p>When a <code>SimulationResult</code> becomes a campaign sample, its compact software
-origin block is also copied into sample provenance. This keeps attribution and
-lineage attached when numerical results move from FEM into NPZ datasets and
-learning workflows; it does not add AgentFEM-specific requirements to the
-user's neural network.</p>
+<p><code>u_grid</code> follows the official <code>(ny, nx)</code> or <code>(nz, ny, nx)</code> array order.
+Irregular-domain points outside the mesh are <code>NaN</code>; the adapter also reports
+finite coverage instead of exploiting missing samples to reduce the comparison
+domain.</p>
+<h2 id="official-runner">Official Runner<a class="headerlink" href="#official-runner" title="Permanent link">&para;</a></h2>
+<p>Clone and check out the pinned benchmark revision, install AgentFEM in a
+compatible FEniCSx environment, and pass the fixed entry point to the official
+runner:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>scripts/run_benchmark.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--agent<span class="w"> </span>gpt-5.1<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--solver-path<span class="w"> </span>/path/to/agentfem/tools/pdeagent_bench_solver.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>--equation-types<span class="w"> </span>poisson<span class="w"> </span>heat<span class="w"> </span>linear_elasticity<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span>--version<span class="w"> </span>v2<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span>--output<span class="w"> </span>/path/to/evidence
+</code></pre></div>
+<p>The <code>--agent</code> value satisfies the current runner's CLI validation; no model is
+called when <code>--solver-path</code> is supplied. Record that distinction in any report.</p>
+<p>Normalize an official summary into AgentFEM's stable failure taxonomy with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>tools/pdeagent_bench_report.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>/path/to/evidence/gpt-5.1/dolfinx/summary.json<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--case-catalog<span class="w"> </span>/path/to/evidence/gpt-5.1/dolfinx<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>--json<span class="w"> </span>report.json<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span>--markdown<span class="w"> </span>report.md
+</code></pre></div>
+<p>Failures are classified as schema, geometry, solver, output, accuracy, time,
+or execution failures. A successful execution is not silently promoted to a
+scientific pass.</p>
+<h2 id="three-separate-claims">Three Separate Claims<a class="headerlink" href="#three-separate-claims" title="Permanent link">&para;</a></h2>
+<p>Keep these evaluation lines separate:</p>
+<ol>
+<li><strong>Fixed AgentFEM numerical capability</strong> — this adapter and the official
+   evaluator, without model generation.</li>
+<li><strong>AgentFEM assistance effect</strong> — the same AI model and budget, comparing
+   direct backend code with AgentFEM-authored workflows.</li>
+<li><strong>Official library track</strong> — a maintained environment, prompt, harness,
+   output adapter, and representative tests agreed with benchmark maintainers.</li>
+</ol>
+<p>A fixed-adapter pass rate demonstrates numerical and workflow coverage. It
+does not by itself measure an AI model or prove that AgentFEM improves code
+generation. The second claim requires a controlled A/B experiment.</p>
+<h2 id="verified-development-snapshot">Verified Development Snapshot<a class="headerlink" href="#verified-development-snapshot" title="Permanent link">&para;</a></h2>
+<p>On 21 August 2026, the fixed adapter was run with the official v2 runner at
+the pinned benchmark commit above. It executed all 204 Poisson, heat, and
+linear-elasticity cases without schema, geometry, solver, output, or process
+failure. The official final gate passed 170/204 cases (83.3%). Stratification
+by the benchmark's declared dimension is essential:</p>
+<table>
+<thead>
+<tr>
+<th>Public subset</th>
+<th style="text-align: right;">Passed</th>
+<th style="text-align: right;">Total</th>
+<th style="text-align: right;">Pass rate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>all declared 2D cases</td>
+<td style="text-align: right;">170</td>
+<td style="text-align: right;">174</td>
+<td style="text-align: right;">97.7%</td>
+</tr>
+<tr>
+<td>2D Poisson</td>
+<td style="text-align: right;">77</td>
+<td style="text-align: right;">81</td>
+<td style="text-align: right;">95.1%</td>
+</tr>
+<tr>
+<td>2D heat</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: right;">100.0%</td>
+</tr>
+<tr>
+<td>2D linear elasticity</td>
+<td style="text-align: right;">53</td>
+<td style="text-align: right;">53</td>
+<td style="text-align: right;">100.0%</td>
+</tr>
+<tr>
+<td>all declared 3D cases</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">30</td>
+<td style="text-align: right;">0.0%</td>
+</tr>
+</tbody>
+</table>
+<p>The 3D result is not presented as an AgentFEM capability score. The public
+agent view of the scalar 3D manufactured cases is internally inconsistent:
+for example, <code>poisson_3d_smooth_trig</code> asks the solver to use
+<code>2*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)</code>, whereas the negative three-dimensional
+Laplacian of the stated sinusoidal field is <code>3*pi**2</code> times that field. The
+heat cases repeat the same dimensional mismatch. AgentFEM solves the exposed
+equation and deliberately does not read the withheld manufactured solution.
+The remaining 3D elasticity cases use a uniform conservative policy that has
+not yet met the official accuracy/time gate. A separate public-equation 3D
+test is retained in AgentFEM to verify the actual 3D Poisson path.</p>
+<p>These numbers are a local fixed-adapter development result, not an official
+PDEAgent-Bench leaderboard submission and not a measurement of <code>gpt-5.1</code>.
+The agent name only satisfies the current runner interface when
+<code>--solver-path</code> is active.</p>
+<h2 id="expansion-gates">Expansion Gates<a class="headerlink" href="#expansion-gates" title="Permanent link">&para;</a></h2>
+<p>The staged targets are:</p>
+<ul>
+<li>Poisson, heat, and linear elasticity: at least 90% combined and 85% in each
+  family before calling them the trusted set;</li>
+<li>six to eight families: at least 75% macro-average, with stabilization and
+  mixed-field semantics implemented in the core rather than in case scripts;</li>
+<li>all eleven families: at least 60% macro- and micro-average;</li>
+<li>a same-model, same-budget A/B study before claiming a systematic AI-native
+  advantage over regenerating backend code for every problem.</li>
+</ul>
+<p>The next family sequence is Helmholtz and wave, followed by
+convection--diffusion and reaction--diffusion, then Stokes. Burgers,
+Navier--Stokes, and biharmonic problems remain later because they require
+nonlinear transport, mixed pressure spaces, stabilization, or fourth-order
+formulations that deserve first-class AgentFEM contracts.</p>
 
 
 
@@ -1424,7 +1531,7 @@ user's neural network.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../validation/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Validation">
+          <a href="../scientific_verification/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Scientific Trust and Verification">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1434,20 +1541,20 @@ user's neural network.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Validation
+                Scientific Trust and Verification
               </div>
             </div>
           </a>
         
         
           
-          <a href="../project_upgrades/" class="md-footer__link md-footer__link--next" aria-label="Next: Project Compatibility and Upgrades">
+          <a href="../validation/" class="md-footer__link md-footer__link--next" aria-label="Next: Validation">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Project Compatibility and Upgrades
+                Validation
               </div>
             </div>
             <div class="md-footer__button md-icon">

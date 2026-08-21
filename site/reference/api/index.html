@@ -1239,6 +1239,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agentfemintegrations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.integrations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agentfemir" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2041,6 +2052,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agentfemintegrations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.integrations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agentfemir" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2518,6 +2540,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>tagged_boundary_measure(domain, marker, tag: int)</code></td>
 <td>Locate/tag exterior facets and return <code>(ds, facet_tags)</code>.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>from_geometry_spec(specification: Mapping[str, object], *, resolution: int = 32, comm: MPI.Comm = MPI.COMM_WORLD)</code></td>
+<td>Create an :class:<code>agentfem.mesh.FEMMesh</code> from a public geometry spec.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -3978,51 +4005,6 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
-<td><code>FieldOutput</code></td>
-<td>What fields to save, how often, and in which configuration.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>FieldOutputArtifacts</code></td>
-<td>Files and final live fields produced by one output plan.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>ResultFieldArtifacts</code></td>
-<td>One completed-result field dataset and its explicit layout contract.</td>
-</tr>
-<tr>
-<td>function</td>
-<td><code>field_output(*variables, every: int \| str \| None = None, intervals: int \| None = None, configuration: str = 'deformed', deformation_scale: float = 1.0, backend: str = 'xdmf') -&gt; FieldOutput</code></td>
-<td>Create a concise, inspectable field-output request.</td>
-</tr>
-<tr>
-<td>function</td>
-<td><code>read_unified_xdmf_series(xdmf_path) -&gt; tuple[object, ...]</code></td>
-<td>Read AgentFEM's compact XDMF/HDF5 frames as PyVista grids.</td>
-</tr>
-<tr>
-<td>function</td>
-<td><code>write_deformed_vtk_series(pvd_path, snapshots, cell_fields, *, deformation_scale: float = 1.0) -&gt; tuple[Path, tuple[Path, ...]]</code></td>
-<td>Write one deformed VTU grid per frame and a ParaView PVD collection.</td>
-</tr>
-<tr>
-<td>function</td>
-<td><code>write_parallel_vtk_series(path, snapshots, fields_by_frame) -&gt; Path</code></td>
-<td>Write collective single-dataset ParaView frames under MPI.</td>
-</tr>
-<tr>
-<td>function</td>
-<td><code>write_result_fields(result, path, *, time: float = 0.0, names = (), deformation_scale: float = 0.0) -&gt; ResultFieldArtifacts</code></td>
-<td>Write the live, visualization-ready fields of one SimulationResult.</td>
-</tr>
-<tr>
-<td>function</td>
-<td><code>write_unified_xdmf_series(xdmf_path, snapshots, cell_fields, *, deformation_scale: float = 1.0, store_reference_geometry: bool = True, compression: int = 4) -&gt; Path</code></td>
-<td>Write one temporal XDMF and one compressed HDF5 heavy-data file.</td>
-</tr>
-<tr>
-<td>class</td>
 <td><code>FiniteStrainDiagnosticRequest</code></td>
 <td>Record physical admissibility and constraint checks.</td>
 </tr>
@@ -4100,6 +4082,51 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>source_node_history(nodes, **points: int) -&gt; SourceNodeHistoryRequest</code></td>
 <td>Public AgentFEM object.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>FieldOutput</code></td>
+<td>What fields to save, how often, and in which configuration.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>FieldOutputArtifacts</code></td>
+<td>Files and final live fields produced by one output plan.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ResultFieldArtifacts</code></td>
+<td>One completed-result field dataset and its explicit layout contract.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>field_output(*variables, every: int \| str \| None = None, intervals: int \| None = None, configuration: str = 'deformed', deformation_scale: float = 1.0, backend: str = 'xdmf') -&gt; FieldOutput</code></td>
+<td>Create a concise, inspectable field-output request.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>read_unified_xdmf_series(xdmf_path) -&gt; tuple[object, ...]</code></td>
+<td>Read AgentFEM's compact XDMF/HDF5 frames as PyVista grids.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>write_deformed_vtk_series(pvd_path, snapshots, cell_fields, *, deformation_scale: float = 1.0) -&gt; tuple[Path, tuple[Path, ...]]</code></td>
+<td>Write one deformed VTU grid per frame and a ParaView PVD collection.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>write_parallel_vtk_series(path, snapshots, fields_by_frame) -&gt; Path</code></td>
+<td>Write collective single-dataset ParaView frames under MPI.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>write_result_fields(result, path, *, time: float = 0.0, names = (), deformation_scale: float = 0.0) -&gt; ResultFieldArtifacts</code></td>
+<td>Write the live, visualization-ready fields of one SimulationResult.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>write_unified_xdmf_series(xdmf_path, snapshots, cell_fields, *, deformation_scale: float = 1.0, store_reference_geometry: bool = True, compression: int = 4) -&gt; Path</code></td>
+<td>Write one temporal XDMF and one compressed HDF5 heavy-data file.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -4526,6 +4553,51 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tbody>
 <tr>
 <td>class</td>
+<td><code>ChoiceParameter</code></td>
+<td>Finite categorical or policy parameter.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>IntegerParameter</code></td>
+<td>Bounded integer parameter.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ParameterSpace</code></td>
+<td>Ordered scientific input schema for a campaign.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>RealParameter</code></td>
+<td>Bounded continuous parameter with optional units and log scaling.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>SamplingPlan</code></td>
+<td>Immutable, validated collection of parameter samples.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>explicit(space: ParameterSpace, samples: Iterable[Mapping[str, object]], *, metadata: Mapping[str, object] \| None = None) -&gt; SamplingPlan</code></td>
+<td>Create a plan from caller-supplied samples.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>full_factorial(space: ParameterSpace, levels: int \| Mapping[str, int] = 3) -&gt; SamplingPlan</code></td>
+<td>Create a full-factorial design in normalized coordinates.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>latin_hypercube(space: ParameterSpace, count: int, *, seed: int = 0) -&gt; SamplingPlan</code></td>
+<td>Draw a reproducible Latin-hypercube design.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>random(space: ParameterSpace, count: int, *, seed: int = 0) -&gt; SamplingPlan</code></td>
+<td>Draw reproducible independent uniform samples in normalized space.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>Campaign(*, name: str, parameter_space: ParameterSpace, outputs: tuple[Quantity, ...], evaluate: Callable[[object], Mapping[str, object] \| CaseOutcome \| SimulationResult], build: Callable[[Mapping[str, object]], object] \| None = None, metadata: Mapping[str, object] \| None = None, scientific_inputs: Mapping[str, object] \| None = None, execution: ExecutionPolicy \| None = None) -&gt; None</code></td>
 <td>Build and evaluate a collection of immutable scientific cases.</td>
 </tr>
@@ -4588,51 +4660,6 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>specification_from_dict(record: Mapping[str, object]) -&gt; CampaignSpecification</code></td>
 <td>Validate a dictionary and construct a campaign specification.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>ChoiceParameter</code></td>
-<td>Finite categorical or policy parameter.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>IntegerParameter</code></td>
-<td>Bounded integer parameter.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>ParameterSpace</code></td>
-<td>Ordered scientific input schema for a campaign.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>RealParameter</code></td>
-<td>Bounded continuous parameter with optional units and log scaling.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>SamplingPlan</code></td>
-<td>Immutable, validated collection of parameter samples.</td>
-</tr>
-<tr>
-<td>function</td>
-<td><code>explicit(space: ParameterSpace, samples: Iterable[Mapping[str, object]], *, metadata: Mapping[str, object] \| None = None) -&gt; SamplingPlan</code></td>
-<td>Create a plan from caller-supplied samples.</td>
-</tr>
-<tr>
-<td>function</td>
-<td><code>full_factorial(space: ParameterSpace, levels: int \| Mapping[str, int] = 3) -&gt; SamplingPlan</code></td>
-<td>Create a full-factorial design in normalized coordinates.</td>
-</tr>
-<tr>
-<td>function</td>
-<td><code>latin_hypercube(space: ParameterSpace, count: int, *, seed: int = 0) -&gt; SamplingPlan</code></td>
-<td>Draw a reproducible Latin-hypercube design.</td>
-</tr>
-<tr>
-<td>function</td>
-<td><code>random(space: ParameterSpace, count: int, *, seed: int = 0) -&gt; SamplingPlan</code></td>
-<td>Draw reproducible independent uniform samples in normalized space.</td>
 </tr>
 </tbody>
 </table>
@@ -6910,6 +6937,8 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="agentfemintegrations"><code>agentfem.integrations</code><a class="headerlink" href="#agentfemintegrations" title="Permanent link">&para;</a></h2>
+<p>This package exposes its public objects through focused submodules.</p>
 <h2 id="agentfemir"><code>agentfem.ir</code><a class="headerlink" href="#agentfemir" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

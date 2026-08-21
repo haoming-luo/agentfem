@@ -1,5 +1,7 @@
 """Simulation results, quantities of interest, and dataset bridges."""
 
+from importlib import import_module as _import_module
+
 from .core import (
     CheckpointRecord,
     FieldResult,
@@ -65,42 +67,48 @@ from .field_catalog import (
     preselected_fields,
     resolve_field_variables,
 )
-from .output import (
-    FieldOutput,
-    FieldOutputArtifacts,
-    ResultFieldArtifacts,
-    field_output,
-    read_unified_xdmf_series,
-    write_deformed_vtk_series,
-    write_parallel_vtk_series,
-    write_result_fields,
-    write_unified_xdmf_series,
-)
-from .plan import (
-    FiniteStrainDiagnosticRequest,
-    HistoryRequest,
-    OutputPlan,
-    PeriodicCellHistoryRequest,
-    ProbeHistoryRequest,
-    PresentationOutput,
-    SolverHistoryRequest,
-    SourceNodeHistoryRequest,
-    finite_strain_checks,
-    history,
-    output_plan,
-    periodic_cell_history,
-    probe_history,
-    presentation,
-    solver_history,
-    source_node_history,
-)
-from .visualization import (
-    render_deformation_animation,
-    render_deformation_comparison,
-    render_unified_xdmf_animation,
-    render_unified_xdmf_comparison,
-    render_vtk_series_animation,
-)
+
+_LAZY_EXPORTS = {
+    "FiniteStrainDiagnosticRequest": "plan",
+    "HistoryRequest": "plan",
+    "OutputPlan": "plan",
+    "PeriodicCellHistoryRequest": "plan",
+    "ProbeHistoryRequest": "plan",
+    "PresentationOutput": "plan",
+    "SolverHistoryRequest": "plan",
+    "SourceNodeHistoryRequest": "plan",
+    "finite_strain_checks": "plan",
+    "history": "plan",
+    "output_plan": "plan",
+    "periodic_cell_history": "plan",
+    "probe_history": "plan",
+    "presentation": "plan",
+    "solver_history": "plan",
+    "source_node_history": "plan",
+    "FieldOutput": "output",
+    "FieldOutputArtifacts": "output",
+    "ResultFieldArtifacts": "output",
+    "field_output": "output",
+    "read_unified_xdmf_series": "output",
+    "write_deformed_vtk_series": "output",
+    "write_parallel_vtk_series": "output",
+    "write_result_fields": "output",
+    "write_unified_xdmf_series": "output",
+    "render_deformation_animation": "visualization",
+    "render_deformation_comparison": "visualization",
+    "render_unified_xdmf_animation": "visualization",
+    "render_unified_xdmf_comparison": "visualization",
+    "render_vtk_series_animation": "visualization",
+}
+
+
+def __getattr__(name: str):
+    module_name = _LAZY_EXPORTS.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(_import_module(f"{__name__}.{module_name}"), name)
+    globals()[name] = value
+    return value
 
 __all__ = [
     "CheckpointRecord",

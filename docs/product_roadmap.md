@@ -120,6 +120,11 @@ an agent, user, or README from confusing these levels.
   solver-independent schema audit, and separate numerical-capability and
   agent-generation evidence; inconsistent benchmark specifications remain
   dataset findings rather than case-specific solver exceptions;
+- promote the PDE-agent track in evidence-gated stages: Poisson/heat/linear
+  elasticity first; Helmholtz/wave and stabilized scalar transport next;
+  mixed Stokes only after pressure-space and nullspace contracts are public;
+  keep fixed-adapter capability, same-model agent A/B evidence, and an
+  official library track as three distinct claims;
 - serial, MPI, docs, package, and example release gates;
 - keep private workflow/material products in independent distributions using
   the explicit extension contract rather than long-lived core branches;

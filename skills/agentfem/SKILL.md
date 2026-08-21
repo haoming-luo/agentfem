@@ -177,6 +177,11 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
 - Use `results.sample_rectilinear_grid` when an external protocol requires a
   direct mesh-independent array. Preserve its `inside` mask and declared axis
   order; do not infer a transpose from array dimensions.
+- For PDEAgent-Bench, use the commit-pinned
+  `integrations.pdeagent_bench` contract and fixed solver entry point. Consume
+  only the public agent-view case, never case identifiers, oracle numerics, or
+  manufactured solutions. Report fixed-adapter capability separately from an
+  AI-agent A/B experiment and from any official library-track submission.
 - Model-generated static elasticity returns projected `S/E/MISES` fields
   automatically; request `SENER` explicitly when needed. Use
   `results.small_strain_partition_fields` for an

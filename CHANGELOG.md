@@ -8,6 +8,10 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Add a commit-pinned PDEAgent-Bench integration with a strict public-case
+  schema, safe expression lowering, fourteen geometry specifications,
+  Poisson/heat/linear-elasticity/Helmholtz solvers, strict grid sampling, and a
+  failure-aware official-summary report.
 - Add accepted-physical-time `FieldHistory` capture for transient scalar
   fields, with explicit interpolation/range policy, compact persistence,
   scientific content identity, and coordinate-keyed portability across MPI
@@ -29,6 +33,12 @@ experimental formulation to a validated one.
 
 ### Changed
 
+- Make top-level workflow modules and heavy result-output modules lazy while
+  preserving the public import surface, substantially reducing startup cost
+  for CLI, agent, campaign-worker, and short scientific jobs.
+- Lower case-varying known formulas to finite-element fields before assembly
+  so repeated scientific inputs reuse compiled weak forms instead of invoking
+  formula-specific C++ compilation.
 - Record captured thermal histories in transient Step summaries and publish
   the heat-to-creep transfer contract through the manual, Agent Skill,
   roadmap, and scientific knowledge catalog.

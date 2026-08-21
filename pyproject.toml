@@ -92,6 +92,8 @@ packages = [
   "agentfem.knowledge.research_tasks",
   "agentfem.knowledge.schema",
   "agentfem.ir",
+  "agentfem.integrations",
+  "agentfem.integrations.pdeagent_bench",
   "agentfem.materials",
   "agentfem.materials.data",
   "agentfem.mechanics",

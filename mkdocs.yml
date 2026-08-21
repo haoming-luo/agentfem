@@ -175,6 +175,7 @@ nav:
       - Trust and Validation:
           - Trust and Operations: trust/index.md
           - Scientific Trust and Verification: scientific_verification.md
+          - PDEAgent-Bench Integration: pdeagent_bench.md
           - Validation: validation.md
           - Result Provenance Seal: provenance_seal.md
       - Platform and Compatibility:

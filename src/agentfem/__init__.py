@@ -1,57 +1,8 @@
 """Reusable finite-element workflow tools built on DOLFINx/PETSc."""
 
-__version__ = "0.2.2"
+from importlib import import_module as _import_module
 
-from . import amplitudes
-from . import assembly
-from . import backends
-from . import boundary_models
-from . import benchmarks
-from . import campaigns
-from . import convergence
-from . import checkpointing
-from . import constraints
-from . import constitutive
-from . import coordinates
-from . import datasets
-from . import dependencies
-from . import diagnostics
-from . import events
-from . import expressions
-from . import fields
-from . import fatigue_fracture
-from . import fracture
-from . import histories
-from . import elements
-from . import extensions
-from . import forms
-from . import io
-from . import ir
-from . import interfaces
-from . import loads
-from . import learning
-from . import materials
-from . import mechanics
-from . import mesh
-from . import models
-from . import operators
-from . import platforms
-from . import problems
-from . import project
-from . import provenance
-from . import responses
-from . import procedures
-from . import results
-from . import solvers
-from . import spaces
-from . import steps
-from . import studies
-from . import surrogates
-from . import time
-from . import units
-from . import upgrades
-from . import validation
-from . import verification
+__version__ = "0.2.2"
 
 CORE_WORKFLOW_MODULES = (
     "studies",
@@ -104,6 +55,7 @@ EXPERT_WORKFLOW_MODULES = (
     "elements",
     "extensions",
     "forms",
+    "integrations",
     "ir",
     "platforms",
     "provenance",
@@ -145,6 +97,25 @@ def public_api(level: str = "all") -> tuple[str, ...]:
         ) from exc
 
 
+def __getattr__(name: str):
+    """Load public workflow modules only when first requested.
+
+    The public surface remains ``from agentfem import mesh, models, ...`` while
+    short scripts, CLI discovery, and agent workers avoid importing unrelated
+    fracture, learning, campaign, and visualization stacks at startup.
+    """
+
+    if name in PUBLIC_WORKFLOW_MODULES:
+        module = _import_module(f"{__name__}.{name}")
+        globals()[name] = module
+        return module
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__))
+
+
 __all__ = [
     "PUBLIC_WORKFLOW_MODULES",
     "CORE_WORKFLOW_MODULES",
@@ -173,6 +144,7 @@ __all__ = [
     "elements",
     "extensions",
     "forms",
+    "integrations",
     "io",
     "ir",
     "loads",

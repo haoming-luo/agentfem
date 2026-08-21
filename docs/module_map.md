@@ -46,6 +46,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Output writers and scalar logs | `io.py` |
 | Element and integration policies | `elements/` |
 | Test-linked verification obligations | `benchmarks/` |
+| Versioned external scientific contracts | `integrations/` |
 | Runnable workflows | `examples/` |
 | Versioned AF-IR scientific records | `ir/` |
 | Structured validation issues and reports | `validation.py` |

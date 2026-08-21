@@ -258,6 +258,54 @@ def module_api(module: str) -> tuple[ApiObject, ...]:
                 selected = definitions.get(alias.name)
                 if selected is not None:
                     append_node(selected, public_name=public_name)
+        lazy_assignment = next(
+            (
+                node
+                for node in tree.body
+                if isinstance(node, ast.Assign)
+                and any(
+                    isinstance(target, ast.Name)
+                    and target.id == "_LAZY_EXPORTS"
+                    for target in node.targets
+                )
+            ),
+            None,
+        )
+        if lazy_assignment is not None:
+            try:
+                lazy_exports = ast.literal_eval(lazy_assignment.value)
+            except (ValueError, TypeError) as exc:
+                raise RuntimeError(
+                    f"_LAZY_EXPORTS in {path} must be a literal mapping."
+                ) from exc
+            for public_name, relative_module in lazy_exports.items():
+                imported_path = path.parent.joinpath(
+                    *str(relative_module).split(".")
+                ).with_suffix(".py")
+                if not imported_path.exists():
+                    raise RuntimeError(
+                        f"Lazy API source {relative_module!r} does not exist in {path.parent}."
+                    )
+                imported_tree = ast.parse(
+                    imported_path.read_text(), filename=str(imported_path)
+                )
+                selected = next(
+                    (
+                        node
+                        for node in imported_tree.body
+                        if isinstance(
+                            node,
+                            (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef),
+                        )
+                        and node.name == public_name
+                    ),
+                    None,
+                )
+                if selected is None:
+                    raise RuntimeError(
+                        f"Lazy API object {public_name!r} was not found in {imported_path}."
+                    )
+                append_node(selected, public_name=public_name)
     return tuple(objects)
 
 
