@@ -27,10 +27,13 @@ manufactured solution, or case-specific hidden reference. The numerical policy
 uses exposed dimension, geometry scale, and expression bandwidth; it does not
 dispatch on case identifiers.
 
-The initial supported families are Poisson, heat, linear elasticity, and
-Helmholtz. General geometry specifications are lowered through
-`mesh.from_spec(...)`; structured unit domains remain independent of Gmsh,
-while general planar domains use the optional Gmsh integration.
+The supported families are Poisson, heat, linear elasticity, Helmholtz,
+convection--diffusion, reaction--diffusion, and the scalar wave equation.
+General geometry specifications are lowered through `mesh.from_spec(...)`;
+structured unit domains remain independent of Gmsh, while general planar
+domains use the optional Gmsh integration. Stabilized transport and named
+reaction laws are implemented as public AgentFEM operators, not hidden in the
+benchmark entry point.
 
 ```python
 from agentfem.integrations.pdeagent_bench import solve_case
@@ -45,6 +48,28 @@ Irregular-domain points outside the mesh are `NaN`; the adapter also reports
 finite coverage instead of exploiting missing samples to reduce the comparison
 domain.
 
+The added scalar contracts retain their physical equations explicitly:
+
+\[
+\partial_t u-\nabla\!\cdot(\varepsilon\nabla u)
+  +\boldsymbol{\beta}\!\cdot\nabla u=f,
+\qquad
+\partial_t u-\nabla\!\cdot(\varepsilon\nabla u)+r(u)=f,
+\]
+
+and
+
+\[
+\partial_{tt}u-c^2\Delta u=f.
+\]
+
+Steady advection--diffusion can request SUPG stabilization through the public
+transport operators. Reaction--diffusion uses backward Euler, with
+Crank--Nicolson available for linear reactions; the wave path uses the
+average-acceleration Newmark method. Time-step count, scheme, nonlinear
+iterations, solver convergence, sampled coverage, and wall time remain in
+`solver_info` rather than being inferred from a successful process exit.
+
 ## Official Runner
 
 Clone and check out the pinned benchmark revision, install AgentFEM in a
@@ -55,7 +80,8 @@ runner:
 python scripts/run_benchmark.py \
   --agent gpt-5.1 \
   --solver-path /path/to/agentfem/tools/pdeagent_bench_solver.py \
-  --equation-types poisson heat linear_elasticity \
+  --equation-types poisson heat linear_elasticity helmholtz \
+    convection_diffusion reaction_diffusion wave \
   --version v2 \
   --output /path/to/evidence
 ```
@@ -95,10 +121,24 @@ generation. The second claim requires a controlled A/B experiment.
 ## Verified Development Snapshot
 
 On 21 August 2026, the fixed adapter was run with the official v2 runner at
-the pinned benchmark commit above. It executed all 204 Poisson, heat, and
-linear-elasticity cases without schema, geometry, solver, output, or process
-failure. The official final gate passed 170/204 cases (83.3%). Stratification
-by the benchmark's declared dimension is essential:
+the pinned benchmark commit above. All 456 cases across seven complete
+families produced executable, schema-valid output. The official final gate
+passed 396/456 cases: an 86.8% micro-average and an 87.6% unweighted family
+macro-average. Every family exceeded the declared 75% expansion gate.
+
+| Complete public family | Passed | Total | Pass rate |
+|---|---:|---:|---:|
+| Poisson | 77 | 91 | 84.6% |
+| heat | 40 | 50 | 80.0% |
+| linear elasticity | 53 | 63 | 84.1% |
+| Helmholtz | 52 | 62 | 83.9% |
+| convection--diffusion | 68 | 84 | 81.0% |
+| reaction--diffusion | 64 | 64 | 100.0% |
+| scalar wave | 42 | 42 | 100.0% |
+| **micro total** | **396** | **456** | **86.8%** |
+
+The original three-family set passed 170/204 cases (83.3%). Stratification by
+the benchmark's declared dimension remains essential:
 
 | Public subset | Passed | Total | Pass rate |
 |---|---:|---:|---:|
@@ -131,13 +171,15 @@ The staged targets are:
 - Poisson, heat, and linear elasticity: at least 90% combined and 85% in each
   family before calling them the trusted set;
 - six to eight families: at least 75% macro-average, with stabilization and
-  mixed-field semantics implemented in the core rather than in case scripts;
+  mixed-field semantics implemented in the core rather than in case scripts
+  (**achieved for seven complete families in the snapshot above**);
 - all eleven families: at least 60% macro- and micro-average;
 - a same-model, same-budget A/B study before claiming a systematic AI-native
   advantage over regenerating backend code for every problem.
 
-The next family sequence is Helmholtz and wave, followed by
-convection--diffusion and reaction--diffusion, then Stokes. Burgers,
-Navier--Stokes, and biharmonic problems remain later because they require
-nonlinear transport, mixed pressure spaces, stabilization, or fourth-order
-formulations that deserve first-class AgentFEM contracts.
+After the scalar seven-family milestone, the next defensible family is
+Stokes, but only after pressure-space, pressure-nullspace, mixed boundary, and
+field-output contracts are public. Burgers, Navier--Stokes, and biharmonic
+problems remain later because nonlinear transport, mixed stabilization, and
+fourth-order formulations deserve first-class AgentFEM contracts rather than
+benchmark-local scripts.

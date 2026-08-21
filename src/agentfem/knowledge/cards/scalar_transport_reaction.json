@@ -1,0 +1,124 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.operator.scalar_transport_reaction",
+  "title": "Scalar transport and reaction operators",
+  "kind": "operator",
+  "status": "supported",
+  "summary": "Provides inspectable advection, streamline-upwind stabilization, and named scalar reaction laws for reusable transport and reaction--diffusion workflows.",
+  "public_api": [
+    "agentfem.operators.advection_operator",
+    "agentfem.operators.streamline_upwind_operator",
+    "agentfem.operators.intrinsic_time_scale",
+    "agentfem.operators.reaction_expression"
+  ],
+  "implementation": [
+    "operators/transport.py"
+  ],
+  "science": {
+    "statement": "Transport and reaction semantics remain named public operators while UFL supplies the executable weak form and differentiation.",
+    "equations": [
+      {
+        "label": "advection--diffusion--reaction",
+        "expression": "\\partial_t u-\\nabla\\cdot(\\varepsilon\\nabla u)+\\boldsymbol{\\beta}\\cdot\\nabla u+r(u)=f",
+        "description": "Diffusion, directed transport, and local reaction remain independently inspectable contributions."
+      },
+      {
+        "label": "streamline-upwind contribution",
+        "expression": "\\int_{\\Omega}\\tau R(u)\\,\\boldsymbol{\\beta}\\cdot\\nabla w\\,\\mathrm{d}\\Omega",
+        "description": "SUPG weights the strong residual in the streamline test direction."
+      },
+      {
+        "label": "advective intrinsic scale",
+        "expression": "\\tau=\\frac{h}{2\\lVert\\boldsymbol{\\beta}\\rVert}",
+        "description": "The first public policy uses the cellwise advective scale and rejects zero velocity."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "velocity",
+        "type": "numeric vector or UFL vector",
+        "unit_role": "length/time",
+        "description": "Advection direction and magnitude."
+      },
+      {
+        "name": "reaction law",
+        "type": "named mapping",
+        "unit_role": "field/time",
+        "description": "Linear, cubic, Allen--Cahn, or logistic local reaction parameters."
+      },
+      {
+        "name": "strong residual",
+        "type": "UFL scalar expression",
+        "unit_role": "balance residual",
+        "description": "Complete equation residual supplied to streamline stabilization."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "transport operator",
+        "type": "OperatorForm",
+        "unit_role": "weak balance",
+        "description": "Composable UFL form with family, method, and velocity metadata."
+      },
+      {
+        "name": "reaction expression",
+        "type": "UFL scalar expression",
+        "unit_role": "field/time",
+        "description": "Local nonlinear term suitable for residual construction and automatic differentiation."
+      }
+    ],
+    "assumptions": [
+      "The current intrinsic scale is the advective cell scale, not a universal transient or diffusion-aware stabilization policy.",
+      "Named reaction parameters use a unit-consistent model chosen by the caller.",
+      "SUPG requires the caller to provide the complete strong residual appropriate to the time discretization."
+    ],
+    "conventions": [
+      "Reaction laws enter the balance with a positive residual sign.",
+      "Allen--Cahn is represented as lambda times (u cubed minus u).",
+      "Logistic reaction is represented as rho times u times (1 minus u)."
+    ],
+    "applicability": [
+      "Steady and transient scalar advection--diffusion, reaction--diffusion, phase-like scalar kinetics, and externally defined transport workflows."
+    ],
+    "limitations": [
+      "No discontinuity-capturing or shock limiter is included.",
+      "The scalar operators do not yet define mixed flow, species coupling, or automatic stabilization selection.",
+      "Symbolic velocity metadata are recorded as an inspectable expression string rather than reconstructed as numeric components."
+    ]
+  },
+  "usage": {
+    "minimal_example": "Create A = operators.advection_operator(u, v, beta); add operators.streamline_upwind_operator(R, v, beta, domain=domain) when the declared transport policy requires SUPG.",
+    "examples": [
+      "docs/pdeagent_bench.md"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_operators.py",
+      "tests/test_pdeagent_bench.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.pdeagent_bench_scalar_seven_family"
+    ],
+    "validation_rules": [
+      "Reject a zero numeric advection velocity when constructing the advective intrinsic time scale.",
+      "Reject unknown named reaction laws.",
+      "Keep official benchmark oracle data outside the adapter and regression tests."
+    ]
+  },
+  "references": [
+    {
+      "title": "Streamline upwind/Petrov-Galerkin formulations for convection dominated flows",
+      "locator": "https://doi.org/10.1016/0045-7825(82)90071-8"
+    },
+    {
+      "title": "UFL form language manual",
+      "locator": "https://docs.fenicsproject.org/ufl/main/manual/form_language.html"
+    }
+  ],
+  "related_cards": [
+    "agentfem.operator.system_contracts",
+    "agentfem.workflow.solution_procedures"
+  ]
+}

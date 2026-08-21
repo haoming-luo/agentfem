@@ -197,6 +197,13 @@
       "title": "Operator role, system, and residual-linearization contracts"
     },
     {
+      "id": "agentfem.benchmark.pdeagent_bench_scalar_seven_family",
+      "physics": "Poisson, heat, linear elasticity, Helmholtz, convection--diffusion, reaction--diffusion, and scalar wave equations",
+      "source": "src/agentfem/knowledge/benchmarks/pdeagent_bench_scalar_seven_family.json",
+      "status": "external_runner_development_snapshot",
+      "title": "PDEAgent-Bench seven-family fixed-adapter snapshot"
+    },
+    {
       "id": "agentfem.benchmark.plane_stress_thin_3d_crosscheck",
       "physics": "compressible Neo-Hookean finite strain under homogeneous uniaxial stretch with traction-free lateral and thickness directions",
       "source": "src/agentfem/knowledge/benchmarks/plane_stress_thin_3d_crosscheck.json",
@@ -430,6 +437,24 @@
       "status": "experimental",
       "summary": "Provides a compressible three-dimensional Mooney--Rivlin energy and the exact incompressible plane-stress sheet reduction of Wang--Fineberg--Needleman Eq. (17), consumed by static and finite-strain Explicit workflows.",
       "title": "Mooney--Rivlin finite-strain solids and incompressible sheets"
+    },
+    {
+      "id": "agentfem.operator.scalar_transport_reaction",
+      "kind": "operator",
+      "public_api": [
+        "agentfem.operators.advection_operator",
+        "agentfem.operators.streamline_upwind_operator",
+        "agentfem.operators.intrinsic_time_scale",
+        "agentfem.operators.reaction_expression"
+      ],
+      "related_cards": [
+        "agentfem.operator.system_contracts",
+        "agentfem.workflow.solution_procedures"
+      ],
+      "source": "src/agentfem/knowledge/cards/scalar_transport_reaction.json",
+      "status": "supported",
+      "summary": "Provides inspectable advection, streamline-upwind stabilization, and named scalar reaction laws for reusable transport and reaction--diffusion workflows.",
+      "title": "Scalar transport and reaction operators"
     },
     {
       "id": "agentfem.operator.system_contracts",

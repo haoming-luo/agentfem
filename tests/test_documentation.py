@@ -67,7 +67,7 @@ def test_knowledge_import_check_uses_the_current_checkout():
         text=True,
     )
     assert completed.returncode == 0, completed.stdout + completed.stderr
-    assert "Validated 29 scientific function cards." in completed.stdout
+    assert "Validated 30 scientific function cards." in completed.stdout
 
 
 def test_generated_api_covers_public_workflow_objects():

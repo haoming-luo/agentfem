@@ -19,6 +19,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.material.mixed_hybrid_hyperelasticity`](#agentfem-material-mixed_hybrid_hyperelasticity) | Constant-pressure mixed Neo-Hookean solid | material | supported |
 | [`agentfem.material.mixed_mode_cyclic_cohesive`](#agentfem-material-mixed_mode_cyclic_cohesive) | Proportional and ordered-path mixed-mode cyclic cohesive damage | material | experimental |
 | [`agentfem.material.mooney_rivlin_hyperelasticity`](#agentfem-material-mooney_rivlin_hyperelasticity) | Mooney--Rivlin finite-strain solids and incompressible sheets | material | experimental |
+| [`agentfem.operator.scalar_transport_reaction`](#agentfem-operator-scalar_transport_reaction) | Scalar transport and reaction operators | operator | supported |
 | [`agentfem.operator.system_contracts`](#agentfem-operator-system_contracts) | Finite-element operator and system contracts | operator | supported |
 | [`agentfem.workflow.abaqus_engineering_regions`](#agentfem-workflow-abaqus_engineering_regions) | Abaqus node sets and element-face surfaces as FEM regions | workflow | supported |
 | [`agentfem.workflow.campaign_learning_pipeline`](#agentfem-workflow-campaign_learning_pipeline) | Simulation campaign to guarded learning workflow | workflow | supported |
@@ -72,6 +73,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.mooney_rivlin_material_paths` | Mooney--Rivlin material-path and Explicit-consumer contract | incompressible plane-stress Mooney--Rivlin hyperelasticity | experimental_automated_regression |
 | `agentfem.benchmark.neo_hookean_release` | Compressible Neo-Hookean finite-strain release contract | compressible Neo-Hookean hyperelasticity | automated_regression |
 | `agentfem.benchmark.operator_contracts` | Operator role, system, and residual-linearization contracts | backend-facing finite-element operator algebra | automated |
+| `agentfem.benchmark.pdeagent_bench_scalar_seven_family` | PDEAgent-Bench seven-family fixed-adapter snapshot | Poisson, heat, linear elasticity, Helmholtz, convection--diffusion, reaction--diffusion, and scalar wave equations | external_runner_development_snapshot |
 | `agentfem.benchmark.plane_stress_thin_3d_crosscheck` | Finite-strain plane-stress and thin-three-dimensional patch cross-check | compressible Neo-Hookean finite strain under homogeneous uniaxial stretch with traction-free lateral and thickness directions | experimental_geometry_crosscheck_automated |
 | `agentfem.benchmark.thermoelastic_free_expansion` | Plane-stress isotropic free thermal expansion | small-strain isotropic plane-stress thermoelasticity under uniform temperature change | automated_regression |
 | `agentfem.benchmark.transient_heat_release` | Implicit-Euler transient heat release regression | two-dimensional transient heat conduction with constant isotropic properties | numerical_regression |
@@ -1132,6 +1134,117 @@ step = model.step(target=u, material=material, dt='auto', steps=100)
 ### References
 
 - Wang, Fineberg, and Needleman (2025), transition from crack-type to supershear-type to spall-type dynamics: `https://doi.org/10.1016/j.jmps.2025.106213`
+
+<a id="agentfem-operator-scalar_transport_reaction"></a>
+
+## Scalar transport and reaction operators
+
+**Stable ID:** `agentfem.operator.scalar_transport_reaction`<br>
+**Kind:** `operator`<br>
+**Status:** `supported`<br>
+**Source card:** `src/agentfem/knowledge/cards/scalar_transport_reaction.json`
+
+Provides inspectable advection, streamline-upwind stabilization, and named scalar reaction laws for reusable transport and reaction--diffusion workflows.
+
+### Public API
+
+- `agentfem.operators.advection_operator`
+- `agentfem.operators.streamline_upwind_operator`
+- `agentfem.operators.intrinsic_time_scale`
+- `agentfem.operators.reaction_expression`
+
+### Scientific contract
+
+Transport and reaction semantics remain named public operators while UFL supplies the executable weak form and differentiation.
+
+**advection--diffusion--reaction**
+
+$$
+\partial_t u-\nabla\cdot(\varepsilon\nabla u)+\boldsymbol{\beta}\cdot\nabla u+r(u)=f
+$$
+
+Diffusion, directed transport, and local reaction remain independently inspectable contributions.
+
+**streamline-upwind contribution**
+
+$$
+\int_{\Omega}\tau R(u)\,\boldsymbol{\beta}\cdot\nabla w\,\mathrm{d}\Omega
+$$
+
+SUPG weights the strong residual in the streamline test direction.
+
+**advective intrinsic scale**
+
+$$
+\tau=\frac{h}{2\lVert\boldsymbol{\beta}\rVert}
+$$
+
+The first public policy uses the cellwise advective scale and rejects zero velocity.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| velocity | numeric vector or UFL vector | length/time | Advection direction and magnitude. |
+| reaction law | named mapping | field/time | Linear, cubic, Allen--Cahn, or logistic local reaction parameters. |
+| strong residual | UFL scalar expression | balance residual | Complete equation residual supplied to streamline stabilization. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| transport operator | OperatorForm | weak balance | Composable UFL form with family, method, and velocity metadata. |
+| reaction expression | UFL scalar expression | field/time | Local nonlinear term suitable for residual construction and automatic differentiation. |
+
+#### Assumptions
+
+- The current intrinsic scale is the advective cell scale, not a universal transient or diffusion-aware stabilization policy.
+- Named reaction parameters use a unit-consistent model chosen by the caller.
+- SUPG requires the caller to provide the complete strong residual appropriate to the time discretization.
+
+#### Conventions
+
+- Reaction laws enter the balance with a positive residual sign.
+- Allen--Cahn is represented as lambda times (u cubed minus u).
+- Logistic reaction is represented as rho times u times (1 minus u).
+
+#### Applicability
+
+- Steady and transient scalar advection--diffusion, reaction--diffusion, phase-like scalar kinetics, and externally defined transport workflows.
+
+#### Limitations
+
+- No discontinuity-capturing or shock limiter is included.
+- The scalar operators do not yet define mixed flow, species coupling, or automatic stabilization selection.
+- Symbolic velocity metadata are recorded as an inspectable expression string rather than reconstructed as numeric components.
+
+### Minimal example
+
+```python
+Create A = operators.advection_operator(u, v, beta); add operators.streamline_upwind_operator(R, v, beta, domain=domain) when the declared transport policy requires SUPG.
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_operators.py`
+- `tests/test_pdeagent_bench.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.pdeagent_bench_scalar_seven_family`
+
+**Validation rules**
+
+- Reject a zero numeric advection velocity when constructing the advective intrinsic time scale.
+- Reject unknown named reaction laws.
+- Keep official benchmark oracle data outside the adapter and regression tests.
+
+### References
+
+- Streamline upwind/Petrov-Galerkin formulations for convection dominated flows: `https://doi.org/10.1016/0045-7825(82)90071-8`
+- UFL form language manual: `https://docs.fenicsproject.org/ufl/main/manual/form_language.html`
 
 <a id="agentfem-operator-system_contracts"></a>
 

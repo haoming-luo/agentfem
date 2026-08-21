@@ -843,6 +843,11 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `first_order_system(C, K, F = None, *, name: str = 'Cxdot_plus_Kx_eq_F')` | Create ``C x_dot + K x = F`` for heat/diffusion-like evolution. |
 | function | `linear_system(K, F = None, *, name: str = 'Kx_eq_F') -> LinearSystem` | Create a static linear system in engineering notation, ``K x = F``. |
 | function | `second_order_system(M, K, C = None, F = None, *, name: str = 'Ma_plus_Cv_plus_Ku_eq_F')` | Create ``M a + C v + K u = F`` with optional damping and force. |
+| function | `advection_operator(trial, test, velocity, *, measure = ufl.dx, name: str = 'A_advection') -> OperatorForm` | Return the Galerkin advection operator ``(v . grad(u), w)``. |
+| function | `as_velocity(velocity)` | Normalize a public velocity sequence without hiding UFL expressions. |
+| function | `intrinsic_time_scale(domain, velocity)` | Return the standard cellwise advective SUPG scale ``h/(2 \|v\|)``. |
+| function | `reaction_expression(value, law: str \| Mapping[str, object], **parameters)` | Lower a named scalar reaction law to a UFL expression. |
+| function | `streamline_upwind_operator(strong_residual, test, velocity, *, tau = None, domain = None, measure = ufl.dx, name: str = 'A_supg') -> OperatorForm` | Return a SUPG contribution ``tau R(u) (v . grad(w))``. |
 
 ## `agentfem.problems`
 

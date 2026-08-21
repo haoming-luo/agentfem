@@ -102,10 +102,13 @@ def test_residual_linearization_records_R_to_Kt_relationship():
         cell_type="triangle",
     )
     displacement = fields.displacement(domain)
-    residual_form = ufl.inner(
-        ufl.grad(displacement.value),
-        ufl.grad(displacement.test),
-    ) * ufl.dx
+    residual_form = (
+        ufl.inner(
+            ufl.grad(displacement.value),
+            ufl.grad(displacement.test),
+        )
+        * ufl.dx
+    )
 
     residual = operators.residual_operator(
         residual_form,
@@ -163,3 +166,75 @@ def test_standard_boundary_and_proportional_damping_operators_are_checked():
     assert damping.validate().is_valid
     with pytest.raises(ValueError, match="non-zero"):
         operators.rayleigh_damping(capacity, conduction)
+
+
+def test_transport_and_reaction_operators_keep_scientific_semantics():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (2, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    concentration = fields.scalar_unknown(domain, name="concentration")
+    advection = operators.advection_operator(
+        concentration.trial,
+        concentration.test,
+        (2.0, 0.5),
+    )
+    reaction = operators.reaction_expression(
+        concentration.value,
+        {"type": "allen_cahn", "lambda": 2.0},
+    )
+    logistic = operators.reaction_expression(
+        concentration.value,
+        {"type": "logistic", "rho": 3.0},
+    )
+    supg = operators.streamline_upwind_operator(
+        ufl.dot(
+            operators.as_velocity((2.0, 0.5)),
+            ufl.grad(concentration.trial),
+        ),
+        concentration.test,
+        (2.0, 0.5),
+        domain=domain,
+    )
+
+    assert advection.validate().is_valid
+    assert advection.summary()["metadata"]["velocity"] == (2.0, 0.5)
+    assert supg.summary()["metadata"]["method"] == "SUPG"
+    assert reaction.ufl_shape == ()
+    assert logistic.ufl_shape == ()
+
+
+def test_advective_intrinsic_time_scale_rejects_zero_velocity():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+    )
+
+    with pytest.raises(ValueError, match="nonzero advection velocity"):
+        operators.intrinsic_time_scale(domain, (0.0, 0.0))
+
+
+def test_advection_operator_accepts_a_symbolic_velocity_field():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+    )
+    concentration = fields.scalar_unknown(domain, name="concentration")
+    coordinate = ufl.SpatialCoordinate(domain)
+    velocity = ufl.as_vector((1.0 + coordinate[0], coordinate[1]))
+
+    advection = operators.advection_operator(
+        concentration.trial,
+        concentration.test,
+        velocity,
+    )
+
+    assert advection.validate().is_valid
+    assert isinstance(advection.metadata["velocity"], str)

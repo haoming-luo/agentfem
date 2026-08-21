@@ -5,6 +5,7 @@ from .schema import (
     BENCHMARK_COMMIT,
     BENCHMARK_NAME,
     BENCHMARK_SCHEMA,
+    SUPPORTED_FAMILIES,
     BenchmarkContractError,
     validate_case_spec,
 )
@@ -14,6 +15,7 @@ __all__ = [
     "BENCHMARK_COMMIT",
     "BENCHMARK_NAME",
     "BENCHMARK_SCHEMA",
+    "SUPPORTED_FAMILIES",
     "BenchmarkContractError",
     "BenchmarkPolicy",
     "BenchmarkReport",

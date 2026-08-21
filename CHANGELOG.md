@@ -10,8 +10,12 @@ experimental formulation to a validated one.
 
 - Add a commit-pinned PDEAgent-Bench integration with a strict public-case
   schema, safe expression lowering, fourteen geometry specifications,
-  Poisson/heat/linear-elasticity/Helmholtz solvers, strict grid sampling, and a
-  failure-aware official-summary report.
+  Poisson/heat/linear-elasticity/Helmholtz/convection--diffusion/
+  reaction--diffusion/wave solvers, strict grid sampling, and a failure-aware
+  official-summary report.
+- Add public scalar advection, SUPG, intrinsic-time-scale, and named reaction
+  operators with formula-bearing knowledge assets and independent regression
+  tests.
 - Add accepted-physical-time `FieldHistory` capture for transient scalar
   fields, with explicit interpolation/range policy, compact persistence,
   scientific content identity, and coordinate-keyed portability across MPI

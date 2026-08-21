@@ -1,0 +1,33 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.pdeagent_bench_scalar_seven_family",
+  "title": "PDEAgent-Bench seven-family fixed-adapter snapshot",
+  "status": "external_runner_development_snapshot",
+  "purpose": "Measure how much of the public PDEAgent-Bench contract a single case-identity-independent AgentFEM numerical policy can solve without consuming oracle-only data or generating backend code per case.",
+  "physics": "Poisson, heat, linear elasticity, Helmholtz, convection--diffusion, reaction--diffusion, and scalar wave equations",
+  "execution": {
+    "command": "python scripts/run_benchmark.py --agent gpt-5.1 --solver-path /path/to/agentfem/tools/pdeagent_bench_solver.py --equation-types poisson heat linear_elasticity helmholtz convection_diffusion reaction_diffusion wave --version v2 --output /path/to/evidence",
+    "example": "tools/pdeagent_bench_solver.py",
+    "evidence": "Local runs of the official v2 runner at PDEAgent-Bench commit 0ba9853f82a78196796fa4eeaf0951eb4c000a00 on 21 August 2026. The agent name satisfies runner validation; solver-path mode does not call that model. Per-family final gates were Poisson 77/91, heat 40/50, linear elasticity 53/63, Helmholtz 52/62, convection--diffusion 68/84, reaction--diffusion 64/64, and wave 42/42."
+  },
+  "observables": [
+    "All 456 cases produced executable, schema-valid outputs through one public fixed adapter.",
+    "The official final gate passed 396/456 cases for an 86.8 percent micro-average.",
+    "The unweighted seven-family macro-average was 87.6 percent.",
+    "Every complete family exceeded 75 percent; reaction--diffusion and wave each passed 100 percent.",
+    "Correcting the complete backward-Euler SUPG residual raised convection--diffusion from 64/84 to 68/84."
+  ],
+  "acceptance": [
+    "Consume only the official public agent view and never oracle mesh, oracle finite-element order, oracle solver settings, manufactured solution, or case identity.",
+    "Require execution, accuracy, and time gates rather than treating process success as a scientific pass.",
+    "Require at least 75 percent in every included family and at least 75 percent for both macro- and micro-average scores.",
+    "Retain the benchmark commit, AgentFEM source identity, commands, failure taxonomy, and per-family denominators."
+  ],
+  "limitations": [
+    "This is a local fixed-adapter development result, not an official leaderboard submission and not a measurement of gpt-5.1.",
+    "The public agent view of several three-dimensional manufactured cases is inconsistent with its withheld manufactured solution; AgentFEM follows the exposed equation and does not add case-specific exceptions.",
+    "A fixed-adapter score does not establish an AI assistance advantage; that claim requires a same-model, same-budget controlled A/B study.",
+    "Temporary official-runner artifacts are not distributed in the Python package; the pinned command and normalized evidence contract are the reproducibility path."
+  ]
+}

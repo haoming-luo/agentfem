@@ -138,7 +138,8 @@ finite-element simulation with AgentFEM.
   retained for non-rectangular domains.
   For the pinned PDEAgent-Bench contract, use
   `integrations.pdeagent_bench.solve_case(...)` and read
-  `docs/pdeagent_bench.md`. Do not read oracle-only mesh, FEM, solver, or
+  `docs/pdeagent_bench.md`; inspect `SUPPORTED_FAMILIES` rather than guessing
+  capability from a case name. Do not read oracle-only mesh, FEM, solver, or
   manufactured-solution fields, dispatch on case IDs, or infer success from
   execution alone. Preserve the benchmark commit and failure taxonomy.
   When observations and the FEM mesh use different axes or origins, pass an

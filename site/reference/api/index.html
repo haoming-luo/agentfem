@@ -5946,6 +5946,31 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td><code>second_order_system(M, K, C = None, F = None, *, name: str = 'Ma_plus_Cv_plus_Ku_eq_F')</code></td>
 <td>Create <code>M a + C v + K u = F</code> with optional damping and force.</td>
 </tr>
+<tr>
+<td>function</td>
+<td><code>advection_operator(trial, test, velocity, *, measure = ufl.dx, name: str = 'A_advection') -&gt; OperatorForm</code></td>
+<td>Return the Galerkin advection operator <code>(v . grad(u), w)</code>.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>as_velocity(velocity)</code></td>
+<td>Normalize a public velocity sequence without hiding UFL expressions.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>intrinsic_time_scale(domain, velocity)</code></td>
+<td>Return the standard cellwise advective SUPG scale <code>h/(2 \|v\|)</code>.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>reaction_expression(value, law: str \| Mapping[str, object], **parameters)</code></td>
+<td>Lower a named scalar reaction law to a UFL expression.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>streamline_upwind_operator(strong_residual, test, velocity, *, tau = None, domain = None, measure = ufl.dx, name: str = 'A_supg') -&gt; OperatorForm</code></td>
+<td>Return a SUPG contribution <code>tau R(u) (v . grad(w))</code>.</td>
+</tr>
 </tbody>
 </table>
 <h2 id="agentfemproblems"><code>agentfem.problems</code><a class="headerlink" href="#agentfemproblems" title="Permanent link">&para;</a></h2>

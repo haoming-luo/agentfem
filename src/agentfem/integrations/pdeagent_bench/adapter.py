@@ -12,9 +12,14 @@ import ufl
 from dolfinx import fem, mesh as dolfinx_mesh
 from mpi4py import MPI
 
-from agentfem import expressions, fields, mesh, results, solvers
+from agentfem import expressions, fields, mesh, operators, results, solvers
 
-from .schema import BENCHMARK_COMMIT, BENCHMARK_SCHEMA, BenchmarkContractError, validate_case_spec
+from .schema import (
+    BENCHMARK_COMMIT,
+    BENCHMARK_SCHEMA,
+    BenchmarkContractError,
+    validate_case_spec,
+)
 
 
 @dataclass(frozen=True)
@@ -51,7 +56,9 @@ class BenchmarkPolicy:
             geometric = int(self.planar_resolution)
         return max(geometric, min(32, 6 * frequency))
 
-    def linear_options(self, *, indefinite: bool = False) -> solvers.LinearSolverOptions:
+    def linear_options(
+        self, *, indefinite: bool = False
+    ) -> solvers.LinearSolverOptions:
         return solvers.LinearSolverOptions(
             ksp_type="preonly" if indefinite else self.ksp_type,
             pc_type="lu" if indefinite else self.pc_type,
@@ -112,6 +119,16 @@ def solve_case(
         elif family == "helmholtz":
             solved, info = _solve_helmholtz(case, domain, selected, degree)
             initial = None
+        elif family == "convection_diffusion":
+            solved, info, initial = _solve_convection_diffusion(
+                case, domain, selected, degree
+            )
+        elif family == "reaction_diffusion":
+            solved, info, initial = _solve_reaction_diffusion(
+                case, domain, selected, degree
+            )
+        elif family == "wave":
+            solved, info, initial = _solve_wave(case, domain, selected, degree)
         else:  # validation owns the public failure, this protects refactors
             raise BenchmarkContractError("AFM-PDEB-008", f"unsupported PDE {family}")
         grid = _sample(case, solved, vector=(family == "linear_elasticity"))
@@ -155,7 +172,12 @@ def _solve_poisson(case, domain, policy, degree):
     a = ufl.inner(kappa * ufl.grad(unknown.trial), ufl.grad(unknown.test)) * ufl.dx
     L = source * unknown.test * ufl.dx
     _, info = solvers.solve_linear_problem(
-        fem.form(a), fem.form(L), unknown.value, bcs=bcs, options=policy.linear_options(), return_info=True
+        fem.form(a),
+        fem.form(L),
+        unknown.value,
+        bcs=bcs,
+        options=policy.linear_options(),
+        return_info=True,
     )
     return unknown.value, _linear_info(info, policy)
 
@@ -187,9 +209,7 @@ def _solve_helmholtz(case, domain, policy, degree):
 
 def _solve_elasticity(case, domain, policy, degree):
     dimension = int(domain.geometry.dim)
-    unknown = fields.vector_unknown(
-        domain, name="u", degree=degree, dim=dimension
-    )
+    unknown = fields.vector_unknown(domain, name="u", degree=degree, dim=dimension)
     pde = case["pde"]
     params = pde.get("pde_params", {})
     if "lambda" in params and "mu" in params:
@@ -210,15 +230,19 @@ def _solve_elasticity(case, domain, policy, degree):
 
     def stress(value):
         eps = strain(value)
-        return (
-            2.0 * shear_modulus * eps
-            + lame_lambda * ufl.tr(eps) * ufl.Identity(dimension)
+        return 2.0 * shear_modulus * eps + lame_lambda * ufl.tr(eps) * ufl.Identity(
+            dimension
         )
 
     a = ufl.inner(stress(unknown.trial), strain(unknown.test)) * ufl.dx
     L = ufl.inner(source, unknown.test) * ufl.dx
     _, info = solvers.solve_linear_problem(
-        fem.form(a), fem.form(L), unknown.value, bcs=bcs, options=policy.linear_options(), return_info=True
+        fem.form(a),
+        fem.form(L),
+        unknown.value,
+        bcs=bcs,
+        options=policy.linear_options(),
+        return_info=True,
     )
     payload = _linear_info(info, policy)
     payload.update({"lame_lambda": lame_lambda, "shear_modulus": shear_modulus})
@@ -235,7 +259,9 @@ def _solve_heat(case, domain, policy, degree):
     nominal_dt = float(time_cfg.get("dt", 0.01))
     steps = int(np.ceil((t_end - t0) / nominal_dt - 1.0e-14))
     if steps < 1:
-        raise BenchmarkContractError("AFM-PDEB-002", "heat analysis needs at least one step")
+        raise BenchmarkContractError(
+            "AFM-PDEB-002", "heat analysis needs at least one step"
+        )
     dt = (t_end - t0) / steps
     time = fem.Constant(domain, t0)
     initial = pde.get("initial_condition", 0.0)
@@ -270,8 +296,377 @@ def _solve_heat(case, domain, policy, degree):
     if last_info is None:
         raise RuntimeError("Heat problem did not execute a time step.")
     payload = _linear_info(last_info, policy)
-    payload.update({"num_timesteps": steps, "dt": dt, "matrix_reused": True})
+    payload.update(
+        {
+            "num_timesteps": steps,
+            "n_steps": steps,
+            "time_scheme": "backward_euler",
+            "dt": dt,
+            "matrix_reused": True,
+        }
+    )
     return unknown.value, payload, initial_field
+
+
+def _solve_convection_diffusion(case, domain, policy, degree):
+    """Solve steady or backward-Euler advection--diffusion with optional SUPG."""
+
+    unknown = fields.scalar_unknown(domain, name="u", degree=degree)
+    pde = case["pde"]
+    params = pde.get("pde_params", {})
+    epsilon = float(params.get("epsilon", 1.0))
+    beta_values = tuple(float(value) for value in params.get("beta", (1.0, 0.0)))
+    dimension = int(domain.geometry.dim)
+    if len(beta_values) != dimension:
+        raise BenchmarkContractError(
+            "AFM-PDEB-003",
+            f"convection vector has {len(beta_values)} components for a {dimension}D domain",
+        )
+    beta = operators.as_velocity(beta_values)
+    stabilization = str(params.get("stabilization", "none")).lower() == "supg"
+    source_spec = pde.get("source_term", 0.0)
+    time_cfg = pde.get("time")
+    time = fem.Constant(domain, float(time_cfg.get("t0", 0.0)) if time_cfg else 0.0)
+    source = _known_field(source_spec, unknown.space, parameters={"t": time})
+    bcs, boundary_values = _dirichlet_bcs(
+        case, unknown.value, parameters={"t": time}, track_values=True
+    )
+
+    advected = ufl.dot(beta, ufl.grad(unknown.trial))
+    a_spatial = (
+        epsilon * ufl.inner(ufl.grad(unknown.trial), ufl.grad(unknown.test))
+        + advected * unknown.test
+    ) * ufl.dx
+    L_spatial = source * unknown.test * ufl.dx
+    tau = None
+    if stabilization and np.linalg.norm(beta_values) > 0.0:
+        tau = operators.intrinsic_time_scale(domain, beta_values)
+        streamline_test = ufl.dot(beta, ufl.grad(unknown.test))
+        strong_trial = advected - epsilon * ufl.div(ufl.grad(unknown.trial))
+        a_spatial += tau * strong_trial * streamline_test * ufl.dx
+        L_spatial += tau * source * streamline_test * ufl.dx
+
+    initial_field = None
+    if time_cfg is None:
+        _, info = solvers.solve_linear_problem(
+            fem.form(a_spatial),
+            fem.form(L_spatial),
+            unknown.value,
+            bcs=bcs,
+            options=policy.linear_options(indefinite=True),
+            return_info=True,
+        )
+        payload = _linear_info(info, policy, indefinite=True)
+        payload.update(
+            {
+                "stabilization": "supg" if stabilization else "none",
+                "epsilon": epsilon,
+                "beta": beta_values,
+                "steady": True,
+            }
+        )
+        return unknown.value, payload, initial_field
+
+    previous = fem.Function(unknown.space, name="u_previous")
+    expressions.interpolate(
+        previous, pde.get("initial_condition", 0.0), parameters={"t": time}
+    )
+    initial_field = fem.Function(unknown.space, name="u_initial")
+    initial_field.x.array[:] = previous.x.array
+    initial_field.x.scatter_forward()
+    t0, t_end, dt, steps = _time_grid(time_cfg)
+    a = (unknown.trial * unknown.test) * ufl.dx + dt * a_spatial
+    L = (previous * unknown.test) * ufl.dx + dt * L_spatial
+    if tau is not None:
+        streamline_test = ufl.dot(beta, ufl.grad(unknown.test))
+        a += tau * unknown.trial * streamline_test * ufl.dx
+        L += tau * previous * streamline_test * ufl.dx
+    with solvers.prepare_linear_problem(
+        a, L, unknown.value, bcs=bcs, options=policy.linear_options(indefinite=True)
+    ) as problem:
+        for step in range(1, steps + 1):
+            time.value = t0 + step * dt
+            expressions.interpolate(source, source_spec, parameters={"t": time})
+            _refresh_dirichlet_values(boundary_values, parameters={"t": time})
+            problem.solve()
+            previous.x.array[:] = unknown.value.x.array
+            previous.x.scatter_forward()
+        info = problem.last_solve_info
+    if info is None:
+        raise RuntimeError("Transient convection--diffusion did not execute a step.")
+    payload = _linear_info(info, policy, indefinite=True)
+    payload.update(
+        {
+            "stabilization": "supg" if stabilization else "none",
+            "epsilon": epsilon,
+            "beta": beta_values,
+            "steady": False,
+            "num_timesteps": steps,
+            "n_steps": steps,
+            "time_scheme": "backward_euler",
+            "dt": dt,
+            "matrix_reused": True,
+        }
+    )
+    return unknown.value, payload, initial_field
+
+
+def _solve_reaction_diffusion(case, domain, policy, degree):
+    """Solve transient linear or nonlinear reaction--diffusion equations."""
+
+    unknown = fields.scalar_unknown(domain, name="u", degree=degree)
+    pde = case["pde"]
+    params = pde.get("pde_params", {})
+    epsilon = float(params.get("epsilon", 1.0))
+    reaction = params.get("reaction", {"type": "linear", "alpha": 0.0})
+    reaction_type = str(reaction.get("type", "linear")).lower()
+    time_cfg = pde["time"]
+    t0, _, dt, steps = _time_grid(time_cfg)
+    time = fem.Constant(domain, t0)
+    previous = fem.Function(unknown.space, name="u_previous")
+    initial_spec = pde.get("initial_condition", 0.0)
+    source_spec = pde.get("source_term", 0.0)
+    expressions.interpolate(previous, initial_spec, parameters={"t": time})
+    source = _known_field(source_spec, unknown.space, parameters={"t": time})
+    initial_field = fem.Function(unknown.space, name="u_initial")
+    initial_field.x.array[:] = previous.x.array
+    initial_field.x.scatter_forward()
+    bcs, boundary_values = _dirichlet_bcs(
+        case, unknown.value, parameters={"t": time}, track_values=True
+    )
+    scheme = str(time_cfg.get("scheme", "backward_euler")).lower().replace("-", "_")
+
+    if reaction_type == "linear":
+        alpha = float(reaction.get("alpha", 0.0))
+        theta = 0.5 if scheme == "crank_nicolson" else 1.0
+        previous_source = fem.Function(unknown.space, name="source_previous")
+        previous_source.x.array[:] = source.x.array
+        previous_source.x.scatter_forward()
+        a = (
+            unknown.trial * unknown.test
+            + dt
+            * theta
+            * (
+                epsilon * ufl.inner(ufl.grad(unknown.trial), ufl.grad(unknown.test))
+                + alpha * unknown.trial * unknown.test
+            )
+        ) * ufl.dx
+        L = (
+            previous * unknown.test
+            - dt
+            * (1.0 - theta)
+            * (
+                epsilon * ufl.inner(ufl.grad(previous), ufl.grad(unknown.test))
+                + alpha * previous * unknown.test
+            )
+            + dt * (theta * source + (1.0 - theta) * previous_source) * unknown.test
+        ) * ufl.dx
+        with solvers.prepare_linear_problem(
+            a, L, unknown.value, bcs=bcs, options=policy.linear_options(indefinite=True)
+        ) as problem:
+            for step in range(1, steps + 1):
+                time.value = t0 + step * dt
+                expressions.interpolate(source, source_spec, parameters={"t": time})
+                _refresh_dirichlet_values(boundary_values, parameters={"t": time})
+                problem.solve()
+                previous.x.array[:] = unknown.value.x.array
+                previous.x.scatter_forward()
+                previous_source.x.array[:] = source.x.array
+                previous_source.x.scatter_forward()
+            info = problem.last_solve_info
+        if info is None:
+            raise RuntimeError("Linear reaction--diffusion did not execute a step.")
+        payload = _linear_info(info, policy, indefinite=True)
+        nonlinear_iterations: list[int] = []
+    else:
+        value = unknown.value
+        test = unknown.test
+        reaction_value = operators.reaction_expression(value, reaction)
+        residual = (
+            (value - previous) * test
+            + dt * epsilon * ufl.inner(ufl.grad(value), ufl.grad(test))
+            + dt * reaction_value * test
+            - dt * source * test
+        ) * ufl.dx
+        jacobian = ufl.derivative(residual, value, unknown.trial)
+        options = solvers.NonlinearSolverOptions(
+            rtol=policy.relative_tolerance,
+            atol=policy.absolute_tolerance,
+            max_it=35,
+            line_search_type="bt",
+            ksp_type="preonly",
+            pc_type="lu",
+        )
+        nonlinear_iterations = []
+        info = None
+        for step in range(1, steps + 1):
+            time.value = t0 + step * dt
+            expressions.interpolate(source, source_spec, parameters={"t": time})
+            _refresh_dirichlet_values(boundary_values, parameters={"t": time})
+            value.x.array[:] = previous.x.array
+            value.x.scatter_forward()
+            _, info = solvers.solve_nonlinear_problem(
+                fem.form(residual),
+                value,
+                bcs=bcs,
+                jacobian_form=fem.form(jacobian),
+                options=options,
+                petsc_options_prefix="agentfem_pdebench_rd_",
+            )
+            if not info.converged:
+                raise RuntimeError(
+                    f"reaction--diffusion Newton failed at step {step}: {info.as_dict()}"
+                )
+            nonlinear_iterations.append(int(info.iterations))
+            previous.x.array[:] = value.x.array
+            previous.x.scatter_forward()
+        if info is None:
+            raise RuntimeError("Nonlinear reaction--diffusion did not execute a step.")
+        payload = {
+            "ksp_type": "preonly",
+            "pc_type": "lu",
+            "converged": bool(info.converged),
+            "converged_reason": int(info.converged_reason),
+            "iterations": int(info.iterations),
+            "residual_norm": float(info.function_norm),
+        }
+
+    payload.update(
+        {
+            "reaction_type": reaction_type,
+            "epsilon": epsilon,
+            "scheme": scheme,
+            "time_scheme": scheme,
+            "num_timesteps": steps,
+            "n_steps": steps,
+            "dt": dt,
+            "nonlinear_iterations": nonlinear_iterations,
+            "nonlinear_iterations_total": sum(nonlinear_iterations),
+        }
+    )
+    return unknown.value, payload, initial_field
+
+
+def _solve_wave(case, domain, policy, degree):
+    """Solve the scalar wave equation with average-acceleration Newmark."""
+
+    unknown = fields.scalar_unknown(domain, name="u", degree=degree)
+    pde = case["pde"]
+    time_cfg = pde["time"]
+    t0, _, dt, steps = _time_grid(time_cfg)
+    wave_speed = float(pde.get("pde_params", {}).get("c", 1.0))
+    time = fem.Constant(domain, t0)
+    displacement = unknown.value
+    velocity = fem.Function(unknown.space, name="velocity")
+    acceleration = fem.Function(unknown.space, name="acceleration")
+    expressions.interpolate(
+        displacement, pde.get("initial_condition", 0.0), parameters={"t": time}
+    )
+    expressions.interpolate(
+        velocity, pde.get("initial_velocity", 0.0), parameters={"t": time}
+    )
+    initial_field = fem.Function(unknown.space, name="u_initial")
+    initial_field.x.array[:] = displacement.x.array
+    initial_field.x.scatter_forward()
+    source_spec = pde.get("source_term", 0.0)
+    source = _known_field(source_spec, unknown.space, parameters={"t": time})
+    bcs, boundary_values = _dirichlet_bcs(
+        case, displacement, parameters={"t": time}, track_values=True
+    )
+
+    # Consistent initial acceleration: M a0 = f0 - K u0.  Homogeneous
+    # acceleration values on constrained displacement dofs avoid injecting a
+    # spurious boundary impulse; Newmark then enforces the prescribed motion.
+    zero_bcs = []
+    for bc in bcs:
+        zero = fem.Function(unknown.space)
+        zero_bcs.append(fem.dirichletbc(zero, bc.dof_indices()[0]))
+    mass = unknown.trial * unknown.test * ufl.dx
+    initial_rhs = (
+        source * unknown.test
+        - wave_speed**2 * ufl.inner(ufl.grad(displacement), ufl.grad(unknown.test))
+    ) * ufl.dx
+    solvers.solve_linear_problem(
+        fem.form(mass),
+        fem.form(initial_rhs),
+        acceleration,
+        bcs=zero_bcs,
+        options=policy.linear_options(),
+    )
+
+    beta_newmark = 0.25
+    gamma_newmark = 0.5
+    predicted_u = fem.Function(unknown.space, name="predicted_u")
+    predicted_v = fem.Function(unknown.space, name="predicted_v")
+    effective = (
+        unknown.trial * unknown.test
+        + beta_newmark
+        * dt**2
+        * wave_speed**2
+        * ufl.inner(ufl.grad(unknown.trial), ufl.grad(unknown.test))
+    ) * ufl.dx
+    rhs = (
+        predicted_u * unknown.test + beta_newmark * dt**2 * source * unknown.test
+    ) * ufl.dx
+    with solvers.prepare_linear_problem(
+        effective,
+        rhs,
+        displacement,
+        bcs=bcs,
+        options=policy.linear_options(),
+    ) as problem:
+        for step in range(1, steps + 1):
+            predicted_u.x.array[:] = (
+                displacement.x.array
+                + dt * velocity.x.array
+                + dt**2 * (0.5 - beta_newmark) * acceleration.x.array
+            )
+            predicted_v.x.array[:] = (
+                velocity.x.array + dt * (1.0 - gamma_newmark) * acceleration.x.array
+            )
+            predicted_u.x.scatter_forward()
+            predicted_v.x.scatter_forward()
+            time.value = t0 + step * dt
+            expressions.interpolate(source, source_spec, parameters={"t": time})
+            _refresh_dirichlet_values(boundary_values, parameters={"t": time})
+            problem.solve()
+            new_acceleration = (displacement.x.array - predicted_u.x.array) / (
+                beta_newmark * dt**2
+            )
+            velocity.x.array[:] = (
+                predicted_v.x.array + gamma_newmark * dt * new_acceleration
+            )
+            acceleration.x.array[:] = new_acceleration
+            velocity.x.scatter_forward()
+            acceleration.x.scatter_forward()
+        info = problem.last_solve_info
+    if info is None:
+        raise RuntimeError("Wave analysis did not execute a time step.")
+    payload = _linear_info(info, policy)
+    payload.update(
+        {
+            "time_integrator": "newmark_average_acceleration",
+            "wave_speed": wave_speed,
+            "num_timesteps": steps,
+            "n_steps": steps,
+            "time_scheme": "newmark_average_acceleration",
+            "dt": dt,
+            "matrix_reused": True,
+        }
+    )
+    return displacement, payload, initial_field
+
+
+def _time_grid(time_cfg):
+    t0 = float(time_cfg.get("t0", 0.0))
+    t_end = float(time_cfg["t_end"])
+    nominal_dt = float(time_cfg.get("dt", 0.01))
+    steps = int(np.ceil((t_end - t0) / nominal_dt - 1.0e-14))
+    if steps < 1:
+        raise BenchmarkContractError(
+            "AFM-PDEB-002", "time interval needs at least one step"
+        )
+    return t0, t_end, (t_end - t0) / steps, steps
 
 
 def _coefficient(pde, name, space, *, default, parameters=None):
@@ -302,7 +697,8 @@ def _known_field(source, space, *, parameters=None):
         expressions.interpolate(value, source, parameters=parameters)
     except Exception as exc:
         raise BenchmarkContractError(
-            "AFM-PDEB-003", f"could not interpolate scientific expression {source!r}: {exc}"
+            "AFM-PDEB-003",
+            f"could not interpolate scientific expression {source!r}: {exc}",
         ) from exc
     return value
 
@@ -310,13 +706,17 @@ def _known_field(source, space, *, parameters=None):
 def _dirichlet_bcs(case, function, *, parameters=None, track_values: bool = False):
     raw = case.get("bc", {}).get("dirichlet")
     if raw is None:
-        raise BenchmarkContractError("AFM-PDEB-005", "Dirichlet boundary data are required")
+        raise BenchmarkContractError(
+            "AFM-PDEB-005", "Dirichlet boundary data are required"
+        )
     entries = raw if isinstance(raw, list) else [raw]
     bcs = []
     tracked = []
     for entry in entries:
         if not isinstance(entry, Mapping):
-            raise BenchmarkContractError("AFM-PDEB-005", "Dirichlet entry must be a mapping")
+            raise BenchmarkContractError(
+                "AFM-PDEB-005", "Dirichlet entry must be a mapping"
+            )
         dofs = _boundary_dofs(function.function_space, str(entry.get("on", "all")))
         value = fem.Function(function.function_space)
         expressions.interpolate(value, entry.get("value", 0.0), parameters=parameters)
@@ -340,12 +740,23 @@ def _boundary_dofs(space, selector: str):
         )
         return fem.locate_dofs_topological(space, fdim, facets)
     axis_and_value = {
-        "x0": (0, 0.0), "xmin": (0, 0.0), "x1": (0, 1.0), "xmax": (0, 1.0),
-        "y0": (1, 0.0), "ymin": (1, 0.0), "y1": (1, 1.0), "ymax": (1, 1.0),
-        "z0": (2, 0.0), "zmin": (2, 0.0), "z1": (2, 1.0), "zmax": (2, 1.0),
+        "x0": (0, 0.0),
+        "xmin": (0, 0.0),
+        "x1": (0, 1.0),
+        "xmax": (0, 1.0),
+        "y0": (1, 0.0),
+        "ymin": (1, 0.0),
+        "y1": (1, 1.0),
+        "ymax": (1, 1.0),
+        "z0": (2, 0.0),
+        "zmin": (2, 0.0),
+        "z1": (2, 1.0),
+        "zmax": (2, 1.0),
     }
     if key not in axis_and_value or axis_and_value[key][0] >= domain.geometry.dim:
-        raise BenchmarkContractError("AFM-PDEB-005", f"unknown boundary selector {selector!r}")
+        raise BenchmarkContractError(
+            "AFM-PDEB-005", f"unknown boundary selector {selector!r}"
+        )
     axis, value = axis_and_value[key]
     return fem.locate_dofs_geometrical(space, lambda x: np.isclose(x[axis], value))
 
@@ -368,12 +779,17 @@ def _sample(case, function, *, vector: bool):
 def _require_output_coverage(case, values):
     finite = np.isfinite(values)
     if not np.any(finite):
-        raise BenchmarkContractError("AFM-PDEB-007", "output has no finite in-domain values")
+        raise BenchmarkContractError(
+            "AFM-PDEB-007", "output has no finite in-domain values"
+        )
     domain_type = str(case["domain"].get("type", ""))
-    if domain_type in {"unit_square", "unit_cube", "periodic_square"} and not np.all(finite):
+    if domain_type in {"unit_square", "unit_cube", "periodic_square"} and not np.all(
+        finite
+    ):
         missing = int(finite.size - np.count_nonzero(finite))
         raise BenchmarkContractError(
-            "AFM-PDEB-007", f"structured-domain output contains {missing} missing samples"
+            "AFM-PDEB-007",
+            f"structured-domain output contains {missing} missing samples",
         )
 
 

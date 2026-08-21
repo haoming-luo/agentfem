@@ -61,6 +61,13 @@ from .system import (
     linear_system,
     second_order_system,
 )
+from .transport import (
+    advection_operator,
+    as_velocity,
+    intrinsic_time_scale,
+    reaction_expression,
+    streamline_upwind_operator,
+)
 
 assemble_lumped_mass = lumped_mass
 assemble_lumped_operator = lumped_operator
@@ -71,6 +78,8 @@ __all__ = [
     "OperatorForm",
     "SecondOrderSystem",
     "action",
+    "advection_operator",
+    "as_velocity",
     "assemble_lumped_mass",
     "assemble_lumped_operator",
     "assemble_matrix",
@@ -98,6 +107,7 @@ __all__ = [
     "heat_source_vector",
     "inertial_force_vector",
     "internal_force_vector",
+    "intrinsic_time_scale",
     "linear_system",
     "first_order_system",
     "second_order_system",
@@ -109,12 +119,14 @@ __all__ = [
     "mass_operator",
     "residual_operator",
     "rayleigh_damping",
+    "reaction_expression",
     "robin_operator",
     "robin_source_vector",
     "scale",
     "source_vector",
     "stiffness",
     "stiffness_operator",
+    "streamline_upwind_operator",
     "thermal_expansion_vector",
     "quadratic_form",
     "xtmx",

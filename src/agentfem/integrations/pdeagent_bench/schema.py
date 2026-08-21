@@ -10,6 +10,17 @@ from agentfem.mesh.specs import SUPPORTED_GEOMETRIES
 BENCHMARK_NAME = "PDEAgent-Bench"
 BENCHMARK_SCHEMA = "pdeagent-bench.agent-view.v2"
 BENCHMARK_COMMIT = "0ba9853f82a78196796fa4eeaf0951eb4c000a00"
+SUPPORTED_FAMILIES = frozenset(
+    {
+        "poisson",
+        "heat",
+        "linear_elasticity",
+        "helmholtz",
+        "convection_diffusion",
+        "reaction_diffusion",
+        "wave",
+    }
+)
 
 
 class BenchmarkContractError(ValueError):
@@ -35,12 +46,11 @@ def validate_case_spec(case_spec: Mapping[str, object]) -> dict[str, object]:
     domain = _mapping(case_spec["domain"], "domain", "AFM-PDEB-001")
     output = _mapping(case_spec["output"], "output", "AFM-PDEB-006")
     family = str(pde.get("type") or _equation_type(case_spec)).strip().lower()
-    supported = {"poisson", "heat", "linear_elasticity", "helmholtz"}
-    if family not in supported:
+    if family not in SUPPORTED_FAMILIES:
         raise BenchmarkContractError(
             "AFM-PDEB-008",
             f"PDE family {family!r} is not supported by this adapter; "
-            f"supported families are {tuple(sorted(supported))}",
+            f"supported families are {tuple(sorted(SUPPORTED_FAMILIES))}",
         )
     domain_type = str(domain.get("type", "")).strip().lower()
     if domain_type not in SUPPORTED_GEOMETRIES:
@@ -59,16 +69,21 @@ def validate_case_spec(case_spec: Mapping[str, object]) -> dict[str, object]:
         raise BenchmarkContractError(
             "AFM-PDEB-006", f"output.grid requires positive {shape_keys}"
         )
-    if family == "heat":
+    if family in {"heat", "reaction_diffusion", "wave"} or (
+        family == "convection_diffusion" and "time" in pde
+    ):
         time = pde.get("time")
         if not isinstance(time, Mapping) or "t_end" not in time:
             raise BenchmarkContractError(
-                "AFM-PDEB-002", "heat equation requires pde.time.t_end"
+                "AFM-PDEB-002", f"{family} requires pde.time.t_end"
             )
-        scheme = str(time.get("scheme", "backward_euler")).lower()
-        if scheme not in {"backward_euler", "backward-euler", "implicit_euler"}:
+        scheme = str(time.get("scheme", "backward_euler")).lower().replace("-", "_")
+        accepted = {"backward_euler", "implicit_euler"}
+        if family == "reaction_diffusion":
+            accepted.add("crank_nicolson")
+        if family != "wave" and scheme not in accepted:
             raise BenchmarkContractError(
-                "AFM-PDEB-002", f"unsupported heat time scheme {scheme!r}"
+                "AFM-PDEB-002", f"unsupported {family} time scheme {scheme!r}"
             )
     normalized = dict(case_spec)
     normalized["pde"] = dict(pde)

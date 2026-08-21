@@ -30,7 +30,8 @@ Repository package paths below are relative to `src/agentfem/`.
 - `boundary_models/`: weak boundary models
 - `forms.py`: UFL weak-form blocks
 - `assembly.py`: matrix/vector/lumped assembly
-- `operators/`: engineering-level K/M/C/F operators and system containers
+- `operators/`: engineering-level K/M/C/F, transport, SUPG, reaction operators,
+  and system containers
 - `time/`: central difference, Newmark, generalized-alpha, progress, and cadence
 - `problems.py`: analysis steps, system problems, and state containers
 - `solvers.py`: PETSc solver wrappers and convergence evidence

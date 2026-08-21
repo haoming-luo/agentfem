@@ -30,7 +30,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Boundary models | `boundary_models/` |
 | UFL weak-form blocks, including stiffness, mass, diffusion, and loads | `forms.py` |
 | Assembly | `assembly.py` |
-| Engineering-level K/M/C/F operators | `operators/` |
+| Engineering-level K/M/C/F, transport, SUPG, and reaction operators | `operators/` |
 | Central difference, Newmark, generalized-alpha, and runtime cadence | `time/` |
 | Analysis steps, system problems, and state containers | `problems.py` |
 | Shared transient checkpoint envelope, integrity, accepted-increment cadence, and partition identity | `checkpointing.py` |

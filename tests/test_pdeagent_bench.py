@@ -7,6 +7,7 @@ import pytest
 
 from agentfem.integrations.pdeagent_bench import (
     BENCHMARK_COMMIT,
+    SUPPORTED_FAMILIES,
     BenchmarkContractError,
     BenchmarkPolicy,
     read_official_summary,
@@ -35,6 +36,18 @@ def test_benchmark_schema_rejects_unknown_pde_without_guessing():
 
     with pytest.raises(BenchmarkContractError, match="AFM-PDEB-008"):
         validate_case_spec(case)
+
+
+def test_benchmark_family_capability_is_machine_readable():
+    assert SUPPORTED_FAMILIES == {
+        "poisson",
+        "heat",
+        "linear_elasticity",
+        "helmholtz",
+        "convection_diffusion",
+        "reaction_diffusion",
+        "wave",
+    }
 
 
 def test_poisson_adapter_returns_strict_grid_and_solver_evidence():
@@ -67,6 +80,181 @@ def test_heat_adapter_returns_initial_and_final_grids():
     assert result["u_initial"].shape == (7, 9)
     assert result["solver_info"]["num_timesteps"] == 2
     assert result["solver_info"]["matrix_reused"] is True
+
+
+@pytest.mark.parametrize(
+    ("pde", "boundary", "exact", "tolerance"),
+    [
+        (
+            {
+                "type": "helmholtz",
+                "pde_params": {"k": 2.0},
+                "source_term": "(-4 + 2*pi**2)*sin(pi*x)*sin(pi*y)",
+            },
+            "sin(pi*x)*sin(pi*y)",
+            lambda x, y: np.sin(np.pi * x) * np.sin(np.pi * y),
+            2.0e-3,
+        ),
+        (
+            {
+                "type": "convection_diffusion",
+                "pde_params": {
+                    "epsilon": 0.1,
+                    "beta": [1.0, 0.5],
+                    "stabilization": "supg",
+                },
+                "source_term": (
+                    "0.2*pi**2*sin(pi*x)*sin(pi*y) + "
+                    "pi*cos(pi*x)*sin(pi*y) + "
+                    "0.5*pi*sin(pi*x)*cos(pi*y)"
+                ),
+            },
+            "sin(pi*x)*sin(pi*y)",
+            lambda x, y: np.sin(np.pi * x) * np.sin(np.pi * y),
+            4.0e-3,
+        ),
+    ],
+)
+def test_steady_scalar_families_follow_public_equations(
+    pde, boundary, exact, tolerance
+):
+    case = _case(pde)
+    case["bc"]["dirichlet"]["value"] = boundary
+
+    result = solve_case(case, policy=BenchmarkPolicy(planar_resolution=12))
+    x = np.linspace(0.0, 1.0, 9)
+    y = np.linspace(0.0, 1.0, 7)
+    xx, yy = np.meshgrid(x, y, indexing="xy")
+    reference = exact(xx, yy)
+    error = np.linalg.norm(result["u"] - reference) / np.linalg.norm(reference)
+
+    assert error < tolerance
+
+
+def test_transient_supg_uses_the_complete_backward_euler_residual():
+    end_time = 0.02
+    mode = "sin(pi*x)*sin(pi*y)"
+    case = _case(
+        {
+            "type": "convection_diffusion",
+            "pde_params": {
+                "epsilon": 0.1,
+                "beta": [1.0, 0.5],
+                "stabilization": "supg",
+            },
+            "time": {"t0": 0.0, "t_end": end_time, "dt": 0.002},
+            "source_term": (
+                f"(-1 + 0.2*pi**2)*{mode}*exp(-t) + "
+                "pi*cos(pi*x)*sin(pi*y)*exp(-t) + "
+                "0.5*pi*sin(pi*x)*cos(pi*y)*exp(-t)"
+            ),
+            "initial_condition": mode,
+        }
+    )
+    case["bc"]["dirichlet"]["value"] = f"{mode}*exp(-t)"
+
+    result = solve_case(case, policy=BenchmarkPolicy(planar_resolution=12))
+    x = np.linspace(0.0, 1.0, 9)
+    y = np.linspace(0.0, 1.0, 7)
+    xx, yy = np.meshgrid(x, y, indexing="xy")
+    reference = np.sin(np.pi * xx) * np.sin(np.pi * yy) * np.exp(-end_time)
+    error = np.linalg.norm(result["u"] - reference) / np.linalg.norm(reference)
+
+    assert error < 4.0e-3
+    assert result["solver_info"]["n_steps"] == 10
+    assert result["solver_info"]["time_scheme"] == "backward_euler"
+
+
+def test_nonlinear_reaction_diffusion_advances_with_transactional_state():
+    case = _case(
+        {
+            "type": "reaction_diffusion",
+            "pde_params": {
+                "epsilon": 0.05,
+                "reaction": {"type": "allen_cahn", "lambda": 1.0},
+            },
+            "time": {
+                "t0": 0.0,
+                "t_end": 0.02,
+                "dt": 0.01,
+                "scheme": "backward_euler",
+            },
+            "source_term": "0.0",
+            "initial_condition": "0.1*sin(pi*x)*sin(pi*y)",
+        }
+    )
+
+    result = solve_case(case, policy=BenchmarkPolicy(planar_resolution=8))
+
+    assert result["solver_info"]["reaction_type"] == "allen_cahn"
+    assert result["solver_info"]["num_timesteps"] == 2
+    assert result["solver_info"]["nonlinear_iterations_total"] > 0
+    assert np.all(np.isfinite(result["u"]))
+
+
+def test_logistic_reaction_uses_positive_residual_convention():
+    end_time = 0.02
+    mode = "sin(pi*x)*sin(pi*y)"
+    solution = f"0.15 + 0.05*{mode}*exp(-t)"
+    case = _case(
+        {
+            "type": "reaction_diffusion",
+            "pde_params": {
+                "epsilon": 0.1,
+                "reaction": {"type": "logistic", "rho": 2.0},
+            },
+            "time": {
+                "t0": 0.0,
+                "t_end": end_time,
+                "dt": 0.002,
+                "scheme": "backward_euler",
+            },
+            "source_term": (
+                f"(-0.05 + 0.01*pi**2)*{mode}*exp(-t) + "
+                f"2.0*({solution})*(1.0 - ({solution}))"
+            ),
+            "initial_condition": f"0.15 + 0.05*{mode}",
+        }
+    )
+    case["bc"]["dirichlet"]["value"] = "0.15"
+
+    result = solve_case(case, policy=BenchmarkPolicy(planar_resolution=12))
+    x = np.linspace(0.0, 1.0, 9)
+    y = np.linspace(0.0, 1.0, 7)
+    xx, yy = np.meshgrid(x, y, indexing="xy")
+    reference = 0.15 + 0.05 * np.sin(np.pi * xx) * np.sin(np.pi * yy) * np.exp(
+        -end_time
+    )
+    error = np.linalg.norm(result["u"] - reference) / np.linalg.norm(reference)
+
+    assert error < 2.0e-3
+    assert len(result["solver_info"]["nonlinear_iterations"]) == 10
+    assert result["solver_info"]["n_steps"] == 10
+
+
+def test_wave_newmark_path_preserves_a_public_manufactured_mode():
+    end_time = 0.02
+    case = _case(
+        {
+            "type": "wave",
+            "pde_params": {"c": 1.0},
+            "time": {"t0": 0.0, "t_end": end_time, "dt": 0.002},
+            "source_term": "(-1 + 2*pi**2)*sin(pi*x)*sin(pi*y)*cos(t)",
+            "initial_condition": "sin(pi*x)*sin(pi*y)",
+            "initial_velocity": "0.0",
+        }
+    )
+    case["bc"]["dirichlet"]["value"] = "sin(pi*x)*sin(pi*y)*cos(t)"
+
+    result = solve_case(case, policy=BenchmarkPolicy(planar_resolution=10))
+    x = np.linspace(0.0, 1.0, 9)
+    y = np.linspace(0.0, 1.0, 7)
+    xx, yy = np.meshgrid(x, y, indexing="xy")
+    reference = np.sin(np.pi * xx) * np.sin(np.pi * yy) * np.cos(end_time)
+    error = np.linalg.norm(result["u"] - reference) / np.linalg.norm(reference)
+
+    assert error < 4.0e-3
+    assert result["solver_info"]["time_integrator"] == "newmark_average_acceleration"
 
 
 def test_three_dimensional_poisson_uses_the_public_equation_not_an_oracle():
@@ -111,9 +299,7 @@ def test_three_dimensional_poisson_uses_the_public_equation_not_an_oracle():
 
 def test_resolution_bandwidth_uses_trigonometric_phase_not_source_amplitude():
     policy = BenchmarkPolicy()
-    high_amplitude = {
-        "source_term": "(-1 + 20*pi**2)*sin(pi*x)*sin(pi*y)*sin(pi*z)"
-    }
+    high_amplitude = {"source_term": "(-1 + 20*pi**2)*sin(pi*x)*sin(pi*y)*sin(pi*z)"}
     high_frequency = {"source_term": "sin(4*pi*x)*sin(pi*y)*sin(pi*z)"}
 
     assert policy.resolution(3, {"type": "unit_cube"}, high_amplitude) == 14

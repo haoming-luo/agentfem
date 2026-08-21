@@ -1366,10 +1366,13 @@ without a benchmark commit and AgentFEM source identity are not comparable.</p>
 manufactured solution, or case-specific hidden reference. The numerical policy
 uses exposed dimension, geometry scale, and expression bandwidth; it does not
 dispatch on case identifiers.</p>
-<p>The initial supported families are Poisson, heat, linear elasticity, and
-Helmholtz. General geometry specifications are lowered through
-<code>mesh.from_spec(...)</code>; structured unit domains remain independent of Gmsh,
-while general planar domains use the optional Gmsh integration.</p>
+<p>The supported families are Poisson, heat, linear elasticity, Helmholtz,
+convection--diffusion, reaction--diffusion, and the scalar wave equation.
+General geometry specifications are lowered through <code>mesh.from_spec(...)</code>;
+structured unit domains remain independent of Gmsh, while general planar
+domains use the optional Gmsh integration. Stabilized transport and named
+reaction laws are implemented as public AgentFEM operators, not hidden in the
+benchmark entry point.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">agentfem.integrations.pdeagent_bench</span><span class="w"> </span><span class="kn">import</span> <span class="n">solve_case</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">answer</span> <span class="o">=</span> <span class="n">solve_case</span><span class="p">(</span><span class="n">public_case_spec</span><span class="p">)</span>
@@ -1380,6 +1383,23 @@ while general planar domains use the optional Gmsh integration.</p>
 Irregular-domain points outside the mesh are <code>NaN</code>; the adapter also reports
 finite coverage instead of exploiting missing samples to reduce the comparison
 domain.</p>
+<p>The added scalar contracts retain their physical equations explicitly:</p>
+<div class="arithmatex">\[
+\partial_t u-\nabla\!\cdot(\varepsilon\nabla u)
+  +\boldsymbol{\beta}\!\cdot\nabla u=f,
+\qquad
+\partial_t u-\nabla\!\cdot(\varepsilon\nabla u)+r(u)=f,
+\]</div>
+<p>and</p>
+<div class="arithmatex">\[
+\partial_{tt}u-c^2\Delta u=f.
+\]</div>
+<p>Steady advection--diffusion can request SUPG stabilization through the public
+transport operators. Reaction--diffusion uses backward Euler, with
+Crank--Nicolson available for linear reactions; the wave path uses the
+average-acceleration Newmark method. Time-step count, scheme, nonlinear
+iterations, solver convergence, sampled coverage, and wall time remain in
+<code>solver_info</code> rather than being inferred from a successful process exit.</p>
 <h2 id="official-runner">Official Runner<a class="headerlink" href="#official-runner" title="Permanent link">&para;</a></h2>
 <p>Clone and check out the pinned benchmark revision, install AgentFEM in a
 compatible FEniCSx environment, and pass the fixed entry point to the official
@@ -1387,9 +1407,10 @@ runner:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>scripts/run_benchmark.py<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--agent<span class="w"> </span>gpt-5.1<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--solver-path<span class="w"> </span>/path/to/agentfem/tools/pdeagent_bench_solver.py<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>--equation-types<span class="w"> </span>poisson<span class="w"> </span>heat<span class="w"> </span>linear_elasticity<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span>--version<span class="w"> </span>v2<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span>--output<span class="w"> </span>/path/to/evidence
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>--equation-types<span class="w"> </span>poisson<span class="w"> </span>heat<span class="w"> </span>linear_elasticity<span class="w"> </span>helmholtz<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span>convection_diffusion<span class="w"> </span>reaction_diffusion<span class="w"> </span>wave<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span>--version<span class="w"> </span>v2<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span>--output<span class="w"> </span>/path/to/evidence
 </code></pre></div>
 <p>The <code>--agent</code> value satisfies the current runner's CLI validation; no model is
 called when <code>--solver-path</code> is supplied. Record that distinction in any report.</p>
@@ -1418,10 +1439,72 @@ does not by itself measure an AI model or prove that AgentFEM improves code
 generation. The second claim requires a controlled A/B experiment.</p>
 <h2 id="verified-development-snapshot">Verified Development Snapshot<a class="headerlink" href="#verified-development-snapshot" title="Permanent link">&para;</a></h2>
 <p>On 21 August 2026, the fixed adapter was run with the official v2 runner at
-the pinned benchmark commit above. It executed all 204 Poisson, heat, and
-linear-elasticity cases without schema, geometry, solver, output, or process
-failure. The official final gate passed 170/204 cases (83.3%). Stratification
-by the benchmark's declared dimension is essential:</p>
+the pinned benchmark commit above. All 456 cases across seven complete
+families produced executable, schema-valid output. The official final gate
+passed 396/456 cases: an 86.8% micro-average and an 87.6% unweighted family
+macro-average. Every family exceeded the declared 75% expansion gate.</p>
+<table>
+<thead>
+<tr>
+<th>Complete public family</th>
+<th style="text-align: right;">Passed</th>
+<th style="text-align: right;">Total</th>
+<th style="text-align: right;">Pass rate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Poisson</td>
+<td style="text-align: right;">77</td>
+<td style="text-align: right;">91</td>
+<td style="text-align: right;">84.6%</td>
+</tr>
+<tr>
+<td>heat</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: right;">50</td>
+<td style="text-align: right;">80.0%</td>
+</tr>
+<tr>
+<td>linear elasticity</td>
+<td style="text-align: right;">53</td>
+<td style="text-align: right;">63</td>
+<td style="text-align: right;">84.1%</td>
+</tr>
+<tr>
+<td>Helmholtz</td>
+<td style="text-align: right;">52</td>
+<td style="text-align: right;">62</td>
+<td style="text-align: right;">83.9%</td>
+</tr>
+<tr>
+<td>convection--diffusion</td>
+<td style="text-align: right;">68</td>
+<td style="text-align: right;">84</td>
+<td style="text-align: right;">81.0%</td>
+</tr>
+<tr>
+<td>reaction--diffusion</td>
+<td style="text-align: right;">64</td>
+<td style="text-align: right;">64</td>
+<td style="text-align: right;">100.0%</td>
+</tr>
+<tr>
+<td>scalar wave</td>
+<td style="text-align: right;">42</td>
+<td style="text-align: right;">42</td>
+<td style="text-align: right;">100.0%</td>
+</tr>
+<tr>
+<td><strong>micro total</strong></td>
+<td style="text-align: right;"><strong>396</strong></td>
+<td style="text-align: right;"><strong>456</strong></td>
+<td style="text-align: right;"><strong>86.8%</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The original three-family set passed 170/204 cases (83.3%). Stratification by
+the benchmark's declared dimension remains essential:</p>
 <table>
 <thead>
 <tr>
@@ -1484,16 +1567,18 @@ The agent name only satisfies the current runner interface when
 <li>Poisson, heat, and linear elasticity: at least 90% combined and 85% in each
   family before calling them the trusted set;</li>
 <li>six to eight families: at least 75% macro-average, with stabilization and
-  mixed-field semantics implemented in the core rather than in case scripts;</li>
+  mixed-field semantics implemented in the core rather than in case scripts
+  (<strong>achieved for seven complete families in the snapshot above</strong>);</li>
 <li>all eleven families: at least 60% macro- and micro-average;</li>
 <li>a same-model, same-budget A/B study before claiming a systematic AI-native
   advantage over regenerating backend code for every problem.</li>
 </ul>
-<p>The next family sequence is Helmholtz and wave, followed by
-convection--diffusion and reaction--diffusion, then Stokes. Burgers,
-Navier--Stokes, and biharmonic problems remain later because they require
-nonlinear transport, mixed pressure spaces, stabilization, or fourth-order
-formulations that deserve first-class AgentFEM contracts.</p>
+<p>After the scalar seven-family milestone, the next defensible family is
+Stokes, but only after pressure-space, pressure-nullspace, mixed boundary, and
+field-output contracts are public. Burgers, Navier--Stokes, and biharmonic
+problems remain later because nonlinear transport, mixed stabilization, and
+fourth-order formulations deserve first-class AgentFEM contracts rather than
+benchmark-local scripts.</p>
 
 
 
