@@ -181,6 +181,9 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   `integrations.pdeagent_bench` contract and fixed solver entry point. Consume
   only the public agent-view case, never case identifiers, oracle numerics, or
   manufactured solutions. Read `SUPPORTED_FAMILIES` before selecting a case.
+  Preserve mixed-field, pressure-reference, periodic-MPC, and fourth-order
+  closure evidence reported in `solver_info`; these are scientific decisions,
+  not disposable backend details.
   Report fixed-adapter capability separately from an AI-agent A/B experiment
   and from any official library-track submission.
 - Model-generated static elasticity returns projected `S/E/MISES` fields

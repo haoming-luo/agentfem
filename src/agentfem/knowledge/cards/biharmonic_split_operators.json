@@ -1,0 +1,110 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.operator.biharmonic_split",
+  "title": "Biharmonic split operators and boundary closure",
+  "kind": "operator",
+  "status": "supported",
+  "summary": "Represents a fourth-order scalar equation through two inspectable second-order Laplacian blocks and keeps the auxiliary boundary closure explicit.",
+  "public_api": [
+    "agentfem.operators.split_laplacian_operator",
+    "agentfem.operators.auxiliary_laplacian_boundary"
+  ],
+  "implementation": [
+    "operators/fourth_order.py"
+  ],
+  "science": {
+    "statement": "A mixed second-order split avoids silently requiring a high-continuity primary element, but it does not remove the need to declare a second boundary condition.",
+    "equations": [
+      {
+        "label": "biharmonic equation",
+        "expression": "\\Delta^2u=f",
+        "description": "The scalar fourth-order balance."
+      },
+      {
+        "label": "two-field split",
+        "expression": "w=-\\Delta u,\\qquad-\\Delta w=f",
+        "description": "Each block uses the public scalar Laplacian weak form."
+      },
+      {
+        "label": "derived public boundary closure",
+        "expression": "u=g,\\qquad w=-\\Delta g\\quad\\text{on }\\partial\\Omega",
+        "description": "This closure is valid only when the supplied expression g defines the intended spatial extension; it is recorded rather than inferred from reference data."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "primary and auxiliary scalar fields",
+        "type": "Lagrange unknowns",
+        "unit_role": "split state",
+        "description": "The auxiliary field carries minus the primary Laplacian."
+      },
+      {
+        "name": "auxiliary boundary condition",
+        "type": "declared or derived scalar expression",
+        "unit_role": "second boundary condition",
+        "description": "Completes the fourth-order boundary-value problem."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "split Laplacian block",
+        "type": "OperatorForm",
+        "unit_role": "second-order weak operator",
+        "description": "Reusable matrix contribution for either primary or auxiliary solve."
+      }
+    ],
+    "assumptions": [
+      "The chosen two-field closure represents the intended fourth-order boundary conditions.",
+      "The supplied primary boundary expression is differentiable when its Laplacian is used.",
+      "A spatially constant primary boundary has zero auxiliary Laplacian."
+    ],
+    "conventions": [
+      "The auxiliary variable is w equals minus Laplacian u.",
+      "Boundary closure is attached to solver evidence.",
+      "Hidden manufactured solutions are never valid sources of auxiliary data."
+    ],
+    "applicability": [
+      "Scalar biharmonic verification problems and reusable mixed second-order prototypes with explicitly reviewed boundary semantics."
+    ],
+    "limitations": [
+      "This operator card does not define every clamped, simply supported, free, or plate-theory boundary pair.",
+      "The current benchmark consumer performs sequential Poisson solves rather than a monolithic block solve."
+    ]
+  },
+  "usage": {
+    "minimal_example": "Define w = -laplacian(u); solve split_laplacian_operator(w, q) = f*q and then split_laplacian_operator(u, v) = w*v with an explicit auxiliary boundary condition.",
+    "examples": [
+      "docs/pdeagent_bench.md",
+      "tests/test_pdeagent_bench.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_operators.py",
+      "tests/test_pdeagent_bench.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.pdeagent_bench_eleven_family"
+    ],
+    "validation_rules": [
+      "Reject a split benchmark case without one public primary boundary expression.",
+      "Record the auxiliary boundary closure in solver_info.",
+      "Test both spatially varying and constant public boundary expressions."
+    ]
+  },
+  "references": [
+    {
+      "title": "UFL form language manual",
+      "locator": "https://docs.fenicsproject.org/ufl/main/manual/form_language.html"
+    },
+    {
+      "title": "PDEAgent-Bench public repository",
+      "locator": "https://github.com/YusanX/pde-agent-bench"
+    }
+  ],
+  "related_cards": [
+    "agentfem.operator.system_contracts",
+    "agentfem.workflow.solution_procedures"
+  ]
+}

@@ -120,11 +120,12 @@ an agent, user, or README from confusing these levels.
   solver-independent schema audit, and separate numerical-capability and
   agent-generation evidence; inconsistent benchmark specifications remain
   dataset findings rather than case-specific solver exceptions;
-- promote the PDE-agent track in evidence-gated stages: Poisson/heat/linear
-  elasticity first; Helmholtz/wave and stabilized scalar transport next;
-  retain the resulting seven-family fixed-adapter evidence as a reproducible
-  release gate; mixed Stokes only after pressure-space and nullspace contracts
-  are public;
+- promote the PDE-agent track in evidence-gated stages: retain the historical
+  seven-family snapshot, then preserve the eleven-family fixed-adapter gate
+  covering Burgers, Stokes, Navier--Stokes, and biharmonic equations through
+  public periodic-MPC, mixed-field, flow-operator, and split-form contracts;
+  next improve three-dimensional flow, general pressure-nullspace treatment,
+  and higher-order boundary semantics without case-identity dispatch;
   keep fixed-adapter capability, same-model agent A/B evidence, and an
   official library track as three distinct claims;
 - serial, MPI, docs, package, and example release gates;

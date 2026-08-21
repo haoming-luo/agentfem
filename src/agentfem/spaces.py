@@ -34,6 +34,46 @@ def vector_space(domain, degree: int = 1, dim: int | None = None):
     return vector_lagrange_space(domain, degree=degree, dim=dim)
 
 
+def velocity_pressure_space(
+    domain,
+    *,
+    velocity_degree: int = 2,
+    pressure_degree: int = 1,
+):
+    """Create a Taylor--Hood velocity/pressure mixed space.
+
+    The default ``P2/P1`` pair is the standard conforming choice for
+    incompressible Stokes and Navier--Stokes flow. The interpolation policy is
+    explicit because a mesh alone never determines a stable mixed method.
+    """
+
+    domain = _domain(domain)
+    if int(velocity_degree) < 2:
+        raise ValueError("velocity_degree must be at least two for Taylor--Hood.")
+    if int(pressure_degree) < 1:
+        raise ValueError("pressure_degree must be at least one.")
+    if int(velocity_degree) <= int(pressure_degree):
+        raise ValueError(
+            "Taylor--Hood requires velocity_degree greater than pressure_degree."
+        )
+    cell = domain.basix_cell()
+    velocity_element = basix.ufl.element(
+        "Lagrange",
+        cell,
+        int(velocity_degree),
+        shape=(int(domain.geometry.dim),),
+    )
+    pressure_element = basix.ufl.element(
+        "Lagrange",
+        cell,
+        int(pressure_degree),
+    )
+    return fem.functionspace(
+        domain,
+        basix.ufl.mixed_element((velocity_element, pressure_element)),
+    )
+
+
 def displacement_pressure_space(
     domain,
     *,

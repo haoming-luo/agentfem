@@ -56,6 +56,43 @@ class BenchmarkPolicy:
             geometric = int(self.planar_resolution)
         return max(geometric, min(32, 6 * frequency))
 
+    def flow_resolution(
+        self,
+        dimension: int,
+        domain_spec: Mapping[str, object],
+        pde_spec: Mapping[str, object],
+        boundary_spec: Mapping[str, object],
+        output_spec: Mapping[str, object],
+    ) -> int:
+        """Choose a public geometry- and bandwidth-aware flow resolution."""
+
+        frequency = _expression_frequency(pde_spec)
+        if dimension == 3:
+            return max(8, 3 * frequency)
+        base = self.resolution(dimension, domain_spec, pde_spec)
+        domain_type = str(domain_spec.get("type", ""))
+        raw_dirichlet = boundary_spec.get("dirichlet")
+        complete_dirichlet = isinstance(raw_dirichlet, Mapping) and str(
+            raw_dirichlet.get("on", "")
+        ).lower() in {"all", "*"}
+        if (
+            domain_type
+            in {
+                "unit_square",
+                "periodic_square",
+            }
+            and complete_dirichlet
+        ):
+            return base
+        grid = output_spec.get("grid", {})
+        samples = max(int(grid.get("nx", 0)), int(grid.get("ny", 0)))
+        requested = (
+            int(np.ceil(0.96 * samples))
+            if domain_type == "unit_square"
+            else int(np.ceil((2.0 / 3.0) * samples))
+        )
+        return max(base, min(90 if domain_type != "unit_square" else 96, requested))
+
     def linear_options(
         self, *, indefinite: bool = False
     ) -> solvers.LinearSolverOptions:
@@ -102,7 +139,17 @@ def solve_case(
     started = perf_counter()
     dimension = int(case["_agentfem"]["dimension"])
     family = str(case["_agentfem"]["pde_family"])
-    resolution = selected.resolution(dimension, case["domain"], case["pde"])
+    resolution = (
+        selected.flow_resolution(
+            dimension,
+            case["domain"],
+            case["pde"],
+            case["bc"],
+            case["output"],
+        )
+        if family in {"stokes", "navier_stokes"}
+        else selected.resolution(dimension, case["domain"], case["pde"])
+    )
     degree = selected.degree(dimension)
     imported = mesh.from_spec(case["domain"], resolution=resolution)
     domain = imported.domain
@@ -116,6 +163,12 @@ def solve_case(
         elif family == "linear_elasticity":
             solved, info = _solve_elasticity(case, domain, selected, degree)
             initial = None
+        elif family == "stokes":
+            solved, info = _solve_stokes(case, domain, selected, degree)
+            initial = None
+        elif family == "navier_stokes":
+            solved, info = _solve_navier_stokes(case, domain, selected, degree)
+            initial = None
         elif family == "helmholtz":
             solved, info = _solve_helmholtz(case, domain, selected, degree)
             initial = None
@@ -127,11 +180,20 @@ def solve_case(
             solved, info, initial = _solve_reaction_diffusion(
                 case, domain, selected, degree
             )
+        elif family == "burgers":
+            solved, info, initial = _solve_burgers(case, domain, selected, degree)
+        elif family == "biharmonic":
+            solved, info = _solve_biharmonic(case, domain, selected, degree)
+            initial = None
         elif family == "wave":
             solved, info, initial = _solve_wave(case, domain, selected, degree)
         else:  # validation owns the public failure, this protects refactors
             raise BenchmarkContractError("AFM-PDEB-008", f"unsupported PDE {family}")
-        grid = _sample(case, solved, vector=(family == "linear_elasticity"))
+        grid = _sample(
+            case,
+            solved,
+            vector=family in {"linear_elasticity", "stokes", "navier_stokes"},
+        )
         initial_grid = None if initial is None else _sample(case, initial, vector=False)
         _require_output_coverage(case, grid)
     except BenchmarkContractError:
@@ -247,6 +309,176 @@ def _solve_elasticity(case, domain, policy, degree):
     payload = _linear_info(info, policy)
     payload.update({"lame_lambda": lame_lambda, "shear_modulus": shear_modulus})
     return unknown.value, payload
+
+
+def _solve_stokes(case, domain, policy, degree):
+    """Solve steady incompressible Stokes flow with Taylor--Hood elements."""
+
+    dimension = int(domain.geometry.dim)
+    structured_planar = dimension == 2 and str(case["domain"].get("type", "")) in {
+        "unit_square",
+        "periodic_square",
+    }
+    velocity_degree = max(3, int(degree)) if structured_planar else 2
+    pressure_degree = velocity_degree - 1
+    unknown = fields.velocity_pressure(
+        domain,
+        name="VelocityPressure",
+        velocity_degree=velocity_degree,
+        pressure_degree=pressure_degree,
+    )
+    velocity, pressure = unknown.trial
+    test_velocity, test_pressure = unknown.test
+    pde = case["pde"]
+    viscosity = float(pde.get("pde_params", {}).get("nu", 1.0))
+    source_spec = pde.get("source_term", [0.0] * dimension)
+    if not isinstance(source_spec, Sequence) or isinstance(source_spec, (str, bytes)):
+        source_spec = [source_spec] * dimension
+    velocity_space, _ = unknown.space.sub(0).collapse()
+    source = _known_field(source_spec, velocity_space)
+    bcs = _mixed_velocity_bcs(case, unknown.space)
+    pressure_reference = _velocity_boundary_is_complete(
+        case.get("bc", {}).get("dirichlet"), dimension
+    )
+    if pressure_reference:
+        bcs.append(_reference_pressure_bc(unknown.space))
+
+    viscous = operators.viscous_flow_operator(
+        velocity, test_velocity, viscosity
+    ).expression
+    pressure_term = operators.pressure_coupling_operator(
+        pressure, test_velocity
+    ).expression
+    continuity = operators.incompressibility_operator(
+        velocity, test_pressure
+    ).expression
+    load = ufl.inner(source, test_velocity) * ufl.dx
+    _, info = solvers.solve_linear_problem(
+        fem.form(viscous + pressure_term + continuity),
+        fem.form(load),
+        unknown.value,
+        bcs=bcs,
+        options=solvers.direct_solver(package="mumps"),
+        return_info=True,
+    )
+    velocity_field = unknown.collapsed_velocity(name="Velocity")
+    pressure_field = unknown.collapsed_pressure(name="Pressure")
+    payload = _linear_info(info, policy, indefinite=True)
+    payload.update(
+        {
+            "formulation": "Taylor-Hood",
+            "element_degree": velocity_degree,
+            "velocity_degree": velocity_degree,
+            "pressure_degree": pressure_degree,
+            "viscosity": viscosity,
+            "pressure_reference": "interior_point" if pressure_reference else "natural",
+            "mixed_num_dofs": int(
+                unknown.space.dofmap.index_map.size_global
+                * unknown.space.dofmap.index_map_bs
+            ),
+            "pressure_l2_norm": float(
+                np.sqrt(
+                    domain.comm.allreduce(
+                        fem.assemble_scalar(
+                            fem.form(pressure_field * pressure_field * ufl.dx)
+                        ),
+                        op=MPI.SUM,
+                    )
+                )
+            ),
+        }
+    )
+    return velocity_field, payload
+
+
+def _solve_navier_stokes(case, domain, policy, degree):
+    """Solve steady incompressible Navier--Stokes with a Stokes predictor."""
+
+    dimension = int(domain.geometry.dim)
+    velocity_degree = max(3, int(degree)) if dimension == 2 else 2
+    pressure_degree = velocity_degree - 1
+    unknown = fields.velocity_pressure(
+        domain,
+        name="VelocityPressure",
+        velocity_degree=velocity_degree,
+        pressure_degree=pressure_degree,
+    )
+    trial_velocity, trial_pressure = unknown.trial
+    test_velocity, test_pressure = unknown.test
+    pde = case["pde"]
+    viscosity = float(pde.get("pde_params", {}).get("nu", 0.1))
+    source_spec = pde.get("source_term", [0.0] * dimension)
+    if not isinstance(source_spec, Sequence) or isinstance(source_spec, (str, bytes)):
+        source_spec = [source_spec] * dimension
+    velocity_space, _ = unknown.space.sub(0).collapse()
+    source = _known_field(source_spec, velocity_space)
+    bcs = _mixed_velocity_bcs(case, unknown.space)
+    pressure_reference = _velocity_boundary_is_complete(
+        case.get("bc", {}).get("dirichlet"), dimension
+    )
+    if pressure_reference:
+        bcs.append(_reference_pressure_bc(unknown.space))
+
+    # A Stokes predictor gives Newton a physically scaled, divergence-free
+    # initial state without embedding a manufactured or case-specific guess.
+    predictor = (
+        operators.viscous_flow_operator(
+            trial_velocity, test_velocity, viscosity
+        ).expression
+        + operators.pressure_coupling_operator(trial_pressure, test_velocity).expression
+        + operators.incompressibility_operator(trial_velocity, test_pressure).expression
+    )
+    load = ufl.inner(source, test_velocity) * ufl.dx
+    solvers.solve_linear_problem(
+        fem.form(predictor),
+        fem.form(load),
+        unknown.value,
+        bcs=bcs,
+        options=solvers.direct_solver(package="mumps"),
+    )
+
+    velocity, pressure = ufl.split(unknown.value)
+    residual = (
+        viscosity * ufl.inner(ufl.grad(velocity), ufl.grad(test_velocity))
+        + ufl.inner(ufl.dot(ufl.grad(velocity), velocity), test_velocity)
+        - pressure * ufl.div(test_velocity)
+        - test_pressure * ufl.div(velocity)
+        - ufl.inner(source, test_velocity)
+    ) * ufl.dx
+    jacobian = ufl.derivative(residual, unknown.value, ufl.TrialFunction(unknown.space))
+    options = solvers.NonlinearSolverOptions(
+        rtol=1.0e-9,
+        atol=1.0e-11,
+        max_it=40,
+        line_search_type="bt",
+        ksp_type="preonly",
+        pc_type="lu",
+        factor_solver_type="mumps",
+    )
+    _, info = solvers.solve_nonlinear_problem(
+        fem.form(residual),
+        unknown.value,
+        bcs=bcs,
+        jacobian_form=fem.form(jacobian),
+        options=options,
+        petsc_options_prefix="agentfem_pdebench_ns_",
+    )
+    velocity_field = unknown.collapsed_velocity(name="Velocity")
+    payload = {
+        "ksp_type": "preonly",
+        "pc_type": "lu",
+        "converged": bool(info.converged),
+        "converged_reason": int(info.converged_reason),
+        "iterations": int(info.iterations),
+        "residual_norm": float(info.function_norm),
+        "formulation": "steady_newton_taylor_hood",
+        "velocity_degree": velocity_degree,
+        "pressure_degree": pressure_degree,
+        "viscosity": viscosity,
+        "initialization": "stokes_predictor",
+        "pressure_reference": "interior_point" if pressure_reference else "natural",
+    }
+    return velocity_field, payload
 
 
 def _solve_heat(case, domain, policy, degree):
@@ -547,6 +779,192 @@ def _solve_reaction_diffusion(case, domain, policy, degree):
     return unknown.value, payload, initial_field
 
 
+def _solve_burgers(case, domain, policy, degree):
+    """Solve multidimensional scalar Burgers transport semi-implicitly."""
+
+    unknown = fields.scalar_unknown(domain, name="u", degree=degree)
+    pde = case["pde"]
+    viscosity = float(pde.get("pde_params", {}).get("nu", 0.01))
+    t0 = float(pde.get("t0", 0.0))
+    t_end = float(pde.get("t_final", 0.1))
+    nominal_dt = float(pde.get("dt", 0.01))
+    steps = max(1, int(np.ceil((t_end - t0) / nominal_dt - 1.0e-14)))
+    dt = (t_end - t0) / steps
+    time = fem.Constant(domain, t0)
+    previous = fem.Function(unknown.space, name="u_previous")
+    expressions.interpolate(
+        previous, pde.get("initial_condition", 0.0), parameters={"t": time}
+    )
+    initial_field = fem.Function(unknown.space, name="u_initial")
+    initial_field.x.array[:] = previous.x.array
+    initial_field.x.scatter_forward()
+    source_spec = pde.get("source_term", 0.0)
+    source = _known_field(source_spec, unknown.space, parameters={"t": time})
+    periodic = "periodic" in case.get("bc", {})
+    if periodic:
+        bcs, boundary_values = [], []
+    else:
+        bcs, boundary_values = _dirichlet_bcs(
+            case, unknown.value, parameters={"t": time}, track_values=True
+        )
+
+    convection = operators.burgers_convection_operator(
+        previous, unknown.trial, unknown.test
+    ).expression
+    a = (
+        unknown.trial * unknown.test
+        + dt * viscosity * ufl.inner(ufl.grad(unknown.trial), ufl.grad(unknown.test))
+    ) * ufl.dx + dt * convection
+    L = (previous + dt * source) * unknown.test * ufl.dx
+    info = None
+    solved = unknown.value
+    if periodic:
+        problem, _periodic_constraint = _prepare_periodic_linear_problem(
+            a,
+            L,
+            unknown.value,
+            prefix="agentfem_pdebench_burgers_periodic_",
+        )
+        for step in range(1, steps + 1):
+            time.value = t0 + step * dt
+            expressions.interpolate(source, source_spec, parameters={"t": time})
+            problem.solve()
+            _copy_owned_function_values(previous, problem.u)
+        _copy_owned_function_values(unknown.value, problem.u)
+        solved = unknown.value
+        info = _mpc_linear_info(problem.solver)
+    else:
+        with solvers.prepare_linear_problem(
+            a,
+            L,
+            unknown.value,
+            bcs=bcs,
+            options=policy.linear_options(indefinite=True),
+        ) as problem:
+            for step in range(1, steps + 1):
+                time.value = t0 + step * dt
+                expressions.interpolate(source, source_spec, parameters={"t": time})
+                _refresh_dirichlet_values(boundary_values, parameters={"t": time})
+                problem.solve()
+                previous.x.array[:] = unknown.value.x.array
+                previous.x.scatter_forward()
+            info = problem.last_solve_info
+    if info is None:
+        raise RuntimeError("Burgers analysis did not execute a step.")
+    payload = _linear_info(info, policy, indefinite=True)
+    payload.update(
+        {
+            "formulation": "semi_implicit_scalar_burgers",
+            "viscosity": viscosity,
+            "time_scheme": "backward_euler_semi_implicit",
+            "num_timesteps": steps,
+            "n_steps": steps,
+            "dt": dt,
+            "stabilization": "none",
+            "boundary_method": "periodic_mpc" if periodic else "dirichlet",
+        }
+    )
+    return solved, payload, initial_field
+
+
+def _solve_biharmonic(case, domain, policy, degree):
+    """Solve ``Delta^2 u=f`` through ``w=-Delta u`` and two Poisson blocks."""
+
+    primary = fields.scalar_unknown(domain, name="u", degree=degree)
+    auxiliary = fields.scalar_unknown(domain, name="w", degree=degree)
+    source = _known_field(case["pde"].get("source_term", 0.0), primary.space)
+    raw = case.get("bc", {}).get("dirichlet")
+    entries = raw if isinstance(raw, list) else [raw]
+    if len(entries) != 1 or not isinstance(entries[0], Mapping):
+        raise BenchmarkContractError(
+            "AFM-PDEB-005", "biharmonic split requires one public boundary expression"
+        )
+    entry = entries[0]
+    selector = str(entry.get("on", "all"))
+    boundary_source = entry.get("value", 0.0)
+    primary_bc = _dirichlet_bcs(case, primary.value)
+
+    auxiliary_boundary = fem.Function(auxiliary.space, name="w_boundary")
+    auxiliary_boundary_representation = _interpolate_auxiliary_boundary(
+        auxiliary_boundary,
+        boundary_source,
+        domain,
+    )
+    auxiliary_dofs = _boundary_dofs(auxiliary.space, selector)
+    auxiliary_bc = fem.dirichletbc(auxiliary_boundary, auxiliary_dofs)
+
+    auxiliary_form = operators.split_laplacian_operator(
+        auxiliary.trial, auxiliary.test, name="K_auxiliary"
+    ).expression
+    _, auxiliary_info = solvers.solve_linear_problem(
+        fem.form(auxiliary_form),
+        fem.form(source * auxiliary.test * ufl.dx),
+        auxiliary.value,
+        bcs=[auxiliary_bc],
+        options=policy.linear_options(),
+        return_info=True,
+    )
+    primary_form = operators.split_laplacian_operator(
+        primary.trial, primary.test, name="K_primary"
+    ).expression
+    _, primary_info = solvers.solve_linear_problem(
+        fem.form(primary_form),
+        fem.form(auxiliary.value * primary.test * ufl.dx),
+        primary.value,
+        bcs=primary_bc,
+        options=policy.linear_options(),
+        return_info=True,
+    )
+    payload = _linear_info(primary_info, policy)
+    payload.update(
+        {
+            "formulation": "mixed_two_poisson",
+            "auxiliary_field": "w=-laplacian(u)",
+            "auxiliary_boundary": "negative_laplacian_of_public_boundary_expression",
+            "auxiliary_boundary_representation": auxiliary_boundary_representation,
+            "auxiliary_iterations": int(auxiliary_info.iterations),
+        }
+    )
+    return primary.value, payload
+
+
+def _interpolate_auxiliary_boundary(target, boundary_source, domain) -> str:
+    """Interpolate ``-Delta(g)`` without assuming a structured mesh.
+
+    DOLFINx can directly tabulate the symbolic derivative on meshes created by
+    its native constructors.  Some imported Gmsh meshes reject that expression
+    during interpolation even though its UFL domain has the same mesh cargo.
+    The fallback first represents ``g`` in the target finite-element space,
+    keeping every coefficient on the actual imported mesh, and then evaluates
+    the same operator.  Polynomial boundary data within the selected element
+    order remain exact; general data retain the normal interpolation accuracy.
+    """
+
+    boundary_ufl = expressions.as_ufl(boundary_source, domain)
+    if not ufl.domain.extract_domains(boundary_ufl):
+        auxiliary_ufl = fem.Constant(domain, 0.0)
+        representation = "exact_constant"
+    else:
+        auxiliary_ufl = operators.auxiliary_laplacian_boundary(boundary_ufl)
+        representation = "symbolic"
+    interpolation_points = target.function_space.element.interpolation_points
+    try:
+        target.interpolate(fem.Expression(auxiliary_ufl, interpolation_points))
+    except RuntimeError as exc:
+        if "different mesh" not in str(exc).lower():
+            raise
+        primary_boundary = fem.Function(
+            target.function_space,
+            name="u_boundary_on_mesh",
+        )
+        expressions.interpolate(primary_boundary, boundary_source)
+        auxiliary_ufl = operators.auxiliary_laplacian_boundary(primary_boundary)
+        target.interpolate(fem.Expression(auxiliary_ufl, interpolation_points))
+        representation = "same_mesh_finite_element"
+    target.x.scatter_forward()
+    return representation
+
+
 def _solve_wave(case, domain, policy, degree):
     """Solve the scalar wave equation with average-acceleration Newmark."""
 
@@ -725,6 +1143,99 @@ def _dirichlet_bcs(case, function, *, parameters=None, track_values: bool = Fals
     return (bcs, tracked) if track_values else bcs
 
 
+def _mixed_velocity_bcs(case, mixed_space, *, parameters=None):
+    """Build velocity data on the first subspace of a mixed flow space."""
+
+    raw = case.get("bc", {}).get("dirichlet")
+    if raw is None:
+        raise BenchmarkContractError(
+            "AFM-PDEB-005", "incompressible flow requires velocity Dirichlet data"
+        )
+    entries = raw if isinstance(raw, list) else [raw]
+    velocity_space, _ = mixed_space.sub(0).collapse()
+    bcs = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            raise BenchmarkContractError(
+                "AFM-PDEB-005", "Dirichlet entry must be a mapping"
+            )
+        selector = str(entry.get("on", "all"))
+        dofs = _mixed_boundary_dofs(mixed_space.sub(0), velocity_space, selector)
+        value = fem.Function(velocity_space)
+        expressions.interpolate(
+            value,
+            entry.get("value", [0.0] * velocity_space.mesh.geometry.dim),
+            parameters=parameters,
+        )
+        bcs.append(fem.dirichletbc(value, dofs, mixed_space.sub(0)))
+    return bcs
+
+
+def _reference_pressure_bc(mixed_space):
+    """Fix pressure near the domain centre, away from corner singularities."""
+
+    pressure_space, _ = mixed_space.sub(1).collapse()
+    domain = pressure_space.mesh
+    coordinates = pressure_space.tabulate_dof_coordinates()
+    owned = pressure_space.dofmap.index_map.size_local
+    local_min = np.min(domain.geometry.x, axis=0)
+    local_max = np.max(domain.geometry.x, axis=0)
+    lower = np.array(
+        [domain.comm.allreduce(float(value), op=MPI.MIN) for value in local_min]
+    )
+    upper = np.array(
+        [domain.comm.allreduce(float(value), op=MPI.MAX) for value in local_max]
+    )
+    centre = 0.5 * (lower + upper)
+    local = None
+    if owned:
+        candidates = coordinates[:owned, : domain.geometry.dim]
+        distances = np.sum((candidates - centre[: domain.geometry.dim]) ** 2, axis=1)
+        index = int(np.argmin(distances))
+        local = (
+            float(distances[index]),
+            tuple(float(value) for value in candidates[index]),
+        )
+    candidates = [candidate for candidate in domain.comm.allgather(local) if candidate]
+    if not candidates:
+        raise BenchmarkContractError(
+            "AFM-PDEB-005", "pressure space has no dof for a reference value"
+        )
+    _, point = min(candidates, key=lambda candidate: (candidate[0], candidate[1]))
+
+    def marker(x):
+        selected = np.ones(x.shape[1], dtype=bool)
+        for axis, value in enumerate(point[: domain.geometry.dim]):
+            selected &= np.isclose(x[axis], value)
+        return selected
+
+    dofs = fem.locate_dofs_geometrical((mixed_space.sub(1), pressure_space), marker)
+    value = fem.Function(pressure_space)
+    return fem.dirichletbc(value, dofs, mixed_space.sub(1))
+
+
+def _velocity_boundary_is_complete(raw, dimension: int) -> bool:
+    """Return whether public velocity data cover the structured outer boundary."""
+
+    entries = raw if isinstance(raw, list) else [raw]
+    selectors = {
+        str(entry.get("on", "all")).strip().lower()
+        for entry in entries
+        if isinstance(entry, Mapping)
+    }
+    if selectors & {"all", "*"}:
+        return True
+    aliases = (
+        ({"x0", "xmin"}, {"x1", "xmax"}),
+        ({"y0", "ymin"}, {"y1", "ymax"}),
+        ({"z0", "zmin"}, {"z1", "zmax"}),
+    )
+    return all(
+        bool(selectors & lower) and bool(selectors & upper)
+        for lower, upper in aliases[:dimension]
+    )
+
+
 def _refresh_dirichlet_values(tracked, *, parameters=None):
     for value, source in tracked:
         expressions.interpolate(value, source, parameters=parameters)
@@ -739,26 +1250,53 @@ def _boundary_dofs(space, selector: str):
             domain, fdim, lambda x: np.ones(x.shape[1], dtype=bool)
         )
         return fem.locate_dofs_topological(space, fdim, facets)
-    axis_and_value = {
-        "x0": (0, 0.0),
-        "xmin": (0, 0.0),
-        "x1": (0, 1.0),
-        "xmax": (0, 1.0),
-        "y0": (1, 0.0),
-        "ymin": (1, 0.0),
-        "y1": (1, 1.0),
-        "ymax": (1, 1.0),
-        "z0": (2, 0.0),
-        "zmin": (2, 0.0),
-        "z1": (2, 1.0),
-        "zmax": (2, 1.0),
+    marker = _boundary_marker(domain, selector)
+    return fem.locate_dofs_geometrical(space, marker)
+
+
+def _mixed_boundary_dofs(subspace, collapsed_space, selector: str):
+    domain = collapsed_space.mesh
+    fdim = domain.topology.dim - 1
+    key = selector.strip().lower()
+    if key in {"all", "*"}:
+        facets = dolfinx_mesh.locate_entities_boundary(
+            domain, fdim, lambda x: np.ones(x.shape[1], dtype=bool)
+        )
+        return fem.locate_dofs_topological((subspace, collapsed_space), fdim, facets)
+    return fem.locate_dofs_geometrical(
+        (subspace, collapsed_space), _boundary_marker(domain, selector)
+    )
+
+
+def _boundary_marker(domain, selector: str):
+    key = selector.strip().lower()
+    axis_and_side = {
+        "x0": (0, "min"),
+        "xmin": (0, "min"),
+        "x1": (0, "max"),
+        "xmax": (0, "max"),
+        "y0": (1, "min"),
+        "ymin": (1, "min"),
+        "y1": (1, "max"),
+        "ymax": (1, "max"),
+        "z0": (2, "min"),
+        "zmin": (2, "min"),
+        "z1": (2, "max"),
+        "zmax": (2, "max"),
     }
-    if key not in axis_and_value or axis_and_value[key][0] >= domain.geometry.dim:
+    if key not in axis_and_side or axis_and_side[key][0] >= domain.geometry.dim:
         raise BenchmarkContractError(
             "AFM-PDEB-005", f"unknown boundary selector {selector!r}"
         )
-    axis, value = axis_and_value[key]
-    return fem.locate_dofs_geometrical(space, lambda x: np.isclose(x[axis], value))
+    axis, side = axis_and_side[key]
+    local = (
+        float(np.min(domain.geometry.x[:, axis]))
+        if side == "min"
+        else float(np.max(domain.geometry.x[:, axis]))
+    )
+    operation = MPI.MIN if side == "min" else MPI.MAX
+    value = domain.comm.allreduce(local, op=operation)
+    return lambda x: np.isclose(x[axis], value)
 
 
 def _sample(case, function, *, vector: bool):
@@ -791,6 +1329,105 @@ def _require_output_coverage(case, values):
             "AFM-PDEB-007",
             f"structured-domain output contains {missing} missing samples",
         )
+
+
+def _prepare_periodic_linear_problem(a, L, solution, *, prefix: str):
+    """Prepare one scalar linear problem with matching periodic faces.
+
+    The public benchmark contract describes a rectangular periodic cell.  A
+    single geometric relation maps every maximum face to its matching minimum
+    face; a corner is therefore mapped directly to the opposite corner rather
+    than creating chained constraints.
+    """
+
+    try:
+        import dolfinx_mpc
+    except ImportError as exc:
+        raise BenchmarkContractError(
+            "AFM-PDEB-009",
+            "periodic PDE cases require the optional dolfinx_mpc backend",
+        ) from exc
+
+    space = solution.function_space
+    domain = space.mesh
+    dimension = int(domain.geometry.dim)
+    coordinates = domain.geometry.x[:, :dimension]
+    lower = np.array(
+        [
+            domain.comm.allreduce(float(coordinates[:, i].min()), op=MPI.MIN)
+            for i in range(dimension)
+        ]
+    )
+    upper = np.array(
+        [
+            domain.comm.allreduce(float(coordinates[:, i].max()), op=MPI.MAX)
+            for i in range(dimension)
+        ]
+    )
+    span = upper - lower
+    tolerance = 100.0 * np.finfo(float).eps * max(1.0, float(np.max(span)))
+
+    def slave_boundary(x):
+        selected = np.zeros(x.shape[1], dtype=bool)
+        for axis in range(dimension):
+            selected |= np.isclose(x[axis], upper[axis], atol=tolerance, rtol=0.0)
+        return selected
+
+    def matching_point(x):
+        mapped = x.copy()
+        for axis in range(dimension):
+            on_maximum = np.isclose(x[axis], upper[axis], atol=tolerance, rtol=0.0)
+            mapped[axis, on_maximum] -= span[axis]
+        return mapped
+
+    constraint = dolfinx_mpc.MultiPointConstraint(space)
+    constraint.create_periodic_constraint_geometrical(
+        space, slave_boundary, matching_point, bcs=[]
+    )
+    constraint.finalize()
+    options = {
+        # Semi-implicit Burgers transport is nonsymmetric. A direct solve is
+        # the same robust policy used for its strongly constrained route;
+        # reporting it as CG would be numerically misleading even if a
+        # particular case happened to converge.
+        "ksp_type": "preonly",
+        "pc_type": "lu",
+        "pc_factor_mat_solver_type": "mumps",
+        "ksp_error_if_not_converged": True,
+    }
+    problem = dolfinx_mpc.LinearProblem(
+        a,
+        L,
+        constraint,
+        bcs=[],
+        petsc_options_prefix=prefix,
+        petsc_options=options,
+    )
+    return problem, constraint
+
+
+def _mpc_linear_info(ksp):
+    return solvers.LinearSolveInfo(
+        converged_reason=int(ksp.getConvergedReason()),
+        iterations=int(ksp.getIterationNumber()),
+        residual_norm=float(ksp.getResidualNorm()),
+    )
+
+
+def _copy_owned_function_values(target, source) -> None:
+    """Copy an MPI function state without assuming equal ghost layouts."""
+
+    target_map = target.function_space.dofmap
+    source_map = source.function_space.dofmap
+    target_owned = int(target_map.index_map.size_local * target_map.index_map_bs)
+    source_owned = int(source_map.index_map.size_local * source_map.index_map_bs)
+    if target_owned != source_owned:
+        raise RuntimeError(
+            "Cannot transfer finite-element state between different owned DOF layouts: "
+            f"target={target_owned}, source={source_owned}."
+        )
+    target.x.array[:target_owned] = source.x.array[:source_owned]
+    target.x.scatter_forward()
 
 
 def _linear_info(info, policy, *, indefinite=False):

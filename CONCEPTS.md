@@ -132,6 +132,26 @@ field, trial function, and test function. Unknown fields let beginner workflows
 say `displacement` or `temperature` instead of manually managing `V`, `u`,
 `du`, and `v`.
 
+## Mixed Unknown
+
+A mixed unknown represents coupled fields whose approximation spaces and
+stability requirements must be selected together. The public
+`velocity_pressure` unknown uses a Taylor--Hood pair for incompressible Stokes
+and Navier--Stokes flow and exposes velocity and pressure subfields without
+hiding the underlying mixed state. A mesh does not select a stable mixed
+method by itself; element pairing, pressure reference or nullspace treatment,
+and boundary completeness remain explicit numerical decisions.
+
+## Split Higher-Order Problem
+
+A higher-order equation may be lowered to coupled second-order fields when a
+conforming high-continuity element is neither necessary nor desirable. For a
+biharmonic problem AgentFEM uses `w = -laplacian(u)` and two reusable
+Laplacian blocks. The additional boundary condition required by the split is
+part of the scientific contract. If it is derived from public primary-field
+data, that closure must be recorded with the result; it must never be inferred
+from a hidden reference solution.
+
 ## Field
 
 A finite-element function living in a function space. Fields may represent an

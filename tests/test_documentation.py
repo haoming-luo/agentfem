@@ -67,7 +67,10 @@ def test_knowledge_import_check_uses_the_current_checkout():
         text=True,
     )
     assert completed.returncode == 0, completed.stdout + completed.stderr
-    assert "Validated 30 scientific function cards." in completed.stdout
+    card_count = len(
+        tuple((ROOT / "src" / "agentfem" / "knowledge" / "cards").glob("*.json"))
+    )
+    assert f"Validated {card_count} scientific function cards." in completed.stdout
 
 
 def test_generated_api_covers_public_workflow_objects():

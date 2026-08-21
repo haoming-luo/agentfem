@@ -199,12 +199,55 @@ def test_transport_and_reaction_operators_keep_scientific_semantics():
         (2.0, 0.5),
         domain=domain,
     )
+    burgers = operators.burgers_convection_operator(
+        concentration.value,
+        concentration.trial,
+        concentration.test,
+    )
 
     assert advection.validate().is_valid
     assert advection.summary()["metadata"]["velocity"] == (2.0, 0.5)
     assert supg.summary()["metadata"]["method"] == "SUPG"
+    assert burgers.validate().is_valid
+    assert burgers.family == "nonlinear_transport"
     assert reaction.ufl_shape == ()
     assert logistic.ufl_shape == ()
+
+
+def test_flow_and_fourth_order_operators_are_public_composable_assets():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (2, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    mixed = fields.velocity_pressure(domain)
+    velocity, pressure = mixed.trial
+    test_velocity, test_pressure = mixed.test
+    scalar = fields.scalar_unknown(domain, name="u")
+
+    flow = operators.combine(
+        operators.viscous_flow_operator(velocity, test_velocity, 0.1),
+        operators.pressure_coupling_operator(pressure, test_velocity),
+        operators.incompressibility_operator(velocity, test_pressure),
+        name="A_stokes",
+        kind="mixed_stokes_operator",
+    )
+    convection = operators.convective_momentum_operator(
+        mixed.velocity.value,
+        velocity,
+        test_velocity,
+    )
+    laplacian = operators.split_laplacian_operator(
+        scalar.trial,
+        scalar.test,
+    )
+
+    assert flow.validate().is_valid
+    assert convection.family == "incompressible_flow"
+    assert laplacian.validate().is_valid
+    assert mixed.summary()["stability_family"] == "Taylor-Hood"
 
 
 def test_advective_intrinsic_time_scale_rejects_zero_velocity():
@@ -238,3 +281,37 @@ def test_advection_operator_accepts_a_symbolic_velocity_field():
 
     assert advection.validate().is_valid
     assert isinstance(advection.metadata["velocity"], str)
+
+
+def test_incompressible_flow_unknown_and_operators_are_explicit():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (2, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    flow = fields.velocity_pressure(domain)
+    velocity, pressure = flow.trial
+    test_velocity, test_pressure = flow.test
+    parts = (
+        operators.viscous_flow_operator(velocity, test_velocity, 0.1),
+        operators.pressure_coupling_operator(pressure, test_velocity),
+        operators.incompressibility_operator(velocity, test_pressure),
+        operators.convective_momentum_operator(
+            flow.velocity.value,
+            flow.velocity.value,
+            test_velocity,
+        ),
+    )
+
+    assert flow.summary()["stability_family"] == "Taylor-Hood"
+    assert flow.summary()["velocity_degree"] == 2
+    assert flow.summary()["pressure_degree"] == 1
+    assert all(operator.validate().is_valid for operator in parts)
+    assert [operator.role for operator in parts] == [
+        "matrix",
+        "matrix",
+        "matrix",
+        "residual",
+    ]

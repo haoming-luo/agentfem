@@ -109,10 +109,12 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `Field` | Tensor-like finite-element field with immediate-value algebra. |
 | class | `UnknownField` | Finite-element unknown bundle for application-level workflows. |
 | class | `DisplacementPressureUnknown` | Mixed displacement/pressure unknown for hybrid solid mechanics. |
+| class | `VelocityPressureUnknown` | Taylor--Hood velocity/pressure unknown for incompressible flow. |
 | function | `scalar_unknown(domain, *, name: str = 'Unknown', degree: int = 1, value = 0.0) -> UnknownField` | Create a scalar finite-element unknown. |
 | function | `vector_unknown(domain, *, name: str = 'Unknown', degree: int = 1, dim: int \| None = None, value = 0.0) -> UnknownField` | Create a vector finite-element unknown. |
 | function | `displacement(domain, *, degree: int = 1, dim: int \| None = None, value = 0.0) -> UnknownField` | Create a displacement unknown for mechanics workflows. |
 | function | `displacement_pressure(domain, *, displacement_degree: int = 2, pressure_degree: int = 0, name: str = 'DisplacementPressure') -> DisplacementPressureUnknown` | Create a mixed displacement/pressure unknown. |
+| function | `velocity_pressure(domain, *, velocity_degree: int = 2, pressure_degree: int = 1, name: str = 'VelocityPressure') -> VelocityPressureUnknown` | Create a Taylor--Hood incompressible-flow unknown. |
 | function | `temperature(domain, *, degree: int = 1, value = 0.0) -> UnknownField` | Create a temperature unknown for heat-transfer workflows. |
 | function | `wrap(function, *, name: str \| None = None) -> Field` | Wrap a DOLFINx function as an AgentFEM field. |
 | function | `unwrap(field_or_function)` | Return the underlying DOLFINx function when given an AgentFEM field. |
@@ -837,6 +839,12 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `internal_force_vector(displacement, test_function = None, properties = None, *, study = None, measure = ufl.dx) -> OperatorForm` | Create an elastic internal-force vector contribution. |
 | function | `stiffness_operator(displacement, test_function = None, properties = None, *, study = None, temperature = None, measure = ufl.dx) -> OperatorForm` | Create an elastic stiffness/internal virtual-work operator ``K``. |
 | function | `thermal_expansion_vector(target, temperature, properties, *, study = None, measure = ufl.dx, name: str = 'F_thermal') -> OperatorForm` | Equivalent nodal load produced by isotropic thermal expansion. |
+| function | `convective_momentum_operator(advecting_velocity, transported_velocity, test_velocity, *, measure = ufl.dx, name: str = 'N_convection') -> OperatorForm` | Return ``((w . grad) u, v)`` for vector momentum transport. |
+| function | `incompressibility_operator(velocity, test_pressure, *, measure = ufl.dx, name: str = 'D_incompressibility') -> OperatorForm` | Return the symmetric saddle-point term ``-(q, div(u))``. |
+| function | `pressure_coupling_operator(pressure, test_velocity, *, measure = ufl.dx, name: str = 'G_pressure') -> OperatorForm` | Return the pressure contribution ``-(p, div(v))``. |
+| function | `viscous_flow_operator(velocity, test_velocity, viscosity, *, measure = ufl.dx, name: str = 'K_viscous') -> OperatorForm` | Return ``nu (grad(u), grad(v))`` for incompressible momentum. |
+| function | `auxiliary_laplacian_boundary(boundary_expression)` | Return ``-Delta(g)`` for the auxiliary field ``w=-Delta(u)``. |
+| function | `split_laplacian_operator(trial, test, *, measure = ufl.dx, name: str = 'K_split_laplacian') -> OperatorForm` | Return one second-order block of a mixed biharmonic split. |
 | class | `FirstOrderSystem` | First-order transient system, ``C x_dot + K x = F``. |
 | class | `LinearSystem` | Engineering-level static system, usually ``K x = F``. |
 | class | `SecondOrderSystem` | Engineering-level second-order system, ``M a + C v + K u = F``. |
@@ -845,6 +853,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `second_order_system(M, K, C = None, F = None, *, name: str = 'Ma_plus_Cv_plus_Ku_eq_F')` | Create ``M a + C v + K u = F`` with optional damping and force. |
 | function | `advection_operator(trial, test, velocity, *, measure = ufl.dx, name: str = 'A_advection') -> OperatorForm` | Return the Galerkin advection operator ``(v . grad(u), w)``. |
 | function | `as_velocity(velocity)` | Normalize a public velocity sequence without hiding UFL expressions. |
+| function | `burgers_convection_operator(advecting_scalar, transported_scalar, test, *, direction = None, measure = ufl.dx, name: str = 'N_burgers') -> OperatorForm` | Return scalar Burgers transport ``u_adv (d . grad(u))``. |
 | function | `intrinsic_time_scale(domain, velocity)` | Return the standard cellwise advective SUPG scale ``h/(2 \|v\|)``. |
 | function | `reaction_expression(value, law: str \| Mapping[str, object], **parameters)` | Lower a named scalar reaction law to a UFL expression. |
 | function | `streamline_upwind_operator(strong_residual, test, velocity, *, tau = None, domain = None, measure = ufl.dx, name: str = 'A_supg') -> OperatorForm` | Return a SUPG contribution ``tau R(u) (v . grad(w))``. |
@@ -1129,6 +1138,7 @@ This package exposes its public objects through focused submodules.
 | function | `scalar_space(domain, degree: int = 1)` | Create a scalar Lagrange function space. |
 | function | `vector_lagrange_space(domain, degree: int = 1, dim: int \| None = None)` | Create a vector Lagrange function space. |
 | function | `vector_space(domain, degree: int = 1, dim: int \| None = None)` | Create a vector Lagrange function space. |
+| function | `velocity_pressure_space(domain, *, velocity_degree: int = 2, pressure_degree: int = 1)` | Create a Taylor--Hood velocity/pressure mixed space. |
 | function | `displacement_pressure_space(domain, *, displacement_degree: int = 2, pressure_degree: int = 0)` | Create the mixed ``H1`` displacement / discontinuous-pressure space. |
 | function | `test_function(V)` | Create a UFL test function for a function space. |
 | function | `trial_function(V)` | Create a UFL trial function for a function space. |

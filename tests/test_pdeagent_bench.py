@@ -10,6 +10,7 @@ from agentfem.integrations.pdeagent_bench import (
     SUPPORTED_FAMILIES,
     BenchmarkContractError,
     BenchmarkPolicy,
+    combine_official_summaries,
     read_official_summary,
     solve_case,
     validate_case_spec,
@@ -40,12 +41,16 @@ def test_benchmark_schema_rejects_unknown_pde_without_guessing():
 
 def test_benchmark_family_capability_is_machine_readable():
     assert SUPPORTED_FAMILIES == {
+        "burgers",
+        "biharmonic",
         "poisson",
         "heat",
         "linear_elasticity",
+        "navier_stokes",
         "helmholtz",
         "convection_diffusion",
         "reaction_diffusion",
+        "stokes",
         "wave",
     }
 
@@ -80,6 +85,34 @@ def test_heat_adapter_returns_initial_and_final_grids():
     assert result["u_initial"].shape == (7, 9)
     assert result["solver_info"]["num_timesteps"] == 2
     assert result["solver_info"]["matrix_reused"] is True
+
+
+def test_burgers_periodic_adapter_closes_matching_faces():
+    pytest.importorskip("dolfinx_mpc")
+    case = _case(
+        {
+            "type": "burgers",
+            "pde_params": {"nu": 0.01},
+            "source_term": (
+                "((-1 + 0.04*pi**2)*exp(t) + 2*pi*cos(2*pi*x))*exp(-2*t)*sin(2*pi*x)"
+            ),
+            "initial_condition": "sin(2*pi*x)",
+            "t_final": 0.02,
+            "dt": 0.01,
+        }
+    )
+    case["domain"] = {
+        "type": "periodic_square",
+        "geometry_params": {"bounds": [0.0, 1.0, 0.0, 1.0]},
+    }
+    case["bc"] = {"periodic": {"on": ["x", "y"]}}
+
+    result = solve_case(case, policy=BenchmarkPolicy(planar_resolution=8))
+
+    assert result["solver_info"]["boundary_method"] == "periodic_mpc"
+    assert result["solver_info"]["ksp_type"] == "preonly"
+    assert np.allclose(result["u"][:, 0], result["u"][:, -1], atol=1.0e-10)
+    assert np.allclose(result["u"][0, :], result["u"][-1, :], atol=1.0e-10)
 
 
 @pytest.mark.parametrize(
@@ -257,6 +290,145 @@ def test_wave_newmark_path_preserves_a_public_manufactured_mode():
     assert result["solver_info"]["time_integrator"] == "newmark_average_acceleration"
 
 
+def test_burgers_adapter_advances_a_public_manufactured_mode():
+    end_time = 0.02
+    mode = "sin(pi*x)*sin(pi*y)"
+    case = _case(
+        {
+            "type": "burgers",
+            "pde_params": {"nu": 0.01},
+            "t_final": end_time,
+            "dt": 0.002,
+            "source_term": (
+                f"((-1 + 0.02*pi**2)*exp(t) + pi*sin(pi*(x + y)))*exp(-2*t)*{mode}"
+            ),
+            "initial_condition": mode,
+        }
+    )
+    case["bc"]["dirichlet"]["value"] = f"exp(-t)*{mode}"
+
+    result = solve_case(case, policy=BenchmarkPolicy(planar_resolution=12))
+    x = np.linspace(0.0, 1.0, 9)
+    y = np.linspace(0.0, 1.0, 7)
+    xx, yy = np.meshgrid(x, y, indexing="xy")
+    reference = np.exp(-end_time) * np.sin(np.pi * xx) * np.sin(np.pi * yy)
+    error = np.linalg.norm(result["u"] - reference) / np.linalg.norm(reference)
+
+    assert error < 4.0e-3
+    assert result["solver_info"]["formulation"] == "semi_implicit_scalar_burgers"
+    assert result["solver_info"]["n_steps"] == 10
+
+
+def test_stokes_adapter_recovers_a_public_divergence_free_velocity():
+    u0 = "pi*sin(pi*x)*cos(pi*y)"
+    u1 = "-pi*cos(pi*x)*sin(pi*y)"
+    case = _case(
+        {
+            "type": "stokes",
+            "pde_params": {"nu": 0.5},
+            "source_term": [f"pi**2*({u0})", f"pi**2*({u1})"],
+        },
+        field="velocity_magnitude",
+    )
+    case["bc"]["dirichlet"]["value"] = [u0, u1]
+
+    result = solve_case(case, policy=BenchmarkPolicy(planar_resolution=10))
+    x = np.linspace(0.0, 1.0, 9)
+    y = np.linspace(0.0, 1.0, 7)
+    xx, yy = np.meshgrid(x, y, indexing="xy")
+    exact_u0 = np.pi * np.sin(np.pi * xx) * np.cos(np.pi * yy)
+    exact_u1 = -np.pi * np.cos(np.pi * xx) * np.sin(np.pi * yy)
+    reference = np.sqrt(exact_u0**2 + exact_u1**2)
+    error = np.linalg.norm(result["u"] - reference) / np.linalg.norm(reference)
+
+    assert error < 5.0e-3
+    assert result["solver_info"]["formulation"] == "Taylor-Hood"
+    assert result["solver_info"]["mixed_num_dofs"] > result["solver_info"]["num_dofs"]
+
+
+def test_navier_stokes_adapter_uses_stokes_predictor_and_newton():
+    case = _case(
+        {
+            "type": "navier_stokes",
+            "pde_params": {"nu": 0.1},
+            "source_term": ["0.0", "0.0"],
+        },
+        field="velocity_magnitude",
+    )
+    case["bc"]["dirichlet"]["value"] = ["y", "0.0"]
+
+    result = solve_case(case, policy=BenchmarkPolicy(planar_resolution=8))
+    y = np.linspace(0.0, 1.0, 7)
+    reference = np.repeat(y[:, None], 9, axis=1)
+    error = np.linalg.norm(result["u"] - reference) / np.linalg.norm(reference)
+
+    assert error < 1.0e-8
+    assert result["solver_info"]["formulation"] == "steady_newton_taylor_hood"
+    assert result["solver_info"]["initialization"] == "stokes_predictor"
+
+
+def test_biharmonic_adapter_uses_public_two_poisson_closure():
+    case = _case(
+        {
+            "type": "biharmonic",
+            "source_term": "4*pi**4*sin(pi*x)*sin(pi*y)",
+        }
+    )
+    case["bc"]["dirichlet"]["value"] = "sin(pi*x)*sin(pi*y)"
+
+    result = solve_case(case, policy=BenchmarkPolicy(planar_resolution=10))
+    x = np.linspace(0.0, 1.0, 9)
+    y = np.linspace(0.0, 1.0, 7)
+    xx, yy = np.meshgrid(x, y, indexing="xy")
+    reference = np.sin(np.pi * xx) * np.sin(np.pi * yy)
+    error = np.linalg.norm(result["u"] - reference) / np.linalg.norm(reference)
+
+    assert error < 2.0e-3
+    assert result["solver_info"]["formulation"] == "mixed_two_poisson"
+    assert (
+        result["solver_info"]["auxiliary_boundary"]
+        == "negative_laplacian_of_public_boundary_expression"
+    )
+
+
+def test_biharmonic_constant_boundary_has_zero_auxiliary_laplacian():
+    case = _case({"type": "biharmonic", "source_term": "1.0"})
+
+    result = solve_case(case, policy=BenchmarkPolicy(planar_resolution=6))
+
+    assert np.all(np.isfinite(result["u"]))
+    assert result["solver_info"]["converged"] is True
+
+
+def test_biharmonic_boundary_derivative_stays_on_imported_mesh():
+    pytest.importorskip("gmsh")
+    case = _case({"type": "biharmonic", "source_term": "0.0"})
+    case["domain"] = {
+        "type": "star",
+        "char_length": 0.25,
+        "geometry_params": {
+            "center": [0.0, 0.0],
+            "points": 5,
+            "inner_r": 0.35,
+            "outer_r": 0.75,
+        },
+    }
+    case["bc"]["dirichlet"]["value"] = "x**2 + y**2"
+    case["output"]["grid"] = {
+        "bbox": [-0.8, 0.8, -0.8, 0.8],
+        "nx": 15,
+        "ny": 15,
+    }
+
+    result = solve_case(case, policy=BenchmarkPolicy(planar_resolution=6))
+
+    assert np.any(np.isfinite(result["u"]))
+    assert (
+        result["solver_info"]["auxiliary_boundary_representation"]
+        == "same_mesh_finite_element"
+    )
+
+
 def test_three_dimensional_poisson_uses_the_public_equation_not_an_oracle():
     case = {
         "id": "public_3d_contract_smoke",
@@ -352,3 +524,48 @@ def test_official_summary_is_normalized_to_failure_taxonomy(tmp_path):
     assert report.by_dimension["2"]["pass_rate"] == 1.0
     assert report.by_dimension["3"]["pass_rate"] == 0.0
     assert "Failure taxonomy" in report.markdown()
+
+
+def test_disjoint_official_family_runs_combine_without_double_counting(tmp_path):
+    first = tmp_path / "first.json"
+    second = tmp_path / "second.json"
+    first.write_text(
+        json.dumps(
+            {
+                "results": [
+                    {
+                        "case_id": "poisson_ok",
+                        "equation_type": "poisson",
+                        "status": "PASS",
+                        "gate_breakdown": {"final_pass": True},
+                    }
+                ]
+            }
+        )
+    )
+    second.write_text(
+        json.dumps(
+            {
+                "results": [
+                    {
+                        "case_id": "stokes_accuracy",
+                        "equation_type": "stokes",
+                        "status": "FAIL",
+                        "gate_breakdown": {
+                            "final_pass": False,
+                            "failure_stage": "accuracy",
+                        },
+                    }
+                ]
+            }
+        )
+    )
+
+    report = combine_official_summaries((first, second))
+
+    assert report.total == 2
+    assert report.passed == 1
+    assert set(report.by_family) == {"poisson", "stokes"}
+    assert report.as_dict()["source"] == [str(first), str(second)]
+    with pytest.raises(ValueError, match="duplicate benchmark case"):
+        combine_official_summaries((first, first))

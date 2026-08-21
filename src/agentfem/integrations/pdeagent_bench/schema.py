@@ -13,11 +13,15 @@ BENCHMARK_COMMIT = "0ba9853f82a78196796fa4eeaf0951eb4c000a00"
 SUPPORTED_FAMILIES = frozenset(
     {
         "poisson",
+        "burgers",
+        "biharmonic",
         "heat",
         "linear_elasticity",
+        "navier_stokes",
         "helmholtz",
         "convection_diffusion",
         "reaction_diffusion",
+        "stokes",
         "wave",
     }
 )

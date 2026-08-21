@@ -53,6 +53,13 @@ from .elasticity import (
     stiffness_operator,
     thermal_expansion_vector,
 )
+from .flow import (
+    convective_momentum_operator,
+    incompressibility_operator,
+    pressure_coupling_operator,
+    viscous_flow_operator,
+)
+from .fourth_order import auxiliary_laplacian_boundary, split_laplacian_operator
 from .system import (
     FirstOrderSystem,
     LinearSystem,
@@ -64,6 +71,7 @@ from .system import (
 from .transport import (
     advection_operator,
     as_velocity,
+    burgers_convection_operator,
     intrinsic_time_scale,
     reaction_expression,
     streamline_upwind_operator,
@@ -79,7 +87,9 @@ __all__ = [
     "SecondOrderSystem",
     "action",
     "advection_operator",
+    "auxiliary_laplacian_boundary",
     "as_velocity",
+    "burgers_convection_operator",
     "assemble_lumped_mass",
     "assemble_lumped_operator",
     "assemble_matrix",
@@ -93,6 +103,7 @@ __all__ = [
     "combine",
     "compile_form",
     "conduction_operator",
+    "convective_momentum_operator",
     "damping_operator",
     "dual_product",
     "diffusion_operator",
@@ -107,6 +118,7 @@ __all__ = [
     "heat_source_vector",
     "inertial_force_vector",
     "internal_force_vector",
+    "incompressibility_operator",
     "intrinsic_time_scale",
     "linear_system",
     "first_order_system",
@@ -117,6 +129,7 @@ __all__ = [
     "lumped_operator",
     "mass_action_vector",
     "mass_operator",
+    "pressure_coupling_operator",
     "residual_operator",
     "rayleigh_damping",
     "reaction_expression",
@@ -127,7 +140,9 @@ __all__ = [
     "stiffness",
     "stiffness_operator",
     "streamline_upwind_operator",
+    "split_laplacian_operator",
     "thermal_expansion_vector",
+    "viscous_flow_operator",
     "quadratic_form",
     "xtmx",
     "xtmy",

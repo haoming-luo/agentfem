@@ -1,0 +1,118 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.operator.incompressible_flow",
+  "title": "Mixed incompressible-flow fields and operators",
+  "kind": "operator",
+  "status": "supported",
+  "summary": "Provides an explicit Taylor--Hood velocity/pressure unknown and composable viscous, pressure, incompressibility, and momentum-convection operators for Stokes and Navier--Stokes workflows.",
+  "public_api": [
+    "agentfem.fields.velocity_pressure",
+    "agentfem.spaces.velocity_pressure_space",
+    "agentfem.operators.viscous_flow_operator",
+    "agentfem.operators.pressure_coupling_operator",
+    "agentfem.operators.incompressibility_operator",
+    "agentfem.operators.convective_momentum_operator"
+  ],
+  "implementation": [
+    "fields.py",
+    "spaces.py",
+    "operators/flow.py"
+  ],
+  "science": {
+    "statement": "Velocity/pressure stability, pressure reference semantics, and momentum terms remain explicit scientific choices rather than consequences of the mesh or solver backend.",
+    "equations": [
+      {
+        "label": "steady incompressible momentum",
+        "expression": "-\\nu\\Delta\\boldsymbol{u}+(\\boldsymbol{u}\\cdot\\nabla)\\boldsymbol{u}+\\nabla p=\\boldsymbol{f}",
+        "description": "Removing the convective term gives the Stokes momentum balance."
+      },
+      {
+        "label": "incompressibility",
+        "expression": "\\nabla\\cdot\\boldsymbol{u}=0",
+        "description": "The pressure test field enforces the divergence constraint in the mixed weak form."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "velocity and pressure degrees",
+        "type": "integer pair",
+        "unit_role": "discretization",
+        "description": "Taylor--Hood requires the conforming velocity degree to exceed the pressure degree."
+      },
+      {
+        "name": "viscosity",
+        "type": "positive scalar or coefficient",
+        "unit_role": "kinematic viscosity in the normalized benchmark form",
+        "description": "Weights the viscous gradient term."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "velocity_pressure unknown",
+        "type": "VelocityPressureUnknown",
+        "unit_role": "mixed primary state",
+        "description": "Owns one mixed function and inspectable velocity and pressure subfields."
+      },
+      {
+        "name": "flow operators",
+        "type": "OperatorForm",
+        "unit_role": "weak momentum and continuity contributions",
+        "description": "Composable terms suitable for linear Stokes systems or differentiated nonlinear residuals."
+      }
+    ],
+    "assumptions": [
+      "The public mixed space is a conforming Taylor--Hood pair.",
+      "A fully velocity-Dirichlet problem needs a pressure reference or equivalent nullspace treatment.",
+      "The current operators express constant-density incompressible flow."
+    ],
+    "conventions": [
+      "Pressure enters momentum as minus p times div(v).",
+      "The continuity block uses minus q times div(u), yielding a symmetric Stokes saddle-point sign convention.",
+      "Momentum convection is represented as the advecting velocity dotted with the gradient of the transported velocity."
+    ],
+    "applicability": [
+      "Steady Stokes and steady incompressible Navier--Stokes formulations with explicit boundary and pressure-reference policies."
+    ],
+    "limitations": [
+      "No general turbulent closure, transient flow procedure, equal-order stabilization, or automatic pressure-nullspace object is claimed.",
+      "The PDEAgent-Bench adapter currently uses a direct mixed solve and a Stokes-initialized Newton route; these are consumers, not the only possible solvers."
+    ]
+  },
+  "usage": {
+    "minimal_example": "Create vp = fields.velocity_pressure(domain); compose viscous_flow_operator, pressure_coupling_operator, and incompressibility_operator; add convective_momentum_operator to a Navier--Stokes residual.",
+    "examples": [
+      "docs/pdeagent_bench.md",
+      "tests/test_operators.py",
+      "tests/test_pdeagent_bench.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_operators.py",
+      "tests/test_pdeagent_bench.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.pdeagent_bench_eleven_family"
+    ],
+    "validation_rules": [
+      "Reject Taylor--Hood degree pairs whose velocity order does not exceed pressure order.",
+      "Keep pressure reference or natural-pressure semantics in solver evidence.",
+      "Never initialize from a withheld manufactured solution or case-identity table."
+    ]
+  },
+  "references": [
+    {
+      "title": "DOLFINx mixed Poisson demo and mixed-space conventions",
+      "locator": "https://docs.fenicsproject.org/dolfinx/main/python/demos/demo_mixed-poisson.html"
+    },
+    {
+      "title": "UFL form language manual",
+      "locator": "https://docs.fenicsproject.org/ufl/main/manual/form_language.html"
+    }
+  ],
+  "related_cards": [
+    "agentfem.operator.system_contracts",
+    "agentfem.operator.scalar_transport_reaction"
+  ]
+}

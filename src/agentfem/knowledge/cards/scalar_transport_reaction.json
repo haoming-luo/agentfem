@@ -5,9 +5,10 @@
   "title": "Scalar transport and reaction operators",
   "kind": "operator",
   "status": "supported",
-  "summary": "Provides inspectable advection, streamline-upwind stabilization, and named scalar reaction laws for reusable transport and reaction--diffusion workflows.",
+  "summary": "Provides inspectable advection, scalar Burgers convection, streamline-upwind stabilization, and named scalar reaction laws for reusable transport and reaction--diffusion workflows.",
   "public_api": [
     "agentfem.operators.advection_operator",
+    "agentfem.operators.burgers_convection_operator",
     "agentfem.operators.streamline_upwind_operator",
     "agentfem.operators.intrinsic_time_scale",
     "agentfem.operators.reaction_expression"
@@ -18,6 +19,11 @@
   "science": {
     "statement": "Transport and reaction semantics remain named public operators while UFL supplies the executable weak form and differentiation.",
     "equations": [
+      {
+        "label": "multidimensional scalar Burgers transport",
+        "expression": "\u2202_t u+u\\,\\boldsymbol{1}\\cdot\\nabla u-\\nu\\Delta u=f",
+        "description": "The default public direction differentiates the transported scalar along every spatial axis; a caller may supply an explicit direction for a reduced model."
+      },
       {
         "label": "advection--diffusion--reaction",
         "expression": "\\partial_t u-\\nabla\\cdot(\\varepsilon\\nabla u)+\\boldsymbol{\\beta}\\cdot\\nabla u+r(u)=f",
@@ -83,7 +89,7 @@
     ],
     "limitations": [
       "No discontinuity-capturing or shock limiter is included.",
-      "The scalar operators do not yet define mixed flow, species coupling, or automatic stabilization selection.",
+      "The scalar operators do not define mixed flow, species coupling, or automatic stabilization selection.",
       "Symbolic velocity metadata are recorded as an inspectable expression string rather than reconstructed as numeric components."
     ]
   },
@@ -99,7 +105,8 @@
       "tests/test_pdeagent_bench.py"
     ],
     "benchmarks": [
-      "agentfem.benchmark.pdeagent_bench_scalar_seven_family"
+      "agentfem.benchmark.pdeagent_bench_scalar_seven_family",
+      "agentfem.benchmark.pdeagent_bench_eleven_family"
     ],
     "validation_rules": [
       "Reject a zero numeric advection velocity when constructing the advective intrinsic time scale.",

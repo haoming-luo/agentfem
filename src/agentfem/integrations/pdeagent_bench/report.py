@@ -24,7 +24,7 @@ FAILURE_STAGES = (
 class BenchmarkReport:
     """Compact scientific and product evidence from an official summary."""
 
-    source: Path
+    source: Path | tuple[Path, ...]
     total: int
     passed: int
     by_family: dict[str, dict[str, object]]
@@ -39,7 +39,11 @@ class BenchmarkReport:
     def as_dict(self) -> dict[str, object]:
         return {
             "schema": "agentfem.pdeagent-bench-report.v1",
-            "source": str(self.source),
+            "source": (
+                [str(path) for path in self.source]
+                if isinstance(self.source, tuple)
+                else str(self.source)
+            ),
             "total": self.total,
             "passed": self.passed,
             "pass_rate": self.pass_rate,
@@ -102,6 +106,39 @@ def read_official_summary(
     payload = json.loads(selected.read_text())
     results = tuple(dict(item) for item in payload.get("results", ()))
     dimensions = _case_dimensions(case_catalog)
+    return _build_report(selected, results, dimensions)
+
+
+def combine_official_summaries(
+    paths: list[str | Path] | tuple[str | Path, ...],
+    *,
+    case_catalogs: list[str | Path] | tuple[str | Path, ...] = (),
+) -> BenchmarkReport:
+    """Combine disjoint official family runs into one audited report."""
+
+    selected = tuple(Path(path) for path in paths)
+    if not selected:
+        raise ValueError("combine_official_summaries requires at least one summary.")
+    results: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for path in selected:
+        payload = json.loads(path.read_text())
+        for raw in payload.get("results", ()):
+            item = dict(raw)
+            case_id = str(item.get("case_id"))
+            if case_id in seen:
+                raise ValueError(
+                    f"duplicate benchmark case in combined report: {case_id}"
+                )
+            seen.add(case_id)
+            results.append(item)
+    dimensions: dict[str, int] = {}
+    for catalog in case_catalogs:
+        dimensions.update(_case_dimensions(catalog))
+    return _build_report(selected, tuple(results), dimensions)
+
+
+def _build_report(selected, results, dimensions):
     grouped: dict[str, list[dict[str, object]]] = defaultdict(list)
     grouped_by_dimension: dict[str, list[dict[str, object]]] = defaultdict(list)
     failure_counts: Counter[str] = Counter()
@@ -130,7 +167,9 @@ def read_official_summary(
     by_family = {}
     for family, entries in grouped.items():
         passed = sum(entry["status"] == "PASS" for entry in entries)
-        errors = [float(entry["error"]) for entry in entries if entry["error"] is not None]
+        errors = [
+            float(entry["error"]) for entry in entries if entry["error"] is not None
+        ]
         times = [float(entry["time"]) for entry in entries if entry["time"] is not None]
         by_family[family] = {
             "total": len(entries),

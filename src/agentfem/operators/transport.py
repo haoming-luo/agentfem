@@ -31,6 +31,46 @@ def advection_operator(
     )
 
 
+def burgers_convection_operator(
+    advecting_scalar,
+    transported_scalar,
+    test,
+    *,
+    direction=None,
+    measure=ufl.dx,
+    name: str = "N_burgers",
+) -> OperatorForm:
+    """Return scalar Burgers transport ``u_adv (d . grad(u))``.
+
+    The default direction contains one in every spatial direction, matching
+    the common multidimensional scalar Burgers equation.  Supplying an
+    explicit direction keeps the operator useful for reduced and directional
+    transport models without introducing a second public API.
+    """
+
+    if direction is None:
+        domain = ufl.domain.extract_unique_domain(transported_scalar)
+        dimension = int(domain.geometric_dimension)
+        selected_direction = ufl.as_vector((1.0,) * dimension)
+    else:
+        selected_direction = as_velocity(direction)
+    return OperatorForm(
+        name=name,
+        kind="burgers_convection_operator",
+        role="matrix",
+        family="nonlinear_transport",
+        expression=(
+            advecting_scalar
+            * ufl.dot(selected_direction, ufl.grad(transported_scalar))
+            * test
+            * measure
+        ),
+        metadata={
+            "direction": _velocity_metadata("all" if direction is None else direction)
+        },
+    )
+
+
 def streamline_upwind_operator(
     strong_residual,
     test,
@@ -123,6 +163,7 @@ def _velocity_metadata(velocity):
 __all__ = [
     "advection_operator",
     "as_velocity",
+    "burgers_convection_operator",
     "intrinsic_time_scale",
     "reaction_expression",
     "streamline_upwind_operator",

@@ -197,6 +197,13 @@
       "title": "Operator role, system, and residual-linearization contracts"
     },
     {
+      "id": "agentfem.benchmark.pdeagent_bench_eleven_family",
+      "physics": "Poisson, heat, linear elasticity, Helmholtz, convection--diffusion, reaction--diffusion, scalar wave, Burgers, Stokes, Navier--Stokes, and biharmonic equations",
+      "source": "src/agentfem/knowledge/benchmarks/pdeagent_bench_eleven_family.json",
+      "status": "external_runner_development_snapshot",
+      "title": "PDEAgent-Bench eleven-family fixed-adapter milestone"
+    },
+    {
       "id": "agentfem.benchmark.pdeagent_bench_scalar_seven_family",
       "physics": "Poisson, heat, linear elasticity, Helmholtz, convection--diffusion, reaction--diffusion, and scalar wave equations",
       "source": "src/agentfem/knowledge/benchmarks/pdeagent_bench_scalar_seven_family.json",
@@ -439,10 +446,47 @@
       "title": "Mooney--Rivlin finite-strain solids and incompressible sheets"
     },
     {
+      "id": "agentfem.operator.biharmonic_split",
+      "kind": "operator",
+      "public_api": [
+        "agentfem.operators.split_laplacian_operator",
+        "agentfem.operators.auxiliary_laplacian_boundary"
+      ],
+      "related_cards": [
+        "agentfem.operator.system_contracts",
+        "agentfem.workflow.solution_procedures"
+      ],
+      "source": "src/agentfem/knowledge/cards/biharmonic_split_operators.json",
+      "status": "supported",
+      "summary": "Represents a fourth-order scalar equation through two inspectable second-order Laplacian blocks and keeps the auxiliary boundary closure explicit.",
+      "title": "Biharmonic split operators and boundary closure"
+    },
+    {
+      "id": "agentfem.operator.incompressible_flow",
+      "kind": "operator",
+      "public_api": [
+        "agentfem.fields.velocity_pressure",
+        "agentfem.spaces.velocity_pressure_space",
+        "agentfem.operators.viscous_flow_operator",
+        "agentfem.operators.pressure_coupling_operator",
+        "agentfem.operators.incompressibility_operator",
+        "agentfem.operators.convective_momentum_operator"
+      ],
+      "related_cards": [
+        "agentfem.operator.system_contracts",
+        "agentfem.operator.scalar_transport_reaction"
+      ],
+      "source": "src/agentfem/knowledge/cards/incompressible_flow_operators.json",
+      "status": "supported",
+      "summary": "Provides an explicit Taylor--Hood velocity/pressure unknown and composable viscous, pressure, incompressibility, and momentum-convection operators for Stokes and Navier--Stokes workflows.",
+      "title": "Mixed incompressible-flow fields and operators"
+    },
+    {
       "id": "agentfem.operator.scalar_transport_reaction",
       "kind": "operator",
       "public_api": [
         "agentfem.operators.advection_operator",
+        "agentfem.operators.burgers_convection_operator",
         "agentfem.operators.streamline_upwind_operator",
         "agentfem.operators.intrinsic_time_scale",
         "agentfem.operators.reaction_expression"
@@ -453,7 +497,7 @@
       ],
       "source": "src/agentfem/knowledge/cards/scalar_transport_reaction.json",
       "status": "supported",
-      "summary": "Provides inspectable advection, streamline-upwind stabilization, and named scalar reaction laws for reusable transport and reaction--diffusion workflows.",
+      "summary": "Provides inspectable advection, scalar Burgers convection, streamline-upwind stabilization, and named scalar reaction laws for reusable transport and reaction--diffusion workflows.",
       "title": "Scalar transport and reaction operators"
     },
     {

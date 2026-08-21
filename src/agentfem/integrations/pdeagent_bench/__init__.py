@@ -9,7 +9,12 @@ from .schema import (
     BenchmarkContractError,
     validate_case_spec,
 )
-from .report import BenchmarkReport, classify_official_result, read_official_summary
+from .report import (
+    BenchmarkReport,
+    classify_official_result,
+    combine_official_summaries,
+    read_official_summary,
+)
 
 __all__ = [
     "BENCHMARK_COMMIT",
@@ -23,6 +28,7 @@ __all__ = [
     "solve",
     "solve_case",
     "classify_official_result",
+    "combine_official_summaries",
     "read_official_summary",
     "validate_case_spec",
 ]

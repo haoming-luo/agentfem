@@ -222,6 +222,50 @@ class DisplacementPressureUnknown:
         return result
 
 
+@dataclass(frozen=True)
+class VelocityPressureUnknown:
+    """Taylor--Hood velocity/pressure unknown for incompressible flow."""
+
+    name: str
+    space: object
+    value: object
+    trial: tuple[object, object]
+    test: tuple[object, object]
+    velocity: UnknownField
+    pressure: UnknownField
+    velocity_degree: int = 2
+    pressure_degree: int = 1
+    kind: str = "velocity_pressure"
+
+    @property
+    def function_space(self):
+        return self.space
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "kind": self.kind,
+            "element": str(self.space.ufl_element()),
+            "velocity_degree": int(self.velocity_degree),
+            "pressure_degree": int(self.pressure_degree),
+            "stability_family": "Taylor-Hood",
+        }
+
+    def collapsed_velocity(self, *, name: str = "V"):
+        """Return a standalone velocity field copied from the mixed state."""
+
+        result = self.value.sub(0).collapse()
+        result.name = name
+        return result
+
+    def collapsed_pressure(self, *, name: str = "P"):
+        """Return a standalone pressure field copied from the mixed state."""
+
+        result = self.value.sub(1).collapse()
+        result.name = name
+        return result
+
+
 def scalar_unknown(domain, *, name: str = "Unknown", degree: int = 1, value=0.0) -> UnknownField:
     """Create a scalar finite-element unknown."""
 
@@ -323,6 +367,54 @@ def displacement_pressure(
         displacement=displacement_unknown,
         pressure=pressure_unknown,
         displacement_degree=int(displacement_degree),
+        pressure_degree=int(pressure_degree),
+    )
+
+
+def velocity_pressure(
+    domain,
+    *,
+    velocity_degree: int = 2,
+    pressure_degree: int = 1,
+    name: str = "VelocityPressure",
+) -> VelocityPressureUnknown:
+    """Create a Taylor--Hood incompressible-flow unknown."""
+
+    W = spaces.velocity_pressure_space(
+        domain,
+        velocity_degree=velocity_degree,
+        pressure_degree=pressure_degree,
+    )
+    mixed_value = fem.Function(W, name=name)
+    trial = tuple(ufl.TrialFunctions(W))
+    test = tuple(ufl.TestFunctions(W))
+    velocity_value = mixed_value.sub(0)
+    velocity_value.name = "Velocity"
+    pressure_value = mixed_value.sub(1)
+    pressure_value.name = "Pressure"
+    return VelocityPressureUnknown(
+        name=name,
+        space=W,
+        value=mixed_value,
+        trial=trial,
+        test=test,
+        velocity=UnknownField(
+            name="Velocity",
+            kind="velocity_subfield",
+            space=W.sub(0),
+            value=velocity_value,
+            trial=trial[0],
+            test=test[0],
+        ),
+        pressure=UnknownField(
+            name="Pressure",
+            kind="pressure_subfield",
+            space=W.sub(1),
+            value=pressure_value,
+            trial=trial[1],
+            test=test[1],
+        ),
+        velocity_degree=int(velocity_degree),
         pressure_degree=int(pressure_degree),
     )
 

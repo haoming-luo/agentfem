@@ -2641,6 +2641,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>Mixed displacement/pressure unknown for hybrid solid mechanics.</td>
 </tr>
 <tr>
+<td>class</td>
+<td><code>VelocityPressureUnknown</code></td>
+<td>Taylor--Hood velocity/pressure unknown for incompressible flow.</td>
+</tr>
+<tr>
 <td>function</td>
 <td><code>scalar_unknown(domain, *, name: str = 'Unknown', degree: int = 1, value = 0.0) -&gt; UnknownField</code></td>
 <td>Create a scalar finite-element unknown.</td>
@@ -2659,6 +2664,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>displacement_pressure(domain, *, displacement_degree: int = 2, pressure_degree: int = 0, name: str = 'DisplacementPressure') -&gt; DisplacementPressureUnknown</code></td>
 <td>Create a mixed displacement/pressure unknown.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>velocity_pressure(domain, *, velocity_degree: int = 2, pressure_degree: int = 1, name: str = 'VelocityPressure') -&gt; VelocityPressureUnknown</code></td>
+<td>Create a Taylor--Hood incompressible-flow unknown.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -5917,6 +5927,36 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>Equivalent nodal load produced by isotropic thermal expansion.</td>
 </tr>
 <tr>
+<td>function</td>
+<td><code>convective_momentum_operator(advecting_velocity, transported_velocity, test_velocity, *, measure = ufl.dx, name: str = 'N_convection') -&gt; OperatorForm</code></td>
+<td>Return <code>((w . grad) u, v)</code> for vector momentum transport.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>incompressibility_operator(velocity, test_pressure, *, measure = ufl.dx, name: str = 'D_incompressibility') -&gt; OperatorForm</code></td>
+<td>Return the symmetric saddle-point term <code>-(q, div(u))</code>.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>pressure_coupling_operator(pressure, test_velocity, *, measure = ufl.dx, name: str = 'G_pressure') -&gt; OperatorForm</code></td>
+<td>Return the pressure contribution <code>-(p, div(v))</code>.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>viscous_flow_operator(velocity, test_velocity, viscosity, *, measure = ufl.dx, name: str = 'K_viscous') -&gt; OperatorForm</code></td>
+<td>Return <code>nu (grad(u), grad(v))</code> for incompressible momentum.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>auxiliary_laplacian_boundary(boundary_expression)</code></td>
+<td>Return <code>-Delta(g)</code> for the auxiliary field <code>w=-Delta(u)</code>.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>split_laplacian_operator(trial, test, *, measure = ufl.dx, name: str = 'K_split_laplacian') -&gt; OperatorForm</code></td>
+<td>Return one second-order block of a mixed biharmonic split.</td>
+</tr>
+<tr>
 <td>class</td>
 <td><code>FirstOrderSystem</code></td>
 <td>First-order transient system, <code>C x_dot + K x = F</code>.</td>
@@ -5955,6 +5995,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>as_velocity(velocity)</code></td>
 <td>Normalize a public velocity sequence without hiding UFL expressions.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>burgers_convection_operator(advecting_scalar, transported_scalar, test, *, direction = None, measure = ufl.dx, name: str = 'N_burgers') -&gt; OperatorForm</code></td>
+<td>Return scalar Burgers transport <code>u_adv (d . grad(u))</code>.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -7144,6 +7189,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>vector_space(domain, degree: int = 1, dim: int \| None = None)</code></td>
 <td>Create a vector Lagrange function space.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>velocity_pressure_space(domain, *, velocity_degree: int = 2, pressure_degree: int = 1)</code></td>
+<td>Create a Taylor--Hood velocity/pressure mixed space.</td>
 </tr>
 <tr>
 <td>function</td>

@@ -141,7 +141,10 @@ finite-element simulation with AgentFEM.
   `docs/pdeagent_bench.md`; inspect `SUPPORTED_FAMILIES` rather than guessing
   capability from a case name. Do not read oracle-only mesh, FEM, solver, or
   manufactured-solution fields, dispatch on case IDs, or infer success from
-  execution alone. Preserve the benchmark commit and failure taxonomy.
+  execution alone. Preserve the benchmark commit and failure taxonomy. For
+  mixed flow, periodic MPC, or split fourth-order cases, report the resolved
+  field pair, pressure reference, periodic method, and auxiliary boundary
+  closure from `solver_info` rather than presenting them as implicit defaults.
   When observations and the FEM mesh use different axes or origins, pass an
   explicit `surrogates.AffineCoordinateMap`; for publication maps convert the
   result to `datasets.RectilinearObservation` before comparison. Never infer a

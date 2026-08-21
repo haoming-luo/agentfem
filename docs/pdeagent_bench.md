@@ -28,12 +28,13 @@ uses exposed dimension, geometry scale, and expression bandwidth; it does not
 dispatch on case identifiers.
 
 The supported families are Poisson, heat, linear elasticity, Helmholtz,
-convection--diffusion, reaction--diffusion, and the scalar wave equation.
-General geometry specifications are lowered through `mesh.from_spec(...)`;
-structured unit domains remain independent of Gmsh, while general planar
-domains use the optional Gmsh integration. Stabilized transport and named
-reaction laws are implemented as public AgentFEM operators, not hidden in the
-benchmark entry point.
+convection--diffusion, reaction--diffusion, scalar wave, Burgers, Stokes,
+Navier--Stokes, and biharmonic equations. General geometry specifications are
+lowered through `mesh.from_spec(...)`; structured unit domains remain
+independent of Gmsh, while general planar domains use the optional Gmsh
+integration. Stabilized transport, named reaction laws, mixed velocity--
+pressure fields, incompressible-flow operators, and fourth-order split
+operators are public AgentFEM capabilities rather than benchmark-local code.
 
 ```python
 from agentfem.integrations.pdeagent_bench import solve_case
@@ -63,6 +64,31 @@ and
 \partial_{tt}u-c^2\Delta u=f.
 \]
 
+The nonlinear transport and incompressible-flow contracts add
+
+\[
+\partial_t u+u\,\boldsymbol{1}\!\cdot\!\nabla u-\nu\Delta u=f,
+\]
+
+\[
+-\nu\Delta\boldsymbol{u}+\nabla p=\boldsymbol{f},
+\qquad \nabla\!\cdot\!\boldsymbol{u}=0,
+\]
+
+and the steady Navier--Stokes momentum convection
+\((\boldsymbol{u}\!\cdot\!\nabla)\boldsymbol{u}\). Stokes and Navier--Stokes
+use a public Taylor--Hood velocity/pressure space; Navier--Stokes starts from a
+Stokes predictor and advances with a consistent Newton tangent. Scalar
+periodic Burgers cases use matching-face MPC constraints when the optional
+`dolfinx_mpc` integration is installed.
+
+For \(\Delta^2u=f\), AgentFEM exposes the mixed split
+\(w=-\Delta u\), \(-\Delta w=f\). When the public case supplies only
+\(u=g\) on the boundary, the adapter closes the otherwise under-specified
+fourth-order problem with \(w=-\Delta g\). This modeling choice is recorded in
+`solver_info`; it is derived from the public boundary expression and never
+from a withheld manufactured field.
+
 Steady advection--diffusion can request SUPG stabilization through the public
 transport operators. Reaction--diffusion uses backward Euler, with
 Crank--Nicolson available for linear reactions; the wave path uses the
@@ -77,17 +103,23 @@ compatible FEniCSx environment, and pass the fixed entry point to the official
 runner:
 
 ```bash
+# `gpt-5.1` is a runner-compatibility label in solver-path mode.
 python scripts/run_benchmark.py \
   --agent gpt-5.1 \
   --solver-path /path/to/agentfem/tools/pdeagent_bench_solver.py \
   --equation-types poisson heat linear_elasticity helmholtz \
-    convection_diffusion reaction_diffusion wave \
+    convection_diffusion reaction_diffusion wave burgers stokes \
+    navier_stokes biharmonic \
   --version v2 \
   --output /path/to/evidence
 ```
 
-The `--agent` value satisfies the current runner's CLI validation; no model is
-called when `--solver-path` is supplied. Record that distinction in any report.
+The literal `gpt-5.1` above is only a legacy runner-compatible directory label.
+No GPT-5.1 call occurs when `--solver-path` is supplied, and the label must not
+be reported as the evaluated model. The adapter was developed collaboratively
+with Codex (GPT-5.6-sol); the numerical result itself is produced by loading
+the already-fixed AgentFEM source. Public reports should therefore identify
+this track as **AgentFEM fixed adapter**, not as a GPT-5.1 score.
 
 Normalize an official summary into AgentFEM's stable failure taxonomy with:
 
@@ -98,6 +130,10 @@ python tools/pdeagent_bench_report.py \
   --json report.json \
   --markdown report.md
 ```
+
+Disjoint family runs may be passed as multiple positional summaries. The
+reporter rejects duplicate case IDs rather than silently counting a rerun
+twice, and records every source path in the JSON evidence.
 
 Failures are classified as schema, geometry, solver, output, accuracy, time,
 or execution failures. A successful execution is not silently promoted to a
@@ -120,11 +156,12 @@ generation. The second claim requires a controlled A/B experiment.
 
 ## Verified Development Snapshot
 
-On 21 August 2026, the fixed adapter was run with the official v2 runner at
-the pinned benchmark commit above. All 456 cases across seven complete
-families produced executable, schema-valid output. The official final gate
-passed 396/456 cases: an 86.8% micro-average and an 87.6% unweighted family
-macro-average. Every family exceeded the declared 75% expansion gate.
+On 21--22 August 2026, the fixed adapter was run with the official v2 runner at
+the pinned benchmark commit above. Across complete-family runs and the
+recorded periodic/constant-boundary repair reruns, all 645 public cases in all
+eleven families produced executable, schema-valid output. The official final
+gate passed 552/645 cases: an 85.6% micro-average and an 86.4% unweighted
+family macro-average.
 
 | Complete public family | Passed | Total | Pass rate |
 |---|---:|---:|---:|
@@ -135,7 +172,11 @@ macro-average. Every family exceeded the declared 75% expansion gate.
 | convection--diffusion | 68 | 84 | 81.0% |
 | reaction--diffusion | 64 | 64 | 100.0% |
 | scalar wave | 42 | 42 | 100.0% |
-| **micro total** | **396** | **456** | **86.8%** |
+| Burgers | 41 | 43 | 95.3% |
+| Stokes | 34 | 61 | 55.7% |
+| Navier--Stokes | 24 | 28 | 85.7% |
+| biharmonic | 57 | 57 | 100.0% |
+| **micro total** | **552** | **645** | **85.6%** |
 
 The original three-family set passed 170/204 cases (83.3%). Stratification by
 the benchmark's declared dimension remains essential:
@@ -173,13 +214,14 @@ The staged targets are:
 - six to eight families: at least 75% macro-average, with stabilization and
   mixed-field semantics implemented in the core rather than in case scripts
   (**achieved for seven complete families in the snapshot above**);
-- all eleven families: at least 60% macro- and micro-average;
+- all eleven families: at least 60% macro- and micro-average
+  (**achieved at 86.4% and 85.6%, respectively**);
 - a same-model, same-budget A/B study before claiming a systematic AI-native
   advantage over regenerating backend code for every problem.
 
-After the scalar seven-family milestone, the next defensible family is
-Stokes, but only after pressure-space, pressure-nullspace, mixed boundary, and
-field-output contracts are public. Burgers, Navier--Stokes, and biharmonic
-problems remain later because nonlinear transport, mixed stabilization, and
-fourth-order formulations deserve first-class AgentFEM contracts rather than
-benchmark-local scripts.
+The eleven-family milestone makes the next work qualitative rather than a
+search for more family names: improve three-dimensional mixed-flow accuracy,
+generalize pressure-nullspace and periodic-vector constraints, expose richer
+fourth-order boundary pairs, and preserve immutable official-run evidence.
+Those changes must improve public numerical contracts and external cases; they
+must not become case-ID dispatch or reference-field fitting.

@@ -19,6 +19,8 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.material.mixed_hybrid_hyperelasticity`](#agentfem-material-mixed_hybrid_hyperelasticity) | Constant-pressure mixed Neo-Hookean solid | material | supported |
 | [`agentfem.material.mixed_mode_cyclic_cohesive`](#agentfem-material-mixed_mode_cyclic_cohesive) | Proportional and ordered-path mixed-mode cyclic cohesive damage | material | experimental |
 | [`agentfem.material.mooney_rivlin_hyperelasticity`](#agentfem-material-mooney_rivlin_hyperelasticity) | Mooney--Rivlin finite-strain solids and incompressible sheets | material | experimental |
+| [`agentfem.operator.biharmonic_split`](#agentfem-operator-biharmonic_split) | Biharmonic split operators and boundary closure | operator | supported |
+| [`agentfem.operator.incompressible_flow`](#agentfem-operator-incompressible_flow) | Mixed incompressible-flow fields and operators | operator | supported |
 | [`agentfem.operator.scalar_transport_reaction`](#agentfem-operator-scalar_transport_reaction) | Scalar transport and reaction operators | operator | supported |
 | [`agentfem.operator.system_contracts`](#agentfem-operator-system_contracts) | Finite-element operator and system contracts | operator | supported |
 | [`agentfem.workflow.abaqus_engineering_regions`](#agentfem-workflow-abaqus_engineering_regions) | Abaqus node sets and element-face surfaces as FEM regions | workflow | supported |
@@ -73,6 +75,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.mooney_rivlin_material_paths` | Mooney--Rivlin material-path and Explicit-consumer contract | incompressible plane-stress Mooney--Rivlin hyperelasticity | experimental_automated_regression |
 | `agentfem.benchmark.neo_hookean_release` | Compressible Neo-Hookean finite-strain release contract | compressible Neo-Hookean hyperelasticity | automated_regression |
 | `agentfem.benchmark.operator_contracts` | Operator role, system, and residual-linearization contracts | backend-facing finite-element operator algebra | automated |
+| `agentfem.benchmark.pdeagent_bench_eleven_family` | PDEAgent-Bench eleven-family fixed-adapter milestone | Poisson, heat, linear elasticity, Helmholtz, convection--diffusion, reaction--diffusion, scalar wave, Burgers, Stokes, Navier--Stokes, and biharmonic equations | external_runner_development_snapshot |
 | `agentfem.benchmark.pdeagent_bench_scalar_seven_family` | PDEAgent-Bench seven-family fixed-adapter snapshot | Poisson, heat, linear elasticity, Helmholtz, convection--diffusion, reaction--diffusion, and scalar wave equations | external_runner_development_snapshot |
 | `agentfem.benchmark.plane_stress_thin_3d_crosscheck` | Finite-strain plane-stress and thin-three-dimensional patch cross-check | compressible Neo-Hookean finite strain under homogeneous uniaxial stretch with traction-free lateral and thickness directions | experimental_geometry_crosscheck_automated |
 | `agentfem.benchmark.thermoelastic_free_expansion` | Plane-stress isotropic free thermal expansion | small-strain isotropic plane-stress thermoelasticity under uniform temperature change | automated_regression |
@@ -1135,6 +1138,215 @@ step = model.step(target=u, material=material, dt='auto', steps=100)
 
 - Wang, Fineberg, and Needleman (2025), transition from crack-type to supershear-type to spall-type dynamics: `https://doi.org/10.1016/j.jmps.2025.106213`
 
+<a id="agentfem-operator-biharmonic_split"></a>
+
+## Biharmonic split operators and boundary closure
+
+**Stable ID:** `agentfem.operator.biharmonic_split`<br>
+**Kind:** `operator`<br>
+**Status:** `supported`<br>
+**Source card:** `src/agentfem/knowledge/cards/biharmonic_split_operators.json`
+
+Represents a fourth-order scalar equation through two inspectable second-order Laplacian blocks and keeps the auxiliary boundary closure explicit.
+
+### Public API
+
+- `agentfem.operators.split_laplacian_operator`
+- `agentfem.operators.auxiliary_laplacian_boundary`
+
+### Scientific contract
+
+A mixed second-order split avoids silently requiring a high-continuity primary element, but it does not remove the need to declare a second boundary condition.
+
+**biharmonic equation**
+
+$$
+\Delta^2u=f
+$$
+
+The scalar fourth-order balance.
+
+**two-field split**
+
+$$
+w=-\Delta u,\qquad-\Delta w=f
+$$
+
+Each block uses the public scalar Laplacian weak form.
+
+**derived public boundary closure**
+
+$$
+u=g,\qquad w=-\Delta g\quad\text{on }\partial\Omega
+$$
+
+This closure is valid only when the supplied expression g defines the intended spatial extension; it is recorded rather than inferred from reference data.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| primary and auxiliary scalar fields | Lagrange unknowns | split state | The auxiliary field carries minus the primary Laplacian. |
+| auxiliary boundary condition | declared or derived scalar expression | second boundary condition | Completes the fourth-order boundary-value problem. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| split Laplacian block | OperatorForm | second-order weak operator | Reusable matrix contribution for either primary or auxiliary solve. |
+
+#### Assumptions
+
+- The chosen two-field closure represents the intended fourth-order boundary conditions.
+- The supplied primary boundary expression is differentiable when its Laplacian is used.
+- A spatially constant primary boundary has zero auxiliary Laplacian.
+
+#### Conventions
+
+- The auxiliary variable is w equals minus Laplacian u.
+- Boundary closure is attached to solver evidence.
+- Hidden manufactured solutions are never valid sources of auxiliary data.
+
+#### Applicability
+
+- Scalar biharmonic verification problems and reusable mixed second-order prototypes with explicitly reviewed boundary semantics.
+
+#### Limitations
+
+- This operator card does not define every clamped, simply supported, free, or plate-theory boundary pair.
+- The current benchmark consumer performs sequential Poisson solves rather than a monolithic block solve.
+
+### Minimal example
+
+```python
+Define w = -laplacian(u); solve split_laplacian_operator(w, q) = f*q and then split_laplacian_operator(u, v) = w*v with an explicit auxiliary boundary condition.
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_operators.py`
+- `tests/test_pdeagent_bench.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.pdeagent_bench_eleven_family`
+
+**Validation rules**
+
+- Reject a split benchmark case without one public primary boundary expression.
+- Record the auxiliary boundary closure in solver_info.
+- Test both spatially varying and constant public boundary expressions.
+
+### References
+
+- UFL form language manual: `https://docs.fenicsproject.org/ufl/main/manual/form_language.html`
+- PDEAgent-Bench public repository: `https://github.com/YusanX/pde-agent-bench`
+
+<a id="agentfem-operator-incompressible_flow"></a>
+
+## Mixed incompressible-flow fields and operators
+
+**Stable ID:** `agentfem.operator.incompressible_flow`<br>
+**Kind:** `operator`<br>
+**Status:** `supported`<br>
+**Source card:** `src/agentfem/knowledge/cards/incompressible_flow_operators.json`
+
+Provides an explicit Taylor--Hood velocity/pressure unknown and composable viscous, pressure, incompressibility, and momentum-convection operators for Stokes and Navier--Stokes workflows.
+
+### Public API
+
+- `agentfem.fields.velocity_pressure`
+- `agentfem.spaces.velocity_pressure_space`
+- `agentfem.operators.viscous_flow_operator`
+- `agentfem.operators.pressure_coupling_operator`
+- `agentfem.operators.incompressibility_operator`
+- `agentfem.operators.convective_momentum_operator`
+
+### Scientific contract
+
+Velocity/pressure stability, pressure reference semantics, and momentum terms remain explicit scientific choices rather than consequences of the mesh or solver backend.
+
+**steady incompressible momentum**
+
+$$
+-\nu\Delta\boldsymbol{u}+(\boldsymbol{u}\cdot\nabla)\boldsymbol{u}+\nabla p=\boldsymbol{f}
+$$
+
+Removing the convective term gives the Stokes momentum balance.
+
+**incompressibility**
+
+$$
+\nabla\cdot\boldsymbol{u}=0
+$$
+
+The pressure test field enforces the divergence constraint in the mixed weak form.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| velocity and pressure degrees | integer pair | discretization | Taylor--Hood requires the conforming velocity degree to exceed the pressure degree. |
+| viscosity | positive scalar or coefficient | kinematic viscosity in the normalized benchmark form | Weights the viscous gradient term. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| velocity_pressure unknown | VelocityPressureUnknown | mixed primary state | Owns one mixed function and inspectable velocity and pressure subfields. |
+| flow operators | OperatorForm | weak momentum and continuity contributions | Composable terms suitable for linear Stokes systems or differentiated nonlinear residuals. |
+
+#### Assumptions
+
+- The public mixed space is a conforming Taylor--Hood pair.
+- A fully velocity-Dirichlet problem needs a pressure reference or equivalent nullspace treatment.
+- The current operators express constant-density incompressible flow.
+
+#### Conventions
+
+- Pressure enters momentum as minus p times div(v).
+- The continuity block uses minus q times div(u), yielding a symmetric Stokes saddle-point sign convention.
+- Momentum convection is represented as the advecting velocity dotted with the gradient of the transported velocity.
+
+#### Applicability
+
+- Steady Stokes and steady incompressible Navier--Stokes formulations with explicit boundary and pressure-reference policies.
+
+#### Limitations
+
+- No general turbulent closure, transient flow procedure, equal-order stabilization, or automatic pressure-nullspace object is claimed.
+- The PDEAgent-Bench adapter currently uses a direct mixed solve and a Stokes-initialized Newton route; these are consumers, not the only possible solvers.
+
+### Minimal example
+
+```python
+Create vp = fields.velocity_pressure(domain); compose viscous_flow_operator, pressure_coupling_operator, and incompressibility_operator; add convective_momentum_operator to a Navier--Stokes residual.
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_operators.py`
+- `tests/test_pdeagent_bench.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.pdeagent_bench_eleven_family`
+
+**Validation rules**
+
+- Reject Taylor--Hood degree pairs whose velocity order does not exceed pressure order.
+- Keep pressure reference or natural-pressure semantics in solver evidence.
+- Never initialize from a withheld manufactured solution or case-identity table.
+
+### References
+
+- DOLFINx mixed Poisson demo and mixed-space conventions: `https://docs.fenicsproject.org/dolfinx/main/python/demos/demo_mixed-poisson.html`
+- UFL form language manual: `https://docs.fenicsproject.org/ufl/main/manual/form_language.html`
+
 <a id="agentfem-operator-scalar_transport_reaction"></a>
 
 ## Scalar transport and reaction operators
@@ -1144,11 +1356,12 @@ step = model.step(target=u, material=material, dt='auto', steps=100)
 **Status:** `supported`<br>
 **Source card:** `src/agentfem/knowledge/cards/scalar_transport_reaction.json`
 
-Provides inspectable advection, streamline-upwind stabilization, and named scalar reaction laws for reusable transport and reaction--diffusion workflows.
+Provides inspectable advection, scalar Burgers convection, streamline-upwind stabilization, and named scalar reaction laws for reusable transport and reaction--diffusion workflows.
 
 ### Public API
 
 - `agentfem.operators.advection_operator`
+- `agentfem.operators.burgers_convection_operator`
 - `agentfem.operators.streamline_upwind_operator`
 - `agentfem.operators.intrinsic_time_scale`
 - `agentfem.operators.reaction_expression`
@@ -1156,6 +1369,14 @@ Provides inspectable advection, streamline-upwind stabilization, and named scala
 ### Scientific contract
 
 Transport and reaction semantics remain named public operators while UFL supplies the executable weak form and differentiation.
+
+**multidimensional scalar Burgers transport**
+
+$$
+∂_t u+u\,\boldsymbol{1}\cdot\nabla u-\nu\Delta u=f
+$$
+
+The default public direction differentiates the transported scalar along every spatial axis; a caller may supply an explicit direction for a reduced model.
 
 **advection--diffusion--reaction**
 
@@ -1215,7 +1436,7 @@ The first public policy uses the cellwise advective scale and rejects zero veloc
 #### Limitations
 
 - No discontinuity-capturing or shock limiter is included.
-- The scalar operators do not yet define mixed flow, species coupling, or automatic stabilization selection.
+- The scalar operators do not define mixed flow, species coupling, or automatic stabilization selection.
 - Symbolic velocity metadata are recorded as an inspectable expression string rather than reconstructed as numeric components.
 
 ### Minimal example
@@ -1234,6 +1455,7 @@ Create A = operators.advection_operator(u, v, beta); add operators.streamline_up
 **Benchmarks**
 
 - `agentfem.benchmark.pdeagent_bench_scalar_seven_family`
+- `agentfem.benchmark.pdeagent_bench_eleven_family`
 
 **Validation rules**
 

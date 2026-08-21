@@ -1,0 +1,33 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.pdeagent_bench_eleven_family",
+  "title": "PDEAgent-Bench eleven-family fixed-adapter milestone",
+  "status": "external_runner_development_snapshot",
+  "purpose": "Measure the breadth of one case-identity-independent AgentFEM scientific workflow across all eleven public PDEAgent-Bench equation families without consuming oracle-only fields or regenerating backend code for each case.",
+  "physics": "Poisson, heat, linear elasticity, Helmholtz, convection--diffusion, reaction--diffusion, scalar wave, Burgers, Stokes, Navier--Stokes, and biharmonic equations",
+  "execution": {
+    "command": "python scripts/run_benchmark.py --agent gpt-5.1 --solver-path /path/to/agentfem/tools/pdeagent_bench_solver.py --equation-types poisson heat linear_elasticity helmholtz convection_diffusion reaction_diffusion wave burgers stokes navier_stokes biharmonic --version v2 --output /path/to/evidence",
+    "example": "tools/pdeagent_bench_solver.py",
+    "evidence": "Local complete-family runs of the official v2 runner at PDEAgent-Bench commit 0ba9853f82a78196796fa4eeaf0951eb4c000a00 on 21--22 August 2026. The literal gpt-5.1 agent name is only a runner-compatibility directory label: no model is called in solver-path mode. The fixed adapter was developed collaboratively with Codex (GPT-5.6-sol), while the numerical result is produced by the already-fixed AgentFEM source. Per-family final gates were Poisson 77/91, heat 40/50, linear elasticity 53/63, Helmholtz 52/62, convection--diffusion 68/84, reaction--diffusion 64/64, wave 42/42, Stokes 34/61, Burgers 41/43, Navier--Stokes 24/28, and biharmonic 57/57."
+  },
+  "observables": [
+    "All 645 public cases produced executable, schema-valid output after the periodic and constant-boundary closure repairs.",
+    "The official final gate passed 552/645 cases for an 85.6 percent micro-average.",
+    "The unweighted eleven-family macro-average was 86.4 percent.",
+    "Burgers used one public semi-implicit transport operator and matching-face MPC constraints; Navier--Stokes used a Stokes predictor and a consistent Newton tangent.",
+    "Stokes and Navier--Stokes used public Taylor--Hood mixed fields, while biharmonic cases used the recorded two-Poisson split and public-boundary auxiliary closure."
+  ],
+  "acceptance": [
+    "Consume only the official public agent view and never oracle mesh, oracle finite-element order, oracle solver settings, manufactured solution, or case identity.",
+    "Require every case to execute with complete required output and retain accuracy and time failures rather than hiding them.",
+    "Require both unweighted family macro-average and case-weighted micro-average to exceed 60 percent across all eleven families.",
+    "Keep benchmark revision, AgentFEM source identity, family denominators, closure choices, and failure taxonomy with the evidence."
+  ],
+  "limitations": [
+    "This is a local fixed-adapter development result, not an official leaderboard submission and not a measurement of gpt-5.1.",
+    "Several public cases are inconsistent with their withheld references or impose unusually tight oracle-relative gates; AgentFEM follows the exposed equation and boundary contract rather than fitting case-specific reference data.",
+    "The Stokes family remains the principal accuracy gap, especially for three-dimensional and no-exact-reference cases.",
+    "A fixed-adapter score demonstrates numerical and workflow coverage; it does not by itself prove an AI assistance advantage."
+  ]
+}
