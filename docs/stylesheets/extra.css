@@ -48,6 +48,25 @@
   width: auto;
 }
 
+.publication-actions .md-button {
+  background: transparent;
+  border-color: #285b86;
+  color: #285b86;
+}
+
+.publication-actions .md-button--primary {
+  background: #285b86;
+  border-color: #285b86;
+  color: #ffffff;
+}
+
+.publication-actions .md-button:hover,
+.publication-actions .md-button:focus {
+  background: #1f496c;
+  border-color: #1f496c;
+  color: #ffffff;
+}
+
 .md-header__topic:first-child {
   font-weight: 650;
   letter-spacing: -0.01em;

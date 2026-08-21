@@ -32,6 +32,7 @@ not_in_nav: |
 
 theme:
   name: material
+  custom_dir: overrides
   language: en
   font: false
   logo: assets/images/AgentFEM_logo_transparent.png
@@ -182,3 +183,6 @@ nav:
           - Licensing: licensing.md
       - Release 0.2.2: release_0.2.2.md
       - Documentation Versions: project/versioning.md
+
+  - Publications:
+      - AgentFEM Platform Paper: publications/agentfem-platform.md
