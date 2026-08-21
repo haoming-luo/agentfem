@@ -483,6 +483,73 @@ class ThermalBalanceMonitor:
 
 
 @dataclass
+class StateDependentThermalBalanceMonitor:
+    """Heat ledger for nonlinear conductivity and heat-capacity models.
+
+    ``content_form`` is a scalar sensible-enthalpy functional evaluated at the
+    live temperature. ``outward_forms`` contains natural-boundary heat rates;
+    strong prescribed-temperature reactions are intentionally reported through
+    the closure residual until a reaction consumer accounts for them.
+    """
+
+    content_form: object
+    source: object | None
+    dt: float
+    outward_forms: tuple[object, ...] = ()
+    _unit_field: object | None = field(default=None, init=False, repr=False)
+    _previous_content: float | None = field(default=None, init=False, repr=False)
+
+    def _assemble_scalar(self, expression, temperature) -> float:
+        selected = field_api.unwrap(temperature)
+        local = fem.assemble_scalar(fem.form(expression))
+        return float(selected.function_space.mesh.comm.allreduce(local, op=MPI.SUM))
+
+    def evaluate(self, temperature) -> dict[str, float]:
+        """Return enthalpy content and discrete heat-balance evidence."""
+
+        from . import operators
+
+        selected = field_api.unwrap(temperature)
+        if self._unit_field is None:
+            self._unit_field = fem.Function(
+                selected.function_space,
+                name="UnitTemperatureWeight",
+            )
+            self._unit_field.interpolate(
+                lambda x: np.ones((1, x.shape[1]), dtype=float)
+            )
+        content = self._assemble_scalar(self.content_form, selected)
+        outward_rate = sum(
+            self._assemble_scalar(item, selected) for item in self.outward_forms
+        )
+        input_rate = (
+            0.0
+            if self.source is None
+            else float(operators.dual_product(self.source, self._unit_field))
+        )
+        residual = (
+            0.0
+            if self._previous_content is None
+            else content
+            - self._previous_content
+            + float(self.dt) * (outward_rate - input_rate)
+        )
+        self._previous_content = content
+        return {
+            "thermal_content": content,
+            "applied_heat_rate": input_rate,
+            "outward_heat_rate": float(outward_rate),
+            "heat_balance_residual": float(residual),
+        }
+
+    def restore(self, record) -> None:
+        """Restore monitor memory from a checkpointed history frame."""
+
+        if "thermal_content" in record:
+            self._previous_content = float(record["thermal_content"])
+
+
+@dataclass
 class ThermalContentMonitor:
     """Backwards-compatible sensible-heat monitor without balance terms."""
 

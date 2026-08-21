@@ -115,6 +115,11 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   sequential properties. Do not hide interpolation in an anonymous callback
   or silently extrapolate outside laboratory data. A field-valued UFL
   coefficient requires an explicit bounded extrapolation policy.
+- If conductivity or specific heat is tabulated, keep the ordinary
+  `model.step(target=temperature, dt=..., steps=...)` call. AgentFEM lowers it
+  to a conservative enthalpy-based nonlinear heat step. Do not also pass
+  user-defined `C=` or `K=` operators, and retain its convergence, heat-ledger,
+  rollback, and checkpoint evidence.
 - Put weak boundary physics under `boundary_models/`.
 - Put Dirichlet, periodic, and MPC relations under `constraints`.
 - Put Neumann, traction, flux, and body sources under `loads`.

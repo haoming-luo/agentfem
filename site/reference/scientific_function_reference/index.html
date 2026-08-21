@@ -13268,7 +13268,7 @@ W_{\mathrm{ext}}=\tfrac{1}{2}\mathbf{u}^{T}\mathbf{F}+\tfrac{1}{2}\mathbf{R}_{c}
 <strong>Kind:</strong> <code>workflow</code><br>
 <strong>Status:</strong> <code>supported</code><br>
 <strong>Source card:</strong> <code>src/agentfem/knowledge/cards/thermoelastic_analysis.json</code></p>
-<p>One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve, with accepted-time field histories and bounded temperature-property tables for sequential transfer.</p>
+<p>One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve, with conservative nonlinear enthalpy stepping for tabulated thermal properties and accepted-time field histories for sequential transfer.</p>
 <h3 id="public-api_26">Public API<a class="headerlink" href="#public-api_26" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>agentfem.constitutive.thermoelastic</code></li>
@@ -13286,6 +13286,11 @@ W_{\mathrm{ext}}=\tfrac{1}{2}\mathbf{u}^{T}\mathbf{F}+\tfrac{1}{2}\mathbf{R}_{c}
 \rho c_p\dot{T}-\nabla\!\cdot(k\nabla T)=Q
 \]</div>
 <p>Backward Euler advances the first-order thermal state.</p>
+<p><strong>state-dependent heat increment</strong></p>
+<div class="arithmatex">\[
+\frac{h(T_{n+1})-h(T_n)}{\Delta t}-\nabla\!\cdot(k(T_{n+1})\nabla T_{n+1})=Q,\quad dh/dT=\rho c_p(T)
+\]</div>
+<p>Tabulated conductivity or specific heat selects a conservative nonlinear residual and automatic consistent Jacobian.</p>
 <p><strong>thermal strain</strong></p>
 <div class="arithmatex">\[
 \boldsymbol{\varepsilon}_{\mathrm{th}}=\alpha(T-T_{\mathrm{ref}})\mathbf{I}
@@ -13350,6 +13355,12 @@ A(T)=A_{\mathrm{ref}}\exp\!\left[-\frac{Q}{R}\left(\frac{1}{T}-\frac{1}{T_{\math
 <td>Implicit-Euler heat-transfer result.</td>
 </tr>
 <tr>
+<td>thermal ledger</td>
+<td>accepted-time history</td>
+<td>consistent heat/heat-rate system</td>
+<td>Sensible enthalpy, applied rate, outward rate, and discrete closure residual.</td>
+</tr>
+<tr>
 <td>F_thermal</td>
 <td>finite-element vector operator</td>
 <td>force</td>
@@ -13368,6 +13379,7 @@ A(T)=A_{\mathrm{ref}}\exp\!\left[-\frac{Q}{R}\left(\frac{1}{T}-\frac{1}{T_{\math
 <li>Small-strain isotropic thermoelasticity.</li>
 <li>Sequential coupling: temperature affects mechanics but mechanical dissipation and deformation do not feed back into heat transfer.</li>
 <li>Temperature-dependent E, nu, and alpha are known coefficients in a sequential mechanical solve; heat-to-mechanics feedback remains one way.</li>
+<li>Temperature-dependent conductivity and specific heat use piecewise-linear tables with explicit bounded extrapolation and an enthalpy primitive.</li>
 </ul>
 <h4 id="conventions_26">Conventions<a class="headerlink" href="#conventions_26" title="Permanent link">&para;</a></h4>
 <ul>
@@ -13383,18 +13395,19 @@ A(T)=A_{\mathrm{ref}}\exp\!\left[-\frac{Q}{R}\left(\frac{1}{T}-\frac{1}{T_{\math
 <h4 id="limitations_26">Limitations<a class="headerlink" href="#limitations_26" title="Permanent link">&para;</a></h4>
 <ul>
 <li>No monolithic fully coupled temperature-displacement solve.</li>
-<li>No convection/radiation convenience boundary in this card.</li>
+<li>Convection is supported; radiation and general thermal contact are not yet included in this card.</li>
 <li>Portable nodal histories are compact root-gathered archives rather than an extreme-scale parallel field database.</li>
-<li>Temperature-dependent conductivity and capacity iteration is not yet part of the linear implicit heat step.</li>
+<li>The nonlinear thermal route currently uses fixed physical time increments; adaptive thermal cutback and monolithic temperature-displacement coupling remain.</li>
 </ul>
 <h3 id="minimal-example_26">Minimal example<a class="headerlink" href="#minimal-example_26" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="n">Call</span> <span class="n">temperature_history</span> <span class="o">=</span> <span class="n">heat_step</span><span class="o">.</span><span class="n">capture_history</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;temperature&#39;</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s1">&#39;K&#39;</span><span class="p">)</span> <span class="n">before</span> <span class="n">solving</span><span class="p">,</span> <span class="n">then</span> <span class="k">pass</span> <span class="n">that</span> <span class="nb">object</span> <span class="n">to</span> <span class="n">an</span> <span class="n">Arrhenius</span> <span class="n">creep</span> <span class="n">step</span><span class="p">;</span> <span class="n">use</span> <span class="n">materials</span><span class="o">.</span><span class="n">temperature_property</span><span class="p">(</span><span class="o">...</span><span class="p">)</span> <span class="k">for</span> <span class="n">bounded</span> <span class="n">sequential</span> <span class="n">thermoelastic</span> <span class="n">coefficients</span><span class="o">.</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="n">Use</span> <span class="n">materials</span><span class="o">.</span><span class="n">temperature_property</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">extrapolation</span><span class="o">=</span><span class="s1">&#39;constant&#39;</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">(</span><span class="n">T</span><span class="p">)</span> <span class="ow">or</span> <span class="n">cp</span><span class="p">(</span><span class="n">T</span><span class="p">),</span> <span class="n">then</span> <span class="n">call</span> <span class="n">heat_step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">temperature</span><span class="p">,</span> <span class="n">dt</span><span class="o">=...</span><span class="p">,</span> <span class="n">steps</span><span class="o">=...</span><span class="p">);</span> <span class="n">capture</span> <span class="n">its</span> <span class="n">accepted</span> <span class="n">temperature</span> <span class="n">history</span> <span class="ow">and</span> <span class="k">pass</span> <span class="n">it</span> <span class="n">to</span> <span class="n">the</span> <span class="n">Arrhenius</span> <span class="n">creep</span> <span class="n">step</span><span class="o">.</span>
 </code></pre></div>
 <h3 id="verification_26">Verification<a class="headerlink" href="#verification_26" title="Permanent link">&para;</a></h3>
 <p><strong>Tests</strong></p>
 <ul>
 <li><code>tests/test_p1_platform.py</code></li>
 <li><code>tests/test_histories.py</code></li>
+<li><code>tests/test_parallel_transient.py</code></li>
 <li><code>tests/portable_field_history_driver.py</code></li>
 </ul>
 <p><strong>Benchmarks</strong></p>
@@ -13406,6 +13419,7 @@ A(T)=A_{\mathrm{ref}}\exp\!\left[-\frac{Q}{R}\left(\frac{1}{T}-\frac{1}{T_{\math
 <li>Reject nonpositive conductivity, specific heat, density, or absolute reference temperature.</li>
 <li>Require an explicit 2D solid assumption for thermoelastic stress.</li>
 <li>Reject silent temperature-history extrapolation and invalid or unordered property tables.</li>
+<li>Reject simultaneous automatic tabulated thermal properties and user-supplied C/K operators; verify failed nonlinear-step rollback and checkpoint/restart equivalence.</li>
 </ul>
 <h3 id="references_26">References<a class="headerlink" href="#references_26" title="Permanent link">&para;</a></h3>
 <ul>

@@ -49,6 +49,25 @@ class ConvectionBoundary:
             location=self.location,
         ).renamed("Q_convection")
 
+    def residual(self, temperature, test):
+        """Return the convection contribution to a thermal residual."""
+
+        return (
+            self.coefficient
+            * (temperature - self.ambient_temperature)
+            * test
+            * self.measure
+        )
+
+    def outward_heat_rate_form(self, temperature):
+        """Return gross outward exchange ``h*T`` for the shared heat ledger.
+
+        The matching ambient contribution ``h*T_inf`` is recorded as applied
+        heat. Their difference is the physical net convection rate.
+        """
+
+        return self.coefficient * temperature * self.measure
+
     def update(self, time: float) -> float | None:
         """Update a time-dependent ambient temperature when configured."""
 

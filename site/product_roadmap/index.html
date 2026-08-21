@@ -1390,8 +1390,8 @@ core, results, verification, and documentation have priority.</p>
 <tr>
 <td>Thermoelasticity</td>
 <td>FEM-integrated</td>
-<td>steady/implicit-transient heat transfer, regional multi-material conductivity and capacity, amplitude-driven sources/ambient conditions, accepted-time temperature histories with coordinate-keyed cross-partition persistence, bounded temperature-property tables, and sequential isotropic thermal stress in 2D/3D</td>
-<td>temperature-dependent conduction/capacity iteration, extreme-scale history storage, and monolithic two-way coupling remain</td>
+<td>steady/implicit-transient heat transfer, regional multi-material conductivity and capacity, amplitude-driven sources/ambient conditions, conservative nonlinear enthalpy stepping for tabulated k(T)/cp(T) with automatic SNES linearization, rollback/restart and serial/MPI evidence; accepted-time temperature histories with coordinate-keyed cross-partition persistence; bounded temperature-property tables; sequential isotropic thermal stress in 2D/3D</td>
+<td>adaptive nonlinear thermal increments, inelastic heat generation, extreme-scale history storage, external power-component evidence, and monolithic two-way coupling remain</td>
 </tr>
 <tr>
 <td>Structural dynamics</td>
@@ -1640,6 +1640,9 @@ than depend on Abaqus interfaces directly.</p>
 <li>exercise the implemented cross-partition accepted-temperature-history
   transfer on a larger external power-component benchmark; keep Sinh and K-R
   as separate material consumers rather than one flag-heavy solver;</li>
+<li>exercise the implemented conservative nonlinear heat route on that same
+  component, including tabulated conductivity/capacity, time-step convergence,
+  rollback/restart equivalence, MPI, and a complete heat ledger;</li>
 <li>treat sequential temperature-to-creep as the first useful power-component
   route; add monolithic coupling only for cases with material heat generation
   or meaningful mechanical feedback;</li>

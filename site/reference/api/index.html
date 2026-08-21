@@ -5914,6 +5914,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
+<td><code>nonlinear_first_order_transient_run(*, residual, jacobian, current, previous, dt: float, steps: int, study = None, constraints = None, bcs = None, solver_options: NonlinearSolverOptions \| NewtonSolverOptions \| None = None, update_load = None, save_every: int \| None = None, print_every: int \| None = None, progress = True, status_file = None, checkpoint_policy = None, history_monitor = None, name: str = 'nonlinear_first_order_transient', petsc_options_prefix: str = 'agentfem_nonlinear_transient_') -&gt; FirstOrderTransientStep</code></td>
+<td>Create a nonlinear implicit-Euler step with the shared lifecycle.</td>
+</tr>
+<tr>
+<td>function</td>
 <td><code>explicit_dynamics(*, state, integrator, residual, stiffness = None, dt: float, steps: int, study = None, prescribed = (), constraints = (), update_load = None, save_every: int \| None = None, print_every: int \| None = None, history_every: int = 1, progress = True, status_file = None, checkpoint_policy = None, history_monitor = None, stability = None, name: str = 'explicit_dynamics') -&gt; ExplicitDynamicsStep</code></td>
 <td>Create a second-order explicit dynamics step.</td>
 </tr>
@@ -6567,6 +6572,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>class</td>
 <td><code>ThermalBalanceMonitor</code></td>
 <td>Sample discrete heat content, applied rate, outflow, and closure.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>StateDependentThermalBalanceMonitor</code></td>
+<td>Heat ledger for nonlinear conductivity and heat-capacity models.</td>
 </tr>
 <tr>
 <td>class</td>

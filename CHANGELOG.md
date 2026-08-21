@@ -21,6 +21,11 @@ experimental formulation to a validated one.
 - Add a three-dimensional heat-to-creep component contract in which accepted
   transient temperature states directly drive global Arrhenius creep on the
   same physical clock.
+- Add conservative nonlinear transient heat transfer for tabulated
+  conductivity and specific heat. The public `model.step(...)` route lowers
+  automatically to a PETSc SNES solve using a sensible-enthalpy increment,
+  with shared progress, heat ledger, rollback, checkpoint/restart, and MPI
+  behavior.
 
 ### Changed
 
@@ -29,6 +34,9 @@ experimental formulation to a validated one.
   roadmap, and scientific knowledge catalog.
 - Reject silent history extrapolation and unsafe MPI NPZ history writes; field
   histories use the same physical-DOF identity as portable transient state.
+- Keep linear and state-dependent heat steps on the same convection-ledger
+  convention and reject ambiguous combinations of automatic tabulated
+  properties with user-supplied `C` or `K` operators.
 
 ## [0.2.2] - 2026-08-19
 

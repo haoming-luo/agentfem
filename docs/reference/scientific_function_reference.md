@@ -3011,7 +3011,7 @@ peak = results.field_extrema(result.fields['MISES'], location=True)
 **Status:** `supported`<br>
 **Source card:** `src/agentfem/knowledge/cards/thermoelastic_analysis.json`
 
-One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve, with accepted-time field histories and bounded temperature-property tables for sequential transfer.
+One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve, with conservative nonlinear enthalpy stepping for tabulated thermal properties and accepted-time field histories for sequential transfer.
 
 ### Public API
 
@@ -3034,6 +3034,14 @@ $$
 $$
 
 Backward Euler advances the first-order thermal state.
+
+**state-dependent heat increment**
+
+$$
+\frac{h(T_{n+1})-h(T_n)}{\Delta t}-\nabla\!\cdot(k(T_{n+1})\nabla T_{n+1})=Q,\quad dh/dT=\rho c_p(T)
+$$
+
+Tabulated conductivity or specific heat selects a conservative nonlinear residual and automatic consistent Jacobian.
 
 **thermal strain**
 
@@ -3072,6 +3080,7 @@ The local creep coefficient retains its fitted meaning at the declared reference
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | Temperature | transient scalar field | absolute temperature | Implicit-Euler heat-transfer result. |
+| thermal ledger | accepted-time history | consistent heat/heat-rate system | Sensible enthalpy, applied rate, outward rate, and discrete closure residual. |
 | F_thermal | finite-element vector operator | force | Equivalent load from constrained thermal expansion. |
 | Displacement | vector finite-element field | length | Sequential mechanical response. |
 
@@ -3080,6 +3089,7 @@ The local creep coefficient retains its fitted meaning at the declared reference
 - Small-strain isotropic thermoelasticity.
 - Sequential coupling: temperature affects mechanics but mechanical dissipation and deformation do not feed back into heat transfer.
 - Temperature-dependent E, nu, and alpha are known coefficients in a sequential mechanical solve; heat-to-mechanics feedback remains one way.
+- Temperature-dependent conductivity and specific heat use piecewise-linear tables with explicit bounded extrapolation and an enthalpy primitive.
 
 #### Conventions
 
@@ -3095,14 +3105,14 @@ The local creep coefficient retains its fitted meaning at the declared reference
 #### Limitations
 
 - No monolithic fully coupled temperature-displacement solve.
-- No convection/radiation convenience boundary in this card.
+- Convection is supported; radiation and general thermal contact are not yet included in this card.
 - Portable nodal histories are compact root-gathered archives rather than an extreme-scale parallel field database.
-- Temperature-dependent conductivity and capacity iteration is not yet part of the linear implicit heat step.
+- The nonlinear thermal route currently uses fixed physical time increments; adaptive thermal cutback and monolithic temperature-displacement coupling remain.
 
 ### Minimal example
 
 ```python
-Call temperature_history = heat_step.capture_history(name='temperature', unit='K') before solving, then pass that object to an Arrhenius creep step; use materials.temperature_property(...) for bounded sequential thermoelastic coefficients.
+Use materials.temperature_property(..., extrapolation='constant') for k(T) or cp(T), then call heat_step = model.step(target=temperature, dt=..., steps=...); capture its accepted temperature history and pass it to the Arrhenius creep step.
 ```
 
 ### Verification
@@ -3111,6 +3121,7 @@ Call temperature_history = heat_step.capture_history(name='temperature', unit='K
 
 - `tests/test_p1_platform.py`
 - `tests/test_histories.py`
+- `tests/test_parallel_transient.py`
 - `tests/portable_field_history_driver.py`
 
 **Benchmarks**
@@ -3122,6 +3133,7 @@ Call temperature_history = heat_step.capture_history(name='temperature', unit='K
 - Reject nonpositive conductivity, specific heat, density, or absolute reference temperature.
 - Require an explicit 2D solid assumption for thermoelastic stress.
 - Reject silent temperature-history extrapolation and invalid or unordered property tables.
+- Reject simultaneous automatic tabulated thermal properties and user-supplied C/K operators; verify failed nonlinear-step rollback and checkpoint/restart equivalence.
 
 ### References
 

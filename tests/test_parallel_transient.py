@@ -12,10 +12,48 @@ from agentfem import (
     constitutive,
     fields,
     histories,
+    materials,
     mesh,
     models,
     studies,
 )
+
+
+def _distributed_state_dependent_heat_step():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.25),
+        (4, 2),
+        comm=MPI.COMM_WORLD,
+        cell_type="triangle",
+    )
+    model = models.create(
+        study=studies.transient_heat_transfer(dimension=2),
+        mesh=domain,
+    )
+    temperature = model.field(fields.temperature(domain, value=300.0))
+    model.material(
+        constitutive.temperature_dependent_thermoelastic(
+            young=1.0e9,
+            poisson=0.3,
+            density=1.0,
+            thermal_expansion=1.0e-5,
+            conductivity=materials.temperature_property(
+                [300.0, 400.0], [1.0, 2.0], extrapolation="constant"
+            ),
+            specific_heat=materials.temperature_property(
+                [300.0, 400.0], [1.0, 3.0], extrapolation="constant"
+            ),
+            reference_temperature=300.0,
+        )
+    )
+    model.heat_source(150.0)
+    return model.step(
+        target=temperature,
+        dt=1.0,
+        steps=1,
+        progress=False,
+    )
 
 
 def _distributed_heat_step(*, checkpoint=None):
@@ -88,6 +126,22 @@ def test_distributed_heat_capture_uses_one_physical_time_contract_per_rank():
     assert np.all(np.isfinite(history.sample(0.75)))
     frame_counts = MPI.COMM_WORLD.allgather(history.frame_count)
     assert frame_counts == [4] * MPI.COMM_WORLD.size
+
+
+def test_state_dependent_heat_conserves_enthalpy_across_two_ranks():
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("distributed nonlinear heat transfer requires two MPI ranks")
+
+    step = _distributed_state_dependent_heat_step()
+    step.run()
+
+    expected = 300.0 + (-1.0 + np.sqrt(7.0)) / 0.02
+    np.testing.assert_allclose(step.current.x.array, expected, rtol=2.0e-8)
+    assert step.problem.last_solve_info.converged
+    assert step.history_records[-1]["thermal_content"] == pytest.approx(37.5)
+    assert step.history_records[-1]["heat_balance_residual"] == pytest.approx(
+        0.0, abs=2.0e-8
+    )
 
 
 def test_distributed_temperature_history_has_portable_archive(tmp_path):

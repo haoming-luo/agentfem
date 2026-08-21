@@ -12,6 +12,7 @@ from agentfem import (
     diagnostics,
     fields,
     histories,
+    materials,
     mesh,
     models,
     procedures,
@@ -1025,13 +1026,21 @@ def test_transient_heat_history_drives_global_arrhenius_creep_component():
     )
     temperature = heat_model.field(fields.temperature(domain, value=800.0))
     heat_model.material(
-        constitutive.thermoelastic(
+        constitutive.temperature_dependent_thermoelastic(
             young=200.0e3,
             poisson=0.3,
             density=1.0,
             thermal_expansion=1.0e-5,
-            conductivity=1.0,
-            specific_heat=1.0,
+            conductivity=materials.temperature_property(
+                [750.0, 950.0],
+                [1.0, 2.0],
+                extrapolation="constant",
+            ),
+            specific_heat=materials.temperature_property(
+                [750.0, 950.0],
+                [1.0, 1.5],
+                extrapolation="constant",
+            ),
             reference_temperature=800.0,
         )
     )

@@ -807,7 +807,7 @@
       ],
       "source": "src/agentfem/knowledge/cards/thermoelastic_analysis.json",
       "status": "supported",
-      "summary": "One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve, with accepted-time field histories and bounded temperature-property tables for sequential transfer.",
+      "summary": "One isotropic material record supplies heat capacity, conductivity, elasticity, reference temperature, and thermal expansion to an implicit heat step followed by a thermal-stress solve, with conservative nonlinear enthalpy stepping for tabulated thermal properties and accepted-time field histories for sequential transfer.",
       "title": "Sequential thermoelastic analysis"
     },
     {

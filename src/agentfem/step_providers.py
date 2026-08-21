@@ -609,7 +609,10 @@ def _supports_conduction(material) -> bool:
 
 
 def _supports_heat_capacity(material) -> bool:
-    return hasattr(material, "volumetric_heat_capacity")
+    return hasattr(material, "volumetric_heat_capacity") or (
+        getattr(material, "density", None) is not None
+        and hasattr(material, "specific_heat")
+    )
 
 
 def _supports_stateful_constitutive(material) -> bool:

@@ -42,7 +42,10 @@ meaningfully affect heat transfer, the transparent route is:
 
 AgentFEM stores \(E,\nu,\rho,\alpha,k,c_p,T_{\mathrm{ref}}\) in one
 thermoelastic property object. Constants may be replaced by inspectable
-temperature tables for sequential mechanics. The thermal step can capture its
+temperature tables. Tabulated conductivity or specific heat automatically
+selects a nonlinear implicit-Euler residual using the conservative enthalpy
+difference \([h(T_{n+1})-h(T_n)]/\Delta t\), with \(dh/dT=\rho c_p(T)\).
+The thermal step can capture its
 accepted fields in a `FieldHistory`; the receiving creep step samples that
 history at its own physical increment endpoints. Interpolation, range policy,
 units, time coordinates, and the content hash remain part of the transfer
@@ -106,6 +109,8 @@ Implemented now:
 
 - explicit central difference and implicit Newmark/generalized-\(\alpha\);
 - implicit-Euler heat transfer as a model-owned Step;
+- conservative state-dependent conductivity/capacity using the same Step,
+  Result, progress, heat-ledger, rollback, checkpoint, and MPI contracts;
 - accepted-time field capture and temperature-history transfer to creep;
 - coordinate-keyed field-history persistence verified in both two-rank-to-one
   and one-rank-to-two-rank directions;
@@ -133,18 +138,20 @@ Implemented now:
 
 Next gates:
 
-1. finish field/energy/checkpoint products on top of the common complete
+1. exercise tabulated heat properties and accepted history transfer on an
+   external 3D power-component benchmark with time-step convergence;
+2. finish field/energy/checkpoint products on top of the common complete
    execution-event trace, accepted-increment histories, status files, and
    result manifest across heat, implicit dynamics, and explicit dynamics;
-2. exercise the portable full-Step archive on larger partition changes and
+3. exercise the portable full-Step archive on larger partition changes and
    scheduled HPC restart campaigns;
-3. add multi-element and external power-component benchmarks, then promote
+4. add multi-element and external power-component benchmarks, then promote
    the experimental global Newton MPI path;
-4. introduce K-R/Liu--Murakami damage only with near-failure time control and
+5. introduce K-R/Liu--Murakami damage only with near-failure time control and
    a declared mesh-regularization policy;
-5. add a distributed archive backend only when field histories outgrow the
+6. add a distributed archive backend only when field histories outgrow the
    current compact root-gathered format;
-6. monolithic coupling only after a real case demonstrates two-way feedback.
+7. monolithic coupling only after a real case demonstrates two-way feedback.
 
 References:
 

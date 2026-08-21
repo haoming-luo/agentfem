@@ -98,6 +98,84 @@ class TemperaturePropertyTable:
             expression,
         )
 
+    def integral(self, temperature):
+        """Evaluate a continuous primitive, zero at the first table point."""
+
+        selected = np.asarray(temperature, dtype=float)
+        lower = float(self.temperatures[0])
+        upper = float(self.temperatures[-1])
+        if self.extrapolation == "error" and (
+            np.any(selected < lower) or np.any(selected > upper)
+        ):
+            raise ValueError(
+                f"Temperature property {self.name!r} covers [{lower:g}, {upper:g}] K."
+            )
+        cumulative = np.zeros_like(self.temperatures)
+        cumulative[1:] = np.cumsum(
+            0.5
+            * (self.values[:-1] + self.values[1:])
+            * np.diff(self.temperatures)
+        )
+        clipped = np.clip(selected, lower, upper)
+        indices = np.searchsorted(self.temperatures, clipped, side="right") - 1
+        indices = np.clip(indices, 0, len(self.temperatures) - 2)
+        left_t = self.temperatures[indices]
+        left_v = self.values[indices]
+        slopes = np.diff(self.values) / np.diff(self.temperatures)
+        delta = clipped - left_t
+        result = cumulative[indices] + left_v * delta + 0.5 * slopes[indices] * delta**2
+        result = np.where(selected < lower, self.values[0] * (selected - lower), result)
+        result = np.where(
+            selected > upper,
+            cumulative[-1] + self.values[-1] * (selected - upper),
+            result,
+        )
+        return float(result) if result.ndim == 0 else result
+
+    def ufl_integral(self, temperature):
+        """Return a continuous UFL primitive of the tabulated property.
+
+        The primitive is zero at the first tabulated temperature.  Constant
+        endpoint extrapolation is integrated consistently outside the table.
+        This is useful for conservative state functions such as sensible
+        enthalpy, where ``dH/dT`` must recover the tabulated heat capacity.
+        """
+
+        if self.extrapolation != "constant":
+            raise ValueError(
+                f"Temperature property {self.name!r} uses extrapolation='error'. "
+                "Select extrapolation='constant' explicitly before building "
+                "a bounded UFL primitive."
+            )
+        import ufl
+
+        temperatures = np.asarray(self.temperatures, dtype=float)
+        values = np.asarray(self.values, dtype=float)
+        cumulative = np.zeros_like(temperatures)
+        cumulative[1:] = np.cumsum(
+            0.5 * (values[:-1] + values[1:]) * np.diff(temperatures)
+        )
+        expression = float(cumulative[-1]) + float(values[-1]) * (
+            temperature - float(temperatures[-1])
+        )
+        for index in range(len(temperatures) - 2, -1, -1):
+            left_t = float(temperatures[index])
+            right_t = float(temperatures[index + 1])
+            left_v = float(values[index])
+            slope = float(values[index + 1] - values[index]) / (
+                right_t - left_t
+            )
+            delta = temperature - left_t
+            segment = float(cumulative[index]) + left_v * delta + 0.5 * slope * delta**2
+            expression = ufl.conditional(
+                ufl.lt(temperature, right_t), segment, expression
+            )
+        return ufl.conditional(
+            ufl.le(temperature, float(temperatures[0])),
+            float(values[0]) * (temperature - float(temperatures[0])),
+            expression,
+        )
+
     def as_dict(self) -> dict[str, object]:
         return {
             "kind": "temperature_property_table",
@@ -289,6 +367,33 @@ class TemperatureDependentThermoElasticProperties:
                 return item(temperature)
             return item.ufl_value(temperature)
         return float(item)
+
+    @property
+    def state_dependent_heat_transfer(self) -> bool:
+        """Whether heat transfer requires a temperature-dependent residual."""
+
+        return isinstance(self.conductivity, TemperaturePropertyTable) or isinstance(
+            self.specific_heat, TemperaturePropertyTable
+        )
+
+    def conductivity_at(self, temperature):
+        """Return the thermal conductivity at a scalar or field temperature."""
+
+        return self.coefficient("conductivity", temperature)
+
+    def volumetric_heat_capacity_at(self, temperature):
+        """Return ``rho*c_p(T)`` at a scalar or field temperature."""
+
+        return self.density * self.coefficient("specific_heat", temperature)
+
+    def volumetric_enthalpy(self, temperature):
+        """Return a sensible-enthalpy primitive with ``dh/dT = rho*c_p(T)``."""
+
+        if isinstance(self.specific_heat, TemperaturePropertyTable):
+            if isinstance(temperature, (int, float, np.ndarray, np.number)):
+                return self.density * self.specific_heat.integral(temperature)
+            return self.density * self.specific_heat.ufl_integral(temperature)
+        return self.density * float(self.specific_heat) * temperature
 
     def at_temperature(self, temperature: float) -> ThermoElasticIsotropicProperties:
         selected = float(temperature)

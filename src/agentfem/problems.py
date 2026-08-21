@@ -1768,7 +1768,16 @@ class FirstOrderTransientStep:
         def advance(info):
             if self.update_load is not None:
                 self.update_load(info.time)
-            self.problem.solve()
+            current_rollback = self.current.x.array.copy()
+            previous_rollback = self.previous.x.array.copy()
+            try:
+                self.problem.solve()
+            except Exception:
+                self.current.x.array[:] = current_rollback
+                self.current.x.scatter_forward()
+                self.previous.x.array[:] = previous_rollback
+                self.previous.x.scatter_forward()
+                raise
             self.previous.x.array[:] = self.current.x.array
             self.previous.x.scatter_forward()
             _accept_transient_increment(
@@ -2964,6 +2973,66 @@ def first_order_transient_run(
             source=source,
             dt=float(dt),
         ),
+    )
+
+
+def nonlinear_first_order_transient_run(
+    *,
+    residual,
+    jacobian,
+    current,
+    previous,
+    dt: float,
+    steps: int,
+    study=None,
+    constraints=None,
+    bcs=None,
+    solver_options: NonlinearSolverOptions | NewtonSolverOptions | None = None,
+    update_load=None,
+    save_every: int | None = None,
+    print_every: int | None = None,
+    progress=True,
+    status_file=None,
+    checkpoint_policy=None,
+    history_monitor=None,
+    name: str = "nonlinear_first_order_transient",
+    petsc_options_prefix: str = "agentfem_nonlinear_transient_",
+) -> FirstOrderTransientStep:
+    """Create a nonlinear implicit-Euler step with the shared lifecycle."""
+
+    from . import procedures
+
+    if dt <= 0.0:
+        raise ValueError("nonlinear_first_order_transient_run requires dt > 0.")
+    if steps <= 0:
+        raise ValueError("nonlinear_first_order_transient_run requires steps > 0.")
+    procedure = procedures.implicit_euler()
+    problem = NonlinearVariationalProblem(
+        residual_form=residual,
+        jacobian_form=jacobian,
+        solution=current,
+        bcs=_collect_bcs(constraints=constraints, bcs=bcs),
+        solver_options=solver_options,
+        name=name,
+        petsc_options_prefix=petsc_options_prefix,
+        procedure=procedure,
+    )
+    return FirstOrderTransientStep(
+        name=name,
+        problem=problem,
+        current=current,
+        previous=previous,
+        dt=float(dt),
+        steps=int(steps),
+        study=study,
+        update_load=update_load,
+        save_every=save_every,
+        print_every=print_every,
+        progress=progress,
+        status_file=status_file,
+        checkpoint_policy=checkpoint_policy,
+        procedure=procedure,
+        history_monitor=history_monitor,
     )
 
 

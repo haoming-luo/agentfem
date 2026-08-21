@@ -1029,10 +1029,7 @@ class Model:
             raise ValueError("Pass material=... when using one explicit capacity measure.")
         parts = []
         for index, record in enumerate(records):
-            if not hasattr(record.item, "volumetric_heat_capacity"):
-                raise ValueError(
-                    f"Material {_describe(record.item)!r} does not define volumetric heat capacity."
-                )
+            capacity = _volumetric_heat_capacity(record.item)
             if len(records) > 1 and record.region is None:
                 raise ValueError(
                     "Multiple-material heat capacity requires a region for every material."
@@ -1045,7 +1042,7 @@ class Model:
             parts.append(
                 operators.capacity_operator(
                     temperature,
-                    record.item.volumetric_heat_capacity,
+                    capacity,
                     measure=selected_measure,
                 ).renamed(
                     name if len(records) == 1 else f"{name}_{getattr(record.region, 'name', index)}"
@@ -1623,6 +1620,35 @@ class Model:
         previous = fem.Function(target.space, name="TemperaturePrevious")
         previous.x.array[:] = target.value.x.array
         previous.x.scatter_forward()
+        state_dependent = any(
+            bool(getattr(record.item, "state_dependent_heat_transfer", False))
+            for record in records
+        )
+        if state_dependent:
+            if C is not None or K is not None:
+                raise ValueError(
+                    "Temperature-dependent heat transfer builds one consistent "
+                    "enthalpy/conduction residual. Do not also pass C= or K=."
+                )
+            return self.add_step(
+                self._nonlinear_heat_transfer_step(
+                    target=target,
+                    previous=previous,
+                    records=records,
+                    dt=dt,
+                    steps=steps,
+                    Q=Q,
+                    constraints=constraints,
+                    solver_options=solver_options,
+                    update_load=update_load,
+                    save_every=save_every,
+                    print_every=print_every,
+                    progress=progress,
+                    status_file=status_file,
+                    checkpoint=checkpoint,
+                    name=name,
+                )
+            )
         capacity = (
             self.heat_capacity(target, material)
             if C is None
@@ -1652,10 +1678,7 @@ class Model:
             )
         history_parts = []
         for index, record in enumerate(records):
-            if not hasattr(record.item, "volumetric_heat_capacity"):
-                raise ValueError(
-                    f"Material {_describe(record.item)!r} does not define volumetric heat capacity."
-                )
+            capacity_value = _volumetric_heat_capacity(record.item)
             if len(records) > 1 and record.region is None:
                 raise ValueError(
                     "Multiple-material heat history requires a region for every material."
@@ -1664,7 +1687,7 @@ class Model:
                 operators.heat_capacity_vector(
                     previous,
                     target,
-                    record.item.volumetric_heat_capacity,
+                    capacity_value,
                     measure=(
                         record.region.measure
                         if record.region is not None
@@ -1708,6 +1731,127 @@ class Model:
             name=name,
         )
         return self.add_step(step)
+
+    def _nonlinear_heat_transfer_step(
+        self,
+        *,
+        target,
+        previous,
+        records,
+        dt,
+        steps,
+        Q,
+        constraints,
+        solver_options,
+        update_load,
+        save_every,
+        print_every,
+        progress,
+        status_file,
+        checkpoint,
+        name,
+    ):
+        """Build conservative ``k(T), c_p(T)`` implicit heat transfer."""
+
+        import ufl
+
+        from . import operators, problems
+        from .diagnostics import StateDependentThermalBalanceMonitor
+
+        temperature = target.value
+        test = ufl.TestFunction(target.space)
+        direction = ufl.TrialFunction(target.space)
+        residual = 0
+        content_form = 0
+        for index, record in enumerate(records):
+            if len(records) > 1 and record.region is None:
+                raise ValueError(
+                    "Multiple-material nonlinear heat transfer requires a region "
+                    "for every material."
+                )
+            material = record.item
+            measure = record.region.measure if record.region is not None else ufl.dx
+            if not hasattr(material, "conductivity") or not hasattr(
+                material, "specific_heat"
+            ):
+                raise ValueError(
+                    f"Material {_describe(material)!r} does not define conductivity "
+                    "and specific heat."
+                )
+            if hasattr(material, "conductivity_at"):
+                conductivity = material.conductivity_at(temperature)
+            else:
+                conductivity = material.conductivity
+            if hasattr(material, "volumetric_enthalpy"):
+                current_enthalpy = material.volumetric_enthalpy(temperature)
+                previous_enthalpy = material.volumetric_enthalpy(previous)
+            else:
+                capacity = material.density * material.specific_heat
+                current_enthalpy = capacity * temperature
+                previous_enthalpy = capacity * previous
+            residual += (
+                (current_enthalpy - previous_enthalpy) / float(dt) * test
+                + conductivity * ufl.dot(ufl.grad(temperature), ufl.grad(test))
+            ) * measure
+            content_form += current_enthalpy * measure
+
+        outward_forms = []
+        boundary_sources = []
+        unsupported = []
+        for boundary in self.boundary_models:
+            if hasattr(boundary, "residual"):
+                residual += boundary.residual(temperature, test)
+                if hasattr(boundary, "outward_heat_rate_form"):
+                    outward_forms.append(
+                        boundary.outward_heat_rate_form(temperature)
+                    )
+                if hasattr(boundary, "source"):
+                    boundary_sources.append(boundary.source(target))
+            else:
+                unsupported.append(getattr(boundary, "name", type(boundary).__name__))
+        if unsupported:
+            raise ValueError(
+                "Nonlinear heat transfer cannot consume these boundary models: "
+                f"{unsupported}."
+            )
+
+        source = Q
+        if source is None and self.loads:
+            source = self.external_force(target)
+        if source is not None:
+            residual -= getattr(source, "expression", source)
+        monitor_source = source
+        if boundary_sources:
+            monitor_source = operators.combine(
+                *((() if source is None else (source,)) + tuple(boundary_sources)),
+                name="Q_thermal_ledger",
+                kind="thermal_source",
+            )
+        jacobian = ufl.derivative(residual, temperature, direction)
+        return problems.nonlinear_first_order_transient_run(
+            residual=residual,
+            jacobian=jacobian,
+            current=temperature,
+            previous=previous,
+            dt=dt,
+            steps=steps,
+            study=self.study,
+            constraints=self.constraints if constraints is None else constraints,
+            solver_options=solver_options,
+            update_load=self._time_update_callback(update_load),
+            save_every=save_every,
+            print_every=print_every,
+            progress=progress,
+            status_file=status_file,
+            checkpoint_policy=checkpoint,
+            history_monitor=StateDependentThermalBalanceMonitor(
+                content_form=content_form,
+                source=monitor_source,
+                dt=float(dt),
+                outward_forms=tuple(outward_forms),
+            ),
+            name=name,
+        )
 
     def _thermal_boundary_terms(self, target):
         """Return matrix/vector contributions from registered thermal boundaries."""
@@ -3440,6 +3584,21 @@ def _density(material) -> float:
     if density <= 0.0:
         raise ValueError(f"Material {_describe(material)!r} must have positive density.")
     return density
+
+
+def _volumetric_heat_capacity(material) -> float:
+    if hasattr(material, "volumetric_heat_capacity"):
+        return float(material.volumetric_heat_capacity)
+    specific_heat = getattr(material, "specific_heat", None)
+    if getattr(material, "density", None) is not None and np.isscalar(specific_heat):
+        capacity = float(material.density) * float(specific_heat)
+        if capacity > 0.0:
+            return capacity
+    raise ValueError(
+        f"Material {_describe(material)!r} does not define one constant "
+        "volumetric heat capacity. Use the automatic nonlinear heat Step for "
+        "tabulated specific heat."
+    )
 
 
 def _single_material(model: Model, caller: str) -> "_WithRegion":
