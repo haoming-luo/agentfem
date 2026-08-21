@@ -53,6 +53,37 @@ class PathSample:
 
 
 @dataclass(frozen=True)
+class RectilinearGridSample:
+    """A finite-element field sampled on a Cartesian observation grid.
+
+    ``shape`` follows array order: ``(ny, nx)`` in two dimensions and
+    ``(nz, ny, nx)`` in three. ``inside`` distinguishes the physical domain
+    from the surrounding bounding box, so irregular domains can retain honest
+    ``NaN`` values without confusing them with failed in-domain evaluations.
+    """
+
+    axes: tuple[np.ndarray, ...]
+    values: np.ndarray
+    inside: np.ndarray
+    field_name: str
+    reduction: str | None = None
+
+    @property
+    def shape(self) -> tuple[int, ...]:
+        return tuple(int(value) for value in self.inside.shape)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "rectilinear_grid_sample",
+            "field": self.field_name,
+            "shape": self.shape,
+            "inside_points": int(np.count_nonzero(self.inside)),
+            "outside_points": int(self.inside.size - np.count_nonzero(self.inside)),
+            "reduction": self.reduction,
+        }
+
+
+@dataclass(frozen=True)
 class StaticForceBalance:
     """Global algebraic force equilibrium for one linear static solid."""
 
@@ -782,6 +813,78 @@ def sample_path(
         distance=distance,
         values=values,
         field_name=str(getattr(function, "name", "field")),
+    )
+
+
+def sample_rectilinear_grid(
+    field,
+    *,
+    bbox,
+    shape,
+    reduction: str | None = None,
+    component: int | None = None,
+    padding: float = 1.0e-10,
+) -> RectilinearGridSample:
+    """Sample a scalar or vector field on a 2D/3D rectilinear grid.
+
+    The grid may extend beyond an irregular finite-element domain. Such points
+    are represented by ``NaN`` and recorded by ``inside``. Vector values may be
+    reduced with ``reduction="magnitude"`` or by selecting ``component=...``.
+    The operation is collective and returns the same arrays on every MPI rank.
+    """
+
+    function = field_api.unwrap(field)
+    domain = function.function_space.mesh
+    dimension = int(domain.geometry.dim)
+    selected_shape = tuple(int(value) for value in shape)
+    selected_bbox = tuple(float(value) for value in bbox)
+    if dimension not in {2, 3}:
+        raise ValueError("sample_rectilinear_grid supports 2D and 3D meshes.")
+    if len(selected_shape) != dimension or any(value < 2 for value in selected_shape):
+        raise ValueError(f"shape must contain {dimension} entries, each at least two.")
+    if len(selected_bbox) != 2 * dimension:
+        raise ValueError(f"bbox must contain {2 * dimension} coordinates.")
+    if reduction is not None and component is not None:
+        raise ValueError("Pass either reduction=... or component=..., not both.")
+    selected_reduction = None if reduction is None else str(reduction).lower()
+    if selected_reduction not in {None, "magnitude"}:
+        raise ValueError("reduction must be None or 'magnitude'.")
+
+    axes = tuple(
+        np.linspace(selected_bbox[2 * axis], selected_bbox[2 * axis + 1], selected_shape[axis])
+        for axis in range(dimension)
+    )
+    indexing_axes = tuple(reversed(axes))
+    grids = np.meshgrid(*indexing_axes, indexing="ij")
+    points = np.zeros((int(np.prod(selected_shape)), 3), dtype=float)
+    for axis in range(dimension):
+        points[:, axis] = grids[dimension - 1 - axis].reshape(-1)
+
+    raw = np.asarray(sample_points(function, points, padding=padding, missing="nan"))
+    field_shape = tuple(getattr(function, "ufl_shape", ()))
+    if field_shape:
+        inside = np.all(np.isfinite(raw.reshape(raw.shape[0], -1)), axis=1)
+        if component is not None:
+            selected_component = int(component)
+            if selected_component < 0 or selected_component >= raw.shape[1]:
+                raise ValueError(
+                    f"component={selected_component} is outside vector size {raw.shape[1]}."
+                )
+            raw = raw[:, selected_component]
+        elif selected_reduction == "magnitude":
+            raw = np.linalg.norm(raw, axis=1)
+    else:
+        inside = np.isfinite(raw)
+
+    array_shape = tuple(reversed(selected_shape))
+    trailing = tuple(raw.shape[1:])
+    values = raw.reshape((*array_shape, *trailing))
+    return RectilinearGridSample(
+        axes=axes,
+        values=values,
+        inside=inside.reshape(array_shape),
+        field_name=str(getattr(function, "name", "field")),
+        reduction=selected_reduction if component is None else f"component_{component}",
     )
 
 

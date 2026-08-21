@@ -497,6 +497,116 @@ class LinearSolveInfo:
         }
 
 
+class PreparedLinearProblem:
+    """A linear problem whose constant matrix and KSP are assembled once.
+
+    This lifecycle is intended for first-order transient and parameter-update
+    loops where the bilinear form, constrained dof set, and solver policy stay
+    fixed while coefficients in the right-hand side change. Boundary values
+    may change, but their constrained dof locations must remain unchanged.
+    """
+
+    def __init__(
+        self,
+        bilinear_form,
+        linear_form,
+        solution,
+        *,
+        bcs=None,
+        options: LinearSolverOptions | None = None,
+    ):
+        self.bilinear_form = (
+            bilinear_form
+            if hasattr(bilinear_form, "_cpp_object")
+            else fem.form(bilinear_form)
+        )
+        self.linear_form = (
+            linear_form if hasattr(linear_form, "_cpp_object") else fem.form(linear_form)
+        )
+        self.solution = solution
+        self.bcs = [] if bcs is None else list(bcs)
+        self.options = options or LinearSolverOptions()
+        self.matrix = fem_petsc.assemble_matrix(self.bilinear_form, bcs=self.bcs)
+        self.matrix.assemble()
+        self.ksp = create_ksp(self.matrix.comm, self.options)
+        self.ksp.setOperators(self.matrix)
+        self.last_solve_info: LinearSolveInfo | None = None
+        self.solve_count = 0
+        self._closed = False
+
+    def solve(self):
+        """Assemble the current right-hand side and reuse the prepared solve."""
+
+        if self._closed:
+            raise RuntimeError("PreparedLinearProblem is closed.")
+        vector = fem_petsc.assemble_vector(self.linear_form)
+        fem_petsc.apply_lifting(vector, [self.bilinear_form], [self.bcs])
+        vector.ghostUpdate(
+            addv=PETSc.InsertMode.ADD,
+            mode=PETSc.ScatterMode.REVERSE,
+        )
+        fem_petsc.set_bc(vector, self.bcs)
+        self.ksp.solve(vector, self.solution.x.petsc_vec)
+        self.solution.x.scatter_forward()
+        info = LinearSolveInfo(
+            converged_reason=int(self.ksp.getConvergedReason()),
+            iterations=int(self.ksp.getIterationNumber()),
+            residual_norm=float(self.ksp.getResidualNorm()),
+        )
+        vector.destroy()
+        self.last_solve_info = info
+        self.solve_count += 1
+        if not info.converged and self.options.error_if_not_converged:
+            _raise_linear_failure(info)
+        return self.solution
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "prepared_linear_problem",
+            "matrix_reused": True,
+            "solve_count": int(self.solve_count),
+            "solver": self.options.summary(),
+            "last_solve": (
+                None if self.last_solve_info is None else self.last_solve_info.as_dict()
+            ),
+        }
+
+    def close(self) -> None:
+        """Release PETSc resources deterministically."""
+
+        if self._closed:
+            return
+        self.ksp.destroy()
+        self.matrix.destroy()
+        self._closed = True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        self.close()
+        return False
+
+
+def prepare_linear_problem(
+    bilinear_form,
+    linear_form,
+    solution,
+    *,
+    bcs=None,
+    options: LinearSolverOptions | None = None,
+) -> PreparedLinearProblem:
+    """Prepare one constant linear operator for repeated right-hand sides."""
+
+    return PreparedLinearProblem(
+        bilinear_form,
+        linear_form,
+        solution,
+        bcs=bcs,
+        options=options,
+    )
+
+
 def solve_matrix_system(
     A,
     b,

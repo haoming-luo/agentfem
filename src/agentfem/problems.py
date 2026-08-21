@@ -2864,15 +2864,28 @@ def first_order_transient(
     if dt <= 0.0:
         raise ValueError("first_order_transient requires dt > 0.")
 
+    target = solution if solution is not None else unknown
+    try:
+        target_function = fields.unwrap(target)
+        inverse_dt = fem.Constant(
+            target_function.function_space.mesh,
+            PETSc.ScalarType(1.0 / dt),
+        )
+    except (AttributeError, TypeError):
+        # Preserve compatibility for symbolic construction without a concrete
+        # target field. Executable problems use the Constant route so changing
+        # dt values do not create distinct compiled form signatures.
+        inverse_dt = 1.0 / dt
+
     C_over_dt = operators.scale(
         capacity,
-        1.0 / dt,
+        inverse_dt,
         name="C_over_dt",
         kind=f"{method}_capacity_over_dt",
     )
     history_over_dt = operators.scale(
         history,
-        1.0 / dt,
+        inverse_dt,
         name="F_history_over_dt",
         kind=f"{method}_history_over_dt",
     )

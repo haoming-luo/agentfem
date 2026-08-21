@@ -167,6 +167,16 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   physical-coordinate field sampling. Every MPI rank must request identical
   coordinates. Put discontinuous-field probes inside the intended cell rather
   than relying on an interface-side convention.
+- Use `expressions.expression`, `expressions.as_ufl`, and
+  `expressions.interpolate` for formulas supplied through JSON, benchmark
+  specifications, or agent-authored configuration. Never execute those
+  formulas with Python `eval`; reject syntax outside the reviewed mathematical
+  language. Lower symbolic physics with `as_ufl`; use `interpolate` for known
+  loads, coefficients, initial values, and boundary data so cases reuse stable
+  finite-element forms instead of recompiling each formula.
+- Use `results.sample_rectilinear_grid` when an external protocol requires a
+  direct mesh-independent array. Preserve its `inside` mask and declared axis
+  order; do not infer a transpose from array dimensions.
 - Model-generated static elasticity returns projected `S/E/MISES` fields
   automatically; request `SENER` explicitly when needed. Use
   `results.small_strain_partition_fields` for an

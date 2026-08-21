@@ -61,6 +61,17 @@ def test_point_and_path_sampling_are_partition_independent():
     )
     np.testing.assert_allclose(path.values, expected, atol=1.0e-14)
 
+    grid = results.sample_rectilinear_grid(
+        field,
+        bbox=(0.0, 2.0, 0.0, 1.0),
+        shape=(5, 3),
+        reduction="magnitude",
+    )
+    xx, yy = np.meshgrid(grid.axes[0], grid.axes[1], indexing="xy")
+    expected_magnitude = np.sqrt((xx + yy) ** 2 + (xx - yy) ** 2)
+    np.testing.assert_allclose(grid.values, expected_magnitude, atol=1.0e-14)
+    assert grid.inside.all()
+
 
 def test_point_sampling_rejects_rank_inconsistent_requests():
     if MPI.COMM_WORLD.size < 2:

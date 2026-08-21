@@ -3,6 +3,41 @@
 AgentFEM treats common CAE operations as reusable scientific assets rather
 than case-local UFL fragments.
 
+## Inspectable scientific formulas
+
+Configuration files and AI agents often need to describe a source, boundary
+value, or initial field as mathematics rather than executable Python:
+
+```python
+source = expressions.as_ufl(
+    "2*pi**2*sin(pi*x)*sin(pi*y)",
+    domain,
+)
+expressions.interpolate(
+    temperature,
+    "exp(-t)*sin(pi*x)*sin(pi*y)",
+    parameters={"t": 0.25},
+)
+```
+
+`ScientificExpression` is a deliberately small language. It accepts
+`x/y/z/t`, declared parameters, arithmetic, and reviewed functions such as
+`sin`, `cos`, `exp`, and `sqrt`. Arbitrary calls, attributes, indexing, and
+Python statements are rejected before UFL compilation. Its summary retains
+the original formula and language version, so an agent-readable input remains
+inspectable instead of becoming an opaque callable.
+
+The same validated formula has two deliberate execution routes. `as_ufl`
+lowers symbolic physics into a variational form; `interpolate` evaluates known
+loads, coefficients, initial values, and boundary data directly on NumPy
+coordinate arrays without `eval` or a per-form C++ JIT. This keeps scientific
+meaning identical while allowing many generated cases to reuse one compiled
+finite-element operator.
+
+This interface is for trusted mathematical structure, not for guessing a
+missing equation. A formula that is inconsistent with its stated PDE remains
+a model or dataset error.
+
 ## Continuum loads
 
 ```python
@@ -86,3 +121,19 @@ Section force/moment, free-body force/moment, and path sampling are MPI-global
 scientific quantities for verification, histories, campaigns, and learning
 datasets. A fully kinematic reference-point MPC remains separate from the
 implemented load-distribution contract.
+
+## Repeated linear systems
+
+For a transient or parameter loop whose left-hand side and constrained degree
+set stay fixed, prepare the algebraic problem once:
+
+```python
+with solvers.prepare_linear_problem(a, L, T, bcs=bcs, options=options) as solve:
+    for time_value in accepted_times:
+        t.value = time_value
+        solve.solve()  # refreshes the right-hand side; reuses A and the KSP
+```
+
+This is the lower-level counterpart of AgentFEM's managed transient Steps. It
+keeps the mathematical forms public while avoiding repeated matrix assembly
+and factorization in external protocol adapters.

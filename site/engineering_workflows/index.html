@@ -658,6 +658,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#inspectable-scientific-formulas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspectable scientific formulas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#continuum-loads" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -695,6 +706,17 @@
     <span class="md-ellipsis">
       
         Engineering resultants
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#repeated-linear-systems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Repeated linear systems
       
     </span>
   </a>
@@ -1130,6 +1152,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#inspectable-scientific-formulas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspectable scientific formulas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#continuum-loads" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1167,6 +1200,17 @@
     <span class="md-ellipsis">
       
         Engineering resultants
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#repeated-linear-systems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Repeated linear systems
       
     </span>
   </a>
@@ -1262,17 +1306,45 @@
 <h1 id="engineering-loads-steps-and-resultants">Engineering Loads, Steps, and Resultants<a class="headerlink" href="#engineering-loads-steps-and-resultants" title="Permanent link">&para;</a></h1>
 <p>AgentFEM treats common CAE operations as reusable scientific assets rather
 than case-local UFL fragments.</p>
+<h2 id="inspectable-scientific-formulas">Inspectable scientific formulas<a class="headerlink" href="#inspectable-scientific-formulas" title="Permanent link">&para;</a></h2>
+<p>Configuration files and AI agents often need to describe a source, boundary
+value, or initial field as mathematics rather than executable Python:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">source</span> <span class="o">=</span> <span class="n">expressions</span><span class="o">.</span><span class="n">as_ufl</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="s2">&quot;2*pi**2*sin(pi*x)*sin(pi*y)&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">domain</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">expressions</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">temperature</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="s2">&quot;exp(-t)*sin(pi*x)*sin(pi*y)&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">parameters</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;t&quot;</span><span class="p">:</span> <span class="mf">0.25</span><span class="p">},</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
+</code></pre></div>
+<p><code>ScientificExpression</code> is a deliberately small language. It accepts
+<code>x/y/z/t</code>, declared parameters, arithmetic, and reviewed functions such as
+<code>sin</code>, <code>cos</code>, <code>exp</code>, and <code>sqrt</code>. Arbitrary calls, attributes, indexing, and
+Python statements are rejected before UFL compilation. Its summary retains
+the original formula and language version, so an agent-readable input remains
+inspectable instead of becoming an opaque callable.</p>
+<p>The same validated formula has two deliberate execution routes. <code>as_ufl</code>
+lowers symbolic physics into a variational form; <code>interpolate</code> evaluates known
+loads, coefficients, initial values, and boundary data directly on NumPy
+coordinate arrays without <code>eval</code> or a per-form C++ JIT. This keeps scientific
+meaning identical while allowing many generated cases to reuse one compiled
+finite-element operator.</p>
+<p>This interface is for trusted mathematical structure, not for guessing a
+missing equation. A formula that is inconsistent with its stated PDE remains
+a model or dataset error.</p>
 <h2 id="continuum-loads">Continuum loads<a class="headerlink" href="#continuum-loads" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">model</span><span class="o">.</span><span class="n">elastic_foundation</span><span class="p">(</span><span class="n">on</span><span class="o">=</span><span class="n">base</span><span class="p">,</span> <span class="n">stiffness</span><span class="o">=</span><span class="mf">2.0e8</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;normal&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">model</span><span class="o">.</span><span class="n">centrifugal</span><span class="p">((</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">120.0</span><span class="p">),</span> <span class="n">center</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">model</span><span class="o">.</span><span class="n">hydrostatic_pressure</span><span class="p">(</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">density</span><span class="o">=</span><span class="mf">1000.0</span><span class="p">,</span> <span class="n">gravity</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">9.81</span><span class="p">),</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">reference_point</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">on</span><span class="o">=</span><span class="n">wetted_surface</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">model</span><span class="o">.</span><span class="n">distributing_coupling</span><span class="p">(</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">50_000.0</span><span class="p">),</span> <span class="n">moment</span><span class="o">=</span><span class="p">(</span><span class="mf">2_000.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">reference_point</span><span class="o">=</span><span class="n">load_application_point</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">loaded_surface</span><span class="p">,</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">model</span><span class="o">.</span><span class="n">elastic_foundation</span><span class="p">(</span><span class="n">on</span><span class="o">=</span><span class="n">base</span><span class="p">,</span> <span class="n">stiffness</span><span class="o">=</span><span class="mf">2.0e8</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;normal&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">model</span><span class="o">.</span><span class="n">centrifugal</span><span class="p">((</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">120.0</span><span class="p">),</span> <span class="n">center</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">model</span><span class="o">.</span><span class="n">hydrostatic_pressure</span><span class="p">(</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">density</span><span class="o">=</span><span class="mf">1000.0</span><span class="p">,</span> <span class="n">gravity</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">9.81</span><span class="p">),</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">reference_point</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">on</span><span class="o">=</span><span class="n">wetted_surface</span><span class="p">,</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">)</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">model</span><span class="o">.</span><span class="n">distributing_coupling</span><span class="p">(</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">50_000.0</span><span class="p">),</span> <span class="n">moment</span><span class="o">=</span><span class="p">(</span><span class="mf">2_000.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">reference_point</span><span class="o">=</span><span class="n">load_application_point</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">loaded_surface</span><span class="p">,</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">)</span>
 </code></pre></div>
 <p>The foundation contributes a boundary stiffness matrix. Centrifugal loading
 uses registered material densities and regions. Hydrostatic pressure follows
@@ -1280,21 +1352,21 @@ uses registered material densities and regions. Hydrostatic pressure follows
 traction whose integrated force and moment equal the reference-point
 resultants, avoiding a mesh-sensitive single solid-node force.</p>
 <h2 id="local-coordinates-and-named-reference-points">Local coordinates and named reference points<a class="headerlink" href="#local-coordinates-and-named-reference-points" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">local</span> <span class="o">=</span> <span class="n">coordinates</span><span class="o">.</span><span class="n">cartesian</span><span class="p">(</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">origin</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">x</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">y</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">z</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;fixture&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">)</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">rp</span> <span class="o">=</span> <span class="n">coordinates</span><span class="o">.</span><span class="n">reference_point</span><span class="p">((</span><span class="mf">100.0</span><span class="p">,</span> <span class="mf">20.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;RP-1&quot;</span><span class="p">)</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">model</span><span class="o">.</span><span class="n">remote_force</span><span class="p">(</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">50_000.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">moment</span><span class="o">=</span><span class="p">(</span><span class="mf">2_000.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">reference_point</span><span class="o">=</span><span class="n">rp</span><span class="p">,</span> <span class="n">system</span><span class="o">=</span><span class="n">local</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">loaded_surface</span><span class="p">,</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="p">)</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">model</span><span class="o">.</span><span class="n">remote_displacement</span><span class="p">(</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="n">U</span><span class="p">,</span> <span class="n">reference_point</span><span class="o">=</span><span class="n">rp</span><span class="p">,</span> <span class="n">translation</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">rotation</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">),</span> <span class="n">system</span><span class="o">=</span><span class="n">local</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">driven_surface</span><span class="p">,</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">local</span> <span class="o">=</span> <span class="n">coordinates</span><span class="o">.</span><span class="n">cartesian</span><span class="p">(</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">origin</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">x</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">y</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">z</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;fixture&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">)</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">rp</span> <span class="o">=</span> <span class="n">coordinates</span><span class="o">.</span><span class="n">reference_point</span><span class="p">((</span><span class="mf">100.0</span><span class="p">,</span> <span class="mf">20.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;RP-1&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">model</span><span class="o">.</span><span class="n">remote_force</span><span class="p">(</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">50_000.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">moment</span><span class="o">=</span><span class="p">(</span><span class="mf">2_000.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="n">reference_point</span><span class="o">=</span><span class="n">rp</span><span class="p">,</span> <span class="n">system</span><span class="o">=</span><span class="n">local</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">loaded_surface</span><span class="p">,</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="p">)</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">model</span><span class="o">.</span><span class="n">remote_displacement</span><span class="p">(</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="n">U</span><span class="p">,</span> <span class="n">reference_point</span><span class="o">=</span><span class="n">rp</span><span class="p">,</span> <span class="n">translation</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    <span class="n">rotation</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">),</span> <span class="n">system</span><span class="o">=</span><span class="n">local</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">driven_surface</span><span class="p">,</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="p">)</span>
 </code></pre></div>
 <p>Coordinate axes are validated as a right-handed orthonormal basis. Vector and
 tensor transforms are public and inspectable. <code>remote_force</code> uses the existing
@@ -1303,33 +1375,44 @@ continuum distribution and preserves force and moment about the named point;
 participates in nonlinear load-factor ramping. It does not claim an unknown
 reference-point degree of freedom or a general kinematic MPC.</p>
 <h2 id="step-inheritance">Step inheritance<a class="headerlink" href="#step-inheritance" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">preload</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">stage</span><span class="p">(</span><span class="s2">&quot;preload&quot;</span><span class="p">)</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">preload</span><span class="o">.</span><span class="n">activate_load</span><span class="p">(</span><span class="n">gravity</span><span class="p">)</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">service</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">stage</span><span class="p">(</span><span class="s2">&quot;service&quot;</span><span class="p">,</span> <span class="n">previous</span><span class="o">=</span><span class="n">preload</span><span class="p">)</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">service</span><span class="o">.</span><span class="n">activate_load</span><span class="p">(</span><span class="n">pressure</span><span class="p">)</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">service</span><span class="o">.</span><span class="n">deactivate_load</span><span class="p">(</span><span class="s2">&quot;temporary_fixture_force&quot;</span><span class="p">)</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">service</span><span class="o">.</span><span class="n">deactivate_constraint</span><span class="p">(</span><span class="s2">&quot;temporary_fixture&quot;</span><span class="p">)</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">service</span><span class="o">.</span><span class="n">predefine</span><span class="p">(</span><span class="n">temperature</span><span class="p">,</span> <span class="n">initial_temperature</span><span class="p">)</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">U</span><span class="p">,</span> <span class="n">configuration</span><span class="o">=</span><span class="n">service</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">preload</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">stage</span><span class="p">(</span><span class="s2">&quot;preload&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">preload</span><span class="o">.</span><span class="n">activate_load</span><span class="p">(</span><span class="n">gravity</span><span class="p">)</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">service</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">stage</span><span class="p">(</span><span class="s2">&quot;service&quot;</span><span class="p">,</span> <span class="n">previous</span><span class="o">=</span><span class="n">preload</span><span class="p">)</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">service</span><span class="o">.</span><span class="n">activate_load</span><span class="p">(</span><span class="n">pressure</span><span class="p">)</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">service</span><span class="o">.</span><span class="n">deactivate_load</span><span class="p">(</span><span class="s2">&quot;temporary_fixture_force&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">service</span><span class="o">.</span><span class="n">deactivate_constraint</span><span class="p">(</span><span class="s2">&quot;temporary_fixture&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">service</span><span class="o">.</span><span class="n">predefine</span><span class="p">(</span><span class="n">temperature</span><span class="p">,</span> <span class="n">initial_temperature</span><span class="p">)</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">U</span><span class="p">,</span> <span class="n">configuration</span><span class="o">=</span><span class="n">service</span><span class="p">)</span>
 </code></pre></div>
 <p>An <code>EngineeringStep</code> says which named loads and constraints are active. It is
 separate from <code>steps.automatic(...)</code>, which controls increments, and from
 <code>solvers.newton(...)</code>, which controls algebraic convergence. Only explicit
 changes are recorded; other assets inherit from the preceding Step.</p>
 <h2 id="engineering-resultants">Engineering resultants<a class="headerlink" href="#engineering-resultants" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">section</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">section_resultant</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">cut</span><span class="p">,</span> <span class="n">about</span><span class="o">=</span><span class="n">reference_point</span><span class="p">)</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">free_body</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">free_body_resultant</span><span class="p">(</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">boundary_tractions</span><span class="o">=</span><span class="p">((</span><span class="n">traction</span><span class="p">,</span> <span class="n">outer_boundary</span><span class="p">),),</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">body_forces</span><span class="o">=</span><span class="p">((</span><span class="n">rho_g</span><span class="p">,</span> <span class="n">volume</span><span class="p">),),</span> <span class="n">about</span><span class="o">=</span><span class="n">reference_point</span><span class="p">,</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">)</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">path</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">sample_path</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">a</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="n">b</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">section</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">section_resultant</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">cut</span><span class="p">,</span> <span class="n">about</span><span class="o">=</span><span class="n">reference_point</span><span class="p">)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">free_body</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">free_body_resultant</span><span class="p">(</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">boundary_tractions</span><span class="o">=</span><span class="p">((</span><span class="n">traction</span><span class="p">,</span> <span class="n">outer_boundary</span><span class="p">),),</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">body_forces</span><span class="o">=</span><span class="p">((</span><span class="n">rho_g</span><span class="p">,</span> <span class="n">volume</span><span class="p">),),</span> <span class="n">about</span><span class="o">=</span><span class="n">reference_point</span><span class="p">,</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">)</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">path</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">sample_path</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">a</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="n">b</span><span class="p">)</span>
 </code></pre></div>
 <p>Section force/moment, free-body force/moment, and path sampling are MPI-global
 scientific quantities for verification, histories, campaigns, and learning
 datasets. A fully kinematic reference-point MPC remains separate from the
 implemented load-distribution contract.</p>
+<h2 id="repeated-linear-systems">Repeated linear systems<a class="headerlink" href="#repeated-linear-systems" title="Permanent link">&para;</a></h2>
+<p>For a transient or parameter loop whose left-hand side and constrained degree
+set stay fixed, prepare the algebraic problem once:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">with</span> <span class="n">solvers</span><span class="o">.</span><span class="n">prepare_linear_problem</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="n">bcs</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span> <span class="k">as</span> <span class="n">solve</span><span class="p">:</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="k">for</span> <span class="n">time_value</span> <span class="ow">in</span> <span class="n">accepted_times</span><span class="p">:</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>        <span class="n">t</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">time_value</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>        <span class="n">solve</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>  <span class="c1"># refreshes the right-hand side; reuses A and the KSP</span>
+</code></pre></div>
+<p>This is the lower-level counterpart of AgentFEM's managed transient Steps. It
+keeps the mathematical forms public while avoiding repeated matrix assembly
+and factorization in external protocol adapters.</p>
 
 
 

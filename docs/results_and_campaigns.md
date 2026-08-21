@@ -331,6 +331,25 @@ and uses the same coordinates for every case. This is a real data-preparation
 path for structured-grid neural operators; model architecture and training
 remain external responsibilities.
 
+An external solver protocol can request the same geometric operation without
+constructing a learning dataset:
+
+```python
+sample = results.sample_rectilinear_grid(
+    U,
+    bbox=(0.0, length, 0.0, height),
+    shape=(128, 64),
+    reduction="magnitude",
+)
+
+image = sample.values   # array order: (ny, nx)
+inside = sample.inside  # false for points outside a non-rectangular mesh
+```
+
+For three dimensions, `shape=(nx, ny, nz)` produces `(nz, ny, nx)`. Domain
+exterior values are `NaN` and the explicit mask is authoritative. The routine
+is MPI-safe and uses the same ownership rules as point probes.
+
 ## Campaign to Dataset
 
 A campaign evaluator may return:

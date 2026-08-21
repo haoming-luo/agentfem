@@ -17,6 +17,7 @@ from . import datasets
 from . import dependencies
 from . import diagnostics
 from . import events
+from . import expressions
 from . import fields
 from . import fatigue_fracture
 from . import fracture
@@ -67,6 +68,7 @@ CORE_WORKFLOW_MODULES = (
     "procedures",
     "results",
     "events",
+    "expressions",
     "solvers",
     "steps",
     "units",
@@ -164,6 +166,7 @@ __all__ = [
     "dependencies",
     "diagnostics",
     "events",
+    "expressions",
     "fields",
     "fatigue_fracture",
     "fracture",

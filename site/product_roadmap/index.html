@@ -1456,13 +1456,13 @@ core, results, verification, and documentation have priority.</p>
 <tr>
 <td>Result/data flow</td>
 <td>integrated foundation</td>
-<td>declarative field/history/diagnostic/presentation plans; shared accepted-increment history and probe requests across heat, Standard, and Explicit procedures; serial compact single-grid XDMF/HDF5 plus collective MPI single-dataset PVD/PVTU presentation carrying point and cell fields; engineering-default U/S/E/MISES; explicit weighted integration-point-to-DG0 recovery; one structured event trace; atomic checkpoint cadence/retention, opt-in cross-rank nodal restart, and MPI-rank-count-portable J2/creep quadrature state; strong-BC resultants, nonzero prescribed-motion work and energy closure; verification reports and trust-gated learning bridge</td>
+<td>declarative field/history/diagnostic/presentation plans; shared accepted-increment history and probe requests across heat, Standard, and Explicit procedures; serial compact single-grid XDMF/HDF5 plus collective MPI single-dataset PVD/PVTU presentation carrying point and cell fields; engineering-default U/S/E/MISES; explicit weighted integration-point-to-DG0 recovery; direct MPI-safe 2D/3D rectilinear sampling with domain masks; one structured event trace; atomic checkpoint cadence/retention, opt-in cross-rank nodal restart, and MPI-rank-count-portable J2/creep quadrature state; strong-BC resultants, nonzero prescribed-motion work and energy closure; verification reports and trust-gated learning bridge</td>
 <td>compact MPI single-grid/VTKHDF, direct quadrature export, smooth material-domain nodal recovery, affine/weak reactions, full-Step stateful cross-partition restart, and broader conservation balances remain</td>
 </tr>
 <tr>
 <td>Scientific trust and provenance</td>
 <td>integrated foundation</td>
-<td>computed/converged/verified/validated vocabulary; exploratory/engineering/release policies; automatic runtime checks; explicit claims and applicability domains; coarse-to-fine and multi-axis observable-aware convergence certificates; automatically sealed result manifests and artifact hashes; runtime locks covering backend versions, scalar/MPI identity and source/distribution evidence; declared/built scientific-input manifests with file/array/object fingerprints and explicit opaque coverage; tagged-distribution attestation when repository visibility supports it; learning-data quality gates; orientation metamorphic regression</td>
+<td>computed/converged/verified/validated vocabulary; exploratory/engineering/release policies; automatic runtime checks; explicit claims and applicability domains; coarse-to-fine and multi-axis observable-aware convergence certificates; safe versioned scientific formulas for configuration and agent inputs; automatically sealed result manifests and artifact hashes; runtime locks covering backend versions, scalar/MPI identity and source/distribution evidence; declared/built scientific-input manifests with file/array/object fingerprints and explicit opaque coverage; tagged-distribution attestation when repository visibility supports it; learning-data quality gates; orientation metamorphic regression</td>
 <td>automatic coverage still depends on public IR/summary contracts or explicit input declaration; optional signed result identities, representative-family evidence inheritance, hole-stress and T-stiffener cliff families, GCI, and external-deck reproductions remain</td>
 </tr>
 <tr>
@@ -1549,6 +1549,12 @@ an agent, user, or README from confusing these levels.</p>
   artifacts with a local provenance seal and one machine-readable verification
   command; keep optional authorship signatures as a later compatible layer;</li>
 <li>JSON-configured and Python-configured campaigns producing the same dataset;</li>
+<li>keep agent/configuration formulas inside a small versioned mathematical
+  language, with safe lowering to UFL and no execution of arbitrary Python;</li>
+<li>maintain a pinned external PDE-agent benchmark track with a public adapter,
+  solver-independent schema audit, and separate numerical-capability and
+  agent-generation evidence; inconsistent benchmark specifications remain
+  dataset findings rather than case-specific solver exceptions;</li>
 <li>serial, MPI, docs, package, and example release gates;</li>
 <li>keep private workflow/material products in independent distributions using
   the explicit extension contract rather than long-lived core branches;</li>

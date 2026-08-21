@@ -358,6 +358,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `from_solution(solution, *, name: str = 'result', field_name: str \| None = None, unit: str \| None = None, metadata: Mapping[str, object] \| None = None, scientific_inputs: Mapping[str, object] \| None = None) -> SimulationResult` | Wrap one solved field in a :class:`SimulationResult`. |
 | class | `ForceMomentResultant` | Integrated force and moment about an explicit physical point. |
 | class | `PathSample` | Values sampled along one straight physical-space path. |
+| class | `RectilinearGridSample` | A finite-element field sampled on a Cartesian observation grid. |
 | class | `StaticForceBalance` | Global algebraic force equilibrium for one linear static solid. |
 | class | `StaticWorkBalance` | Energy closure including proportional prescribed boundary motion. |
 | function | `average(expression, *, measure = ufl.dx, comm = None)` | Return the measure-weighted global average of an expression. |
@@ -375,6 +376,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `region_measure(*, on) -> float` | Return the global length, area, or volume of a named region. |
 | function | `sample_path(field, *, start, end, count: int = 101, padding: float = 1e-10, missing: str = 'raise') -> PathSample` | Sample a field along the straight segment from ``start`` to ``end``. |
 | function | `sample_points(field, points, *, padding: float = 1e-10, missing: str = 'raise') -> np.ndarray` | Evaluate a finite-element field at common physical points under MPI. |
+| function | `sample_rectilinear_grid(field, *, bbox, shape, reduction: str \| None = None, component: int \| None = None, padding: float = 1e-10) -> RectilinearGridSample` | Sample a scalar or vector field on a 2D/3D rectilinear grid. |
 | function | `section_resultant(stress, *, on, normal = None, about = None) -> ForceMomentResultant` | Integrate section force and moment from a Cauchy/nominal stress field. |
 | function | `static_force_balance(problem) -> StaticForceBalance` | Evaluate ``R + F = 0`` for a converged linear static solid. |
 | function | `static_work_balance(problem, *, constraints = ()) -> StaticWorkBalance` | Evaluate linear-static work including nonzero strong Dirichlet data. |
@@ -440,6 +442,17 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `FirstPassageEvent` | One threshold event with explicit localization and censoring evidence. |
 | function | `first_passage(abscissa, values = None, *, threshold: float, direction: EventDirection = 'rising', localization: str = 'linear', component: int \| tuple[int, ...] \| None = None, name: str = 'first_passage', coordinate_name: str \| None = None, coordinate_unit: str \| None = None, value_name: str \| None = None, value_unit: str \| None = None) -> FirstPassageEvent` | Locate the first threshold crossing in a history or numeric arrays. |
 
+## `agentfem.expressions`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `ExpressionError` | Raised when a scientific expression is invalid or unsupported. |
+| class | `ScientificExpression` | An inspectable expression that can be lowered to UFL. |
+| function | `expression(source: str \| Real \| ScientificExpression) -> ScientificExpression` | Return a validated :class:`ScientificExpression`. |
+| function | `as_ufl(source, domain, *, parameters: Mapping[str, object] \| None = None)` | Validate and lower one scalar expression to UFL. |
+| function | `vector_as_ufl(sources: Sequence[str \| Real \| ScientificExpression], domain, *, parameters: Mapping[str, object] \| None = None)` | Validate and lower a vector of scalar expressions to UFL. |
+| function | `interpolate(target, source, *, parameters: Mapping[str, object] \| None = None) -> object` | Interpolate a validated scalar or vector expression into ``target``. |
+
 ## `agentfem.solvers`
 
 | Kind | Public object | Purpose |
@@ -456,6 +469,8 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `SolveEvent` | One structured event emitted by an analysis procedure. |
 | function | `create_ksp(comm, options: LinearSolverOptions \| None = None)` | Create and configure a PETSc KSP object. |
 | class | `LinearSolveInfo` | PETSc KSP convergence evidence for one linear system solve. |
+| class | `PreparedLinearProblem(bilinear_form, linear_form, solution, *, bcs = None, options: LinearSolverOptions \| None = None)` | A linear problem whose constant matrix and KSP are assembled once. |
+| function | `prepare_linear_problem(bilinear_form, linear_form, solution, *, bcs = None, options: LinearSolverOptions \| None = None) -> PreparedLinearProblem` | Prepare one constant linear operator for repeated right-hand sides. |
 | function | `solve_matrix_system(A, b, x, options: LinearSolverOptions \| None = None, *, raise_on_failure: bool \| None = None) -> LinearSolveInfo` | Solve ``A x = b`` and return explicit PETSc convergence evidence. |
 | function | `solve_linear_problem(bilinear_form, linear_form, solution, *, bcs = None, options: LinearSolverOptions \| None = None, return_info: bool = False)` | Assemble and solve a standard linear variational problem. |
 | function | `solve_nonlinear_problem(residual_form, solution, *, bcs = None, jacobian_form = None, options: NonlinearSolverOptions \| NewtonSolverOptions \| None = None, petsc_options_prefix: str = 'agentfem_nonlinear_') -> tuple[object, NonlinearSolveInfo]` | Solve ``R(u; v) = 0`` with the current DOLFINx PETSc/SNES interface. |

@@ -906,6 +906,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agentfemexpressions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.expressions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agentfemsolvers" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1638,6 +1649,17 @@
     <span class="md-ellipsis">
       
         agentfem.events
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agentfemexpressions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.expressions
       
     </span>
   </a>
@@ -3671,6 +3693,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>RectilinearGridSample</code></td>
+<td>A finite-element field sampled on a Cartesian observation grid.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>StaticForceBalance</code></td>
 <td>Global algebraic force equilibrium for one linear static solid.</td>
 </tr>
@@ -3753,6 +3780,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>sample_points(field, points, *, padding: float = 1e-10, missing: str = 'raise') -&gt; np.ndarray</code></td>
 <td>Evaluate a finite-element field at common physical points under MPI.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>sample_rectilinear_grid(field, *, bbox, shape, reduction: str \| None = None, component: int \| None = None, padding: float = 1e-10) -&gt; RectilinearGridSample</code></td>
+<td>Sample a scalar or vector field on a 2D/3D rectilinear grid.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -4063,6 +4095,48 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="agentfemexpressions"><code>agentfem.expressions</code><a class="headerlink" href="#agentfemexpressions" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Public object</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>class</td>
+<td><code>ExpressionError</code></td>
+<td>Raised when a scientific expression is invalid or unsupported.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ScientificExpression</code></td>
+<td>An inspectable expression that can be lowered to UFL.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>expression(source: str \| Real \| ScientificExpression) -&gt; ScientificExpression</code></td>
+<td>Return a validated :class:<code>ScientificExpression</code>.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>as_ufl(source, domain, *, parameters: Mapping[str, object] \| None = None)</code></td>
+<td>Validate and lower one scalar expression to UFL.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>vector_as_ufl(sources: Sequence[str \| Real \| ScientificExpression], domain, *, parameters: Mapping[str, object] \| None = None)</code></td>
+<td>Validate and lower a vector of scalar expressions to UFL.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>interpolate(target, source, *, parameters: Mapping[str, object] \| None = None) -&gt; object</code></td>
+<td>Interpolate a validated scalar or vector expression into <code>target</code>.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="agentfemsolvers"><code>agentfem.solvers</code><a class="headerlink" href="#agentfemsolvers" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4132,6 +4206,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>class</td>
 <td><code>LinearSolveInfo</code></td>
 <td>PETSc KSP convergence evidence for one linear system solve.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>PreparedLinearProblem(bilinear_form, linear_form, solution, *, bcs = None, options: LinearSolverOptions \| None = None)</code></td>
+<td>A linear problem whose constant matrix and KSP are assembled once.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>prepare_linear_problem(bilinear_form, linear_form, solution, *, bcs = None, options: LinearSolverOptions \| None = None) -&gt; PreparedLinearProblem</code></td>
+<td>Prepare one constant linear operator for repeated right-hand sides.</td>
 </tr>
 <tr>
 <td>function</td>

@@ -99,6 +99,14 @@ finite-element simulation with AgentFEM.
   intentionally starts from explicit K/C/F operators without model ownership.
 - Problem summaries: use `problems.FEMProblem` when a workflow needs a
   broader structured audit record.
+- Scientific formulas: when a formula arrives from JSON, a benchmark,
+  experiment metadata, or agent-authored configuration, use
+  `expressions.expression(...)`, `expressions.as_ufl(...)`, or
+  `expressions.interpolate(...)`. The language accepts coordinates, declared
+  parameters, arithmetic, and reviewed mathematical functions; never replace
+  it with `eval`, and do not silently reinterpret an invalid formula. Use
+  `as_ufl` for symbolic weak-form physics and `interpolate` for known fields;
+  the latter uses the same validated AST without a per-expression C++ JIT.
 - Results: read `docs/results_and_campaigns.md`; use `solve_result()` or
   `solve_result(output="results.xdmf")` for the standard static/transient
   solve/output/result lifecycle. Use `results.SimulationResult`, MPI-safe
@@ -124,6 +132,10 @@ finite-element simulation with AgentFEM.
   semantics.
   For field-learning data, create a fixed `surrogates.ObservationGrid` and call
   `datasets.fem_observation_sample`; preserve its units, layout, and mask.
+  For a direct solver or external benchmark contract, use
+  `results.sample_rectilinear_grid(...)`; its physical-axis `shape=(nx, ny,
+  nz)` is returned in array order `(nz, ny, nx)` and its `inside` mask must be
+  retained for non-rectangular domains.
   When observations and the FEM mesh use different axes or origins, pass an
   explicit `surrogates.AffineCoordinateMap`; for publication maps convert the
   result to `datasets.RectilinearObservation` before comparison. Never infer a
