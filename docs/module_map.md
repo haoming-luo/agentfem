@@ -12,8 +12,9 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Abaqus labels, equations, periodic-cell geometry, and source-order output | `mesh/abaqus.py` |
 | Study context: analysis type, physics, dimension, and assumptions | `studies.py` |
 | Standard/Explicit family, equation order, algorithm, and state policy | `procedures.py` |
-| Model registry, amplitudes, material assignments, checks, summaries, and model-first operators | `models.py` |
-| Extensible analysis/material lowering behind `model.step()` | `step_providers.py` |
+| Model registry/facade, amplitudes, material assignments, checks, summaries, and model-first operators | `models.py` |
+| Built-in scientific Step construction behind the facade | `_step_builders.py` |
+| Extensible analysis/material lowering and execution-policy normalization behind `model.step()` | `step_providers.py` |
 | Function spaces and Lagrange defaults | `spaces.py` |
 | Application-level unknown fields | `fields.py` |
 | Time histories and scale factors for prescribed data | `amplitudes.py` |

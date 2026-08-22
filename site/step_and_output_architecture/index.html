@@ -1325,6 +1325,22 @@ lowering. An explicit <code>procedure=</code> may override the Study preference,
 conflicting <code>method=</code> or incompatible equation order fails before assembly.
 This is the first typed boundary behind the readable Python language; it does
 not add a second user-facing configuration system.</p>
+<p>The request also exposes an immutable <code>StepExecutionPolicy</code> containing the
+declared solver, output, transient-history, progress, and checkpoint controls.
+Individual keywords remain the public language; the policy is their common
+inspection and provenance form. A Step execution context retains it, and a
+completed result records the JSON-safe summary under
+<code>metadata["execution_context"]["policies"]</code>. <code>None</code> means the selected provider
+used its own default; resolved time-step and solver details remain visible in
+the executable Step summary.</p>
+<p>The provider registry now calls internal scientific builders directly for
+linear static/steady conduction, J2 plasticity, and implicit creep. Their old
+<code>Model</code> methods are compatibility delegates. This establishes the migration
+pattern for hyperelasticity and dynamics without changing a case file:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>model.step(...) -&gt; StepRequest -&gt; provider -&gt; scientific builder -&gt; problem
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>                                  |                         |
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>                                  + execution policy ------+-&gt; result lifecycle
+</code></pre></div>
 <p>This is an extension seam, not a promise that arbitrary registered code is
 scientifically valid. A new stateful material provider is admissible only
 after its constitutive state, trial/commit/rollback policy, tangent, increment
@@ -1342,7 +1358,7 @@ truthfully below the FEM-integrated maturity level.</p>
 <p>Automatic incrementation is the default for the affine finite-strain path.
 <code>max_increments=10</code> means “use no more than ten accepted increments”; it does
 not request exactly ten. Exact fixed subdivision remains explicit:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">incrementation</span><span class="o">=</span><span class="n">steps</span><span class="o">.</span><span class="n">fixed</span><span class="p">(</span><span class="mi">10</span><span class="p">))</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">incrementation</span><span class="o">=</span><span class="n">steps</span><span class="o">.</span><span class="n">fixed</span><span class="p">(</span><span class="mi">10</span><span class="p">))</span>
 </code></pre></div>
 <p>The automatic controller increases the next increment after fast convergence,
 keeps or reduces it after harder convergence, and rolls the solution back
@@ -1351,14 +1367,14 @@ before retrying a failed attempt with a cutback. <code>minimum</code>, <code>max
 models with internal variables must implement trial/commit/rollback before
 using the same controller globally.</p>
 <p>Solver convergence remains a separate, visible choice:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="o">...</span><span class="p">,</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">incrementation</span><span class="o">=</span><span class="n">steps</span><span class="o">.</span><span class="n">automatic</span><span class="p">(</span><span class="n">max_increments</span><span class="o">=</span><span class="mi">100</span><span class="p">),</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">solver_options</span><span class="o">=</span><span class="n">solvers</span><span class="o">.</span><span class="n">newton</span><span class="p">(</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="n">maximum_iterations</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>        <span class="n">linear_solver</span><span class="o">=</span><span class="n">solvers</span><span class="o">.</span><span class="n">direct_solver</span><span class="p">(),</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="p">),</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="o">...</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">incrementation</span><span class="o">=</span><span class="n">steps</span><span class="o">.</span><span class="n">automatic</span><span class="p">(</span><span class="n">max_increments</span><span class="o">=</span><span class="mi">100</span><span class="p">),</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">solver_options</span><span class="o">=</span><span class="n">solvers</span><span class="o">.</span><span class="n">newton</span><span class="p">(</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="n">maximum_iterations</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="n">linear_solver</span><span class="o">=</span><span class="n">solvers</span><span class="o">.</span><span class="n">direct_solver</span><span class="p">(),</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="p">),</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="p">)</span>
 </code></pre></div>
 <p>Thus <code>max_increments</code> limits accepted load/time advances, whereas <code>max_it</code>
 limits Newton iterations in one attempt.</p>
@@ -1369,11 +1385,11 @@ Backend-specific classes remain available for expert tuning but are not the
 standard model language.</p>
 <h2 id="output-requests-do-not-control-the-nonlinear-algorithm">Output requests do not control the nonlinear algorithm<a class="headerlink" href="#output-requests-do-not-control-the-nonlinear-algorithm" title="Permanent link">&para;</a></h2>
 <p>Saving every accepted increment follows the Abaqus/Standard convention:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">output</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">field_output</span><span class="p">(</span><span class="s2">&quot;U&quot;</span><span class="p">,</span> <span class="s2">&quot;S&quot;</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="n">every</span><span class="o">=</span><span class="s2">&quot;increment&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">output</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">field_output</span><span class="p">(</span><span class="s2">&quot;U&quot;</span><span class="p">,</span> <span class="s2">&quot;S&quot;</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="n">every</span><span class="o">=</span><span class="s2">&quot;increment&quot;</span><span class="p">)</span>
 </code></pre></div>
 <p>Uniform output marks use output intervals:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">output</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">field_output</span><span class="p">(</span><span class="s2">&quot;U&quot;</span><span class="p">,</span> <span class="s2">&quot;S&quot;</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="n">intervals</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="n">output</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">output</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">field_output</span><span class="p">(</span><span class="s2">&quot;U&quot;</span><span class="p">,</span> <span class="s2">&quot;S&quot;</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="n">intervals</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="n">output</span><span class="p">)</span>
 </code></pre></div>
 <p>With <code>intervals=6</code>, the initial state and six interval endpoints form seven
 result frames. The nonlinear controller lands on those requested marks and may
@@ -1387,10 +1403,10 @@ dynamics evaluate them at physical time.</p>
 <h2 id="standard-run-feedback">Standard run feedback<a class="headerlink" href="#standard-run-feedback" title="Permanent link">&para;</a></h2>
 <p>Nonlinear steps report progress on MPI rank zero without requiring routine CLI
 flags:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>[STEP 1] periodic_neo_hookean | automatic_incrementation
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>  [INC 1 | ATT 1] 0 -&gt; 0.25 (d=0.25)
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    ITER 01 | residual=...
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>  [INC 1] CONVERGED | iterations=...
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>[STEP 1] periodic_neo_hookean | automatic_incrementation
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>  [INC 1 | ATT 1] 0 -&gt; 0.25 (d=0.25)
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    ITER 01 | residual=...
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>  [INC 1] CONVERGED | iterations=...
 </code></pre></div>
 <p>Passing <code>status_file="job.sta"</code> adds a flushed, line-oriented status record.
 <code>progress=False</code> remains available for managed campaigns, but silence is not
@@ -1401,8 +1417,8 @@ erase the other 49 accepted increments from the result manifest. Heat,
 explicit dynamics, implicit dynamics, and J2 use this same evidence contract.</p>
 <h2 id="one-logical-field-dataset">One logical field dataset<a class="headerlink" href="#one-logical-field-dataset" title="Permanent link">&para;</a></h2>
 <p>The default finite-strain result consists of:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>results.xdmf   small temporal/field description
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>results.h5     compressed numerical payload
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>results.xdmf   small temporal/field description
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>results.h5     compressed numerical payload
 </code></pre></div>
 <p>The HDF5 payload stores topology once, retains reference coordinates, and
 stores each frame's deformed coordinates plus all requested point and cell
@@ -1450,17 +1466,17 @@ periodic-cell NPZ/CSV response is integrated from the governing UFL
 expressions. Consumers should not reconstruct authoritative macro response by
 re-averaging a visualization field.</p>
 <p>The complete declaration can collect these distinct roles:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">output</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">output_plan</span><span class="p">(</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">output_directory</span><span class="p">,</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">field</span><span class="o">=</span><span class="n">results</span><span class="o">.</span><span class="n">field_output</span><span class="p">(</span><span class="s2">&quot;U&quot;</span><span class="p">,</span> <span class="s2">&quot;S&quot;</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="s2">&quot;J&quot;</span><span class="p">,</span> <span class="n">every</span><span class="o">=</span><span class="s2">&quot;increment&quot;</span><span class="p">),</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">requests</span><span class="o">=</span><span class="p">(</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>        <span class="n">results</span><span class="o">.</span><span class="n">solver_history</span><span class="p">(),</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>        <span class="n">results</span><span class="o">.</span><span class="n">periodic_cell_history</span><span class="p">(</span><span class="n">periodicity</span><span class="p">),</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>        <span class="n">results</span><span class="o">.</span><span class="n">source_node_history</span><span class="p">(</span><span class="n">nodes</span><span class="p">,</span> <span class="n">RIGHT</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="n">TOP</span><span class="o">=</span><span class="mi">9</span><span class="p">),</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>        <span class="n">results</span><span class="o">.</span><span class="n">finite_strain_checks</span><span class="p">(</span><span class="n">constraint</span><span class="o">=</span><span class="n">periodicity</span><span class="p">),</span>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>    <span class="p">),</span>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>    <span class="n">presentation</span><span class="o">=</span><span class="n">results</span><span class="o">.</span><span class="n">presentation</span><span class="p">(</span><span class="n">animation</span><span class="o">=</span><span class="s2">&quot;gif&quot;</span><span class="p">),</span>
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">output</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">output_plan</span><span class="p">(</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">output_directory</span><span class="p">,</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">field</span><span class="o">=</span><span class="n">results</span><span class="o">.</span><span class="n">field_output</span><span class="p">(</span><span class="s2">&quot;U&quot;</span><span class="p">,</span> <span class="s2">&quot;S&quot;</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="s2">&quot;J&quot;</span><span class="p">,</span> <span class="n">every</span><span class="o">=</span><span class="s2">&quot;increment&quot;</span><span class="p">),</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">requests</span><span class="o">=</span><span class="p">(</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>        <span class="n">results</span><span class="o">.</span><span class="n">solver_history</span><span class="p">(),</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>        <span class="n">results</span><span class="o">.</span><span class="n">periodic_cell_history</span><span class="p">(</span><span class="n">periodicity</span><span class="p">),</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>        <span class="n">results</span><span class="o">.</span><span class="n">source_node_history</span><span class="p">(</span><span class="n">nodes</span><span class="p">,</span> <span class="n">RIGHT</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="n">TOP</span><span class="o">=</span><span class="mi">9</span><span class="p">),</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="n">results</span><span class="o">.</span><span class="n">finite_strain_checks</span><span class="p">(</span><span class="n">constraint</span><span class="o">=</span><span class="n">periodicity</span><span class="p">),</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="p">),</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    <span class="n">presentation</span><span class="o">=</span><span class="n">results</span><span class="o">.</span><span class="n">presentation</span><span class="p">(</span><span class="n">animation</span><span class="o">=</span><span class="s2">&quot;gif&quot;</span><span class="p">),</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="p">)</span>
 </code></pre></div>
 <p>The plan is passed into <code>model.step(...)</code> so exact output marks constrain only
 where the nonlinear path must land. After the solve, <code>finalize(...)</code> writes
@@ -1482,19 +1498,19 @@ multiaxial damage model.</p>
 <h2 id="accepted-increment-checkpoint-policy">Accepted-increment checkpoint policy<a class="headerlink" href="#accepted-increment-checkpoint-policy" title="Permanent link">&para;</a></h2>
 <p>All three transient routes—central difference, Newmark/generalized-alpha, and
 implicit-Euler heat transfer—consume the same policy object:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">agentfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">checkpointing</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">target</span><span class="o">=</span><span class="n">field</span><span class="p">,</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="n">steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="n">checkpoint</span><span class="o">=</span><span class="n">checkpointing</span><span class="o">.</span><span class="n">every</span><span class="p">(</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="mi">100</span><span class="p">,</span>
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>        <span class="n">directory</span><span class="o">=</span><span class="s2">&quot;checkpoints&quot;</span><span class="p">,</span>
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>        <span class="n">final</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>        <span class="n">keep_last</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
-<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="p">),</span>
-<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">agentfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">checkpointing</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">target</span><span class="o">=</span><span class="n">field</span><span class="p">,</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="n">steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="n">checkpoint</span><span class="o">=</span><span class="n">checkpointing</span><span class="o">.</span><span class="n">every</span><span class="p">(</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>        <span class="mi">100</span><span class="p">,</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>        <span class="n">directory</span><span class="o">=</span><span class="s2">&quot;checkpoints&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>        <span class="n">final</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>        <span class="n">keep_last</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>    <span class="p">),</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="p">)</span>
 </code></pre></div>
 <p><code>checkpointing.every(..., portable=True)</code> or
 <code>step.save_checkpoint(..., portable=True)</code> additionally writes a global,

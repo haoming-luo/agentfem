@@ -778,6 +778,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#release-ladder-02x-to-03x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release ladder: 0.2.x to 0.3.x
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Release ladder: 0.2.x to 0.3.x">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#remaining-02x-converge-before-expanding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remaining 0.2.x: converge before expanding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conditions-for-030" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conditions for 0.3.0
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#03x-deepen-the-platform-along-four-tracks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.3.x: deepen the platform along four tracks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#release-gates" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1208,6 +1258,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#release-ladder-02x-to-03x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release ladder: 0.2.x to 0.3.x
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Release ladder: 0.2.x to 0.3.x">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#remaining-02x-converge-before-expanding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remaining 0.2.x: converge before expanding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conditions-for-030" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conditions for 0.3.0
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#03x-deepen-the-platform-along-four-tracks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.3.x: deepen the platform along four tracks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#release-gates" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1559,18 +1659,84 @@ stages now have one dependency-free product contract in <code>_api_contract.py</
 The Python package, CLI capability record, generated documentation, Agent
 Skill, and future frontends consume that inventory, with drift tests preventing
 them from quietly presenting different versions of AgentFEM.</p>
-<p>The next convergence work is internal and should not change ordinary case
-files:</p>
+<p>The current internal convergence has begun without changing ordinary case
+files: linear-static, J2, and creep builders now live behind the provider
+boundary, while solver, output, history, progress, and checkpoint declarations
+share one inspectable execution-policy snapshot. The next work is:</p>
 <ol>
-<li>move material/procedure-specific builders out of the large <code>Model</code> class
-   while retaining it as the stable facade;</li>
-<li>give solver, output, history, and checkpoint policies equally inspectable
-   schemas instead of adding more loose Step keywords;</li>
+<li>migrate hyperelastic and dynamic builders behind the same facade boundary
+   after the first extraction pattern has accumulated full release evidence;</li>
 <li>attach explicit lifecycle/deprecation metadata to compatibility names and
    teach <code>agentfem upgrade</code> to report semantic migrations without rewriting
    scientific Python automatically;</li>
 <li>add static typing overloads only where they improve IDE guidance without
    creating a second configuration language.</li>
+</ol>
+<h2 id="release-ladder-02x-to-03x">Release ladder: 0.2.x to 0.3.x<a class="headerlink" href="#release-ladder-02x-to-03x" title="Permanent link">&para;</a></h2>
+<p>The version boundary is architectural, not a count of material names:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>remaining 0.2.x                 0.3.0                         0.3.x
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>consolidate the foundation  -&gt;  freeze the platform contract  -&gt;  deepen science
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>facade/builders/policies        stable public workflow           verified families
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>result lifecycle parity         evidence-backed release          coupled workflows
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>flagship Golden contracts       installed + MPI reproducible      optional providers
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>compatibility diagnostics       extension boundary proven         richer interoperability
+</code></pre></div>
+<h3 id="remaining-02x-converge-before-expanding">Remaining 0.2.x: converge before expanding<a class="headerlink" href="#remaining-02x-converge-before-expanding" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Complete the thin-facade migration for hyperelastic and dynamic builders,
+   while preserving the current <code>model.step(...)</code> language.</li>
+<li>Finish one result/output/history/progress/checkpoint lifecycle across
+   static, stateful nonlinear, heat, Standard dynamics, and Explicit dynamics.</li>
+<li>Attach compatibility lifecycle metadata and actionable <code>agentfem upgrade</code>
+   diagnostics before retiring any 0.2.x spelling.</li>
+<li>Freeze flagship Golden contracts for the simple solid, heat, wave,
+   hyperelastic RVE, J2/creep, and cohesive workflows; retain external
+   benchmark and MPI evidence at the capability level.</li>
+<li>Rehearse wheel/conda installation, Linux CI, macOS, WSL2 guidance,
+   documentation, Agent Skill, and clean-environment project execution as one
+   release gate.</li>
+</ol>
+<h3 id="conditions-for-030">Conditions for 0.3.0<a class="headerlink" href="#conditions-for-030" title="Permanent link">&para;</a></h3>
+<p>AgentFEM enters 0.3.0 only when all of these are true:</p>
+<ul>
+<li><strong>One public grammar:</strong> Study -&gt; Model -&gt; engineering assets -&gt;
+  <code>model.step(...)</code> -&gt; <code>solve_result()</code>, with compatibility names outside the
+  recommended vocabulary and machine-readable migration guidance.</li>
+<li><strong>One lowering architecture:</strong> built-in and third-party providers publish
+  capability and option contracts; scientific builders no longer accumulate
+  inside the Model registry.</li>
+<li><strong>One evidence lifecycle:</strong> execution policy, convergence, fields,
+  histories, checkpoints, provenance, verification, and failure status remain
+  attached to the result across supported procedures.</li>
+<li><strong>A bounded trusted core:</strong> every advertised flagship route has a declared
+  maturity level, Golden result, failure case, and proportional serial/MPI or
+  external evidence.</li>
+<li><strong>Reproducible installation:</strong> the documented package path works from a
+  clean Linux environment, the supported macOS route, and Windows through
+  WSL2; optional dependencies fail with repairable messages.</li>
+<li><strong>A proven open extension boundary:</strong> at least one external or companion
+  provider can join through documented entry points without modifying the
+  open core or inventing a parallel result contract.</li>
+<li><strong>Agent-operable without opacity:</strong> a fresh agent can inspect capabilities,
+  build a supported case, run checks, execute it, and explain the structured
+  result using repository and installed-package guidance.</li>
+</ul>
+<p>Phase-field fracture, general contact, beams/shells, native Windows, a second
+production backend, and exhaustive material coverage are not entry conditions
+for 0.3.0. They advance only through the same evidence gates after the platform
+contract is stable.</p>
+<h3 id="03x-deepen-the-platform-along-four-tracks">0.3.x: deepen the platform along four tracks<a class="headerlink" href="#03x-deepen-the-platform-along-four-tracks" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Trusted mechanics:</strong> external J2/creep/cohesive benchmarks, cyclic
+   plasticity, thermo-mechanical histories, and selected fracture extensions.</li>
+<li><strong>Engineering workflow:</strong> multi-Step inheritance, richer mesh semantics,
+   reactions/energy balances, visualization, and scalable restart.</li>
+<li><strong>AI and data:</strong> maintained optional neural-field/operator providers,
+   calibration and model-selection workflows, active campaigns, and explicit
+   applicability evidence without making PyTorch part of the core solver.</li>
+<li><strong>Ecosystem:</strong> stable extension SDK, companion/private packages, GUI/agent
+   clients, contribution templates, and versioned scientific interoperability.</li>
 </ol>
 <h2 id="release-gates">Release Gates<a class="headerlink" href="#release-gates" title="Permanent link">&para;</a></h2>
 <p>A public solver/material capability advances through these levels:</p>

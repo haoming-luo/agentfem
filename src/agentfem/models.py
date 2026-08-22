@@ -20,6 +20,7 @@ from ._api_contract import (
     model_methods as _model_methods,
 )
 from .step_providers import (
+    StepExecutionPolicy,
     StepOptionContract,
     StepProvider,
     StepProviderRegistry,
@@ -1276,6 +1277,7 @@ class Model:
         constraints=None,
         solver_options=None,
         output=None,
+        history=None,
         executor=None,
         executor_options=None,
         progress: bool | None = None,
@@ -1318,6 +1320,7 @@ class Model:
             "steps": steps,
             "duration": duration,
             "output": output,
+            "history": history,
             "executor": executor,
             "executor_options": executor_options,
             "progress": progress,
@@ -1364,119 +1367,19 @@ class Model:
         solver_options=None,
         name: str = "linear_static",
     ):
-        """Create and register a linear-static analysis step in ``K u = F`` form."""
+        """Compatibility builder; prefer the stable :meth:`step` entry point."""
 
-        from . import operators
-        from . import problems
+        from . import _step_builders
 
-        self.check(
+        return _step_builders.linear_static(
+            self,
             target=target,
-            step_options={"K": K, "F": F},
-        )
-        update_at_step_end = self._time_update_callback()
-        if update_at_step_end is not None:
-            update_at_step_end(1.0)
-        if getattr(self.study, "is_heat_transfer", False):
-            boundary_stiffness, boundary_source = self._thermal_boundary_terms(target)
-            if K is None:
-                K = self.conduction(target)
-            if boundary_stiffness:
-                K = operators.combine(
-                    K,
-                    *boundary_stiffness,
-                    name="K_thermal",
-                    kind="conduction_and_exchange",
-                )
-            if F is None:
-                sources = []
-                if self.loads:
-                    sources.append(self.external_force(target))
-                sources.extend(boundary_source)
-                F = (
-                    operators.combine(*sources, name="Q", kind="thermal_source")
-                    if sources
-                    else operators.heat_source_vector(0.0, target)
-                )
-        else:
-            K = K if K is not None else self.stiffness(target)
-            foundation_terms = tuple(
-                item.operator(target)
-                for item in self.boundary_models
-                if item.__class__.__name__ == "ElasticFoundation"
-            )
-            if foundation_terms:
-                K = operators.combine(
-                    K,
-                    *foundation_terms,
-                    name="K_with_foundation",
-                    kind="solid_and_foundation_stiffness",
-                )
-            if F is None:
-                if self.loads:
-                    F = self.external_force(target)
-                else:
-                    value_shape = tuple(getattr(target.value, "ufl_shape", ()))
-                    zero = (
-                        0.0
-                        if not value_shape
-                        else tuple(0.0 for _ in range(value_shape[0]))
-                    )
-                    F = self.external_force(
-                        target,
-                        load=load_api.body_force(
-                            zero,
-                            target=target,
-                            name="zero_external_force",
-                        ),
-                    )
-        result_field_factory = None
-        if (
-            getattr(self.study, "is_solid_mechanics", False)
-            and self.materials
-            and all(
-                _thermal_expansion_is_zero(record.item)
-                for record in self.materials
-            )
-        ):
-            assignments = tuple(self.materials)
-
-            def result_field_factory(requested=None):
-                from . import results
-
-                isotropic = all(
-                    hasattr(record.item, "young")
-                    and hasattr(record.item, "poisson")
-                    for record in assignments
-                )
-                defaults = results.preselected_fields(
-                    physics="solid_mechanics",
-                    finite_strain=False,
-                )[1:]
-                variables = tuple(defaults if requested is None else requested)
-                if (
-                    not isotropic
-                    and requested is None
-                    and getattr(self.study, "assumption", None) == "plane_strain"
-                ):
-                    variables = tuple(item for item in variables if item != "MISES")
-                return results.small_strain_partition_fields(
-                    target,
-                    assignments,
-                    study=self.study,
-                    variables=variables,
-                )
-
-        step = problems.linear_static(
-            K,
-            F,
-            study=self.study,
-            unknown=target,
-            constraints=self.constraints if constraints is None else constraints,
+            K=K,
+            F=F,
+            constraints=constraints,
             solver_options=solver_options,
-            result_field_factory=result_field_factory,
             name=name,
         )
-        return self.add_step(step)
 
     def heat_transfer_step(
         self,
@@ -1767,21 +1670,9 @@ class Model:
     def _thermal_boundary_terms(self, target):
         """Return matrix/vector contributions from registered thermal boundaries."""
 
-        stiffness = []
-        source = []
-        unsupported = []
-        for item in self.boundary_models:
-            if hasattr(item, "operator") and hasattr(item, "source"):
-                stiffness.append(item.operator(target))
-                source.append(item.source(target))
-            else:
-                unsupported.append(getattr(item, "name", type(item).__name__))
-        if unsupported and getattr(self.study, "is_heat_transfer", False):
-            raise ValueError(
-                "Heat-transfer steps cannot consume these boundary models: "
-                f"{unsupported}."
-            )
-        return tuple(stiffness), tuple(source)
+        from ._step_builders import _thermal_boundary_terms
+
+        return _thermal_boundary_terms(self, target)
 
     def hyperelastic_step(
         self,
@@ -2259,89 +2150,15 @@ class Model:
         amplitude=None,
         name: str = "j2_plasticity",
     ):
-        """Create a global 3D small-strain J2 plasticity step."""
+        """Compatibility builder; prefer the stable :meth:`step` entry point."""
 
-        from . import mechanics
-        from .constitutive.plasticity import J2LinearIsotropicHardening
-        from .constitutive.quadrature import QuadratureMaterialMap
+        from . import _step_builders
 
-        self.check(
+        return _step_builders.j2_plasticity(
+            self,
             target=target,
-            step_options={"material": material},
-        )
-        if hasattr(self.study, "require"):
-            self.study.require(
-                analysis="nonlinear_static",
-                physics="solid_mechanics",
-            )
-        if material is None:
-            if not self.materials:
-                raise ValueError(
-                    "model.j2_plasticity_step requires registered material data."
-                )
-            material = QuadratureMaterialMap.from_assignments(
-                target.value.function_space.mesh,
-                self.materials,
-                material_type=J2LinearIsotropicHardening,
-            )
-            if len(self.materials) == 1 and self.materials[0].region is None:
-                material = self.materials[0].item
-        else:
-            material = self._material_record(material).item
-        if not isinstance(material, (J2LinearIsotropicHardening, QuadratureMaterialMap)):
-            raise TypeError(
-                "model.j2_plasticity_step requires "
-                "J2LinearIsotropicHardening."
-            )
-        time_dependent_constraints = tuple(
-            item
-            for item in constraint_api.dirichlet_constraints(
-                self.constraints if constraints is None else constraints
-            )
-            if isinstance(item, constraint_api.TimeDependentDirichlet)
-        )
-        if time_dependent_constraints:
-            raise NotImplementedError(
-                "The J2 step does not accept absolute time-dependent Dirichlet "
-                "histories. Prescribe the end-of-step value and use the step "
-                "amplitude as its dimensionless load path."
-            )
-        selected_loads = tuple(self.loads)
-        amplitude_loads = tuple(
-            item
-            for item in selected_loads
-            if isinstance(item, load_api.AmplitudeLoad)
-        )
-        if amplitude_loads:
-            ordinary_loads = tuple(
-                item
-                for item in selected_loads
-                if not isinstance(item, load_api.AmplitudeLoad)
-            )
-            histories = {id(item.amplitude): item.amplitude for item in amplitude_loads}
-            if ordinary_loads or len(histories) != 1:
-                raise ValueError(
-                    "A J2 step requires one shared load path. Do not mix ordinary "
-                    "loads with amplitude-driven loads or use multiple amplitudes."
-                )
-            if amplitude is not None:
-                raise ValueError(
-                    "Pass a load amplitude or step amplitude to J2, not both."
-                )
-            amplitude = next(iter(histories.values()))
-            selected_loads = tuple(item.load for item in amplitude_loads)
-        step = mechanics.j2_plasticity_step(
-            displacement=target,
             material=material,
-            external_force=(
-                self.external_force(target, loads=selected_loads)
-                if selected_loads
-                else None
-            ),
-            constraints=(
-                self.constraints if constraints is None else constraints
-            ),
-            study=self.study,
+            constraints=constraints,
             incrementation=incrementation,
             solver_options=solver_options,
             quadrature_degree=quadrature_degree,
@@ -2350,7 +2167,6 @@ class Model:
             amplitude=amplitude,
             name=name,
         )
-        return self.add_step(step)
 
     def creep_step(
         self,
@@ -2368,81 +2184,16 @@ class Model:
         temperature=None,
         name: str = "implicit_creep",
     ):
-        """Create a global 3D small-strain implicit creep step.
+        """Compatibility builder; prefer the stable :meth:`step` entry point."""
 
-        ``duration`` and amplitudes use physical time. Ordinary loads and
-        prescribed values are held at their full value by default; pass an
-        amplitude when a ramp or other history is part of the model.
-        """
+        from . import _step_builders
 
-        from . import mechanics
-        from .constitutive.creep import IsotropicPowerLawCreepMaterial
-        from .constitutive.quadrature import QuadratureMaterialMap
-
-        self.check(target=target, step_options={"material": material})
-        if hasattr(self.study, "require"):
-            self.study.require(
-                analysis="nonlinear_transient",
-                physics="solid_mechanics",
-            )
-        if material is None:
-            if not self.materials:
-                raise ValueError(
-                    "model.creep_step requires registered material data."
-                )
-            material = QuadratureMaterialMap.from_assignments(
-                target.value.function_space.mesh,
-                self.materials,
-                material_type=IsotropicPowerLawCreepMaterial,
-            )
-            if len(self.materials) == 1 and self.materials[0].region is None:
-                material = self.materials[0].item
-        else:
-            material = self._material_record(material).item
-        if not isinstance(
-            material, (IsotropicPowerLawCreepMaterial, QuadratureMaterialMap)
-        ):
-            raise TypeError(
-                "model.creep_step requires IsotropicPowerLawCreepMaterial."
-            )
-
-        selected_loads = tuple(self.loads)
-        amplitude_loads = tuple(
-            item
-            for item in selected_loads
-            if isinstance(item, load_api.AmplitudeLoad)
-        )
-        if amplitude_loads:
-            ordinary_loads = tuple(
-                item
-                for item in selected_loads
-                if not isinstance(item, load_api.AmplitudeLoad)
-            )
-            histories = {id(item.amplitude): item.amplitude for item in amplitude_loads}
-            if ordinary_loads or len(histories) != 1:
-                raise ValueError(
-                    "An implicit creep step currently requires one shared "
-                    "physical-time load amplitude. Do not mix ordinary and "
-                    "amplitude-driven loads or use multiple amplitudes."
-                )
-            if amplitude is not None:
-                raise ValueError(
-                    "Pass a load amplitude or step amplitude to creep, not both."
-                )
-            amplitude = next(iter(histories.values()))
-            selected_loads = tuple(item.load for item in amplitude_loads)
-
-        step = mechanics.implicit_creep_step(
-            displacement=target,
-            material=material,
+        return _step_builders.creep(
+            self,
+            target=target,
             duration=duration,
-            external_force=(
-                self.external_force(target, loads=selected_loads)
-                if selected_loads
-                else None
-            ),
-            constraints=(self.constraints if constraints is None else constraints),
-            study=self.study,
+            material=material,
+            constraints=constraints,
             incrementation=incrementation,
             solver_options=solver_options,
             quadrature_degree=quadrature_degree,
@@ -2452,7 +2203,6 @@ class Model:
             temperature=temperature,
             name=name,
         )
-        return self.add_step(step)
 
     def explicit_dynamics_step(
         self,
@@ -3377,13 +3127,6 @@ def create(*, study, mesh=None, name: str = "model", units=None) -> Model:
     """Create a lightweight model registry."""
 
     return Model(study=study, mesh=mesh, name=name, unit_system=units)
-
-
-def _thermal_expansion_is_zero(material) -> bool:
-    selected = getattr(material, "thermal_expansion", 0.0)
-    if hasattr(selected, "values"):
-        return bool(np.all(np.asarray(selected.values, dtype=float) == 0.0))
-    return float(selected or 0.0) == 0.0
 
 
 def _stiffness_from_record(

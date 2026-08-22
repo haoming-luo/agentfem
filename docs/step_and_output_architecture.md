@@ -60,6 +60,26 @@ conflicting `method=` or incompatible equation order fails before assembly.
 This is the first typed boundary behind the readable Python language; it does
 not add a second user-facing configuration system.
 
+The request also exposes an immutable `StepExecutionPolicy` containing the
+declared solver, output, transient-history, progress, and checkpoint controls.
+Individual keywords remain the public language; the policy is their common
+inspection and provenance form. A Step execution context retains it, and a
+completed result records the JSON-safe summary under
+`metadata["execution_context"]["policies"]`. `None` means the selected provider
+used its own default; resolved time-step and solver details remain visible in
+the executable Step summary.
+
+The provider registry now calls internal scientific builders directly for
+linear static/steady conduction, J2 plasticity, and implicit creep. Their old
+`Model` methods are compatibility delegates. This establishes the migration
+pattern for hyperelasticity and dynamics without changing a case file:
+
+```text
+model.step(...) -> StepRequest -> provider -> scientific builder -> problem
+                                  |                         |
+                                  + execution policy ------+-> result lifecycle
+```
+
 This is an extension seam, not a promise that arbitrary registered code is
 scientifically valid. A new stateful material provider is admissible only
 after its constitutive state, trial/commit/rollback policy, tangent, increment

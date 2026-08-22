@@ -8,6 +8,10 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Add one immutable, inspectable Step execution-policy snapshot for declared
+  solver, output, history, progress, and checkpoint controls; transient history
+  requests may now be declared once on `model.step(...)` and are consumed by
+  the common result lifecycle.
 - Add one dependency-free product-language contract shared by package
   discovery, the Model facade, CLI capabilities, generated documentation,
   Agent Skill guidance, IDEs, and future GUI clients, with drift tests across
@@ -46,6 +50,9 @@ experimental formulation to a validated one.
 
 ### Changed
 
+- Move linear-static/steady-conduction, J2, and implicit-creep scientific
+  construction behind internal provider-owned builders; historical `Model`
+  methods remain thin 0.2.x compatibility delegates.
 - Make top-level workflow modules and heavy result-output modules lazy while
   preserving the public import surface, substantially reducing startup cost
   for CLI, agent, campaign-worker, and short scientific jobs.

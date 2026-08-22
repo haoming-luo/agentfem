@@ -1259,6 +1259,14 @@ for AI agents.</p>
   pre-assembly typo detection, CLI capability JSON, and future IDE/GUI forms.
   Third-party providers without a contract remain supported during 0.2.x, but
   a provider is not considered workflow-ready until it declares one.</li>
+<li>Keep cross-cutting execution choices readable as ordinary <code>model.step(...)</code>
+  keywords. Normalize solver, output, history, progress, and checkpoint values
+  into one immutable <code>StepExecutionPolicy</code> for lifecycle metadata and tooling;
+  do not make users construct a second configuration object for ordinary work.</li>
+<li>Material/procedure-specific construction belongs in internal scientific
+  builders selected by <code>step_providers.py</code>. <code>Model</code> remains the stable registry
+  and facade; compatibility builder methods must delegate rather than preserve
+  another implementation of the same route.</li>
 <li>Prefer <code>solve_result()</code> as the common completion verb. An output product may
   be supplied to <code>solve_result(output=...)</code> or declared once on
   <code>model.step(..., output=...)</code>; provider constructors must not reinterpret it

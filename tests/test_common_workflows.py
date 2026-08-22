@@ -132,6 +132,35 @@ def test_static_solid_clamp_and_gravity_are_model_owned():
     assert displacement.max_abs() > 0.0
 
 
+def test_provider_uses_scientific_builder_beneath_compatibility_facade():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    model = models.create(
+        study=studies.static_solid(dimension=2, assumption="plane_strain"),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    model.material(
+        elasticity.isotropic_elastic(young=1.0e6, poisson=0.3, density=1.0)
+    )
+    model.clamp(
+        displacement,
+        on=mesh.boundary(domain, _left, name="left", tag=1),
+    )
+    model.linear_static_step = lambda **kwargs: pytest.fail(
+        "provider called the compatibility facade"
+    )
+
+    simulation = model.step(target=displacement).solve_result()
+
+    assert simulation.status == "completed"
+
+
 def test_model_step_rejects_unknown_options_before_assembly():
     domain = mesh.rectangle(
         (0.0, 0.0),
@@ -284,12 +313,18 @@ def test_transient_heat_transfer_consumes_convection_boundary(tmp_path):
         ),
     )
     initial_mean = float(np.mean(temperature.value.x.array))
+    mean_temperature = results.history(
+        "mean_temperature",
+        lambda accepted_step, time: np.mean(accepted_step.current.x.array),
+        unit="K",
+    )
     step = model.step(
         target=temperature,
         dt=1.0,
         steps=2,
         progress=False,
         output=tmp_path / "cooling.xdmf",
+        history=mean_temperature,
     )
     simulation = step.solve_result(
         metadata={"case_role": "transient_contract_test"},
@@ -302,8 +337,35 @@ def test_transient_heat_transfer_consumes_convection_boundary(tmp_path):
     assert simulation.artifacts["fields_hdf5"].is_file()
     assert simulation.metadata["case_role"] == "transient_contract_test"
     assert simulation.metadata["execution_context"]["model"] == "cooling"
+    policies = simulation.metadata["execution_context"]["policies"]
+    assert policies["output"] == str(tmp_path / "cooling.xdmf")
+    assert policies["progress"] is False
+    assert policies["history"][0]["type"] == "HistoryRequest"
     assert simulation.fields["Temperature"].artifact.name == "cooling.xdmf"
+    assert simulation.histories["mean_temperature"].unit == "K"
     assert simulation.histories["time_increment"].values.tolist() == [1.0, 1.0]
+
+
+def test_history_is_a_transient_policy_not_a_silent_static_option():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    model = models.create(
+        study=studies.static_solid(dimension=2, assumption="plane_strain"),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    model.material(
+        elasticity.isotropic_elastic(young=1.0e6, poisson=0.3, density=1.0)
+    )
+    request = results.history("dummy", lambda step, time: 0.0)
+
+    with pytest.raises(TypeError, match="Unsupported Step option 'history'"):
+        model.step(target=displacement, history=request)
 
 
 def test_multimaterial_heat_combines_region_conduction_capacity_and_history():

@@ -37,6 +37,9 @@ parallel workflow language from one example.
     - nonlinear subdivision belongs to `steps.automatic(...)` or the explicit
       compatibility mode `steps.fixed(...)`;
     - output intervals are a separate result request, not solver increments.
+    - solver/output/history/progress/checkpoint inputs are retained as one
+      inspectable execution-policy summary; declare transient histories on the
+      Step when they should be consumed automatically by `solve_result()`.
 15. Structured validation and optional AF-IR record
 16. Assembly, solve, or time integration
     - shared transient procedures may pause through `run(until_step=...)` and

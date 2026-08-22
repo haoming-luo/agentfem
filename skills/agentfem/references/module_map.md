@@ -13,10 +13,12 @@ Repository package paths below are relative to `src/agentfem/`.
 - `studies.py`: analysis context, physics, dimensions, and modeling assumptions
 - `procedures.py`: Standard/Explicit family, equation order, integration
   algorithm, state policy, and solve requirements
-- `models.py`: lightweight model registry, amplitudes, material assignments,
-  checks, summaries, and model-first operators
-- `step_providers.py`: extensible analysis/material lowering behind
-  `model.step(...)`
+- `models.py`: lightweight model registry/facade, amplitudes, material
+  assignments, checks, summaries, and model-first operators
+- `_step_builders.py`: internal built-in scientific Step construction; new
+  user cases should not call it directly
+- `step_providers.py`: extensible analysis/material lowering and normalized
+  execution-policy inspection behind `model.step(...)`
 - `spaces.py`: function spaces and named functions
 - `fields.py`: application-level unknown bundles
 - `amplitudes.py`: time histories, derivatives, and serializable loading bases

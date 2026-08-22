@@ -133,7 +133,9 @@ Package paths below are relative to `src/agentfem/`.
   `interfaces.split_conforming_named_interfaces(...)`, then lowered to one
   named force collection with `fracture.named_mode_i_cohesive_forces(...)`.
 - Shared transient checkpoint envelope and partition identity: `checkpointing.py`
-- Model-owned analysis-step creation: `models.py`
+- Stable Model facade and model-owned analysis-step entry: `models.py`
+- Provider-owned scientific Step builders: `_step_builders.py`
+- Analysis lowering and inspectable execution policies: `step_providers.py`
 - Stateful nonlinear solid mechanics: `mechanics/`
 - Algebraic problems, reusable step containers, and state containers:
   `problems.py`

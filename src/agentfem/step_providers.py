@@ -9,8 +9,35 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from difflib import get_close_matches
+from os import PathLike
 from types import MappingProxyType
 from typing import Callable, Mapping
+
+
+@dataclass(frozen=True)
+class StepExecutionPolicy:
+    """Normalized cross-cutting controls retained by every public Step.
+
+    Users continue to pass the familiar ``model.step(...)`` keywords.  This
+    object is the shared, inspectable representation consumed by result
+    lifecycles, agents, GUIs, and provenance tools; it is not a second user
+    configuration language.
+    """
+
+    solver: object | None = None
+    output: object | None = None
+    history: tuple[object, ...] = ()
+    progress: object | None = None
+    checkpoint: object | None = None
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "solver": _policy_value_summary(self.solver),
+            "output": _policy_value_summary(self.output),
+            "history": tuple(_policy_value_summary(item) for item in self.history),
+            "progress": _policy_value_summary(self.progress),
+            "checkpoint": _policy_value_summary(self.checkpoint),
+        }
 
 
 @dataclass(frozen=True)
@@ -145,6 +172,23 @@ class StepRequest:
             selected.pop(name, None)
         return selected
 
+    @property
+    def execution_policy(self) -> StepExecutionPolicy:
+        """Return the common execution controls encoded by this request."""
+
+        history = self.option("history", ())
+        if history is None:
+            history = ()
+        elif not isinstance(history, (tuple, list)):
+            history = (history,)
+        return StepExecutionPolicy(
+            solver=self.option("solver_options"),
+            output=self.option("output"),
+            history=tuple(history),
+            progress=self.option("progress"),
+            checkpoint=self.option("checkpoint"),
+        )
+
     def summary(self) -> dict[str, object]:
         return {
             "analysis": self.analysis,
@@ -160,6 +204,7 @@ class StepRequest:
                 if self.material is None
                 else type(self.material).__name__
             ),
+            "execution_policy": self.execution_policy.summary(),
         }
 
 
@@ -176,7 +221,19 @@ class StepExecutionContext:
     model: object
     target: object
     material: object | None = None
-    configured_output: object | None = None
+    policy: StepExecutionPolicy = StepExecutionPolicy()
+
+    @property
+    def configured_output(self):
+        """Compatibility view of the declarative output policy."""
+
+        return self.policy.output
+
+    @property
+    def configured_history(self) -> tuple[object, ...]:
+        """History requests declared when the Step was constructed."""
+
+        return self.policy.history
 
     @property
     def output_target(self):
@@ -193,11 +250,8 @@ class StepExecutionContext:
             "material": (
                 None if self.material is None else type(self.material).__name__
             ),
-            "configured_output": (
-                None
-                if self.configured_output is None
-                else type(self.configured_output).__name__
-            ),
+            "configured_output": _policy_value_summary(self.configured_output),
+            "policies": self.policy.summary(),
         }
 
 
@@ -320,7 +374,7 @@ class StepProviderRegistry:
             model=model,
             target=request.target,
             material=_selected_material(model, request),
-            configured_output=request.option("output"),
+            policy=request.execution_policy,
         )
         try:
             created.execution_context = context
@@ -553,6 +607,29 @@ def _target_summary(target) -> dict[str, object] | None:
     }
 
 
+def _policy_value_summary(value):
+    """Describe one execution control without retaining live solver objects."""
+
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, PathLike):
+        return str(value)
+    if isinstance(value, Mapping):
+        return {
+            str(key): _policy_value_summary(item)
+            for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+        }
+    if isinstance(value, (tuple, list)):
+        return tuple(_policy_value_summary(item) for item in value)
+    summary = getattr(value, "summary", None)
+    if callable(summary):
+        return {
+            "type": type(value).__name__,
+            "value": _policy_value_summary(summary()),
+        }
+    return {"type": type(value).__name__}
+
+
 def _target_shape(target) -> tuple[int, ...] | None:
     shape = getattr(target, "ufl_shape", None)
     if shape is None:
@@ -667,13 +744,16 @@ def _accept_linear_static(model, request: StepRequest) -> bool:
 
 
 def _lower_linear_static(model, request: StepRequest):
+    from . import _step_builders
+
     options = dict(request.options)
     options.pop("material", None)
     # Completion belongs to solve_result(), not the numerical constructor.
     # The registry binds the original request in StepExecutionContext.
     options.pop("output", None)
     name = options.pop("name", None) or "linear_static"
-    return model.linear_static_step(
+    return _step_builders.linear_static(
+        model,
         target=request.target,
         name=name,
         **options,
@@ -697,6 +777,7 @@ def _lower_transient_heat(model, request: StepRequest):
     options.pop("F", None)
     material = options.pop("material", None)
     options.pop("output", None)
+    options.pop("history", None)
     name = options.pop("name", None) or "transient_heat"
     return model.heat_transfer_step(
         target=request.target,
@@ -761,6 +842,8 @@ def _accept_j2(model, request: StepRequest) -> bool:
 
 
 def _lower_j2(model, request: StepRequest):
+    from . import _step_builders
+
     options = dict(request.options)
     material = request.material
     options.pop("material", None)
@@ -768,7 +851,8 @@ def _lower_j2(model, request: StepRequest):
     options.pop("F", None)
     options.pop("output", None)
     name = options.pop("name", None) or "j2_plasticity"
-    return model.j2_plasticity_step(
+    return _step_builders.j2_plasticity(
+        model,
         target=request.target,
         material=material,
         name=name,
@@ -797,6 +881,8 @@ def _accept_implicit_creep(model, request: StepRequest) -> bool:
 
 
 def _lower_implicit_creep(model, request: StepRequest):
+    from . import _step_builders
+
     options = dict(request.options)
     material = request.material
     options.pop("material", None)
@@ -805,7 +891,8 @@ def _lower_implicit_creep(model, request: StepRequest):
     options.pop("method", None)
     options.pop("output", None)
     name = options.pop("name", None) or "implicit_creep"
-    return model.creep_step(
+    return _step_builders.creep(
+        model,
         target=request.target,
         material=material,
         name=name,
@@ -904,6 +991,7 @@ def _lower_finite_strain_explicit_dynamics(model, request: StepRequest):
         options.pop(key, None)
     options.pop("material", None)
     options.pop("output", None)
+    options.pop("history", None)
     name = options.pop("name", None) or "finite_strain_explicit_dynamics"
     return model.finite_strain_explicit_dynamics_step(
         target=request.target,
@@ -921,6 +1009,7 @@ def _lower_explicit_dynamics(model, request: StepRequest):
     options.pop("solver_options", None)
     options.pop("method", None)
     options.pop("output", None)
+    options.pop("history", None)
     name = options.pop("name", None) or "explicit_dynamics"
     return model.explicit_dynamics_step(
         target=request.target,
@@ -959,6 +1048,7 @@ def _lower_implicit_dynamics(model, request: StepRequest):
     options.pop("material", None)
     options.pop("method", None)
     options.pop("output", None)
+    options.pop("history", None)
     method = _procedure_method(model, request)
     name = options.pop("name", None) or f"{method}_dynamics"
     return model.implicit_dynamics_step(
@@ -1111,6 +1201,7 @@ register_step_provider(
             "progress",
             "status_file",
             "checkpoint",
+            "history",
             "stability_safety",
             "mass_damping",
             required=("steps",),
@@ -1162,6 +1253,7 @@ register_step_provider(
             "progress",
             "status_file",
             "checkpoint",
+            "history",
             required=("dt", "steps"),
         ),
     )
@@ -1268,6 +1360,7 @@ register_step_provider(
             "progress",
             "status_file",
             "checkpoint",
+            "history",
             "save_every",
             "print_every",
             required=("dt", "steps"),
@@ -1298,6 +1391,7 @@ register_step_provider(
             "progress",
             "status_file",
             "checkpoint",
+            "history",
             required=("dt", "steps"),
         ),
     )

@@ -30,6 +30,7 @@ ROOT = Path(__file__).resolve().parent
 SOURCE_PACKAGE = ROOT / "src" / "agentfem"
 REQUIRED_WHEEL_MEMBERS = (
     "agentfem/__init__.py",
+    "agentfem/_step_builders.py",
     "agentfem/models.py",
     "agentfem/dependencies.py",
     "agentfem/platforms.py",
@@ -64,6 +65,7 @@ REQUIRED_WHEEL_MEMBERS = (
     "agentfem/knowledge/benchmarks/j2_thick_cylinder_mpi.json",
     "agentfem/knowledge/cards/integration_point_recovery.json",
     "agentfem/knowledge/cards/transient_checkpoint_portability.json",
+    "agentfem/knowledge/decisions/0016-thin-model-facade-and-execution-policy.md",
     "agentfem/materials/data/steel_generic.json",
 )
 FORBIDDEN_DISTRIBUTION_PARTS = ("__pycache__",)

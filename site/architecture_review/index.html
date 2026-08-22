@@ -763,6 +763,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#current-execution-contract-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current execution-contract decision
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agent-oriented-refinements" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -867,10 +878,13 @@ see <code>docs/air_architecture_roadmap.md</code>.</p>
 <li>
 <p>Keep study, model, and problem responsibilities separate:
    <code>studies.py</code> declares context, <code>models.py</code> registers assets and checks the
-   model, <code>step_providers.py</code> lowers supported analysis/material protocols, and
-   <code>problems.py</code> represents discrete systems to solve. <code>Model.step</code> remains the
-   stable public entry point; adding a material family does not justify adding
-   a case-specific method to every model.</p>
+   model, <code>_step_builders.py</code> constructs built-in scientific procedures,
+   <code>step_providers.py</code> selects and lowers supported analysis/material
+   protocols, and <code>problems.py</code> represents discrete systems to solve.
+   <code>Model.step</code> remains the stable public entry point; adding a material family
+   does not justify adding a case-specific method to every model. Historical
+   builder methods remain thin 0.2.x compatibility delegates rather than
+   parallel implementations.</p>
 </li>
 <li>
 <p>Make form construction more discoverable:
@@ -889,6 +903,23 @@ see <code>docs/air_architecture_roadmap.md</code>.</p>
    framework logic.</p>
 </li>
 </ol>
+<h2 id="current-execution-contract-decision">Current execution-contract decision<a class="headerlink" href="#current-execution-contract-decision" title="Permanent link">&para;</a></h2>
+<p><code>model.step(...)</code> keeps separate, readable keywords for solver, output,
+history, progress, and checkpoint choices. Internally they are normalized into
+one immutable <code>StepExecutionPolicy</code> and retained by the Step execution
+context. This is an inspection and provenance boundary, not a second user
+configuration language.</p>
+<p>The policy has three consequences:</p>
+<ol>
+<li>providers receive one consistent cross-cutting contract while retaining
+   their own scientific <code>StepOptionContract</code>;</li>
+<li><code>solve_result()</code> can consume construction-time output and transient-history
+   requests without case-specific plumbing;</li>
+<li>result metadata exposes the declared controls to humans, agents, GUIs, and
+   provenance tools without serializing live PETSc or DOLFINx objects.</li>
+</ol>
+<p>An omitted policy value means the selected provider owns the default. The
+executable Step summary remains authoritative for resolved numerical values.</p>
 <h2 id="agent-oriented-refinements">Agent-Oriented Refinements<a class="headerlink" href="#agent-oriented-refinements" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Every public helper should say what FEM concept it belongs to.</li>

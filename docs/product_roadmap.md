@@ -65,18 +65,90 @@ The Python package, CLI capability record, generated documentation, Agent
 Skill, and future frontends consume that inventory, with drift tests preventing
 them from quietly presenting different versions of AgentFEM.
 
-The next convergence work is internal and should not change ordinary case
-files:
+The current internal convergence has begun without changing ordinary case
+files: linear-static, J2, and creep builders now live behind the provider
+boundary, while solver, output, history, progress, and checkpoint declarations
+share one inspectable execution-policy snapshot. The next work is:
 
-1. move material/procedure-specific builders out of the large `Model` class
-   while retaining it as the stable facade;
-2. give solver, output, history, and checkpoint policies equally inspectable
-   schemas instead of adding more loose Step keywords;
-3. attach explicit lifecycle/deprecation metadata to compatibility names and
+1. migrate hyperelastic and dynamic builders behind the same facade boundary
+   after the first extraction pattern has accumulated full release evidence;
+2. attach explicit lifecycle/deprecation metadata to compatibility names and
    teach `agentfem upgrade` to report semantic migrations without rewriting
    scientific Python automatically;
-4. add static typing overloads only where they improve IDE guidance without
+3. add static typing overloads only where they improve IDE guidance without
    creating a second configuration language.
+
+## Release ladder: 0.2.x to 0.3.x
+
+The version boundary is architectural, not a count of material names:
+
+```text
+remaining 0.2.x                 0.3.0                         0.3.x
+consolidate the foundation  ->  freeze the platform contract  ->  deepen science
+
+facade/builders/policies        stable public workflow           verified families
+result lifecycle parity         evidence-backed release          coupled workflows
+flagship Golden contracts       installed + MPI reproducible      optional providers
+compatibility diagnostics       extension boundary proven         richer interoperability
+```
+
+### Remaining 0.2.x: converge before expanding
+
+1. Complete the thin-facade migration for hyperelastic and dynamic builders,
+   while preserving the current `model.step(...)` language.
+2. Finish one result/output/history/progress/checkpoint lifecycle across
+   static, stateful nonlinear, heat, Standard dynamics, and Explicit dynamics.
+3. Attach compatibility lifecycle metadata and actionable `agentfem upgrade`
+   diagnostics before retiring any 0.2.x spelling.
+4. Freeze flagship Golden contracts for the simple solid, heat, wave,
+   hyperelastic RVE, J2/creep, and cohesive workflows; retain external
+   benchmark and MPI evidence at the capability level.
+5. Rehearse wheel/conda installation, Linux CI, macOS, WSL2 guidance,
+   documentation, Agent Skill, and clean-environment project execution as one
+   release gate.
+
+### Conditions for 0.3.0
+
+AgentFEM enters 0.3.0 only when all of these are true:
+
+- **One public grammar:** Study -> Model -> engineering assets ->
+  `model.step(...)` -> `solve_result()`, with compatibility names outside the
+  recommended vocabulary and machine-readable migration guidance.
+- **One lowering architecture:** built-in and third-party providers publish
+  capability and option contracts; scientific builders no longer accumulate
+  inside the Model registry.
+- **One evidence lifecycle:** execution policy, convergence, fields,
+  histories, checkpoints, provenance, verification, and failure status remain
+  attached to the result across supported procedures.
+- **A bounded trusted core:** every advertised flagship route has a declared
+  maturity level, Golden result, failure case, and proportional serial/MPI or
+  external evidence.
+- **Reproducible installation:** the documented package path works from a
+  clean Linux environment, the supported macOS route, and Windows through
+  WSL2; optional dependencies fail with repairable messages.
+- **A proven open extension boundary:** at least one external or companion
+  provider can join through documented entry points without modifying the
+  open core or inventing a parallel result contract.
+- **Agent-operable without opacity:** a fresh agent can inspect capabilities,
+  build a supported case, run checks, execute it, and explain the structured
+  result using repository and installed-package guidance.
+
+Phase-field fracture, general contact, beams/shells, native Windows, a second
+production backend, and exhaustive material coverage are not entry conditions
+for 0.3.0. They advance only through the same evidence gates after the platform
+contract is stable.
+
+### 0.3.x: deepen the platform along four tracks
+
+1. **Trusted mechanics:** external J2/creep/cohesive benchmarks, cyclic
+   plasticity, thermo-mechanical histories, and selected fracture extensions.
+2. **Engineering workflow:** multi-Step inheritance, richer mesh semantics,
+   reactions/energy balances, visualization, and scalable restart.
+3. **AI and data:** maintained optional neural-field/operator providers,
+   calibration and model-selection workflows, active campaigns, and explicit
+   applicability evidence without making PyTorch part of the core solver.
+4. **Ecosystem:** stable extension SDK, companion/private packages, GUI/agent
+   clients, contribution templates, and versioned scientific interoperability.
 
 ## Release Gates
 

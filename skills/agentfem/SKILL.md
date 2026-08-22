@@ -65,6 +65,10 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   Every built-in provider must declare a `StepOptionContract`, and agents
   should read provider option summaries from `agentfem capabilities --json`
   rather than guessing keywords from one example.
+  Solver, output, transient-history, progress, and checkpoint declarations are
+  retained as one inspectable execution-policy summary. Prefer
+  `model.step(history=...)` when the common result lifecycle should own the
+  history request.
   Use `model.stiffness(...)`,
   `model.external_force(...)`, and `operators.combine(...)` when an example
   must expose individual contributions.

@@ -1902,6 +1902,9 @@ def _solve_transient_result(
     selected_output = output
     if selected_output is None and context is not None:
         selected_output = context.configured_output
+    selected_history = tuple(history)
+    if not selected_history and context is not None:
+        selected_history = context.configured_history
     if selected_output is not None:
         from .results import OutputPlan
 
@@ -1910,7 +1913,7 @@ def _solve_transient_result(
                 "Declarative OutputPlan currently describes finite-strain "
                 "static output. Pass an XDMF path to a transient Step."
             )
-    _configure_transient_history(step, history)
+    _configure_transient_history(step, selected_history)
     if selected_output is not None and step.completed_steps >= step.steps:
         raise RuntimeError(
             "Transient field output must be requested before completion; "
@@ -1920,7 +1923,7 @@ def _solve_transient_result(
         step.run(
             output=selected_output,
             fields=fields,
-            history=history,
+            history=selected_history,
             progress=progress,
             comm=comm,
         )

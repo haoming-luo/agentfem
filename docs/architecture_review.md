@@ -53,10 +53,13 @@ see `docs/air_architecture_roadmap.md`.
 
 3. Keep study, model, and problem responsibilities separate:
    `studies.py` declares context, `models.py` registers assets and checks the
-   model, `step_providers.py` lowers supported analysis/material protocols, and
-   `problems.py` represents discrete systems to solve. `Model.step` remains the
-   stable public entry point; adding a material family does not justify adding
-   a case-specific method to every model.
+   model, `_step_builders.py` constructs built-in scientific procedures,
+   `step_providers.py` selects and lowers supported analysis/material
+   protocols, and `problems.py` represents discrete systems to solve.
+   `Model.step` remains the stable public entry point; adding a material family
+   does not justify adding a case-specific method to every model. Historical
+   builder methods remain thin 0.2.x compatibility delegates rather than
+   parallel implementations.
 
 4. Make form construction more discoverable:
    `forms.py` should expose small weak-form blocks with clear names, such as
@@ -70,6 +73,26 @@ see `docs/air_architecture_roadmap.md`.
 6. Add examples only after APIs stabilize:
    Examples should demonstrate the workflow order without becoming hidden
    framework logic.
+
+## Current execution-contract decision
+
+`model.step(...)` keeps separate, readable keywords for solver, output,
+history, progress, and checkpoint choices. Internally they are normalized into
+one immutable `StepExecutionPolicy` and retained by the Step execution
+context. This is an inspection and provenance boundary, not a second user
+configuration language.
+
+The policy has three consequences:
+
+1. providers receive one consistent cross-cutting contract while retaining
+   their own scientific `StepOptionContract`;
+2. `solve_result()` can consume construction-time output and transient-history
+   requests without case-specific plumbing;
+3. result metadata exposes the declared controls to humans, agents, GUIs, and
+   provenance tools without serializing live PETSc or DOLFINx objects.
+
+An omitted policy value means the selected provider owns the default. The
+executable Step summary remains authoritative for resolved numerical values.
 
 ## Agent-Oriented Refinements
 
