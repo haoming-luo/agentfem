@@ -346,6 +346,60 @@ def test_stokes_adapter_recovers_a_public_divergence_free_velocity():
     assert result["solver_info"]["mixed_num_dofs"] > result["solver_info"]["num_dofs"]
 
 
+def test_three_dimensional_stokes_uses_block_taylor_hood_and_pressure_nullspace():
+    case = {
+        "id": "public_3d_stokes_contract_smoke",
+        "pde_classification": {"equation_type": "stokes", "dim": 3},
+        "pde": {
+            "type": "stokes",
+            "pde_params": {"nu": 1.0},
+            "source_term": [
+                "pi*(6*pi*sin(pi*x)*cos(pi*y)*cos(pi*z) + sin(pi*y)*sin(pi*z)*cos(pi*x))",
+                "pi*(sin(pi*x)*sin(pi*z)*cos(pi*y) - 3*pi*sin(pi*y)*cos(pi*x)*cos(pi*z))",
+                "pi*(sin(pi*x)*sin(pi*y)*cos(pi*z) - 3*pi*sin(pi*z)*cos(pi*x)*cos(pi*y))",
+            ],
+        },
+        "domain": {"type": "unit_cube"},
+        "bc": {
+            "dirichlet": {
+                "on": "all",
+                "value": [
+                    "2*sin(pi*x)*cos(pi*y)*cos(pi*z)",
+                    "-sin(pi*y)*cos(pi*x)*cos(pi*z)",
+                    "-sin(pi*z)*cos(pi*x)*cos(pi*y)",
+                ],
+            }
+        },
+        "output": {
+            "format": "npz",
+            "field": "velocity_magnitude",
+            "grid": {
+                "bbox": [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+                "nx": 7,
+                "ny": 7,
+                "nz": 7,
+            },
+        },
+    }
+
+    result = solve_case(case)
+    axis = np.linspace(0.0, 1.0, 7)
+    z, y, x = np.meshgrid(axis, axis, axis, indexing="ij")
+    exact = np.sqrt(
+        (2.0 * np.sin(np.pi * x) * np.cos(np.pi * y) * np.cos(np.pi * z)) ** 2
+        + (np.sin(np.pi * y) * np.cos(np.pi * x) * np.cos(np.pi * z)) ** 2
+        + (np.sin(np.pi * z) * np.cos(np.pi * x) * np.cos(np.pi * y)) ** 2
+    )
+    relative_error = np.linalg.norm(result["u"] - exact) / np.linalg.norm(exact)
+
+    assert relative_error < 3.0e-4
+    assert result["solver_info"]["formulation"] == "block_taylor_hood"
+    assert result["solver_info"]["pressure_reference"] == "constant_nullspace"
+    assert result["solver_info"]["velocity_degree"] == 3
+    assert result["solver_info"]["pressure_degree"] == 2
+    assert result["solver_info"]["converged"] is True
+
+
 def test_navier_stokes_adapter_uses_stokes_predictor_and_newton():
     case = _case(
         {
@@ -501,7 +555,7 @@ def test_flow_resolution_uses_dimension_geometry_and_public_sampling_density():
             boundary,
             {"grid": {"nx": 16, "ny": 16, "nz": 16}},
         )
-        == 11
+        == 4
     )
 
 

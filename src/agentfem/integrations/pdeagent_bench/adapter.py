@@ -10,9 +10,11 @@ from time import perf_counter
 import numpy as np
 import ufl
 from dolfinx import fem, mesh as dolfinx_mesh
+from dolfinx.fem.petsc import LinearProblem, create_vector
 from mpi4py import MPI
+from petsc4py import PETSc
 
-from agentfem import expressions, fields, mesh, operators, results, solvers
+from agentfem import expressions, fields, mesh, operators, results, solvers, spaces
 
 from .schema import (
     BENCHMARK_COMMIT,
@@ -71,7 +73,7 @@ class BenchmarkPolicy:
             # Three-dimensional Taylor--Hood fields need enough cells to
             # resolve both velocity curvature and the pressure constraint.
             # Keep this policy independent of benchmark case identity.
-            return max(11, 3 * frequency)
+            return max(4, 2 * frequency)
         base = self.resolution(dimension, domain_spec, pde_spec)
         domain_type = str(domain_spec.get("type", ""))
         grid = output_spec.get("grid", {})
@@ -142,7 +144,21 @@ def solve_case(
         else selected.resolution(dimension, case["domain"], case["pde"])
     )
     degree = selected.degree(dimension)
-    imported = mesh.from_spec(case["domain"], resolution=resolution)
+    if (
+        family in {"stokes", "navier_stokes"}
+        and dimension == 3
+        and str(case["domain"].get("type", "")) == "unit_cube"
+    ):
+        imported = mesh.FEMMesh(
+            mesh.cuboid(
+                (0.0, 0.0, 0.0),
+                (1.0, 1.0, 1.0),
+                (resolution,) * 3,
+                cell_type="hexahedron",
+            )
+        )
+    else:
+        imported = mesh.from_spec(case["domain"], resolution=resolution)
     domain = imported.domain
 
     try:
@@ -306,6 +322,8 @@ def _solve_stokes(case, domain, policy, degree):
     """Solve steady incompressible Stokes flow with Taylor--Hood elements."""
 
     dimension = int(domain.geometry.dim)
+    if dimension == 3:
+        return _solve_stokes_block(case, domain, policy, velocity_degree=3)
     structured_planar = dimension == 2 and str(case["domain"].get("type", "")) in {
         "unit_square",
         "periodic_square",
@@ -380,6 +398,120 @@ def _solve_stokes(case, domain, policy, degree):
         }
     )
     return velocity_field, payload
+
+
+def _solve_stokes_block(case, domain, policy, *, velocity_degree: int):
+    """Solve three-dimensional Stokes flow with an explicit block contract."""
+
+    dimension = int(domain.geometry.dim)
+    pressure_degree = int(velocity_degree) - 1
+    velocity_space = spaces.vector_space(domain, degree=velocity_degree)
+    pressure_space = spaces.scalar_space(domain, degree=pressure_degree)
+    velocity = ufl.TrialFunction(velocity_space)
+    pressure = ufl.TrialFunction(pressure_space)
+    test_velocity = ufl.TestFunction(velocity_space)
+    test_pressure = ufl.TestFunction(pressure_space)
+    pde = case["pde"]
+    viscosity = float(pde.get("pde_params", {}).get("nu", 1.0))
+    source_spec = pde.get("source_term", [0.0] * dimension)
+    if not isinstance(source_spec, Sequence) or isinstance(source_spec, (str, bytes)):
+        source_spec = [source_spec] * dimension
+    source = _known_field(source_spec, velocity_space)
+    velocity_field = fem.Function(velocity_space, name="Velocity")
+    pressure_field = fem.Function(pressure_space, name="Pressure")
+    bcs = _dirichlet_bcs(case, velocity_field)
+
+    a00 = viscosity * ufl.inner(
+        ufl.grad(velocity), ufl.grad(test_velocity)
+    ) * ufl.dx
+    a01 = -pressure * ufl.div(test_velocity) * ufl.dx
+    a10 = -test_pressure * ufl.div(velocity) * ufl.dx
+    pressure_mass = (1.0 / viscosity) * pressure * test_pressure * ufl.dx
+    block_operator = [[a00, a01], [a10, None]]
+    block_load = [
+        ufl.inner(source, test_velocity) * ufl.dx,
+        ufl.ZeroBaseForm((test_pressure,)),
+    ]
+    preconditioner = [[a00, None], [None, pressure_mass]]
+    problem = LinearProblem(
+        block_operator,
+        block_load,
+        u=[velocity_field, pressure_field],
+        P=preconditioner,
+        kind="nest",
+        bcs=bcs,
+        petsc_options_prefix="agentfem_pdebench_stokes3d_",
+        petsc_options={
+            "ksp_type": "minres",
+            "ksp_rtol": max(policy.relative_tolerance, 1.0e-6),
+            "ksp_atol": policy.absolute_tolerance,
+            "ksp_max_it": 1000,
+            "ksp_error_if_not_converged": True,
+            "pc_type": "fieldsplit",
+            "pc_fieldsplit_type": "additive",
+        },
+    )
+
+    null_vector = create_vector(fem.extract_function_spaces(problem.L), "nest")
+    velocity_null, pressure_null = null_vector.getNestSubVecs()
+    velocity_null.set(0.0)
+    pressure_null.set(1.0)
+    null_vector.normalize()
+    nullspace = PETSc.NullSpace().create(vectors=[null_vector])
+    problem.A.setNullSpace(nullspace)
+    velocity_block = problem.A.getNestSubMatrix(0, 0)
+    velocity_block.setOption(PETSc.Mat.Option.SPD, True)
+    if problem.P_mat is not None:
+        preconditioner_velocity = problem.P_mat.getNestSubMatrix(0, 0)
+        preconditioner_pressure = problem.P_mat.getNestSubMatrix(1, 1)
+        preconditioner_velocity.setOption(PETSc.Mat.Option.SPD, True)
+        preconditioner_pressure.setOption(PETSc.Mat.Option.SPD, True)
+    block_pc = problem.solver.getPC()
+    block_pc.setUp()
+    velocity_solver, pressure_solver = block_pc.getFieldSplitSubKSP()
+    velocity_solver.setType("preonly")
+    velocity_solver.getPC().setType("gamg")
+    pressure_solver.setType("preonly")
+    pressure_solver.getPC().setType("jacobi")
+
+    solved_velocity, solved_pressure = problem.solve()
+    solved_velocity.x.scatter_forward()
+    solved_pressure.x.scatter_forward()
+    solver = problem.solver
+    payload = {
+        "ksp_type": "minres",
+        "pc_type": "fieldsplit",
+        "rtol": max(policy.relative_tolerance, 1.0e-6),
+        "converged": int(solver.getConvergedReason()) > 0,
+        "converged_reason": int(solver.getConvergedReason()),
+        "iterations": int(solver.getIterationNumber()),
+        "residual_norm": float(solver.getResidualNorm()),
+        "formulation": "block_taylor_hood",
+        "element_degree": int(velocity_degree),
+        "velocity_degree": int(velocity_degree),
+        "pressure_degree": int(pressure_degree),
+        "viscosity": viscosity,
+        "pressure_reference": "constant_nullspace",
+        "mixed_num_dofs": int(
+            velocity_space.dofmap.index_map.size_global
+            * velocity_space.dofmap.index_map_bs
+            + pressure_space.dofmap.index_map.size_global
+            * pressure_space.dofmap.index_map_bs
+        ),
+        "pressure_l2_norm": float(
+            np.sqrt(
+                domain.comm.allreduce(
+                    fem.assemble_scalar(
+                        fem.form(solved_pressure * solved_pressure * ufl.dx)
+                    ),
+                    op=MPI.SUM,
+                )
+            )
+        ),
+    }
+    nullspace.destroy()
+    null_vector.destroy()
+    return solved_velocity, payload
 
 
 def _solve_navier_stokes(case, domain, policy, degree):

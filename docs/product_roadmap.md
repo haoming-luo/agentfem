@@ -124,10 +124,12 @@ an agent, user, or README from confusing these levels.
   seven-family snapshot, then preserve the eleven-family fixed-adapter gate
   covering Burgers, Stokes, Navier--Stokes, and biharmonic equations through
   public periodic-MPC, mixed-field, flow-operator, and split-form contracts;
-  preserve the 555/645 fixed-adapter snapshot in a hashed evidence bundle,
+  preserve the 558/645 fixed-adapter snapshot in a hashed evidence bundle,
   with all eleven family rates above 60 percent and the runner label separated
   explicitly from the development-agent identity;
-  next improve three-dimensional flow, general pressure-nullspace treatment,
+  retain the new three-dimensional Q3/Q2 block-flow route with an explicit
+  pressure nullspace and viscosity-scaled field preconditioner; next complete
+  MPI scaling, periodic-vector constraints, near-zero-reference metric policy,
   and higher-order boundary semantics without case-identity dispatch;
   keep fixed-adapter capability, same-model agent A/B evidence, and an
   official library track as three distinct claims;
