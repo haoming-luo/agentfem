@@ -1605,6 +1605,15 @@ family macro-average. Every family exceeded a 60% final pass rate.</p>
 </tr>
 </tbody>
 </table>
+<p>Within the nine declared 3D Stokes cases, the new block route passes 4/9,
+compared with 1/9 for the previous monolithic route, while reducing the
+representative solve time by roughly one half. It passes four manufactured
+velocity fields and substantially reduces the error in two further cases.
+Two remaining cases have analytically zero velocity because a constant body
+force is absorbed by pressure under complete no-slip boundaries; their
+near-zero numerical references make a purely relative L2 comparison unstable.
+The other strict failures use the legacy 0.05 oracle-error multiplier tracked
+in the upstream protocol issue above.</p>
 <p>The original three-family set passed 170/204 cases (83.3%). Stratification by
 the benchmark's declared dimension remains essential:</p>
 <table>

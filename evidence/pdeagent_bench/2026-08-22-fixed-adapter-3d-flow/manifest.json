@@ -1,0 +1,118 @@
+{
+  "schema": "agentfem.pdeagent-bench-evidence.v1",
+  "created_at": "2026-08-22T04:08:18.086625+00:00",
+  "evaluation_mode": "fixed_adapter",
+  "model_called_during_evaluation": false,
+  "runner_labels": [
+    "AgentFEM fixed adapter",
+    "gpt-5.1"
+  ],
+  "runner_label_note": "Labels retained from upstream or repair-run summaries; none is the identity of a model evaluated by this fixed-adapter run.",
+  "development_agent": "Codex (GPT-5.6-sol), collaboratively directed by the project author",
+  "agentfem_commit": "5a92b5de8b4953e94f0214e77a20bdb71b9fcaba",
+  "agentfem_source_dirty": false,
+  "benchmark_commit": "0ba9853f82a78196796fa4eeaf0951eb4c000a00",
+  "adapter_sha256": "906c9107108cf270fea0b911c43db40659fb8ad22835324707122398e33de3ea",
+  "catalog_sha256": "0a5dd8b8e8e490680f82afababf3d58547f7801018ff06c4ec089632626dba2e",
+  "result": {
+    "total": 645,
+    "passed": 558,
+    "pass_rate": 0.8651162790697674,
+    "by_family": {
+      "poisson": {
+        "total": 91,
+        "passed": 77,
+        "pass_rate": 0.8461538461538461,
+        "median_error": 6.007356737250497e-07,
+        "median_time": 0.2410290241241455
+      },
+      "heat": {
+        "total": 50,
+        "passed": 40,
+        "pass_rate": 0.8,
+        "median_error": 0.00037312749075849326,
+        "median_time": 0.3315999507904053
+      },
+      "linear_elasticity": {
+        "total": 63,
+        "passed": 53,
+        "pass_rate": 0.8412698412698413,
+        "median_error": 7.912574113300619e-07,
+        "median_time": 0.36690402030944824
+      },
+      "helmholtz": {
+        "total": 62,
+        "passed": 52,
+        "pass_rate": 0.8387096774193549,
+        "median_error": 1.7162164540856775e-07,
+        "median_time": 0.9246624708175659
+      },
+      "convection_diffusion": {
+        "total": 84,
+        "passed": 68,
+        "pass_rate": 0.8095238095238095,
+        "median_error": 1.959071945003549e-07,
+        "median_time": 0.45016956329345703
+      },
+      "reaction_diffusion": {
+        "total": 64,
+        "passed": 64,
+        "pass_rate": 1.0,
+        "median_error": 0.00035120695708906573,
+        "median_time": 1.7251540422439575
+      },
+      "wave": {
+        "total": 42,
+        "passed": 42,
+        "pass_rate": 1.0,
+        "median_error": 3.0834901692833296e-06,
+        "median_time": 0.7978144884109497
+      },
+      "stokes": {
+        "total": 61,
+        "passed": 40,
+        "pass_rate": 0.6557377049180327,
+        "median_error": 7.76835117326729e-06,
+        "median_time": 1.2136709690093994
+      },
+      "burgers": {
+        "total": 43,
+        "passed": 41,
+        "pass_rate": 0.9534883720930233,
+        "median_error": 0.007162180701923477,
+        "median_time": 0.8002979755401611
+      },
+      "navier_stokes": {
+        "total": 28,
+        "passed": 24,
+        "pass_rate": 0.8571428571428571,
+        "median_error": 6.873972347643674e-07,
+        "median_time": 2.3679152727127075
+      },
+      "biharmonic": {
+        "total": 57,
+        "passed": 57,
+        "pass_rate": 1.0,
+        "median_error": 9.140168975928669e-09,
+        "median_time": 1.5810019969940186
+      }
+    },
+    "failures": {
+      "TIME_FAIL": 4,
+      "ACCURACY_FAIL": 83
+    }
+  },
+  "artifacts": {
+    "raw/01-heat-linear_elasticity-poisson.json": "ff92833cfe7177d8120ced0c8a4915fe664ce54c58c74a3513ff03ce032530d4",
+    "raw/02-helmholtz.json": "d48622d33bd2bd77c73756df3d74b5d265c82697a73e7b79b85f8842c6b3facd",
+    "raw/03-convection_diffusion.json": "8e90cad9010e6cf0818a0320b97771588c56d2eff24435d7938cf02e93fdf553",
+    "raw/04-reaction_diffusion.json": "9762b406382671c1cf79be308856ff1f55c4197a3148a7babd3443945755bc2e",
+    "raw/05-wave.json": "cf59c7928bc9588b01635f6bcd7bface5155ff0a46e6d400f2b98842fa1cbc5a",
+    "raw/06-stokes.json": "ad9972a873c9c019e97d14416e9619053b89c690d2455cad96372ff9e89d0634",
+    "raw/07-burgers.json": "db2f316b1e3b365df9949a5fd839f78a392467a1c63ee09d1ec879a197ba7e4f",
+    "raw/08-navier_stokes.json": "32405d00d42bbb4967cc589f8a5e70707448180290072458cbf5f13b11e15cc7",
+    "raw/09-biharmonic.json": "a9cddd53e1020c506ffcfd79529f79ac36eaf3cc0ca2819dae47b28b64d61c7e",
+    "report.json": "eb6bc63b351262ebf9816183f18f3b733b6c8b7ed56a1eafb4b800847c79a183",
+    "report.md": "af85dde97e6d5e11d49fb997127440a662dd996b35720ad8b6efdd3068776be2"
+  }
+}

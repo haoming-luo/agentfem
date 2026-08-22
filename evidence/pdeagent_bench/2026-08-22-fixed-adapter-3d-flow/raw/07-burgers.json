@@ -1,0 +1,2385 @@
+{
+  "agent_name": "AgentFEM fixed adapter",
+  "timestamp": "2026-08-22T02:03:28.034784",
+  "total_cases": 43,
+  "passed_cases": 41,
+  "pass_rate": 95.34883720930233,
+  "avg_error": 0.01127866946477249,
+  "avg_time": 0.8074001136579012,
+  "avg_universal_metrics": {
+    "rmse": 0.006889947243774298,
+    "mae": 0.005603284276189641,
+    "r2": 0.9991877770917339,
+    "frmse_low": 0.013751256098284077,
+    "frmse_mid": 0.0003915452923517284,
+    "frmse_high": 0.00023643578619837646,
+    "frmse_total": 0.00576613908855168
+  },
+  "equation_type_summary": {
+    "burgers": {
+      "cases": 43,
+      "passed": 37,
+      "failed": 6,
+      "pass_rate": 0.8604651162790697,
+      "avg_error": 0.01127866946477249,
+      "avg_time": 0.8074001136579012,
+      "avg_universal_metrics": {
+        "rmse": 0.006889947243774298,
+        "mae": 0.005603284276189641,
+        "r2": 0.9991877770917339,
+        "frmse_low": 0.013751256098284077,
+        "frmse_mid": 0.0003915452923517284,
+        "frmse_high": 0.00023643578619837646,
+        "frmse_total": 0.00576613908855168
+      }
+    }
+  },
+  "math_type_summary": {
+    "parabolic": {
+      "cases": 38,
+      "passed": 37,
+      "pass_rate": 0.9736842105263158,
+      "avg_metrics": {
+        "dof": 21391.315789473683,
+        "n_steps": 10.0,
+        "dt": 0.010000000000000004,
+        "t_end": 1.0,
+        "agent_resolution": 48.10526315789474,
+        "agent_degree": 3.0,
+        "efficiency_workrate": 299177.9125095225,
+        "time_per_step": 0.0807400113657901,
+        "cfl_number": 23.446315789473687,
+        "linear_iterations": 1.0
+      }
+    }
+  },
+  "gate_statistics": {
+    "total_cases": 43,
+    "exec_valid_count": 38,
+    "accuracy_pass_count": 37,
+    "time_pass_count": 37,
+    "final_pass_count": 37,
+    "exec_valid_rate": 0.8837209302325582,
+    "accuracy_pass_rate": 0.8604651162790697,
+    "time_pass_rate": 0.8604651162790697,
+    "final_pass_rate": 0.8604651162790697,
+    "accuracy_pass_rate_given_exec": 0.9736842105263158,
+    "time_pass_rate_given_accuracy": 1.0,
+    "failure_breakdown": {
+      "accuracy": 1,
+      "exec": 5
+    },
+    "failure_breakdown_pct": {
+      "accuracy": 0.023255813953488372,
+      "exec": 0.11627906976744186
+    }
+  },
+  "cost_analysis": {},
+  "multi_attempt_stats": null,
+  "results": [
+    {
+      "case_id": "burgers_square_v1",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.010125941289300023,
+      "time": 0.4182469844818115,
+      "oracle_error": 0.0019275613494319143,
+      "oracle_time": 1.481287042144686,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.019275613494319145,
+      "target_time": 4.443861126434058,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.004535353624275011,
+        "mae": 0.003503673726771273,
+        "r2": 0.9997121978877205,
+        "frmse_low": 0.010844584399977562,
+        "frmse_mid": 2.3684677554549503e-05,
+        "frmse_high": 8.616798590690345e-06,
+        "frmse_total": 0.004535353624275012
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 9409,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 32,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 224962.7695859496,
+          "time_per_step": 0.04182469844818115,
+          "cfl_number": 10.24,
+          "cfl_warning": "CFL=10.24 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_square_v2",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.05763036103095588,
+      "time": 0.43691325187683105,
+      "oracle_error": 0.016751958914328003,
+      "oracle_time": 2.3397684171795845,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.16751958914328002,
+      "target_time": 7.0193052515387535,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.02858206075430655,
+        "mae": 0.024569882204461827,
+        "r2": 0.9930132610079027,
+        "frmse_low": 0.06833725669925558,
+        "frmse_mid": 0.0005118382131427386,
+        "frmse_high": 0.00024029317547204936,
+        "frmse_total": 0.02858206075430655
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 9409,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 32,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 215351.67357781273,
+          "time_per_step": 0.04369132518768311,
+          "cfl_number": 10.24,
+          "cfl_warning": "CFL=10.24 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_square_v3",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.009144500742735845,
+      "time": 1.2745258808135986,
+      "oracle_error": 0.0016454535395587667,
+      "oracle_time": 5.266138499602675,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.016454535395587666,
+      "target_time": 15.798415498808026,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0037808764028053866,
+        "mae": 0.002715747382938807,
+        "r2": 0.9999163781061661,
+        "frmse_low": 0.009036763747424334,
+        "frmse_mid": 0.00013742740444218878,
+        "frmse_high": 8.66071606801722e-05,
+        "frmse_total": 0.003780876402805387
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 9409,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 32,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 73823.5303153964,
+          "time_per_step": 0.12745258808135987,
+          "cfl_number": 10.24,
+          "cfl_warning": "CFL=10.24 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_square_v4",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.0004416090908299474,
+      "time": 0.41688990592956543,
+      "oracle_error": 6.280764914875628e-05,
+      "oracle_time": 3.0366093330085278,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0006280764914875629,
+      "target_time": 9.109827999025583,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.4573099828665873e-06,
+        "mae": 1.1742879838148678e-06,
+        "r2": 0.9999993899048017,
+        "frmse_low": 3.4845775359542267e-06,
+        "frmse_mid": 1.0942973774178684e-08,
+        "frmse_high": 3.993403904052107e-09,
+        "frmse_total": 1.4573099828665876e-06
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 9409,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 32,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 225695.07839294322,
+          "time_per_step": 0.04168899059295654,
+          "cfl_number": 10.24,
+          "cfl_warning": "CFL=10.24 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_lshape_v1",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.00807395195356172,
+      "time": 0.5532758235931396,
+      "oracle_error": 0.0010952017701093494,
+      "oracle_time": 3.3080042921938,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.010952017701093494,
+      "target_time": 9.9240128765814,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.003616278848290711,
+        "mae": 0.002689770613415582,
+        "r2": 0.9998170234297264,
+        "frmse_low": 0.007485095330661894,
+        "frmse_mid": 0.00012418979125095457,
+        "frmse_high": 5.6648817186385384e-05,
+        "frmse_total": 0.0031317893497880877
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 412109.0969043875,
+          "time_per_step": 0.05532758235931397,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_lshape_v2",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.014147688330677824,
+      "time": 1.4334747791290283,
+      "oracle_error": 0.002604755003967062,
+      "oracle_time": 5.062463166192174,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.026047550039670624,
+      "target_time": 15.187389498576522,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00974274311298135,
+        "mae": 0.008142293580317164,
+        "r2": 0.9991154130982881,
+        "frmse_low": 0.020153790499168087,
+        "frmse_mid": 0.0005196718671848421,
+        "frmse_high": 0.00017586297926544702,
+        "frmse_total": 0.008437463038387733
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 159061.04754667374,
+          "time_per_step": 0.14334747791290284,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_lshape_v3",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.004410827261634468,
+      "time": 1.532188892364502,
+      "oracle_error": 0.0006226104953668505,
+      "oracle_time": 8.404181332793087,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.006226104953668505,
+      "target_time": 25.21254399837926,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00014022865076807243,
+        "mae": 9.82565103360123e-05,
+        "r2": 0.9999530749907518,
+        "frmse_low": 0.0002379957880806761,
+        "frmse_mid": 3.5108342216365616e-06,
+        "frmse_high": 7.723048071115153e-07,
+        "frmse_total": 9.915662987474416e-05
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 148813.2443305543,
+          "time_per_step": 0.1532188892364502,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_lshape_v4",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.0007523330427609045,
+      "time": 1.4423270225524902,
+      "oracle_error": 0.0001435189555156969,
+      "oracle_time": 4.738057916983962,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.001435189555156969,
+      "target_time": 14.214173750951886,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.000529313390455909,
+        "mae": 0.0004589623862723117,
+        "r2": 0.9999993778798207,
+        "frmse_low": 0.0010906320886670342,
+        "frmse_mid": 5.869544454863688e-05,
+        "frmse_high": 3.079121413031821e-05,
+        "frmse_total": 0.0004583988426980889
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 158084.81463273845,
+          "time_per_step": 0.14423270225524903,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_lshape_v5",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.010631845152401594,
+      "time": 0.5728631019592285,
+      "oracle_error": 0.0023398711999695326,
+      "oracle_time": 6.335815666709095,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.023398711999695326,
+      "target_time": 19.007447000127286,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.004809805149740555,
+        "mae": 0.0037111470688258224,
+        "r2": 0.9998781452400152,
+        "frmse_low": 0.0098940722138173,
+        "frmse_mid": 0.0006159820936140537,
+        "frmse_high": 0.0003184251744643301,
+        "frmse_total": 0.004165413446928537
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 398018.30353568104,
+          "time_per_step": 0.057286310195922854,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_hole_v1",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.007162180701923477,
+      "time": 0.6177139282226562,
+      "oracle_error": 0.0013118228482112743,
+      "oracle_time": 5.806982250418514,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.013118228482112743,
+      "target_time": 17.420946751255542,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.004285909679728304,
+        "mae": 0.0037058023189931034,
+        "r2": 0.999763177431004,
+        "frmse_low": 0.00959431173447884,
+        "frmse_mid": 0.0001775880098386337,
+        "frmse_high": 0.00012152257507325482,
+        "frmse_total": 0.004015053364100587
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 369119.08503674425,
+          "time_per_step": 0.061771392822265625,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_hole_v2",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 7.873323487270862e-08,
+      "time": 0.657524824142456,
+      "oracle_error": 4.558790639827584e-07,
+      "oracle_time": 4.94273675000295,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 4.558790639827584e-06,
+      "target_time": 14.828210250008851,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.661372412004238e-08,
+        "mae": 2.8848655626362893e-08,
+        "r2": 0.9999999999999826,
+        "frmse_low": 2.3470389340297097e-08,
+        "frmse_mid": 4.6866115262594585e-08,
+        "frmse_high": 1.1596410964959202e-08,
+        "frmse_total": 3.5873976670854746e-08
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 346770.177532644,
+          "time_per_step": 0.06575248241424561,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_multihole_3_v1",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.005899137440290995,
+      "time": 0.6373028755187988,
+      "oracle_error": 0.001354394252677368,
+      "oracle_time": 7.319939374923706,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.01354394252677368,
+      "target_time": 21.959818124771118,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.003892513162781134,
+        "mae": 0.003192521970275756,
+        "r2": 0.9999652001774606,
+        "frmse_low": 0.008853801607100814,
+        "frmse_mid": 0.00022300947856115273,
+        "frmse_high": 0.0001426777377757523,
+        "frmse_total": 0.0037070951513602833
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 357773.373946238,
+          "time_per_step": 0.06373028755187989,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_multihole_5_v1",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.04229593402187183,
+      "time": 0.6287140846252441,
+      "oracle_error": 0.009639946650547937,
+      "oracle_time": 8.624960291199386,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.09639946650547937,
+      "target_time": 25.87488087359816,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.02979854315162537,
+        "mae": 0.024948357553240205,
+        "r2": 0.9936115460422941,
+        "frmse_low": 0.06975789476351346,
+        "frmse_mid": 0.0022503193631970694,
+        "frmse_high": 0.0012451070118502268,
+        "frmse_total": 0.029226887507034113
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 362660.87491249584,
+          "time_per_step": 0.06287140846252441,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_porous_v1",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.003953155272797197,
+      "time": 0.7026658058166504,
+      "oracle_error": 0.0004064546597652322,
+      "oracle_time": 7.37303104205057,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.004064546597652322,
+      "target_time": 22.11909312615171,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.001273600313562346,
+        "mae": 0.0007338566506639355,
+        "r2": 0.9999691769550044,
+        "frmse_low": 0.0025912304786125193,
+        "frmse_mid": 3.265645641518985e-05,
+        "frmse_high": 1.8075203648989e-05,
+        "frmse_total": 0.0010839827675782965
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 324492.80740935274,
+          "time_per_step": 0.07026658058166504,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_annulus_v1",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.006589403043235537,
+      "time": 1.08089280128479,
+      "oracle_error": 0.001331462441518964,
+      "oracle_time": 10.478222291916609,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.01331462441518964,
+      "target_time": 31.434666875749826,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.003931772510230333,
+        "mae": 0.0032258285117321337,
+        "r2": 0.9995925716768828,
+        "frmse_low": 0.007106651098923098,
+        "frmse_mid": 0.0002446587621769709,
+        "frmse_high": 0.00017078937287024281,
+        "frmse_total": 0.0029788204597532364
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 210945.98810259326,
+          "time_per_step": 0.108089280128479,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_annulus_v2",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.010953006712316396,
+      "time": 0.9302289485931396,
+      "oracle_error": 0.0019655778195095367,
+      "oracle_time": 10.656679458916187,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.019655778195095366,
+      "target_time": 31.970038376748562,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0066132615640963404,
+        "mae": 0.004564616659084555,
+        "r2": 0.99988003164396,
+        "frmse_low": 0.012815274874286003,
+        "frmse_mid": 0.00023149549414747486,
+        "frmse_high": 0.00016468796255637554,
+        "frmse_total": 0.005362861761370066
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 245111.70109771143,
+          "time_per_step": 0.09302289485931396,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_gear_v1",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.005779493521318732,
+      "time": 0.837712287902832,
+      "oracle_error": 0.0006904994892673152,
+      "oracle_time": 16.07075854204595,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.006904994892673152,
+      "target_time": 48.21227562613785,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0038321400822720376,
+        "mae": 0.0032248593236877264,
+        "r2": 0.999966597454637,
+        "frmse_low": 0.006875955143734872,
+        "frmse_mid": 0.00011026208239874378,
+        "frmse_high": 6.342815559434649e-05,
+        "frmse_total": 0.002876913925212899
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 272181.7541566817,
+          "time_per_step": 0.0837712287902832,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_gear_v2",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.011677307187099839,
+      "time": 0.8002979755401611,
+      "oracle_error": 0.002216919510729424,
+      "oracle_time": 14.41904400009662,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.02216919510729424,
+      "target_time": 43.25713200028986,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.005841371340238737,
+        "mae": 0.004153726369961977,
+        "r2": 0.9996727016631359,
+        "frmse_low": 0.010683512089039659,
+        "frmse_mid": 9.494820319496327e-05,
+        "frmse_high": 4.5148538167386084e-05,
+        "frmse_total": 0.0044685536270191485
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 284906.38108400145,
+          "time_per_step": 0.08002979755401611,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_gear_v3",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.0016860079351638385,
+      "time": 1.2618670463562012,
+      "oracle_error": 0.00032403753620211385,
+      "oracle_time": 17.718773833010346,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0032403753620211385,
+      "target_time": 53.15632149903104,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0002333720119382096,
+        "mae": 0.00014418238409025515,
+        "r2": 0.9999971573772426,
+        "frmse_low": 0.00038697592339796775,
+        "frmse_mid": 5.212644254737755e-05,
+        "frmse_high": 3.445336741482107e-05,
+        "frmse_total": 0.00016724813279390212
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 180692.57031349489,
+          "time_per_step": 0.12618670463562012,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_tjunction_v1",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.003391030719335929,
+      "time": 0.5443122386932373,
+      "oracle_error": 0.0004950234001045122,
+      "oracle_time": 3.1170927500352263,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.004950234001045122,
+      "target_time": 9.351278250105679,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.002576043581689076,
+        "mae": 0.002134776050582087,
+        "r2": 0.9999049232576624,
+        "frmse_low": 0.0036691052556753036,
+        "frmse_mid": 0.00024188989430079625,
+        "frmse_high": 0.0001117013214279425,
+        "frmse_total": 0.0015456261490134457
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 418895.5966659819,
+          "time_per_step": 0.05443122386932373,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_tjunction_v2",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.024316965237692247,
+      "time": 0.8727781772613525,
+      "oracle_error": 0.004451687945785486,
+      "oracle_time": 12.987372292205691,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.04451687945785486,
+      "target_time": 38.962116876617074,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.024308628028169972,
+        "mae": 0.017750832667483986,
+        "r2": 0.9994083136567671,
+        "frmse_low": 0.03658651095706728,
+        "frmse_mid": 0.0020095756397070573,
+        "frmse_high": 0.0006638634871122827,
+        "frmse_total": 0.015374126272564966
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 261246.22033454286,
+          "time_per_step": 0.08727781772613526,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_tjunction_v3",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.009954638499085013,
+      "time": 0.6224989891052246,
+      "oracle_error": 0.001189787298078697,
+      "oracle_time": 7.140460041817278,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.01189787298078697,
+      "target_time": 21.421380125451833,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.010809323495314301,
+        "mae": 0.008053821591486916,
+        "r2": 0.9996054399837527,
+        "frmse_low": 0.01967872740668781,
+        "frmse_mid": 0.0002556316584845286,
+        "frmse_high": 0.00010634533963198998,
+        "frmse_total": 0.008232135516819753
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 366281.71931289375,
+          "time_per_step": 0.06224989891052246,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_tjunction_v4",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.005226377698931268,
+      "time": 0.635706901550293,
+      "oracle_error": 0.0009425498429564055,
+      "oracle_time": 5.3980170004069805,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.009425498429564055,
+      "target_time": 16.19405100122094,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0009566579610469238,
+        "mae": 0.0006253050601155818,
+        "r2": 0.9999726849761481,
+        "frmse_low": 0.001370858645582751,
+        "frmse_mid": 3.707938889220625e-05,
+        "frmse_high": 1.5094135313362415e-05,
+        "frmse_total": 0.0005739947766281543
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 358671.5818940363,
+          "time_per_step": 0.0635706901550293,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_tjunction_v5",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.006281857967282815,
+      "time": 0.6453640460968018,
+      "oracle_error": 0.0008820576384495015,
+      "oracle_time": 5.056189582683146,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.008820576384495016,
+      "target_time": 15.168568748049438,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00019764246723107936,
+        "mae": 0.00010158644572595109,
+        "r2": 0.9999270358473746,
+        "frmse_low": 0.00027739544082148256,
+        "frmse_mid": 3.255480449536674e-05,
+        "frmse_high": 1.2793982878609105e-05,
+        "frmse_total": 0.00011858548033864763
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 353304.46649300866,
+          "time_per_step": 0.06453640460968017,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_eccentric_v1",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.006096946234019496,
+      "time": 0.5663270950317383,
+      "oracle_error": 0.0008977044370700453,
+      "oracle_time": 3.4098840840160847,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.008977044370700453,
+      "target_time": 10.229652252048254,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.004139405278168306,
+        "mae": 0.003609330543619681,
+        "r2": 0.9997206898770616,
+        "frmse_low": 0.007930716492620232,
+        "frmse_mid": 0.0001841209225752675,
+        "frmse_high": 0.00014274816488951453,
+        "frmse_total": 0.003320308807178518
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 402611.8509961488,
+          "time_per_step": 0.056632709503173825,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_eccentric_v2",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.041581771653543265,
+      "time": 0.9960997104644775,
+      "oracle_error": 0.007719276937799379,
+      "oracle_time": 16.668013792019337,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.07719276937799378,
+      "target_time": 50.00404137605801,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.030027762764597368,
+        "mae": 0.024346159897103967,
+        "r2": 0.9981373614046706,
+        "frmse_low": 0.05758241959868227,
+        "frmse_mid": 0.002063953576488591,
+        "frmse_high": 0.0012761184595677364,
+        "frmse_total": 0.024149594720445675
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 228902.78714535496,
+          "time_per_step": 0.09960997104644775,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_eccentric_v3",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.005313029855766591,
+      "time": 0.5095140933990479,
+      "oracle_error": 0.0007382785557698704,
+      "oracle_time": 5.544010499957949,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.007382785557698704,
+      "target_time": 16.632031499873847,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0005814604856254352,
+        "mae": 0.0004995402782231426,
+        "r2": 0.9997575095706521,
+        "frmse_low": 0.0011137494253156625,
+        "frmse_mid": 2.7618704306097058e-05,
+        "frmse_high": 2.4378891645477825e-05,
+        "frmse_total": 0.0004664023553409435
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 447504.7951645651,
+          "time_per_step": 0.05095140933990479,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_eccentric_v4",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.007270628056196111,
+      "time": 1.0348632335662842,
+      "oracle_error": 0.0012565636361384599,
+      "oracle_time": 16.01336137484759,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0125656363613846,
+      "target_time": 48.04008412454277,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.004687406846603527,
+        "mae": 0.00415993348812503,
+        "r2": 0.9999463245352221,
+        "frmse_low": 0.009359693501914821,
+        "frmse_mid": 0.00017790711961069815,
+        "frmse_high": 0.00012091490053227038,
+        "frmse_total": 0.003917000897485529
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 220328.6314600679,
+          "time_per_step": 0.10348632335662841,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_eccentric_v5",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.008241311689768358,
+      "time": 0.531203031539917,
+      "oracle_error": 0.001910936498691579,
+      "oracle_time": 4.416479167062789,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.01910936498691579,
+      "target_time": 13.249437501188368,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.004920412823482884,
+        "mae": 0.004308820414826364,
+        "r2": 0.9999319402072934,
+        "frmse_low": 0.009772777014127917,
+        "frmse_mid": 0.0004818349805989232,
+        "frmse_high": 0.0004317026329062466,
+        "frmse_total": 0.004108765678289763
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 429233.24315190077,
+          "time_per_step": 0.0531203031539917,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_dumbbell_v1",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.006706564719650486,
+      "time": 0.4289078712463379,
+      "oracle_error": 0.0011351034424057882,
+      "oracle_time": 1.8582377079874277,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.011351034424057882,
+      "target_time": 5.574713123962283,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.003940184916226329,
+        "mae": 0.00341048478766665,
+        "r2": 0.9997245143408409,
+        "frmse_low": 0.007570538653210227,
+        "frmse_mid": 0.0002251187247519688,
+        "frmse_high": 0.000182120646049347,
+        "frmse_total": 0.0031840009947642195
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 531606.005125155,
+          "time_per_step": 0.04289078712463379,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_dumbbell_v2",
+      "equation_type": "burgers",
+      "status": "FAIL",
+      "error": 0.004551985730970669,
+      "time": 1.3308532238006592,
+      "oracle_error": 0.0004425411782982232,
+      "oracle_time": 4.187039750162512,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.004425411782982232,
+      "target_time": 12.561119250487536,
+      "fail_reason": "ACCURACY_FAIL: error=4.55e-03 > target=4.43e-03",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=4.55e-03 > target=4.43e-03"
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 171326.18077059436,
+          "time_per_step": 0.13308532238006593,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_dumbbell_v3",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.05028053304939539,
+      "time": 0.4243640899658203,
+      "oracle_error": 0.00982994006785772,
+      "oracle_time": 2.1233377908356488,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0982994006785772,
+      "target_time": 6.370013372506946,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.03239755859098792,
+        "mae": 0.02830236421791491,
+        "r2": 0.9909960666166019,
+        "frmse_low": 0.060718419878584985,
+        "frmse_mid": 0.0023684389450839343,
+        "frmse_high": 0.0019864577687582017,
+        "frmse_total": 0.025571506077174972
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 537298.0546453982,
+          "time_per_step": 0.042436408996582034,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_dumbbell_v4",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.0014819548169979148,
+      "time": 0.5854940414428711,
+      "oracle_error": 0.00016346729658006849,
+      "oracle_time": 4.001191875431687,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0016346729658006849,
+      "target_time": 12.00357562629506,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.626812664674573e-05,
+        "mae": 2.441069227299976e-05,
+        "r2": 0.9999838595908277,
+        "frmse_low": 4.3109545468616744e-05,
+        "frmse_mid": 2.2526363289250543e-06,
+        "frmse_high": 1.6891736044775684e-06,
+        "frmse_total": 1.8173797894517655e-05
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 389431.80265011766,
+          "time_per_step": 0.05854940414428711,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_dumbbell_v5",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.00723825075791581,
+      "time": 0.5827741622924805,
+      "oracle_error": 0.001631419427985356,
+      "oracle_time": 3.561405749991536,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.01631419427985356,
+      "target_time": 10.684217249974608,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.004981056897601097,
+        "mae": 0.004343398368145335,
+        "r2": 0.9999476077259656,
+        "frmse_low": 0.009506492814812202,
+        "frmse_mid": 0.0006044052537658148,
+        "frmse_high": 0.000523421738474607,
+        "frmse_total": 0.004025113149290598
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 391249.3290764103,
+          "time_per_step": 0.05827741622924805,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_periodic_v1",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.05597994989651138,
+      "time": 1.2514660358428955,
+      "oracle_error": 0.04598365428163709,
+      "oracle_time": 5.782582624815404,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.4598365428163709,
+      "target_time": 17.347747874446213,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0279034805642049,
+        "mae": 0.024229738168691718,
+        "r2": 0.9968662451945293,
+        "frmse_low": 0.06672076414388135,
+        "frmse_mid": 0.0001251377036847793,
+        "frmse_high": 4.571010794920983e-05,
+        "frmse_total": 0.027903480564204903
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 9409,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 32,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 75183.8222574118,
+          "time_per_step": 0.12514660358428956,
+          "cfl_number": 10.24,
+          "cfl_warning": "CFL=10.24 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 7
+        }
+      }
+    },
+    {
+      "case_id": "burgers_periodic_v2",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.002834742270332774,
+      "time": 1.2502858638763428,
+      "oracle_error": 0.002700105024734293,
+      "oracle_time": 3.9195634997449815,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.02700105024734293,
+      "target_time": 11.758690499234945,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0018046240027255983,
+        "mae": 0.0015536441344842446,
+        "r2": 0.9999919642362608,
+        "frmse_low": 0.004315070894767143,
+        "frmse_mid": 1.0166948591476692e-05,
+        "frmse_high": 3.7355870371443913e-06,
+        "frmse_total": 0.0018046240027255992
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 9409,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 32,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 75254.78989923683,
+          "time_per_step": 0.12502858638763428,
+          "cfl_number": 10.24,
+          "cfl_warning": "CFL=10.24 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 8
+        }
+      }
+    },
+    {
+      "case_id": "burgers_periodic_v3",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.00025733589187476705,
+      "time": 2.2155709266662598,
+      "oracle_error": 0.00024357022360977203,
+      "oracle_time": 6.745077166240662,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0024357022360977205,
+      "target_time": 20.235231498721987,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.000128661546646382,
+        "mae": 0.00010526685785191874,
+        "r2": 0.9999999337782361,
+        "frmse_low": 0.00030702536149737885,
+        "frmse_mid": 1.0112225161821302e-05,
+        "frmse_high": 6.66119697934955e-06,
+        "frmse_total": 0.000128661546646382
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 9409,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 32,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 42467.60907879216,
+          "time_per_step": 0.221557092666626,
+          "cfl_number": 10.24,
+          "cfl_warning": "CFL=10.24 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 7
+        }
+      }
+    },
+    {
+      "case_id": "burgers_periodic_v4",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.004444175113665861,
+      "time": 2.347158908843994,
+      "oracle_error": 0.00406503509896621,
+      "oracle_time": 4.957564499694854,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.040650350989662104,
+      "target_time": 14.872693499084562,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00255996993289425,
+        "mae": 0.002139922118297226,
+        "r2": 0.9999802493035382,
+        "frmse_low": 0.0030500969239656206,
+        "frmse_mid": 0.0001390815971624024,
+        "frmse_high": 6.101678651921963e-05,
+        "frmse_total": 0.001279984966447125
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 9409,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 32,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 40086.76176354013,
+          "time_per_step": 0.23471589088439943,
+          "cfl_number": 10.24,
+          "cfl_warning": "CFL=10.24 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 6
+        }
+      }
+    },
+    {
+      "case_id": "burgers_periodic_v5",
+      "equation_type": "burgers",
+      "status": "FAIL",
+      "error": 0.47296708229355927,
+      "time": 1.179670810699463,
+      "oracle_error": 0.01681763438413039,
+      "oracle_time": 6.9409476248547435,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.1681763438413039,
+      "target_time": 20.82284287456423,
+      "fail_reason": "ACCURACY_FAIL: error=4.73e-01 > target=1.68e-01",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=4.73e-01 > target=1.68e-01"
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 9409,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 32,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 79759.53897190282,
+          "time_per_step": 0.11796708106994629,
+          "cfl_number": 10.24,
+          "cfl_warning": "CFL=10.24 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 7
+        }
+      }
+    },
+    {
+      "case_id": "burgers_star_v1",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.007605040099466293,
+      "time": 0.9583759307861328,
+      "oracle_error": 0.0013043435675620882,
+      "oracle_time": 7.649870124645531,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.013043435675620881,
+      "target_time": 22.949610373936594,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.004181565708350172,
+        "mae": 0.0032994555616059663,
+        "r2": 0.9997882280209031,
+        "frmse_low": 0.005549015963520519,
+        "frmse_mid": 7.593999698487059e-05,
+        "frmse_high": 4.3174362934347916e-05,
+        "frmse_total": 0.002321428130379158
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 237912.9031474829,
+          "time_per_step": 0.09583759307861328,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_circle_v1",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.00918773583679737,
+      "time": 1.2058382034301758,
+      "oracle_error": 0.001681607495947394,
+      "oracle_time": 5.640595083124936,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.016816074959473938,
+      "target_time": 16.921785249374807,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00468460642943615,
+        "mae": 0.003911225511094887,
+        "r2": 0.999607200202884,
+        "frmse_low": 0.009808765899365031,
+        "frmse_mid": 2.46853127732644e-05,
+        "frmse_high": 1.4074057389196639e-05,
+        "frmse_total": 0.004102174798486078
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 189088.38627885035,
+          "time_per_step": 0.12058382034301758,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_sector_v1",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.008083110674297896,
+      "time": 0.9562191963195801,
+      "oracle_error": 0.0012479234658693042,
+      "oracle_time": 5.345264957752079,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.012479234658693043,
+      "target_time": 16.035794873256236,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.003973977819708627,
+        "mae": 0.0030682470310105683,
+        "r2": 0.9997865756091388,
+        "frmse_low": 0.008375024426634707,
+        "frmse_mid": 6.403598676141411e-05,
+        "frmse_high": 5.637841409801085e-05,
+        "frmse_total": 0.0035029662110650714
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 238449.51123925805,
+          "time_per_step": 0.09562191963195801,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "burgers_sector_v2",
+      "equation_type": "burgers",
+      "status": "PASS",
+      "error": 0.004424943900130837,
+      "time": 1.0140838623046875,
+      "oracle_error": 0.0009095402857860935,
+      "oracle_time": 10.031832207925618,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.009095402857860934,
+      "target_time": 30.095496623776853,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.002097448124959765,
+        "mae": 0.0015871372603047853,
+        "r2": 0.9999790550036018,
+        "frmse_low": 0.004133848188354017,
+        "frmse_mid": 0.0001980098435780142,
+        "frmse_high": 0.00011122347276353842,
+        "frmse_total": 0.0017358204940059086
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 22801,
+          "n_steps": 10,
+          "dt": 0.01,
+          "t_end": 1.0,
+          "agent_resolution": 50,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler_semi_implicit",
+          "efficiency_workrate": 224843.3373959885,
+          "time_per_step": 0.10140838623046874,
+          "cfl_number": 25.0,
+          "cfl_warning": "CFL=25.00 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler_semi_implicit",
+          "linear_iterations": 1
+        }
+      }
+    }
+  ]
+}

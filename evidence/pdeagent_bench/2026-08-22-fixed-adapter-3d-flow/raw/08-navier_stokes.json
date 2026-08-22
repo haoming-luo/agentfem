@@ -1,0 +1,1268 @@
+{
+  "agent_name": "gpt-5.1",
+  "timestamp": "2026-08-22T02:19:23.078495",
+  "total_cases": 28,
+  "passed_cases": 24,
+  "pass_rate": 0.8571428571428571,
+  "avg_error": 0.19024029931388783,
+  "avg_time": 2.4914112857409885,
+  "avg_universal_metrics": {
+    "rmse": 0.021000600000732655,
+    "mae": 0.01760602760189876,
+    "r2": 0.7578186997559593,
+    "frmse_low": 0.05006924002916425,
+    "frmse_mid": 0.0021700882872826236,
+    "frmse_high": 0.0008648154161456034,
+    "frmse_total": 0.021000600000732658
+  },
+  "equation_type_summary": {
+    "navier_stokes": {
+      "cases": 28,
+      "passed": 24,
+      "failed": 4,
+      "pass_rate": 0.8571428571428571,
+      "avg_error": 0.19024029931388783,
+      "avg_time": 2.4914112857409885,
+      "avg_universal_metrics": {
+        "rmse": 0.021000600000732655,
+        "mae": 0.01760602760189876,
+        "r2": 0.7578186997559593,
+        "frmse_low": 0.05006924002916425,
+        "frmse_mid": 0.0021700882872826236,
+        "frmse_high": 0.0008648154161456034,
+        "frmse_total": 0.021000600000732658
+      }
+    }
+  },
+  "math_type_summary": {
+    "incompressible_flow": {
+      "cases": 28,
+      "passed": 24,
+      "pass_rate": 0.8571428571428571,
+      "avg_metrics": {
+        "mesh_resolution": 35.42857142857143,
+        "element_degree": 3.0,
+        "linear_iterations": 1.8214285714285714
+      }
+    }
+  },
+  "gate_statistics": {
+    "total_cases": 28,
+    "exec_valid_count": 28,
+    "accuracy_pass_count": 24,
+    "time_pass_count": 24,
+    "final_pass_count": 24,
+    "exec_valid_rate": 1.0,
+    "accuracy_pass_rate": 0.8571428571428571,
+    "time_pass_rate": 0.8571428571428571,
+    "final_pass_rate": 0.8571428571428571,
+    "accuracy_pass_rate_given_exec": 0.8571428571428571,
+    "time_pass_rate_given_accuracy": 1.0,
+    "failure_breakdown": {
+      "accuracy": 4
+    },
+    "failure_breakdown_pct": {
+      "accuracy": 0.14285714285714285
+    }
+  },
+  "cost_analysis": {},
+  "multi_attempt_stats": null,
+  "results": [
+    {
+      "case_id": "navier_stokes_basic",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 1.1743394114636102e-07,
+      "time": 0.8464157581329346,
+      "oracle_error": 0.3254116254136772,
+      "oracle_time": 3.493650790769607,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 3.254116254136772,
+      "target_time": 10.48095237230882,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.608204469960863e-07,
+        "mae": 1.7780816463812435e-07,
+        "r2": 0.9999999999998411,
+        "frmse_low": 1.216417590885383e-07,
+        "frmse_mid": 3.018942318215775e-07,
+        "frmse_high": 2.421229108179541e-07,
+        "frmse_total": 2.608204469960863e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_low_re",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 1.1774645715040043e-07,
+      "time": 3.506380796432495,
+      "oracle_error": 0.03163357782457083,
+      "oracle_time": 3.655638708733022,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.3163357782457083,
+      "target_time": 10.966916126199067,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.6151454414612063e-07,
+        "mae": 1.7817219021834833e-07,
+        "r2": 0.9999999999998402,
+        "frmse_low": 1.2149681023328306e-07,
+        "frmse_mid": 3.030470563386873e-07,
+        "frmse_high": 2.421416137342757e-07,
+        "frmse_total": 2.6151454414612063e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_high_re",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 1.1713041100315409e-07,
+      "time": 1.2208750247955322,
+      "oracle_error": 0.33044997332733606,
+      "oracle_time": 14.54110287502408,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 3.3044997332733606,
+      "target_time": 43.62330862507224,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.601463074172285e-07,
+        "mae": 1.7796511457582624e-07,
+        "r2": 0.9999999999998419,
+        "frmse_low": 1.2320955818897942e-07,
+        "frmse_mid": 3.00192826312103e-07,
+        "frmse_high": 2.4294161372255347e-07,
+        "frmse_total": 2.601463074172284e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 2
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_high_frequency_flow",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 4.560360324581898e-06,
+      "time": 1.0304701328277588,
+      "oracle_error": 0.6270810982787995,
+      "oracle_time": 12.54176870919764,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 6.270810982787996,
+      "target_time": 37.62530612759292,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.0257094443219666e-05,
+        "mae": 1.5212250559788776e-05,
+        "r2": 0.9999999997603962,
+        "frmse_low": 4.41844846219433e-05,
+        "frmse_mid": 9.712873332128343e-06,
+        "frmse_high": 8.07416641998627e-06,
+        "frmse_total": 2.0257094443219666e-05
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 2
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_p3p2",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 1.4471924172822383e-07,
+      "time": 0.9083747863769531,
+      "oracle_error": 0.32620239610696067,
+      "oracle_time": 38.76687362510711,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 3.2620239610696067,
+      "target_time": 116.30062087532133,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.214210214527885e-07,
+        "mae": 2.2421054054484216e-07,
+        "r2": 0.9999999999997587,
+        "frmse_low": 1.2792401587758988e-07,
+        "frmse_mid": 3.9533123398408717e-07,
+        "frmse_high": 2.477034630341005e-07,
+        "frmse_total": 3.214210214527884e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_quadrilateral_mesh",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 1.1743394113364072e-07,
+      "time": 0.8460052013397217,
+      "oracle_error": 1.6265834299998162e-06,
+      "oracle_time": 5.148662666790187,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.626583429999816e-05,
+      "target_time": 15.445988000370562,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.608204469678345e-07,
+        "mae": 1.778081645811699e-07,
+        "r2": 0.9999999999998411,
+        "frmse_low": 1.2164175867820927e-07,
+        "frmse_mid": 3.01894231826157e-07,
+        "frmse_high": 2.421229108266243e-07,
+        "frmse_total": 2.6082044696783446e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_medium_re_stream_2x1",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 6.819826530324478e-07,
+      "time": 2.7649128437042236,
+      "oracle_error": 0.4406074621030734,
+      "oracle_time": 32.62687745783478,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 4.406074621030734,
+      "target_time": 97.88063237350434,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.3949217655719524e-06,
+        "mae": 1.729982130754587e-06,
+        "r2": 0.9999999999968918,
+        "frmse_low": 1.260905980245473e-06,
+        "frmse_mid": 2.9067268074471178e-06,
+        "frmse_high": 1.8459942293470249e-06,
+        "frmse_total": 2.3949217655719524e-06
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_medium_re_stream_1x2",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 6.904949950625935e-07,
+      "time": 0.8635292053222656,
+      "oracle_error": 0.44066947743587476,
+      "oracle_time": 30.895644332747906,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 4.406694774358748,
+      "target_time": 92.68693299824372,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.4248145980558e-06,
+        "mae": 1.752144107223147e-06,
+        "r2": 0.9999999999968138,
+        "frmse_low": 1.253722252389888e-06,
+        "frmse_mid": 2.9517029762223447e-06,
+        "frmse_high": 1.8540498977772332e-06,
+        "frmse_total": 2.4248145980558e-06
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_high_nu_smooth_stream",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 1.1764635741680091e-07,
+      "time": 3.6481258869171143,
+      "oracle_error": 0.04480384417418715,
+      "oracle_time": 5.7270726673305035,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.4480384417418715,
+      "target_time": 17.18121800199151,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.3064611146222347e-07,
+        "mae": 8.914615195624183e-08,
+        "r2": 0.9999999999998406,
+        "frmse_low": 6.074410510256714e-08,
+        "frmse_mid": 1.5135235745162049e-07,
+        "frmse_high": 1.2104662247383284e-07,
+        "frmse_total": 1.3064611146222344e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_low_nu_small_amplitude",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 6.842994744661413e-07,
+      "time": 3.793835163116455,
+      "oracle_error": 0.4137996898677796,
+      "oracle_time": 50.57306229090318,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 4.137996898677796,
+      "target_time": 151.71918687270954,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.806115517106669e-07,
+        "mae": 3.4703232371426425e-07,
+        "r2": 0.9999999999968707,
+        "frmse_low": 2.462766047448561e-07,
+        "frmse_mid": 5.843223892469503e-07,
+        "frmse_high": 3.7034553939355585e-07,
+        "frmse_total": 4.806115517106669e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 2
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_exponential_stream",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 3.4256514470764465e-08,
+      "time": 3.7090799808502197,
+      "oracle_error": 0.15164464384732515,
+      "oracle_time": 35.850367499981076,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.5164464384732514,
+      "target_time": 107.55110249994323,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.3524983060802376e-07,
+        "mae": 2.474631540769323e-07,
+        "r2": 0.9999999999999956,
+        "frmse_low": 1.4555884660474297e-07,
+        "frmse_mid": 3.682607070541112e-07,
+        "frmse_high": 3.534010406576623e-07,
+        "frmse_total": 3.3524983060802376e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_boundary_layer_stream",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 3.844251219894088e-07,
+      "time": 3.7439260482788086,
+      "oracle_error": 0.41757684937688017,
+      "oracle_time": 43.417230083141476,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 4.1757684937688015,
+      "target_time": 130.25169024942443,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.554429823592378e-07,
+        "mae": 3.362387132969557e-07,
+        "r2": 0.9999999999997855,
+        "frmse_low": 2.7228066932678033e-07,
+        "frmse_mid": 6.82244219050763e-07,
+        "frmse_high": 4.131891626747081e-07,
+        "frmse_total": 5.554429823592377e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 2
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_multiscale_stream",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 2.7738521102684603e-06,
+      "time": 4.0120251178741455,
+      "oracle_error": 0.4749851408375259,
+      "oracle_time": 46.4492390002124,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 4.749851408375259,
+      "target_time": 139.3477170006372,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 7.7561452674063e-06,
+        "mae": 5.409598304604295e-06,
+        "r2": 0.9999999999599113,
+        "frmse_low": 5.859427406629663e-06,
+        "frmse_mid": 8.846862211869936e-06,
+        "frmse_high": 6.59910969765857e-06,
+        "frmse_total": 7.7561452674063e-06
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 4
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_polynomial_stream_zero_bc",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 3.0979613826766164e-12,
+      "time": 3.8449978828430176,
+      "oracle_error": 0.1510961529111675,
+      "oracle_time": 32.02596125006676,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.510961529111675,
+      "target_time": 96.07788375020027,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.66412081152107e-13,
+        "mae": 3.541449271182691e-13,
+        "r2": 1.0,
+        "frmse_low": 2.8445800398416766e-13,
+        "frmse_mid": 6.160884263138433e-13,
+        "frmse_high": 1.182479333985234e-13,
+        "frmse_total": 4.664120811521068e-13
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 2
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_shear_layer_stream",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 2.5448652303425523e-06,
+      "time": 4.109621047973633,
+      "oracle_error": 0.6820607651197141,
+      "oracle_time": 45.916340958327055,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 6.820607651197141,
+      "target_time": 137.74902287498116,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 6.846534819656663e-06,
+        "mae": 3.5662038198980394e-06,
+        "r2": 0.999999999963391,
+        "frmse_low": 4.749182637781206e-06,
+        "frmse_mid": 8.684947743505844e-06,
+        "frmse_high": 3.3382793298342798e-06,
+        "frmse_total": 6.846534819656663e-06
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 3
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_quadrilateral_multiscale",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 6.195964789352439e-06,
+      "time": 1.6414918899536133,
+      "oracle_error": 1.4372224209297306e-05,
+      "oracle_time": 11.002834958955646,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.00014372224209297307,
+      "target_time": 33.00850487686694,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.7542182396627433e-05,
+        "mae": 1.2921073391067644e-05,
+        "r2": 0.9999999997977456,
+        "frmse_low": 1.6024031922497202e-05,
+        "frmse_mid": 1.9898194964001403e-05,
+        "frmse_high": 1.353799327405573e-05,
+        "frmse_total": 1.7542182396627433e-05
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 4
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_p4p3_small_mesh",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 1.2482289446998837e-07,
+      "time": 0.8454940319061279,
+      "oracle_error": 0.31949917944975786,
+      "oracle_time": 35.78853208338842,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 3.1949917944975788,
+      "target_time": 107.36559625016525,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.7723129116846906e-07,
+        "mae": 1.879836074715399e-07,
+        "r2": 0.9999999999998205,
+        "frmse_low": 1.230831304549648e-07,
+        "frmse_mid": 3.2781783387280266e-07,
+        "frmse_high": 2.4350195028481415e-07,
+        "frmse_total": 2.7723129116846906e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_no_exact_lid_driven_cavity",
+      "equation_type": "navier_stokes",
+      "status": "FAIL",
+      "error": 0.44571081940737745,
+      "time": 3.4433231353759766,
+      "oracle_error": 0.024883231996162,
+      "oracle_time": 31.826739750336856,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.24883231996161997,
+      "target_time": 95.48021925101057,
+      "fail_reason": "ACCURACY_FAIL: error=4.46e-01 > target=2.49e-01",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=4.46e-01 > target=2.49e-01"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 48,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 3
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_no_exact_channel_inflow_outflow",
+      "equation_type": "navier_stokes",
+      "status": "FAIL",
+      "error": 1.7634521193945996,
+      "time": 1.9709177017211914,
+      "oracle_error": 0.041073465883798586,
+      "oracle_time": 45.456831791903824,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.4107346588379859,
+      "target_time": 136.37049537571147,
+      "fail_reason": "ACCURACY_FAIL: error=1.76e+00 > target=4.11e-01",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=1.76e+00 > target=4.11e-01"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 48,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 2
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_localized_vortex_gaussian",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 5.121729707770868e-06,
+      "time": 1.0417609214782715,
+      "oracle_error": 0.9450111725570981,
+      "oracle_time": 42.40650724992156,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 9.45011172557098,
+      "target_time": 127.21952174976468,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.895950527944068e-06,
+        "mae": 5.293978389357371e-06,
+        "r2": 0.9999999999507645,
+        "frmse_low": 7.624168592550082e-06,
+        "frmse_mid": 1.0460117311495709e-05,
+        "frmse_high": 6.202495921489538e-06,
+        "frmse_total": 8.895950527944066e-06
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 2
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_two_vortices_gaussian_stream",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 1.1842136509937639e-05,
+      "time": 4.463140964508057,
+      "oracle_error": 0.8665302975816723,
+      "oracle_time": 49.07339383289218,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 8.665302975816724,
+      "target_time": 147.22018149867654,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.9472705569346467e-05,
+        "mae": 1.687064641126423e-05,
+        "r2": 0.9999999996804729,
+        "frmse_low": 3.0097455757586127e-05,
+        "frmse_mid": 3.418378596661281e-05,
+        "frmse_high": 1.7974257703241373e-05,
+        "frmse_total": 2.9472705569346467e-05
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 3
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_tanh_x_shear_stream",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 2.549353502512554e-06,
+      "time": 4.307331800460815,
+      "oracle_error": 0.6815773236595327,
+      "oracle_time": 50.49521433422342,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 6.815773236595327,
+      "target_time": 151.48564300267026,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 6.858609766229717e-06,
+        "mae": 3.5549067878891006e-06,
+        "r2": 0.9999999999632617,
+        "frmse_low": 4.827121418587412e-06,
+        "frmse_mid": 8.687075895644946e-06,
+        "frmse_high": 3.3460593991561372e-06,
+        "frmse_total": 6.858609766229717e-06
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 3
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_sin3x2y_stream",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 5.0543824930951686e-06,
+      "time": 1.2585489749908447,
+      "oracle_error": 0.6880436998735351,
+      "oracle_time": 65.9566531246528,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 6.880436998735351,
+      "target_time": 197.8699593739584,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.862020770310498e-05,
+        "mae": 2.035427339237928e-05,
+        "r2": 0.9999999997701352,
+        "frmse_low": 2.1788521435640924e-05,
+        "frmse_mid": 3.248785630942698e-05,
+        "frmse_high": 2.462947550167161e-05,
+        "frmse_total": 2.862020770310498e-05
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 2
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_polynomial_stream_higher_degree",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 4.07710613536141e-07,
+      "time": 4.2585649490356445,
+      "oracle_error": 0.4875191644284279,
+      "oracle_time": 45.10813474981114,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 4.875191644284279,
+      "target_time": 135.32440424943343,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.3822881001473913e-08,
+        "mae": 9.418939880002952e-09,
+        "r2": 0.9999999999990703,
+        "frmse_low": 4.478629857687903e-09,
+        "frmse_mid": 1.6495469661644703e-08,
+        "frmse_high": 1.2207636373335382e-08,
+        "frmse_total": 1.3822881001473913e-08
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 2
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_no_exact_double_lid_cavity",
+      "equation_type": "navier_stokes",
+      "status": "FAIL",
+      "error": 0.38618761899416293,
+      "time": 1.9556329250335693,
+      "oracle_error": 0.023360741432945198,
+      "oracle_time": 41.871048083063215,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.23360741432945198,
+      "target_time": 125.61314424918965,
+      "fail_reason": "ACCURACY_FAIL: error=3.86e-01 > target=2.34e-01",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=3.86e-01 > target=2.34e-01"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 48,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 2
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_no_exact_counter_shear_open_sides",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 4.32661533920257e-09,
+      "time": 0.977942705154419,
+      "oracle_error": 5.155012622588776e-09,
+      "oracle_time": 42.88869104208425,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 128.66607312625274,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.038753376280641e-09,
+        "mae": 5.393650398477501e-10,
+        "r2": 0.9999999999999999,
+        "frmse_low": 1.9791388359521074e-09,
+        "frmse_mid": 2.1697865952619094e-09,
+        "frmse_high": 1.8255115273372093e-09,
+        "frmse_total": 2.038753376280641e-09
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 48,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 0
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_no_exact_swirl_inflow_outflow",
+      "equation_type": "navier_stokes",
+      "status": "PASS",
+      "error": 1.7313334359157229,
+      "time": 1.6249940395355225,
+      "oracle_error": 0.23251563232922542,
+      "oracle_time": 48.4204853749834,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 2.325156323292254,
+      "target_time": 145.2614561249502,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.5038801710840914,
+        "mae": 0.42245584360149185,
+        "r2": -4.812351204691269,
+        "frmse_low": 1.2015226213626045,
+        "frmse_mid": 0.05193956372830531,
+        "frmse_high": 0.0206654355560265,
+        "frmse_total": 0.5038801710840916
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 48,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 2
+        }
+      }
+    },
+    {
+      "case_id": "navier_stokes_no_exact_constant_force_outflow",
+      "equation_type": "navier_stokes",
+      "status": "FAIL",
+      "error": 0.9999999999999982,
+      "time": 3.1217970848083496,
+      "oracle_error": 0.02103444806143572,
+      "oracle_time": 52.01892725005746,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.21034448061435718,
+      "target_time": 156.05678175017238,
+      "fail_reason": "ACCURACY_FAIL: error=1.00e+00 > target=2.10e-01",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=1.00e+00 > target=2.10e-01"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 48,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 0
+        }
+      }
+    }
+  ]
+}
