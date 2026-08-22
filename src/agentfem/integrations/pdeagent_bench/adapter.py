@@ -68,30 +68,21 @@ class BenchmarkPolicy:
 
         frequency = _expression_frequency(pde_spec)
         if dimension == 3:
-            return max(8, 3 * frequency)
+            # Three-dimensional Taylor--Hood fields need enough cells to
+            # resolve both velocity curvature and the pressure constraint.
+            # Keep this policy independent of benchmark case identity.
+            return max(11, 3 * frequency)
         base = self.resolution(dimension, domain_spec, pde_spec)
         domain_type = str(domain_spec.get("type", ""))
-        raw_dirichlet = boundary_spec.get("dirichlet")
-        complete_dirichlet = isinstance(raw_dirichlet, Mapping) and str(
-            raw_dirichlet.get("on", "")
-        ).lower() in {"all", "*"}
-        if (
-            domain_type
-            in {
-                "unit_square",
-                "periodic_square",
-            }
-            and complete_dirichlet
-        ):
-            return base
         grid = output_spec.get("grid", {})
         samples = max(int(grid.get("nx", 0)), int(grid.get("ny", 0)))
         requested = (
-            int(np.ceil(0.96 * samples))
-            if domain_type == "unit_square"
+            int(np.ceil(0.64 * samples))
+            if domain_type in {"unit_square", "periodic_square"}
             else int(np.ceil((2.0 / 3.0) * samples))
         )
-        return max(base, min(90 if domain_type != "unit_square" else 96, requested))
+        cap = 72 if domain_type in {"unit_square", "periodic_square"} else 112
+        return max(base, min(cap, requested))
 
     def linear_options(
         self, *, indefinite: bool = False

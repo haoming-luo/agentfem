@@ -478,6 +478,33 @@ def test_resolution_bandwidth_uses_trigonometric_phase_not_source_amplitude():
     assert policy.resolution(3, {"type": "unit_cube"}, high_frequency) == 16
 
 
+def test_flow_resolution_uses_dimension_geometry_and_public_sampling_density():
+    policy = BenchmarkPolicy()
+    boundary = {"dirichlet": {"on": "all", "value": [0.0, 0.0]}}
+    output = {"grid": {"nx": 144, "ny": 144}}
+
+    assert (
+        policy.flow_resolution(
+            2,
+            {"type": "periodic_square"},
+            {"type": "stokes", "source_term": ["sin(2*pi*x)", "0.0"]},
+            boundary,
+            output,
+        )
+        == 72
+    )
+    assert (
+        policy.flow_resolution(
+            3,
+            {"type": "unit_cube"},
+            {"type": "stokes", "source_term": ["0.0", "0.0", "0.0"]},
+            boundary,
+            {"grid": {"nx": 16, "ny": 16, "nz": 16}},
+        )
+        == 11
+    )
+
+
 def test_official_summary_is_normalized_to_failure_taxonomy(tmp_path):
     source = tmp_path / "summary.json"
     source.write_text(

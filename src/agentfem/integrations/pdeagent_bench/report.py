@@ -213,7 +213,8 @@ def _case_dimensions(path: str | Path | None) -> dict[str, int]:
         classification = case.get("pde_classification") or {}
         dimension = classification.get("dim")
         if dimension is None:
-            output = case.get("output") or {}
+            public_case = case.get("oracle_config") or case
+            output = public_case.get("output") or {}
             bbox = (output.get("grid") or {}).get("bbox") or ()
             if len(bbox) in {4, 6}:
                 dimension = len(bbox) // 2

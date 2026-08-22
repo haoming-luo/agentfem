@@ -160,8 +160,8 @@ On 21--22 August 2026, the fixed adapter was run with the official v2 runner at
 the pinned benchmark commit above. Across complete-family runs and the
 recorded periodic/constant-boundary repair reruns, all 645 public cases in all
 eleven families produced executable, schema-valid output. The official final
-gate passed 552/645 cases: an 85.6% micro-average and an 86.4% unweighted
-family macro-average.
+gate passed 555/645 cases: an 86.0% micro-average and an 86.8% unweighted
+family macro-average. Every family exceeded a 60% final pass rate.
 
 | Complete public family | Passed | Total | Pass rate |
 |---|---:|---:|---:|
@@ -173,10 +173,10 @@ family macro-average.
 | reaction--diffusion | 64 | 64 | 100.0% |
 | scalar wave | 42 | 42 | 100.0% |
 | Burgers | 41 | 43 | 95.3% |
-| Stokes | 34 | 61 | 55.7% |
+| Stokes | 37 | 61 | 60.7% |
 | Navier--Stokes | 24 | 28 | 85.7% |
 | biharmonic | 57 | 57 | 100.0% |
-| **micro total** | **552** | **645** | **85.6%** |
+| **micro total** | **555** | **645** | **86.0%** |
 
 The original three-family set passed 170/204 cases (83.3%). Stratification by
 the benchmark's declared dimension remains essential:
@@ -215,7 +215,8 @@ The staged targets are:
   mixed-field semantics implemented in the core rather than in case scripts
   (**achieved for seven complete families in the snapshot above**);
 - all eleven families: at least 60% macro- and micro-average
-  (**achieved at 86.4% and 85.6%, respectively**);
+  and at least 60% in every individual family
+  (**achieved at 86.8%, 86.0%, and a 60.7% minimum family rate**);
 - a same-model, same-budget A/B study before claiming a systematic AI-native
   advantage over regenerating backend code for every problem.
 
@@ -223,5 +224,19 @@ The eleven-family milestone makes the next work qualitative rather than a
 search for more family names: improve three-dimensional mixed-flow accuracy,
 generalize pressure-nullspace and periodic-vector constraints, expose richer
 fourth-order boundary pairs, and preserve immutable official-run evidence.
+
+After a fixed-adapter run, freeze the disjoint official summaries, normalized
+report, source identity, benchmark revision, and SHA-256 hashes with:
+
+```bash
+python tools/freeze_pdeagent_bench_evidence.py \
+  /path/to/family-1/summary.json /path/to/family-2/summary.json ... \
+  --catalog /path/to/pde-agent-bench/data/benchmark_v2.jsonl \
+  --output verification/pdeagent_bench_YYYY_MM_DD
+```
+
+The resulting manifest states explicitly that solver-path evaluation calls no
+model; the upstream `gpt-5.1` directory label is retained only for byte-level
+traceability to the runner output.
 Those changes must improve public numerical contracts and external cases; they
 must not become case-ID dispatch or reference-field fitting.

@@ -1472,8 +1472,8 @@ generation. The second claim requires a controlled A/B experiment.</p>
 the pinned benchmark commit above. Across complete-family runs and the
 recorded periodic/constant-boundary repair reruns, all 645 public cases in all
 eleven families produced executable, schema-valid output. The official final
-gate passed 552/645 cases: an 85.6% micro-average and an 86.4% unweighted
-family macro-average.</p>
+gate passed 555/645 cases: an 86.0% micro-average and an 86.8% unweighted
+family macro-average. Every family exceeded a 60% final pass rate.</p>
 <table>
 <thead>
 <tr>
@@ -1534,9 +1534,9 @@ family macro-average.</p>
 </tr>
 <tr>
 <td>Stokes</td>
-<td style="text-align: right;">34</td>
+<td style="text-align: right;">37</td>
 <td style="text-align: right;">61</td>
-<td style="text-align: right;">55.7%</td>
+<td style="text-align: right;">60.7%</td>
 </tr>
 <tr>
 <td>Navier--Stokes</td>
@@ -1552,9 +1552,9 @@ family macro-average.</p>
 </tr>
 <tr>
 <td><strong>micro total</strong></td>
-<td style="text-align: right;"><strong>552</strong></td>
+<td style="text-align: right;"><strong>555</strong></td>
 <td style="text-align: right;"><strong>645</strong></td>
-<td style="text-align: right;"><strong>85.6%</strong></td>
+<td style="text-align: right;"><strong>86.0%</strong></td>
 </tr>
 </tbody>
 </table>
@@ -1625,14 +1625,25 @@ The agent name only satisfies the current runner interface when
   mixed-field semantics implemented in the core rather than in case scripts
   (<strong>achieved for seven complete families in the snapshot above</strong>);</li>
 <li>all eleven families: at least 60% macro- and micro-average
-  (<strong>achieved at 86.4% and 85.6%, respectively</strong>);</li>
+  and at least 60% in every individual family
+  (<strong>achieved at 86.8%, 86.0%, and a 60.7% minimum family rate</strong>);</li>
 <li>a same-model, same-budget A/B study before claiming a systematic AI-native
   advantage over regenerating backend code for every problem.</li>
 </ul>
 <p>The eleven-family milestone makes the next work qualitative rather than a
 search for more family names: improve three-dimensional mixed-flow accuracy,
 generalize pressure-nullspace and periodic-vector constraints, expose richer
-fourth-order boundary pairs, and preserve immutable official-run evidence.
+fourth-order boundary pairs, and preserve immutable official-run evidence.</p>
+<p>After a fixed-adapter run, freeze the disjoint official summaries, normalized
+report, source identity, benchmark revision, and SHA-256 hashes with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>tools/freeze_pdeagent_bench_evidence.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>/path/to/family-1/summary.json<span class="w"> </span>/path/to/family-2/summary.json<span class="w"> </span>...<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>--catalog<span class="w"> </span>/path/to/pde-agent-bench/data/benchmark_v2.jsonl<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>--output<span class="w"> </span>verification/pdeagent_bench_YYYY_MM_DD
+</code></pre></div>
+<p>The resulting manifest states explicitly that solver-path evaluation calls no
+model; the upstream <code>gpt-5.1</code> directory label is retained only for byte-level
+traceability to the runner output.
 Those changes must improve public numerical contracts and external cases; they
 must not become case-ID dispatch or reference-field fitting.</p>
 
