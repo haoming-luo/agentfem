@@ -1,0 +1,2897 @@
+{
+  "agent_name": "gpt-5.1",
+  "timestamp": "2026-08-21T19:27:25.692716",
+  "total_cases": 62,
+  "passed_cases": 52,
+  "pass_rate": 0.8387096774193549,
+  "avg_error": 0.09820728555006457,
+  "avg_time": 0.9606314089990431,
+  "avg_universal_metrics": {
+    "rmse": 5.1308803501335665e-06,
+    "mae": 3.981146839396102e-06,
+    "r2": 0.9999999665477393,
+    "frmse_low": 1.0190783293857475e-05,
+    "frmse_mid": 3.1199404740626394e-06,
+    "frmse_high": 2.401632553243433e-06,
+    "frmse_total": 5.222745753115951e-06
+  },
+  "equation_type_summary": {
+    "helmholtz": {
+      "cases": 62,
+      "passed": 52,
+      "failed": 10,
+      "pass_rate": 0.8387096774193549,
+      "avg_error": 0.09820728555006457,
+      "avg_time": 0.9606314089990431,
+      "avg_universal_metrics": {
+        "rmse": 5.1308803501335665e-06,
+        "mae": 3.981146839396102e-06,
+        "r2": 0.9999999665477393,
+        "frmse_low": 1.0190783293857475e-05,
+        "frmse_mid": 3.1199404740626394e-06,
+        "frmse_high": 2.401632553243433e-06,
+        "frmse_total": 5.222745753115951e-06
+      }
+    }
+  },
+  "math_type_summary": {
+    "elliptic": {
+      "cases": 62,
+      "passed": 52,
+      "pass_rate": 0.8387096774193549,
+      "avg_metrics": {
+        "dof": 18416.967741935485,
+        "resolution": 41.83870967741935,
+        "degree": 2.838709677419355,
+        "efficiency_dof_per_sec": 31540.121058859855,
+        "linear_iterations": 1.0,
+        "condition_number_estimate": 1.0
+      }
+    }
+  },
+  "gate_statistics": {
+    "total_cases": 62,
+    "exec_valid_count": 62,
+    "accuracy_pass_count": 53,
+    "time_pass_count": 52,
+    "final_pass_count": 52,
+    "exec_valid_rate": 1.0,
+    "accuracy_pass_rate": 0.8548387096774194,
+    "time_pass_rate": 0.8387096774193549,
+    "final_pass_rate": 0.8387096774193549,
+    "accuracy_pass_rate_given_exec": 0.8548387096774194,
+    "time_pass_rate_given_accuracy": 0.9811320754716981,
+    "failure_breakdown": {
+      "time": 1,
+      "accuracy": 9
+    },
+    "failure_breakdown_pct": {
+      "time": 0.016129032258064516,
+      "accuracy": 0.14516129032258066
+    }
+  },
+  "cost_analysis": {},
+  "multi_attempt_stats": null,
+  "results": [
+    {
+      "case_id": "helmholtz_basic_k5",
+      "equation_type": "helmholtz",
+      "status": "FAIL",
+      "error": 1.537568916498096e-07,
+      "time": 1.014587163925171,
+      "oracle_error": 0.0006517975780401636,
+      "oracle_time": 0.19647229183465242,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.006517975780401635,
+      "target_time": 0.5894168755039573,
+      "fail_reason": "TIME_FAIL: time=1.015s > target=0.589s",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "time",
+        "failure_reason": "TIME_FAIL: time=1.015s > target=0.589s"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 9083.49753247983,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_low_k2_polynomial",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 8.933188104395271e-08,
+      "time": 0.23200631141662598,
+      "oracle_error": 0.0003692709935364984,
+      "oracle_time": 1.6378119173459709,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.003692709935364984,
+      "target_time": 4.913435752037913,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.9181742745634817e-09,
+        "mae": 2.3636515973856736e-09,
+        "r2": 0.9999999999999761,
+        "frmse_low": 7.728819229280737e-10,
+        "frmse_mid": 2.6636788763639436e-09,
+        "frmse_high": 3.9503289840317535e-09,
+        "frmse_total": 2.9181742745634817e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 39723.057289809425,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_k10_high_freq",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 6.4232939095276505e-06,
+      "time": 0.8779678344726562,
+      "oracle_error": 0.002823206088573893,
+      "oracle_time": 5.311591959092766,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.02823206088573893,
+      "target_time": 15.934775877278298,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.147414015668549e-06,
+        "mae": 2.308900313213964e-06,
+        "r2": 0.9999999999587413,
+        "frmse_low": 2.355109584154941e-06,
+        "frmse_mid": 3.6680314997507887e-06,
+        "frmse_high": 2.498855640066622e-06,
+        "frmse_total": 3.147414015668549e-06
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 10496.9676998879,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_k12_exponential_mode",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 4.988700101768366e-07,
+      "time": 0.8826103210449219,
+      "oracle_error": 0.000312685245227899,
+      "oracle_time": 3.0793089158833027,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.00312685245227899,
+      "target_time": 9.237926747649908,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 6.387934465529509e-07,
+        "mae": 5.004046980639082e-07,
+        "r2": 0.999999999999751,
+        "frmse_low": 8.436084451148994e-07,
+        "frmse_mid": 7.189139327758345e-07,
+        "frmse_high": 2.0333484592544317e-07,
+        "frmse_total": 6.387934465529508e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 10441.754169710119,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_k20_very_high_freq",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 0.0003565771644257249,
+      "time": 0.8809669017791748,
+      "oracle_error": 0.03965903608671979,
+      "oracle_time": 8.804968084208667,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.3965903608671979,
+      "target_time": 26.414904252626002,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00017472281056860522,
+        "mae": 0.00013837501644720657,
+        "r2": 0.9999998728527258,
+        "frmse_low": 0.0003841266959949069,
+        "frmse_mid": 8.154882691574006e-05,
+        "frmse_high": 6.439593384369052e-05,
+        "frmse_total": 0.00017472281056860522
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 10461.232971849042,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_k25_boundary_layer",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 1.7764094125821238e-07,
+      "time": 0.8834137916564941,
+      "oracle_error": 0.00011880744396607304,
+      "oracle_time": 9.982481542043388,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0011880744396607305,
+      "target_time": 29.947444626130164,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.473491268822379e-06,
+        "mae": 1.6978017557503865e-06,
+        "r2": 0.9999999999999494,
+        "frmse_low": 3.0616616455520435e-06,
+        "frmse_mid": 2.5149754471993683e-06,
+        "frmse_high": 1.9652527837103307e-06,
+        "frmse_total": 2.473491268822379e-06
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 10432.257326115576,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_no_exact_gaussian_source_k15",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 2.081941019417476e-05,
+      "time": 0.8821413516998291,
+      "oracle_error": 0.016335751657743324,
+      "oracle_time": 4.649265124928206,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.16335751657743325,
+      "target_time": 13.947795374784619,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.7245105099984216e-07,
+        "mae": 3.308172112687572e-07,
+        "r2": 0.9999999995646786,
+        "frmse_low": 3.6413630607279044e-07,
+        "frmse_mid": 5.604619671109789e-07,
+        "frmse_high": 3.4223078009268016e-07,
+        "frmse_total": 4.724510509998421e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 10447.305278503685,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_no_exact_two_gaussians_k18",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 3.397067810218844e-05,
+      "time": 0.8792738914489746,
+      "oracle_error": 0.012325991579994578,
+      "oracle_time": 7.3239996251650155,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.12325991579994577,
+      "target_time": 21.971998875495046,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.0138429109478808e-06,
+        "mae": 7.584267971114873e-07,
+        "r2": 0.999999998845993,
+        "frmse_low": 7.669666728717603e-07,
+        "frmse_mid": 1.2463509806703585e-06,
+        "frmse_high": 6.046699989081539e-07,
+        "frmse_total": 1.0138429109478808e-06
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 10481.37570059399,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_no_exact_oscillatory_rhs_k22",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 0.0011148888250890928,
+      "time": 0.8849647045135498,
+      "oracle_error": 0.015832583208226836,
+      "oracle_time": 6.899559542071074,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.15832583208226836,
+      "target_time": 20.698678626213223,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.814803811403362e-07,
+        "mae": 3.4930810467879627e-07,
+        "r2": 0.9999987570229076,
+        "frmse_low": 4.5721284033735086e-07,
+        "frmse_mid": 5.050268636122794e-07,
+        "frmse_high": 4.5221448024338835e-07,
+        "frmse_total": 4.814803811403362e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 10413.97465118779,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_no_exact_nonzero_bc_k12",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 7.88898284992012e-06,
+      "time": 0.23456311225891113,
+      "oracle_error": 0.0038885734779245387,
+      "oracle_time": 4.195921916980296,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.03888573477924539,
+      "target_time": 12.58776575094089,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.1973255066573028e-05,
+        "mae": 8.221050000138188e-06,
+        "r2": 0.9999999999376142,
+        "frmse_low": 6.057195509269693e-06,
+        "frmse_mid": 1.4387533185762414e-05,
+        "frmse_high": 9.708005368609543e-06,
+        "frmse_total": 1.1973255066573028e-05
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 39290.065310130114,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_basic_k8_cos_sin",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 2.0493448991689816e-07,
+      "time": 0.889369010925293,
+      "oracle_error": 0.00038871491526477653,
+      "oracle_time": 1.908423624932766,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0038871491526477654,
+      "target_time": 5.725270874798298,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.0244674945970252e-07,
+        "mae": 7.73765314648215e-08,
+        "r2": 0.999999999999958,
+        "frmse_low": 1.7495323281796885e-07,
+        "frmse_mid": 8.280914165871926e-08,
+        "frmse_high": 7.174373594919946e-08,
+        "frmse_total": 1.0244674945970252e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 10362.402879780735,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_k15_two_mode_superposition",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 2.770617557229773e-06,
+      "time": 0.23185110092163086,
+      "oracle_error": 0.00045183968513456746,
+      "oracle_time": 2.9099797499366105,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0045183968513456746,
+      "target_time": 8.729939249809831,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.9199400135358464e-06,
+        "mae": 1.4432017936174682e-06,
+        "r2": 0.9999999999920468,
+        "frmse_low": 2.3767481007426506e-06,
+        "frmse_mid": 2.160064553180591e-06,
+        "frmse_high": 9.12414726765844e-07,
+        "frmse_total": 1.9199400135358464e-06
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 39749.649509385534,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_k18_tanh_shear_layer",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 8.544818567935492e-07,
+      "time": 0.23024201393127441,
+      "oracle_error": 0.00016185126241638514,
+      "oracle_time": 6.47817241679877,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0016185126241638514,
+      "target_time": 19.43451725039631,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.913323716245801e-07,
+        "mae": 2.9999087591967245e-07,
+        "r2": 0.9999999999992698,
+        "frmse_low": 4.0392930124023945e-07,
+        "frmse_mid": 6.089578587728965e-07,
+        "frmse_high": 2.466548119931512e-07,
+        "frmse_total": 4.913323716245801e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 40027.44695740418,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_quadrilateral_k10_trig",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 1.2652468952108066e-05,
+      "time": 0.2325911521911621,
+      "oracle_error": 0.0007320180539647928,
+      "oracle_time": 4.756647457834333,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.007320180539647928,
+      "target_time": 14.269942373503,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 6.324969102608821e-06,
+        "mae": 5.063394366132517e-06,
+        "r2": 0.999999999839915,
+        "frmse_low": 1.3325040134171879e-05,
+        "frmse_mid": 3.684289359326487e-06,
+        "frmse_high": 2.4780628674618597e-06,
+        "frmse_total": 6.324969102608821e-06
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 39623.17531505047,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_p2_k12_high_mode",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 1.2467020351806387e-05,
+      "time": 0.2306079864501953,
+      "oracle_error": 9.054880349481604e-06,
+      "oracle_time": 10.669236958958209,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 9.054880349481604e-05,
+      "target_time": 32.007710876874626,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 6.10883997238513e-06,
+        "mae": 4.433135610158706e-06,
+        "r2": 0.9999999998433682,
+        "frmse_low": 4.17549160835003e-06,
+        "frmse_mid": 7.0157706812758275e-06,
+        "frmse_high": 5.300282037652139e-06,
+        "frmse_total": 6.10883997238513e-06
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 39963.92380794839,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_direct_lu_k24_high_freq",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 8.832142217865397e-05,
+      "time": 0.8713347911834717,
+      "oracle_error": 0.010169913680785693,
+      "oracle_time": 2.0634370842017233,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.10169913680785693,
+      "target_time": 6.19031125260517,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.327749686754045e-05,
+        "mae": 3.2582018273402466e-05,
+        "r2": 0.9999999921993263,
+        "frmse_low": 7.312880330931427e-05,
+        "frmse_mid": 3.646924527087027e-05,
+        "frmse_high": 2.8274583427777123e-05,
+        "frmse_total": 4.3277496867540444e-05
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 10576.875953136872,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_no_exact_pointlike_source_k20",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 9.496491432264371e-05,
+      "time": 0.23277807235717773,
+      "oracle_error": 0.01632403404645886,
+      "oracle_time": 9.771850457880646,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.16324034046458857,
+      "target_time": 29.315551373641938,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.991650655818298e-06,
+        "mae": 2.288919152024313e-06,
+        "r2": 0.9999999908788465,
+        "frmse_low": 5.3159091342695425e-06,
+        "frmse_mid": 2.474683931964424e-06,
+        "frmse_high": 1.628242646334759e-06,
+        "frmse_total": 2.991650655818298e-06
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 39591.35801184421,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_no_exact_sign_changing_rhs_k8",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 2.2263364846904035e-05,
+      "time": 0.23167896270751953,
+      "oracle_error": 0.0022371071225499935,
+      "oracle_time": 3.991776583250612,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.022371071225499934,
+      "target_time": 11.975329749751836,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 6.560753766037668e-08,
+        "mae": 4.8982033174969063e-08,
+        "r2": 0.99999999949301,
+        "frmse_low": 5.961117506246602e-08,
+        "frmse_mid": 7.354589719480893e-08,
+        "frmse_high": 5.302299235240671e-08,
+        "frmse_total": 6.560753766037668e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 39779.18362676129,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_no_exact_quadrilateral_rhs_k16",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 0.0005913890418459909,
+      "time": 0.8786711692810059,
+      "oracle_error": 0.0026086872030905584,
+      "oracle_time": 9.481475500389934,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.026086872030905584,
+      "target_time": 28.4444265011698,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.247951687507578e-07,
+        "mae": 6.606952257891182e-07,
+        "r2": 0.9999996502590012,
+        "frmse_low": 1.917127360597679e-06,
+        "frmse_mid": 2.294580857229644e-07,
+        "frmse_high": 1.8426685395661814e-07,
+        "frmse_total": 8.247951687507576e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 10488.565372574154,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_lshape_low_k_singularity",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 1.656023495589231e-07,
+      "time": 1.0316479206085205,
+      "oracle_error": 4.1450883361864954e-07,
+      "oracle_time": 7.787199625279754,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 4.145088336186495e-06,
+      "target_time": 23.361598875839263,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.197316303166693e-08,
+        "mae": 6.214656203834421e-08,
+        "r2": 0.9999999999999705,
+        "frmse_low": 5.7809822541843895e-08,
+        "frmse_mid": 2.8258692062757872e-08,
+        "frmse_high": 1.1571488605052198e-07,
+        "frmse_total": 7.099084161398698e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21809.766249253244,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_lshape_high_k_wave",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 4.0215919394195475e-06,
+      "time": 1.015213966369629,
+      "oracle_error": 0.9996199816937821,
+      "oracle_time": 3.516721417196095,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 9.996199816937821,
+      "target_time": 10.550164251588285,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.030903929406872e-06,
+        "mae": 1.6002803080199547e-06,
+        "r2": 0.9999999999838268,
+        "frmse_low": 3.3250026191706575e-06,
+        "frmse_mid": 5.580269603164716e-07,
+        "frmse_high": 1.8182329496381644e-06,
+        "frmse_total": 1.7588143955119893e-06
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 22162.815667774197,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_lshape_mixed_bc",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 3.5039613848328572e-09,
+      "time": 1.0089571475982666,
+      "oracle_error": 5.1224642275852026e-05,
+      "oracle_time": 2.9359052078798413,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0005122464227585203,
+      "target_time": 8.807715623639524,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.055898466549691e-09,
+        "mae": 3.192153380508094e-09,
+        "r2": 1.0,
+        "frmse_low": 4.394498211268815e-09,
+        "frmse_mid": 3.573663827189227e-09,
+        "frmse_high": 2.7458390024238317e-09,
+        "frmse_total": 3.5125111072023826e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 22300.25333936061,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_lshape_point_source",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 4.5763006212503096e-08,
+      "time": 1.0700809955596924,
+      "oracle_error": 9.324289535452635e-08,
+      "oracle_time": 2.681282584089786,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 8.043847752269357,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.959250206093337e-08,
+        "mae": 1.3411758792493111e-08,
+        "r2": 0.9999999999999958,
+        "frmse_low": 1.5755267758652044e-08,
+        "frmse_mid": 1.1784415365237096e-08,
+        "frmse_high": 2.386882562445664e-08,
+        "frmse_total": 1.696760450846727e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21026.44574883947,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_lshape_asymmetric_k",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 1.1504110808775973e-08,
+      "time": 1.0962560176849365,
+      "oracle_error": 0.00011544417415010105,
+      "oracle_time": 9.750820915680379,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0011544417415010105,
+      "target_time": 29.252462747041136,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.7439725492661125e-09,
+        "mae": 4.41417087203001e-09,
+        "r2": 0.9999999999999999,
+        "frmse_low": 6.038542517114796e-09,
+        "frmse_mid": 2.085730106068684e-09,
+        "frmse_high": 5.092049128339736e-09,
+        "frmse_total": 4.061601940535448e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 20524.402728037283,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_square_circle_hole",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 1.319585883678591e-08,
+      "time": 1.0299789905548096,
+      "oracle_error": 3.6006584458996486e-08,
+      "oracle_time": 2.6631044168025255,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 7.989313250407577,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.3528901432265254e-09,
+        "mae": 4.253581079572799e-09,
+        "r2": 0.9999999999999996,
+        "frmse_low": 5.401911430397294e-09,
+        "frmse_mid": 3.1985452858841306e-09,
+        "frmse_high": 6.979184217085764e-09,
+        "frmse_total": 5.014603942513547e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21845.105780148122,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_square_multi_hole_3",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 6.022171073006712e-07,
+      "time": 1.0384459495544434,
+      "oracle_error": 1.4811253398502426e-06,
+      "oracle_time": 3.622418540995568,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.4811253398502425e-05,
+      "target_time": 10.867255622986704,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.139357509369256e-07,
+        "mae": 2.3713344842211063e-07,
+        "r2": 0.999999999999637,
+        "frmse_low": 6.930341048279753e-07,
+        "frmse_mid": 4.9930345080338844e-08,
+        "frmse_high": 1.130627236831045e-07,
+        "frmse_total": 2.9860224668706864e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21666.991921586166,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_square_square_hole",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 7.514206546019181e-09,
+      "time": 0.3933219909667969,
+      "oracle_error": 3.9805568035765515e-05,
+      "oracle_time": 7.555988332722336,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.00039805568035765517,
+      "target_time": 22.667964998167008,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.3525883900589447e-10,
+        "mae": 1.728924325657586e-10,
+        "r2": 0.9999999999999998,
+        "frmse_low": 2.8923371603895725e-10,
+        "frmse_mid": 1.3001612102797337e-10,
+        "frmse_high": 3.1359657813803474e-10,
+        "frmse_total": 2.305056452176071e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 57205.03942506328,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_square_large_hole_neumann",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 2.0581153611720106e-09,
+      "time": 0.9864561557769775,
+      "oracle_error": 1.4782884202941767e-09,
+      "oracle_time": 3.32050804188475,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 9.96152412565425,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.221257267670673e-09,
+        "mae": 6.794936826116906e-10,
+        "r2": 1.0,
+        "frmse_low": 2.2448760451770397e-09,
+        "frmse_mid": 1.992956219123398e-10,
+        "frmse_high": 3.0409311620574727e-10,
+        "frmse_total": 9.64406690203697e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 22808.920465682513,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_square_offset_hole",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 1.3696602819884466e-05,
+      "time": 1.0941312313079834,
+      "oracle_error": 0.021140501292250705,
+      "oracle_time": 8.994598541874439,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.21140501292250705,
+      "target_time": 26.983795625623316,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 6.87266155332508e-06,
+        "mae": 5.315592657311728e-06,
+        "r2": 0.9999999998123635,
+        "frmse_low": 1.61528180402098e-05,
+        "frmse_mid": 2.856339128515886e-07,
+        "frmse_high": 6.085000827477937e-07,
+        "frmse_total": 6.76669287286339e-06
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 20564.260809100833,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_square_multi_hole_5",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 4.035215156713198e-07,
+      "time": 1.0515761375427246,
+      "oracle_error": 0.5837482452636599,
+      "oracle_time": 6.340497292112559,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 5.837482452636599,
+      "target_time": 19.021491876337677,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.142171495328204e-07,
+        "mae": 1.6227711780323752e-07,
+        "r2": 0.999999999999625,
+        "frmse_low": 2.2032467929620531e-07,
+        "frmse_mid": 1.2012069056894457e-07,
+        "frmse_high": 3.0518825717341716e-07,
+        "frmse_total": 2.1006391895624158e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21396.453567857654,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_square_triangle_hole",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 2.947986117196504e-08,
+      "time": 1.0451810359954834,
+      "oracle_error": 0.002550585196966161,
+      "oracle_time": 8.666285084094852,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.02550585196966161,
+      "target_time": 25.998855252284557,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.4944266467426007e-08,
+        "mae": 1.1976431418974146e-08,
+        "r2": 0.9999999999999991,
+        "frmse_low": 3.3011357964434554e-08,
+        "frmse_mid": 3.2572108815973444e-09,
+        "frmse_high": 8.286369657405338e-09,
+        "frmse_total": 1.4725980386453047e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21527.37107267724,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_circle_domain_standard",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 2.393132155280489e-07,
+      "time": 0.38316798210144043,
+      "oracle_error": 2.7212763428510815e-07,
+      "oracle_time": 3.0525002498179674,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 2.7212763428510814e-06,
+      "target_time": 9.157500749453902,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.3080889273133573e-07,
+        "mae": 1.0397684356554974e-07,
+        "r2": 0.9999999999999427,
+        "frmse_low": 2.1955875129977042e-07,
+        "frmse_mid": 5.270554311987955e-08,
+        "frmse_high": 1.0358350010116838e-07,
+        "frmse_total": 1.1454557629613737e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 58720.98153034958,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_annulus_waveguide",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 1.3810772483317865e-08,
+      "time": 0.9873020648956299,
+      "oracle_error": 2.6378621246836497e-08,
+      "oracle_time": 2.8980414173565805,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 8.694124252069741,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.782480598748776e-09,
+        "mae": 4.570351588857614e-09,
+        "r2": 0.9999999999999998,
+        "frmse_low": 7.0734226385980736e-09,
+        "frmse_mid": 2.641294871078471e-09,
+        "frmse_high": 4.745320190571401e-09,
+        "frmse_total": 4.380968499794999e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 22789.378043464872,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_annulus_asymmetric_bc",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 1.8168581235329876e-09,
+      "time": 1.196943998336792,
+      "oracle_error": 0.0013230882927858921,
+      "oracle_time": 62.35499308304861,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.013230882927858921,
+      "target_time": 187.06497924914584,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.0158001780477662e-09,
+        "mae": 7.977268469788249e-10,
+        "r2": 1.0,
+        "frmse_low": 9.841211132659052e-10,
+        "frmse_mid": 7.627376921311469e-10,
+        "frmse_high": 6.263376387664024e-10,
+        "frmse_total": 7.695985323455051e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 5625,
+          "resolution": 25,
+          "degree": 3,
+          "efficiency_dof_per_sec": 4699.467984981915,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_sector_90deg",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 1.5439122429806777e-09,
+      "time": 1.0513811111450195,
+      "oracle_error": 2.3349352501839743e-08,
+      "oracle_time": 2.8081958750262856,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 8.424587625078857,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.0130032706115688e-10,
+        "mae": 6.750772826238288e-11,
+        "r2": 1.0,
+        "frmse_low": 1.0721819857138301e-10,
+        "frmse_mid": 5.876993872317095e-11,
+        "frmse_high": 1.1738321953334291e-10,
+        "frmse_total": 8.92938106260218e-11
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21400.42251234293,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_annulus_thin_k_high",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 4.764381702214809e-09,
+      "time": 1.0415706634521484,
+      "oracle_error": 2.323203579701858e-09,
+      "oracle_time": 3.844403417315334,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 11.533210251946002,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.15501918458891e-09,
+        "mae": 2.563578032912906e-09,
+        "r2": 1.0,
+        "frmse_low": 2.766575476263438e-09,
+        "frmse_mid": 3.597413767919094e-10,
+        "frmse_high": 2.7607888672104784e-10,
+        "frmse_total": 1.195581604707858e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21601.990906144303,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_star_shape_5point",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 8.351166775154036e-09,
+      "time": 0.9979729652404785,
+      "oracle_error": 2.337336086174164e-08,
+      "oracle_time": 2.743421624880284,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 8.230264874640852,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.074742638612157e-09,
+        "mae": 3.861968833697894e-09,
+        "r2": 0.9999999999999998,
+        "frmse_low": 3.6738675972454488e-09,
+        "frmse_mid": 2.0487501863159305e-09,
+        "frmse_high": 3.3475584409217593e-09,
+        "frmse_total": 2.8172821228622632e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 22545.700919441482,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_gear_8teeth",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 1.2841328726606568e-10,
+      "time": 1.0915327072143555,
+      "oracle_error": 0.8399022390379466,
+      "oracle_time": 5.408912958111614,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 8.399022390379466,
+      "target_time": 16.226738874334842,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.1785816188595964e-10,
+        "mae": 9.295675462697764e-11,
+        "r2": 1.0,
+        "frmse_low": 1.7041121843902156e-10,
+        "frmse_mid": 5.075393209243532e-11,
+        "frmse_high": 5.825040162052736e-11,
+        "frmse_total": 8.631853246974677e-11
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 20613.21649025167,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_complex_poly_obstacle",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 8.868563496979012e-09,
+      "time": 0.8384337425231934,
+      "oracle_error": 2.1850179590118512e-08,
+      "oracle_time": 18.362020917236805,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 55.086062751710415,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.464086059337375e-09,
+        "mae": 3.39695980720563e-09,
+        "r2": 0.9999999999999999,
+        "frmse_low": 5.925182878512344e-09,
+        "frmse_mid": 4.715334126392487e-09,
+        "frmse_high": 2.1917302838354436e-09,
+        "frmse_total": 4.385268759504865e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 26835.7520205332,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_3d_k1_trig",
+      "equation_type": "helmholtz",
+      "status": "FAIL",
+      "error": 0.3450451409792743,
+      "time": 1.9957680702209473,
+      "oracle_error": 0.0002416098814268354,
+      "oracle_time": 1.7502412917092443,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 1.2080494071341771e-05,
+      "target_time": 5.250723875127733,
+      "fail_reason": "ACCURACY_FAIL: error=3.45e-01 > target=1.21e-05",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=3.45e-01 > target=1.21e-05"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 841,
+          "resolution": 14,
+          "degree": 2,
+          "efficiency_dof_per_sec": 421.39164993600417,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_3d_k3_trig",
+      "equation_type": "helmholtz",
+      "status": "FAIL",
+      "error": 0.47896275419244705,
+      "time": 2.0005509853363037,
+      "oracle_error": 0.00018100697210900857,
+      "oracle_time": 1.9034317079931498,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 9.05034860545043e-06,
+      "target_time": 5.710295123979449,
+      "fail_reason": "ACCURACY_FAIL: error=4.79e-01 > target=9.05e-06",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=4.79e-01 > target=9.05e-06"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 841,
+          "resolution": 14,
+          "degree": 2,
+          "efficiency_dof_per_sec": 420.3841872386088,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_3d_k5_trig",
+      "equation_type": "helmholtz",
+      "status": "FAIL",
+      "error": 2.1409875616857565,
+      "time": 2.0097148418426514,
+      "oracle_error": 0.0001161002897165437,
+      "oracle_time": 2.3847502497956157,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 5.8050144858271855e-06,
+      "target_time": 7.154250749386847,
+      "fail_reason": "ACCURACY_FAIL: error=2.14e+00 > target=5.81e-06",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=2.14e+00 > target=5.81e-06"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 841,
+          "resolution": 14,
+          "degree": 2,
+          "efficiency_dof_per_sec": 418.4673280458588,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_3d_k1_exp",
+      "equation_type": "helmholtz",
+      "status": "FAIL",
+      "error": 0.21837860494667896,
+      "time": 2.0195391178131104,
+      "oracle_error": 0.0001483610457541388,
+      "oracle_time": 1.1351307076402009,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 7.41805228770694e-06,
+      "target_time": 3.4053921229206026,
+      "fail_reason": "ACCURACY_FAIL: error=2.18e-01 > target=7.42e-06",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=2.18e-01 > target=7.42e-06"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 841,
+          "resolution": 14,
+          "degree": 2,
+          "efficiency_dof_per_sec": 416.4316464989745,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_3d_k2_poly",
+      "equation_type": "helmholtz",
+      "status": "FAIL",
+      "error": 0.3860033268930643,
+      "time": 2.0038259029388428,
+      "oracle_error": 0.00023234956985357822,
+      "oracle_time": 1.7722153747454286,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 1.1617478492678911e-05,
+      "target_time": 5.316646124236286,
+      "fail_reason": "ACCURACY_FAIL: error=3.86e-01 > target=1.16e-05",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=3.86e-01 > target=1.16e-05"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 841,
+          "resolution": 14,
+          "degree": 2,
+          "efficiency_dof_per_sec": 419.6971397398228,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_3d_k3_multi_freq",
+      "equation_type": "helmholtz",
+      "status": "FAIL",
+      "error": 0.19683689638065316,
+      "time": 2.0002329349517822,
+      "oracle_error": 0.0004965897673713247,
+      "oracle_time": 1.890680625103414,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 2.4829488368566235e-05,
+      "target_time": 5.672041875310242,
+      "fail_reason": "ACCURACY_FAIL: error=1.97e-01 > target=2.48e-05",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=1.97e-01 > target=2.48e-05"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 841,
+          "resolution": 14,
+          "degree": 2,
+          "efficiency_dof_per_sec": 420.45103112966854,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_3d_k4_trig",
+      "equation_type": "helmholtz",
+      "status": "FAIL",
+      "error": 0.7252804261131722,
+      "time": 2.006405830383301,
+      "oracle_error": 0.00013393191050238445,
+      "oracle_time": 2.0436329576186836,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 6.6965955251192234e-06,
+      "target_time": 6.130898872856051,
+      "fail_reason": "ACCURACY_FAIL: error=7.25e-01 > target=6.70e-06",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=7.25e-01 > target=6.70e-06"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 841,
+          "resolution": 14,
+          "degree": 2,
+          "efficiency_dof_per_sec": 419.1574741583245,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_3d_k2_cos",
+      "equation_type": "helmholtz",
+      "status": "FAIL",
+      "error": 0.050082392084923065,
+      "time": 1.9909210205078125,
+      "oracle_error": 0.0002219932915684849,
+      "oracle_time": 1.7326436671428382,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 1.1099664578424246e-05,
+      "target_time": 5.197931001428515,
+      "fail_reason": "ACCURACY_FAIL: error=5.01e-02 > target=1.11e-05",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=5.01e-02 > target=1.11e-05"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 841,
+          "resolution": 14,
+          "degree": 2,
+          "efficiency_dof_per_sec": 422.4175601830208,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_3d_k1_linear_mms",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 4.9395292797591404e-15,
+      "time": 1.9937918186187744,
+      "oracle_error": 2.9349914202392765e-11,
+      "oracle_time": 2.1744588748551905,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 6.5233766245655715,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 7.842556038182188e-15,
+        "mae": 5.492348609071929e-15,
+        "r2": 1.0
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 841,
+          "resolution": 14,
+          "degree": 2,
+          "efficiency_dof_per_sec": 421.8093344282122,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_3d_k6_high",
+      "equation_type": "helmholtz",
+      "status": "FAIL",
+      "error": 1.5448878297266584,
+      "time": 2.006272077560425,
+      "oracle_error": 5.106433743692119e-05,
+      "oracle_time": 104.37535991612822,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 2.5532168718460596e-06,
+      "target_time": 313.12607974838465,
+      "fail_reason": "ACCURACY_FAIL: error=1.54e+00 > target=2.55e-06",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=1.54e+00 > target=2.55e-06"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 841,
+          "resolution": 14,
+          "degree": 2,
+          "efficiency_dof_per_sec": 419.18541827219883,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_tjunction_basic",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 2.2480063195059078e-09,
+      "time": 0.3551170825958252,
+      "oracle_error": 3.2978905300343695e-08,
+      "oracle_time": 2.097581500187516,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 6.292744500562549,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.3822948938539179e-09,
+        "mae": 1.073911294780629e-09,
+        "r2": 1.0,
+        "frmse_low": 5.45038641273875e-10,
+        "frmse_mid": 7.26166930464337e-10,
+        "frmse_high": 1.3039858236841807e-09,
+        "frmse_total": 9.169107025075181e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 40401,
+          "resolution": 67,
+          "degree": 3,
+          "efficiency_dof_per_sec": 113768.11192713644,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_dumbbell_basic",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 2.117076784353244e-09,
+      "time": 0.9599559307098389,
+      "oracle_error": 2.3586931719221442e-08,
+      "oracle_time": 1.7592584998346865,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 5.2777754995040596,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.3197179040321037e-09,
+        "mae": 1.0272522962667737e-09,
+        "r2": 1.0,
+        "frmse_low": 9.848159790015e-10,
+        "frmse_mid": 7.355446213651033e-10,
+        "frmse_high": 1.2433692863410538e-09,
+        "frmse_total": 9.589546510683837e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 40401,
+          "resolution": 67,
+          "degree": 3,
+          "efficiency_dof_per_sec": 42086.30699341115,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_gear_12teeth",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 2.8291270018672573e-09,
+      "time": 0.568612813949585,
+      "oracle_error": 1.5595983716725892e-08,
+      "oracle_time": 6.666190874762833,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 19.9985726242885,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.4979672922565817e-09,
+        "mae": 1.1957720005797596e-09,
+        "r2": 1.0,
+        "frmse_low": 1.2638636244752314e-09,
+        "frmse_mid": 1.1854214818887356e-09,
+        "frmse_high": 6.268435407339886e-10,
+        "frmse_total": 1.064716542362494e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 40401,
+          "resolution": 67,
+          "degree": 3,
+          "efficiency_dof_per_sec": 71051.86342772444,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_eccentric_annulus_v1",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 3.146279943227597e-09,
+      "time": 0.400407075881958,
+      "oracle_error": 2.1938345087614684e-08,
+      "oracle_time": 1.3251601671800017,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 3.975480501540005,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.7553553120108502e-09,
+        "mae": 1.382589553794828e-09,
+        "r2": 1.0,
+        "frmse_low": 8.71021447928265e-10,
+        "frmse_mid": 1.0563739012930003e-09,
+        "frmse_high": 2.049240630482203e-09,
+        "frmse_total": 1.408228260572863e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 40401,
+          "resolution": 67,
+          "degree": 3,
+          "efficiency_dof_per_sec": 100899.81529674669,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_eccentric_annulus_v2",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 1.0699597468938045e-08,
+      "time": 1.6853041648864746,
+      "oracle_error": 2.236354920714073e-08,
+      "oracle_time": 12.126019041985273,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 36.37805712595582,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.007477564768609e-09,
+        "mae": 3.82784283356518e-09,
+        "r2": 0.9999999999999999,
+        "frmse_low": 9.436487929449489e-09,
+        "frmse_mid": 1.7241481621650902e-09,
+        "frmse_high": 1.0794325711853378e-09,
+        "frmse_total": 4.1811688036708145e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 40401,
+          "resolution": 67,
+          "degree": 3,
+          "efficiency_dof_per_sec": 23972.527239746953,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_multi_hole_4",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 1.7193663604898925e-08,
+      "time": 0.4861457347869873,
+      "oracle_error": 1.6899974392887283e-08,
+      "oracle_time": 3.7655542083084583,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 11.296662624925375,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.595920933409399e-09,
+        "mae": 5.447944917533894e-09,
+        "r2": 0.9999999999999997,
+        "frmse_low": 1.945905114515802e-08,
+        "frmse_mid": 1.1108533679036607e-09,
+        "frmse_high": 1.9904532152006672e-09,
+        "frmse_total": 8.25029308485365e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 40401,
+          "resolution": 67,
+          "degree": 3,
+          "efficiency_dof_per_sec": 83104.7093680712,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_star_6point",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 3.2033137170990948e-09,
+      "time": 0.40944886207580566,
+      "oracle_error": 1.776698109931448e-08,
+      "oracle_time": 1.935469000134617,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 5.806407000403851,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.9311921790229537e-09,
+        "mae": 1.467507359047588e-09,
+        "r2": 1.0,
+        "frmse_low": 1.7620821192025595e-09,
+        "frmse_mid": 9.830969011417325e-10,
+        "frmse_high": 6.513914033496824e-10,
+        "frmse_total": 1.0849106968409937e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 40401,
+          "resolution": 67,
+          "degree": 3,
+          "efficiency_dof_per_sec": 98671.6626715649,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_star_7point",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 4.32685679076635e-09,
+      "time": 0.4646599292755127,
+      "oracle_error": 2.7174031202436645e-08,
+      "oracle_time": 2.614154416602105,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 7.842463249806315,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.7715556232849507e-09,
+        "mae": 1.3404517920673328e-09,
+        "r2": 1.0,
+        "frmse_low": 1.5263228221417058e-09,
+        "frmse_mid": 8.987986827151725e-10,
+        "frmse_high": 6.468314226985809e-10,
+        "frmse_total": 9.780527402366621e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 40401,
+          "resolution": 67,
+          "degree": 3,
+          "efficiency_dof_per_sec": 86947.45867798915,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_circle_unit_v1",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 2.7887260774635988e-09,
+      "time": 0.4740438461303711,
+      "oracle_error": 3.491313929659959e-08,
+      "oracle_time": 1.6589147909544408,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 4.9767443728633225,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.571447644357797e-09,
+        "mae": 1.227000974111238e-09,
+        "r2": 1.0,
+        "frmse_low": 2.0113916714520277e-09,
+        "frmse_mid": 8.623229044315795e-10,
+        "frmse_high": 1.6254922060793573e-09,
+        "frmse_total": 1.3760713991507639e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 40401,
+          "resolution": 67,
+          "degree": 3,
+          "efficiency_dof_per_sec": 85226.2935797904,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_circle_origin_v2",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 5.2951596788703804e-08,
+      "time": 1.312647819519043,
+      "oracle_error": 1.8379601734049125e-07,
+      "oracle_time": 16.07078008307144,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.8379601734049125e-06,
+      "target_time": 48.21234024921432,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.5473345319894265e-08,
+        "mae": 1.9789620423895768e-08,
+        "r2": 0.9999999999999971,
+        "frmse_low": 1.4101786856891086e-08,
+        "frmse_mid": 2.412405858016297e-08,
+        "frmse_high": 2.2897100913769213e-08,
+        "frmse_total": 2.2306274129624356e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 40401,
+          "resolution": 67,
+          "degree": 3,
+          "efficiency_dof_per_sec": 30778.24790415072,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_circle_gaussian_v3",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 1.7268328001297725e-10,
+      "time": 0.38494396209716797,
+      "oracle_error": 1.1972151692673239e-09,
+      "oracle_time": 1.952019290998578,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 5.856057872995734,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.5976240794509368e-10,
+        "mae": 1.2377139166781712e-10,
+        "r2": 1.0,
+        "frmse_low": 2.0013034652054441e-10,
+        "frmse_mid": 8.052614513760591e-11,
+        "frmse_high": 8.45912223812772e-11,
+        "frmse_total": 1.1206168515718455e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 40401,
+          "resolution": 67,
+          "degree": 3,
+          "efficiency_dof_per_sec": 104952.93855213642,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_sector_60deg",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 3.882656122945806e-09,
+      "time": 0.3778350353240967,
+      "oracle_error": 2.8860164680265042e-08,
+      "oracle_time": 0.8637329158373177,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 2.591198747511953,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.3516135311852594e-09,
+        "mae": 1.8756311771873203e-09,
+        "r2": 0.9999999999999999,
+        "frmse_low": 3.1008681993049773e-09,
+        "frmse_mid": 8.372624759002877e-10,
+        "frmse_high": 1.6399135983912798e-09,
+        "frmse_total": 1.6910374253835188e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 40401,
+          "resolution": 67,
+          "degree": 3,
+          "efficiency_dof_per_sec": 106927.6171420819,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "helmholtz_sector_120deg",
+      "equation_type": "helmholtz",
+      "status": "PASS",
+      "error": 8.168954548306857e-09,
+      "time": 0.5218300819396973,
+      "oracle_error": 2.8394844431846305e-08,
+      "oracle_time": 2.663773083128035,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 7.991319249384105,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.0674536211530026e-09,
+        "mae": 3.1950379647930833e-09,
+        "r2": 0.9999999999999999,
+        "frmse_low": 7.327385068168661e-09,
+        "frmse_mid": 1.4879482421536057e-09,
+        "frmse_high": 4.6438332680869687e-10,
+        "frmse_total": 3.2580278115577843e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 40401,
+          "resolution": 67,
+          "degree": 3,
+          "efficiency_dof_per_sec": 77421.75355208584,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    }
+  ]
+}

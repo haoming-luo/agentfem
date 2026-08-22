@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from tools.freeze_pdeagent_bench_evidence import freeze_evidence
+import pytest
+
+from tools.freeze_pdeagent_bench_evidence import freeze_evidence, verify_evidence
 
 
 def _summary(path: Path, family: str, case_id: str) -> Path:
@@ -80,3 +82,9 @@ def test_fixed_adapter_evidence_is_self_contained_and_unambiguous(tmp_path):
         "report.json",
         "report.md",
     }
+    verified = verify_evidence(manifest_path.parent)
+    assert verified["agentfem_commit"] == manifest["agentfem_commit"]
+
+    (manifest_path.parent / "report.md").write_text("tampered\n")
+    with pytest.raises(ValueError, match="hash mismatch"):
+        verify_evidence(manifest_path.parent)

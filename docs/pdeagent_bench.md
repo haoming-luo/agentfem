@@ -232,11 +232,21 @@ report, source identity, benchmark revision, and SHA-256 hashes with:
 python tools/freeze_pdeagent_bench_evidence.py \
   /path/to/family-1/summary.json /path/to/family-2/summary.json ... \
   --catalog /path/to/pde-agent-bench/data/benchmark_v2.jsonl \
-  --output verification/pdeagent_bench_YYYY_MM_DD
+  --output evidence/pdeagent_bench/YYYY-MM-DD-fixed-adapter
 ```
 
 The resulting manifest states explicitly that solver-path evaluation calls no
 model; the upstream `gpt-5.1` directory label is retained only for byte-level
 traceability to the runner output.
+
+Verify a committed bundle without rerunning the numerical cases:
+
+```bash
+python tools/freeze_pdeagent_bench_evidence.py \
+  --verify evidence/pdeagent_bench/2026-08-22-fixed-adapter
+```
+
+The verified 555/645 development snapshot is retained in the repository at
+[`evidence/pdeagent_bench/2026-08-22-fixed-adapter`](https://github.com/haoming-luo/agentfem/tree/main/evidence/pdeagent_bench/2026-08-22-fixed-adapter).
 Those changes must improve public numerical contracts and external cases; they
 must not become case-ID dispatch or reference-field fitting.

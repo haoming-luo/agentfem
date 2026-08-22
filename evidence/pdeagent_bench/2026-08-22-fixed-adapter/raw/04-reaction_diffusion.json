@@ -1,0 +1,3042 @@
+{
+  "agent_name": "gpt-5.1",
+  "timestamp": "2026-08-21T20:39:45.555877",
+  "total_cases": 64,
+  "passed_cases": 64,
+  "pass_rate": 1.0,
+  "avg_error": 0.0008143827471644753,
+  "avg_time": 2.1290683038532734,
+  "avg_universal_metrics": {
+    "rmse": 0.00027116301408627153,
+    "mae": 0.00020837785933106422,
+    "r2": 0.9999916924930028,
+    "frmse_low": 0.0006086586406324961,
+    "frmse_mid": 3.703848970785061e-06,
+    "frmse_high": 1.7337868367291094e-06,
+    "frmse_total": 0.00025288307522399205
+  },
+  "equation_type_summary": {
+    "reaction_diffusion": {
+      "cases": 64,
+      "passed": 64,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "avg_error": 0.0008143827471644753,
+      "avg_time": 2.1290683038532734,
+      "avg_universal_metrics": {
+        "rmse": 0.00027116301408627153,
+        "mae": 0.00020837785933106422,
+        "r2": 0.9999916924930028,
+        "frmse_low": 0.0006086586406324961,
+        "frmse_mid": 3.703848970785061e-06,
+        "frmse_high": 1.7337868367291094e-06,
+        "frmse_total": 0.00025288307522399205
+      }
+    }
+  },
+  "math_type_summary": {
+    "reaction_diffusion": {
+      "cases": 64,
+      "passed": 64,
+      "pass_rate": 1.0,
+      "avg_metrics": {
+        "mesh_resolution": 43.8125,
+        "element_degree": 3.0,
+        "linear_iterations": 1.6875,
+        "dt": 0.009328125000000007,
+        "n_steps": 21.71875,
+        "newton_iterations_mean": 1.9761904761904758,
+        "newton_iterations_max": 2.0
+      }
+    }
+  },
+  "gate_statistics": {
+    "total_cases": 64,
+    "exec_valid_count": 64,
+    "accuracy_pass_count": 64,
+    "time_pass_count": 64,
+    "final_pass_count": 64,
+    "exec_valid_rate": 1.0,
+    "accuracy_pass_rate": 1.0,
+    "time_pass_rate": 1.0,
+    "final_pass_rate": 1.0,
+    "accuracy_pass_rate_given_exec": 1.0,
+    "time_pass_rate_given_accuracy": 1.0,
+    "failure_breakdown": {},
+    "failure_breakdown_pct": {}
+  },
+  "cost_analysis": {},
+  "multi_attempt_stats": null,
+  "results": [
+    {
+      "case_id": "reaction_diffusion_linear_basic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0012928320905777758,
+      "time": 0.41802287101745605,
+      "oracle_error": 0.0011817187801261297,
+      "oracle_time": 81.09842770826072,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.011817187801261297,
+      "target_time": 243.29528312478215,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0003855366312246021,
+        "mae": 0.00030715079256961883,
+        "r2": 0.9999954244872313,
+        "frmse_low": 0.0009194168399954628,
+        "frmse_mid": 1.8377201873806618e-06,
+        "frmse_high": 6.893502805864626e-08,
+        "frmse_total": 0.000385536631224602
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "dt": 0.01,
+          "n_steps": 50,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_linear_high_frequency",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 2.4380186723174835e-05,
+      "time": 1.4062080383300781,
+      "oracle_error": 0.001153680439613294,
+      "oracle_time": 113.96071183262393,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.01153680439613294,
+      "target_time": 341.8821354978718,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.901634084445567e-06,
+        "mae": 6.570090611954776e-06,
+        "r2": 0.9999999994056065,
+        "frmse_low": 8.212604716431645e-06,
+        "frmse_mid": 5.862938150621933e-06,
+        "frmse_high": 1.2742686542433155e-05,
+        "frmse_total": 8.901634084445567e-06
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "dt": 0.005,
+          "n_steps": 60,
+          "time_integrator": "crank_nicolson"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_quadrilateral_mesh",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.000849062187373293,
+      "time": 0.4336388111114502,
+      "oracle_error": 0.0008004067856639471,
+      "oracle_time": 77.20400395803154,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.008004067856639471,
+      "target_time": 231.6120118740946,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0007151724070117635,
+        "mae": 0.0005836712709692393,
+        "r2": 0.9999972850363107,
+        "frmse_low": 0.0017055115740120612,
+        "frmse_mid": 4.934331125876395e-06,
+        "frmse_high": 6.468550337631403e-07,
+        "frmse_total": 0.0007151724070117633
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "dt": 0.01,
+          "n_steps": 40,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_cubic_manufactured",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00033573888642673136,
+      "time": 3.545741081237793,
+      "oracle_error": 0.00015643892453927541,
+      "oracle_time": 80.65010595787317,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.001564389245392754,
+      "target_time": 241.9503178736195,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.7029842213302484e-05,
+        "mae": 2.1585329990328293e-05,
+        "r2": 0.9999998872794001,
+        "frmse_low": 6.445785634448741e-05,
+        "frmse_mid": 3.1039421408605956e-07,
+        "frmse_high": 1.5094372186317133e-07,
+        "frmse_total": 2.702984221330248e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.005,
+          "n_steps": 40,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_allen_cahn_manufactured",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0004298814974197247,
+      "time": 2.8732359409332275,
+      "oracle_error": 0.0003084472935168992,
+      "oracle_time": 60.03993066586554,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.003084472935168992,
+      "target_time": 180.11979199759662,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.470750270397703e-05,
+        "mae": 4.38456801023812e-05,
+        "r2": 0.9999994895871883,
+        "frmse_low": 0.0001305092999278359,
+        "frmse_mid": 2.228644590950503e-07,
+        "frmse_high": 3.276482515630844e-08,
+        "frmse_total": 5.470750270397703e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.005,
+          "n_steps": 30,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_logistic_manufactured",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0008947930934753166,
+      "time": 4.301735877990723,
+      "oracle_error": 0.0008696573874994415,
+      "oracle_time": 60.18472495768219,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.008696573874994415,
+      "target_time": 180.55417487304658,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00015975998898054775,
+        "mae": 0.00013720863071347086,
+        "r2": 0.9999473344376006,
+        "frmse_low": 0.00038098553368660405,
+        "frmse_mid": 1.414550383695303e-06,
+        "frmse_high": 3.755379158148425e-08,
+        "frmse_total": 0.00015975998898054772
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 30,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_allen_cahn_p2",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0004702921391858322,
+      "time": 3.5508229732513428,
+      "oracle_error": 0.00046996867717101373,
+      "oracle_time": 83.450840708334,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.004699686771710137,
+      "target_time": 250.352522125002,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.73281574992791e-05,
+        "mae": 3.775871724597277e-05,
+        "r2": 0.9999997788253038,
+        "frmse_low": 0.0001128632983175463,
+        "frmse_mid": 5.359224322542518e-07,
+        "frmse_high": 2.384583719244966e-07,
+        "frmse_total": 4.732815749927909e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.005,
+          "n_steps": 40,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_no_exact_gaussian_source_allen_cahn",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0016446558123903747,
+      "time": 4.469574928283691,
+      "oracle_error": 0.003245267265556906,
+      "oracle_time": 113.9101526667364,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.03245267265556906,
+      "target_time": 341.7304580002092,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00013017371142645722,
+        "mae": 7.330826917917463e-05,
+        "r2": 0.9999967855901726,
+        "frmse_low": 0.0003103682380223836,
+        "frmse_mid": 3.2861505726223996e-06,
+        "frmse_high": 2.4373316378172714e-06,
+        "frmse_total": 0.00013017371142645716
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.005,
+          "n_steps": 50,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_no_exact_two_gaussians_logistic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.001863236322422466,
+      "time": 3.3830528259277344,
+      "oracle_error": 0.0022957121919454622,
+      "oracle_time": 155.75537224998698,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.02295712191945462,
+      "target_time": 467.26611674996093,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00016289863945289374,
+        "mae": 0.00011039643000625439,
+        "r2": 0.999993494040808,
+        "frmse_low": 0.0003885861377529275,
+        "frmse_mid": 1.9278185320415307e-06,
+        "frmse_high": 2.0823725456365686e-06,
+        "frmse_total": 0.0001628986394528937
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 40,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_no_exact_oscillatory_rhs_cubic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0014235533148580619,
+      "time": 5.336564064025879,
+      "oracle_error": 0.0038093327493778713,
+      "oracle_time": 379.70517791621387,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.038093327493778716,
+      "target_time": 1139.1155337486416,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00010293102071174948,
+        "mae": 8.010921506076607e-05,
+        "r2": 0.9999979734959598,
+        "frmse_low": 0.0002450980308901845,
+        "frmse_mid": 4.209874390124184e-06,
+        "frmse_high": 9.89972044477974e-06,
+        "frmse_total": 0.00010293102071174948
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.005,
+          "n_steps": 60,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_linear_decay",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0021860829397945315,
+      "time": 0.4735071659088135,
+      "oracle_error": 0.00155018144120739,
+      "oracle_time": 125.4470625827089,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.015501814412073898,
+      "target_time": 376.3411877481267,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0005998028822203802,
+        "mae": 0.0004288754686475193,
+        "r2": 0.9999952192633058,
+        "frmse_low": 0.0014559993811350419,
+        "frmse_mid": 1.8726077950699745e-06,
+        "frmse_high": 5.50421934660918e-07,
+        "frmse_total": 0.0005998028822203803
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "dt": 0.01,
+          "n_steps": 60,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_linear_boundary_layer",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00047688223311589885,
+      "time": 0.4499990940093994,
+      "oracle_error": 0.0004973209519025431,
+      "oracle_time": 124.92012070817873,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.004973209519025431,
+      "target_time": 374.7603621245362,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.004886273299957424,
+        "mae": 0.0033542346378255643,
+        "r2": 0.9999996325655961,
+        "frmse_low": 0.011894889561755268,
+        "frmse_mid": 9.532916023652505e-05,
+        "frmse_high": 3.437176627386241e-05,
+        "frmse_total": 0.004886273299957423
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "dt": 0.005,
+          "n_steps": 60,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_linear_multifrequency",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 2.898450742227127e-05,
+      "time": 1.3609209060668945,
+      "oracle_error": 0.000904577055134716,
+      "oracle_time": 176.625375083182,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.00904577055134716,
+      "target_time": 529.876125249546,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 9.782996759409136e-06,
+        "mae": 7.21949577311778e-06,
+        "r2": 0.9999999978137556,
+        "frmse_low": 8.76000927798155e-06,
+        "frmse_mid": 9.99780299059318e-06,
+        "frmse_high": 9.960158788704451e-06,
+        "frmse_total": 9.782996759409134e-06
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "dt": 0.005,
+          "n_steps": 80,
+          "time_integrator": "crank_nicolson"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_allen_cahn_stronger_reaction",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00011824147873372803,
+      "time": 4.5528130531311035,
+      "oracle_error": 0.0002433208042981708,
+      "oracle_time": 112.58466275036335,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.002433208042981708,
+      "target_time": 337.75398825109005,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.7253047864289567e-05,
+        "mae": 1.5058155499568161e-05,
+        "r2": 0.9999998962597866,
+        "frmse_low": 4.2000688608141805e-05,
+        "frmse_mid": 2.9524229867024633e-07,
+        "frmse_high": 1.4914746289060338e-07,
+        "frmse_total": 1.7253047864289567e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.002,
+          "n_steps": 50,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_logistic_high_rho",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0002645217826299048,
+      "time": 3.556871175765991,
+      "oracle_error": 0.0002669078373907324,
+      "oracle_time": 92.395965334028,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0026690783739073244,
+      "target_time": 277.187896002084,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 7.677605784375512e-05,
+        "mae": 6.985979598811696e-05,
+        "r2": 0.9999964803963389,
+        "frmse_low": 0.00018636265457426372,
+        "frmse_mid": 1.0480971863274887e-06,
+        "frmse_high": 8.567902767495639e-08,
+        "frmse_total": 7.677605784375512e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.005,
+          "n_steps": 40,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_cubic_softening",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00018275933612935236,
+      "time": 4.581455230712891,
+      "oracle_error": 0.0006230775730779629,
+      "oracle_time": 118.26737366616726,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.006230775730779629,
+      "target_time": 354.8021209985018,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.0522483791738592e-05,
+        "mae": 8.397855650680183e-06,
+        "r2": 0.999999966599025,
+        "frmse_low": 2.5087905850469483e-05,
+        "frmse_mid": 2.8534679227938234e-07,
+        "frmse_high": 5.287199487981345e-07,
+        "frmse_total": 1.052248379173859e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.005,
+          "n_steps": 50,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_transient_linear_time_decay",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0029156357709188606,
+      "time": 0.4141356945037842,
+      "oracle_error": 0.0027761667845058358,
+      "oracle_time": 31.150412166956812,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.027761667845058357,
+      "target_time": 93.45123650087044,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0009609178095578643,
+        "mae": 0.0007655474211401047,
+        "r2": 0.9999767286239534,
+        "frmse_low": 0.0022915695920485805,
+        "frmse_mid": 4.579075177069869e-06,
+        "frmse_high": 1.2986844463090384e-07,
+        "frmse_total": 0.000960917809557864
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "dt": 0.02,
+          "n_steps": 20,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_transient_allen_cahn_time",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0005927919473346034,
+      "time": 1.6084537506103516,
+      "oracle_error": 0.00020940394098585379,
+      "oracle_time": 25.900605957955122,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.002094039409858538,
+      "target_time": 77.70181787386537,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.0237120731710735e-05,
+        "mae": 4.0085814559536467e-05,
+        "r2": 0.9999996485977072,
+        "frmse_low": 0.00012194536909488146,
+        "frmse_mid": 5.110439415253701e-07,
+        "frmse_high": 2.525148664659679e-07,
+        "frmse_total": 5.0237120731710735e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.02,
+          "n_steps": 15,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_no_exact_sign_changing_source_allen_cahn",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0031837977210736985,
+      "time": 3.6158578395843506,
+      "oracle_error": 0.003674765944233569,
+      "oracle_time": 256.646980333142,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.03674765944233569,
+      "target_time": 769.940940999426,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0005406128600527069,
+        "mae": 0.00041129144529929114,
+        "r2": 0.9999898634320713,
+        "frmse_low": 0.0012895885055010943,
+        "frmse_mid": 8.29891830734111e-06,
+        "frmse_high": 4.749596184062517e-06,
+        "frmse_total": 0.0005406128600527069
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.005,
+          "n_steps": 40,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_no_exact_localized_sink_logistic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.007226657894094033,
+      "time": 3.096940755844116,
+      "oracle_error": 0.007164123479841942,
+      "oracle_time": 304.7661275831051,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.07164123479841941,
+      "target_time": 914.2983827493154,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0009950295380560564,
+        "mae": 0.0008692411200884513,
+        "r2": 0.9998717330668433,
+        "frmse_low": 0.002422455936441861,
+        "frmse_mid": 8.44548464278187e-06,
+        "frmse_high": 2.0248349913959545e-06,
+        "frmse_total": 0.000995029538056056
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0285714285714285,
+          "newton_iterations_max": 3,
+          "dt": 0.01,
+          "n_steps": 35,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_no_exact_quadrilateral_logistic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0011053677667444042,
+      "time": 2.5548839569091797,
+      "oracle_error": 0.0010393959675430368,
+      "oracle_time": 179.10871875006706,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.010393959675430369,
+      "target_time": 537.3261562502012,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00026555122672044,
+        "mae": 0.00022668138142748262,
+        "r2": 0.9999955259927785,
+        "frmse_low": 0.0006445920047798206,
+        "frmse_mid": 3.1654853172150426e-06,
+        "frmse_high": 1.215130496682305e-06,
+        "frmse_total": 0.00026555122672044005
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 30,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "reaction_diffusion_no_exact_multifrequency_source_linear",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.009512900093002024,
+      "time": 0.38544178009033203,
+      "oracle_error": 0.009214673218958207,
+      "oracle_time": 123.40920950006694,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.09214673218958207,
+      "target_time": 370.2276285002008,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0011928897671661053,
+        "mae": 0.0009545759101359523,
+        "r2": 0.9997479197561405,
+        "frmse_low": 0.002865648095382027,
+        "frmse_mid": 4.398811157383001e-06,
+        "frmse_high": 1.5882383783203542e-06,
+        "frmse_total": 0.0011928897671661053
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "dt": 0.01,
+          "n_steps": 50,
+          "time_integrator": "crank_nicolson"
+        }
+      }
+    },
+    {
+      "case_id": "rd_lshape_linear",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0004048433286742159,
+      "time": 0.5616331100463867,
+      "oracle_error": 0.000207083242140999,
+      "oracle_time": 20.510191708337516,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.00207083242140999,
+      "target_time": 61.53057512501255,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00018132710915219716,
+        "mae": 0.00014548443707378193,
+        "r2": 0.9999998234758527,
+        "frmse_low": 0.000375484801308336,
+        "frmse_mid": 1.1123288977656994e-06,
+        "frmse_high": 3.8688643550324126e-07,
+        "frmse_total": 0.00015703388292059655
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_lshape_logistic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0003209117747774427,
+      "time": 1.699498176574707,
+      "oracle_error": 0.00018149596290155268,
+      "oracle_time": 29.951404083054513,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0018149596290155268,
+      "target_time": 89.85421224916354,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00014663835576201416,
+        "mae": 0.00011545534205969151,
+        "r2": 0.9999998970156287,
+        "frmse_low": 0.0003035913334674511,
+        "frmse_mid": 3.6107282959034397e-06,
+        "frmse_high": 7.026052887122304e-07,
+        "frmse_total": 0.0001269925412590845
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_lshape_allencahn",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0021953489357904084,
+      "time": 1.9224977493286133,
+      "oracle_error": 0.002121444903981756,
+      "oracle_time": 26.804313959088176,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.02121444903981756,
+      "target_time": 80.41294187726453,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.9314189068991916e-05,
+        "mae": 4.871544936528005e-05,
+        "r2": 0.9999849225217503,
+        "frmse_low": 0.0001228228584073981,
+        "frmse_mid": 5.910416756202052e-07,
+        "frmse_high": 5.337761897252056e-08,
+        "frmse_total": 5.136759453862027e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_lshape_cubic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00022529931415864158,
+      "time": 1.90385103225708,
+      "oracle_error": 0.00023265566329677443,
+      "oracle_time": 25.82684399979189,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.002326556632967744,
+      "target_time": 77.48053199937567,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.113373814881893e-05,
+        "mae": 8.925896999383294e-06,
+        "r2": 0.9999998575236108,
+        "frmse_low": 2.3055033727055195e-05,
+        "frmse_mid": 9.44657236183488e-08,
+        "frmse_high": 8.794336165904516e-09,
+        "frmse_total": 9.642100075961122e-06
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_square_hole_linear",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00034617759771113826,
+      "time": 0.5748262405395508,
+      "oracle_error": 0.00035726983656652554,
+      "oracle_time": 25.690763082820922,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0035726983656652555,
+      "target_time": 77.07228924846277,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00025791890197580594,
+        "mae": 0.00020411425248790014,
+        "r2": 0.9999995948586425,
+        "frmse_low": 0.0005777019487149748,
+        "frmse_mid": 4.025511812725875e-06,
+        "frmse_high": 1.025368507692353e-06,
+        "frmse_total": 0.00024161922028854694
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_square_rect_hole_logistic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0004109584072446766,
+      "time": 1.9640581607818604,
+      "oracle_error": 0.00046619280388571926,
+      "oracle_time": 28.108096832875162,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.004661928038857193,
+      "target_time": 84.32429049862549,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00019015536277021397,
+        "mae": 0.0001554744910410015,
+        "r2": 0.9999995245755967,
+        "frmse_low": 0.00044549297021697075,
+        "frmse_mid": 1.593785069488458e-06,
+        "frmse_high": 2.460069093817183e-07,
+        "frmse_total": 0.00018631344425634137
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 1.9,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_multihole_3_allencahn",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00034285324050106536,
+      "time": 2.113699197769165,
+      "oracle_error": 0.00017736808433951767,
+      "oracle_time": 20.126392582897097,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0017736808433951767,
+      "target_time": 60.37917774869129,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00014744346200290078,
+        "mae": 0.0001139318016604048,
+        "r2": 0.9999998824060934,
+        "frmse_low": 0.0003353170183229962,
+        "frmse_mid": 2.091859689252641e-06,
+        "frmse_high": 7.782147233960657e-07,
+        "frmse_total": 0.00014024190899567627
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_multihole_5_cubic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 5.268292081681038e-05,
+      "time": 2.343505859375,
+      "oracle_error": 3.568067216958507e-05,
+      "oracle_time": 28.639768541324884,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.00035680672169585074,
+      "target_time": 85.91930562397465,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.514458775428702e-05,
+        "mae": 2.1045549681154502e-05,
+        "r2": 0.9999999972245098,
+        "frmse_low": 5.8952380376552644e-05,
+        "frmse_mid": 8.214011898068084e-07,
+        "frmse_high": 2.9923071899917645e-07,
+        "frmse_total": 2.466221365138145e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_annulus_linear",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0003424555120370034,
+      "time": 0.4947178363800049,
+      "oracle_error": 0.00029114942680709806,
+      "oracle_time": 32.56127137504518,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0029114942680709805,
+      "target_time": 97.68381412513554,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00017241801110967224,
+        "mae": 0.00013689366906604995,
+        "r2": 0.9999998827242222,
+        "frmse_low": 0.00033092986521405274,
+        "frmse_mid": 2.1325804586488795e-06,
+        "frmse_high": 8.61286851778314e-07,
+        "frmse_total": 0.000138407746263176
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_annulus_logistic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0003589368490214486,
+      "time": 4.32865309715271,
+      "oracle_error": 0.0003590579476004177,
+      "oracle_time": 31.726200458593667,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.003590579476004177,
+      "target_time": 95.178601375781,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 7.577746288625041e-05,
+        "mae": 6.370132657173894e-05,
+        "r2": 0.9999998711643384,
+        "frmse_low": 0.0001372357291083858,
+        "frmse_mid": 1.8453097228521023e-06,
+        "frmse_high": 9.087585013171033e-07,
+        "frmse_total": 5.7411118330579774e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_gear_8teeth_allencahn",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00032299066423727705,
+      "time": 2.6330249309539795,
+      "oracle_error": 0.000274208315529425,
+      "oracle_time": 21.588554750196636,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.00274208315529425,
+      "target_time": 64.76566425058991,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00013277618145935614,
+        "mae": 0.00010414651184795196,
+        "r2": 0.9999998956770308,
+        "frmse_low": 0.00023248707998955488,
+        "frmse_mid": 2.3565934596516924e-06,
+        "frmse_high": 7.646532266859837e-07,
+        "frmse_total": 9.724439060570286e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_gear_12teeth_cubic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00035623631646699325,
+      "time": 5.033561944961548,
+      "oracle_error": 0.00036121346728567645,
+      "oracle_time": 31.29907975019887,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0036121346728567646,
+      "target_time": 93.89723925059661,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.000267179162829599,
+        "mae": 0.00025047427572470884,
+        "r2": 0.9999962570713692,
+        "frmse_low": 0.0004913485678833956,
+        "frmse_mid": 3.324325208666044e-06,
+        "frmse_high": 1.2214503476504077e-06,
+        "frmse_total": 0.0002055022907604013
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_tjunction_linear",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0002574307829197228,
+      "time": 0.4043421745300293,
+      "oracle_error": 0.00020766620970595653,
+      "oracle_time": 20.14408987481147,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.002076662097059565,
+      "target_time": 60.43226962443441,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00012441193315889035,
+        "mae": 9.177767938334495e-05,
+        "r2": 0.9999998332562918,
+        "frmse_low": 0.00017847398353619924,
+        "frmse_mid": 1.452735212311937e-06,
+        "frmse_high": 1.8447786176844122e-07,
+        "frmse_total": 7.464715989533422e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_tjunction_logistic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0008336269777607183,
+      "time": 1.1493608951568604,
+      "oracle_error": 0.0007856839612874662,
+      "oracle_time": 23.852616582997143,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.007856839612874662,
+      "target_time": 71.55784974899143,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0003441250534709241,
+        "mae": 0.00021912253598040183,
+        "r2": 0.9999993050660619,
+        "frmse_low": 0.0004935432428964072,
+        "frmse_mid": 7.234672758378286e-06,
+        "frmse_high": 2.2517210719077397e-06,
+        "frmse_total": 0.00020647503208255449
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_tjunction_allencahn",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00015923494768916303,
+      "time": 1.0188231468200684,
+      "oracle_error": 0.00018554629750777856,
+      "oracle_time": 29.734235833398998,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0018554629750777857,
+      "target_time": 89.202707500197,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.555515024790137e-07,
+        "mae": 4.231161717705094e-07,
+        "r2": 0.9999999295483205,
+        "frmse_low": 7.969410741280276e-07,
+        "frmse_mid": 7.258812247910305e-09,
+        "frmse_high": 9.54153534915509e-10,
+        "frmse_total": 3.333309014874083e-07
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "newton_iterations_mean": 1.0,
+          "newton_iterations_max": 1,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_eccentric_linear",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00033299240742537095,
+      "time": 0.4768960475921631,
+      "oracle_error": 0.00015864120866046198,
+      "oracle_time": 20.127509790938348,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.00158641208660462,
+      "target_time": 60.38252937281504,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00017099884416710374,
+        "mae": 0.000138249406261846,
+        "r2": 0.9999998891160566,
+        "frmse_low": 0.0003279572146561022,
+        "frmse_mid": 1.7895223124347462e-06,
+        "frmse_high": 8.048923464230457e-07,
+        "frmse_total": 0.00013716196655105497
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_eccentric_logistic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00021857853349247235,
+      "time": 1.6085350513458252,
+      "oracle_error": 0.0001557366835240818,
+      "oracle_time": 20.478806958068162,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.001557366835240818,
+      "target_time": 61.43642087420449,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 9.133363399542228e-05,
+        "mae": 7.041492828846154e-05,
+        "r2": 0.9999999427492705,
+        "frmse_low": 0.00017515748119809778,
+        "frmse_mid": 1.467439739148792e-06,
+        "frmse_high": 4.0966696721640093e-07,
+        "frmse_total": 7.326073408323315e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_eccentric_cubic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0011056823466915576,
+      "time": 1.7186639308929443,
+      "oracle_error": 0.0011327646426373403,
+      "oracle_time": 28.066292707808316,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.011327646426373404,
+      "target_time": 84.19887812342495,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0005078817845864578,
+        "mae": 0.0003972912137109114,
+        "r2": 0.9999968845067897,
+        "frmse_low": 0.0009740044419738538,
+        "frmse_mid": 7.967896006587236e-06,
+        "frmse_high": 3.113148348710547e-06,
+        "frmse_total": 0.00040738324687892387
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_dumbbell_linear",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0002759399988951808,
+      "time": 0.4316139221191406,
+      "oracle_error": 0.0002593147197563531,
+      "oracle_time": 1.0076203332282603,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.002593147197563531,
+      "target_time": 3.022860999684781,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00015514832937659807,
+        "mae": 0.0001336457328949124,
+        "r2": 0.9999995577160565,
+        "frmse_low": 0.00030146556634814216,
+        "frmse_mid": 1.530516854573041e-06,
+        "frmse_high": 5.535713978086401e-07,
+        "frmse_total": 0.00012608128772008132
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_dumbbell_logistic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00016411249881784576,
+      "time": 1.1735601425170898,
+      "oracle_error": 0.00013740858521077472,
+      "oracle_time": 20.288237790577114,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0013740858521077471,
+      "target_time": 60.86471337173134,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.316938256639163e-05,
+        "mae": 2.5854187938497684e-05,
+        "r2": 0.9999999730670878,
+        "frmse_low": 6.731355439570505e-05,
+        "frmse_mid": 4.1238835208138854e-07,
+        "frmse_high": 1.7093815414470207e-07,
+        "frmse_total": 2.8152971421460976e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_dumbbell_allencahn",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0003042767326396672,
+      "time": 1.0903949737548828,
+      "oracle_error": 0.00031844222543025606,
+      "oracle_time": 17.745317957829684,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0031844222543025605,
+      "target_time": 53.23595387348905,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.259826436146491e-05,
+        "mae": 6.189880805505583e-05,
+        "r2": 0.9999996970296233,
+        "frmse_low": 0.0001570561506977239,
+        "frmse_mid": 7.787671024983664e-07,
+        "frmse_high": 2.5870135595867004e-07,
+        "frmse_total": 6.568509800131933e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_periodic_linear",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0004150298309859092,
+      "time": 0.6239790916442871,
+      "oracle_error": 0.00021425320043290475,
+      "oracle_time": 1.9083977499976754,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0021425320043290475,
+      "target_time": 5.725193249993026,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0001858895877352095,
+        "mae": 0.0001491445537372034,
+        "r2": 0.9999998277502394,
+        "frmse_low": 0.0004444817593577,
+        "frmse_mid": 1.3214156910039957e-06,
+        "frmse_high": 4.985315126465101e-07,
+        "frmse_total": 0.00018588958773520952
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_periodic_logistic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00028585635623082736,
+      "time": 2.123018741607666,
+      "oracle_error": 0.00016563883766226742,
+      "oracle_time": 2.6283100000582635,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0016563883766226742,
+      "target_time": 7.884930000174791,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00013062003128704006,
+        "mae": 9.869037921436194e-05,
+        "r2": 0.9999999182861404,
+        "frmse_low": 0.0003123117438103602,
+        "frmse_mid": 1.9939148898488386e-06,
+        "frmse_high": 1.3295841746525063e-07,
+        "frmse_total": 0.0001306200312870401
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_periodic_cubic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00020575414486545494,
+      "time": 2.3704607486724854,
+      "oracle_error": 0.0007387615067761684,
+      "oracle_time": 29.37570970831439,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0073876150677616844,
+      "target_time": 88.12712912494317,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 9.308237012753321e-05,
+        "mae": 7.211730572422691e-05,
+        "r2": 0.9999999576652319,
+        "frmse_low": 0.00022254132312303325,
+        "frmse_mid": 1.5076858215093447e-06,
+        "frmse_high": 2.0586763801191747e-06,
+        "frmse_total": 9.308237012753324e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_annulus_cubic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00033243796407908185,
+      "time": 1.4746677875518799,
+      "oracle_error": 0.0002855848343323301,
+      "oracle_time": 18.823147792369127,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0028558483433233006,
+      "target_time": 56.46944337710738,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00017013409042229802,
+        "mae": 0.0001539681140685717,
+        "r2": 0.9999990611660995,
+        "frmse_low": 0.0003026692089039388,
+        "frmse_mid": 1.8407348580258913e-06,
+        "frmse_high": 7.32982421252701e-07,
+        "frmse_total": 0.00012658708065797333
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_gear_6teeth_logistic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0001244850571316028,
+      "time": 2.166940927505493,
+      "oracle_error": 6.831881307976791e-05,
+      "oracle_time": 19.310256958007812,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.000683188130797679,
+      "target_time": 57.93077087402344,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 6.0097893606312845e-05,
+        "mae": 4.782137679978073e-05,
+        "r2": 0.9999999596453951,
+        "frmse_low": 0.000100426949217842,
+        "frmse_mid": 1.646959150669416e-07,
+        "frmse_high": 6.467111416536966e-08,
+        "frmse_total": 4.199978605770782e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_gear_10teeth_linear",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0003569789052469947,
+      "time": 0.6603257656097412,
+      "oracle_error": 0.0003072065034495158,
+      "oracle_time": 2.471648583188653,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.003072065034495158,
+      "target_time": 7.414945749565959,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00016391883126538767,
+        "mae": 0.00013358696944430922,
+        "r2": 0.9999998725660612,
+        "frmse_low": 0.000285725953618855,
+        "frmse_mid": 2.9974080975587033e-06,
+        "frmse_high": 1.0661433133215423e-06,
+        "frmse_total": 0.00011951470257753685
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_eccentric_allencahn",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00036094175101089284,
+      "time": 1.6296601295471191,
+      "oracle_error": 0.0003092430191500042,
+      "oracle_time": 20.10606791684404,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0030924301915000417,
+      "target_time": 60.31820375053212,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00018076299346737057,
+        "mae": 0.00014574437101022645,
+        "r2": 0.9999998697210524,
+        "frmse_low": 0.0003528772688058946,
+        "frmse_mid": 2.028601422492314e-06,
+        "frmse_high": 8.375437720417055e-07,
+        "frmse_total": 0.00014758498632156305
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_eccentric_logistic_v2",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00010746793953533811,
+      "time": 6.216782093048096,
+      "oracle_error": 6.062632685321858e-05,
+      "oracle_time": 23.650209084153175,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0006062632685321859,
+      "target_time": 70.95062725245953,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.722862958943903e-05,
+        "mae": 4.6849966663379197e-05,
+        "r2": 0.9999999884361553,
+        "frmse_low": 0.00011425882774147048,
+        "frmse_mid": 8.297414065851405e-07,
+        "frmse_high": 3.8414760686930426e-07,
+        "frmse_total": 4.778847578610351e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_multihole_4_linear",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00042363914873619015,
+      "time": 0.5753037929534912,
+      "oracle_error": 0.0003695101185510582,
+      "oracle_time": 1.6401677504181862,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0036951011855105823,
+      "target_time": 4.920503251254559,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0001896256768168302,
+        "mae": 0.00013875755505777403,
+        "r2": 0.999999529228686,
+        "frmse_low": 0.00043518139044432084,
+        "frmse_mid": 1.5513329294148543e-06,
+        "frmse_high": 5.634472147295122e-07,
+        "frmse_total": 0.00018200114010728487
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_multihole_2_cubic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0003319657789625653,
+      "time": 2.242928981781006,
+      "oracle_error": 0.00028599486828251417,
+      "oracle_time": 30.681954875122756,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0028599486828251417,
+      "target_time": 92.04586462536827,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00015087383402201165,
+        "mae": 0.00011857109109341048,
+        "r2": 0.9999998897987216,
+        "frmse_low": 0.0003493628975343711,
+        "frmse_mid": 2.7529299669010626e-06,
+        "frmse_high": 1.0373348747046332e-06,
+        "frmse_total": 0.00014612191190018842
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_star_5_linear",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0002143171201050817,
+      "time": 0.44248032569885254,
+      "oracle_error": 0.00017547802299703325,
+      "oracle_time": 1.3825300000607967,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0017547802299703325,
+      "target_time": 4.14759000018239,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 7.056388368949904e-05,
+        "mae": 5.4526881280876955e-05,
+        "r2": 0.999999954068172,
+        "frmse_low": 8.749330011433438e-05,
+        "frmse_mid": 1.6528298697966227e-06,
+        "frmse_high": 6.143222860110914e-07,
+        "frmse_total": 3.661170911905253e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_star_6_cubic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00040178572624093435,
+      "time": 1.9241631031036377,
+      "oracle_error": 0.0003572079191753754,
+      "oracle_time": 20.664062917232513,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.003572079191753754,
+      "target_time": 61.99218875169754,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00020808593435079663,
+        "mae": 0.00016866877475531559,
+        "r2": 0.9999994873171677,
+        "frmse_low": 0.00028162531907713865,
+        "frmse_mid": 1.58837313532015e-06,
+        "frmse_high": 6.00061315084187e-07,
+        "frmse_total": 0.00011778472671070707
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_star_7_allencahn",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 7.736324861621721e-05,
+      "time": 1.8507540225982666,
+      "oracle_error": 4.508993186151647e-05,
+      "oracle_time": 25.80605720821768,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0004508993186151647,
+      "target_time": 77.41817162465304,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.768518707269961e-05,
+        "mae": 2.9692422174985976e-05,
+        "r2": 0.9999999940149278,
+        "frmse_low": 5.126373652270053e-05,
+        "frmse_mid": 6.187806216942554e-07,
+        "frmse_high": 2.547674148503436e-07,
+        "frmse_total": 2.1444162901341562e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_star_8_logistic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 4.996832519384059e-05,
+      "time": 1.693100929260254,
+      "oracle_error": 4.6886576090679465e-05,
+      "oracle_time": 2.1332283336669207,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.00046886576090679466,
+      "target_time": 6.399685001000762,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.868252059743314e-05,
+        "mae": 1.3624833202130991e-05,
+        "r2": 0.9999999975031665,
+        "frmse_low": 2.5552244825400603e-05,
+        "frmse_mid": 5.094846156012448e-07,
+        "frmse_high": 2.0961939773682123e-07,
+        "frmse_total": 1.0693193267502605e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_circle_cubic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0004173003662820357,
+      "time": 1.689943790435791,
+      "oracle_error": 0.0003707888668318606,
+      "oracle_time": 2.5694725420325994,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.003707888668318606,
+      "target_time": 7.708417626097798,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00023392500592863322,
+        "mae": 0.0002084767227615867,
+        "r2": 0.9999986773609508,
+        "frmse_low": 0.000441420074966924,
+        "frmse_mid": 1.0387151205497713e-06,
+        "frmse_high": 4.3685720725191743e-07,
+        "frmse_total": 0.0001846081844088102
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_circle_allencahn",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0005020486249275055,
+      "time": 7.745017051696777,
+      "oracle_error": 0.0004876956640193425,
+      "oracle_time": 41.13744020834565,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.004876956640193425,
+      "target_time": 123.41232062503695,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00025598256837999783,
+        "mae": 0.00022626270989781075,
+        "r2": 0.9999988271409638,
+        "frmse_low": 0.0005359855858123557,
+        "frmse_mid": 1.1625701316076598e-06,
+        "frmse_high": 5.33424956852233e-07,
+        "frmse_total": 0.00022415655544975128
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_circle_logistic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 8.086334692438068e-05,
+      "time": 1.4231278896331787,
+      "oracle_error": 4.621382119768176e-05,
+      "oracle_time": 20.48042208282277,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0004621382119768176,
+      "target_time": 61.44126624846831,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.720762991986931e-05,
+        "mae": 3.064585739782259e-05,
+        "r2": 0.9999999934611191,
+        "frmse_low": 6.240145870517682e-05,
+        "frmse_mid": 3.699524974222414e-07,
+        "frmse_high": 1.4653101739303995e-07,
+        "frmse_total": 2.609844057281863e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_sector_quarter_linear",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.0004628597117644554,
+      "time": 0.5567269325256348,
+      "oracle_error": 0.0004068460042367346,
+      "oracle_time": 1.6131469998508692,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.004068460042367346,
+      "target_time": 4.8394409995526075,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0002297893205207617,
+        "mae": 0.0001893645259410801,
+        "r2": 0.9999992671896407,
+        "frmse_low": 0.0003997045964965118,
+        "frmse_mid": 1.1136167810384805e-06,
+        "frmse_high": 5.328957804474552e-07,
+        "frmse_total": 0.00016716284683504935
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_sector_half_cubic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00041658325617419063,
+      "time": 3.661855936050415,
+      "oracle_error": 0.00037017827956455426,
+      "oracle_time": 4.941301167011261,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0037017827956455428,
+      "target_time": 14.823903501033783,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00020673181388885948,
+        "mae": 0.00017255619111509234,
+        "r2": 0.9999998264583907,
+        "frmse_low": 0.0003751481494659284,
+        "frmse_mid": 1.99777866722517e-06,
+        "frmse_high": 9.517377443908327e-07,
+        "frmse_total": 0.0001568984152096386
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_sector_sixty_allencahn",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 9.455684690319874e-05,
+      "time": 1.7316441535949707,
+      "oracle_error": 8.249823951405358e-05,
+      "oracle_time": 23.38425845792517,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0008249823951405358,
+      "target_time": 70.15277537377551,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.087384647203658e-05,
+        "mae": 4.4166123850912135e-05,
+        "r2": 0.9999999562002861,
+        "frmse_low": 7.23728331833821e-05,
+        "frmse_mid": 4.372541617788391e-07,
+        "frmse_high": 1.6726442367567845e-07,
+        "frmse_total": 3.0268869853705533e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    },
+    {
+      "case_id": "rd_sector_120_logistic",
+      "equation_type": "reaction_diffusion",
+      "status": "PASS",
+      "error": 0.00010367327899483405,
+      "time": 2.4418938159942627,
+      "oracle_error": 9.048673589029152e-05,
+      "oracle_time": 29.598770750220865,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0009048673589029152,
+      "target_time": 88.7963122506626,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.513332422462057e-05,
+        "mae": 3.323273124845731e-05,
+        "r2": 0.9999999817265187,
+        "frmse_low": 7.625109712327146e-05,
+        "frmse_mid": 5.577488849610913e-07,
+        "frmse_high": 1.9003551476211112e-07,
+        "frmse_total": 3.189173193656101e-05
+      },
+      "math_types": [
+        "reaction_diffusion"
+      ],
+      "math_type_metrics": {
+        "reaction_diffusion": {
+          "mesh_resolution": 50,
+          "element_degree": 3,
+          "linear_iterations": 2,
+          "newton_iterations_mean": 2.0,
+          "newton_iterations_max": 2,
+          "dt": 0.01,
+          "n_steps": 10,
+          "time_integrator": "backward_euler"
+        }
+      }
+    }
+  ]
+}

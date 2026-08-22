@@ -1,0 +1,1960 @@
+{
+  "agent_name": "gpt-5.1",
+  "timestamp": "2026-08-21T20:51:47.845164",
+  "total_cases": 42,
+  "passed_cases": 42,
+  "pass_rate": 1.0,
+  "avg_error": 0.0035428207097936387,
+  "avg_time": 1.021649059795198,
+  "avg_universal_metrics": {
+    "rmse": 7.782794400700338e-05,
+    "mae": 5.9389606510376004e-05,
+    "r2": 0.9999161352680285,
+    "frmse_low": 0.00014704005911328182,
+    "frmse_mid": 4.956993315500427e-06,
+    "frmse_high": 3.933217712531621e-06,
+    "frmse_total": 6.187921213937304e-05
+  },
+  "equation_type_summary": {
+    "wave": {
+      "cases": 42,
+      "passed": 42,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "avg_error": 0.0035428207097936387,
+      "avg_time": 1.021649059795198,
+      "avg_universal_metrics": {
+        "rmse": 7.782794400700338e-05,
+        "mae": 5.9389606510376004e-05,
+        "r2": 0.9999161352680285,
+        "frmse_low": 0.00014704005911328182,
+        "frmse_mid": 4.956993315500427e-06,
+        "frmse_high": 3.933217712531621e-06,
+        "frmse_total": 6.187921213937304e-05
+      }
+    }
+  },
+  "math_type_summary": {
+    "hyperbolic": {
+      "cases": 42,
+      "passed": 42,
+      "pass_rate": 1.0,
+      "avg_metrics": {
+        "mesh_resolution": 32.0,
+        "element_degree": 3.0,
+        "dt": 0.005000000000000003,
+        "n_steps": 42.857142857142854,
+        "linear_iterations": 5.928571428571429
+      }
+    }
+  },
+  "gate_statistics": {
+    "total_cases": 42,
+    "exec_valid_count": 42,
+    "accuracy_pass_count": 42,
+    "time_pass_count": 42,
+    "final_pass_count": 42,
+    "exec_valid_rate": 1.0,
+    "accuracy_pass_rate": 1.0,
+    "time_pass_rate": 1.0,
+    "final_pass_rate": 1.0,
+    "accuracy_pass_rate_given_exec": 1.0,
+    "time_pass_rate_given_accuracy": 1.0,
+    "failure_breakdown": {},
+    "failure_breakdown_pct": {}
+  },
+  "cost_analysis": {},
+  "multi_attempt_stats": null,
+  "results": [
+    {
+      "case_id": "wave_lshape_trig_cos",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 1.269152283132689e-06,
+      "time": 0.7911078929901123,
+      "oracle_error": 0.0014678569046051384,
+      "oracle_time": 53.23729383293539,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.014678569046051384,
+      "target_time": 159.71188149880618,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.786384913863521e-07,
+        "mae": 4.6098228373803835e-07,
+        "r2": 0.9999999999954788,
+        "frmse_low": 1.1223296572299577e-06,
+        "frmse_mid": 5.6233581408060843e-08,
+        "frmse_high": 3.1095492269410827e-07,
+        "frmse_total": 5.011156331480841e-07
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 4,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_lshape_exp_decay",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 2.1166694240861683e-06,
+      "time": 0.6393978595733643,
+      "oracle_error": 0.0005928113968334486,
+      "oracle_time": 80.94149583298713,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.005928113968334486,
+      "target_time": 242.8244874989614,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.396562518427122e-07,
+        "mae": 6.739138991660577e-07,
+        "r2": 0.9999999999952143,
+        "frmse_low": 3.094812205456661e-07,
+        "frmse_mid": 3.6158453499318083e-07,
+        "frmse_high": 1.1017934487156786e-06,
+        "frmse_total": 6.717250014741698e-07
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 60,
+          "linear_iterations": 9,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_lshape_poly_spatial",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 7.711654192082041e-08,
+      "time": 2.233957052230835,
+      "oracle_error": 0.00018767822873705142,
+      "oracle_time": 60.14146591722965,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0018767822873705141,
+      "target_time": 180.42439775168896,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.1589755284472851e-07,
+        "mae": 9.909880414668374e-08,
+        "r2": 0.999999999999855,
+        "frmse_low": 2.3999682006722534e-07,
+        "frmse_mid": 6.234364109947247e-10,
+        "frmse_high": 1.3527607165947273e-10,
+        "frmse_total": 1.0037022499998433e-07
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 4,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_lshape_modulated",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 2.779186081876335e-06,
+      "time": 2.264657735824585,
+      "oracle_error": 8.414268374507953e-06,
+      "oracle_time": 76.44785904185846,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 8.414268374507953e-05,
+      "target_time": 229.3435771255754,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.8445613244511988e-06,
+        "mae": 1.437357182787e-06,
+        "r2": 0.99999999997832,
+        "frmse_low": 3.770406613202305e-06,
+        "frmse_mid": 8.28351459280314e-08,
+        "frmse_high": 4.528869450821615e-07,
+        "frmse_total": 1.5974369658130084e-06
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 50,
+          "linear_iterations": 5,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_lshape_source_sinusoidal",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 0.010706612908429274,
+      "time": 0.7750630378723145,
+      "oracle_error": 0.010318803835829487,
+      "oracle_time": 26.08791970834136,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.10318803835829488,
+      "target_time": 78.26375912502408,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.583202819170539e-05,
+        "mae": 6.759488465785866e-05,
+        "r2": 0.9996849145296026,
+        "frmse_low": 0.00017765218855047977,
+        "frmse_mid": 2.752790183674973e-06,
+        "frmse_high": 2.221966658400488e-06,
+        "frmse_total": 7.433271687235899e-05
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 4,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_lshape_source_gaussian",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 0.011751777281967482,
+      "time": 0.6665899753570557,
+      "oracle_error": 0.011536369340014055,
+      "oracle_time": 30.65068933321163,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.11536369340014055,
+      "target_time": 91.95206799963489,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00030013762374782484,
+        "mae": 0.00018180358295064668,
+        "r2": 0.9997816472525167,
+        "frmse_low": 0.000573806405904832,
+        "frmse_mid": 9.22504945074407e-06,
+        "frmse_high": 8.505651244980336e-06,
+        "frmse_total": 0.0002401100989982599
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 9,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_multiconn_circ_trig",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 3.3946145969255216e-06,
+      "time": 0.8045210838317871,
+      "oracle_error": 0.00031272107473918036,
+      "oracle_time": 59.30194945912808,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0031272107473918035,
+      "target_time": 177.90584837738425,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.7279861710173082e-06,
+        "mae": 1.3311445393224192e-06,
+        "r2": 0.9999999999884766,
+        "frmse_low": 1.0057000938611538e-06,
+        "frmse_mid": 2.0713745326442326e-06,
+        "frmse_high": 8.083392691421478e-07,
+        "frmse_total": 1.6187827573403623e-06
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 5,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_multiconn_poly_exp",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 3.672397382165571e-07,
+      "time": 1.0513107776641846,
+      "oracle_error": 6.321687628712369e-05,
+      "oracle_time": 77.70656633377075,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0006321687628712369,
+      "target_time": 233.11969900131226,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.6671876801507846e-07,
+        "mae": 1.3172722534091397e-07,
+        "r2": 0.9999999999998651,
+        "frmse_low": 1.2013833467555614e-07,
+        "frmse_mid": 2.0259717688717508e-07,
+        "frmse_high": 7.588831793837708e-08,
+        "frmse_total": 1.6047493342962735e-07
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 50,
+          "linear_iterations": 4,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_multiconn_triple_cos",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 6.63089038170369e-06,
+      "time": 0.9088730812072754,
+      "oracle_error": 0.003771808994044062,
+      "oracle_time": 61.00799329113215,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.037718089940440624,
+      "target_time": 183.02397987339646,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.4397503172171255e-06,
+        "mae": 1.8917690740608664e-06,
+        "r2": 0.999999999956021,
+        "frmse_low": 5.354022447443749e-06,
+        "frmse_mid": 5.841945336746487e-07,
+        "frmse_high": 6.498927711038893e-07,
+        "frmse_total": 2.3064352245791956e-06
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 9,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_multiconn_off_growing",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 3.140097222183355e-06,
+      "time": 2.6128880977630615,
+      "oracle_error": 0.0035105171297663295,
+      "oracle_time": 72.73209141707048,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.035105171297663294,
+      "target_time": 218.19627425121143,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.380202151601214e-07,
+        "mae": 1.7580894124225328e-07,
+        "r2": 0.9999999999734642,
+        "frmse_low": 5.43526199362972e-07,
+        "frmse_mid": 4.363772356345308e-08,
+        "frmse_high": 1.2883543564880775e-08,
+        "frmse_total": 2.2960007848113206e-07
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 4,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_multiconn_source_sin",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 0.007039688264396296,
+      "time": 0.9745140075683594,
+      "oracle_error": 0.006418954009038895,
+      "oracle_time": 51.9644232080318,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.06418954009038895,
+      "target_time": 155.8932696240954,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00010866429616863893,
+        "mae": 7.767286717821023e-05,
+        "r2": 0.9999501840274458,
+        "frmse_low": 0.00024084700874791183,
+        "frmse_mid": 2.474601708435771e-05,
+        "frmse_high": 1.6835712775506678e-05,
+        "frmse_total": 0.00010272081380308195
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 4,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_multiconn_source_gauss",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 0.009860269227647147,
+      "time": 2.4339451789855957,
+      "oracle_error": 0.010308978556087658,
+      "oracle_time": 40.71470429142937,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.10308978556087658,
+      "target_time": 122.14411287428811,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0002009234736504884,
+        "mae": 0.0001605376412412127,
+        "r2": 0.9997155146650072,
+        "frmse_low": 0.0004480542759092315,
+        "frmse_mid": 2.1416237740570695e-05,
+        "frmse_high": 1.5995129118942275e-05,
+        "frmse_total": 0.00018822572781288966
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 5,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_annulus_trig",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 1.5237374151941387e-06,
+      "time": 0.9286799430847168,
+      "oracle_error": 0.0015303774965441178,
+      "oracle_time": 75.80132000008598,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.015303774965441178,
+      "target_time": 227.40396000025794,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 6.943233656671451e-07,
+        "mae": 5.46551509595076e-07,
+        "r2": 0.9999999999976782,
+        "frmse_low": 1.256231816570219e-06,
+        "frmse_mid": 3.330361737881118e-07,
+        "frmse_high": 1.9049535544493204e-07,
+        "frmse_total": 5.873281616941695e-07
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 8,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_gear6_exp",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 3.026883116383304e-06,
+      "time": 3.453158140182495,
+      "oracle_error": 0.0005867001357099519,
+      "oracle_time": 102.6282351249829,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0058670013570995185,
+      "target_time": 307.8847053749487,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.0357930294447636e-06,
+        "mae": 8.322850454359893e-07,
+        "r2": 0.999999999990838,
+        "frmse_low": 5.034201871442478e-07,
+        "frmse_mid": 1.006821391712554e-06,
+        "frmse_high": 3.4954945908549823e-07,
+        "frmse_total": 7.818993978846958e-07
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 60,
+          "linear_iterations": 5,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_annulus_exp_profile",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 2.2894858046072616e-07,
+      "time": 0.8623969554901123,
+      "oracle_error": 0.0004175213577291683,
+      "oracle_time": 79.44960458297282,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.004175213577291683,
+      "target_time": 238.34881374891847,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.7661625956279038e-07,
+        "mae": 1.435981094576962e-07,
+        "r2": 0.9999999999999476,
+        "frmse_low": 2.4932738495451387e-07,
+        "frmse_mid": 1.433378713425456e-07,
+        "frmse_high": 4.8271494900703993e-08,
+        "frmse_total": 1.4939970074986993e-07
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 9,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_gear8_modulated",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 5.93007104380813e-07,
+      "time": 1.1531660556793213,
+      "oracle_error": 1.3051321542592859e-06,
+      "oracle_time": 70.20272058434784,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.3051321542592859e-05,
+      "target_time": 210.60816175304353,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.2126923275029923e-07,
+        "mae": 2.491497916005977e-07,
+        "r2": 0.9999999999996484,
+        "frmse_low": 4.506370308263132e-07,
+        "frmse_mid": 1.9047645390523204e-07,
+        "frmse_high": 6.425381343869185e-08,
+        "frmse_total": 2.360837070881038e-07
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 4,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_annulus_source_sin",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 0.011153244065832388,
+      "time": 0.8773970603942871,
+      "oracle_error": 0.0105906454634104,
+      "oracle_time": 99.07333658309653,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.105906454634104,
+      "target_time": 297.2200097492896,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0003319822176160272,
+        "mae": 0.00027478011124142777,
+        "r2": 0.999875605146808,
+        "frmse_low": 0.0006709728353566135,
+        "frmse_mid": 1.3435174585559625e-05,
+        "frmse_high": 1.0694137715525149e-05,
+        "frmse_total": 0.00028082377063635874
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 8,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_gear10_source_gauss",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 0.012074768590502815,
+      "time": 1.074854850769043,
+      "oracle_error": 0.012030760851338008,
+      "oracle_time": 63.31978949997574,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.12030760851338008,
+      "target_time": 189.95936849992722,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00028667491280871696,
+        "mae": 0.00017691831703465764,
+        "r2": 0.9997694674226119,
+        "frmse_low": 0.0004889490497061042,
+        "frmse_mid": 1.0416910660908313e-06,
+        "frmse_high": 1.0656128904948057e-06,
+        "frmse_total": 0.00020447579255559626
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 8,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_tjunc_trig",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 3.972148605881649e-06,
+      "time": 0.6258609294891357,
+      "oracle_error": 0.00016846289500385613,
+      "oracle_time": 3.622681708075106,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0016846289500385614,
+      "target_time": 10.868045124225318,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.663458100611252e-06,
+        "mae": 1.2824817815893955e-06,
+        "r2": 0.9999999999826522,
+        "frmse_low": 8.041716000750316e-07,
+        "frmse_mid": 8.38001936196908e-07,
+        "frmse_high": 1.456807117244516e-06,
+        "frmse_total": 1.0586182528457197e-06
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 5,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_tjunc_exp_decay",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 3.3714768601060427e-07,
+      "time": 0.7017288208007812,
+      "oracle_error": 3.760523275570641e-05,
+      "oracle_time": 98.48405208392069,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0003760523275570641,
+      "target_time": 295.45215625176206,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.3327148495702326e-07,
+        "mae": 1.0659390490912237e-07,
+        "r2": 0.9999999999998627,
+        "frmse_low": 5.8808004103425205e-08,
+        "frmse_mid": 1.252033212984581e-07,
+        "frmse_high": 3.7461437308612064e-08,
+        "frmse_total": 9.610343451395502e-08
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 50,
+          "linear_iterations": 4,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_tjunc_cos2",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 1.3358467175761052e-06,
+      "time": 0.6783266067504883,
+      "oracle_error": 0.0017093934129622222,
+      "oracle_time": 40.40260216733441,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.01709393412962222,
+      "target_time": 121.20780650200322,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 7.923190941920222e-07,
+        "mae": 6.661063721157472e-07,
+        "r2": 0.9999999999916375,
+        "frmse_low": 1.1286388873713977e-06,
+        "frmse_mid": 7.979135886719403e-08,
+        "frmse_high": 3.054016808448509e-07,
+        "frmse_total": 5.042287839300857e-07
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 9,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_tjunc_growing",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 2.693781924059069e-06,
+      "time": 0.6295738220214844,
+      "oracle_error": 0.0007854895493845825,
+      "oracle_time": 75.65956425014883,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.007854895493845826,
+      "target_time": 226.9786927504465,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.610243667713034e-07,
+        "mae": 1.259509506192257e-07,
+        "r2": 0.9999999999923644,
+        "frmse_low": 1.5173077250980654e-07,
+        "frmse_mid": 6.569893437290945e-08,
+        "frmse_high": 1.1823122219509463e-07,
+        "frmse_total": 1.0247527951223256e-07
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 4,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_tjunc_source_sin",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 0.011796614931848467,
+      "time": 0.6326298713684082,
+      "oracle_error": 0.011601261539651278,
+      "oracle_time": 27.459238457959145,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.11601261539651278,
+      "target_time": 82.37771537387744,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0006735115117992396,
+        "mae": 0.0005501975800819234,
+        "r2": 0.9995312894942513,
+        "frmse_low": 0.0011596007487481173,
+        "frmse_mid": 2.795616329250281e-05,
+        "frmse_high": 3.093623959339892e-05,
+        "frmse_total": 0.00048567605808148563
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 9,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_tjunc_source_gauss",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 0.008935851181642394,
+      "time": 0.6215541362762451,
+      "oracle_error": 0.007957885039139767,
+      "oracle_time": 23.791285125073045,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.07957885039139767,
+      "target_time": 71.37385537521914,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0001602464060664786,
+        "mae": 0.00011485950789094505,
+        "r2": 0.9998430153210989,
+        "frmse_low": 0.00024318141983171808,
+        "frmse_mid": 8.048888574517023e-06,
+        "frmse_high": 8.722894449809043e-06,
+        "frmse_total": 0.00010198018835134214
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 4,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_eccann_trig",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 3.8876492432430945e-07,
+      "time": 0.5806970596313477,
+      "oracle_error": 0.00026997262079308826,
+      "oracle_time": 55.13835979066789,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0026997262079308825,
+      "target_time": 165.41507937200367,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.90570978951904e-07,
+        "mae": 1.5489647040159595e-07,
+        "r2": 0.999999999999325,
+        "frmse_low": 1.3154731410976073e-07,
+        "frmse_mid": 1.909887821163909e-07,
+        "frmse_high": 6.433777424143761e-08,
+        "frmse_total": 1.528849665756152e-07
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 4,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_eccann_exp_decay",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 1.294458501907743e-06,
+      "time": 0.809251070022583,
+      "oracle_error": 0.00045725366591051046,
+      "oracle_time": 106.69655216718093,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.004572536659105104,
+      "target_time": 320.0896565015428,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.7182767517041286e-07,
+        "mae": 3.760384596019291e-07,
+        "r2": 0.9999999999983241,
+        "frmse_low": 7.204236089601712e-07,
+        "frmse_mid": 3.0725076077227584e-07,
+        "frmse_high": 2.2326957233778546e-07,
+        "frmse_total": 3.9399729806313207e-07
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 60,
+          "linear_iterations": 9,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_eccann_cos3",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 5.668871201150231e-06,
+      "time": 0.7187850475311279,
+      "oracle_error": 0.0030129867154899746,
+      "oracle_time": 59.53535016672686,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.030129867154899747,
+      "target_time": 178.60605050018057,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.574368443280387e-06,
+        "mae": 2.021940695745462e-06,
+        "r2": 0.9999999999678191,
+        "frmse_low": 5.018563103833154e-06,
+        "frmse_mid": 1.30521273146295e-07,
+        "frmse_high": 7.87857183557069e-08,
+        "frmse_total": 2.101384912650531e-06
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 5,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_eccann_growing",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 1.2494238758024646e-06,
+      "time": 0.6068427562713623,
+      "oracle_error": 0.00041442165094828106,
+      "oracle_time": 85.65925137512386,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.004144216509482811,
+      "target_time": 256.9777541253716,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 6.38919006494586e-07,
+        "mae": 5.21131844859131e-07,
+        "r2": 0.9999999999983534,
+        "frmse_low": 5.734808856144334e-07,
+        "frmse_mid": 6.049499852695153e-07,
+        "frmse_high": 2.122969833506967e-07,
+        "frmse_total": 5.12570757046395e-07
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 50,
+          "linear_iterations": 5,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_eccann_source_sin",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 0.009307708855373006,
+      "time": 0.6183569431304932,
+      "oracle_error": 0.009505836715100722,
+      "oracle_time": 28.398174167145044,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.09505836715100721,
+      "target_time": 85.19452250143513,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00021303726376438077,
+        "mae": 0.00017468950415613595,
+        "r2": 0.9996802121302296,
+        "frmse_low": 0.00042425182766049515,
+        "frmse_mid": 1.567930697769496e-05,
+        "frmse_high": 1.1221917538978704e-05,
+        "frmse_total": 0.00017789568252776422
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 4,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_eccann_source_gauss",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 0.011074032535914057,
+      "time": 0.6042730808258057,
+      "oracle_error": 0.011251448953592903,
+      "oracle_time": 27.245170124806464,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.11251448953592903,
+      "target_time": 81.73551037441939,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 6.988295888520219e-05,
+        "mae": 5.738877117309213e-05,
+        "r2": 0.9996165765537234,
+        "frmse_low": 0.00013564894071731883,
+        "frmse_mid": 7.164486235552434e-06,
+        "frmse_high": 5.098425655311031e-06,
+        "frmse_total": 5.7034941680807635e-05
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 9,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_dumbbell_trig",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 3.1823391555012197e-06,
+      "time": 0.5419118404388428,
+      "oracle_error": 2.961528172110508e-05,
+      "oracle_time": 2.9981402093544602,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0002961528172110508,
+      "target_time": 8.99442062806338,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.4470089249244304e-06,
+        "mae": 1.1321706290766938e-06,
+        "r2": 0.9999999999898728,
+        "frmse_low": 7.994504341900693e-07,
+        "frmse_mid": 5.903254953775672e-07,
+        "frmse_high": 1.6412564522429096e-06,
+        "frmse_total": 1.054679929080771e-06
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 5,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_dumbbell_exp",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 7.384286417303361e-07,
+      "time": 0.5131328105926514,
+      "oracle_error": 1.5571020821133287e-05,
+      "oracle_time": 3.714393540751189,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.00015571020821133287,
+      "target_time": 11.143180622253567,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.3311763353827377e-07,
+        "mae": 1.0405978440617435e-07,
+        "r2": 0.9999999999994548,
+        "frmse_low": 3.8052468843591716e-08,
+        "frmse_mid": 5.948858228770738e-08,
+        "frmse_high": 1.5547945919483093e-07,
+        "frmse_total": 9.699360188780797e-08
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 50,
+          "linear_iterations": 4,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_dumbbell_cos",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 1.1041726142156966e-06,
+      "time": 0.5016069412231445,
+      "oracle_error": 0.00032666144885334247,
+      "oracle_time": 67.88022350007668,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.003266614488533425,
+      "target_time": 203.64067050023004,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.310347820125832e-07,
+        "mae": 6.336148899582646e-07,
+        "r2": 0.9999999999987808,
+        "frmse_low": 2.601377346314613e-07,
+        "frmse_mid": 6.065086372740386e-07,
+        "frmse_high": 6.511998294545141e-07,
+        "frmse_total": 5.766456166964479e-07
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 9,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_dumbbell_modulated",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 8.298778821290226e-07,
+      "time": 0.532005786895752,
+      "oracle_error": 1.1086700730919514e-07,
+      "oracle_time": 68.15327079128474,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.1086700730919514e-06,
+      "target_time": 204.45981237385422,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.0451060689736512e-07,
+        "mae": 1.556875718166986e-07,
+        "r2": 0.9999999999993113,
+        "frmse_low": 1.1125528097064389e-07,
+        "frmse_mid": 7.377953589860261e-08,
+        "frmse_high": 2.3798352684924412e-07,
+        "frmse_total": 1.490614388505192e-07
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 4,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_dumbbell_source_sin",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 0.010206031631503463,
+      "time": 0.5063838958740234,
+      "oracle_error": 0.0030698879814410845,
+      "oracle_time": 14.54656320810318,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.030698879814410846,
+      "target_time": 43.63968962430954,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0002794256097131942,
+        "mae": 0.0002663152041928264,
+        "r2": 0.9996259331600685,
+        "frmse_low": 0.00048618086206598995,
+        "frmse_mid": 2.5743355632470054e-05,
+        "frmse_high": 1.7103477585810938e-05,
+        "frmse_total": 0.0002035980930955109
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 4,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_dumbbell_source_gauss",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 0.011346857608286784,
+      "time": 0.4976952075958252,
+      "oracle_error": 0.006865034469708416,
+      "oracle_time": 14.738491457886994,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.06865034469708416,
+      "target_time": 44.21547437366098,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00023756701063969442,
+        "mae": 0.00017470597582217232,
+        "r2": 0.9997412792238949,
+        "frmse_low": 0.0003880284917261699,
+        "frmse_mid": 3.8647982871927046e-05,
+        "frmse_high": 2.1638289092255856e-05,
+        "frmse_total": 0.00016484505621448695
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 9,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_periodic_trig",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 1.945315856372272e-06,
+      "time": 0.8765511512756348,
+      "oracle_error": 0.000352870561705706,
+      "oracle_time": 36.92946529202163,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.00352870561705706,
+      "target_time": 110.7883958760649,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 9.437368091396825e-07,
+        "mae": 7.474262668300841e-07,
+        "r2": 0.9999999999962157,
+        "frmse_low": 3.9554233796932297e-07,
+        "frmse_mid": 3.2643445408026913e-07,
+        "frmse_high": 1.636524323394861e-06,
+        "frmse_total": 9.437368091396826e-07
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 4,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_periodic_exp_tall",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 2.207165573111698e-06,
+      "time": 1.2917859554290771,
+      "oracle_error": 0.0005580856529623341,
+      "oracle_time": 81.20394262485206,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.005580856529623341,
+      "target_time": 243.61182787455618,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.523076455893062e-07,
+        "mae": 6.795837388638419e-07,
+        "r2": 0.999999999994752,
+        "frmse_low": 2.7942655598462885e-07,
+        "frmse_mid": 2.482796827157483e-07,
+        "frmse_high": 1.4993665978385063e-06,
+        "frmse_total": 8.523076455893062e-07
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 50,
+          "linear_iterations": 5,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_periodic_cos2_wide",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 3.2450735363180454e-06,
+      "time": 1.4539079666137695,
+      "oracle_error": 0.0016044845710694964,
+      "oracle_time": 73.2017428749241,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.016044845710694963,
+      "target_time": 219.60522862477228,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.4976360909860598e-06,
+        "mae": 1.2000086866177955e-06,
+        "r2": 0.9999999999894695,
+        "frmse_low": 1.8282925270705418e-06,
+        "frmse_mid": 1.7335798655940265e-06,
+        "frmse_high": 5.31864906420111e-07,
+        "frmse_total": 1.4976360909860602e-06
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 9,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_periodic_modulated",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 1.9349831683059255e-06,
+      "time": 1.1086359024047852,
+      "oracle_error": 7.949627229779747e-07,
+      "oracle_time": 77.72519687516615,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 7.949627229779747e-06,
+      "target_time": 233.17559062549844,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.1481054372414817e-06,
+        "mae": 9.098209133168968e-07,
+        "r2": 0.9999999999962559,
+        "frmse_low": 3.977543334614637e-07,
+        "frmse_mid": 3.991822097874077e-07,
+        "frmse_high": 2.000863522083439e-06,
+        "frmse_total": 1.1481054372414817e-06
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 4,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_periodic_source_sin",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 0.011876296565659543,
+      "time": 0.9632880687713623,
+      "oracle_error": 0.01180299359450843,
+      "oracle_time": 47.70057804137468,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.11802993594508429,
+      "target_time": 143.10173412412405,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00011416944635989479,
+        "mae": 9.160146252195385e-05,
+        "r2": 0.9998589535798845,
+        "frmse_low": 0.0002729930461449646,
+        "frmse_mid": 6.041880655796956e-07,
+        "frmse_high": 2.1001623803608038e-07,
+        "frmse_total": 0.00011416944635989478
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 9,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    },
+    {
+      "case_id": "wave_periodic_source_gauss",
+      "equation_type": "wave",
+      "status": "PASS",
+      "error": 0.011611440819978823,
+      "time": 1.7879960536956787,
+      "oracle_error": 0.011507508078616148,
+      "oracle_time": 83.23296983307227,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.11507508078616148,
+      "target_time": 249.69890949921682,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00018285644082253794,
+        "mae": 0.00010650716392610801,
+        "r2": 0.9998030889808001,
+        "frmse_low": 0.0004378928880323076,
+        "frmse_mid": 2.756501184624548e-07,
+        "frmse_high": 2.919862833792706e-08,
+        "frmse_total": 0.00018285644082253794
+      },
+      "math_types": [
+        "hyperbolic"
+      ],
+      "math_type_metrics": {
+        "hyperbolic": {
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "dt": 0.005,
+          "n_steps": 40,
+          "linear_iterations": 4,
+          "time_integrator": "newmark_average_acceleration"
+        }
+      }
+    }
+  ]
+}

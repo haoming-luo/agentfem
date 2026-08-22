@@ -117,11 +117,41 @@ def freeze_evidence(
     return manifest_path
 
 
+def verify_evidence(directory: Path) -> dict[str, object]:
+    """Verify every sealed artifact and the normalized result totals."""
+
+    root = directory.resolve()
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    if manifest.get("schema") != "agentfem.pdeagent-bench-evidence.v1":
+        raise ValueError(f"Unsupported evidence schema in {manifest_path}.")
+    for relative, expected in (manifest.get("artifacts") or {}).items():
+        artifact = (root / str(relative)).resolve()
+        if not artifact.is_relative_to(root):
+            raise ValueError(f"Artifact escapes evidence directory: {relative}")
+        if not artifact.is_file():
+            raise FileNotFoundError(f"Missing evidence artifact: {relative}")
+        observed = _sha256(artifact)
+        if observed != expected:
+            raise ValueError(
+                f"Evidence hash mismatch for {relative}: {observed} != {expected}"
+            )
+    report = json.loads((root / "report.json").read_text())
+    result = manifest.get("result") or {}
+    if (report.get("passed"), report.get("total")) != (
+        result.get("passed"),
+        result.get("total"),
+    ):
+        raise ValueError("Manifest and normalized report totals disagree.")
+    return manifest
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("summary", nargs="+", type=Path)
-    parser.add_argument("--catalog", required=True, type=Path)
-    parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("summary", nargs="*", type=Path)
+    parser.add_argument("--catalog", type=Path)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--verify", type=Path)
     parser.add_argument("--repository", type=Path, default=Path.cwd())
     parser.add_argument(
         "--runner-label",
@@ -133,6 +163,18 @@ def main() -> int:
         default="Codex (GPT-5.6-sol), collaboratively directed by the project author",
     )
     arguments = parser.parse_args()
+    if arguments.verify is not None:
+        if arguments.summary:
+            parser.error("--verify does not accept summary inputs")
+        manifest = verify_evidence(arguments.verify)
+        result = manifest["result"]
+        print(
+            f"Verified {result['passed']}/{result['total']} fixed-adapter cases "
+            f"in {arguments.verify}"
+        )
+        return 0
+    if not arguments.summary or arguments.catalog is None or arguments.output is None:
+        parser.error("freezing requires summaries, --catalog, and --output")
     path = freeze_evidence(
         tuple(arguments.summary),
         catalog=arguments.catalog,

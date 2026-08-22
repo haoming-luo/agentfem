@@ -1,0 +1,2578 @@
+{
+  "agent_name": "gpt-5.1",
+  "timestamp": "2026-08-22T10:53:24.557291",
+  "total_cases": 61,
+  "passed_cases": 37,
+  "pass_rate": 0.6065573770491803,
+  "avg_error": 0.30197625197683886,
+  "avg_time": 1.449105766953015,
+  "avg_universal_metrics": {
+    "rmse": 0.06056199268358447,
+    "mae": 0.04249534169902136,
+    "r2": 0.9860025538454142,
+    "frmse_low": 0.148841989463735,
+    "frmse_mid": 0.0026905360474983233,
+    "frmse_high": 0.0007380739731359322,
+    "frmse_total": 0.06220524327294219
+  },
+  "equation_type_summary": {
+    "stokes": {
+      "cases": 61,
+      "passed": 37,
+      "failed": 24,
+      "pass_rate": 0.6065573770491803,
+      "avg_error": 0.30197625197683886,
+      "avg_time": 1.449105766953015,
+      "avg_universal_metrics": {
+        "rmse": 0.06056199268358447,
+        "mae": 0.04249534169902136,
+        "r2": 0.9860025538454142,
+        "frmse_low": 0.148841989463735,
+        "frmse_mid": 0.0026905360474983233,
+        "frmse_high": 0.0007380739731359322,
+        "frmse_total": 0.06220524327294219
+      }
+    }
+  },
+  "math_type_summary": {
+    "incompressible_flow": {
+      "cases": 52,
+      "passed": 36,
+      "pass_rate": 0.6923076923076923,
+      "avg_metrics": {
+        "mesh_resolution": 82.9423076923077,
+        "element_degree": 2.423076923076923,
+        "linear_iterations": 1.0
+      }
+    },
+    "elliptic": {
+      "cases": 9,
+      "passed": 1,
+      "pass_rate": 0.1111111111111111,
+      "avg_metrics": {
+        "dof": 529.0,
+        "resolution": 11.0,
+        "degree": 2.0,
+        "efficiency_dof_per_sec": 176.57933350642804,
+        "linear_iterations": 1.0,
+        "condition_number_estimate": 1.0
+      }
+    }
+  },
+  "gate_statistics": {
+    "total_cases": 61,
+    "exec_valid_count": 61,
+    "accuracy_pass_count": 38,
+    "time_pass_count": 37,
+    "final_pass_count": 37,
+    "exec_valid_rate": 1.0,
+    "accuracy_pass_rate": 0.6229508196721312,
+    "time_pass_rate": 0.6065573770491803,
+    "final_pass_rate": 0.6065573770491803,
+    "accuracy_pass_rate_given_exec": 0.6229508196721312,
+    "time_pass_rate_given_accuracy": 0.9736842105263158,
+    "failure_breakdown": {
+      "accuracy": 23,
+      "time": 1
+    },
+    "failure_breakdown_pct": {
+      "accuracy": 0.3770491803278688,
+      "time": 0.01639344262295082
+    }
+  },
+  "cost_analysis": {},
+  "multi_attempt_stats": null,
+  "results": [
+    {
+      "case_id": "stokes_basic",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 7.2368423425936456e-09,
+      "time": 1.0070409774780273,
+      "oracle_error": 1.292116577698398e-06,
+      "oracle_time": 0.41388254100456834,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.2921165776983978e-05,
+      "target_time": 1.241647623013705,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.607541785384513e-08,
+        "mae": 1.127445982654174e-08,
+        "r2": 0.9999999999999993,
+        "frmse_low": 7.1342889095051935e-09,
+        "frmse_mid": 1.731344394989469e-08,
+        "frmse_high": 1.752184975985023e-08,
+        "frmse_total": 1.6075417853845134e-08
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 64,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_low_viscosity",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 9.075679590631994e-09,
+      "time": 1.0042779445648193,
+      "oracle_error": 0.11393304502400609,
+      "oracle_time": 0.9210897092707455,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.139330450240061,
+      "target_time": 2.7632691278122365,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.0160082922952735e-08,
+        "mae": 1.42944992109591e-08,
+        "r2": 0.999999999999999,
+        "frmse_low": 7.716121335514545e-09,
+        "frmse_mid": 2.3901430965383175e-08,
+        "frmse_high": 1.792690922719315e-08,
+        "frmse_total": 2.0160082922952735e-08
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 64,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_high_viscosity",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 7.216626035662514e-09,
+      "time": 0.8869800567626953,
+      "oracle_error": 1.292114084348506e-06,
+      "oracle_time": 0.3285648333840072,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.2921140843485058e-05,
+      "target_time": 0.9856945001520216,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.6030510756799953e-08,
+        "mae": 1.125161393492158e-08,
+        "r2": 0.9999999999999993,
+        "frmse_low": 7.125789526586885e-09,
+        "frmse_mid": 1.723723885318495e-08,
+        "frmse_high": 1.75178761185655e-08,
+        "frmse_total": 1.6030510756799956e-08
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 64,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_high_frequency_flow",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 1.1819591070157702e-07,
+      "time": 0.9179298877716064,
+      "oracle_error": 0.008917308211049337,
+      "oracle_time": 0.9526224583387375,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.08917308211049337,
+      "target_time": 2.8578673750162125,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.251043378299295e-07,
+        "mae": 3.765107709654004e-07,
+        "r2": 0.9999999999998344,
+        "frmse_low": 3.477083124844276e-07,
+        "frmse_mid": 5.592754867151614e-07,
+        "frmse_high": 5.488193608571894e-07,
+        "frmse_total": 5.251043378299296e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 64,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exponential_stream",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 1.8413580565558197e-09,
+      "time": 1.1212217807769775,
+      "oracle_error": 1.682907232806612e-07,
+      "oracle_time": 0.6533559169620275,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.682907232806612e-06,
+      "target_time": 1.9600677508860826,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 7.715857125700687e-09,
+        "mae": 5.76938882590472e-09,
+        "r2": 1.0,
+        "frmse_low": 3.3793516590631136e-09,
+        "frmse_mid": 1.01139241348419e-08,
+        "frmse_high": 3.6320303966785704e-09,
+        "frmse_total": 7.715857125700689e-09
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 64,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_p3p2_taylor_hood",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 7.236842352242275e-09,
+      "time": 0.8916337490081787,
+      "oracle_error": 0.01249529651775169,
+      "oracle_time": 0.4031686671078205,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.1249529651775169,
+      "target_time": 1.2095060013234615,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.6075417875277927e-08,
+        "mae": 1.1274459863638454e-08,
+        "r2": 0.9999999999999993,
+        "frmse_low": 7.13428915093338e-09,
+        "frmse_mid": 1.731344395214825e-08,
+        "frmse_high": 1.752184976417762e-08,
+        "frmse_total": 1.607541787527793e-08
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 64,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_quadrilateral_mesh",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 7.236842359867756e-09,
+      "time": 0.8995881080627441,
+      "oracle_error": 5.851440145259093e-07,
+      "oracle_time": 0.4734051669947803,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 5.851440145259094e-06,
+      "target_time": 1.420215500984341,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.607541789221664e-08,
+        "mae": 1.1274459897025635e-08,
+        "r2": 0.9999999999999993,
+        "frmse_low": 7.1342893965175556e-09,
+        "frmse_mid": 1.73134439485833e-08,
+        "frmse_high": 1.7521849763832638e-08,
+        "frmse_total": 1.607541789221664e-08
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 64,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_no_exact_lid_driven_cavity",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 0.4535180846212519,
+      "time": 0.9550647735595703,
+      "oracle_error": 0.01129319804520601,
+      "oracle_time": 3.3896925412118435,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.1129319804520601,
+      "target_time": 10.16907762363553,
+      "fail_reason": "ACCURACY_FAIL: error=4.54e-01 > target=1.13e-01",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=4.54e-01 > target=1.13e-01"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 64,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_no_exact_channel_inflow_outflow",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 1.7846129876019585,
+      "time": 1.1049401760101318,
+      "oracle_error": 0.04167560649833087,
+      "oracle_time": 10.539636791683733,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.41675606498330864,
+      "target_time": 31.6189103750512,
+      "fail_reason": "ACCURACY_FAIL: error=1.78e+00 > target=4.17e-01",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=1.78e+00 > target=4.17e-01"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 64,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_no_exact_mixed_bc_rotating_wall",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 0.48871262124230885,
+      "time": 0.8959131240844727,
+      "oracle_error": 0.0227208952065348,
+      "oracle_time": 7.581374915782362,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.22720895206534802,
+      "target_time": 22.744124747347087,
+      "fail_reason": "ACCURACY_FAIL: error=4.89e-01 > target=2.27e-01",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=4.89e-01 > target=2.27e-01"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 64,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_no_exact_corner_force_outflow",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 0.9298330781919337,
+      "time": 0.9840798377990723,
+      "oracle_error": 0.04836593492130788,
+      "oracle_time": 11.486535625066608,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.48365934921307885,
+      "target_time": 34.459606875199825,
+      "fail_reason": "ACCURACY_FAIL: error=9.30e-01 > target=4.84e-01",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=9.30e-01 > target=4.84e-01"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 64,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_no_exact_channel_poiseuille_low_nu",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 1.7846130000010725,
+      "time": 0.9683480262756348,
+      "oracle_error": 0.04429794031064651,
+      "oracle_time": 28.077305416110903,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.4429794031064651,
+      "target_time": 84.23191624833271,
+      "fail_reason": "ACCURACY_FAIL: error=1.78e+00 > target=4.43e-01",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=1.78e+00 > target=4.43e-01"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 64,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_no_exact_double_lid_cavity",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 0.38304197205494706,
+      "time": 0.9899630546569824,
+      "oracle_error": 0.03491208133986332,
+      "oracle_time": 6.840455375146121,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.3491208133986332,
+      "target_time": 20.521366125438362,
+      "fail_reason": "ACCURACY_FAIL: error=3.83e-01 > target=3.49e-01",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=3.83e-01 > target=3.49e-01"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 64,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_no_exact_counter_shear_open_sides",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 8.660120046882683e-12,
+      "time": 1.063601016998291,
+      "oracle_error": 1.281709133574048e-08,
+      "oracle_time": 6.7598244161345065,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 20.27947324840352,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.050174381739155e-12,
+        "mae": 3.929748078682071e-12,
+        "r2": 1.0,
+        "frmse_low": 1.1991679565631698e-11,
+        "frmse_mid": 7.910167304487796e-13,
+        "frmse_high": 2.9340231465423107e-13,
+        "frmse_total": 5.050174381739156e-12
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 64,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_no_exact_swirl_inflow_outflow",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 1.7486400228199968,
+      "time": 1.0170910358428955,
+      "oracle_error": 0.10801959311570458,
+      "oracle_time": 6.822749707847834,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.080195931157046,
+      "target_time": 20.4682491235435,
+      "fail_reason": "ACCURACY_FAIL: error=1.75e+00 > target=1.08e+00",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=1.75e+00 > target=1.08e+00"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 64,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_no_exact_diagonal_inflow_outflow",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 1.1754528492025984,
+      "time": 0.9924280643463135,
+      "oracle_error": 0.020748335218541004,
+      "oracle_time": 8.00646691583097,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.20748335218541003,
+      "target_time": 24.01940074749291,
+      "fail_reason": "ACCURACY_FAIL: error=1.18e+00 > target=2.07e-01",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=1.18e+00 > target=2.07e-01"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 64,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_no_exact_constant_force_outflow",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 0.9999999999999981,
+      "time": 1.0190157890319824,
+      "oracle_error": 0.05342326347559843,
+      "oracle_time": 6.885245916899294,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.5342326347559843,
+      "target_time": 20.65573775069788,
+      "fail_reason": "ACCURACY_FAIL: error=1.00e+00 > target=5.34e-01",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=1.00e+00 > target=5.34e-01"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 64,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_no_exact_outflow_top_boundary",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 1.0050008333653888,
+      "time": 1.0820918083190918,
+      "oracle_error": 0.03909181145297395,
+      "oracle_time": 13.836757959332317,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.39091811452973946,
+      "target_time": 41.51027387799695,
+      "fail_reason": "ACCURACY_FAIL: error=1.01e+00 > target=3.91e-01",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=1.01e+00 > target=3.91e-01"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 64,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_lshape_double_vortex",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 4.747901648678858e-06,
+      "time": 0.6768326759338379,
+      "oracle_error": 1.8323944551370232e-06,
+      "oracle_time": 0.860904083121568,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.8323944551370232e-05,
+      "target_time": 2.582712249364704,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.1093316482038648e-05,
+        "mae": 1.6210443046515862e-05,
+        "r2": 0.9999999997327421,
+        "frmse_low": 1.046677094596137e-05,
+        "frmse_mid": 8.725099336545398e-06,
+        "frmse_high": 3.0183235006832535e-05,
+        "frmse_total": 1.8267347923510477e-05
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 67,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_lshape_trifreq_flow",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 7.768351173267014e-06,
+      "time": 0.6288158893585205,
+      "oracle_error": 0.002552172230977388,
+      "oracle_time": 0.8025383329950273,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.02552172230977388,
+      "target_time": 2.407614998985082,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.806758728018153e-05,
+        "mae": 2.7223678214944664e-05,
+        "r2": 0.9999999997040862,
+        "frmse_low": 4.472034793970407e-05,
+        "frmse_mid": 2.780390391320579e-05,
+        "frmse_high": 2.394670080182977e-05,
+        "frmse_total": 3.0454069824145228e-05
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 67,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_lshape_sinusoidal_source",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 0.7993017308149744,
+      "time": 0.6959307193756104,
+      "oracle_error": 0.008227469229462988,
+      "oracle_time": 63.63983725011349,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.08227469229462989,
+      "target_time": 190.91951175034046,
+      "fail_reason": "ACCURACY_FAIL: error=7.99e-01 > target=8.23e-02",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=7.99e-01 > target=8.23e-02"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 67,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_multi_connected_polygon_hole",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 3.833263399903509e-06,
+      "time": 1.0782358646392822,
+      "oracle_error": 3.654939264115175e-06,
+      "oracle_time": 0.785435541998595,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 3.654939264115175e-05,
+      "target_time": 2.356306625995785,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.8602925456178348e-05,
+        "mae": 1.3574197201342555e-05,
+        "r2": 0.9999999999281219,
+        "frmse_low": 1.289533055665026e-05,
+        "frmse_mid": 1.9414828733567323e-05,
+        "frmse_high": 1.7670404494756095e-05,
+        "frmse_total": 1.790340458402879e-05
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 86,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_multi_connected_triple_hole",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 2.2280876444855777e-06,
+      "time": 0.9961888790130615,
+      "oracle_error": 1.449497288412734e-06,
+      "oracle_time": 0.9088382497429848,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.4494972884127338e-05,
+      "target_time": 2.7265147492289543,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 9.940004081678226e-06,
+        "mae": 7.599510712938129e-06,
+        "r2": 0.9999999999375195,
+        "frmse_low": 5.25786598418354e-06,
+        "frmse_mid": 5.225043675440656e-06,
+        "frmse_high": 1.514604539864134e-05,
+        "frmse_total": 9.398656096124235e-06
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 86,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_multi_connected_off_center_source",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 0.616399808536874,
+      "time": 1.0473577976226807,
+      "oracle_error": 0.007360906053050767,
+      "oracle_time": 72.24259199993685,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.07360906053050767,
+      "target_time": 216.72777599981055,
+      "fail_reason": "ACCURACY_FAIL: error=6.16e-01 > target=7.36e-02",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=6.16e-01 > target=7.36e-02"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 86,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_annulus_thick_ring",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 4.104842929327079e-06,
+      "time": 1.3434510231018066,
+      "oracle_error": 1.1121612162534092e-06,
+      "oracle_time": 2.093654084019363,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.1121612162534093e-05,
+      "target_time": 6.280962252058089,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.8800249286367657e-05,
+        "mae": 1.4873582958510935e-05,
+        "r2": 0.9999999999287442,
+        "frmse_low": 2.453275456387553e-05,
+        "frmse_mid": 1.6115055749307735e-05,
+        "frmse_high": 6.297039048364249e-06,
+        "frmse_total": 1.590747184962286e-05
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 107,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_gear_six_teeth",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 2.0959860009147964e-06,
+      "time": 2.2312817573547363,
+      "oracle_error": 2.2388900387366814e-06,
+      "oracle_time": 1.6189378751441836,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 2.2388900387366813e-05,
+      "target_time": 4.856813625432551,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.0676303329500036e-05,
+        "mae": 7.894823533300965e-06,
+        "r2": 0.9999999999779506,
+        "frmse_low": 7.3384099460043785e-06,
+        "frmse_mid": 1.0097117053998249e-05,
+        "frmse_high": 2.7089763047312557e-06,
+        "frmse_total": 8.05932740196686e-06
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 107,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_gear_ten_teeth_source",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 0.8812679309179607,
+      "time": 2.1021811962127686,
+      "oracle_error": 0.016403508937460773,
+      "oracle_time": 120.21315066702664,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.16403508937460773,
+      "target_time": 360.6394520010799,
+      "fail_reason": "ACCURACY_FAIL: error=8.81e-01 > target=1.64e-01",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=8.81e-01 > target=1.64e-01"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 107,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_t_junction_offset_stem",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 2.8421929713065824e-06,
+      "time": 0.6232750415802002,
+      "oracle_error": 2.0421439347820933e-06,
+      "oracle_time": 0.4026698749512434,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 2.0421439347820935e-05,
+      "target_time": 1.2080096248537302,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.2554694235848983e-05,
+        "mae": 9.639660137930428e-06,
+        "r2": 0.9999999998989485,
+        "frmse_low": 3.943755748619952e-06,
+        "frmse_mid": 4.442638405483574e-06,
+        "frmse_high": 1.2965770201996004e-05,
+        "frmse_total": 7.989758486903228e-06
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 80,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_t_junction_thick_channels",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 1.5766770340685478e-06,
+      "time": 0.6848430633544922,
+      "oracle_error": 0.0042024501054079835,
+      "oracle_time": 0.868071457836777,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.04202450105407984,
+      "target_time": 2.604214373510331,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 6.224001508901838e-06,
+        "mae": 4.6709325801796655e-06,
+        "r2": 0.9999999999838802,
+        "frmse_low": 6.863920727336757e-06,
+        "frmse_mid": 3.4775921580185776e-06,
+        "frmse_high": 4.294858715463487e-06,
+        "frmse_total": 4.4881913157821625e-06
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 80,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_t_junction_rotational_source",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 0.9652882740386995,
+      "time": 0.6508841514587402,
+      "oracle_error": 0.023291755475598006,
+      "oracle_time": 36.495372832752764,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.23291755475598006,
+      "target_time": 109.48611849825829,
+      "fail_reason": "ACCURACY_FAIL: error=9.65e-01 > target=2.33e-01",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=9.65e-01 > target=2.33e-01"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 80,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_eccentric_annulus_top_shift",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 1.4795997248812458e-05,
+      "time": 1.3382043838500977,
+      "oracle_error": 3.016168696076048e-06,
+      "oracle_time": 2.6875100838951766,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 3.0161686960760478e-05,
+      "target_time": 8.06253025168553,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 7.813171610450997e-05,
+        "mae": 5.74015321707493e-05,
+        "r2": 0.9999999988794377,
+        "frmse_low": 9.811264779647432e-05,
+        "frmse_mid": 6.0734754320348634e-05,
+        "frmse_high": 4.236187104868103e-05,
+        "frmse_total": 6.444195332169466e-05
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 112,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_eccentric_annulus_diagonal",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 1.9351837788288547e-05,
+      "time": 1.2611560821533203,
+      "oracle_error": 2.728533989247674e-06,
+      "oracle_time": 2.954939458053559,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 2.728533989247674e-05,
+      "target_time": 8.864818374160677,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00011020069546436495,
+        "mae": 8.467650856731157e-05,
+        "r2": 0.9999999964677939,
+        "frmse_low": 3.2441951667911186e-05,
+        "frmse_mid": 8.243320156730728e-05,
+        "frmse_high": 0.00011742639702321516,
+        "frmse_total": 8.891054491455258e-05
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 112,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_eccentric_annulus_narrow_source",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 0.9999997337853882,
+      "time": 1.0751521587371826,
+      "oracle_error": 0.032873009277101746,
+      "oracle_time": 210.73304870910943,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.32873009277101745,
+      "target_time": 632.1991461273283,
+      "fail_reason": "ACCURACY_FAIL: error=1.00e+00 > target=3.29e-01",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=1.00e+00 > target=3.29e-01"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 112,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_dumbbell_wide_connector",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 1.5541005645834227e-06,
+      "time": 0.6063559055328369,
+      "oracle_error": 1.5368951939304321e-06,
+      "oracle_time": 0.36627595825120807,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.536895193930432e-05,
+      "target_time": 1.0988278747536242,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 6.927998494195534e-06,
+        "mae": 5.2179993445926825e-06,
+        "r2": 0.9999999999614686,
+        "frmse_low": 2.7816527367211855e-06,
+        "frmse_mid": 2.8541486722711114e-06,
+        "frmse_high": 8.09464262933315e-06,
+        "frmse_total": 5.053269017564072e-06
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 96,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_dumbbell_compact_exponential",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 5.302387067988859e-07,
+      "time": 0.5945360660552979,
+      "oracle_error": 3.405757749677466e-07,
+      "oracle_time": 0.3823792920447886,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 3.405757749677466e-06,
+      "target_time": 1.1471378761343658,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.807624763379486e-06,
+        "mae": 2.9068476183607556e-06,
+        "r2": 0.9999999999913641,
+        "frmse_low": 8.395938935098802e-07,
+        "frmse_mid": 3.573391539010087e-06,
+        "frmse_high": 1.7337561419237956e-06,
+        "frmse_total": 2.779790642715439e-06
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 96,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_dumbbell_opposing_vortex_source",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 0.9743238012633795,
+      "time": 0.5691571235656738,
+      "oracle_error": 0.016725008190294457,
+      "oracle_time": 19.278482291847467,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.16725008190294458,
+      "target_time": 57.8354468755424,
+      "fail_reason": "ACCURACY_FAIL: error=9.74e-01 > target=1.67e-01",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=9.74e-01 > target=1.67e-01"
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 96,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_periodic_x_high_freq",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 0.14953847032210657,
+      "time": 1.2555761337280273,
+      "oracle_error": 0.14953721173355053,
+      "oracle_time": 1.178760333918035,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.4953721173355052,
+      "target_time": 3.536281001754105,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.664365898187706,
+        "mae": 0.4992199128160514,
+        "r2": 0.7326199778079592,
+        "frmse_low": 1.5950919081487136,
+        "frmse_mid": 0.007307843766506329,
+        "frmse_high": 0.0009957751512549356,
+        "frmse_total": 0.664365898187706
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 72,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_periodic_y_tall_strip",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 0.17188838884460458,
+      "time": 1.080225944519043,
+      "oracle_error": 0.171886746247428,
+      "oracle_time": 2.0800207499414682,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.7188674624742801,
+      "target_time": 6.240062249824405,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.1115698267767267,
+        "mae": 0.8222666481722859,
+        "r2": 0.8793154806882232,
+        "frmse_low": 2.6554943451757844,
+        "frmse_mid": 0.07900046745189995,
+        "frmse_high": 0.02355463164239708,
+        "frmse_total": 1.111569826776727
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 72,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_exp_periodic_x_wide_channel",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 0.10425376596960062,
+      "time": 1.1658430099487305,
+      "oracle_error": 0.10425309216733532,
+      "oracle_time": 2.444746249821037,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.0425309216733532,
+      "target_time": 7.334238749463111,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.4631755290504671,
+        "mae": 0.24962420132692054,
+        "r2": 0.8701677397604377,
+        "frmse_low": 1.1074731627466379,
+        "frmse_mid": 0.010302732213954254,
+        "frmse_high": 0.0017325447479815373,
+        "frmse_total": 0.46317552905046705
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 72,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_3d_basic",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 0.0004829611862007902,
+      "time": 2.830112934112549,
+      "oracle_error": 0.0026147733994281194,
+      "oracle_time": 0.5659391251392663,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 0.00013073866997140597,
+      "target_time": 1.6978173754177988,
+      "fail_reason": "ACCURACY_FAIL: error=4.83e-04 > target=1.31e-04",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=4.83e-04 > target=1.31e-04"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 529,
+          "resolution": 11,
+          "degree": 2,
+          "efficiency_dof_per_sec": 186.91833588113715,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "stokes_3d_low_nu",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 0.0007290621413671645,
+      "time": 2.704166889190674,
+      "oracle_error": 0.0021128614097361527,
+      "oracle_time": 0.8992207078263164,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 0.00010564307048680764,
+      "target_time": 2.697662123478949,
+      "fail_reason": "ACCURACY_FAIL: error=7.29e-04 > target=1.06e-04",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=7.29e-04 > target=1.06e-04"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 529,
+          "resolution": 11,
+          "degree": 2,
+          "efficiency_dof_per_sec": 195.62402088220364,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "stokes_3d_high_nu",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 0.0004829306108308833,
+      "time": 3.0510470867156982,
+      "oracle_error": 0.0013231457830298464,
+      "oracle_time": 0.6709707919508219,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 6.615728915149232e-05,
+      "target_time": 2.0129123758524656,
+      "fail_reason": "ACCURACY_FAIL: error=4.83e-04 > target=6.62e-05",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=4.83e-04 > target=6.62e-05"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 529,
+          "resolution": 11,
+          "degree": 2,
+          "efficiency_dof_per_sec": 173.38309929836004,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "stokes_3d_body_force",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 0.9999999999999999,
+      "time": 2.7640721797943115,
+      "oracle_error": 0.007701095818578983,
+      "oracle_time": 6.312994208186865,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 0.0003850547909289492,
+      "target_time": 18.938982624560595,
+      "fail_reason": "ACCURACY_FAIL: error=1.00e+00 > target=3.85e-04",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=1.00e+00 > target=3.85e-04"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 529,
+          "resolution": 11,
+          "degree": 2,
+          "efficiency_dof_per_sec": 191.3842930249982,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "stokes_3d_multifreq",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 0.0016514058090269478,
+      "time": 2.8457400798797607,
+      "oracle_error": 0.037365425758450255,
+      "oracle_time": 1.211234875023365,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 0.0018682712879225128,
+      "target_time": 3.633704625070095,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.001343100137432209,
+        "mae": 0.000961722738466211,
+        "r2": 0.9999912996542131
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 529,
+          "resolution": 11,
+          "degree": 2,
+          "efficiency_dof_per_sec": 185.89188933317885,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "stokes_3d_sym_flow",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 0.0004830206113302833,
+      "time": 2.9732301235198975,
+      "oracle_error": 0.011665735071828177,
+      "oracle_time": 0.47596520790830255,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 0.0005832867535914089,
+      "target_time": 1.4278956237249076,
+      "fail_reason": "TIME_FAIL: time=2.973s > target=1.428s",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "time",
+        "failure_reason": "TIME_FAIL: time=2.973s > target=1.428s"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 529,
+          "resolution": 11,
+          "degree": 2,
+          "efficiency_dof_per_sec": 177.92097416722538,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "stokes_3d_nu_half",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 0.0004830538270203997,
+      "time": 3.270864963531494,
+      "oracle_error": 0.0071187244827008705,
+      "oracle_time": 0.49747316585853696,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 0.00035593622413504353,
+      "target_time": 1.4924194975756109,
+      "fail_reason": "ACCURACY_FAIL: error=4.83e-04 > target=3.56e-04",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=4.83e-04 > target=3.56e-04"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 529,
+          "resolution": 11,
+          "degree": 2,
+          "efficiency_dof_per_sec": 161.73092007713097,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "stokes_3d_x_flow",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 0.0004829392375317101,
+      "time": 3.2926220893859863,
+      "oracle_error": 0.008582541214304962,
+      "oracle_time": 0.4909233753569424,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 0.0004291270607152481,
+      "target_time": 1.4727701260708272,
+      "fail_reason": "ACCURACY_FAIL: error=4.83e-04 > target=4.29e-04",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=4.83e-04 > target=4.29e-04"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 529,
+          "resolution": 11,
+          "degree": 2,
+          "efficiency_dof_per_sec": 160.6622277440436,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "stokes_3d_driven_cavity_like",
+      "equation_type": "stokes",
+      "status": "FAIL",
+      "error": 0.9999999999999999,
+      "time": 3.3975977897644043,
+      "oracle_error": 0.010360207851540043,
+      "oracle_time": 6.521480082999915,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 0.0005180103925770022,
+      "target_time": 19.564440248999745,
+      "fail_reason": "ACCURACY_FAIL: error=1.00e+00 > target=5.18e-04",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=1.00e+00 > target=5.18e-04"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 529,
+          "resolution": 11,
+          "degree": 2,
+          "efficiency_dof_per_sec": 155.69824114957464,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "stokes_test_periodic_square_highfreq",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 7.512266372618517e-08,
+      "time": 1.298496961593628,
+      "oracle_error": 1.6483407775590023e-06,
+      "oracle_time": 0.9849043330177665,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.6483407775590022e-05,
+      "target_time": 2.9547129990532994,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.3375315297258243e-07,
+        "mae": 2.3211511111321034e-07,
+        "r2": 0.9999999999999325,
+        "frmse_low": 2.940646014545151e-07,
+        "frmse_mid": 5.4505909129108884e-08,
+        "frmse_high": 5.591015171762641e-07,
+        "frmse_total": 3.337531529725824e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 72,
+          "element_degree": 3,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_test_square_with_hole_circ",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 1.7964877598577488e-07,
+      "time": 1.2655229568481445,
+      "oracle_error": 1.7963635522940458e-07,
+      "oracle_time": 0.8686997909098864,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.7963635522940458e-06,
+      "target_time": 2.606099372729659,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.171476218818656e-07,
+        "mae": 3.1877205493543034e-07,
+        "r2": 0.9999999999994563,
+        "frmse_low": 1.3474427703423745e-07,
+        "frmse_mid": 3.4528513422678277e-07,
+        "frmse_high": 5.351178543480651e-07,
+        "frmse_total": 3.9037788072817937e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 96,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_test_annulus_centered",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 1.2160312052579498e-06,
+      "time": 1.3383500576019287,
+      "oracle_error": 2.106793577734265e-07,
+      "oracle_time": 2.7107348339632154,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 2.106793577734265e-06,
+      "target_time": 8.132204501889646,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.473829722789509e-07,
+        "mae": 6.50248957911531e-07,
+        "r2": 0.9999999999817195,
+        "frmse_low": 2.4834611955887057e-07,
+        "frmse_mid": 6.206714757823718e-07,
+        "frmse_high": 9.873306780112287e-07,
+        "frmse_total": 7.118931123701561e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 107,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_test_gear_six_teeth",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 1.288278618739149e-07,
+      "time": 2.1887290477752686,
+      "oracle_error": 1.3873671431872227e-07,
+      "oracle_time": 1.6254112496972084,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.3873671431872226e-06,
+      "target_time": 4.876233749091625,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 9.57831514384716e-08,
+        "mae": 7.261801434912131e-08,
+        "r2": 0.9999999999997438,
+        "frmse_low": 1.1748807595701059e-07,
+        "frmse_mid": 5.925141486231051e-08,
+        "frmse_high": 2.0460845903323733e-08,
+        "frmse_total": 6.615497919153586e-08
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 107,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_test_gear_eight_teeth",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 1.3408665115684793e-07,
+      "time": 2.4747860431671143,
+      "oracle_error": 1.2103160533349087e-07,
+      "oracle_time": 1.9645215417258441,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.2103160533349085e-06,
+      "target_time": 5.893564625177532,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.1012857976067494e-07,
+        "mae": 2.3294366702599105e-07,
+        "r2": 0.9999999999997947,
+        "frmse_low": 1.0851039241914039e-07,
+        "frmse_mid": 2.658403962899357e-07,
+        "frmse_high": 2.0005486101163016e-07,
+        "frmse_total": 2.2607634291417112e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 107,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_test_eccentric_annulus_right_shift",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 1.5894541730174218e-07,
+      "time": 3.906682014465332,
+      "oracle_error": 2.2084641787979935e-07,
+      "oracle_time": 2.673905875068158,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 2.2084641787979935e-06,
+      "target_time": 8.021717625204474,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.086996406959144e-07,
+        "mae": 8.342446444094824e-08,
+        "r2": 0.9999999999996941,
+        "frmse_low": 2.395755107495818e-08,
+        "frmse_mid": 1.1996573545605765e-07,
+        "frmse_high": 3.69446733663243e-08,
+        "frmse_total": 8.966176195480285e-08
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 107,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_test_eccentric_annulus_unit_square_frame",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 1.168290074428517e-07,
+      "time": 1.2602691650390625,
+      "oracle_error": 1.2580754200509773e-07,
+      "oracle_time": 0.7662264169193804,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.2580754200509773e-06,
+      "target_time": 2.2986792507581413,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.802612790278779e-07,
+        "mae": 2.1327117265144192e-07,
+        "r2": 0.9999999999996577,
+        "frmse_low": 1.236481136369897e-07,
+        "frmse_mid": 2.0343410557892114e-07,
+        "frmse_high": 3.208953550481256e-07,
+        "frmse_total": 2.3543667729321278e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 107,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_test_multi_hole_two",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 1.9364222167547398e-07,
+      "time": 1.1761319637298584,
+      "oracle_error": 1.9363637486700618e-07,
+      "oracle_time": 0.8531601247377694,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.936363748670062e-06,
+      "target_time": 2.559480374213308,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.3870002189380403e-07,
+        "mae": 1.0647531527061048e-07,
+        "r2": 0.9999999999995534,
+        "frmse_low": 5.133719004603642e-08,
+        "frmse_mid": 1.1835819252545886e-07,
+        "frmse_high": 1.7917053863220904e-07,
+        "frmse_total": 1.3238232873716293e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 96,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_test_multi_hole_four",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 2.04735256629353e-07,
+      "time": 1.236307144165039,
+      "oracle_error": 1.6261752992890275e-07,
+      "oracle_time": 1.0177694577723742,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.6261752992890276e-06,
+      "target_time": 3.0533083733171225,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.5653882615608177e-07,
+        "mae": 3.510169981882615e-07,
+        "r2": 0.9999999999995337,
+        "frmse_low": 1.5018710839632562e-07,
+        "frmse_mid": 3.948829034263717e-07,
+        "frmse_high": 5.919115348779016e-07,
+        "frmse_total": 4.379297113653883e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 96,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_test_star_five_point",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 1.4029488210081518e-07,
+      "time": 1.3455910682678223,
+      "oracle_error": 1.4680019414330398e-07,
+      "oracle_time": 0.9051147918216884,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.4680019414330398e-06,
+      "target_time": 2.7153443754650652,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.0133129534255405e-07,
+        "mae": 7.657679447862505e-08,
+        "r2": 0.999999999999717,
+        "frmse_low": 6.876245257909468e-08,
+        "frmse_mid": 5.732284056473196e-08,
+        "frmse_high": 4.10930797186618e-08,
+        "frmse_total": 5.5276953028860365e-08
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 107,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_test_circle_unit",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 1.7726991967953464e-07,
+      "time": 1.3428571224212646,
+      "oracle_error": 1.7725442429411404e-07,
+      "oracle_time": 0.8119664997793734,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.7725442429411404e-06,
+      "target_time": 2.4358994993381202,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.122307852385933e-07,
+        "mae": 3.129316999628363e-07,
+        "r2": 0.9999999999994835,
+        "frmse_low": 1.8399317662150614e-07,
+        "frmse_mid": 3.265690399547881e-07,
+        "frmse_high": 4.797179185761798e-07,
+        "frmse_total": 3.626053906016858e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 96,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_test_sector_ninety",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 1.9098342035019947e-07,
+      "time": 1.2062368392944336,
+      "oracle_error": 1.643184436931001e-07,
+      "oracle_time": 0.8728220001794398,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.643184436931001e-06,
+      "target_time": 2.6184660005383193,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.310991320170922e-07,
+        "mae": 1.0105426485268503e-07,
+        "r2": 0.9999999999995723,
+        "frmse_low": 6.869363380594416e-08,
+        "frmse_mid": 7.2450875623047e-08,
+        "frmse_high": 1.8008976435069336e-07,
+        "frmse_total": 1.1577617320212959e-07
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 96,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "stokes_test_sector_onetwenty",
+      "equation_type": "stokes",
+      "status": "PASS",
+      "error": 1.396256573159013e-07,
+      "time": 1.7193431854248047,
+      "oracle_error": 1.5990571872062584e-07,
+      "oracle_time": 1.2034686249680817,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.5990571872062583e-06,
+      "target_time": 3.610405874904245,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 9.772525531912532e-08,
+        "mae": 7.499188197044332e-08,
+        "r2": 0.9999999999997524,
+        "frmse_low": 4.8543690476109095e-08,
+        "frmse_mid": 5.649522765805738e-08,
+        "frmse_high": 1.0944380392880216e-07,
+        "frmse_total": 7.545908339488502e-08
+      },
+      "math_types": [
+        "incompressible_flow"
+      ],
+      "math_type_metrics": {
+        "incompressible_flow": {
+          "mesh_resolution": 107,
+          "element_degree": 2,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1
+        }
+      }
+    }
+  ]
+}

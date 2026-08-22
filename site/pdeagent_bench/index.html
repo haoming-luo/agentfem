@@ -1639,11 +1639,17 @@ report, source identity, benchmark revision, and SHA-256 hashes with:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>tools/freeze_pdeagent_bench_evidence.py<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>/path/to/family-1/summary.json<span class="w"> </span>/path/to/family-2/summary.json<span class="w"> </span>...<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>--catalog<span class="w"> </span>/path/to/pde-agent-bench/data/benchmark_v2.jsonl<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>--output<span class="w"> </span>verification/pdeagent_bench_YYYY_MM_DD
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>--output<span class="w"> </span>evidence/pdeagent_bench/YYYY-MM-DD-fixed-adapter
 </code></pre></div>
 <p>The resulting manifest states explicitly that solver-path evaluation calls no
 model; the upstream <code>gpt-5.1</code> directory label is retained only for byte-level
-traceability to the runner output.
+traceability to the runner output.</p>
+<p>Verify a committed bundle without rerunning the numerical cases:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>tools/freeze_pdeagent_bench_evidence.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>--verify<span class="w"> </span>evidence/pdeagent_bench/2026-08-22-fixed-adapter
+</code></pre></div>
+<p>The verified 555/645 development snapshot is retained in the repository at
+<a href="https://github.com/haoming-luo/agentfem/tree/main/evidence/pdeagent_bench/2026-08-22-fixed-adapter"><code>evidence/pdeagent_bench/2026-08-22-fixed-adapter</code></a>.
 Those changes must improve public numerical contracts and external cases; they
 must not become case-ID dispatch or reference-field fitting.</p>
 

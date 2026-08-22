@@ -1,0 +1,2754 @@
+{
+  "agent_name": "AgentFEM fixed adapter",
+  "timestamp": "2026-08-22T02:27:56.000896",
+  "total_cases": 57,
+  "passed_cases": 57,
+  "pass_rate": 100.0,
+  "avg_error": 5.914795699938238e-07,
+  "avg_time": 1.6104003571449441,
+  "avg_universal_metrics": {
+    "rmse": 3.1337785444878713e-07,
+    "mae": 2.3540137788346645e-07,
+    "r2": 0.999999999997241,
+    "frmse_low": 2.9953392834718895e-07,
+    "frmse_mid": 3.2267199319909265e-07,
+    "frmse_high": 2.4468657595986914e-07,
+    "frmse_total": 3.1111375795446987e-07
+  },
+  "equation_type_summary": {
+    "biharmonic": {
+      "cases": 57,
+      "passed": 47,
+      "failed": 10,
+      "pass_rate": 0.8245614035087719,
+      "avg_error": 5.914795699938238e-07,
+      "avg_time": 1.6104003571449441,
+      "avg_universal_metrics": {
+        "rmse": 3.1337785444878713e-07,
+        "mae": 2.3540137788346645e-07,
+        "r2": 0.999999999997241,
+        "frmse_low": 2.9953392834718895e-07,
+        "frmse_mid": 3.2267199319909265e-07,
+        "frmse_high": 2.4468657595986914e-07,
+        "frmse_total": 3.1111375795446987e-07
+      }
+    }
+  },
+  "math_type_summary": {
+    "elliptic": {
+      "cases": 47,
+      "passed": 47,
+      "pass_rate": 1.0,
+      "avg_metrics": {
+        "dof": 22644.191489361703,
+        "resolution": 48.276595744680854,
+        "degree": 3.0,
+        "efficiency_dof_per_sec": 16157.077302311067,
+        "linear_iterations": 9.404255319148936,
+        "condition_number_estimate": 88.76595744680851
+      }
+    }
+  },
+  "gate_statistics": {
+    "total_cases": 57,
+    "exec_valid_count": 47,
+    "accuracy_pass_count": 47,
+    "time_pass_count": 47,
+    "final_pass_count": 47,
+    "exec_valid_rate": 0.8245614035087719,
+    "accuracy_pass_rate": 0.8245614035087719,
+    "time_pass_rate": 0.8245614035087719,
+    "final_pass_rate": 0.8245614035087719,
+    "accuracy_pass_rate_given_exec": 1.0,
+    "time_pass_rate_given_accuracy": 1.0,
+    "failure_breakdown": {
+      "exec": 10
+    },
+    "failure_breakdown_pct": {
+      "exec": 0.17543859649122806
+    }
+  },
+  "cost_analysis": {},
+  "multi_attempt_stats": null,
+  "results": [
+    {
+      "case_id": "biharmonic_basic_sin",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.5371841239381488e-07,
+      "time": 0.6726527214050293,
+      "oracle_error": 0.00026046594485104553,
+      "oracle_time": 0.5217179171741009,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0026046594485104554,
+      "target_time": 1.5651537515223026,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 7.53220220729693e-08,
+        "mae": 5.46000627915175e-08,
+        "r2": 0.9999999999999362,
+        "frmse_low": 5.685389294386142e-08,
+        "frmse_mid": 8.166936279315971e-08,
+        "frmse_high": 7.316403576217519e-08,
+        "frmse_total": 7.53220220729693e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 13700.977795421277,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_polynomial_zero_bc",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 8.917681401698857e-08,
+      "time": 0.6838316917419434,
+      "oracle_error": 0.0002485135602438464,
+      "oracle_time": 0.3257722081616521,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.002485135602438464,
+      "target_time": 0.9773166244849563,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.913108752561352e-09,
+        "mae": 2.3537122686704826e-09,
+        "r2": 0.9999999999999762,
+        "frmse_low": 6.572770998639905e-10,
+        "frmse_mid": 2.6634919956197673e-09,
+        "frmse_high": 3.950280203626703e-09,
+        "frmse_total": 2.913108752561352e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 13477.000424656875,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_high_mode_trig",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 6.741846751869368e-06,
+      "time": 2.138124704360962,
+      "oracle_error": 0.0009001449557081582,
+      "oracle_time": 2.3491021250374615,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.009001449557081582,
+      "target_time": 7.047306375112385,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.303504908415991e-06,
+        "mae": 2.4732558341346877e-06,
+        "r2": 0.9999999999545475,
+        "frmse_low": 3.361979697788793e-06,
+        "frmse_mid": 3.6681873424996905e-06,
+        "frmse_high": 2.498933475109857e-06,
+        "frmse_total": 3.3035049084159904e-06
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 4310.3192162753,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_exponential_mode",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 3.410275983355825e-08,
+      "time": 1.7891108989715576,
+      "oracle_error": 2.6218722949369263e-05,
+      "oracle_time": 2.593646958936006,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.00026218722949369265,
+      "target_time": 7.7809408768080175,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.280313053983568e-08,
+        "mae": 3.285114975162327e-08,
+        "r2": 0.9999999999999957,
+        "frmse_low": 1.722810431402427e-08,
+        "frmse_mid": 5.6173851253504156e-08,
+        "frmse_high": 2.0334977557368854e-08,
+        "frmse_total": 4.280313053983568e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 5151.161957203253,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_boundary_layer_like",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 2.7429964418508474e-07,
+      "time": 1.6079728603363037,
+      "oracle_error": 4.4053367199152364e-05,
+      "oracle_time": 3.5875300830230117,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.00044053367199152363,
+      "target_time": 10.762590249069035,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 6.319889153401372e-08,
+        "mae": 3.33389486261309e-08,
+        "r2": 0.9999999999998913,
+        "frmse_low": 3.185598874221028e-08,
+        "frmse_mid": 7.582750145717195e-08,
+        "frmse_high": 5.1579959793718536e-08,
+        "frmse_total": 6.319889153401372e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 5731.440018255343,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_tanh_shear_layer",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 8.440948012228214e-07,
+      "time": 1.5810019969940186,
+      "oracle_error": 0.00011251863952743567,
+      "oracle_time": 3.5148372082039714,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0011251863952743567,
+      "target_time": 10.544511624611914,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.853597501965338e-07,
+        "mae": 2.8764845934933045e-07,
+        "r2": 0.9999999999992875,
+        "frmse_low": 3.602751787224799e-07,
+        "frmse_mid": 6.089606361009658e-07,
+        "frmse_high": 2.4662956410614465e-07,
+        "frmse_total": 4.853597501965338e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 5829.214648382805,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_quadrilateral_mesh",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 6.629285132772217e-06,
+      "time": 1.6283080577850342,
+      "oracle_error": 0.00046374804872111877,
+      "oracle_time": 3.866391290910542,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0046374804872111874,
+      "target_time": 11.599173872731626,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.3139795715667185e-06,
+        "mae": 2.4806278039771162e-06,
+        "r2": 0.9999999999560526,
+        "frmse_low": 3.3926154594948364e-06,
+        "frmse_mid": 3.684941770178788e-06,
+        "frmse_high": 2.4778570424250223e-06,
+        "frmse_total": 3.313979571566718e-06
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 5659.862675209261,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_p2_elements",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 2.9411234870308018e-06,
+      "time": 2.146155595779419,
+      "oracle_error": 2.619626236565786e-06,
+      "oracle_time": 2.646461166907102,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 2.619626236565786e-05,
+      "target_time": 7.939383500721306,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.441150508645093e-06,
+        "mae": 1.0818572967102692e-06,
+        "r2": 0.9999999999913498,
+        "frmse_low": 2.0620183517434392e-06,
+        "frmse_mid": 1.3890960085551523e-06,
+        "frmse_high": 1.0337699935354367e-06,
+        "frmse_total": 1.441150508645093e-06
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 4294.190047601384,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_no_exact_gaussian_source",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 3.053989196339244e-07,
+      "time": 0.42432427406311035,
+      "oracle_error": 0.00028211394890602885,
+      "oracle_time": 1.4600417078472674,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0028211394890602886,
+      "target_time": 4.380125123541802,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.043711786220242e-10,
+        "mae": 3.00962855312557e-10,
+        "r2": 0.9999999999997647,
+        "frmse_low": 3.753080589702654e-10,
+        "frmse_mid": 5.863750839272915e-10,
+        "frmse_high": 4.0520759935179775e-10,
+        "frmse_total": 5.043711786220242e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21719.238241433464,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_no_exact_oscillatory_rhs",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 0.0011171379602724976,
+      "time": 0.43423008918762207,
+      "oracle_error": 0.015079345871055756,
+      "oracle_time": 1.806376500055194,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.15079345871055755,
+      "target_time": 5.419129500165582,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.089369177160871e-10,
+        "mae": 1.526771349686719e-10,
+        "r2": 0.9999987520027778,
+        "frmse_low": 1.9855529738984074e-10,
+        "frmse_mid": 2.1902667032536081e-10,
+        "frmse_high": 1.963991821169716e-10,
+        "frmse_total": 2.0893691771608708e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21223.77105935179,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 7,
+          "condition_number_estimate": 49.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_no_exact_sign_changing_rhs",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.9142408778226e-05,
+      "time": 0.42259907722473145,
+      "oracle_error": 0.002082287183468388,
+      "oracle_time": 1.6608667918480933,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.02082287183468388,
+      "target_time": 4.98260037554428,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.9109626450572582e-10,
+        "mae": 1.4416182486897406e-10,
+        "r2": 0.9999999996227678,
+        "frmse_low": 1.993644965707111e-10,
+        "frmse_mid": 2.0958865929692264e-10,
+        "frmse_high": 1.4729070537728869e-10,
+        "frmse_total": 1.9109626450572582e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21807.903747738375,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_no_exact_nonzero_bc",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.7099711346290105e-06,
+      "time": 1.7347290515899658,
+      "oracle_error": 0.00039822367928080463,
+      "oracle_time": 2.822611707728356,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.003982236792808047,
+      "target_time": 8.467835123185068,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.7170467515243294e-06,
+        "mae": 1.3917299701365525e-06,
+        "r2": 0.999999999996918,
+        "frmse_low": 1.0002504934046533e-06,
+        "frmse_mid": 2.284536333295626e-06,
+        "frmse_high": 3.3827615385133625e-07,
+        "frmse_total": 1.7170467515243292e-06
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 5312.64521773765,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_multimode_superposition",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 3.018182227893998e-06,
+      "time": 1.5500049591064453,
+      "oracle_error": 0.00034817875969422077,
+      "oracle_time": 4.149488290771842,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0034817875969422075,
+      "target_time": 12.448464872315526,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.653470854362922e-06,
+        "mae": 1.237455115113009e-06,
+        "r2": 0.99999999998163,
+        "frmse_low": 1.681961622889718e-06,
+        "frmse_mid": 1.8359110928198666e-06,
+        "frmse_high": 1.2516070396392943e-06,
+        "frmse_total": 1.6534708543629217e-06
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 5945.787428520801,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_quadrilateral_p2",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 9.294126624136258e-07,
+      "time": 1.6406331062316895,
+      "oracle_error": 8.314421289667419e-07,
+      "oracle_time": 6.023361041210592,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 8.31442128966742e-06,
+      "target_time": 18.070083123631775,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.5541220458267674e-07,
+        "mae": 3.393825687796172e-07,
+        "r2": 0.9999999999991362,
+        "frmse_low": 3.8404105245578027e-07,
+        "frmse_mid": 5.441501199685947e-07,
+        "frmse_high": 2.954747210433922e-07,
+        "frmse_total": 4.5541220458267674e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 5617.343673606523,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_no_exact_quadrilateral_oscillatory_rhs",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 0.0003964022670361132,
+      "time": 0.4355030059814453,
+      "oracle_error": 0.0037423521184778833,
+      "oracle_time": 1.9152203327976167,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.03742352118477883,
+      "target_time": 5.74566099839285,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.9102707214038085e-10,
+        "mae": 1.3851100066729095e-10,
+        "r2": 0.9999998428652427,
+        "frmse_low": 1.4401155443463991e-10,
+        "frmse_mid": 2.1123796917436683e-10,
+        "frmse_high": 1.7735250885553969e-10,
+        "frmse_total": 1.9102707214038087e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21161.736827122266,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 8,
+          "condition_number_estimate": 64.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_lshape_v1",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 8.172722795555652e-09,
+      "time": 2.5554070472717285,
+      "oracle_error": 8.062360376285386e-08,
+      "oracle_time": 8.074295500293374,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 24.222886500880122,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.045497783800048e-09,
+        "mae": 3.1407054430809487e-09,
+        "r2": 0.9999999999999998,
+        "frmse_low": 1.8406852647744496e-09,
+        "frmse_mid": 2.1872890640738403e-09,
+        "frmse_high": 5.517026870222099e-09,
+        "frmse_total": 3.503503851724489e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 8804.859493528456,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_lshape_v2",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.2053827918643359e-10,
+      "time": 1.6651177406311035,
+      "oracle_error": 2.806986561588379e-08,
+      "oracle_time": 7.807883833069354,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 23.423651499208063,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.033894377385691e-10,
+        "mae": 2.2859358580854897e-10,
+        "r2": 1.0,
+        "frmse_low": 3.4989119224157214e-10,
+        "frmse_mid": 1.1116549389300978e-10,
+        "frmse_high": 3.6944405206598095e-10,
+        "frmse_total": 2.6274296032147813e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 13512.557971709663,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_lshape_v3",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.2835891570190678e-10,
+      "time": 2.256542205810547,
+      "oracle_error": 1.0210534440311029e-07,
+      "oracle_time": 93.03503199992701,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.021053444031103e-06,
+      "target_time": 279.10509599978104,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.199775122654592e-10,
+        "mae": 6.768295559434974e-10,
+        "r2": 1.0,
+        "frmse_low": 1.192146422374436e-09,
+        "frmse_mid": 5.443615904416452e-10,
+        "frmse_high": 5.768606961048341e-10,
+        "frmse_total": 7.101213561538536e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 9971.007828731495,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_lshape_v4",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 8.480066283755811e-07,
+      "time": 1.7105138301849365,
+      "oracle_error": 9.722672324671894e-07,
+      "oracle_time": 15.776887124869972,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 9.722672324671894e-06,
+      "target_time": 47.33066137460992,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.3723165092475813e-07,
+        "mae": 3.3072842040344125e-07,
+        "r2": 0.9999999999992804,
+        "frmse_low": 3.120974260259633e-07,
+        "frmse_mid": 1.8448235484594304e-07,
+        "frmse_high": 6.052128077672485e-07,
+        "frmse_total": 3.8116971625969463e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 13153.942168107085,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_square_hole_v1",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.193031679585647e-08,
+      "time": 0.7884097099304199,
+      "oracle_error": 9.427172333089423e-08,
+      "oracle_time": 4.696547583211213,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 14.08964274963364,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.83952397278483e-09,
+        "mae": 3.669975170996507e-09,
+        "r2": 0.9999999999999996,
+        "frmse_low": 1.713314247129108e-09,
+        "frmse_mid": 3.1980517363310073e-09,
+        "frmse_high": 6.979172069094584e-09,
+        "frmse_total": 4.5336809358070625e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 28538.461305842757,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_square_hole_v2",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 3.3885822820045564e-08,
+      "time": 1.8861298561096191,
+      "oracle_error": 1.2328123576708911e-07,
+      "oracle_time": 11.904248332604766,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.232812357670891e-06,
+      "target_time": 35.7127449978143,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.08175035063575e-10,
+        "mae": 1.9547799421205163e-10,
+        "r2": 0.9999999999999977,
+        "frmse_low": 2.1923627698022392e-10,
+        "frmse_mid": 1.9604590025361941e-10,
+        "frmse_high": 4.558171981500147e-10,
+        "frmse_total": 3.0194863494802927e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 11929.189248087663,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_multihole_3_v1",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 8.145248200967549e-11,
+      "time": 1.7721190452575684,
+      "oracle_error": 4.712218867664617e-08,
+      "oracle_time": 8.796070500276983,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 26.38821150083095,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.554250347748281e-11,
+        "mae": 3.504756425775317e-11,
+        "r2": 1.0,
+        "frmse_low": 6.438854525853861e-11,
+        "frmse_mid": 3.693262565381777e-11,
+        "frmse_high": 3.835637575810441e-11,
+        "frmse_total": 4.339223195177051e-11
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 12696.663951675855,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_multihole_5_v1",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.6278520495342532e-07,
+      "time": 2.381978988647461,
+      "oracle_error": 1.5720522325870999e-07,
+      "oracle_time": 3.6337899998761714,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.5720522325870998e-06,
+      "target_time": 10.901369999628514,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 7.810946928645407e-08,
+        "mae": 5.807407153297141e-08,
+        "r2": 0.9999999999999735,
+        "frmse_low": 3.491758665107047e-08,
+        "frmse_mid": 4.780046329429609e-08,
+        "frmse_high": 1.2160367713057098e-07,
+        "frmse_total": 7.660305206105714e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 9445.927150170197,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_annulus_centered",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.7173760350385747e-09,
+      "time": 2.6171529293060303,
+      "oracle_error": 4.285958596181989e-08,
+      "oracle_time": 19.78501975024119,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 59.35505925072357,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.804602484797837e-10,
+        "mae": 7.560514449208504e-10,
+        "r2": 1.0,
+        "frmse_low": 9.07207230317736e-10,
+        "frmse_mid": 6.109556223494949e-10,
+        "frmse_high": 5.917653149051911e-10,
+        "frmse_total": 6.670612288342573e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 8597.128485711435,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_annulus_offset",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.2127437441211815e-10,
+      "time": 1.8704383373260498,
+      "oracle_error": 1.9577996138725376e-08,
+      "oracle_time": 4.165808499790728,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 12.497425499372184,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.2026252847822001e-10,
+        "mae": 9.304753994897152e-11,
+        "r2": 1.0,
+        "frmse_low": 6.88943340844409e-11,
+        "frmse_mid": 1.1732441214090983e-10,
+        "frmse_high": 9.596378539137499e-11,
+        "frmse_total": 1.039905848754697e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 12029.265841591794,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_gear_6teeth",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 8.372600050134548e-09,
+      "time": 1.1075680255889893,
+      "oracle_error": 2.719906057649911e-07,
+      "oracle_time": 24.47641491703689,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 2.719906057649911e-06,
+      "target_time": 73.42924475111067,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.3065193888377625e-09,
+        "mae": 3.3684978883038306e-09,
+        "r2": 0.9999999999999999,
+        "frmse_low": 2.8386834962846242e-09,
+        "frmse_mid": 3.4805071641194295e-09,
+        "frmse_high": 2.8581600479268616e-09,
+        "frmse_total": 3.1961221774107317e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 20314.779300381855,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_gear_8teeth",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 9.066885225808172e-09,
+      "time": 2.367487907409668,
+      "oracle_error": 1.288767955186374e-07,
+      "oracle_time": 38.28835749998689,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.2887679551863739e-06,
+      "target_time": 114.86507249996066,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.308774130667965e-09,
+        "mae": 3.2500050877748435e-09,
+        "r2": 0.9999999999999999,
+        "frmse_low": 2.8402773265221037e-09,
+        "frmse_mid": 2.4027978282344786e-09,
+        "frmse_high": 3.766408219363638e-09,
+        "frmse_total": 2.951431651195068e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 9503.744424451086,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_gear_12teeth",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 3.6104023591374304e-10,
+      "time": 2.3849589824676514,
+      "oracle_error": 1.413346361556156e-07,
+      "oracle_time": 189.20561608299613,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.413346361556156e-06,
+      "target_time": 567.6168482489884,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.762595000970652e-10,
+        "mae": 2.2110469209634187e-10,
+        "r2": 1.0,
+        "frmse_low": 2.634891815400179e-10,
+        "frmse_mid": 2.2326797716960448e-10,
+        "frmse_high": 1.2169152942891682e-10,
+        "frmse_total": 2.066598331945892e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 9434.124513420298,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_tjunction_v1",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 7.515401624764092e-09,
+      "time": 0.9418079853057861,
+      "oracle_error": 6.00663472654945e-08,
+      "oracle_time": 1.5555462916381657,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 4.666638874914497,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.014053932988063e-09,
+        "mae": 3.0674913585382225e-09,
+        "r2": 0.9999999999999999,
+        "frmse_low": 1.1168304642036565e-09,
+        "frmse_mid": 1.6132270947454914e-09,
+        "frmse_high": 3.741090906935436e-09,
+        "frmse_total": 2.408432359792838e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 23890.220035344788,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_tjunction_v2",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.0733296181473131e-09,
+      "time": 2.2465670108795166,
+      "oracle_error": 4.371073459234699e-08,
+      "oracle_time": 24.891325833275914,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 74.67397749982774,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.812593696811729e-08,
+        "mae": 2.762284410873587e-08,
+        "r2": 1.0,
+        "frmse_low": 3.07963079449909e-08,
+        "frmse_mid": 3.646607900322996e-08,
+        "frmse_high": 1.4603075149563757e-08,
+        "frmse_total": 3.0437515069789776e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 10015.281044829104,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_eccentric_v1",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 9.727451654395187e-09,
+      "time": 1.9329640865325928,
+      "oracle_error": 6.345938357116234e-08,
+      "oracle_time": 5.151267708744854,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 15.453803126234561,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.442357675847431e-09,
+        "mae": 4.188953393639388e-09,
+        "r2": 0.9999999999999999,
+        "frmse_low": 1.4662367777100626e-09,
+        "frmse_mid": 2.464033309247858e-09,
+        "frmse_high": 7.1705137540951055e-09,
+        "frmse_total": 4.365435831624582e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 11640.154184323805,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_eccentric_v2",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.0888704120011516e-10,
+      "time": 1.15714693069458,
+      "oracle_error": 1.0703573409477762e-07,
+      "oracle_time": 75.69388087512925,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.0703573409477763e-06,
+      "target_time": 227.08164262538776,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.6293261278236348e-10,
+        "mae": 1.0449773317385087e-10,
+        "r2": 1.0,
+        "frmse_low": 1.0577191435918455e-10,
+        "frmse_mid": 1.5034171641225353e-10,
+        "frmse_high": 6.913881826813961e-11,
+        "frmse_total": 1.2342078201656587e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 19444.375993370457,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_dumbbell_v1",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 5.646795179199753e-09,
+      "time": 0.7611007690429688,
+      "oracle_error": 3.844204865422475e-08,
+      "oracle_time": 1.7068652077578008,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 5.1205956232734025,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.7002776860351374e-09,
+        "mae": 2.916034294904497e-09,
+        "r2": 0.9999999999999998,
+        "frmse_low": 8.924693481320277e-10,
+        "frmse_mid": 2.2112544513186557e-09,
+        "frmse_high": 4.154370802573325e-09,
+        "frmse_total": 2.811237115455718e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 29562.445493639672,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_dumbbell_v2",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 5.2309455507165184e-08,
+      "time": 0.6574149131774902,
+      "oracle_error": 1.0290890453906108e-07,
+      "oracle_time": 3.0627682083286345,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.0290890453906107e-06,
+      "target_time": 9.188304624985904,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.668693198974886e-09,
+        "mae": 9.653126882409051e-10,
+        "r2": 0.9999999999999962,
+        "frmse_low": 5.146240686168778e-10,
+        "frmse_mid": 1.6990224215622956e-09,
+        "frmse_high": 8.208656666743709e-10,
+        "frmse_total": 1.327004594541295e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 34224.96135849812,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_periodic_v1",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.6518518267682054e-07,
+      "time": 0.8340640068054199,
+      "oracle_error": 1.1420079431534366e-06,
+      "oracle_time": 5.440645708236843,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.1420079431534366e-05,
+      "target_time": 16.32193712471053,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.176666542502616e-08,
+        "mae": 6.235989777585271e-08,
+        "r2": 0.9999999999999727,
+        "frmse_low": 6.473138578153466e-08,
+        "frmse_mid": 2.6114546414769793e-08,
+        "frmse_high": 1.362352210349903e-07,
+        "frmse_total": 8.176666542502616e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 26976.346918719224,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 8,
+          "condition_number_estimate": 64.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_periodic_v2",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 2.7492165216318196e-06,
+      "time": 1.7740299701690674,
+      "oracle_error": 4.698629971027112e-06,
+      "oracle_time": 10.962379208300263,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 4.6986299710271114e-05,
+      "target_time": 32.88713762490079,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.3745395286845226e-06,
+        "mae": 1.0529003159926202e-06,
+        "r2": 0.9999999999924418,
+        "frmse_low": 1.0921987021829467e-06,
+        "frmse_mid": 5.650535771755731e-07,
+        "frmse_high": 2.240545378577494e-06,
+        "frmse_total": 1.3745395286845229e-06
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 12682.987535918415,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_periodic_v3",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 7.861479477948171e-09,
+      "time": 1.634993314743042,
+      "oracle_error": 7.299428824771394e-08,
+      "oracle_time": 12.316152417100966,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 36.9484572513029,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.891432341584345e-09,
+        "mae": 3.0448564896412584e-09,
+        "r2": 0.9999999999999998,
+        "frmse_low": 2.5280079614533574e-09,
+        "frmse_mid": 2.2308215929089376e-09,
+        "frmse_high": 4.5466745522498173e-10,
+        "frmse_total": 1.945716170792173e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 13761.524158608645,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 8,
+          "condition_number_estimate": 64.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_multihole_large_v1",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.0639923926498542e-10,
+      "time": 1.693584680557251,
+      "oracle_error": 4.287660323631997e-09,
+      "oracle_time": 4.976815499830991,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 14.930446499492973,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.9576443881749743e-11,
+        "mae": 3.5454769817758474e-11,
+        "r2": 1.0,
+        "frmse_low": 1.6627450746522835e-11,
+        "frmse_mid": 2.3696685832857797e-11,
+        "frmse_high": 5.482373002322669e-11,
+        "frmse_total": 3.533517347182299e-11
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 13285.429573321768,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_lshape_steep_v1",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 2.1380095168554046e-07,
+      "time": 2.7131030559539795,
+      "oracle_error": 3.897364561564195e-07,
+      "oracle_time": 70.32189854094759,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 3.897364561564195e-06,
+      "target_time": 210.96569562284276,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.751627969405483e-08,
+        "mae": 2.618665264598671e-08,
+        "r2": 0.9999999999999478,
+        "frmse_low": 7.466804898375623e-08,
+        "frmse_mid": 1.219693697829087e-08,
+        "frmse_high": 2.9291794120938345e-09,
+        "frmse_total": 3.2490051270533775e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 90000,
+          "resolution": 100,
+          "degree": 3,
+          "efficiency_dof_per_sec": 33172.348467373005,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_gear_small_teeth",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 3.921337076567592e-08,
+      "time": 2.965312957763672,
+      "oracle_error": 1.9469085587015142e-06,
+      "oracle_time": 197.3811647919938,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.9469085587015142e-05,
+      "target_time": 592.1434943759814,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.935513097602187e-08,
+        "mae": 1.51155761095474e-08,
+        "r2": 0.9999999999999984,
+        "frmse_low": 2.940809719742584e-08,
+        "frmse_mid": 8.058975283184164e-09,
+        "frmse_high": 1.3718212097398668e-08,
+        "frmse_total": 1.55565172012867e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 40401,
+          "resolution": 67,
+          "degree": 3,
+          "efficiency_dof_per_sec": 13624.531567308471,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_tjunction_asym",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 3.035427930198198e-09,
+      "time": 2.156095027923584,
+      "oracle_error": 3.334576766221693e-08,
+      "oracle_time": 9.983296459075063,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 29.94988937722519,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.479863861010445e-09,
+        "mae": 4.140228404546581e-09,
+        "r2": 1.0,
+        "frmse_low": 2.315222194124357e-09,
+        "frmse_mid": 4.300019946755616e-09,
+        "frmse_high": 3.433655655410233e-09,
+        "frmse_total": 3.764790106422711e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 10435.532621986753,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_dumbbell_tight_v1",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 4.310309669171707e-08,
+      "time": 1.921962022781372,
+      "oracle_error": 2.2141963108057487e-07,
+      "oracle_time": 11.944529582746327,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 2.214196310805749e-06,
+      "target_time": 35.83358874823898,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.1047381629905526e-08,
+        "mae": 2.4577828028907922e-08,
+        "r2": 0.9999999999999981,
+        "frmse_low": 5.4212062928366516e-08,
+        "frmse_mid": 9.72430883919254e-09,
+        "frmse_high": 1.1663658697230574e-08,
+        "frmse_total": 2.4504167669153132e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 90000,
+          "resolution": 100,
+          "degree": 3,
+          "efficiency_dof_per_sec": 46827.14795256791,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_eccentric_extreme_v3",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 3.0392941284219753e-09,
+      "time": 2.613115072250366,
+      "oracle_error": 9.21994609166241e-09,
+      "oracle_time": 18.28577558277175,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 54.857326748315245,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.4533345333810486e-09,
+        "mae": 1.7937922411833105e-09,
+        "r2": 1.0,
+        "frmse_low": 2.777638422571098e-09,
+        "frmse_mid": 1.8245097412045187e-09,
+        "frmse_high": 2.169707130428723e-09,
+        "frmse_total": 2.1240833809850626e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 8610.41300436242,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_star_5points",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.0560134154160411e-08,
+      "time": 1.0733709335327148,
+      "oracle_error": 1.6008030405137107e-07,
+      "oracle_time": 14.612983707804233,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.6008030405137107e-06,
+      "target_time": 43.8389511234127,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.6388403419087176e-09,
+        "mae": 3.529690815642391e-09,
+        "r2": 0.9999999999999999,
+        "frmse_low": 1.3836776103489437e-09,
+        "frmse_mid": 2.371815365636775e-09,
+        "frmse_high": 3.845180270193625e-09,
+        "frmse_total": 2.7817574952702182e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 20961.998594416225,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_poly_hole_complex",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.5529531359788926e-11,
+      "time": 1.3315598964691162,
+      "oracle_error": 9.595244456551613e-08,
+      "oracle_time": 124.245647250209,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 372.736941750627,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.3016414107723815e-11,
+        "mae": 9.23145736666642e-12,
+        "r2": 1.0,
+        "frmse_low": 2.977383691878673e-11,
+        "frmse_mid": 1.3214883958351641e-12,
+        "frmse_high": 6.208533118655348e-13,
+        "frmse_total": 1.2493045496167859e-11
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 16897.47495374637,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_annulus_test_v1",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.8164866013472023e-09,
+      "time": 0.942194938659668,
+      "oracle_error": 3.901398395064712e-08,
+      "oracle_time": 28.755487541202456,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 86.26646262360737,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.793275550964514e-10,
+        "mae": 7.591333634822529e-10,
+        "r2": 1.0,
+        "frmse_low": 1.0008310579396713e-09,
+        "frmse_mid": 7.50642554939339e-10,
+        "frmse_high": 3.0496335499377883e-10,
+        "frmse_total": 7.0587605288286e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 23880.40847683567,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_gear_test_v1",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 3.1537009251858286e-11,
+      "time": 0.797565221786499,
+      "oracle_error": 5.7614880007448435e-08,
+      "oracle_time": 28.017565624788404,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 84.05269687436521,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.87798470953994e-12,
+        "mae": 6.53496689912423e-12,
+        "r2": 1.0,
+        "frmse_low": 1.4040910536204214e-11,
+        "frmse_mid": 1.1146349068369275e-12,
+        "frmse_high": 5.296823928437079e-13,
+        "frmse_total": 5.934320185687843e-12
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 28210.85898103898,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_multihole_test_v1",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 3.685435438517946e-11,
+      "time": 0.6824326515197754,
+      "oracle_error": 3.14127136451427e-08,
+      "oracle_time": 7.98630699981004,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 23.95892099943012,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.987812496403837e-11,
+        "mae": 2.0716518223066197e-11,
+        "r2": 1.0,
+        "frmse_low": 6.76778100853312e-11,
+        "frmse_mid": 4.015167890019047e-12,
+        "frmse_high": 1.505524198050379e-12,
+        "frmse_total": 2.8464304911597804e-11
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 32970.28644495918,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_multihole_test_v2",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 9.140168975928669e-09,
+      "time": 0.645143985748291,
+      "oracle_error": 4.718213837402599e-08,
+      "oracle_time": 9.661499042063951,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 28.984497126191854,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.52152285148068e-09,
+        "mae": 3.422413178939589e-09,
+        "r2": 0.9999999999999998,
+        "frmse_low": 2.1706640617216465e-09,
+        "frmse_mid": 3.4480254159768044e-09,
+        "frmse_high": 6.251781954463078e-09,
+        "frmse_total": 4.339719851260076e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 34875.935445484545,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_star_test_v1",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.5019336455417145e-11,
+      "time": 0.7179841995239258,
+      "oracle_error": 5.897028597490812e-08,
+      "oracle_time": 10.846587916836143,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 32.53976375050843,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.826648042688758e-12,
+        "mae": 1.9363319441028824e-12,
+        "r2": 1.0,
+        "frmse_low": 3.664211425295789e-12,
+        "frmse_mid": 1.5121244470172485e-13,
+        "frmse_high": 7.212710534591825e-14,
+        "frmse_total": 1.5368233518784836e-12
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 31337.736979336158,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_star_test_v2",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.0756371104821526e-10,
+      "time": 0.76053786277771,
+      "oracle_error": 5.976393759303527e-08,
+      "oracle_time": 12.605346334166825,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 37.816039002500474,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.2463296889284006e-10,
+        "mae": 9.947648181428523e-11,
+        "r2": 1.0,
+        "frmse_low": 3.311258920423102e-11,
+        "frmse_mid": 4.531563513724086e-11,
+        "frmse_high": 1.0637505224089916e-10,
+        "frmse_total": 6.840068079219055e-11
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 29584.325910906424,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_star_test_v3",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.0845772897594488e-08,
+      "time": 0.7637262344360352,
+      "oracle_error": 7.58373284713194e-08,
+      "oracle_time": 17.88701133336872,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 53.661034000106156,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.511737012603235e-10,
+        "mae": 7.297486786867859e-10,
+        "r2": 0.9999999999999998,
+        "frmse_low": 5.863273177020935e-10,
+        "frmse_mid": 2.9293685612849126e-10,
+        "frmse_high": 6.242930043605195e-10,
+        "frmse_total": 4.717683509277869e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 29460.81853089002,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_circle_test_v1",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 8.072072187764221e-09,
+      "time": 0.8337709903717041,
+      "oracle_error": 5.2410540919862016e-08,
+      "oracle_time": 15.095067667309195,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 45.285203001927584,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.5486141242259556e-09,
+        "mae": 3.580083465073905e-09,
+        "r2": 0.9999999999999997,
+        "frmse_low": 2.9565490288330017e-09,
+        "frmse_mid": 3.0377956671806644e-09,
+        "frmse_high": 5.614565398463221e-09,
+        "frmse_total": 3.9830902573139755e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 26985.82735526605,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 9,
+          "condition_number_estimate": 81.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_circle_test_v2",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 3.011341549870167e-11,
+      "time": 1.1172001361846924,
+      "oracle_error": 9.36794552937071e-08,
+      "oracle_time": 112.29058808414266,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 336.87176425242797,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.731915693301563e-11,
+        "mae": 1.2643706436798359e-11,
+        "r2": 1.0,
+        "frmse_low": 3.625711539765961e-11,
+        "frmse_mid": 3.781810285869434e-13,
+        "frmse_high": 1.771386342902174e-13,
+        "frmse_total": 1.5165886435030454e-11
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 20139.632346303584,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_circle_test_v3",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.0042314784645127e-10,
+      "time": 1.150683879852295,
+      "oracle_error": 1.058094219032522e-07,
+      "oracle_time": 70.44966429192573,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.058094219032522e-06,
+      "target_time": 211.34899287577718,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.3449376627232958e-10,
+        "mae": 9.548130112303902e-11,
+        "r2": 1.0,
+        "frmse_low": 8.198755471231311e-11,
+        "frmse_mid": 7.72817416412845e-11,
+        "frmse_high": 1.4925691108951546e-10,
+        "frmse_total": 1.0497408619653652e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 19553.58929933751,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_sector_test_v1",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 1.3458653857707173e-11,
+      "time": 0.7071928977966309,
+      "oracle_error": 5.0762005817280505e-08,
+      "oracle_time": 10.032763499766588,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 30.098290499299765,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 7.723029009864472e-12,
+        "mae": 5.844835577009103e-12,
+        "r2": 1.0,
+        "frmse_low": 1.6254190247517856e-11,
+        "frmse_mid": 3.996094220778155e-13,
+        "frmse_high": 1.8737749188269442e-13,
+        "frmse_total": 6.804597781853072e-12
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 31815.930377839257,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    },
+    {
+      "case_id": "biharmonic_sector_test_v2",
+      "equation_type": "biharmonic",
+      "status": "PASS",
+      "error": 7.990073581794204e-09,
+      "time": 0.9797759056091309,
+      "oracle_error": 9.706625670669803e-08,
+      "oracle_time": 18.710627417080104,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 56.13188225124031,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.089903673176053e-09,
+        "mae": 3.0902476605422062e-09,
+        "r2": 0.9999999999999999,
+        "frmse_low": 3.0831036822826095e-09,
+        "frmse_mid": 3.919487993446325e-09,
+        "frmse_high": 1.8447011960362564e-09,
+        "frmse_total": 3.276010289214476e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 22964.434899030974,
+          "linear_solver_type": "cg",
+          "preconditioner_type": "hypre",
+          "linear_iterations": 10,
+          "condition_number_estimate": 100.0
+        }
+      }
+    }
+  ]
+}

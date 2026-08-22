@@ -1,0 +1,3950 @@
+{
+  "agent_name": "gpt-5.1",
+  "timestamp": "2026-08-21T20:25:45.119531",
+  "total_cases": 84,
+  "passed_cases": 68,
+  "pass_rate": 0.8095238095238095,
+  "avg_error": 0.03777556230076544,
+  "avg_time": 0.9232417628878639,
+  "avg_universal_metrics": {
+    "rmse": 0.0006687844553172695,
+    "mae": 0.00038043525651773044,
+    "r2": 0.9991684827838008,
+    "frmse_low": 0.0014825559911942514,
+    "frmse_mid": 0.0003150243195837882,
+    "frmse_high": 0.00013284460036785297,
+    "frmse_total": 0.0006687826891371892
+  },
+  "equation_type_summary": {
+    "convection_diffusion": {
+      "cases": 84,
+      "passed": 68,
+      "failed": 16,
+      "pass_rate": 0.8095238095238095,
+      "avg_error": 0.03777556230076544,
+      "avg_time": 0.9232417628878639,
+      "avg_universal_metrics": {
+        "rmse": 0.0006687844553172695,
+        "mae": 0.00038043525651773044,
+        "r2": 0.9991684827838008,
+        "frmse_low": 0.0014825559911942514,
+        "frmse_mid": 0.0003150243195837882,
+        "frmse_high": 0.00013284460036785297,
+        "frmse_total": 0.0006687826891371892
+      }
+    }
+  },
+  "math_type_summary": {
+    "elliptic": {
+      "cases": 60,
+      "passed": 52,
+      "pass_rate": 0.8666666666666667,
+      "avg_metrics": {
+        "dof": 14515.066666666668,
+        "resolution": 37.21666666666667,
+        "degree": 2.8833333333333333,
+        "efficiency_dof_per_sec": 25526.082552674885,
+        "linear_iterations": 1.0,
+        "condition_number_estimate": 1.0
+      }
+    },
+    "mixed_type": {
+      "cases": 14,
+      "passed": 9,
+      "pass_rate": 0.6428571428571429,
+      "avg_metrics": {
+        "peclet_number": 3100.3197892884696,
+        "total_variation": 199.71540740689414,
+        "mesh_resolution": 32.0,
+        "element_degree": 3.0,
+        "linear_iterations": 1.0
+      }
+    },
+    "parabolic": {
+      "cases": 10,
+      "passed": 7,
+      "pass_rate": 0.7,
+      "avg_metrics": {
+        "dof": 6838.6,
+        "n_steps": 11.0,
+        "dt": 0.014000000000000004,
+        "t_end": 0.12400000000000003,
+        "agent_resolution": 26.6,
+        "agent_degree": 2.7,
+        "efficiency_workrate": 57635.36403901173,
+        "time_per_step": 0.25264971216519677,
+        "cfl_number": 12.266000000000002,
+        "linear_iterations": 1.0
+      }
+    }
+  },
+  "gate_statistics": {
+    "total_cases": 84,
+    "exec_valid_count": 84,
+    "accuracy_pass_count": 68,
+    "time_pass_count": 68,
+    "final_pass_count": 68,
+    "exec_valid_rate": 1.0,
+    "accuracy_pass_rate": 0.8095238095238095,
+    "time_pass_rate": 0.8095238095238095,
+    "final_pass_rate": 0.8095238095238095,
+    "accuracy_pass_rate_given_exec": 0.8095238095238095,
+    "time_pass_rate_given_accuracy": 1.0,
+    "failure_breakdown": {
+      "accuracy": 16
+    },
+    "failure_breakdown_pct": {
+      "accuracy": 0.19047619047619047
+    }
+  },
+  "cost_analysis": {},
+  "multi_attempt_stats": null,
+  "results": [
+    {
+      "case_id": "convdiff_high_pe",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 2.7318700027402426e-07,
+      "time": 0.4469761848449707,
+      "oracle_error": 5.438227273950252e-05,
+      "oracle_time": 1.5778390411287546,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0005438227273950252,
+      "target_time": 4.733517123386264,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.338616301342719e-07,
+        "mae": 1.042553554498323e-07,
+        "r2": 0.9999999999997983,
+        "frmse_low": 2.6325226547208306e-07,
+        "frmse_mid": 9.348215685476493e-08,
+        "frmse_high": 6.369679227283023e-08,
+        "frmse_total": 1.338616301342719e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 20618.54817432047,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_low_pe",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 1.5554464199258868e-07,
+      "time": 0.40200209617614746,
+      "oracle_error": 0.0001631820175056762,
+      "oracle_time": 1.2864502910524607,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.001631820175056762,
+      "target_time": 3.859350873157382,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 7.621687457636847e-08,
+        "mae": 5.5624089619942905e-08,
+        "r2": 0.9999999999999346,
+        "frmse_low": 6.332640296332002e-08,
+        "frmse_mid": 8.166492673207677e-08,
+        "frmse_high": 7.316435094645581e-08,
+        "frmse_total": 7.621687457636847e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 22925.25359360757,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_medium_pe_diagonal",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 9.541394144372595e-07,
+      "time": 0.3846709728240967,
+      "oracle_error": 0.00014053269085988017,
+      "oracle_time": 1.6420051660388708,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0014053269085988018,
+      "target_time": 4.926015498116612,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.675283130742572e-07,
+        "mae": 3.465869070622967e-07,
+        "r2": 0.9999999999990896,
+        "frmse_low": 4.812783285526874e-07,
+        "frmse_mid": 5.374401238000319e-07,
+        "frmse_high": 2.970661132288363e-07,
+        "frmse_total": 4.675283130742572e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 23958.137346158208,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_high_pe_xwind_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 2.003897711879678e-07,
+      "time": 0.49264097213745117,
+      "oracle_error": 5.916985385090132e-05,
+      "oracle_time": 1.4053356666117907,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0005916985385090132,
+      "target_time": 4.216006999835372,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 9.819098788210424e-08,
+        "mae": 7.61196139686236e-08,
+        "r2": 0.9999999999998914,
+        "frmse_low": 1.3975260435447986e-07,
+        "frmse_mid": 9.341022213051773e-08,
+        "frmse_high": 7.407578554185662e-08,
+        "frmse_total": 9.819098788210424e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 18707.33560794585,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_high_pe_reverse_flow_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 4.4508251143059095e-08,
+      "time": 0.5010781288146973,
+      "oracle_error": 2.4447239496749298e-05,
+      "oracle_time": 1.4039535839110613,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.000244472394967493,
+      "target_time": 4.211860751733184,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.589861560744594e-08,
+        "mae": 4.422634802610443e-08,
+        "r2": 0.9999999999999926,
+        "frmse_low": 7.521978872175216e-08,
+        "frmse_mid": 6.299216179636485e-08,
+        "frmse_high": 2.3736148587834995e-08,
+        "frmse_total": 5.589861560744595e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 18392.341373590767,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_p2_moderate_pe",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 9.569003252907374e-07,
+      "time": 0.393892765045166,
+      "oracle_error": 2.2797632831743724e-06,
+      "oracle_time": 1.5866639581508934,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 2.2797632831743726e-05,
+      "target_time": 4.75999187445268,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.688811593924614e-07,
+        "mae": 3.4564617134224007e-07,
+        "r2": 0.9999999999990843,
+        "frmse_low": 4.996147250676523e-07,
+        "frmse_mid": 5.337025878818293e-07,
+        "frmse_high": 2.983177532914698e-07,
+        "frmse_total": 4.688811593924614e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 23397.230967020278,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_gaussian_source_no_exact",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 0.05559480104637422,
+      "time": 0.5250539779663086,
+      "oracle_error": 0.008672165687966981,
+      "oracle_time": 5.902754292357713,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.08672165687966982,
+      "target_time": 17.70826287707314,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00014441576535443806,
+        "mae": 1.4422758492511695e-05,
+        "r2": 0.996400105778797,
+        "frmse_low": 0.0002831362782780977,
+        "frmse_mid": 0.00010772087075468365,
+        "frmse_high": 5.0073282150802356e-05,
+        "frmse_total": 0.00014441576535443806
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 17552.481052893512,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "advection_pure_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 1.678249376589347e-07,
+      "time": 0.4549248218536377,
+      "oracle_error": 4.097590921971459e-05,
+      "oracle_time": 1.5336935422383249,
+      "tolerance": 1.2,
+      "accuracy_tolerance": 1.2,
+      "time_tolerance": 3,
+      "target_error": 4.917109106365751e-05,
+      "target_time": 4.601080626714975,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.2234219452878e-08,
+        "mae": 5.962481827418316e-08,
+        "r2": 0.9999999999999238,
+        "frmse_low": 8.846125165495569e-08,
+        "frmse_mid": 8.710881046323733e-08,
+        "frmse_high": 6.85700115109183e-08,
+        "frmse_total": 8.2234219452878e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 20258.292265628563,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_elliptic_low_pe_cos_mix",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 1.4923817411372436e-07,
+      "time": 0.3998570442199707,
+      "oracle_error": 0.00016572345439127076,
+      "oracle_time": 1.356980208773166,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0016572345439127075,
+      "target_time": 4.070940626319498,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 7.46041617467705e-08,
+        "mae": 5.471367304526659e-08,
+        "r2": 0.9999999999999777,
+        "frmse_low": 4.9061935031828946e-08,
+        "frmse_mid": 8.281520246699055e-08,
+        "frmse_high": 7.173330441055131e-08,
+        "frmse_total": 7.46041617467705e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 23048.23719681693,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_elliptic_medium_pe_rotated",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 4.658625044968493e-06,
+      "time": 0.40941786766052246,
+      "oracle_error": 0.0005101355670620591,
+      "oracle_time": 2.006988374982029,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0051013556706205904,
+      "target_time": 6.020965124946088,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.3288466133841795e-06,
+        "mae": 1.8464866976997362e-06,
+        "r2": 0.9999999999782972,
+        "frmse_low": 2.1216169384230853e-06,
+        "frmse_mid": 2.841121662143153e-06,
+        "frmse_high": 1.1547036787426064e-06,
+        "frmse_total": 2.3288466133841795e-06
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 22510.009278934653,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_elliptic_high_pe_strong_x_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 2.0783196347280633e-07,
+      "time": 0.42867302894592285,
+      "oracle_error": 6.848795521850038e-05,
+      "oracle_time": 1.3867855002172291,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0006848795521850038,
+      "target_time": 4.160356500651687,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.0183766210167512e-07,
+        "mae": 7.889486173482768e-08,
+        "r2": 0.9999999999998832,
+        "frmse_low": 1.6002304290258965e-07,
+        "frmse_mid": 8.989333708939023e-08,
+        "frmse_high": 7.420080710167439e-08,
+        "frmse_total": 1.0183766210167512e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21498.903307869645,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_elliptic_high_pe_strong_y_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 2.0783196505759028e-07,
+      "time": 0.42326974868774414,
+      "oracle_error": 6.84879030038521e-05,
+      "oracle_time": 1.3801671671681106,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0006848790300385209,
+      "target_time": 4.140501501504332,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.0183766287821926e-07,
+        "mae": 7.889486228719971e-08,
+        "r2": 0.9999999999998832,
+        "frmse_low": 1.6002304573702455e-07,
+        "frmse_mid": 8.989333708396771e-08,
+        "frmse_high": 7.420080710402343e-08,
+        "frmse_total": 1.0183766287821926e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21773.349096107635,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_elliptic_reverse_flow_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 8.937632382341157e-08,
+      "time": 0.42298173904418945,
+      "oracle_error": 4.20106096513546e-05,
+      "oracle_time": 1.3760575409978628,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.000420106096513546,
+      "target_time": 4.1281726229935884,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.1217820711447543e-07,
+        "mae": 9.044375210059473e-08,
+        "r2": 0.9999999999999702,
+        "frmse_low": 1.825138663349881e-07,
+        "frmse_mid": 1.1195592263365605e-07,
+        "frmse_high": 2.4696710369967166e-08,
+        "frmse_total": 1.1217820711447541e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21788.17464041206,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_elliptic_p2_moderate_pe",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 9.569003252907374e-07,
+      "time": 0.3690018653869629,
+      "oracle_error": 2.2797632831743724e-06,
+      "oracle_time": 0.30896687507629395,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 2.2797632831743726e-05,
+      "target_time": 0.9269006252288818,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.688811593924614e-07,
+        "mae": 3.4564617134224007e-07,
+        "r2": 0.9999999999990843,
+        "frmse_low": 4.996147250676523e-07,
+        "frmse_mid": 5.337025878818293e-07,
+        "frmse_high": 2.983177532914698e-07,
+        "frmse_total": 4.688811593924614e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 24975.483498804035,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_elliptic_quadrilateral_medium_pe",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 9.333255811818434e-07,
+      "time": 0.33127307891845703,
+      "oracle_error": 0.00010844992683414339,
+      "oracle_time": 1.3306585000827909,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0010844992683414338,
+      "target_time": 3.9919755002483726,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.573295347791034e-07,
+        "mae": 3.382522996826188e-07,
+        "r2": 0.9999999999991289,
+        "frmse_low": 4.3650000520168743e-07,
+        "frmse_mid": 5.332739668429474e-07,
+        "frmse_high": 2.97582646171313e-07,
+        "frmse_total": 4.573295347791034e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 27819.94851525053,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_elliptic_no_exact_oscillatory_rhs",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 0.0002822549923968605,
+      "time": 0.3391299247741699,
+      "oracle_error": 0.0014160575938681392,
+      "oracle_time": 5.932846167124808,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.014160575938681391,
+      "target_time": 17.798538501374424,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.997191727918796e-06,
+        "mae": 1.1387088242275023e-06,
+        "r2": 0.9999999198896038,
+        "frmse_low": 4.286827231028372e-06,
+        "frmse_mid": 2.8901745153209457e-06,
+        "frmse_high": 2.1488909763491107e-06,
+        "frmse_total": 2.997191727918796e-06
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 27175.42548371993,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_mixed_high_pe_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 1.909052130957466e-07,
+      "time": 0.36170101165771484,
+      "oracle_error": 3.0095533764745804e-05,
+      "oracle_time": 1.5817503752186894,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.00030095533764745806,
+      "target_time": 4.745251125656068,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 9.354355441691585e-08,
+        "mae": 7.041172152709881e-08,
+        "r2": 0.9999999999999014,
+        "frmse_low": 1.3932391859046442e-07,
+        "frmse_mid": 8.784763456782907e-08,
+        "frmse_high": 6.596958460017209e-08,
+        "frmse_total": 9.354355441691584e-08
+      },
+      "math_types": [
+        "mixed_type"
+      ],
+      "math_type_metrics": {
+        "mixed_type": {
+          "peclet_number": 4472.13595499958,
+          "total_variation": 124.67065622360107,
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "stabilization_method": "supg"
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_mixed_high_pe_xwind_supg_stronger",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 2.0811274302174937e-07,
+      "time": 0.35170722007751465,
+      "oracle_error": 4.4852822761451156e-05,
+      "oracle_time": 1.4625465418212116,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.00044852822761451156,
+      "target_time": 4.387639625463635,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.0197524408065721e-07,
+        "mae": 7.967437662183681e-08,
+        "r2": 0.9999999999998829,
+        "frmse_low": 1.1091441367082419e-07,
+        "frmse_mid": 1.1215667830182697e-07,
+        "frmse_high": 7.404602164596213e-08,
+        "frmse_total": 1.0197524408065721e-07
+      },
+      "math_types": [
+        "mixed_type"
+      ],
+      "math_type_metrics": {
+        "mixed_type": {
+          "peclet_number": 4000.0,
+          "total_variation": 124.67065344323642,
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "stabilization_method": "supg"
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_mixed_medium_pe_no_stabilization",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 2.5148302936653276e-06,
+      "time": 0.35291194915771484,
+      "oracle_error": 0.0002012093024284877,
+      "oracle_time": 1.426604624837637,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.002012093024284877,
+      "target_time": 4.279813874512911,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.2322668438960109e-06,
+        "mae": 8.863029623613994e-07,
+        "r2": 0.9999999999936756,
+        "frmse_low": 1.385950101061471e-06,
+        "frmse_mid": 1.2677722674950093e-06,
+        "frmse_high": 1.062671113777099e-06,
+        "frmse_total": 1.2322668438960109e-06
+      },
+      "math_types": [
+        "mixed_type"
+      ],
+      "math_type_metrics": {
+        "mixed_type": {
+          "peclet_number": 316.22776601683796,
+          "total_variation": 249.34171660342554,
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "stabilization_method": "none"
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_mixed_layer_exp_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 1.0700191501744551e-07,
+      "time": 0.36768198013305664,
+      "oracle_error": 1.936239797386199e-05,
+      "oracle_time": 2.076761540956795,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0001936239797386199,
+      "target_time": 6.230284622870386,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 6.260266049234701e-07,
+        "mae": 3.852338737380453e-07,
+        "r2": 0.9999999999999784,
+        "frmse_low": 6.27880145007813e-07,
+        "frmse_mid": 6.755566607657817e-07,
+        "frmse_high": 5.27192501108889e-07,
+        "frmse_total": 6.260266049234701e-07
+      },
+      "math_types": [
+        "mixed_type"
+      ],
+      "math_type_metrics": {
+        "mixed_type": {
+          "peclet_number": 1200.0,
+          "total_variation": 1239.5672218070647,
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "stabilization_method": "supg"
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_mixed_quadrilateral_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 2.464420536220155e-07,
+      "time": 0.32428693771362305,
+      "oracle_error": 6.048189607750948e-05,
+      "oracle_time": 1.3810525420121849,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0006048189607750948,
+      "target_time": 4.143157626036555,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.207566062747876e-07,
+        "mae": 9.379550748646592e-08,
+        "r2": 0.9999999999998358,
+        "frmse_low": 2.2635047665642398e-07,
+        "frmse_mid": 8.947219491563458e-08,
+        "frmse_high": 6.88790079719025e-08,
+        "frmse_total": 1.207566062747876e-07
+      },
+      "math_types": [
+        "mixed_type"
+      ],
+      "math_type_metrics": {
+        "mixed_type": {
+          "peclet_number": 1523.1546211727816,
+          "total_variation": 124.67066493528459,
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "stabilization_method": "supg"
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_mixed_p2_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 2.025260429036569e-06,
+      "time": 0.3542358875274658,
+      "oracle_error": 2.4785302785338324e-06,
+      "oracle_time": 1.8933425000868738,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 2.4785302785338324e-05,
+      "target_time": 5.680027500260621,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 9.923776102279193e-07,
+        "mae": 7.389506125253115e-07,
+        "r2": 0.9999999999958983,
+        "frmse_low": 2.054479800296519e-06,
+        "frmse_mid": 6.577413120339563e-07,
+        "frmse_high": 2.5777747142215334e-07,
+        "frmse_total": 9.92377610227919e-07
+      },
+      "math_types": [
+        "mixed_type"
+      ],
+      "math_type_metrics": {
+        "mixed_type": {
+          "peclet_number": 1077.0329614269008,
+          "total_variation": 187.00636346558989,
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "stabilization_method": "supg"
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_mixed_no_exact_gaussian_source",
+      "equation_type": "convection_diffusion",
+      "status": "FAIL",
+      "error": 0.04119141065672615,
+      "time": 0.35924625396728516,
+      "oracle_error": 0.0017794577333733067,
+      "oracle_time": 5.488319625146687,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.017794577333733068,
+      "target_time": 16.46495887544006,
+      "fail_reason": "ACCURACY_FAIL: error=4.12e-02 > target=1.78e-02",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=4.12e-02 > target=1.78e-02"
+      },
+      "math_types": [
+        "mixed_type"
+      ],
+      "math_type_metrics": {
+        "mixed_type": {
+          "peclet_number": 1118.033988749895,
+          "total_variation": 0.9620530945695404,
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "stabilization_method": "supg"
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_mixed_no_exact_multifreq_source",
+      "equation_type": "convection_diffusion",
+      "status": "FAIL",
+      "error": 0.07371913982818278,
+      "time": 0.3360781669616699,
+      "oracle_error": 0.0036213787351597284,
+      "oracle_time": 6.026318416930735,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.03621378735159728,
+      "target_time": 18.078955250792205,
+      "fail_reason": "ACCURACY_FAIL: error=7.37e-02 > target=3.62e-02",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=7.37e-02 > target=3.62e-02"
+      },
+      "math_types": [
+        "mixed_type"
+      ],
+      "math_type_metrics": {
+        "mixed_type": {
+          "peclet_number": 1341.640786499874,
+          "total_variation": 4.582803465200096,
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "stabilization_method": "supg"
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_parabolic_basic_manufactured",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 0.0009226996028742138,
+      "time": 0.45336294174194336,
+      "oracle_error": 0.0007050554411367927,
+      "oracle_time": 3.8708207909949124,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.007050554411367926,
+      "target_time": 11.612462372984737,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0004090976318808796,
+        "mae": 0.00032356325138301913,
+        "r2": 0.999997698113362,
+        "frmse_low": 0.000978461122850005,
+        "frmse_mid": 4.239786906381709e-06,
+        "frmse_high": 1.0582023813201248e-06,
+        "frmse_total": 0.0004090976318808797
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 9409,
+          "n_steps": 5,
+          "dt": 0.02,
+          "t_end": 0.1,
+          "agent_resolution": 32,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler",
+          "efficiency_workrate": 103768.95786682598,
+          "time_per_step": 0.09067258834838868,
+          "cfl_number": 20.48,
+          "cfl_warning": "CFL=20.48 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_parabolic_high_pe_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 0.0001396410131028618,
+      "time": 3.0721187591552734,
+      "oracle_error": 0.0003852211813168015,
+      "oracle_time": 6.4983862498775125,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.003852211813168015,
+      "target_time": 19.495158749632537,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 6.316340189240867e-05,
+        "mae": 4.6920198701326576e-05,
+        "r2": 0.9999999805003874,
+        "frmse_low": 0.0001509133288245694,
+        "frmse_mid": 3.889937159550947e-06,
+        "frmse_high": 1.4521813308770208e-06,
+        "frmse_total": 6.316340189240867e-05
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 9409,
+          "n_steps": 8,
+          "dt": 0.01,
+          "t_end": 0.08,
+          "agent_resolution": 32,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler",
+          "efficiency_workrate": 24501.65696742049,
+          "time_per_step": 0.3840148448944092,
+          "cfl_number": 10.24,
+          "cfl_warning": "CFL=10.24 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_parabolic_no_exact_forcing",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 0.05332249017922295,
+      "time": 0.3883051872253418,
+      "oracle_error": 0.05353872874322332,
+      "oracle_time": 7.01564533310011,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.5353872874322332,
+      "target_time": 21.04693599930033,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.0015343594445636696,
+        "mae": 0.0011660524045121157,
+        "r2": 0.9971564857655152,
+        "frmse_low": 0.0036656890399049823,
+        "frmse_mid": 9.834688900507073e-05,
+        "frmse_high": 3.399267047558893e-05,
+        "frmse_total": 0.0015343594445636694
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 9409,
+          "n_steps": 5,
+          "dt": 0.02,
+          "t_end": 0.1,
+          "agent_resolution": 32,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler",
+          "efficiency_workrate": 121154.70394862065,
+          "time_per_step": 0.07766103744506836,
+          "cfl_number": 20.48,
+          "cfl_warning": "CFL=20.48 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_parabolic_no_exact_time_dependent_forcing",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 0.17843655341023937,
+      "time": 2.8592872619628906,
+      "oracle_error": 0.14655746498480263,
+      "oracle_time": 21.411177416332066,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.4655746498480262,
+      "target_time": 64.2335322489962,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.04058893654762988,
+        "mae": 0.022343189964018233,
+        "r2": 0.955172543679185,
+        "frmse_low": 0.08923452427171827,
+        "frmse_mid": 0.021022562970259607,
+        "frmse_high": 0.00886912586636582,
+        "frmse_total": 0.04058893654762988
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 9409,
+          "n_steps": 5,
+          "dt": 0.02,
+          "t_end": 0.1,
+          "agent_resolution": 32,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler",
+          "efficiency_workrate": 16453.40103662889,
+          "time_per_step": 0.5718574523925781,
+          "cfl_number": 20.48,
+          "cfl_warning": "CFL=20.48 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_elliptic_low_pe_polynomial",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 8.917835827209619e-08,
+      "time": 0.3141622543334961,
+      "oracle_error": 0.00023028819582220745,
+      "oracle_time": 1.3738366672769189,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0023028819582220743,
+      "target_time": 4.121510001830757,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.9131591982194504e-09,
+        "mae": 2.3537338295233903e-09,
+        "r2": 0.9999999999999762,
+        "frmse_low": 6.58241261702261e-10,
+        "frmse_mid": 2.663486471436551e-09,
+        "frmse_high": 3.9503171312511275e-09,
+        "frmse_total": 2.9131591982194504e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 29335.160010078227,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_elliptic_medium_pe_exp_layer",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 4.9988250434261726e-08,
+      "time": 0.3589351177215576,
+      "oracle_error": 2.8366533170390032e-05,
+      "oracle_time": 2.068635083734989,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.00028366533170390035,
+      "target_time": 6.2059052512049675,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.2949235720680728e-07,
+        "mae": 9.304921244911336e-08,
+        "r2": 0.9999999999999938,
+        "frmse_low": 5.653740145357898e-08,
+        "frmse_mid": 1.5652683909316638e-07,
+        "frmse_high": 1.0562704201244396e-07,
+        "frmse_total": 1.2949235720680728e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 25675.949621483604,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_elliptic_medium_pe_diagonal_high_freq",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 2.4673689265035397e-05,
+      "time": 0.35512423515319824,
+      "oracle_error": 0.0005868791053274762,
+      "oracle_time": 0.8336412077769637,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.005868791053274762,
+      "target_time": 2.500923623330891,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.2090107739867347e-05,
+        "mae": 8.923912157704606e-06,
+        "r2": 0.9999999993912091,
+        "frmse_low": 1.137760953509355e-05,
+        "frmse_mid": 1.3408028185145969e-05,
+        "frmse_high": 9.858656565195447e-06,
+        "frmse_total": 1.2090107739867347e-05
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 25951.481447117454,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_elliptic_quadrilateral_low_pe",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 1.551014509859619e-07,
+      "time": 0.3243250846862793,
+      "oracle_error": 6.264124049352319e-05,
+      "oracle_time": 1.3862624997273088,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.000626412404935232,
+      "target_time": 4.158787499181926,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 7.599971098312134e-08,
+        "mae": 5.5390362917995155e-08,
+        "r2": 0.9999999999999349,
+        "frmse_low": 6.180950287921119e-08,
+        "frmse_mid": 8.166656798030829e-08,
+        "frmse_high": 7.316398059213821e-08,
+        "frmse_total": 7.599971098312134e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 28415.93338028314,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_elliptic_no_exact_gaussian_source",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 6.236551857819855e-05,
+      "time": 0.3592679500579834,
+      "oracle_error": 0.0008784146874360524,
+      "oracle_time": 5.139317166991532,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.008784146874360525,
+      "target_time": 15.417951500974596,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.0159674847272454e-07,
+        "mae": 1.0606655822348995e-07,
+        "r2": 0.9999999949321027,
+        "frmse_low": 5.719386310142783e-07,
+        "frmse_mid": 3.860204059497525e-07,
+        "frmse_high": 2.9362448819281687e-07,
+        "frmse_total": 4.0159674847272454e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 25652.162956680662,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_mixed_extreme_pe_supg_upwind3",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 1.7381627512000825e-07,
+      "time": 0.3448019027709961,
+      "oracle_error": 2.19767289154414e-05,
+      "oracle_time": 1.8933727503754199,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.000219767289154414,
+      "target_time": 5.68011825112626,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.516997480880407e-08,
+        "mae": 6.271288233026795e-08,
+        "r2": 0.9999999999999183,
+        "frmse_low": 1.0469341689280265e-07,
+        "frmse_mid": 8.669213237377292e-08,
+        "frmse_high": 6.811725917465451e-08,
+        "frmse_total": 8.516997480880407e-08
+      },
+      "math_types": [
+        "mixed_type"
+      ],
+      "math_type_metrics": {
+        "mixed_type": {
+          "peclet_number": 13462.91201783626,
+          "total_variation": 124.67065285719339,
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "stabilization_method": "supg"
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_mixed_reverse_flow_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 3.6117297330409345e-08,
+      "time": 0.3250727653503418,
+      "oracle_error": 0.001387169691075158,
+      "oracle_time": 1.4858384588733315,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.01387169691075158,
+      "target_time": 4.457515376619995,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.533162125073291e-08,
+        "mae": 3.4292340729214585e-08,
+        "r2": 0.9999999999999951,
+        "frmse_low": 3.2554467374344313e-08,
+        "frmse_mid": 5.770458440050737e-08,
+        "frmse_high": 2.0170294073445296e-08,
+        "frmse_total": 4.5331621250732916e-08
+      },
+      "math_types": [
+        "mixed_type"
+      ],
+      "math_type_metrics": {
+        "mixed_type": {
+          "peclet_number": 4123.105625617661,
+          "total_variation": 225.60966787431533,
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "stabilization_method": "supg"
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_mixed_quadrilateral_supg_upwind2",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 1.91424617812742e-07,
+      "time": 0.35271406173706055,
+      "oracle_error": 4.431932080088314e-05,
+      "oracle_time": 1.4454319588840008,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0004431932080088314,
+      "target_time": 4.336295876652002,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 9.37980627282436e-08,
+        "mae": 7.118200850713848e-08,
+        "r2": 0.999999999999901,
+        "frmse_low": 1.4154442965092233e-07,
+        "frmse_mid": 8.590141838506002e-08,
+        "frmse_high": 6.883715734786532e-08,
+        "frmse_total": 9.37980627282436e-08
+      },
+      "math_types": [
+        "mixed_type"
+      ],
+      "math_type_metrics": {
+        "mixed_type": {
+          "peclet_number": 3794.7331922020553,
+          "total_variation": 124.6706554725372,
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "stabilization_method": "supg"
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_mixed_p3_supg",
+      "equation_type": "convection_diffusion",
+      "status": "FAIL",
+      "error": 1.8321206909436632e-06,
+      "time": 0.31899309158325195,
+      "oracle_error": 6.814702670398397e-08,
+      "oracle_time": 2.0296434168703854,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 6.088930250611156,
+      "fail_reason": "ACCURACY_FAIL: error=1.83e-06 > target=1.00e-06",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=1.83e-06 > target=1.00e-06"
+      },
+      "math_types": [
+        "mixed_type"
+      ],
+      "math_type_metrics": {
+        "mixed_type": {
+          "peclet_number": 1264.9110640673518,
+          "total_variation": 187.00632045957545,
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "stabilization_method": "supg"
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_mixed_no_exact_oscillatory_rhs",
+      "equation_type": "convection_diffusion",
+      "status": "FAIL",
+      "error": 0.04857642122592252,
+      "time": 0.35285282135009766,
+      "oracle_error": 0.002682102907309408,
+      "oracle_time": 7.091412208043039,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.026821029073094083,
+      "target_time": 21.274236624129117,
+      "fail_reason": "ACCURACY_FAIL: error=4.86e-02 > target=2.68e-02",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=4.86e-02 > target=2.68e-02"
+      },
+      "math_types": [
+        "mixed_type"
+      ],
+      "math_type_metrics": {
+        "mixed_type": {
+          "peclet_number": 3310.5890714493694,
+          "total_variation": 3.7015368456028597,
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "stabilization_method": "supg"
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_mixed_no_exact_constant_source_nonzero_bc",
+      "equation_type": "convection_diffusion",
+      "status": "FAIL",
+      "error": 0.04510501142195065,
+      "time": 0.4273710250854492,
+      "oracle_error": 0.0044129183626914256,
+      "oracle_time": 5.3151453752070665,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.04412918362691426,
+      "target_time": 15.9454361256212,
+      "fail_reason": "ACCURACY_FAIL: error=4.51e-02 > target=4.41e-02",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=4.51e-02 > target=4.41e-02"
+      },
+      "math_types": [
+        "mixed_type"
+      ],
+      "math_type_metrics": {
+        "mixed_type": {
+          "peclet_number": 2400.0,
+          "total_variation": 74.8847371493219,
+          "mesh_resolution": 32,
+          "element_degree": 3,
+          "linear_iterations": 1,
+          "stabilization_method": "supg"
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_parabolic_longer_time_manufactured",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 0.007559795924609208,
+      "time": 0.394244909286499,
+      "oracle_error": 0.007363500670468541,
+      "oracle_time": 7.681025499943644,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.07363500670468541,
+      "target_time": 23.04307649983093,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00248306654858,
+        "mae": 0.0018752033347231222,
+        "r2": 0.9998454804593392,
+        "frmse_low": 0.005936236949867613,
+        "frmse_mid": 0.00010232012081056532,
+        "frmse_high": 3.4801356289246364e-05,
+        "frmse_total": 0.00248306654858
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 9409,
+          "n_steps": 10,
+          "dt": 0.02,
+          "t_end": 0.2,
+          "agent_resolution": 32,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler",
+          "efficiency_workrate": 238658.75699012386,
+          "time_per_step": 0.0394244909286499,
+          "cfl_number": 20.48,
+          "cfl_warning": "CFL=20.48 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_parabolic_small_dt_high_pe_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 2.6730137493397743e-05,
+      "time": 2.6882760524749756,
+      "oracle_error": 0.0004858722530408697,
+      "oracle_time": 17.292138000018895,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.004858722530408697,
+      "target_time": 51.876414000056684,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.2335012779865163e-05,
+        "mae": 9.059781472314815e-06,
+        "r2": 0.9999999992854998,
+        "frmse_low": 2.7480760056929555e-05,
+        "frmse_mid": 5.861739860665158e-06,
+        "frmse_high": 2.6520495757083327e-06,
+        "frmse_total": 1.2335012779865163e-05
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 9409,
+          "n_steps": 12,
+          "dt": 0.005,
+          "t_end": 0.06,
+          "agent_resolution": 32,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler",
+          "efficiency_workrate": 42000.15095029049,
+          "time_per_step": 0.22402300437291464,
+          "cfl_number": 5.12,
+          "cfl_warning": "CFL=5.12 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_parabolic_no_exact_gaussian_source",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 0.06594881590521491,
+      "time": 2.8499410152435303,
+      "oracle_error": 0.0722943330544415,
+      "oracle_time": 21.190238625276834,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.722943330544415,
+      "target_time": 63.5707158758305,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 0.00021660280463687252,
+        "mae": 7.36310965312135e-05,
+        "r2": 0.9948846215427235,
+        "frmse_low": 0.0005100718505973857,
+        "frmse_mid": 4.97634057951799e-05,
+        "frmse_high": 2.1500819610631443e-05,
+        "frmse_total": 0.00021660280463687252
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 9409,
+          "n_steps": 5,
+          "dt": 0.02,
+          "t_end": 0.1,
+          "agent_resolution": 32,
+          "agent_degree": 3,
+          "time_scheme": "backward_euler",
+          "efficiency_workrate": 16507.35918686372,
+          "time_per_step": 0.569988203048706,
+          "cfl_number": 20.48,
+          "cfl_warning": "CFL=20.48 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "cd_3d_basic_diffusion",
+      "equation_type": "convection_diffusion",
+      "status": "FAIL",
+      "error": 0.26274437754049257,
+      "time": 2.788688898086548,
+      "oracle_error": 0.0003709475496112825,
+      "oracle_time": 1.592769792303443,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 1.8547377480564124e-05,
+      "target_time": 4.778309376910329,
+      "fail_reason": "ACCURACY_FAIL: error=2.63e-01 > target=1.85e-05",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=2.63e-01 > target=1.85e-05"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 841,
+          "resolution": 14,
+          "degree": 2,
+          "efficiency_dof_per_sec": 301.5754107878617,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_3d_isotropic_flow",
+      "equation_type": "convection_diffusion",
+      "status": "FAIL",
+      "error": 0.4453229799226187,
+      "time": 2.9293768405914307,
+      "oracle_error": 0.00036826661172098654,
+      "oracle_time": 1.5813457081094384,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 1.8413330586049327e-05,
+      "target_time": 4.744037124328315,
+      "fail_reason": "ACCURACY_FAIL: error=4.45e-01 > target=1.84e-05",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=4.45e-01 > target=1.84e-05"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 841,
+          "resolution": 14,
+          "degree": 2,
+          "efficiency_dof_per_sec": 287.0917760892126,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_3d_convdom_supg",
+      "equation_type": "convection_diffusion",
+      "status": "FAIL",
+      "error": 0.047744169925164275,
+      "time": 2.8101391792297363,
+      "oracle_error": 0.0008653133587400226,
+      "oracle_time": 1.700796542223543,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 4.326566793700113e-05,
+      "target_time": 5.102389626670629,
+      "fail_reason": "ACCURACY_FAIL: error=4.77e-02 > target=4.33e-05",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=4.77e-02 > target=4.33e-05"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 841,
+          "resolution": 14,
+          "degree": 2,
+          "efficiency_dof_per_sec": 299.2734332220938,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_3d_high_convection",
+      "equation_type": "convection_diffusion",
+      "status": "FAIL",
+      "error": 0.5113612536381658,
+      "time": 2.8099148273468018,
+      "oracle_error": 0.0004192207417221643,
+      "oracle_time": 1.6756520420312881,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 2.0961037086108217e-05,
+      "target_time": 5.026956126093864,
+      "fail_reason": "ACCURACY_FAIL: error=5.11e-01 > target=2.10e-05",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=5.11e-01 > target=2.10e-05"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 841,
+          "resolution": 14,
+          "degree": 2,
+          "efficiency_dof_per_sec": 299.29732809520607,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_3d_pure_diffusion",
+      "equation_type": "convection_diffusion",
+      "status": "FAIL",
+      "error": 0.3333994652608971,
+      "time": 2.8023252487182617,
+      "oracle_error": 0.00037387746438598496,
+      "oracle_time": 1.1012428342364728,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 1.869387321929925e-05,
+      "target_time": 3.3037285027094185,
+      "fail_reason": "ACCURACY_FAIL: error=3.33e-01 > target=1.87e-05",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=3.33e-01 > target=1.87e-05"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 841,
+          "resolution": 14,
+          "degree": 2,
+          "efficiency_dof_per_sec": 300.10791944463256,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_3d_asymmetric_beta",
+      "equation_type": "convection_diffusion",
+      "status": "FAIL",
+      "error": 0.1871576368389148,
+      "time": 2.7884531021118164,
+      "oracle_error": 0.003942153541209841,
+      "oracle_time": 1.7382007082924247,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 0.00019710767706049206,
+      "target_time": 5.214602124877274,
+      "fail_reason": "ACCURACY_FAIL: error=1.87e-01 > target=1.97e-04",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=1.87e-01 > target=1.97e-04"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 841,
+          "resolution": 14,
+          "degree": 2,
+          "efficiency_dof_per_sec": 301.6009124783466,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_3d_transient_basic",
+      "equation_type": "convection_diffusion",
+      "status": "FAIL",
+      "error": 0.15642787652907686,
+      "time": 3.857165813446045,
+      "oracle_error": 0.0009209254590991962,
+      "oracle_time": 15.820855166763067,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 4.6046272954959815e-05,
+      "target_time": 47.4625655002892,
+      "fail_reason": "ACCURACY_FAIL: error=1.56e-01 > target=4.60e-05",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=1.56e-01 > target=4.60e-05"
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 841,
+          "n_steps": 20,
+          "dt": 0.01,
+          "t_end": 0.2,
+          "agent_resolution": 14,
+          "agent_degree": 2,
+          "time_scheme": "backward_euler",
+          "efficiency_workrate": 4360.714787361651,
+          "time_per_step": 0.19285829067230226,
+          "cfl_number": 1.9600000000000002,
+          "cfl_warning": "CFL=1.96 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "cd_3d_transient_diagonal",
+      "equation_type": "convection_diffusion",
+      "status": "FAIL",
+      "error": 0.4171957610286508,
+      "time": 3.8009681701660156,
+      "oracle_error": 0.001033043417741167,
+      "oracle_time": 15.81159329181537,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 5.165217088705835e-05,
+      "target_time": 47.43477987544611,
+      "fail_reason": "ACCURACY_FAIL: error=4.17e-01 > target=5.17e-05",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=4.17e-01 > target=5.17e-05"
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 841,
+          "n_steps": 20,
+          "dt": 0.01,
+          "t_end": 0.2,
+          "agent_resolution": 14,
+          "agent_degree": 2,
+          "time_scheme": "backward_euler",
+          "efficiency_workrate": 4425.188332809782,
+          "time_per_step": 0.1900484085083008,
+          "cfl_number": 1.9600000000000002,
+          "cfl_warning": "CFL=1.96 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "cd_3d_transient_supg",
+      "equation_type": "convection_diffusion",
+      "status": "FAIL",
+      "error": 0.00991506980612121,
+      "time": 3.7189760208129883,
+      "oracle_error": 0.017282554194232642,
+      "oracle_time": 16.810543542262167,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 0.0008641277097116321,
+      "target_time": 50.4316306267865,
+      "fail_reason": "ACCURACY_FAIL: error=9.92e-03 > target=8.64e-04",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=9.92e-03 > target=8.64e-04"
+      },
+      "math_types": [
+        "parabolic"
+      ],
+      "math_type_metrics": {
+        "parabolic": {
+          "dof": 841,
+          "n_steps": 20,
+          "dt": 0.005,
+          "t_end": 0.1,
+          "agent_resolution": 14,
+          "agent_degree": 2,
+          "time_scheme": "backward_euler",
+          "efficiency_workrate": 4522.750323171768,
+          "time_per_step": 0.18594880104064943,
+          "cfl_number": 0.9800000000000001,
+          "cfl_warning": "CFL=0.98 > 0.5 (explicit unstable)",
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "time_integrator": "backward_euler",
+          "linear_iterations": 1
+        }
+      }
+    },
+    {
+      "case_id": "cd_3d_polynomial_mms",
+      "equation_type": "convection_diffusion",
+      "status": "FAIL",
+      "error": 0.2309444711089456,
+      "time": 2.7843430042266846,
+      "oracle_error": 0.00034957911263338676,
+      "oracle_time": 1.6059074578806758,
+      "tolerance": 0.05,
+      "accuracy_tolerance": 0.05,
+      "time_tolerance": 3,
+      "target_error": 1.747895563166934e-05,
+      "target_time": 4.817722373642027,
+      "fail_reason": "ACCURACY_FAIL: error=2.31e-01 > target=1.75e-05",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=2.31e-01 > target=1.75e-05"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 841,
+          "resolution": 14,
+          "degree": 2,
+          "efficiency_dof_per_sec": 302.04611957770516,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_tjunction_low_pe",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 4.93710108851922e-09,
+      "time": 0.4264698028564453,
+      "oracle_error": 5.719019322123841e-08,
+      "oracle_time": 2.010807250160724,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 6.032421750482172,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.2976524153603966e-09,
+        "mae": 2.6198879580036374e-09,
+        "r2": 0.9999999999999999,
+        "frmse_low": 5.891993087328245e-10,
+        "frmse_mid": 1.32051767970622e-09,
+        "frmse_high": 2.62094464873363e-09,
+        "frmse_total": 1.7449536402750168e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 52758.717848948756,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_tjunction_mod_pe_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 4.570851504145778e-09,
+      "time": 0.5228722095489502,
+      "oracle_error": 5.449195400730253e-06,
+      "oracle_time": 2.279877165798098,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 5.449195400730253e-05,
+      "target_time": 6.8396314973942935,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.8106080663215873e-09,
+        "mae": 2.1628614209256484e-09,
+        "r2": 1.0,
+        "frmse_low": 1.0708764871454828e-09,
+        "frmse_mid": 1.2855691213893887e-09,
+        "frmse_high": 2.827177491230846e-09,
+        "frmse_total": 1.8643464777470062e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 28224,
+          "resolution": 56,
+          "degree": 3,
+          "efficiency_dof_per_sec": 53978.772412378,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_dumbbell_low_pe",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 3.795633445280363e-09,
+      "time": 0.5029089450836182,
+      "oracle_error": 2.5438763007061523e-08,
+      "oracle_time": 2.074697791133076,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 6.224093373399228,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.644443268853983e-09,
+        "mae": 2.0858125953676586e-09,
+        "r2": 0.9999999999999999,
+        "frmse_low": 8.612248127624521e-10,
+        "frmse_mid": 1.3122373430787755e-09,
+        "frmse_high": 2.9550777778094083e-09,
+        "frmse_total": 1.913037368291047e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 28224,
+          "resolution": 56,
+          "degree": 3,
+          "efficiency_dof_per_sec": 56121.49132743548,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_dumbbell_diag_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 1.9885205887777786e-09,
+      "time": 0.5471179485321045,
+      "oracle_error": 3.858261617689737e-06,
+      "oracle_time": 2.6963435420766473,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 3.858261617689737e-05,
+      "target_time": 8.089030626229942,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.4251114105784118e-09,
+        "mae": 1.1167041434565096e-09,
+        "r2": 1.0,
+        "frmse_low": 6.934100207866915e-10,
+        "frmse_mid": 9.266387604342219e-10,
+        "frmse_high": 1.3205455874213738e-09,
+        "frmse_total": 1.0303123670673889e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 40401,
+          "resolution": 67,
+          "degree": 3,
+          "efficiency_dof_per_sec": 73843.30948819037,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_periodic_square_lowfreq",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 6.445683443456847e-08,
+      "time": 0.4858689308166504,
+      "oracle_error": 1.4399533994573775e-07,
+      "oracle_time": 1.4777366248890758,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1.4399533994573775e-06,
+      "target_time": 4.433209874667227,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.1906133045111394e-08,
+        "mae": 2.372341858776623e-08,
+        "r2": 0.9999999999999883,
+        "frmse_low": 2.4084371658069146e-08,
+        "frmse_mid": 3.729328698519445e-08,
+        "frmse_high": 2.499300800607128e-08,
+        "frmse_total": 3.1906133045111394e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 18968.07845792838,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_periodic_square_highfreq_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 1.0295676380899384e-06,
+      "time": 0.5193400382995605,
+      "oracle_error": 8.918762703249933e-05,
+      "oracle_time": 3.884778917301446,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.0008918762703249933,
+      "target_time": 11.654336751904339,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.096359808545195e-07,
+        "mae": 3.788362352506377e-07,
+        "r2": 0.99999999999894,
+        "frmse_low": 3.8271912499924093e-07,
+        "frmse_mid": 5.920018356883649e-07,
+        "frmse_high": 4.096937109369754e-07,
+        "frmse_total": 5.096359808545196e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 17745.598876172375,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_square_with_hole_circ",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 7.91169268816605e-09,
+      "time": 0.5484039783477783,
+      "oracle_error": 9.314312393863239e-08,
+      "oracle_time": 1.5309032499790192,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 4.5927097499370575,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.2093721470149214e-09,
+        "mae": 2.425211767372566e-09,
+        "r2": 0.9999999999999998,
+        "frmse_low": 1.7327541517884051e-09,
+        "frmse_mid": 2.550900520540222e-09,
+        "frmse_high": 4.11569849851423e-09,
+        "frmse_total": 3.0065496938656543e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 28224,
+          "resolution": 56,
+          "degree": 3,
+          "efficiency_dof_per_sec": 51465.70979487195,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_square_with_hole_rect_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 3.908993757493994e-09,
+      "time": 0.6510002613067627,
+      "oracle_error": 7.8503470401004e-06,
+      "oracle_time": 3.2469489579088986,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 7.8503470401004e-05,
+      "target_time": 9.740846873726696,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.0239411132434944e-09,
+        "mae": 1.569197563215601e-09,
+        "r2": 1.0,
+        "frmse_low": 1.2587893726510864e-09,
+        "frmse_mid": 1.3332736927372265e-09,
+        "frmse_high": 2.890923725687155e-09,
+        "frmse_total": 1.9307167692824233e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 34596,
+          "resolution": 62,
+          "degree": 3,
+          "efficiency_dof_per_sec": 53142.83581170141,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_annulus_axial_flow",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 1.0092178621162631e-08,
+      "time": 1.0212757587432861,
+      "oracle_error": 7.579083229512986e-08,
+      "oracle_time": 9.804656374733895,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 29.413969124201685,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.974399259971184e-09,
+        "mae": 3.9118211466760944e-09,
+        "r2": 0.9999999999999999,
+        "frmse_low": 4.983717042411378e-09,
+        "frmse_mid": 4.25364774508168e-09,
+        "frmse_high": 3.37979183447606e-09,
+        "frmse_total": 4.154740237743758e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 22500,
+          "resolution": 50,
+          "degree": 3,
+          "efficiency_dof_per_sec": 22031.268056031215,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_annulus_diag_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 6.827827836582838e-09,
+      "time": 1.3724780082702637,
+      "oracle_error": 1.4056602116035906e-05,
+      "oracle_time": 13.996452083811164,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.00014056602116035906,
+      "target_time": 41.98935625143349,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.3683530527524025e-09,
+        "mae": 2.619804571499614e-09,
+        "r2": 1.0,
+        "frmse_low": 3.297550755831527e-09,
+        "frmse_mid": 3.3587311534858756e-09,
+        "frmse_high": 1.0653890439702252e-09,
+        "frmse_total": 2.8549648620761435e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 28224,
+          "resolution": 56,
+          "degree": 3,
+          "efficiency_dof_per_sec": 20564.263929861256,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_gear_8teeth",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 3.395960511564163e-09,
+      "time": 0.78497314453125,
+      "oracle_error": 6.075451251181784e-08,
+      "oracle_time": 4.4700560830533504,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 13.410168249160051,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.494101235903001e-09,
+        "mae": 1.136845129938763e-09,
+        "r2": 1.0,
+        "frmse_low": 8.691097675387753e-10,
+        "frmse_mid": 1.2760177530642844e-09,
+        "frmse_high": 6.975471114474128e-10,
+        "frmse_total": 1.0636489803429987e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 40401,
+          "resolution": 67,
+          "degree": 3,
+          "efficiency_dof_per_sec": 51468.002799160255,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_gear_12teeth_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 1.5570462083199372e-09,
+      "time": 1.0117380619049072,
+      "oracle_error": 7.108325129420979e-06,
+      "oracle_time": 6.860163291916251,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 7.108325129420979e-05,
+      "target_time": 20.580489875748754,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 8.244254468095562e-10,
+        "mae": 6.458917228217146e-10,
+        "r2": 1.0,
+        "frmse_low": 9.1817084620981e-10,
+        "frmse_mid": 4.5703811362451376e-10,
+        "frmse_high": 5.357968888381769e-10,
+        "frmse_total": 5.859803586501628e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 53361,
+          "resolution": 77,
+          "degree": 3,
+          "efficiency_dof_per_sec": 52741.91216996576,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_eccentric_annulus_basic",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 5.816647854386312e-09,
+      "time": 1.3347208499908447,
+      "oracle_error": 4.7135385800257755e-08,
+      "oracle_time": 11.013287417124957,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 33.03986225137487,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.2964403963322472e-09,
+        "mae": 2.6040759031056867e-09,
+        "r2": 1.0,
+        "frmse_low": 4.717183944636375e-09,
+        "frmse_mid": 1.9684369929013926e-09,
+        "frmse_high": 2.344783850097484e-09,
+        "frmse_total": 2.7528731446353805e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 28224,
+          "resolution": 56,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21145.994685101083,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_eccentric_annulus_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 4.41266952782813e-09,
+      "time": 1.6130030155181885,
+      "oracle_error": 1.0062515061317333e-05,
+      "oracle_time": 13.977313707582653,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 0.00010062515061317333,
+      "target_time": 41.93194112274796,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.1832581134612523e-09,
+        "mae": 1.6894523855805153e-09,
+        "r2": 1.0,
+        "frmse_low": 2.148778070310968e-09,
+        "frmse_mid": 2.081903296654096e-09,
+        "frmse_high": 1.0777251862179504e-09,
+        "frmse_total": 1.8512689963389882e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 34596,
+          "resolution": 62,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21448.193008421495,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_multi_hole_four_low_pe",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 3.982836788672462e-09,
+      "time": 0.6996839046478271,
+      "oracle_error": 5.131909348008638e-08,
+      "oracle_time": 2.5378271671943367,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 7.61348150158301,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.9702576178982237e-09,
+        "mae": 1.4820376417658805e-09,
+        "r2": 1.0,
+        "frmse_low": 1.812654333012277e-09,
+        "frmse_mid": 1.3765785921784994e-09,
+        "frmse_high": 2.5814383494284302e-09,
+        "frmse_total": 1.8910367982966824e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 34596,
+          "resolution": 62,
+          "degree": 3,
+          "efficiency_dof_per_sec": 49445.184847310804,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_multi_hole_five_diag_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 2.3531291472167125e-09,
+      "time": 0.8166501522064209,
+      "oracle_error": 5.2917134227813314e-06,
+      "oracle_time": 4.012525832746178,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 5.2917134227813314e-05,
+      "target_time": 12.037577498238534,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.1890759687769903e-09,
+        "mae": 9.152821993394077e-10,
+        "r2": 1.0,
+        "frmse_low": 1.0653053217338716e-09,
+        "frmse_mid": 8.676857979492398e-10,
+        "frmse_high": 1.5022151513315312e-09,
+        "frmse_total": 1.1283071630697262e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 45369,
+          "resolution": 71,
+          "degree": 3,
+          "efficiency_dof_per_sec": 55555.00097247553,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "convdiff_multi_hole_four_highfreq",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 3.771529923726171e-08,
+      "time": 0.8120100498199463,
+      "oracle_error": 2.8640506975781935e-07,
+      "oracle_time": 5.105666249990463,
+      "tolerance": 10,
+      "accuracy_tolerance": 10,
+      "time_tolerance": 3,
+      "target_error": 2.8640506975781936e-06,
+      "target_time": 15.31699874997139,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.9167151025774032e-08,
+        "mae": 1.4656530335105318e-08,
+        "r2": 0.9999999999999986,
+        "frmse_low": 1.9392312368722517e-08,
+        "frmse_mid": 1.3962671119645796e-08,
+        "frmse_high": 2.422235489724605e-08,
+        "frmse_total": 1.856742012915712e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 45369,
+          "resolution": 71,
+          "degree": 3,
+          "efficiency_dof_per_sec": 55872.46119682884,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_star_diffdom_smooth",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 8.221910711495532e-08,
+      "time": 0.41379618644714355,
+      "oracle_error": 1.4981679480245658e-06,
+      "oracle_time": 0.13819287484511733,
+      "tolerance": 0.1,
+      "accuracy_tolerance": 0.1,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 0.414578624535352,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.989061577022105e-08,
+        "mae": 2.3388357603447876e-08,
+        "r2": 0.9999999999999932,
+        "frmse_low": 9.460767023115478e-09,
+        "frmse_mid": 1.397797656864162e-08,
+        "frmse_high": 2.275410335137071e-08,
+        "frmse_total": 1.6549861987827596e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 22271.83406190528,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_star_balanced_diag",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 4.3083170404331585e-08,
+      "time": 0.43837428092956543,
+      "oracle_error": 4.6264370884700004e-07,
+      "oracle_time": 1.522707249969244,
+      "tolerance": 0.1,
+      "accuracy_tolerance": 0.1,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 4.568121749907732,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.6184765763708226e-08,
+        "mae": 2.068021688500374e-08,
+        "r2": 0.9999999999999932,
+        "frmse_low": 1.13957198495201e-08,
+        "frmse_mid": 1.2480197857111792e-08,
+        "frmse_high": 1.8757950031580908e-08,
+        "frmse_total": 1.4498003751555345e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21023.13114824534,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_star_convdom_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 2.195196902076789e-09,
+      "time": 0.4693150520324707,
+      "oracle_error": 2.4040779676930626e-07,
+      "oracle_time": 1.7128775836899877,
+      "tolerance": 0.1,
+      "accuracy_tolerance": 0.1,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 5.138632751069963,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.9555831459683574e-09,
+        "mae": 1.5221793659040312e-09,
+        "r2": 0.9999999999999994,
+        "frmse_low": 1.1699288874535226e-09,
+        "frmse_mid": 1.0705313969340049e-09,
+        "frmse_high": 1.051336347305282e-09,
+        "frmse_total": 1.0827689673674017e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 19637.128534633848,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_star_6point_gentle",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 1.9908446497944613e-15,
+      "time": 0.43555521965026855,
+      "oracle_error": 2.0094532395957145e-15,
+      "oracle_time": 1.4517712923698127,
+      "tolerance": 0.1,
+      "accuracy_tolerance": 0.1,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 4.355313877109438,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.6774017049608613e-16,
+        "mae": 2.0450352062504876e-16,
+        "r2": 1.0,
+        "frmse_low": 3.275859454894778e-16,
+        "frmse_mid": 4.7834527405322113e-17,
+        "frmse_high": 3.010708493845687e-17,
+        "frmse_total": 1.4167478142293536e-16
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21159.19999167967,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_star_rotational",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 6.013390123802583e-08,
+      "time": 0.49082517623901367,
+      "oracle_error": 5.6223076489855e-07,
+      "oracle_time": 1.5124907498247921,
+      "tolerance": 0.1,
+      "accuracy_tolerance": 0.1,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 4.537472249474376,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.0024785674781816e-08,
+        "mae": 2.3551797451437187e-08,
+        "r2": 0.9999999999999963,
+        "frmse_low": 1.142935547608836e-08,
+        "frmse_mid": 1.3266143817892834e-08,
+        "frmse_high": 2.3156007054411737e-08,
+        "frmse_total": 1.6624149296609403e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 18776.542944716733,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_circle_basic_diffdom",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 4.899580453992974e-08,
+      "time": 0.4090139865875244,
+      "oracle_error": 1.0508591690346157e-06,
+      "oracle_time": 0.18223895924165845,
+      "tolerance": 0.1,
+      "accuracy_tolerance": 0.1,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 0.5467168777249753,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.7639166998786007e-08,
+        "mae": 2.1509728699508853e-08,
+        "r2": 0.9999999999999888,
+        "frmse_low": 2.1058859431940397e-08,
+        "frmse_mid": 2.2419787763366953e-08,
+        "frmse_high": 2.8272377433605742e-08,
+        "frmse_total": 2.411507421208646e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 22532.236799261336,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_circle_diagonal_flow",
+      "equation_type": "convection_diffusion",
+      "status": "FAIL",
+      "error": 1.0514615667907213e-06,
+      "time": 0.42788100242614746,
+      "oracle_error": 4.772471904604685e-06,
+      "oracle_time": 0.9952661250717938,
+      "tolerance": 0.1,
+      "accuracy_tolerance": 0.1,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 2.9857983752153814,
+      "fail_reason": "ACCURACY_FAIL: error=1.05e-06 > target=1.00e-06",
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": false,
+        "time_pass": false,
+        "final_pass": false,
+        "failure_stage": "accuracy",
+        "failure_reason": "ACCURACY_FAIL: error=1.05e-06 > target=1.00e-06"
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21538.69872170987,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_circle_convdom_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 2.1022947285381737e-09,
+      "time": 0.48244595527648926,
+      "oracle_error": 3.5774114731952815e-07,
+      "oracle_time": 1.8165494580753148,
+      "tolerance": 0.1,
+      "accuracy_tolerance": 0.1,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 5.449648374225944,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.8662342572465983e-09,
+        "mae": 1.4958501898145157e-09,
+        "r2": 0.9999999999999991,
+        "frmse_low": 1.3583384963626788e-09,
+        "frmse_mid": 1.7317378092134716e-09,
+        "frmse_high": 1.5834891597255399e-09,
+        "frmse_total": 1.6282827052138184e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 19102.657819399315,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_circle_large",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 9.973262628749445e-07,
+      "time": 0.47602295875549316,
+      "oracle_error": 1.195594013045705e-06,
+      "oracle_time": 1.9321324173361063,
+      "tolerance": 0.1,
+      "accuracy_tolerance": 0.1,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 5.796397252008319,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 4.843595946168604e-07,
+        "mae": 3.7245779397733925e-07,
+        "r2": 0.9999999999990054,
+        "frmse_low": 3.5352930605735105e-07,
+        "frmse_mid": 3.6505626327361315e-07,
+        "frmse_high": 5.374897301827465e-07,
+        "frmse_total": 4.226020114873482e-07
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 19360.410733327157,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_circle_polynomial",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 4.6264714484689355e-15,
+      "time": 0.4703490734100342,
+      "oracle_error": 1.5202747751289332e-07,
+      "oracle_time": 2.155403709039092,
+      "tolerance": 0.1,
+      "accuracy_tolerance": 0.1,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 6.466211127117276,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.0014362351204046e-15,
+        "mae": 1.2222047302908782e-15,
+        "r2": 1.0,
+        "frmse_low": 4.175438207258707e-15,
+        "frmse_mid": 2.1436750955712903e-16,
+        "frmse_high": 1.1762745503309515e-16,
+        "frmse_total": 1.7462459466599482e-15
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 19593.958021823946,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_sector_90deg_basic",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 4.066447969057945e-08,
+      "time": 0.48037099838256836,
+      "oracle_error": 8.717613102630963e-07,
+      "oracle_time": 0.18285195901989937,
+      "tolerance": 0.1,
+      "accuracy_tolerance": 0.1,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 0.5485558770596981,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.204975232748498e-08,
+        "mae": 1.548046532528388e-08,
+        "r2": 0.9999999999999947,
+        "frmse_low": 1.50087024764817e-08,
+        "frmse_mid": 1.516066195945073e-08,
+        "frmse_high": 2.6909038682670438e-08,
+        "frmse_total": 1.9430855541131462e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 19185.171525822134,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_sector_60deg_diffdom",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 8.270362870981304e-09,
+      "time": 0.42454981803894043,
+      "oracle_error": 2.7010379378746187e-07,
+      "oracle_time": 1.5424907496199012,
+      "tolerance": 0.1,
+      "accuracy_tolerance": 0.1,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 4.6274722488597035,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 5.880993781616749e-10,
+        "mae": 3.558684654591905e-10,
+        "r2": 0.9999999999999998,
+        "frmse_low": 3.3666944440811556e-10,
+        "frmse_mid": 4.0124489565247975e-10,
+        "frmse_high": 5.756169330373393e-10,
+        "frmse_total": 4.5234253195023077e-10
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21707.699799684506,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_sector_120deg_balanced",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 5.551652415592005e-08,
+      "time": 0.45656394958496094,
+      "oracle_error": 5.884415351087025e-07,
+      "oracle_time": 1.5951666659675539,
+      "tolerance": 0.1,
+      "accuracy_tolerance": 0.1,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 4.785499997902662,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 2.7676549906488746e-08,
+        "mae": 2.161498515094145e-08,
+        "r2": 0.9999999999999967,
+        "frmse_low": 1.6275059993786955e-08,
+        "frmse_mid": 1.5485452247791367e-08,
+        "frmse_high": 3.407035728711102e-08,
+        "frmse_total": 2.2841306083187193e-08
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 20185.562194250764,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_sector_convdom_supg",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 1.9302421760800315e-09,
+      "time": 0.4318881034851074,
+      "oracle_error": 2.3237420054597332e-07,
+      "oracle_time": 0.34510066686198115,
+      "tolerance": 0.1,
+      "accuracy_tolerance": 0.1,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 1.0353020005859435,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 1.2740306765238412e-09,
+        "mae": 9.422976930039144e-10,
+        "r2": 1.0,
+        "frmse_low": 1.2312230867223927e-09,
+        "frmse_mid": 9.522883917585917e-10,
+        "frmse_high": 1.3162550632661686e-09,
+        "frmse_total": 1.122711296836067e-09
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 21338.86051880517,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    },
+    {
+      "case_id": "cd_sector_45deg_gentle",
+      "equation_type": "convection_diffusion",
+      "status": "PASS",
+      "error": 5.748719348987509e-15,
+      "time": 0.4126400947570801,
+      "oracle_error": 4.972487326665903e-15,
+      "oracle_time": 1.4119422500953078,
+      "tolerance": 0.1,
+      "accuracy_tolerance": 0.1,
+      "time_tolerance": 3,
+      "target_error": 1e-06,
+      "target_time": 4.2358267502859235,
+      "fail_reason": null,
+      "gate_breakdown": {
+        "exec_valid": true,
+        "accuracy_pass": true,
+        "time_pass": true,
+        "final_pass": true,
+        "failure_stage": null,
+        "failure_reason": null
+      },
+      "universal_metrics": {
+        "rmse": 3.307176735342476e-15,
+        "mae": 2.4441355864203617e-15,
+        "r2": 1.0,
+        "frmse_low": 5.823323499462679e-15,
+        "frmse_mid": 2.9123932554548716e-16,
+        "frmse_high": 1.8252021912156482e-16,
+        "frmse_total": 2.442893504384724e-15
+      },
+      "math_types": [
+        "elliptic"
+      ],
+      "math_type_metrics": {
+        "elliptic": {
+          "dof": 9216,
+          "resolution": 32,
+          "degree": 3,
+          "efficiency_dof_per_sec": 22334.23294802564,
+          "linear_solver_type": "preonly",
+          "preconditioner_type": "lu",
+          "linear_iterations": 1,
+          "condition_number_estimate": 1.0
+        }
+      }
+    }
+  ]
+}
