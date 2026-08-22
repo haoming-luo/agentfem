@@ -40,7 +40,7 @@ def freeze_evidence(
     catalog: Path,
     output: Path,
     repository: Path,
-    runner_label: str,
+    runner_labels: tuple[str, ...] | None,
     development_agent: str,
 ) -> Path:
     """Copy raw summaries and seal their normalized result and provenance."""
@@ -58,10 +58,10 @@ def freeze_evidence(
     labels = {
         str(json.loads(path.read_text()).get("agent_name", "")) for path in summaries
     }
-    if labels != {runner_label}:
+    if runner_labels is not None and labels != set(runner_labels):
         raise ValueError(
             f"Runner label mismatch: summaries contain {sorted(labels)!r}, "
-            f"expected {runner_label!r}."
+            f"expected {sorted(runner_labels)!r}."
         )
 
     frozen_sources = []
@@ -92,10 +92,10 @@ def freeze_evidence(
         "created_at": datetime.now(timezone.utc).isoformat(),
         "evaluation_mode": "fixed_adapter",
         "model_called_during_evaluation": False,
-        "runner_label": runner_label,
+        "runner_labels": sorted(labels),
         "runner_label_note": (
-            "Required by the upstream CLI and output layout; it is not the "
-            "identity of a model evaluated by this fixed-adapter run."
+            "Labels retained from upstream or repair-run summaries; none is "
+            "the identity of a model evaluated by this fixed-adapter run."
         ),
         "development_agent": development_agent,
         "agentfem_commit": commit,
@@ -123,7 +123,11 @@ def main() -> int:
     parser.add_argument("--catalog", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--repository", type=Path, default=Path.cwd())
-    parser.add_argument("--runner-label", default="gpt-5.1")
+    parser.add_argument(
+        "--runner-label",
+        action="append",
+        help="Expected summary label; repeat when a bundle contains several labels.",
+    )
     parser.add_argument(
         "--development-agent",
         default="Codex (GPT-5.6-sol), collaboratively directed by the project author",
@@ -134,7 +138,9 @@ def main() -> int:
         catalog=arguments.catalog,
         output=arguments.output,
         repository=arguments.repository,
-        runner_label=arguments.runner_label,
+        runner_labels=(
+            None if arguments.runner_label is None else tuple(arguments.runner_label)
+        ),
         development_agent=arguments.development_agent,
     )
     print(path)
