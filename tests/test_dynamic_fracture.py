@@ -62,6 +62,23 @@ def test_neo_hookean_explicit_selects_finite_strain_provider_not_linear_elastici
     )
 
 
+def test_finite_strain_explicit_provider_bypasses_compatibility_builder():
+    model, displacement, material = _dynamic_neo_hookean_model()
+    model.finite_strain_explicit_dynamics_step = lambda **kwargs: pytest.fail(
+        "provider called the compatibility facade"
+    )
+
+    step = model.step(
+        target=displacement,
+        material=material,
+        dt=1.0e-7,
+        steps=1,
+        progress=False,
+    )
+
+    assert step.name == "finite_strain_explicit_dynamics"
+
+
 def test_performance_ledger_reports_rank_local_nested_stages():
     ledger = diagnostics.PerformanceLedger()
     ledger.add("run_wall", 2.0)

@@ -244,6 +244,7 @@ class StepExecutionContext:
         return self.target
 
     def summary(self) -> dict[str, object]:
+        declared = self.policy.summary()
         return {
             "model": getattr(self.model, "name", type(self.model).__name__),
             "target": _target_summary(self.target),
@@ -251,7 +252,12 @@ class StepExecutionContext:
                 None if self.material is None else type(self.material).__name__
             ),
             "configured_output": _policy_value_summary(self.configured_output),
-            "policies": self.policy.summary(),
+            # ``policies`` is retained for the 0.2 result schema. New
+            # consumers should use the explicit name and read resolved
+            # numerical choices from ``metadata["step"]``.
+            "policies": declared,
+            "declared_policies": declared,
+            "resolved_step_record": "metadata.step",
         }
 
 
@@ -901,13 +907,16 @@ def _lower_implicit_creep(model, request: StepRequest):
 
 
 def _lower_neo_hookean(model, request: StepRequest):
+    from . import _step_builders
+
     options = dict(request.options)
     material = _selected_material(model, request)
     options.pop("material", None)
     name = options.pop("name", None) or "finite_strain_static"
     options.pop("K", None)
     options.pop("F", None)
-    return model.hyperelastic_step(
+    return _step_builders.hyperelastic(
+        model,
         target=request.target,
         material=material,
         name=name,
@@ -916,13 +925,16 @@ def _lower_neo_hookean(model, request: StepRequest):
 
 
 def _lower_mixed_neo_hookean(model, request: StepRequest):
+    from . import _step_builders
+
     options = dict(request.options)
     material = _selected_material(model, request)
     options.pop("material", None)
     options.pop("K", None)
     options.pop("F", None)
     name = options.pop("name", None) or "mixed_finite_strain_static"
-    return model.mixed_hyperelastic_step(
+    return _step_builders.mixed_hyperelastic(
+        model,
         target=request.target,
         material=material,
         name=name,
@@ -985,6 +997,8 @@ def _accept_finite_strain_explicit_dynamics(model, request: StepRequest) -> bool
 
 
 def _lower_finite_strain_explicit_dynamics(model, request: StepRequest):
+    from . import _step_builders
+
     options = dict(request.options)
     material = _selected_material(model, request)
     for key in ("K", "F", "solver_options", "method", "residual"):
@@ -993,7 +1007,8 @@ def _lower_finite_strain_explicit_dynamics(model, request: StepRequest):
     options.pop("output", None)
     options.pop("history", None)
     name = options.pop("name", None) or "finite_strain_explicit_dynamics"
-    return model.finite_strain_explicit_dynamics_step(
+    return _step_builders.finite_strain_explicit_dynamics(
+        model,
         target=request.target,
         material=material,
         name=name,
@@ -1002,6 +1017,8 @@ def _lower_finite_strain_explicit_dynamics(model, request: StepRequest):
 
 
 def _lower_explicit_dynamics(model, request: StepRequest):
+    from . import _step_builders
+
     options = dict(request.options)
     options.pop("material", None)
     options.pop("K", None)
@@ -1011,7 +1028,8 @@ def _lower_explicit_dynamics(model, request: StepRequest):
     options.pop("output", None)
     options.pop("history", None)
     name = options.pop("name", None) or "explicit_dynamics"
-    return model.explicit_dynamics_step(
+    return _step_builders.explicit_dynamics(
+        model,
         target=request.target,
         name=name,
         **options,
@@ -1044,6 +1062,8 @@ def _accept_implicit_dynamics(model, request: StepRequest) -> bool:
 
 
 def _lower_implicit_dynamics(model, request: StepRequest):
+    from . import _step_builders
+
     options = dict(request.options)
     options.pop("material", None)
     options.pop("method", None)
@@ -1051,7 +1071,8 @@ def _lower_implicit_dynamics(model, request: StepRequest):
     options.pop("history", None)
     method = _procedure_method(model, request)
     name = options.pop("name", None) or f"{method}_dynamics"
-    return model.implicit_dynamics_step(
+    return _step_builders.implicit_dynamics(
+        model,
         target=request.target,
         method=method,
         name=name,

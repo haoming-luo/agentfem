@@ -143,6 +143,11 @@ def test_capability_command_is_json_serializable(capsys):
     assert "step" in record["model_api"]["core"]
     assert "stiffness" in record["model_api"]["advanced"]
     assert "linear_static_step" in record["model_api"]["compatibility"]
+    lifecycle = {
+        item["name"]: item for item in record["model_api_contract"]
+    }
+    assert lifecycle["step"]["lifecycle"] == "recommended"
+    assert lifecycle["linear_static_step"]["replacement"] == "model.step(...)"
     assert set(record["public_modules"]) == set().union(
         *map(set, record["public_api"].values())
     )
@@ -175,6 +180,24 @@ def test_upgrade_report_is_location_aware_and_does_not_rewrite_case(tmp_path):
     xdmf = next(item for item in report.findings if item.code == "AFM-UPG-101")
     assert xdmf.line == 2
     assert xdmf.semantic_review is True
+    assert case.read_text(encoding="utf-8") == source
+
+
+def test_upgrade_reports_material_specific_step_spelling_without_rewriting(tmp_path):
+    case = tmp_path / "case.py"
+    source = "step = model.hyperelastic_step(target=u, material=material)\n"
+    case.write_text(source, encoding="utf-8")
+    (tmp_path / "agentfem.toml").write_text(
+        "[project]\nname='legacy-step'\nentrypoint='case.py'\n",
+        encoding="utf-8",
+    )
+
+    report = upgrades.inspect_project(project.ProjectConfig.load(tmp_path))
+    finding = next(item for item in report.findings if item.code == "AFM-UPG-104")
+
+    assert finding.replacement == "model.step(...)"
+    assert finding.semantic_review is True
+    assert finding.automatic is False
     assert case.read_text(encoding="utf-8") == source
 
 

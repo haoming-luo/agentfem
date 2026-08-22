@@ -146,6 +146,26 @@ COMPATIBILITY_MODEL_API = (
     "implicit_dynamics_step",
 )
 
+COMPATIBILITY_MODEL_REPLACEMENTS = {
+    "add_field": "field",
+    "add_amplitude": "amplitude",
+    "add_material": "material",
+    "add_constraint": "constraint",
+    "add_load": "load",
+    "add_step": "step",
+    "add_boundary_model": "convection or another named boundary-model verb",
+    "internal_force_vector": "internal_force",
+    "linear_static_step": "step",
+    "heat_transfer_step": "step",
+    "hyperelastic_step": "step",
+    "mixed_hyperelastic_step": "step",
+    "j2_plasticity_step": "step",
+    "creep_step": "step",
+    "explicit_dynamics_step": "step",
+    "finite_strain_explicit_dynamics_step": "step",
+    "implicit_dynamics_step": "step",
+}
+
 CLI_COMMANDS = (
     "doctor",
     "init",
@@ -180,7 +200,7 @@ WORKFLOW_STAGES = (
     "result_and_verification",
 )
 
-CAPABILITIES_SCHEMA_VERSION = "0.2.1"
+CAPABILITIES_SCHEMA_VERSION = "0.2.2"
 
 
 def _all(*groups: tuple[str, ...]) -> tuple[str, ...]:
@@ -228,6 +248,48 @@ def model_methods(level: str = "core") -> tuple[str, ...]:
         },
         noun="model_api",
     )
+
+
+def model_method_contract(level: str = "all") -> tuple[dict[str, object], ...]:
+    """Return lifecycle metadata for the discoverable Model vocabulary.
+
+    Compatibility methods remain executable.  The record makes their status
+    and preferred spelling explicit without emitting runtime warnings or
+    rewriting scientific Python behind the user's back.
+    """
+
+    selected = model_methods(level)
+    return tuple(_model_method_record(name) for name in selected)
+
+
+def _model_method_record(name: str) -> dict[str, object]:
+    if name in CORE_MODEL_API:
+        return {
+            "name": name,
+            "tier": "core",
+            "lifecycle": "recommended",
+            "replacement": None,
+            "semantic_review": False,
+        }
+    if name in ADVANCED_MODEL_API:
+        return {
+            "name": name,
+            "tier": "advanced",
+            "lifecycle": "supported",
+            "replacement": None,
+            "semantic_review": False,
+        }
+    replacement = COMPATIBILITY_MODEL_REPLACEMENTS[name]
+    return {
+        "name": name,
+        "tier": "compatibility",
+        "lifecycle": "compatibility",
+        "replacement": (
+            f"model.{replacement}(...)" if " " not in replacement else replacement
+        ),
+        "semantic_review": name.endswith("_step"),
+        "automatic_rewrite": False,
+    }
 
 
 def _level(

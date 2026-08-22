@@ -1,487 +1,140 @@
 # AgentFEM Product Roadmap
 
-## Product Position
+## Direction
 
-AgentFEM should first become an unusually clear, dependable, and extensible
-finite-element tool on FEniCSx for a bounded set of real engineering problems.
-Human readability and agent operability are product qualities of the same
-public Python language; they are not reasons to postpone solver depth.
+AgentFEM is building a readable, dependable, and extensible finite-element
+platform for humans and AI agents. The near-term goal is not to reproduce every
+feature of established commercial systems. It is to make selected engineering
+workflows unusually clear, inspectable, reproducible, and easy to extend.
 
-The near-term target is not feature-count parity with Abaqus or ANSYS. It is to
-be better within selected workflows:
-
-- less ceremony from model definition to a trustworthy result;
-- engineering vocabulary and visible `K/M/C/F` or residual structure;
-- direct escape hatches to UFL, DOLFINx, and PETSc;
-- batch simulation and learning-data export as ordinary operations;
-- explicit capability limits instead of silent approximations;
-- benchmarks attached to every serious material/solver claim.
-
-AF-IR remains an experimental record and research track. It must earn a larger
-role through executable consumers and real cases. The Python product, numerical
-core, results, verification, and documentation have priority.
-
-## Current Capability Boundary
-
-| Capability | Maturity | What is usable now | Important limit |
-| --- | --- | --- | --- |
-| Scientific operator layer | FEM-integrated foundation | K/M/C/F, static/first-/second-order systems, R/K_t linearization, composition and UFL role/arity validation | no mixed/block domain-range typing or physical-unit algebra |
-| Linear elasticity | FEM-integrated | 2D plane stress/strain and 3D isotropic solids; regional materials; displacement-only steps; one-call U/S/E/MISES output with opt-in SENER and explicit processing metadata; named-boundary reactions; automatic assembled external-force/strong-reaction equilibrium evidence; serial/MPI patch evidence | external structural convergence, integration-point export/recovery, axisymmetry, mixed incompressibility, beams/shells, and affine/weak reactions remain |
-| Thermoelasticity | FEM-integrated | steady/implicit-transient heat transfer, regional multi-material conductivity and capacity, amplitude-driven sources/ambient conditions, conservative nonlinear enthalpy stepping for tabulated k(T)/cp(T) with automatic SNES linearization, rollback/restart and serial/MPI evidence; accepted-time temperature histories with coordinate-keyed cross-partition persistence; bounded temperature-property tables; sequential isotropic thermal stress in 2D/3D | adaptive nonlinear thermal increments, inelastic heat generation, extreme-scale history storage, external power-component evidence, and monolithic two-way coupling remain |
-| Structural dynamics | FEM-integrated foundation | central difference, Newmark, and generalized-alpha through `dynamic_solid`; model-owned constraints and amplitude loads enter both Standard and Explicit paths; shared field output, mechanical-energy histories, integrity-checked pause/checkpoint/restart, truthful continuation output, and opt-in nodal checkpoint portability across MPI rank counts | implicit route is linear; portable NPZ is root-gathered and stateful quadrature portability is separate |
-| Hyperelastic solids | FEM-integrated | compressible and plane-stress Neo-Hookean; compressible 3D and exact incompressible plane-stress Mooney--Rivlin; static and finite-strain Explicit consumption, energy, first-Piola stress, material tangent and small-on-large waves; monolithic P2/DG0 constant-pressure Neo-Hookean; C3D10H topology and affine plane-stress/thin-3D checks | distributed mixed affine-periodic MPC, general Explicit locking control, full thin-3D fracture, broader material benchmarks, and independent external-code comparison remain |
-| Dynamic cohesive fracture | experimental V4 convergence accepted + vector-interface P1 foundation | finite-strain plane-stress Explicit, injectable Neo-Hookean/Mooney--Rivlin bulk material, preload transfer, fixed-path Mode-I cohesive transaction, complete energy ledger, V0--V3 guardrails, crack/supershear/spall V4 ladder, accepted fixed-distance spatial/time convergence, portable interface trace, multi-observer fronts, direct Abaqus ELSET/SURFACE and Gmsh physical-group lowering, 2D/3D paired cohesive kernels, sparse physical-key MPI force assembly and portable restart; deterministic MPI workload/PETSc event profiles; full-vector jumps and tractions; explicit free/tie/degraded/mixed tangential modes; quadratic initiation with BK or power-law evolution; proportional-extrema and ordered-path mixed-mode cyclic drivers; compression penalty, optional regularized friction, rigid-mode/Mode-I audits, spherical arc-length continuation, explicit scalar-checkpoint migration, DCB/ENF analytical structural oracles, and source-identified MMB comparison contracts | full thin-3D publication geometry, general contact/friction active sets, extreme-scale MPI profiling, general incompressibility control, and an executed independent DCB/ENF/MMB or V5 research comparison remain |
-| J2 plasticity | FEM-integrated foundation | 3D shared quadrature transaction, complete regional material dispatch, analytical tangent, natural/displacement loading, non-monotone tabular amplitude, physical-increment cutback, MPI global Newton, portable full-Step restart across rank counts, traceable quadrature S/PE/PEEQ/MISES plus weighted DG0 recovery and nodal RF results, prescribed-work/energy histories, analytical and Abaqus states, homogeneous multi-element evidence, nonuniform bending regression, and a public thick-cylinder serial/MPI structural benchmark | linear isotropic hardening and small strain only; no plane stress, kinematic hardening, or finite-strain plasticity |
-| Creep and creep damage | FEM-integrated power-law foundation + local damage assessment | 3D power-law backward Euler with complete regional material dispatch, shared quadrature state, analytical tangent, automatic physical-time cutback, experimental MPI global Newton, CE/CEEQ/S/MISES/RF plus weighted DG0 recovery, dissipation and portable full-Step restart across rank counts; scalar/field/physical-time-history Arrhenius temperature consumed at quadrature points with rollback semantics; cross-partition temperature-history transfer and a 3D heat-to-creep component contract; official Abaqus constant-stress external contract; local K-R, Sinh, modified-theta and hot-wall assessment | no external power-component thermal-creep benchmark, global damage regularization, or temperature-dependent elastic creep law |
-| Stress-life fatigue | postprocessor | Basquin/tabulated S-N, rainflow, Goodman, Miner assessment from named result histories | no multiaxial critical-plane method |
-| Cyclic cohesive fatigue | experimental mixed-mode global lifecycle + 3D facet foundation | independent cycle coordinate; force-cycle extrema; historical Mode-I opening-range law plus explicit proportional-extrema and ordered closed-path mixed-mode drivers consuming complete local jump vectors, local cohesive GI/GII variations and BK/power interaction; native serial/MPI hyperelastic bulk-plus-cohesive Newton equilibrium with analytical interface tangent and strong-constraint reaction; global station/post-damage lifecycle; damage/structural-feedback/energy acceptance and automatic cycle cutback; exact landings; named generalized-work and material-energy ledger; material-aware cyclic fields; bulk+named-interface restart; mixed cyclic physical-facet state portable across MPI rank counts; atomic multi-interface split; 3D failed area/front/COD; persistent same-surface crack identities with merge/split ancestry and pair ligaments; Paris-law postprocessing evidence remains outside the solver | local cohesive GI/GII are not structural J/VCCT values; automatic extraction for all MPC/weak/contact reactions, executed DCB/ENF/MMB FE convergence and external curves, cross-partition bulk restart, CT validation and experimental prediction remain |
-| External CAE mesh | integrated Abaqus path + conversion interface | generic meshio conversion; SHA-256 conversion identity/cache invalidation; Abaqus node labels; NSET node regions; exterior SURFACE facet reconstruction for C3D4/C3D10/C3D8 families; verified C3D10 import; C3D10H mixed-pressure provider; linear equation parsing; simplex quality preflight | assembly-instance label scope, free/internal surfaces, more element families, mixed-topology solve domains, Jacobian quality for tensor-product cells, and full solver-deck semantics remain |
-| Abaqus periodic equations | serial + two-rank displacement; serial mixed | exact chained affine elimination, distributed displacement `dolfinx_mpc`, 3D Neo-Hookean load path, and mixed P2/DG0 serial reduction that leaves pressure dofs independent | distributed mixed-space MPC, AMG near-nullspace transfer, reactions, and scaling studies remain |
-| Abaqus user-material bridge | interface contract | solver-neutral material-point input/output and migration specification | no compiled adapter or quadrature-state global driver |
-| Result/data flow | integrated foundation | declarative field/history/diagnostic/presentation plans; shared accepted-increment history and probe requests across heat, Standard, and Explicit procedures; serial compact single-grid XDMF/HDF5 plus collective MPI single-dataset PVD/PVTU presentation carrying point and cell fields; engineering-default U/S/E/MISES; explicit weighted integration-point-to-DG0 recovery; direct MPI-safe 2D/3D rectilinear sampling with domain masks; one structured event trace; atomic checkpoint cadence/retention, opt-in cross-rank nodal restart, and MPI-rank-count-portable J2/creep quadrature state; strong-BC resultants, nonzero prescribed-motion work and energy closure; verification reports and trust-gated learning bridge | compact MPI single-grid/VTKHDF, direct quadrature export, smooth material-domain nodal recovery, affine/weak reactions, full-Step stateful cross-partition restart, and broader conservation balances remain |
-| Scientific trust and provenance | integrated foundation | computed/converged/verified/validated vocabulary; exploratory/engineering/release policies; automatic runtime checks; explicit claims and applicability domains; coarse-to-fine and multi-axis observable-aware convergence certificates; safe versioned scientific formulas for configuration and agent inputs; automatically sealed result manifests and artifact hashes; runtime locks covering backend versions, scalar/MPI identity and source/distribution evidence; declared/built scientific-input manifests with file/array/object fingerprints and explicit opaque coverage; tagged-distribution attestation when repository visibility supports it; learning-data quality gates; orientation metamorphic regression | automatic coverage still depends on public IR/summary contracts or explicit input declaration; optional signed result identities, representative-family evidence inheritance, hole-stress and T-stiffener cliff families, GCI, and external-deck reproductions remain |
-| Campaign-to-learning flow | workflow integrated + declarative neural-field foundation | deterministic cases, resumable evidence, failure-aware dataset gate, reproducible train/validation workflow, ridge/POD/PyTorch adapters, applicability guard and FEM fallback; spawned local-process ensembles with worker/failure evidence; serializable amplitude bases with derivatives and endpoint audits; campaign-backed finite-difference response experiments with Jacobian/rank/conditioning evidence; generic first-passage localization and censoring; MPI-safe structured observation grids with units, layout, and geometry masks; one `agentfem.learning` entry point; provider-neutral residual/energy/data/constraint, sampling, representation, and inverse-parameter contracts | no scheduler or nested MPI-job ensemble executor, tangent-linear or adjoint response provider, production XDEM/DeepXDE/neural-operator provider, graph/basis field encoder, active-learning governance, or calibrated epistemic uncertainty |
-| Platform/install boundary | release foundation | Linux CI, macOS developer verification, WSL2 recommended for Windows, exact interpreter/import/distribution identity, versioned project schema, source-aware upgrade reports, Gmsh/meshio optional adapters | native Windows remains experimental; semantic Python migrations require human or agent review; AgentFEM is not yet a conda-forge package |
-| Open-core extension boundary | integrated foundation | lazy Python entry-point discovery, explicit activation, API compatibility, staged provider/backend/material registration, project requirements, CLI inventory, and execution provenance | no arbitrary hook bus; new registration kinds require a stable public consumer and conflict semantics |
-
-The same table is queryable in code through
-`constitutive.capabilities()` and `benchmarks.list_benchmarks()`.
-
-## Public-language convergence
-
-The 0.2.x application grammar is now fixed around physical Study factories,
-model-owned engineering verbs, one provider-dispatched `model.step(...)`, and
-one `solve_result()` completion lifecycle. `models.model_api(...)` separates
-the daily, advanced, and compatibility method vocabularies. Every built-in
-provider publishes an enforceable `StepOptionContract`; the same accepted and
-required keyword names are emitted by `agentfem capabilities --json` for
-agents, IDEs, and future GUIs. Bundled cases and scientific function cards are
-checked in CI so they cannot silently return to material-specific Step methods
-or compatibility target spellings.
-
-The progressive module tiers, Model verbs, CLI commands, and machine workflow
-stages now have one dependency-free product contract in `_api_contract.py`.
-The Python package, CLI capability record, generated documentation, Agent
-Skill, and future frontends consume that inventory, with drift tests preventing
-them from quietly presenting different versions of AgentFEM.
-
-The current internal convergence has begun without changing ordinary case
-files: linear-static, J2, and creep builders now live behind the provider
-boundary, while solver, output, history, progress, and checkpoint declarations
-share one inspectable execution-policy snapshot. The next work is:
-
-1. migrate hyperelastic and dynamic builders behind the same facade boundary
-   after the first extraction pattern has accumulated full release evidence;
-2. attach explicit lifecycle/deprecation metadata to compatibility names and
-   teach `agentfem upgrade` to report semantic migrations without rewriting
-   scientific Python automatically;
-3. add static typing overloads only where they improve IDE guidance without
-   creating a second configuration language.
-
-## Release ladder: 0.2.x to 0.3.x
-
-The version boundary is architectural, not a count of material names:
+The public Python workflow remains the product:
 
 ```text
-remaining 0.2.x                 0.3.0                         0.3.x
-consolidate the foundation  ->  freeze the platform contract  ->  deepen science
-
-facade/builders/policies        stable public workflow           verified families
-result lifecycle parity         evidence-backed release          coupled workflows
-flagship Golden contracts       installed + MPI reproducible      optional providers
-compatibility diagnostics       extension boundary proven         richer interoperability
+Study -> Model -> Mesh/Regions -> Fields -> Materials
+      -> Loads/Constraints -> Step -> SimulationResult
 ```
 
-### Remaining 0.2.x: converge before expanding
+FEniCSx, PETSc, and MPI provide the numerical foundation. AgentFEM adds the
+engineering language, reusable scientific operators, workflow lifecycle,
+verification evidence, automation, and extension boundary around that
+foundation.
 
-1. Complete the thin-facade migration for hyperelastic and dynamic builders,
-   while preserving the current `model.step(...)` language.
-2. Finish one result/output/history/progress/checkpoint lifecycle across
-   static, stateful nonlinear, heat, Standard dynamics, and Explicit dynamics.
-3. Attach compatibility lifecycle metadata and actionable `agentfem upgrade`
-   diagnostics before retiring any 0.2.x spelling.
-4. Freeze flagship Golden contracts for the simple solid, heat, wave,
-   hyperelastic RVE, J2/creep, and cohesive workflows; retain external
-   benchmark and MPI evidence at the capability level.
-5. Rehearse wheel/conda installation, Linux CI, macOS, WSL2 guidance,
-   documentation, Agent Skill, and clean-environment project execution as one
-   release gate.
+## What is usable today
 
-### Conditions for 0.3.0
+AgentFEM currently provides executable foundations for:
 
-AgentFEM enters 0.3.0 only when all of these are true:
+- linear static solids and steady/transient heat transfer;
+- central-difference, Newmark, and generalized-alpha structural dynamics;
+- finite-strain Neo-Hookean and Mooney--Rivlin workflows;
+- small-strain J2 plasticity and implicit power-law creep;
+- fixed-path cohesive fracture, including experimental cyclic and mixed-mode
+  routes;
+- Abaqus/Gmsh mesh semantics, periodic equations, C3D10/C3D10H workflows, and
+  MPI execution;
+- common fields, histories, energy records, checkpoint/restart, provenance,
+  convergence evidence, and ParaView-oriented output;
+- resumable parameter campaigns, scientific datasets, surrogate models, and
+  provider-neutral learning interfaces.
 
-- **One public grammar:** Study -> Model -> engineering assets ->
-  `model.step(...)` -> `solve_result()`, with compatibility names outside the
-  recommended vocabulary and machine-readable migration guidance.
-- **One lowering architecture:** built-in and third-party providers publish
-  capability and option contracts; scientific builders no longer accumulate
-  inside the Model registry.
-- **One evidence lifecycle:** execution policy, convergence, fields,
-  histories, checkpoints, provenance, verification, and failure status remain
-  attached to the result across supported procedures.
-- **A bounded trusted core:** every advertised flagship route has a declared
-  maturity level, Golden result, failure case, and proportional serial/MPI or
-  external evidence.
-- **Reproducible installation:** the documented package path works from a
-  clean Linux environment, the supported macOS route, and Windows through
-  WSL2; optional dependencies fail with repairable messages.
-- **A proven open extension boundary:** at least one external or companion
-  provider can join through documented entry points without modifying the
-  open core or inventing a parallel result contract.
-- **Agent-operable without opacity:** a fresh agent can inspect capabilities,
-  build a supported case, run checks, execute it, and explain the structured
-  result using repository and installed-package guidance.
+Each capability has an explicit maturity and applicability boundary. Query the
+installed package with:
 
-Phase-field fracture, general contact, beams/shells, native Windows, a second
-production backend, and exhaustive material coverage are not entry conditions
-for 0.3.0. They advance only through the same evidence gates after the platform
-contract is stable.
+```bash
+agentfem capabilities --json
+```
 
-### 0.3.x: deepen the platform along four tracks
+The executable capability catalog and benchmark registry are authoritative;
+the roadmap does not turn an experimental formula into a validated solver.
 
-1. **Trusted mechanics:** external J2/creep/cohesive benchmarks, cyclic
-   plasticity, thermo-mechanical histories, and selected fracture extensions.
-2. **Engineering workflow:** multi-Step inheritance, richer mesh semantics,
-   reactions/energy balances, visualization, and scalable restart.
-3. **AI and data:** maintained optional neural-field/operator providers,
-   calibration and model-selection workflows, active campaigns, and explicit
-   applicability evidence without making PyTorch part of the core solver.
-4. **Ecosystem:** stable extension SDK, companion/private packages, GUI/agent
-   clients, contribution templates, and versioned scientific interoperability.
+## Public development tracks
 
-## Release Gates
+### 1. Trusted mechanics
 
-A public solver/material capability advances through these levels:
+Deepen the finite-element core before broadening the catalog:
 
-1. **formula implemented** — typed parameters and declared assumptions;
-2. **material point verified** — analytical/invariant checks and load paths;
-3. **finite-element integrated** — state storage, tangent, nonlinear/time step,
-   convergence evidence, and field output;
-4. **benchmark verified** — mesh/time convergence and an external reference;
-5. **workflow ready** — readable example, failure cases, MPI/output behavior,
-   and user documentation.
+- external and convergence evidence for nonlinear materials and cohesive
+  fracture;
+- richer thermal--mechanical and high-temperature histories;
+- consistent reactions, work, energy, state recovery, and restart semantics;
+- selected cyclic plasticity, creep--fatigue, and fracture extensions.
 
-A name in `constitutive/` does not imply level 3. The maturity catalog prevents
-an agent, user, or README from confusing these levels.
+### 2. Engineering workflow
 
-## Delivery Sequence
+Make real simulation projects easier to construct and maintain:
 
-### P0: harden the usable core
+- one public Step and result lifecycle across supported procedures;
+- richer imported-mesh regions, surfaces, sets, and quality diagnostics;
+- multi-Step activation, inheritance, predefined fields, and engineering
+  postprocessing;
+- coherent serial/MPI visualization and scalable checkpoint identity.
 
-- make the installed product shell (`doctor/init/check/run/inspect`) pass a
-  wheel-only empty-directory workflow, with versioned project, execution, and
-  result contracts shared by humans, GUIs, and agents;
-- preserve old-project operability through an independent project schema,
-  stable upgrade diagnostic codes, dry-run JSON plans, and automatic changes
-  limited to deterministic metadata;
-- one `SimulationResult` contract and one structured execution-event stream
-  for linear, nonlinear, and transient steps;
-- one recommended `model.step(...)` entry whose immutable provider request
-  carries the resolved `SolutionProcedure`; explicit procedure selection,
-  capability inspection, and lowering now consume the same object;
-- one completed-result field writer for static elasticity, J2, and creep;
-  integration-point evidence remains raw while named `*_CELL` recoveries enter
-  the visualization dataset;
-- standard QoIs: integrals, averages, norms, extrema, reactions, energies, and
-  histories;
-- attach global assembled load, strong reaction, force-balance residual, and
-  relative equilibrium error to ordinary linear-static solid results;
-- compact unified XDMF/HDF5 visualization and output manifests;
-- automatically bind every published result manifest to its registered
-  artifacts with a local provenance seal and one machine-readable verification
-  command; keep optional authorship signatures as a later compatible layer;
-- JSON-configured and Python-configured campaigns producing the same dataset;
-- keep agent/configuration formulas inside a small versioned mathematical
-  language, with safe lowering to UFL and no execution of arbitrary Python;
-- maintain a pinned external PDE-agent benchmark track with a public adapter,
-  solver-independent schema audit, and separate numerical-capability and
-  agent-generation evidence; inconsistent benchmark specifications remain
-  dataset findings rather than case-specific solver exceptions;
-- promote the PDE-agent track in evidence-gated stages: retain the historical
-  seven-family snapshot, then preserve the eleven-family fixed-adapter gate
-  covering Burgers, Stokes, Navier--Stokes, and biharmonic equations through
-  public periodic-MPC, mixed-field, flow-operator, and split-form contracts;
-  preserve the 558/645 fixed-adapter snapshot in a hashed evidence bundle,
-  with all eleven family rates above 60 percent and the runner label separated
-  explicitly from the development-agent identity;
-  retain the new three-dimensional Q3/Q2 block-flow route with an explicit
-  pressure nullspace and viscosity-scaled field preconditioner; next complete
-  MPI scaling, periodic-vector constraints, near-zero-reference metric policy,
-  and higher-order boundary semantics without case-identity dispatch;
-  keep fixed-adapter capability, same-model agent A/B evidence, and an
-  official library track as three distinct claims;
-- serial, MPI, docs, package, and example release gates;
-- keep private workflow/material products in independent distributions using
-  the explicit extension contract rather than long-lived core branches;
-- clear solver convergence/failure evidence;
-- reject Study/material/procedure combinations during model validation when no
-  registered executable provider can consume them;
-- share reusable time amplitudes across loads, prescribed data, and thermal
-  boundary models, with automatic updates inside transient procedures.
-- define amplitude coordinates once across single-solve static, normalized
-  nonlinear static, and physical-time transient procedures; named histories
-  must resolve identically for loads and prescribed values;
-- preserve frozen campaigns through a runtime lock that separates stable
-  compatibility fields from diagnostic paths, and attach the full runtime
-  record to every sealed result manifest;
-- represent multi-actuator and waveform studies with serializable amplitude
-  bases, declared coefficient order, analytical or audited derivatives, and
-  stable content fingerprints;
-- lower finite-difference response experiments to ordinary Campaign cases so
-  cache, resume, failures, MPI participation, and result evidence are shared;
-- preserve first-passage brackets, localization assumptions, and censoring
-  instead of reducing events to an unqualified output-frame index;
-- make project execution fail collectively when any MPI rank fails, preserving
-  rank-addressable evidence rather than hanging at a completion barrier;
-- keep execution status distinct from scientific trust; release and training
-  data may require explicit verification claims rather than successful exit;
-- expand the `CAE Reliability Cliff Suite` from the automated orientation
-  case to a perforated-plate resolution sweep and a beam/shell/solid
-  theory-applicability family.
+### 3. AI and data
 
-First-release closure additionally requires truthful installation commands,
-an inspectable runtime/platform report, optional-dependency license boundaries,
-operator/system contract checks, and a failure-aware campaign-to-learning
-gate. Native Windows is not promoted until a compatible solver route passes an
-installed-wheel Windows CI matrix; WSL2 is the recommended Windows route for
-the first release.
+Keep deterministic mechanics authoritative while making the complete workflow
+naturally operable by agents and learning systems:
 
-### P1: nonlinear solid mechanics
+- stable machine-readable capabilities, validation issues, and results;
+- simulation campaigns, observations, scientific datasets, and guarded model
+  use;
+- optional neural-field, neural-operator, surrogate, and user-model providers;
+- future calibration and active-learning workflows with explicit provenance
+  and applicability evidence.
 
-- harden the implemented `SolutionProcedure` separation across validation,
-  typed provider requests, lowering, result summaries, and future
-  nonlinear/transient methods;
-- build on the shared heat/Standard/Explicit `solve_result(output=...)`
-  lifecycle with energy histories and restartable procedure state; field
-  artifacts and accepted time increments are already unified;
-- extend the minimal verified Newmark starter to larger meshes, MPI, and a
-  tested transient XDMF/HDF5 lifecycle; the current macOS product smoke remains
-  deliberately small after exposing a native PETSc/MPI failure at a larger
-  starter size;
-- extend the implemented ordinary Neo-Hookean automatic/fixed load path,
-  forced-cutback rollback, positive-J acceptance, strain-energy evidence, and
-  accepted-increment history to multi-region ownership and external
-  load-path benchmarks;
-- harden the implemented stateless periodic-cell automatic incrementation with
-  forced-cutback regression cases and homogenized tangent checks; the serial
-  affine and distributed `dolfinx_mpc` paths already share one public Newton
-  policy and output contract;
-- extend the implemented quadrature-state transaction, 3D J2 analytical
-  tangent, analytical uniaxial Golden path, physical-increment forced cutback,
-  cyclic tabular amplitude, reaction/work/energy history, cumulative serial
-  restart, stable state identity, and published Abaqus homogeneous uniaxial
-  verification to multi-region ownership, projected visualization fields,
-  cross-partition MPI restart, and full external-deck reproduction;
-- retain the implemented nonuniform 3D bending regression for partial yielding, state
-  recovery, prescribed work, and energy closure; use the official Abaqus
-  notched-beam case as the leading external candidate, but claim equivalence
-  only after a 3D-extruded monotonic/isotropic subset or verified plane-strain
-  return map matches its geometry, mesh, loading, and reported response;
-- add reaction, internal/external work, and energy-balance histories with
-  verified strong, weak, and affine-MPC definitions; proportional nonzero
-  strong-Dirichlet work is implemented, while weak and affine duals remain;
-- extend the implemented C3D10H constant-pressure mixed/hybrid procedure and
-  serial periodic-MPC workflow to distributed mixed spaces, then add Cook's
-  membrane convergence, locking diagnostics, and an independent external-code
-  element path; continue to keep formulation identity separate from `tetra10`;
-- then add tabulated hardening, kinematic hardening, and finite-strain
-  plasticity only when driven by real applications.
+PyTorch or any particular AI framework remains optional. Users may connect
+their own models without inheriting an AgentFEM-specific neural-network base
+class.
 
-For Abaqus material migration, implement UHYPER energy adaptation before the
-more general UMAT path. UMAT requires quadrature state, trial/commit/rollback,
-tensor and rotation conventions, compiler/ABI handling, and a consistent
-tangent. Advance compatibility one restricted subroutine class at a time,
-gated by material-point, one-element, and load-path comparisons. The public
-AgentFEM model language should consume a neutral material-point protocol rather
-than depend on Abaqus interfaces directly.
+### 4. Open ecosystem
 
-### P2: time-dependent materials and life
+Keep the core useful on its own while supporting independent extensions:
 
-- harden the implemented global power-law step with time-step
-  convergence, multi-element paths, natural-load work/energy balance, and an
-  external benchmark;
-- exercise the implemented cross-partition accepted-temperature-history
-  transfer on a larger external power-component benchmark; keep Sinh and K-R
-  as separate material consumers rather than one flag-heavy solver;
-- exercise the implemented conservative nonlinear heat route on that same
-  component, including tabulated conductivity/capacity, time-step convergence,
-  rollback/restart equivalence, MPI, and a complete heat ledger;
-- treat sequential temperature-to-creep as the first useful power-component
-  route; add monolithic coupling only for cases with material heat generation
-  or meaningful mechanical feedback;
-- creep/relaxation single-element verification followed by NAFEMS cases;
-- named result histories feed an auditable fatigue assessment now; add
-  automatic stress extraction at named regions/points and fatigue fields;
-- multiaxial fatigue only after a chosen engineering criterion and reference
-  dataset are explicit.
+- documented Python entry points and conflict-safe provider registration;
+- companion packages for optional frameworks and specialized workflows;
+- the same public contracts for scripts, agents, IDEs, future GUIs, and private
+  domain products;
+- contribution templates that require formulas, tests, examples, limits, and
+  evidence appropriate to the claimed maturity.
 
-The first global creep promotion has the following gate status:
+## Capability maturity
 
-1. **implemented:** the public step consumes `QuadratureTransaction`; no second
-   private state store or copy-only rollback is used;
-2. **implemented except an explicit local error estimator:** backward Euler
-   returns stress, state, convergence evidence, local iterations, and an
-   analytical algorithmic consistent tangent;
-3. **implemented for power-law flow:** global/local failure or excessive CEEQ
-   increment causes atomic rollback and deterministic cutback; damage remains
-   outside the global driver;
-4. **implemented in serial:** restart retains physical time, next increment,
-   displacement, CE/CEEQ, temperature identity, energy/dissipation, events,
-   and schema;
-5. **partially implemented:** constant-stress material checks, one-element
-   relaxation, consistent tangent, forced cutback, Golden observables, restart
-   equivalence, and the official Abaqus held-stress case pass; time-step
-   convergence, multi-element nonuniform paths, and an external component case
-   remain;
-6. **implemented foundation:** accepted transient fields carry physical time,
-   interpolation, bounds, coordinate-keyed cross-partition persistence, and
-   identity into Arrhenius creep; a 3D heat-to-creep component contract passes.
-   A larger external component benchmark remains before broader promotion. Add
-   K-R/Liu--Murakami damage only after near-failure control and mesh-dependence
-   policy are explicit.
+A serious scientific capability advances through five evidence levels:
 
-### Shared transient and MPI state identity
+1. **Formula** — typed parameters and declared mathematical assumptions.
+2. **Local** — analytical, invariant, or material-point verification.
+3. **FEM integrated** — global assembly, state, convergence, output, and
+   failure handling.
+4. **Engineering** — representative benchmark and a bounded complete workflow.
+5. **Release** — installed-artifact, platform, MPI, documentation, and
+   regression gates protect the claim.
 
-The transient checkpoint envelope and portable quadrature identity are common
-infrastructure, not J2 or creep features. A portable state is keyed by source
-mesh fingerprint, stable global cell identity, quadrature-rule identity,
-point number, material-region identity, state-layout schema, and physical
-step coordinate. Acceptance requires:
+A public name does not imply the highest level. Experimental capabilities
+remain useful, but their status must stay visible to users and agents.
 
-- restart with a different MPI partition/process count reproduces global
-  fields and material histories within declared tolerances;
-- owned and ghost quadrature points are neither duplicated nor lost;
-- incompatible mesh, quadrature, material, amplitude, or schema fingerprints
-  fail before state is applied;
-- Standard dynamics, Explicit dynamics, and heat use one checkpoint manifest
-  envelope while retaining procedure-specific integrator history;
-- energy components remain typed by procedure instead of being collapsed into
-  one ambiguous scalar.
+## Toward 0.3
 
-This work is urgent after the first release but must not be advertised from a
-rank-local array serialization prototype. The first nodal-state slice is now
-implemented: an opt-in physical-node-keyed NPZ written with two MPI ranks is
-continued on one rank and checked against an uninterrupted reference.
-Coincident independent nodes use durable source-node identity, and
-physical-facet-keyed cohesive history follows the same two-rank-to-one-rank
-continuation test. This is a laboratory-scale bridge, not the final collective
-HDF5 path. The cell, quadrature-point, material-region, and state-layout keys
-needed by J2/creep remain the next identity gate.
+The 0.3 series is the point at which AgentFEM's platform contract becomes
+coherent enough for wider extension and application development. Its focus is:
 
-### Experimental finite-strain dynamic fracture
+- one recommended engineering grammar centered on `model.step(...)`;
+- provider-owned lowering instead of material-specific logic accumulating in
+  the Model facade;
+- one inspectable execution and evidence lifecycle;
+- machine-readable compatibility guidance for existing projects;
+- reproducible installed use on Linux, macOS, and Windows through WSL2;
+- a proven extension path that does not require modifying the open core.
 
-The first target is deliberately fixed-path rather than a generic fracture
-framework: prestrained compressible Neo-Hookean dynamics plus a zero-thickness
-Mode-I cohesive interface.  The current foundation includes auditable mesh
-splitting, automatic independent interface-DOF recovery, irreversible
-bilinear cohesive state, Total-Lagrangian central difference, stable-step
-screening, preload transfer, crack observations, restart state, a complete
-strong-Dirichlet/natural-load energy ledger, and an analytical small-on-large
-wave oracle.  All remain experimental.
+Compatibility methods remain executable during the transition. AgentFEM
+reports preferred replacements but does not silently rewrite scientific Python
+or change modeling intent.
 
-The first four promotion gates now have executable experimental evidence:
+## Beyond 0.3
 
-1. V1 finite-element arrival times under several homogeneous prestrains,
-   checked against the acoustic tensor and mesh refinement;
-2. V2 no-fracture and one-interface energy convergence, including smooth
-   prescribed separation and exact cohesive dissipation;
-3. V3 a classical sub-Rayleigh cohesive crack guardrail before any supershear
-   exploration, repeated across mesh, time-step, and declared damping changes.
-4. V4 a near-incompressible plane-stress, preloaded weak-interface mechanism
-   ladder separating crack-like propagation, a resolved `c_s < v < c_d`
-   front, and distributed spall-like separation under smooth remote impact.
-5. an opt-in V4 two-dimensional refinement contract. Supershear and energy
-   closure persist across 30x10, 40x14, and 60x20 meshes and a halved time
-   increment. A representative fit over the same `x=[0.8,1.8]` propagation
-   interval has `R^2=0.990--0.997`; successive spatial changes are 1.00% and
-   2.41%, and the time-step change is 0.093%. Mechanism preservation and the
-   declared fixed-distance speed-convergence gate both pass.
+Longer-term families include phase-field fracture, broader contact,
+beam/shell formulations, deeper multi-physics coupling, scalable
+tangent/adjoint responses, richer neural-field/operator providers, and more
+external CAE interoperability. They will enter the trusted core only through
+the same maturity and evidence process.
 
-These are scoped named benchmarks, not universal validation. V1--V3 remain
-the compressible plane-strain guardrails; V4 is an experimental 2D membrane
-mechanism gate. The next promotion work is:
-
-6. add cohesive-zone-resolution and observer-ensemble studies, then an
-   impact-history family, loaded-interface wave reference, and full thin-3D fracture
-   counterpart. The principal traction-free prestrained surface-wave secular
-   oracle and homogeneous affine plane-stress/thin-3D FEM cross-check are
-   implemented and independently checked;
-7. harden the implemented Abaqus `ELSET/SURFACE` and Gmsh physical-group
-   ingestion beyond linear tetrahedra. Ordered physical identity, 2D/3D
-   partition recovery, triangular surface pairing, balanced facet ownership,
-   sparse trace/force exchange, globally reduced energy, coincident-node
-   portable fields, and cross-rank-count Explicit continuation are implemented.
-   Quadratic faces, publication-scale imported fixtures,
-   and profiled neighborhood collectives remain;
-8. author-deck/parameter acquisition for curve-level JMPS 2025 reproduction,
-   followed by separated calibration and retained Science 2023 Dryad
-   prediction cases.
-
-The governing decisions and evidence boundaries live in
-`docs/dynamic_cohesive_fracture_architecture.md`.  Phase field, free crack
-paths, branching, and general contact do not enter this sequence early.
-
-### P3: mesh and model interoperability
-
-- verify Abaqus `.inp`, Nastran bulk-data, Gmsh, Exodus, and MED meshes;
-- map volume sets and boundary sets to named AgentFEM regions;
-- preserve source identities, checksums, conversion choices, and warnings
-  (implemented for the Abaqus/XDMF cache path);
-- extend the implemented NSET node-region and exterior element-face adapters
-  beyond C3D4/C3D10/C3D8 to assembly/instance label scopes, automatically
-  generated free surfaces, verified internal interfaces, and more element
-  families;
-- represent multi-topology imports as explicit solver-domain bundles while
-  DOLFINx mixed-topology support remains incomplete;
-- treat ANSYS CDB and full solver decks as separate adapters, not generic mesh
-  conversion.
-- keep Gmsh a separately installed adapter for direct model/`.msh` workflows;
-  do not make it a prerequisite for structured, XDMF, Abaqus, or NASTRAN paths.
-
-### P4: AI-native operation
-
-- maintain one public API and one validation path for humans and agents;
-- make errors addressable and capabilities queryable;
-- stabilize the local process boundary before adding an asynchronous job
-  service, report bundle, REST interface, or MCP adapter;
-- pair every public function family with compact reference examples;
-- add tool/service endpoints around the same campaign/result contracts;
-- evolve AF-IR only when a loader, validator, migration, or independent
-  consumer requires a stable semantic record.
-
-### P5: scalable scientific experiments
-
-- extend the spawned local-process provider with scheduler and separately
-  launched MPI-job ensemble providers while preserving the same Campaign
-  evidence and never nesting process pools inside an initialized MPI solve;
-- extend current multi-axis certificates with GCI/uncertainty estimates,
-  field-specific norms, energy-ledger policies, and publication table/figure
-  renderers;
-- let finite-difference, tangent-linear, and adjoint providers satisfy one
-  response-report contract; introduce tangent/adjoint routes first for smooth,
-  independently verified procedures;
-- add explicit parameter/output nondimensionalization and perturbation-step
-  convergence certificates before comparing condition numbers across unlike
-  quantities;
-- treat irreversible damage, contact activation, first-passage changes, and
-  topology transitions as event-aware or nonsmooth problems rather than
-  advertising universal automatic differentiation;
-- add campaign protocol freeze and bridge-comparison reports for deliberate
-  migration between released AgentFEM environments.
-
-## Definition of “Better”
-
-Within a supported problem class, AgentFEM is competitive when an experienced
-engineer can:
-
-1. read the model without reconstructing generated backend code;
-2. modify a material, region, load, or step locally;
-3. inspect the governing operator/residual and solver evidence;
-4. run one case or thousands with the same case builder;
-5. obtain visualization, scalar histories, and training data without a second
-   extraction project;
-6. reproduce the result from a benchmarked open workflow.
-
-This is a narrower and more defensible route to excellence than imitating the
-entire feature surface of mature commercial CAE suites.
+This roadmap communicates direction rather than a release promise. Current
+truth remains in released code, capability records, benchmark evidence, and
+release notes.

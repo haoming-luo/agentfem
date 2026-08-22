@@ -141,6 +141,17 @@ def test_model_api_separates_daily_advanced_and_compatibility_vocabulary():
         models.model_api("beginnerish")
 
 
+def test_model_api_contract_declares_compatibility_without_silent_rewrite():
+    records = {item["name"]: item for item in models.model_api_contract()}
+
+    assert records["step"]["lifecycle"] == "recommended"
+    legacy = records["hyperelastic_step"]
+    assert legacy["lifecycle"] == "compatibility"
+    assert legacy["replacement"] == "model.step(...)"
+    assert legacy["semantic_review"] is True
+    assert legacy["automatic_rewrite"] is False
+
+
 def test_package_api_tiers_are_disjoint_complete_and_importable():
     import agentfem
 

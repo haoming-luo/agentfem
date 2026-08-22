@@ -65,14 +65,17 @@ declared solver, output, transient-history, progress, and checkpoint controls.
 Individual keywords remain the public language; the policy is their common
 inspection and provenance form. A Step execution context retains it, and a
 completed result records the JSON-safe summary under
-`metadata["execution_context"]["policies"]`. `None` means the selected provider
-used its own default; resolved time-step and solver details remain visible in
-the executable Step summary.
+`metadata["execution_context"]["declared_policies"]`. The historical
+`"policies"` key remains an equivalent 0.2 compatibility view. `None` means
+the selected provider used its own default; resolved time-step, integration,
+and solver details are recorded in `metadata["step"]` by the executable Step.
 
 The provider registry now calls internal scientific builders directly for
-linear static/steady conduction, J2 plasticity, and implicit creep. Their old
-`Model` methods are compatibility delegates. This establishes the migration
-pattern for hyperelasticity and dynamics without changing a case file:
+linear static/steady conduction, finite-strain and mixed hyperelasticity, J2
+plasticity, implicit creep, explicit dynamics, finite-strain explicit
+dynamics, and implicit structural dynamics. Their historical `Model` methods
+are compatibility delegates; they no longer contain parallel scientific
+implementations:
 
 ```text
 model.step(...) -> StepRequest -> provider -> scientific builder -> problem

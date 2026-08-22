@@ -341,6 +341,11 @@ def test_transient_heat_transfer_consumes_convection_boundary(tmp_path):
     assert policies["output"] == str(tmp_path / "cooling.xdmf")
     assert policies["progress"] is False
     assert policies["history"][0]["type"] == "HistoryRequest"
+    assert simulation.metadata["execution_context"]["declared_policies"] == policies
+    assert (
+        simulation.metadata["execution_context"]["resolved_step_record"]
+        == "metadata.step"
+    )
     assert simulation.fields["Temperature"].artifact.name == "cooling.xdmf"
     assert simulation.histories["mean_temperature"].unit == "K"
     assert simulation.histories["time_increment"].values.tolist() == [1.0, 1.0]

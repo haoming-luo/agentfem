@@ -17,6 +17,7 @@ from ._api_contract import (
     ADVANCED_MODEL_API,
     COMPATIBILITY_MODEL_API,
     CORE_MODEL_API,
+    model_method_contract as _model_method_contract,
     model_methods as _model_methods,
 )
 from .step_providers import (
@@ -40,6 +41,12 @@ def model_api(level: str = "core") -> tuple[str, ...]:
     """
 
     return _model_methods(level)
+
+
+def model_api_contract(level: str = "all") -> tuple[dict[str, object], ...]:
+    """Return machine-readable lifecycle metadata for Model methods."""
+
+    return _model_method_contract(level)
 
 
 @dataclass
@@ -1692,244 +1699,27 @@ class Model:
         progress=True,
         status_file=None,
     ):
-        """Create a compressible Neo-Hookean nonlinear static problem.
+        """Compatibility builder; prefer the stable model.step entry point."""
 
-        The first implementation intentionally supports one material
-        contribution. Multiple-region finite-strain materials need explicit
-        kinematic and interface verification before becoming a convenience
-        path.
-        """
+        from . import _step_builders
 
-        import ufl
-        from dolfinx import fem
-        from petsc4py import PETSc
-
-        from . import problems
-        from .constitutive import hyperelasticity
-
-        if hasattr(self.mesh, "require_formulation"):
-            self.mesh.require_formulation(
-                "displacement",
-                operation="model.hyperelastic_step",
-            )
-
-        self.check(
+        return _step_builders.hyperelastic(
+            self,
             target=target,
-            step_options={"material": material},
-        )
-        if hasattr(self.study, "require"):
-            self.study.require(analysis="nonlinear_static", physics="solid_mechanics")
-        if material is None:
-            if len(self.materials) != 1:
-                raise ValueError(
-                    "model.hyperelastic_step requires material=... or exactly "
-                    "one registered material."
-                )
-            record = self.materials[0]
-        else:
-            record = self._material_record(material)
-        properties = record.item
-        if not hyperelasticity.is_finite_strain_hyperelastic(properties):
-            raise TypeError(
-                "model.hyperelastic_step requires a supported hyperelastic material."
-            )
-        if not hyperelasticity.supports_hyperelastic_study(
-            properties,
-            dimension=getattr(self.study, "dimension", 0),
-            assumption=getattr(self.study, "assumption", None),
-        ):
-            raise ValueError(
-                "The Study dimension/assumption has no formulation for the "
-                f"selected hyperelastic material {properties.name!r}."
-            )
-        selected_measure = measure
-        if selected_measure is None:
-            selected_measure = (
-                record.region.measure if record.region is not None else ufl.dx
-            )
-        internal_residual = hyperelasticity.internal_virtual_work(
-            target.value,
-            target.test,
-            properties,
-            measure=selected_measure,
-        )
-        selected_constraints = self.constraints if constraints is None else constraints
-        selected_constraints = _as_tuple(selected_constraints)
-        affine_constraints = [
-            item
-            for item in selected_constraints
-            if isinstance(item, constraint_api.AbaqusPeriodicConstraint)
-        ]
-        if output is not None and output_every is not None:
-            raise ValueError("Pass output=... or output_every=..., not both.")
-        selected_output_every = (
-            getattr(output, "every", None)
-            if output is not None
-            else (1 if output_every is None else int(output_every))
-        )
-        from . import steps as step_api
-
-        selected_incrementation = step_api.normalize(
-            incrementation,
+            material=material,
+            constraints=constraints,
+            solver_options=solver_options,
+            measure=measure,
+            name=name,
+            petsc_options_prefix=petsc_options_prefix,
+            incrementation=incrementation,
             increments=increments,
             load_factors=load_factors,
+            output=output,
+            output_every=output_every,
+            progress=progress,
+            status_file=status_file,
         )
-        if affine_constraints:
-            if any(isinstance(item, load_api.AmplitudeLoad) for item in self.loads):
-                raise NotImplementedError(
-                    "Amplitude-driven natural loads are not yet supported by the "
-                    "affine nonlinear path. Prescribed affine loading remains supported."
-                )
-            if len(affine_constraints) != 1 or len(selected_constraints) != 1:
-                raise ValueError(
-                    "The affine hyperelastic path currently requires exactly one "
-                    "AbaqusPeriodicConstraint and no separate Dirichlet constraints."
-                )
-            residual = internal_residual
-            if self.loads:
-                residual -= self.external_force(target).expression
-            jacobian = hyperelasticity.tangent(
-                residual,
-                target.value,
-                target.trial,
-            )
-            output_factors = (
-                output.required_factors()
-                if output is not None and hasattr(output, "required_factors")
-                else ()
-            )
-
-            def affine_finite_strain_acceptance():
-                from .results import finite_strain_diagnostics, integral
-
-                diagnostics = finite_strain_diagnostics(
-                    target,
-                    quadrature_degree=2,
-                )
-                minimum_j = float(diagnostics["minimum_quadrature_J"])
-                return {
-                    "accepted": bool(minimum_j > 0.0),
-                    "minimum_quadrature_J": minimum_j,
-                    "maximum_quadrature_J": float(
-                        diagnostics["maximum_quadrature_J"]
-                    ),
-                    "recoverable_strain_energy": float(
-                        integral(
-                            hyperelasticity.strain_energy_density(
-                                target.value,
-                                properties,
-                            ),
-                            measure=selected_measure,
-                            comm=_domain(self.mesh).comm,
-                        )
-                    ),
-                    "message": (
-                        "deformation Jacobian became non-positive"
-                        if minimum_j <= 0.0
-                        else ""
-                    ),
-                }
-
-            problem = problems.affine_nonlinear(
-                residual,
-                target.value,
-                jacobian=jacobian,
-                constraint=affine_constraints[0],
-                incrementation=selected_incrementation,
-                solver_options=solver_options,
-                output_every=selected_output_every,
-                output_factors=output_factors,
-                acceptance_check=affine_finite_strain_acceptance,
-                progress=progress,
-                status_file=status_file,
-                name=name,
-            )
-        else:
-            load_factor = fem.Constant(
-                _domain(self.mesh),
-                PETSc.ScalarType(0.0),
-            )
-            residual = internal_residual
-            if self.loads:
-                proportional_loads = tuple(
-                    item
-                    for item in self.loads
-                    if not isinstance(item, load_api.AmplitudeLoad)
-                )
-                amplitude_loads = tuple(
-                    item
-                    for item in self.loads
-                    if isinstance(item, load_api.AmplitudeLoad)
-                )
-                if proportional_loads:
-                    residual -= load_factor * self.external_force(
-                        target,
-                        loads=proportional_loads,
-                    ).expression
-                if amplitude_loads:
-                    residual -= self.external_force(
-                        target,
-                        loads=amplitude_loads,
-                    ).expression
-            jacobian = hyperelasticity.tangent(
-                residual,
-                target.value,
-                target.trial,
-            )
-
-            def finite_strain_acceptance():
-                from .results import finite_strain_diagnostics, integral
-
-                diagnostics = finite_strain_diagnostics(
-                    target,
-                    quadrature_degree=2,
-                )
-                minimum_j = float(diagnostics["minimum_quadrature_J"])
-                return {
-                    "accepted": bool(minimum_j > 0.0),
-                    "minimum_quadrature_J": minimum_j,
-                    "maximum_quadrature_J": float(
-                        diagnostics["maximum_quadrature_J"]
-                    ),
-                    "recoverable_strain_energy": float(
-                        integral(
-                            hyperelasticity.strain_energy_density(
-                                target.value,
-                                properties,
-                            ),
-                            measure=selected_measure,
-                            comm=_domain(self.mesh).comm,
-                        )
-                    ),
-                    "message": (
-                        "deformation Jacobian became non-positive"
-                        if minimum_j <= 0.0
-                        else ""
-                    ),
-                }
-
-            problem = problems.incremental_nonlinear(
-                residual,
-                target.value,
-                factor=load_factor,
-                value_path=constraint_api.prescribed_value_path(
-                    selected_constraints
-                ),
-                update_load=self._time_update_callback(
-                    include_constraints=False,
-                ),
-                acceptance_check=finite_strain_acceptance,
-                jacobian=jacobian,
-                incrementation=selected_incrementation,
-                constraints=selected_constraints,
-                solver_options=solver_options,
-                output_every=selected_output_every,
-                progress=progress,
-                status_file=status_file,
-                name=name,
-                petsc_options_prefix=petsc_options_prefix,
-            )
-        return self.add_step(problem)
 
     def mixed_hyperelastic_step(
         self,
@@ -1949,192 +1739,27 @@ class Model:
         progress=True,
         status_file=None,
     ):
-        """Create P2-displacement/DG0-pressure finite-strain equilibrium.
+        """Compatibility builder; prefer the stable model.step entry point."""
 
-        This is the verified AgentFEM constant-pressure hybrid route.  A
-        source ``C3D10H`` mesh is consumed only when the target explicitly
-        carries one discontinuous constant pressure unknown per cell.
-        """
+        from . import _step_builders
 
-        import ufl
-        from dolfinx import fem
-        from petsc4py import PETSc
-
-        from . import problems
-        from .constitutive import hyperelasticity
-
-        if getattr(target, "kind", None) != "displacement_pressure":
-            raise TypeError(
-                "mixed_hyperelastic_step requires fields.displacement_pressure(...)."
-            )
-        if int(getattr(target, "displacement_degree", -1)) != 2 or int(
-            getattr(target, "pressure_degree", -1)
-        ) != 0:
-            raise ValueError(
-                "The verified constant-pressure hybrid route requires P2/DG0."
-            )
-        if hasattr(self.mesh, "require_formulation"):
-            self.mesh.require_formulation(
-                "hybrid",
-                operation="model.mixed_hyperelastic_step",
-            )
-        if hasattr(self.study, "require"):
-            self.study.require(analysis="nonlinear_static", physics="solid_mechanics")
-        if getattr(self.study, "dimension", None) == 2 and getattr(
-            self.study, "assumption", None
-        ) != "plane_strain":
-            raise NotImplementedError(
-                "The mixed Neo-Hookean 2D route currently represents plane strain."
-            )
-        if material is None:
-            if len(self.materials) != 1:
-                raise ValueError(
-                    "mixed_hyperelastic_step requires material=... or exactly one material."
-                )
-            record = self.materials[0]
-        else:
-            record = self._material_record(material)
-        properties = record.item
-        if not isinstance(properties, hyperelasticity.MixedNeoHookeanProperties):
-            raise TypeError(
-                "mixed_hyperelastic_step requires MixedNeoHookeanProperties."
-            )
-        selected_measure = measure or (
-            record.region.measure if record.region is not None else ufl.dx
-        )
-        w = target.value
-        displacement, pressure = ufl.split(w)
-        test = ufl.TestFunction(target.space)
-        trial = ufl.TrialFunction(target.space)
-        internal_energy = hyperelasticity.mixed_strain_energy_density(
-            displacement,
-            pressure,
-            properties,
-        ) * selected_measure
-        residual = ufl.derivative(internal_energy, w, test)
-        load_factor = fem.Constant(_domain(self.mesh), PETSc.ScalarType(0.0))
-        if self.loads:
-            residual -= load_factor * self.external_force(
-                target.displacement
-            ).expression
-        jacobian = ufl.derivative(residual, w, trial)
-        selected_constraints = _as_tuple(
-            self.constraints if constraints is None else constraints
-        )
-        affine_constraints = [
-            item
-            for item in selected_constraints
-            if isinstance(item, constraint_api.AbaqusPeriodicConstraint)
-        ]
-        if output is not None and output_every is not None:
-            raise ValueError("Pass output=... or output_every=..., not both.")
-        selected_output_every = (
-            getattr(output, "every", None)
-            if output is not None
-            else (1 if output_every is None else int(output_every))
-        )
-        from . import steps as step_api
-
-        selected_incrementation = step_api.normalize(
-            incrementation,
+        return _step_builders.mixed_hyperelastic(
+            self,
+            target=target,
+            material=material,
+            constraints=constraints,
+            solver_options=solver_options,
+            measure=measure,
+            name=name,
+            petsc_options_prefix=petsc_options_prefix,
+            incrementation=incrementation,
             increments=increments,
             load_factors=load_factors,
+            output=output,
+            output_every=output_every,
+            progress=progress,
+            status_file=status_file,
         )
-
-        def mixed_acceptance():
-            from .results import finite_strain_diagnostics, integral
-
-            displacement_field = target.collapsed_displacement()
-            diagnostics = finite_strain_diagnostics(
-                displacement_field,
-                quadrature_degree=3,
-            )
-            minimum_j = float(diagnostics["minimum_quadrature_J"])
-            return {
-                "accepted": bool(minimum_j > 0.0),
-                "minimum_quadrature_J": minimum_j,
-                "maximum_quadrature_J": float(
-                    diagnostics["maximum_quadrature_J"]
-                ),
-                "mixed_potential": float(
-                    integral(
-                        hyperelasticity.mixed_strain_energy_density(
-                            displacement,
-                            pressure,
-                            properties,
-                        ),
-                        measure=selected_measure,
-                        comm=_domain(self.mesh).comm,
-                    )
-                ),
-                "message": (
-                    "deformation Jacobian became non-positive"
-                    if minimum_j <= 0.0
-                    else ""
-                ),
-            }
-
-        if affine_constraints:
-            if len(affine_constraints) != 1 or len(selected_constraints) != 1:
-                raise ValueError(
-                    "The mixed affine hyperelastic path requires exactly one "
-                    "AbaqusPeriodicConstraint and no separate Dirichlet constraints."
-                )
-            if self.loads:
-                raise NotImplementedError(
-                    "Natural loads are not yet combined with the mixed affine "
-                    "periodic path; prescribe the macroscopic deformation gradient."
-                )
-            output_factors = (
-                output.required_factors()
-                if output is not None and hasattr(output, "required_factors")
-                else ()
-            )
-            problem = problems.affine_nonlinear(
-                residual,
-                w,
-                jacobian=jacobian,
-                constraint=affine_constraints[0],
-                incrementation=selected_incrementation,
-                solver_options=solver_options,
-                output_every=selected_output_every,
-                output_factors=output_factors,
-                acceptance_check=mixed_acceptance,
-                progress=progress,
-                status_file=status_file,
-                name=name,
-            )
-        else:
-            problem = problems.incremental_nonlinear(
-                residual,
-                w,
-                factor=load_factor,
-                value_path=constraint_api.prescribed_value_path(selected_constraints),
-                update_load=self._time_update_callback(include_constraints=False),
-                acceptance_check=mixed_acceptance,
-                jacobian=jacobian,
-                incrementation=selected_incrementation,
-                constraints=selected_constraints,
-                solver_options=solver_options,
-                output_every=selected_output_every,
-                progress=progress,
-                status_file=status_file,
-                name=name,
-                petsc_options_prefix=petsc_options_prefix,
-            )
-        problem.primary_fields = {
-            "U": target.displacement,
-            "PRESSURE": target.pressure,
-        }
-        problem.result_field_factory = lambda: (
-            target.collapsed_displacement(name="U"),
-            target.collapsed_pressure(name="PRESSURE"),
-        )
-        problem.snapshot_field_factory = lambda: (
-            target.collapsed_displacement(name="U"),
-            {"PRESSURE": target.collapsed_pressure(name="PRESSURE")},
-        )
-        return self.add_step(problem)
 
     def j2_plasticity_step(
         self,
@@ -2224,94 +1849,29 @@ class Model:
         checkpoint=None,
         name: str = "explicit_dynamics",
     ):
-        """Create and register a second-order explicit dynamics step."""
+        """Compatibility builder; prefer the stable model.step entry point."""
 
-        from . import problems
-        from . import time as time_api
-        from .constitutive import hyperelasticity
+        from . import _step_builders
 
-        if (
-            residual is None
-            and len(self.materials) == 1
-            and hyperelasticity.is_finite_strain_hyperelastic(
-                self.materials[0].item
-            )
-        ):
-            if prescribed:
-                raise ValueError(
-                    "Use registered constraints for automatic finite-strain "
-                    "Explicit, or pass an expert residual explicitly."
-                )
-            return self.finite_strain_explicit_dynamics_step(
-                target=target,
-                dt=dt,
-                steps=steps,
-                material=self.materials[0].item,
-                state=state,
-                mass=mass,
-                cohesive_force=cohesive_force,
-                constraints=constraints,
-                update_load=update_load,
-                save_every=save_every,
-                print_every=print_every,
-                progress=progress,
-                status_file=status_file,
-                checkpoint=checkpoint,
-                name=name,
-            )
-
-        self.check(
+        return _step_builders.explicit_dynamics(
+            self,
             target=target,
-            step_options={
-                "mass": mass,
-                "residual": residual,
-                "method": "central_difference",
-                "dt": dt,
-                "steps": steps,
-            },
-        )
-        selected_state = state if state is not None else problems.second_order_state(target)
-        selected_mass = mass if mass is not None else self.lumped_mass(target)
-        integrator = time_api.explicit.central_difference(
-            state=selected_state,
-            mass=selected_mass,
-        )
-        energy_stiffness = None
-        if residual is None:
-            energy_stiffness = self.stiffness(target)
-            residual = self.force_balance(
-                internal=self.internal_force(selected_state.u),
-                external=(self.external_force(target) if self.loads else None),
-            )
-        selected_constraints = (
-            self.constraints if constraints is None else constraints
-        )
-        selected_prescribed = (
-            tuple(_as_tuple(prescribed))
-            + constraint_api.dirichlet_constraints(selected_constraints)
-        )
-        step = problems.explicit_dynamics(
-            state=selected_state,
-            integrator=integrator,
-            residual=residual,
-            stiffness=energy_stiffness,
-            study=self.study,
-            prescribed=selected_prescribed,
-            constraints=selected_constraints,
-            update_load=self._time_update_callback(
-                update_load,
-                include_constraints=False,
-            ),
             dt=dt,
             steps=steps,
+            residual=residual,
+            state=state,
+            mass=mass,
+            cohesive_force=cohesive_force,
+            prescribed=prescribed,
+            constraints=constraints,
+            update_load=update_load,
             save_every=save_every,
             print_every=print_every,
             progress=progress,
             status_file=status_file,
-            checkpoint_policy=checkpoint,
+            checkpoint=checkpoint,
             name=name,
         )
-        return self.add_step(step)
 
     def finite_strain_explicit_dynamics_step(
         self,
@@ -2335,196 +1895,31 @@ class Model:
         mass_damping: float = 0.0,
         name: str = "finite_strain_explicit_dynamics",
     ):
-        """Create Total-Lagrangian Neo-Hookean central-difference dynamics."""
+        """Compatibility builder; prefer the stable model.step entry point."""
 
-        import ufl
+        from . import _step_builders
 
-        from . import fracture
-        from . import problems
-        from . import time as time_api
-        from .constitutive import hyperelasticity
-
-        self.check(
+        return _step_builders.finite_strain_explicit_dynamics(
+            self,
             target=target,
-            step_options={
-                "material": material,
-                "method": "central_difference",
-                "dt": dt,
-                "steps": steps,
-            },
-        )
-        if hasattr(self.study, "require"):
-            self.study.require(
-                analysis="second_order_dynamics",
-                physics="solid_mechanics",
-            )
-        record = (
-            _single_material(self, "model.finite_strain_explicit_dynamics_step")
-            if material is None
-            else self._material_record(material)
-        )
-        properties = record.item
-        if not hyperelasticity.is_finite_strain_hyperelastic(properties):
-            raise TypeError(
-                "finite_strain_explicit_dynamics_step requires a supported "
-                "hyperelastic material."
-            )
-        if not hyperelasticity.supports_hyperelastic_study(
-            properties,
-            dimension=getattr(self.study, "dimension", 0),
-            assumption=getattr(self.study, "assumption", None),
-        ):
-            raise ValueError(
-                "The Study dimension/assumption has no formulation for the "
-                f"selected hyperelastic material {properties.name!r}."
-            )
-        if properties.density is None:
-            raise ValueError("Finite-strain Explicit requires material density.")
-        selected_measure = (
-            record.region.measure if record.region is not None else ufl.dx
-        )
-        selected_state = (
-            state if state is not None else problems.second_order_state(target)
-        )
-        if cohesive_force is not None:
-            cohesive_force = cohesive_force.for_displacement(selected_state.u)
-        selected_mass = (
-            mass
-            if mass is not None
-            else problems.LumpedMassOperator.assemble(
-                _space(target),
-                density=properties.density,
-                measure=selected_measure,
-            )
-        )
-        if hyperelasticity.is_plane_stress_hyperelastic(properties):
-            reference_gradient = np.eye(2)
-            membrane_modes = (
-                fracture.incremental_wave_speeds(
-                    reference_gradient,
-                    direction,
-                    properties,
-                    direction_configuration="reference",
-                )
-                for direction in ((1.0, 0.0), (0.0, 1.0))
-            )
-            body_screening_speed = max(
-                float(mode.reference_speeds[-1]) for mode in membrane_modes
-            )
-        else:
-            body_screening_speed = fracture.isotropic_reference_wave_speeds(
-                properties
-            ).pressure
-        interface_stability = (
-            {}
-            if cohesive_force is None
-            else cohesive_force.stability_inputs(selected_mass)
-        )
-        stability = fracture.estimate_stable_time_increment(
-            characteristic_length=fracture.minimum_cell_nodal_spacing(
-                _domain(self.mesh)
-            ),
-            dilatational_speed=body_screening_speed,
-            safety_factor=stability_safety,
-            **interface_stability,
-        )
-        if dt is None or str(dt).strip().lower() == "auto":
-            selected_dt = stability.selected
-        else:
-            selected_dt = float(dt)
-            if selected_dt <= 0.0:
-                raise ValueError("Finite-strain Explicit requires dt > 0.")
-            if selected_dt > stability.selected:
-                raise ValueError(
-                    "The requested dt exceeds the current body/interface "
-                    "screening limit "
-                    f"({selected_dt:.6g} > {stability.selected:.6g}; "
-                    f"controller={stability.controller})."
-                )
-        internal = fracture.finite_strain_internal_force(
-            selected_state.u,
-            target.test,
-            properties,
-            measure=selected_measure,
-        )
-        external = self.external_force(target) if self.loads else None
-        residual = self.force_balance(internal=internal, external=external)
-        if cohesive_force is not None:
-            residual = fracture.FiniteStrainCohesiveResidual(
-                residual,
-                cohesive_force,
-            )
-        damping_residual = None
-        if float(mass_damping) != 0.0:
-            damping_residual = fracture.MassProportionalDampingResidual(
-                residual,
-                mass=selected_mass,
-                velocity=selected_state.v_mid,
-                coefficient=mass_damping,
-                dt=selected_dt,
-            )
-            residual = damping_residual
-        selected_constraints = self.constraints if constraints is None else constraints
-        selected_prescribed = constraint_api.dirichlet_constraints(
-            selected_constraints
-        )
-        base_energy = (
-            fracture.FiniteStrainEnergyMonitor(
-                mass=selected_mass,
-                material=properties,
-                measure=selected_measure,
-            )
-            if cohesive_force is None
-            else fracture.FiniteStrainCohesiveEnergyMonitor(
-                bulk=fracture.FiniteStrainEnergyMonitor(
-                    mass=selected_mass,
-                    material=properties,
-                    measure=selected_measure,
-                ),
-                cohesive=cohesive_force,
-            )
-        )
-        if damping_residual is not None:
-            base_energy = fracture.DampingEnergyMonitor(
-                energy=base_energy,
-                damping=damping_residual,
-            )
-        integrator = time_api.explicit.central_difference(
-            state=selected_state,
-            mass=selected_mass,
-        )
-        step = problems.explicit_dynamics(
-            state=selected_state,
-            integrator=integrator,
-            residual=residual,
-            stiffness=None,
-            study=self.study,
-            prescribed=selected_prescribed,
-            constraints=selected_constraints,
-            update_load=self._time_update_callback(
-                update_load,
-                include_constraints=False,
-            ),
-            dt=selected_dt,
+            dt=dt,
             steps=steps,
+            material=material,
+            state=state,
+            mass=mass,
+            cohesive_force=cohesive_force,
+            constraints=constraints,
+            update_load=update_load,
             save_every=save_every,
             print_every=print_every,
             history_every=history_every,
             progress=progress,
             status_file=status_file,
-            checkpoint_policy=checkpoint,
-            history_monitor=fracture.DynamicEnergyLedger(
-                energy=base_energy,
-                state=selected_state,
-                mass=selected_mass,
-                residual=residual,
-                natural_force=external,
-                prescribed=selected_prescribed,
-            ),
-            stability=stability,
+            checkpoint=checkpoint,
+            stability_safety=stability_safety,
+            mass_damping=mass_damping,
             name=name,
         )
-        return self.add_step(step)
 
     def implicit_dynamics_step(
         self,
@@ -2549,59 +1944,32 @@ class Model:
         print_every: int | None = None,
         name: str = "implicit_dynamics",
     ):
-        """Create Newmark/generalized-alpha structural dynamics."""
+        """Compatibility builder; prefer the stable model.step entry point."""
 
-        from . import problems
-        from . import time as time_api
+        from . import _step_builders
 
-        self.check(
+        return _step_builders.implicit_dynamics(
+            self,
             target=target,
-            step_options={
-                "M": M,
-                "K": K,
-                "F": F,
-                "method": method,
-                "dt": dt,
-                "steps": steps,
-            },
-        )
-        selected_state = (
-            state if state is not None else problems.second_order_state(target)
-        )
-        selected_method = method.lower().replace("-", "_")
-        if selected_method == "newmark":
-            parameters = time_api.newmark()
-        elif selected_method == "generalized_alpha":
-            parameters = time_api.generalized_alpha(
-                spectral_radius=spectral_radius
-            )
-        else:
-            raise ValueError(
-                "Implicit dynamics method must be 'newmark' or 'generalized_alpha'."
-            )
-        step = problems.implicit_dynamics(
-            state=selected_state,
-            mass=self.mass(target) if M is None else M,
-            damping=C,
-            stiffness=self.stiffness(target) if K is None else K,
-            force=self.external_force(target) if F is None else F,
             dt=dt,
             steps=steps,
-            parameters=parameters,
-            study=self.study,
-            constraints=(
-                self.constraints if constraints is None else constraints
-            ),
+            method=method,
+            spectral_radius=spectral_radius,
+            M=M,
+            C=C,
+            K=K,
+            F=F,
+            state=state,
+            constraints=constraints,
             solver_options=solver_options,
-            update_load=self._time_update_callback(update_load),
+            update_load=update_load,
             progress=progress,
             status_file=status_file,
-            checkpoint_policy=checkpoint,
+            checkpoint=checkpoint,
             save_every=save_every,
             print_every=print_every,
             name=name,
         )
-        return self.add_step(step)
 
     def operator(self, kind: str, target, **kwargs):
         """Create a model-level operator by name.

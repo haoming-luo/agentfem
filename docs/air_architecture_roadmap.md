@@ -1,19 +1,17 @@
-# AgentFEM AIR Architecture and Engineering Roadmap
+# AgentFEM AIR Architecture
 
-> Product priority note: the executable FEniCSx product, nonlinear mechanics,
-> results, interoperability, and verification now have the governing
-> near-term roadmap in `docs/product_roadmap.md`. AF-IR remains experimental
-> and should advance only when a loader, migration, validator, or independent
-> consumer creates evidence for a stable representation.
+> This public note records durable architecture, not internal execution
+> sequencing. Product direction is summarized in `docs/product_roadmap.md`.
+> Exact release gates, risks, priorities, and benchmark tactics remain in the
+> private engineering record.
 
 ## Purpose
 
-This document turns the long-term AF-IR/AIR argument into an engineering
-sequence. It distinguishes:
+This document turns the long-term AF-IR/AIR argument into an implementable
+architecture. It distinguishes:
 
 - what AgentFEM already executes,
 - what this release has made explicit,
-- what should be built next,
 - what should remain a research question,
 - and what must not be claimed before evidence exists.
 
@@ -645,163 +643,29 @@ export_artifact
 The service interface should wrap the same AF-IR and validation semantics used
 locally. It should not create a second hidden representation.
 
-## FEniCSx-First Product Priorities
+## Public evolution themes
 
-The following work has higher near-term value than adding a second backend:
+AgentFEM evolves along four durable themes rather than a public calendar of
+internal tasks:
 
-1. Linear static elasticity
-   - verified plane strain and plane stress;
-   - 3D isotropic elasticity;
-   - reaction forces;
-   - solver convergence records;
-   - mesh-convergence benchmarks.
+1. **FEniCSx depth** -- strengthen selected mechanics, heat-transfer,
+   nonlinear, transient, and MPI workflows with bounded claims.
+2. **Engineering language** -- keep one readable Study/Model/Step/Result
+   grammar while moving scientific construction behind provider-owned
+   lowering boundaries.
+3. **Scientific evidence** -- keep convergence, fields, histories, restart,
+   provenance, and applicability attached to the result that produced them.
+4. **Open extension** -- let independent packages add procedures, learning
+   engines, and domain products without weakening or forking the public core.
 
-2. Transient heat transfer
-   - model-owned step API;
-   - time-dependent sources and boundary conditions;
-   - convection/Robin boundaries;
-   - energy balance;
-   - restart.
+AF-IR remains an experimental scientific record. It advances only when an
+executable loader, migration, validator, golden document, or independent
+consumer demonstrates that a representation is worth stabilizing. A second
+backend is likewise evidence for the abstraction boundary, not a checkbox.
 
-3. Explicit dynamics
-   - stable time-step estimation;
-   - energy and momentum diagnostics;
-   - clear residual sign conventions;
-   - robust constraint behavior;
-   - serial and MPI benchmark coverage;
-   - absorbing-boundary validation.
+## Capability evidence matrix
 
-4. Mesh and region reliability
-   - partition completeness and overlap checks;
-   - imported tag provenance;
-   - empty-region detection;
-   - region visualization;
-   - deterministic region identities.
-
-5. Materials and constitutive behavior
-   - units and provenance;
-   - validated model/assumption compatibility;
-   - thermal properties;
-   - carefully staged anisotropy and path dependence.
-
-6. Output and restart
-   - output manifests;
-   - checksums;
-   - consistent field naming;
-   - checkpoint/restart contracts;
-   - parallel behavior.
-
-7. Verification assets
-   - benchmarks separate from tutorials;
-   - expected values and tolerances;
-   - mesh/time-step convergence;
-   - serial/MPI parity where meaningful.
-
-## Phased Delivery Plan
-
-### Phase A: strengthen the executable core
-
-Target: current 0.1.x line.
-
-- keep FEniCSx as the sole production backend;
-- add unit tests for semantic containers;
-- run static example in serial and with two MPI ranks in CI;
-- add small numerical benchmarks;
-- expand structured model validation;
-- make solver policies inspectable;
-- keep AF-IR explicitly experimental.
-
-Exit evidence:
-
-- reproducible environment;
-- unit suite;
-- serial and two-rank MPI static numerical smoke test;
-- at least three benchmark quantities with tolerances;
-- no silent unsupported behavior in demonstrated workflows.
-
-### Phase B: AF-IR 0.2 scientific records
-
-Target: v0.2.
-
-- stable document-local object IDs;
-- explicit references between core model assets;
-- JSON Schema or equivalent formal validation;
-- load/write and migration API;
-- golden AF-IR documents;
-- execution-plan prototype;
-- run record with environment and output evidence;
-- validation codes documented as public contracts.
-
-Exit evidence:
-
-- round trip for supported examples;
-- migration test from AF-IR 0.1;
-- deterministic document hashes;
-- agent repair evaluation on planted model defects.
-
-### Phase C: semantic/runtime separation
-
-Target: v0.3.
-
-- `OperatorSpec` and `CompiledOperator` for selected common families;
-- backend capability matching;
-- namespaced FEniCSx extensions;
-- compilation caches keyed by semantic and numerical policy;
-- broader benchmark suite;
-- harden the implemented batch/sweep interface and link every case to
-  content-addressed AF-IR/run records.
-
-Exit evidence:
-
-- supported model can be reconstructed without retaining live UFL objects;
-- compiled FEniCSx result agrees with reference implementation;
-- custom UFL survives as an explicit extension rather than being erased.
-
-### Phase D: test the boundary
-
-Target: research milestone after v0.3, not a calendar promise.
-
-- choose one deliberately narrow second target;
-- lower a small semantic subset;
-- compare results and unsupported-capability behavior;
-- revise AF-IR where the second implementation reveals accidental FEniCSx
-  assumptions.
-
-Good candidates are not necessarily full solvers. A second target might be:
-
-- an export deck for a restricted static problem;
-- a matrix/reference backend for tiny verification cases;
-- a service adapter;
-- or another open finite-element library for a narrow operator family.
-
-Exit evidence:
-
-- independent lowering of the same AF-IR subset;
-- explicit capability differences;
-- benchmark agreement within declared tolerances;
-- no weakening of the FEniCSx path.
-
-### Phase E: scientific memory and agent operations
-
-- indexed run/evidence records;
-- retrieval by scientific entities and assumptions;
-- comparison and regression tools;
-- approved reusable patterns;
-- extend the implemented dataset/surrogate foundation with merge,
-  deduplication, uncertainty calibration, active-learning proposals, and
-  reviewed external trainers;
-- tool-service/MCP interface;
-- access-control and audit policies for consequential execution.
-
-Exit evidence:
-
-- a reviewed case can be found, understood, rerun, compared, and adapted;
-- agent actions remain attributable to AF-IR nodes and execution records;
-- human review does not require reconstructing intent from generated code.
-
-## Verification Matrix
-
-Every public capability should eventually carry a matrix with:
+Every public capability may carry a matrix with:
 
 | Layer | Required evidence |
 | --- | --- |
@@ -815,8 +679,9 @@ Every public capability should eventually carry a matrix with:
 | Agent use | generation/repair task with structured feedback |
 | Provenance | complete run record and output identity |
 
-Not every early feature needs all rows immediately, but its documentation must
-state which rows are missing.
+Not every experimental feature has all rows immediately, but its maturity and
+missing evidence must stay visible. Internal sequencing and release decisions
+are deliberately absent from this public architecture note.
 
 ## Decisions to Avoid
 
@@ -831,39 +696,13 @@ state which rows are missing.
 - Do not expand feature coverage faster than validation evidence.
 - Do not describe successful execution as proof of physical correctness.
 
-## Near-Term Implementation Queue
+## Evolution rule
 
-The next concrete code changes should be:
-
-1. Unify linear, nonlinear, and transient outputs through `SimulationResult`;
-   finish reactions, energies, point/path probes, projection, and restart.
-2. Harden Neo-Hookean nonlinear-static solving and build the quadrature-state
-   protocol required for a real J2 finite-element step.
-3. Add validation for region emptiness, partition overlap/completeness, target
-   mesh consistency, and step/operator completeness.
-4. Complete external mesh volume/boundary region import with real Abaqus,
-   Nastran, Gmsh, Exodus, and MED golden files.
-5. Expand the test-linked benchmark registry with expected quantities,
-   tolerances, and mesh/time convergence.
-6. Record solver convergence reason and iteration count in every result.
-7. Add a model-owned transient heat step and checkpoint/restart.
-8. Integrate J2 plasticity only after local state, consistent tangent,
-   increment cutback, and single-element path tests are complete.
-9. Keep the Abaqus-equation serial/two-rank parity gate and extend focused MPI
-   validation to transient state, diagnostics, scaling, and deformed output.
-10. Add a global adaptive creep step and reproduce closed-form/NAFEMS cases.
-11. Add fatigue stress-history extraction and field-result provenance.
-12. Complete standard QoIs for reactions, energies, curves, and
-    mesh-independent field samples.
-13. Add an execution-service protocol so local plan shards, Slurm jobs, and
-    hosted runners produce the same case records.
-14. Add Gaussian-process/ensemble uncertainty adapters and active-learning
-    proposal records before automatic retraining.
-15. Implement reviewed field projections, residual/energy families, and
-    benchmark gates before promoting neural-operator or general neural-field
-    providers beyond experimental adapters.
-16. Revisit AF-IR loading/migration/object IDs only alongside an executable
-    consumer and golden cases; do not let schema work displace product gates.
+Architecture changes enter the public platform only when they preserve the
+readable workflow, publish an inspectable capability boundary, and bring
+evidence proportional to the maturity claimed. The public roadmap states the
+direction; the private engineering record decides when and in what order a
+candidate is ready.
 
 ## Success Criterion
 

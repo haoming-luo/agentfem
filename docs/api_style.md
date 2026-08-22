@@ -174,6 +174,13 @@ step = model.step(target=unknown, output="results.xdmf")
 result = step.solve_result()
 ```
 
+`models.model_api_contract()` and `agentfem capabilities --json` expose the
+lifecycle and preferred replacement for every discoverable Model method.
+`agentfem upgrade` reports compatibility calls that deserve review. It does
+not silently rewrite a scientific program: moving arguments from a
+material-specific builder to `model.step(...)` may require a human or agent to
+confirm the selected Study, procedure, material protocol, and solver policy.
+
 Do not add another alias merely to save one word. A new public name must either
 express a distinct engineering concept or replace an older name through an
 explicit migration path.

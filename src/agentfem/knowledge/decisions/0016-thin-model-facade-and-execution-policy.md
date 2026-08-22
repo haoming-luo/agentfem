@@ -32,9 +32,11 @@ cross-cutting execution intent from unrelated keywords.
 5. An omitted value means the selected provider owns the default. Resolved
    numerical values remain authoritative in the executable Step summary.
 
-The first extraction covers linear static/steady conduction, global J2
-plasticity, and global implicit creep. Hyperelastic and dynamic builders follow
-the same pattern only after this boundary passes full release evidence.
+The extraction covers linear static/steady conduction, finite-strain and
+mixed hyperelasticity, global J2 plasticity, global implicit creep, explicit
+dynamics, finite-strain explicit dynamics, and implicit structural dynamics.
+Each public provider lowers directly to an internal builder; the historical
+Model methods remain compatibility delegates only.
 
 ## Consequences
 
@@ -50,8 +52,8 @@ the same pattern only after this boundary passes full release evidence.
 
 ## Executable evidence
 
-- a regression proves provider lowering does not call the linear-static
-  compatibility method;
+- regressions prove provider lowering does not call linear-static,
+  hyperelastic, or finite-strain-explicit compatibility methods;
 - static providers reject unsupported history instead of silently discarding
   it;
 - heat accepts a construction-time history request and records its policy in

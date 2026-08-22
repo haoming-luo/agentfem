@@ -8,6 +8,11 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Add machine-readable lifecycle and replacement metadata for the Model
+  vocabulary, expose it through Python and capability JSON, and report
+  material/procedure-specific compatibility calls through `agentfem upgrade`
+  without silently rewriting scientific Python.
+
 - Add one immutable, inspectable Step execution-policy snapshot for declared
   solver, output, history, progress, and checkpoint controls; transient history
   requests may now be declared once on `model.step(...)` and are consumed by
@@ -49,6 +54,13 @@ experimental formulation to a validated one.
   behavior.
 
 ### Changed
+
+- Move finite-strain and mixed hyperelasticity, explicit dynamics,
+  finite-strain explicit dynamics, and implicit structural dynamics behind
+  provider-owned scientific builders; their historical Model methods remain
+  thin 0.2.x compatibility delegates.
+- Separate the public direction roadmap from private release gates, technical
+  debt, risks, benchmark tactics, and execution sequencing.
 
 - Move linear-static/steady-conduction, J2, and implicit-creep scientific
   construction behind internal provider-owned builders; historical `Model`

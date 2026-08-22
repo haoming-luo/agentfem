@@ -1,8 +1,10 @@
 # Engineering notes
 
-These documents preserve design reasoning, audits, feedback triage, and future
-technical directions. They remain public and searchable but are intentionally
-kept outside the primary user journey.
+These documents preserve durable public design reasoning and technical
+boundaries. They remain searchable but are intentionally kept outside the
+primary user journey. Exact priorities, dates, release gates, risks, benchmark
+tactics, and commercial plans are maintained in the private engineering
+record rather than mirrored here.
 
 ## Architecture and product audits
 
@@ -13,7 +15,7 @@ kept outside the primary user journey.
 
 ## Longer-term directions
 
-- [AIR architecture roadmap](../air_architecture_roadmap.md)
+- [AIR architecture](../air_architecture_roadmap.md)
 - [AI-native campaigns and learning](../ai_native_learning.md)
 - [Digital-twin direction](../digital_twin_direction.md)
 - [Tutorial design](../tutorial_design.md)

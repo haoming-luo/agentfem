@@ -66,6 +66,7 @@ REQUIRED_WHEEL_MEMBERS = (
     "agentfem/knowledge/cards/integration_point_recovery.json",
     "agentfem/knowledge/cards/transient_checkpoint_portability.json",
     "agentfem/knowledge/decisions/0016-thin-model-facade-and-execution-policy.md",
+    "agentfem/knowledge/decisions/0017-public-api-lifecycle.md",
     "agentfem/materials/data/steel_generic.json",
 )
 FORBIDDEN_DISTRIBUTION_PARTS = ("__pycache__",)

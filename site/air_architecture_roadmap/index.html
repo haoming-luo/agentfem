@@ -23,7 +23,7 @@
     
     
       
-        <title>AgentFEM AIR Architecture and Engineering Roadmap - AgentFEM</title>
+        <title>AgentFEM AIR Architecture - AgentFEM</title>
       
     
     
@@ -73,7 +73,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#agentfem-air-architecture-and-engineering-roadmap" class="md-skip">
+        <a href="#agentfem-air-architecture" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              AgentFEM AIR Architecture and Engineering Roadmap
+              AgentFEM AIR Architecture
             
           </span>
         </div>
@@ -1194,10 +1194,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#fenicsx-first-product-priorities" class="md-nav__link">
+  <a href="#public-evolution-themes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        FEniCSx-First Product Priorities
+        Public evolution themes
       
     </span>
   </a>
@@ -1205,82 +1205,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#phased-delivery-plan" class="md-nav__link">
+  <a href="#capability-evidence-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Phased Delivery Plan
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Phased Delivery Plan">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#phase-a-strengthen-the-executable-core" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Phase A: strengthen the executable core
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#phase-b-af-ir-02-scientific-records" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Phase B: AF-IR 0.2 scientific records
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#phase-c-semanticruntime-separation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Phase C: semantic/runtime separation
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#phase-d-test-the-boundary" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Phase D: test the boundary
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#phase-e-scientific-memory-and-agent-operations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Phase E: scientific memory and agent operations
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#verification-matrix" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Verification Matrix
+        Capability evidence matrix
       
     </span>
   </a>
@@ -1299,10 +1227,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#near-term-implementation-queue" class="md-nav__link">
+  <a href="#evolution-rule" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Near-Term Implementation Queue
+        Evolution rule
       
     </span>
   </a>
@@ -1348,21 +1276,19 @@
   
 
 
-<h1 id="agentfem-air-architecture-and-engineering-roadmap">AgentFEM AIR Architecture and Engineering Roadmap<a class="headerlink" href="#agentfem-air-architecture-and-engineering-roadmap" title="Permanent link">&para;</a></h1>
+<h1 id="agentfem-air-architecture">AgentFEM AIR Architecture<a class="headerlink" href="#agentfem-air-architecture" title="Permanent link">&para;</a></h1>
 <blockquote>
-<p>Product priority note: the executable FEniCSx product, nonlinear mechanics,
-results, interoperability, and verification now have the governing
-near-term roadmap in <code>docs/product_roadmap.md</code>. AF-IR remains experimental
-and should advance only when a loader, migration, validator, or independent
-consumer creates evidence for a stable representation.</p>
+<p>This public note records durable architecture, not internal execution
+sequencing. Product direction is summarized in <code>docs/product_roadmap.md</code>.
+Exact release gates, risks, priorities, and benchmark tactics remain in the
+private engineering record.</p>
 </blockquote>
 <h2 id="purpose">Purpose<a class="headerlink" href="#purpose" title="Permanent link">&para;</a></h2>
-<p>This document turns the long-term AF-IR/AIR argument into an engineering
-sequence. It distinguishes:</p>
+<p>This document turns the long-term AF-IR/AIR argument into an implementable
+architecture. It distinguishes:</p>
 <ul>
 <li>what AgentFEM already executes,</li>
 <li>what this release has made explicit,</li>
-<li>what should be built next,</li>
 <li>what should remain a research question,</li>
 <li>and what must not be claimed before evidence exists.</li>
 </ul>
@@ -1888,174 +1814,26 @@ a differentiable strong residual.</p>
 </code></pre></div>
 <p>The service interface should wrap the same AF-IR and validation semantics used
 locally. It should not create a second hidden representation.</p>
-<h2 id="fenicsx-first-product-priorities">FEniCSx-First Product Priorities<a class="headerlink" href="#fenicsx-first-product-priorities" title="Permanent link">&para;</a></h2>
-<p>The following work has higher near-term value than adding a second backend:</p>
+<h2 id="public-evolution-themes">Public evolution themes<a class="headerlink" href="#public-evolution-themes" title="Permanent link">&para;</a></h2>
+<p>AgentFEM evolves along four durable themes rather than a public calendar of
+internal tasks:</p>
 <ol>
-<li>Linear static elasticity</li>
-<li>verified plane strain and plane stress;</li>
-<li>3D isotropic elasticity;</li>
-<li>reaction forces;</li>
-<li>solver convergence records;</li>
-<li>
-<p>mesh-convergence benchmarks.</p>
-</li>
-<li>
-<p>Transient heat transfer</p>
-</li>
-<li>model-owned step API;</li>
-<li>time-dependent sources and boundary conditions;</li>
-<li>convection/Robin boundaries;</li>
-<li>energy balance;</li>
-<li>
-<p>restart.</p>
-</li>
-<li>
-<p>Explicit dynamics</p>
-</li>
-<li>stable time-step estimation;</li>
-<li>energy and momentum diagnostics;</li>
-<li>clear residual sign conventions;</li>
-<li>robust constraint behavior;</li>
-<li>serial and MPI benchmark coverage;</li>
-<li>
-<p>absorbing-boundary validation.</p>
-</li>
-<li>
-<p>Mesh and region reliability</p>
-</li>
-<li>partition completeness and overlap checks;</li>
-<li>imported tag provenance;</li>
-<li>empty-region detection;</li>
-<li>region visualization;</li>
-<li>
-<p>deterministic region identities.</p>
-</li>
-<li>
-<p>Materials and constitutive behavior</p>
-</li>
-<li>units and provenance;</li>
-<li>validated model/assumption compatibility;</li>
-<li>thermal properties;</li>
-<li>
-<p>carefully staged anisotropy and path dependence.</p>
-</li>
-<li>
-<p>Output and restart</p>
-</li>
-<li>output manifests;</li>
-<li>checksums;</li>
-<li>consistent field naming;</li>
-<li>checkpoint/restart contracts;</li>
-<li>
-<p>parallel behavior.</p>
-</li>
-<li>
-<p>Verification assets</p>
-</li>
-<li>benchmarks separate from tutorials;</li>
-<li>expected values and tolerances;</li>
-<li>mesh/time-step convergence;</li>
-<li>serial/MPI parity where meaningful.</li>
+<li><strong>FEniCSx depth</strong> -- strengthen selected mechanics, heat-transfer,
+   nonlinear, transient, and MPI workflows with bounded claims.</li>
+<li><strong>Engineering language</strong> -- keep one readable Study/Model/Step/Result
+   grammar while moving scientific construction behind provider-owned
+   lowering boundaries.</li>
+<li><strong>Scientific evidence</strong> -- keep convergence, fields, histories, restart,
+   provenance, and applicability attached to the result that produced them.</li>
+<li><strong>Open extension</strong> -- let independent packages add procedures, learning
+   engines, and domain products without weakening or forking the public core.</li>
 </ol>
-<h2 id="phased-delivery-plan">Phased Delivery Plan<a class="headerlink" href="#phased-delivery-plan" title="Permanent link">&para;</a></h2>
-<h3 id="phase-a-strengthen-the-executable-core">Phase A: strengthen the executable core<a class="headerlink" href="#phase-a-strengthen-the-executable-core" title="Permanent link">&para;</a></h3>
-<p>Target: current 0.1.x line.</p>
-<ul>
-<li>keep FEniCSx as the sole production backend;</li>
-<li>add unit tests for semantic containers;</li>
-<li>run static example in serial and with two MPI ranks in CI;</li>
-<li>add small numerical benchmarks;</li>
-<li>expand structured model validation;</li>
-<li>make solver policies inspectable;</li>
-<li>keep AF-IR explicitly experimental.</li>
-</ul>
-<p>Exit evidence:</p>
-<ul>
-<li>reproducible environment;</li>
-<li>unit suite;</li>
-<li>serial and two-rank MPI static numerical smoke test;</li>
-<li>at least three benchmark quantities with tolerances;</li>
-<li>no silent unsupported behavior in demonstrated workflows.</li>
-</ul>
-<h3 id="phase-b-af-ir-02-scientific-records">Phase B: AF-IR 0.2 scientific records<a class="headerlink" href="#phase-b-af-ir-02-scientific-records" title="Permanent link">&para;</a></h3>
-<p>Target: v0.2.</p>
-<ul>
-<li>stable document-local object IDs;</li>
-<li>explicit references between core model assets;</li>
-<li>JSON Schema or equivalent formal validation;</li>
-<li>load/write and migration API;</li>
-<li>golden AF-IR documents;</li>
-<li>execution-plan prototype;</li>
-<li>run record with environment and output evidence;</li>
-<li>validation codes documented as public contracts.</li>
-</ul>
-<p>Exit evidence:</p>
-<ul>
-<li>round trip for supported examples;</li>
-<li>migration test from AF-IR 0.1;</li>
-<li>deterministic document hashes;</li>
-<li>agent repair evaluation on planted model defects.</li>
-</ul>
-<h3 id="phase-c-semanticruntime-separation">Phase C: semantic/runtime separation<a class="headerlink" href="#phase-c-semanticruntime-separation" title="Permanent link">&para;</a></h3>
-<p>Target: v0.3.</p>
-<ul>
-<li><code>OperatorSpec</code> and <code>CompiledOperator</code> for selected common families;</li>
-<li>backend capability matching;</li>
-<li>namespaced FEniCSx extensions;</li>
-<li>compilation caches keyed by semantic and numerical policy;</li>
-<li>broader benchmark suite;</li>
-<li>harden the implemented batch/sweep interface and link every case to
-  content-addressed AF-IR/run records.</li>
-</ul>
-<p>Exit evidence:</p>
-<ul>
-<li>supported model can be reconstructed without retaining live UFL objects;</li>
-<li>compiled FEniCSx result agrees with reference implementation;</li>
-<li>custom UFL survives as an explicit extension rather than being erased.</li>
-</ul>
-<h3 id="phase-d-test-the-boundary">Phase D: test the boundary<a class="headerlink" href="#phase-d-test-the-boundary" title="Permanent link">&para;</a></h3>
-<p>Target: research milestone after v0.3, not a calendar promise.</p>
-<ul>
-<li>choose one deliberately narrow second target;</li>
-<li>lower a small semantic subset;</li>
-<li>compare results and unsupported-capability behavior;</li>
-<li>revise AF-IR where the second implementation reveals accidental FEniCSx
-  assumptions.</li>
-</ul>
-<p>Good candidates are not necessarily full solvers. A second target might be:</p>
-<ul>
-<li>an export deck for a restricted static problem;</li>
-<li>a matrix/reference backend for tiny verification cases;</li>
-<li>a service adapter;</li>
-<li>or another open finite-element library for a narrow operator family.</li>
-</ul>
-<p>Exit evidence:</p>
-<ul>
-<li>independent lowering of the same AF-IR subset;</li>
-<li>explicit capability differences;</li>
-<li>benchmark agreement within declared tolerances;</li>
-<li>no weakening of the FEniCSx path.</li>
-</ul>
-<h3 id="phase-e-scientific-memory-and-agent-operations">Phase E: scientific memory and agent operations<a class="headerlink" href="#phase-e-scientific-memory-and-agent-operations" title="Permanent link">&para;</a></h3>
-<ul>
-<li>indexed run/evidence records;</li>
-<li>retrieval by scientific entities and assumptions;</li>
-<li>comparison and regression tools;</li>
-<li>approved reusable patterns;</li>
-<li>extend the implemented dataset/surrogate foundation with merge,
-  deduplication, uncertainty calibration, active-learning proposals, and
-  reviewed external trainers;</li>
-<li>tool-service/MCP interface;</li>
-<li>access-control and audit policies for consequential execution.</li>
-</ul>
-<p>Exit evidence:</p>
-<ul>
-<li>a reviewed case can be found, understood, rerun, compared, and adapted;</li>
-<li>agent actions remain attributable to AF-IR nodes and execution records;</li>
-<li>human review does not require reconstructing intent from generated code.</li>
-</ul>
-<h2 id="verification-matrix">Verification Matrix<a class="headerlink" href="#verification-matrix" title="Permanent link">&para;</a></h2>
-<p>Every public capability should eventually carry a matrix with:</p>
+<p>AF-IR remains an experimental scientific record. It advances only when an
+executable loader, migration, validator, golden document, or independent
+consumer demonstrates that a representation is worth stabilizing. A second
+backend is likewise evidence for the abstraction boundary, not a checkbox.</p>
+<h2 id="capability-evidence-matrix">Capability evidence matrix<a class="headerlink" href="#capability-evidence-matrix" title="Permanent link">&para;</a></h2>
+<p>Every public capability may carry a matrix with:</p>
 <table>
 <thead>
 <tr>
@@ -2102,8 +1880,9 @@ locally. It should not create a second hidden representation.</p>
 </tr>
 </tbody>
 </table>
-<p>Not every early feature needs all rows immediately, but its documentation must
-state which rows are missing.</p>
+<p>Not every experimental feature has all rows immediately, but its maturity and
+missing evidence must stay visible. Internal sequencing and release decisions
+are deliberately absent from this public architecture note.</p>
 <h2 id="decisions-to-avoid">Decisions to Avoid<a class="headerlink" href="#decisions-to-avoid" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Do not replace readable Python with JSON as the primary human language.</li>
@@ -2117,39 +1896,12 @@ state which rows are missing.</p>
 <li>Do not expand feature coverage faster than validation evidence.</li>
 <li>Do not describe successful execution as proof of physical correctness.</li>
 </ul>
-<h2 id="near-term-implementation-queue">Near-Term Implementation Queue<a class="headerlink" href="#near-term-implementation-queue" title="Permanent link">&para;</a></h2>
-<p>The next concrete code changes should be:</p>
-<ol>
-<li>Unify linear, nonlinear, and transient outputs through <code>SimulationResult</code>;
-   finish reactions, energies, point/path probes, projection, and restart.</li>
-<li>Harden Neo-Hookean nonlinear-static solving and build the quadrature-state
-   protocol required for a real J2 finite-element step.</li>
-<li>Add validation for region emptiness, partition overlap/completeness, target
-   mesh consistency, and step/operator completeness.</li>
-<li>Complete external mesh volume/boundary region import with real Abaqus,
-   Nastran, Gmsh, Exodus, and MED golden files.</li>
-<li>Expand the test-linked benchmark registry with expected quantities,
-   tolerances, and mesh/time convergence.</li>
-<li>Record solver convergence reason and iteration count in every result.</li>
-<li>Add a model-owned transient heat step and checkpoint/restart.</li>
-<li>Integrate J2 plasticity only after local state, consistent tangent,
-   increment cutback, and single-element path tests are complete.</li>
-<li>Keep the Abaqus-equation serial/two-rank parity gate and extend focused MPI
-   validation to transient state, diagnostics, scaling, and deformed output.</li>
-<li>Add a global adaptive creep step and reproduce closed-form/NAFEMS cases.</li>
-<li>Add fatigue stress-history extraction and field-result provenance.</li>
-<li>Complete standard QoIs for reactions, energies, curves, and
-    mesh-independent field samples.</li>
-<li>Add an execution-service protocol so local plan shards, Slurm jobs, and
-    hosted runners produce the same case records.</li>
-<li>Add Gaussian-process/ensemble uncertainty adapters and active-learning
-    proposal records before automatic retraining.</li>
-<li>Implement reviewed field projections, residual/energy families, and
-    benchmark gates before promoting neural-operator or general neural-field
-    providers beyond experimental adapters.</li>
-<li>Revisit AF-IR loading/migration/object IDs only alongside an executable
-    consumer and golden cases; do not let schema work displace product gates.</li>
-</ol>
+<h2 id="evolution-rule">Evolution rule<a class="headerlink" href="#evolution-rule" title="Permanent link">&para;</a></h2>
+<p>Architecture changes enter the public platform only when they preserve the
+readable workflow, publish an inspectable capability boundary, and bring
+evidence proportional to the maturity claimed. The public roadmap states the
+direction; the private engineering record decides when and in what order a
+candidate is ready.</p>
 <h2 id="success-criterion">Success Criterion<a class="headerlink" href="#success-criterion" title="Permanent link">&para;</a></h2>
 <p>AgentFEM succeeds in the near term if it becomes a finite-element environment
 that engineers can actually use and trust for its supported analyses.</p>

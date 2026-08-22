@@ -20,6 +20,7 @@ from typing import Iterable
 import numpy as np
 
 from . import __version__
+from ._api_contract import COMPATIBILITY_MODEL_REPLACEMENTS
 from .project import CURRENT_PROJECT_SCHEMA_VERSION, PROJECT_FILENAME, ProjectConfig
 
 
@@ -435,6 +436,29 @@ def _python_findings(path: Path) -> Iterable[UpgradeFinding]:
                     column=node.col_offset + 1,
                     replacement="results.region_measure(on=region)",
                     semantic_review=True,
+                )
+            )
+        method = name.rsplit(".", 1)[-1]
+        replacement = COMPATIBILITY_MODEL_REPLACEMENTS.get(method)
+        if replacement is not None and method.endswith("_step"):
+            preferred = (
+                f"model.{replacement}(...)"
+                if " " not in replacement
+                else replacement
+            )
+            findings.append(
+                UpgradeFinding(
+                    "AFM-UPG-104",
+                    "advisory",
+                    (
+                        f"Model.{method}(...) remains executable as a compatibility "
+                        "spelling, but new workflows use the unified public vocabulary."
+                    ),
+                    path,
+                    line=node.lineno,
+                    column=node.col_offset + 1,
+                    replacement=preferred,
+                    semantic_review=method.endswith("_step"),
                 )
             )
     return tuple(findings)

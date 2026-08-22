@@ -3,9 +3,11 @@
 This note records the current architecture direction from the perspective of
 traditional finite-element workflows and agent-oriented use.
 
-For the full FEniCSx-first engineering plan, AF-IR schema boundary, backend
-strategy, agent repair protocol, execution-evidence design, and phased roadmap,
-see `docs/air_architecture_roadmap.md`.
+For the durable FEniCSx-first architecture, AF-IR boundary, backend strategy,
+agent repair protocol, and execution-evidence design, see
+`docs/air_architecture_roadmap.md`. Public roadmaps communicate direction;
+release gates, sequencing, risks, and competitive execution notes are kept in
+the private engineering record.
 
 ## Current Strengths
 
@@ -91,8 +93,9 @@ The policy has three consequences:
 3. result metadata exposes the declared controls to humans, agents, GUIs, and
    provenance tools without serializing live PETSc or DOLFINx objects.
 
-An omitted policy value means the selected provider owns the default. The
-executable Step summary remains authoritative for resolved numerical values.
+An omitted policy value means the selected provider owns the default. Result
+metadata labels these values as `declared_policies`; the executable
+`metadata["step"]` record remains authoritative for resolved numerical values.
 
 ## Agent-Oriented Refinements
 

@@ -200,6 +200,35 @@ def test_neo_hookean_model_step_solves_a_displacement_controlled_patch():
     )
 
 
+def test_hyperelastic_provider_bypasses_compatibility_builder():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    model = models.create(
+        study=studies.nonlinear_static(
+            physics="solid_mechanics",
+            dimension=2,
+            assumption="plane_strain",
+        ),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    material = model.material(
+        hyperelasticity.neo_hookean(young=2.0e6, poisson=0.3)
+    )
+    model.hyperelastic_step = lambda **kwargs: pytest.fail(
+        "provider called the compatibility facade"
+    )
+
+    step = model.step(target=displacement, material=material)
+
+    assert step.name == "finite_strain_static"
+
+
 def test_plane_stress_neo_hookean_standard_step_uses_condensed_membrane_energy():
     domain = mesh.rectangle(
         (0.0, 0.0),

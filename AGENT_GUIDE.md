@@ -224,6 +224,11 @@ finite-element simulation with AgentFEM.
   integrate them through the versioned extension API.
 - AF-IR and repair: inspect `ir/` and `validation.py`. Treat AF-IR 0.1 as an
   experimental record, not as proof of backend-neutral executability.
+- API lifecycle: inspect `models.model_api_contract()` or
+  `agentfem capabilities --json` before generating a Model call. Run
+  `agentfem upgrade` before adapting an older project. Compatibility findings
+  that require semantic review are guidance, not permission for blind textual
+  replacement.
 - Backend work: inspect `backends/` and
   `docs/air_architecture_roadmap.md`. Preserve the full FEniCSx path and do not
   advertise a backend until its capabilities are independently tested.

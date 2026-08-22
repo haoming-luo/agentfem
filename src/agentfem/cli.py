@@ -496,6 +496,7 @@ def main(argv: list[str] | None = None) -> int:
                     level: models.model_api(level)
                     for level in ("core", "advanced", "compatibility")
                 },
+                "model_api_contract": models.model_api_contract(),
                 "templates": _templates(),
                 "runtime": platforms.runtime_report().summary(),
                 "constitutive": tuple(

@@ -826,9 +826,11 @@
 <h1 id="agentfem-architecture-review">AgentFEM Architecture Review<a class="headerlink" href="#agentfem-architecture-review" title="Permanent link">&para;</a></h1>
 <p>This note records the current architecture direction from the perspective of
 traditional finite-element workflows and agent-oriented use.</p>
-<p>For the full FEniCSx-first engineering plan, AF-IR schema boundary, backend
-strategy, agent repair protocol, execution-evidence design, and phased roadmap,
-see <code>docs/air_architecture_roadmap.md</code>.</p>
+<p>For the durable FEniCSx-first architecture, AF-IR boundary, backend strategy,
+agent repair protocol, and execution-evidence design, see
+<code>docs/air_architecture_roadmap.md</code>. Public roadmaps communicate direction;
+release gates, sequencing, risks, and competitive execution notes are kept in
+the private engineering record.</p>
 <h2 id="current-strengths">Current Strengths<a class="headerlink" href="#current-strengths" title="Permanent link">&para;</a></h2>
 <ul>
 <li>The first-level modules mostly match standard FEM steps: studies, mesh
@@ -918,8 +920,9 @@ configuration language.</p>
 <li>result metadata exposes the declared controls to humans, agents, GUIs, and
    provenance tools without serializing live PETSc or DOLFINx objects.</li>
 </ol>
-<p>An omitted policy value means the selected provider owns the default. The
-executable Step summary remains authoritative for resolved numerical values.</p>
+<p>An omitted policy value means the selected provider owns the default. Result
+metadata labels these values as <code>declared_policies</code>; the executable
+<code>metadata["step"]</code> record remains authoritative for resolved numerical values.</p>
 <h2 id="agent-oriented-refinements">Agent-Oriented Refinements<a class="headerlink" href="#agent-oriented-refinements" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Every public helper should say what FEM concept it belongs to.</li>
