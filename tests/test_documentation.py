@@ -6,6 +6,8 @@ import subprocess
 import sys
 
 import build_docs
+from agentfem._api_contract import CLI_COMMANDS, MACHINE_COMMANDS, WORKFLOW_STAGES
+from agentfem.cli import build_parser
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +32,18 @@ def test_documentation_machine_entrypoints_are_current():
     assert "step" in manifest["model_api"]["core"]
     assert "stiffness" in manifest["model_api"]["advanced"]
     assert "linear_static_step" in manifest["model_api"]["compatibility"]
+    assert manifest["commands"] == MACHINE_COMMANDS
+    assert tuple(manifest["workflow"]) == WORKFLOW_STAGES
+
+
+def test_cli_and_documentation_share_one_product_contract():
+    parser = build_parser()
+    subparsers = next(
+        action
+        for action in parser._actions
+        if getattr(action, "choices", None)
+    )
+    assert tuple(subparsers.choices) == CLI_COMMANDS
 
 
 def test_agentfem_skill_is_installable_and_routes_context_progressively():

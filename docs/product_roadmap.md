@@ -59,6 +59,12 @@ agents, IDEs, and future GUIs. Bundled cases and scientific function cards are
 checked in CI so they cannot silently return to material-specific Step methods
 or compatibility target spellings.
 
+The progressive module tiers, Model verbs, CLI commands, and machine workflow
+stages now have one dependency-free product contract in `_api_contract.py`.
+The Python package, CLI capability record, generated documentation, Agent
+Skill, and future frontends consume that inventory, with drift tests preventing
+them from quietly presenting different versions of AgentFEM.
+
 The next convergence work is internal and should not change ordinary case
 files:
 

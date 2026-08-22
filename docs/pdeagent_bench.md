@@ -181,6 +181,13 @@ Near-zero reference fields also need a scale-aware absolute-error fallback;
 relative L2 error is undefined at exactly zero and numerically unstable for a
 reference consisting only of discretization residual.
 
+AgentFEM reported the fixed-platform result and the proposed broader evaluation
+scope to the maintainers in
+[PDEAgent-Bench issue #12](https://github.com/YusanX/pde-agent-bench/issues/12).
+The opportunity is larger than one extra leaderboard row: PDEAgent-Bench can
+also become an international reference for collaboration between AI agents and
+scientific-computing platforms.
+
 ## Verified Development Snapshot
 
 On 21--22 August 2026, the fixed adapter was run with the official v2 runner at
@@ -205,6 +212,12 @@ family macro-average. Every family exceeded a 60% final pass rate.
 | biharmonic | 57 | 57 | 100.0% |
 | **micro total** | **558** | **645** | **86.5%** |
 
+The unweighted family macro-average is **87.3%**, and the minimum complete-
+family pass rate is **65.6%**. The reported execution host was a 14-inch Apple
+M5 MacBook Pro with 32 GB unified memory and macOS arm64, using one MPI rank in
+CPU mode. Thread-count environment variables were not pinned, so this result
+must not be described as a controlled single-thread measurement.
+
 Within the nine declared 3D Stokes cases, the new block route passes 4/9,
 compared with 1/9 for the previous monolithic route, while reducing the
 representative solve time by roughly one half. It passes four manufactured
@@ -215,27 +228,28 @@ near-zero numerical references make a purely relative L2 comparison unstable.
 The other strict failures use the legacy 0.05 oracle-error multiplier tracked
 in the upstream protocol issue above.
 
-The original three-family set passed 170/204 cases (83.3%). Stratification by
-the benchmark's declared dimension remains essential:
+Stratification by the benchmark's declared dimension remains essential:
 
 | Public subset | Passed | Total | Pass rate |
 |---|---:|---:|---:|
-| all declared 2D cases | 170 | 174 | 97.7% |
-| 2D Poisson | 77 | 81 | 95.1% |
-| 2D heat | 40 | 40 | 100.0% |
-| 2D linear elasticity | 53 | 53 | 100.0% |
-| all declared 3D cases | 0 | 30 | 0.0% |
+| all declared 2D cases | 553 | 586 | 94.4% |
+| all declared 3D cases | 5 | 59 | 8.5% |
+| 3D Stokes | 4 | 9 | 44.4% |
+| 3D Helmholtz | 1 | 10 | 10.0% |
+| other declared 3D families | 0 | 40 | 0.0% |
 
-The 3D result is not presented as an AgentFEM capability score. The public
-agent view of the scalar 3D manufactured cases is internally inconsistent:
+Three-dimensional coverage is therefore the clearest remaining numerical gap,
+not something hidden by the aggregate score. The public agent view of several
+scalar 3D manufactured cases is also internally inconsistent:
 for example, `poisson_3d_smooth_trig` asks the solver to use
 `2*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)`, whereas the negative three-dimensional
 Laplacian of the stated sinusoidal field is `3*pi**2` times that field. The
 heat cases repeat the same dimensional mismatch. AgentFEM solves the exposed
 equation and deliberately does not read the withheld manufactured solution.
-The remaining 3D elasticity cases use a uniform conservative policy that has
-not yet met the official accuracy/time gate. A separate public-equation 3D
-test is retained in AgentFEM to verify the actual 3D Poisson path.
+The remaining 3D elasticity and transport routes use uniform public policies
+that have not yet met the official accuracy/time gate. Separate public-
+equation tests remain in AgentFEM so benchmark-reference inconsistencies do
+not replace ordinary numerical verification.
 
 These numbers are a local fixed-adapter development result, not an official
 PDEAgent-Bench leaderboard submission and not a measurement of `gpt-5.1`.
@@ -282,7 +296,7 @@ Verify a committed bundle without rerunning the numerical cases:
 
 ```bash
 python tools/freeze_pdeagent_bench_evidence.py \
-  --verify evidence/pdeagent_bench/2026-08-22-fixed-adapter
+  --verify evidence/pdeagent_bench/2026-08-22-fixed-adapter-3d-flow
 ```
 
 The verified 558/645 development snapshot is retained in the repository at

@@ -22,9 +22,11 @@
   },
   "commands": {
     "environment_check": "agentfem doctor --json",
+    "capabilities": "agentfem capabilities --json",
     "project_check": "agentfem check --json",
     "run": "agentfem run --json",
-    "inspect": "agentfem inspect --json"
+    "inspect": "agentfem inspect --json",
+    "verify": "agentfem verify --json"
   },
   "public_workflow_modules": [
     "studies",

@@ -169,3 +169,8 @@ result = step.solve_result()
 Do not add another alias merely to save one word. A new public name must either
 express a distinct engineering concept or replace an older name through an
 explicit migration path.
+
+The progressive module tiers, Model method tiers, CLI inventory, and
+machine-facing workflow stages are declared once in `_api_contract.py`.
+Runtime discovery, documentation generation, the Agent Skill, IDEs, and future
+GUI clients must consume that contract rather than maintain parallel lists.

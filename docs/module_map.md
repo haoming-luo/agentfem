@@ -6,6 +6,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 
 | Concept | Module |
 | --- | --- |
+| Dependency-free public module, Model-verb, CLI-command, and workflow-stage inventories | `_api_contract.py` |
 | Mesh import, boundary/cell regions, tags, summaries, checks, and measures | `mesh/` |
 | External mesh inventory, cell/facet set conversion, and manifests | `mesh/formats.py` |
 | Abaqus labels, equations, periodic-cell geometry, and source-order output | `mesh/abaqus.py` |

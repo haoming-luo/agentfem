@@ -8,6 +8,15 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Add one dependency-free product-language contract shared by package
+  discovery, the Model facade, CLI capabilities, generated documentation,
+  Agent Skill guidance, IDEs, and future GUI clients, with drift tests across
+  every consumer.
+- Freeze and index the current 558/645 PDEAgent-Bench snapshot with explicit
+  micro/macro/minimum-family statistics, dimensional stratification, execution
+  scope, upstream discussion, stronger manifest/report consistency checks, and
+  repository-first evidence tools immune to an older installed wheel.
+
 - Add a commit-pinned PDEAgent-Bench integration with a strict public-case
   schema, safe expression lowering, fourteen geometry specifications,
   Poisson/heat/linear-elasticity/Helmholtz/convection--diffusion/

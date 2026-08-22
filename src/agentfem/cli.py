@@ -22,6 +22,7 @@ from . import extensions
 from . import platforms
 from . import provenance
 from . import upgrades
+from ._api_contract import CAPABILITIES_SCHEMA_VERSION, CLI_COMMANDS
 from .project import PROJECT_FILENAME, ProjectConfig, RunContext, discover, new_run_id
 
 
@@ -484,20 +485,9 @@ def main(argv: list[str] | None = None) -> int:
             }
             record = {
                 "schema": "agentfem.capabilities",
-                "schema_version": "0.2.1",
+                "schema_version": CAPABILITIES_SCHEMA_VERSION,
                 "agentfem_version": __version__,
-                "commands": (
-                    "doctor",
-                    "templates",
-                    "capabilities",
-                    "init",
-                    "check",
-                    "upgrade",
-                    "run",
-                    "inspect",
-                    "verify",
-                    "extensions",
-                ),
+                "commands": CLI_COMMANDS,
                 # Keep the flat inventory for 0.2.0 clients while offering a
                 # progressive contract to new CLIs, GUIs, and agents.
                 "public_modules": public_api(),

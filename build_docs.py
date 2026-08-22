@@ -13,6 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 PACKAGE_DIR = ROOT / "src" / "agentfem"
+API_CONTRACT = PACKAGE_DIR / "_api_contract.py"
 DOCS_DIR = ROOT / "docs"
 SITE_DIR = ROOT / "site"
 API_REFERENCE = DOCS_DIR / "reference" / "api.md"
@@ -51,7 +52,7 @@ def project_version() -> str:
 def public_api_levels() -> dict[str, tuple[str, ...]]:
     """Read progressive API declarations without importing the FEM runtime."""
 
-    tree = ast.parse((PACKAGE_DIR / "__init__.py").read_text())
+    tree = ast.parse(API_CONTRACT.read_text())
     assignments = {
         target.id: node.value
         for node in tree.body
@@ -92,7 +93,7 @@ def public_modules() -> tuple[str, ...]:
 def public_model_api_levels() -> dict[str, tuple[str, ...]]:
     """Read the Model facade vocabulary without importing FEniCSx."""
 
-    tree = ast.parse((PACKAGE_DIR / "models.py").read_text())
+    tree = ast.parse(API_CONTRACT.read_text())
     assignments = {
         target.id: node.value
         for node in tree.body
@@ -350,6 +351,7 @@ def render_api_reference() -> str:
 def render_agent_manifest() -> str:
     api_levels = public_api_levels()
     model_api_levels = public_model_api_levels()
+    contract = _literal_contract_values("MACHINE_COMMANDS", "WORKFLOW_STAGES")
     manifest = {
         "schema": "agentfem.documentation-entry",
         "schema_version": "1.0",
@@ -372,12 +374,7 @@ def render_agent_manifest() -> str:
             "knowledge_catalog": "https://raw.githubusercontent.com/haoming-luo/agentfem/main/knowledge/catalog.json",
             "skill": "agents/skill/",
         },
-        "commands": {
-            "environment_check": "agentfem doctor --json",
-            "project_check": "agentfem check --json",
-            "run": "agentfem run --json",
-            "inspect": "agentfem inspect --json",
-        },
+        "commands": contract["MACHINE_COMMANDS"],
         "public_workflow_modules": list(public_modules()),
         "public_api": {
             level: list(modules) for level, modules in api_levels.items()
@@ -385,19 +382,31 @@ def render_agent_manifest() -> str:
         "model_api": {
             level: list(methods) for level, methods in model_api_levels.items()
         },
-        "workflow": [
-            "study",
-            "model",
-            "mesh_and_regions",
-            "fields",
-            "materials",
-            "loads_and_constraints",
-            "step",
-            "solve",
-            "result_and_verification",
-        ],
+        "workflow": list(contract["WORKFLOW_STAGES"]),
     }
     return json.dumps(manifest, indent=2) + "\n"
+
+
+def _literal_contract_values(*names: str) -> dict[str, object]:
+    """Read dependency-free product-contract literals for generated assets."""
+
+    tree = ast.parse(API_CONTRACT.read_text())
+    assignments = {
+        target.id: node.value
+        for node in tree.body
+        if isinstance(node, (ast.Assign, ast.AnnAssign))
+        for target in (
+            node.targets if isinstance(node, ast.Assign) else (node.target,)
+        )
+        if isinstance(target, ast.Name)
+    }
+    values = {}
+    for name in names:
+        try:
+            values[name] = ast.literal_eval(assignments[name])
+        except (KeyError, ValueError, TypeError) as exc:
+            raise RuntimeError(f"{name} must be a literal in _api_contract.py") from exc
+    return values
 
 
 def render_llms_entry() -> str:

@@ -193,10 +193,17 @@ show the finite-element meaning of each step.
 Prefer `model.tree()` and `model.manifest()` before a solve when an agent,
 reviewer, or notebook user needs to inspect the current model state.
 
-Beginner workflows should prefer the stable public path:
-`studies`, `mesh`, `models`, `fields`, `materials`, `constitutive`,
-`constraints`, `amplitudes`, `loads`, `operators`, `problems`, `solvers`,
-`time`, `io`, `campaigns`, `datasets`, and `surrogates`.
+Beginner workflows should begin with `agentfem.public_api("core")`: studies,
+mesh, models, fields, materials/constitutive behavior, constraints, loads,
+steps, results, and verification. Campaigns, datasets, learning, fracture,
+operator-first construction, and direct problem/time containers are deliberate
+advanced disclosures, not additional beginner routes. Expert backend, form,
+assembly, IR, and extension modules remain available without appearing in the
+first modeling vocabulary.
+
+The tier inventories, Model verbs, CLI commands, and machine workflow stages
+have one dependency-free source in `_api_contract.py`. Do not duplicate these
+lists in a frontend, Skill, generated manifest, or documentation script.
 
 First-level Python modules are reserved for the main FEM workflow. Subpackages
 hold reusable asset families, such as constitutive laws, material records,

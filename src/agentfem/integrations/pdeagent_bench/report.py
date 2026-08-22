@@ -36,6 +36,20 @@ class BenchmarkReport:
     def pass_rate(self) -> float:
         return 0.0 if self.total == 0 else self.passed / self.total
 
+    @property
+    def macro_pass_rate(self) -> float:
+        """Return the unweighted mean pass rate across equation families."""
+
+        rates = [float(item["pass_rate"]) for item in self.by_family.values()]
+        return 0.0 if not rates else sum(rates) / len(rates)
+
+    @property
+    def minimum_family_pass_rate(self) -> float:
+        """Return the lowest complete-family pass rate."""
+
+        rates = [float(item["pass_rate"]) for item in self.by_family.values()]
+        return 0.0 if not rates else min(rates)
+
     def as_dict(self) -> dict[str, object]:
         return {
             "schema": "agentfem.pdeagent-bench-report.v1",
@@ -47,6 +61,8 @@ class BenchmarkReport:
             "total": self.total,
             "passed": self.passed,
             "pass_rate": self.pass_rate,
+            "macro_pass_rate": self.macro_pass_rate,
+            "minimum_family_pass_rate": self.minimum_family_pass_rate,
             "by_family": self.by_family,
             "by_dimension": self.by_dimension,
             "failures": self.failures,
@@ -59,6 +75,8 @@ class BenchmarkReport:
             "",
             f"- Cases: **{self.total}**",
             f"- Passed: **{self.passed} ({self.pass_rate:.1%})**",
+            f"- Family macro-average: **{self.macro_pass_rate:.1%}**",
+            f"- Minimum family pass rate: **{self.minimum_family_pass_rate:.1%}**",
             "",
             "## Equation families",
             "",

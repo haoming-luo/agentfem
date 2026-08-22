@@ -52,6 +52,9 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   Within the model facade, generate methods from `models.model_api("core")`;
   do not choose names reported under `models.model_api("compatibility")` for
   new cases.
+- Treat `agentfem capabilities --json` and `/agentfem.json` as generated views
+  of one product contract. Do not reconstruct a competing API vocabulary from
+  a single example or an old compatibility method.
 - Treat `ir` and `validation` as public inspection/record interfaces. Treat
   `backends` as an advanced numerical boundary and `extensions` as the explicit
   installed-package boundary. FEniCSx is the only production backend in the

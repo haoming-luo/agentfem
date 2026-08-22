@@ -9,6 +9,15 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import sys
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SOURCE_ROOT = ROOT / "src"
+source_root = str(SOURCE_ROOT)
+if SOURCE_ROOT.is_dir() and source_root not in sys.path:
+    # Repository tools must audit the checkout, not an older installed wheel.
+    sys.path.insert(0, source_root)
 
 from agentfem.integrations.pdeagent_bench.report import combine_official_summaries
 from agentfem.integrations.pdeagent_bench.schema import BENCHMARK_COMMIT
@@ -125,6 +134,12 @@ def verify_evidence(directory: Path) -> dict[str, object]:
     manifest = json.loads(manifest_path.read_text())
     if manifest.get("schema") != "agentfem.pdeagent-bench-evidence.v1":
         raise ValueError(f"Unsupported evidence schema in {manifest_path}.")
+    if manifest.get("evaluation_mode") != "fixed_adapter":
+        raise ValueError("Evidence bundle is not a fixed-adapter evaluation.")
+    if manifest.get("model_called_during_evaluation") is not False:
+        raise ValueError(
+            "Fixed-adapter evidence must state whether model inference occurred."
+        )
     for relative, expected in (manifest.get("artifacts") or {}).items():
         artifact = (root / str(relative)).resolve()
         if not artifact.is_relative_to(root):
@@ -138,11 +153,16 @@ def verify_evidence(directory: Path) -> dict[str, object]:
             )
     report = json.loads((root / "report.json").read_text())
     result = manifest.get("result") or {}
-    if (report.get("passed"), report.get("total")) != (
-        result.get("passed"),
-        result.get("total"),
-    ):
-        raise ValueError("Manifest and normalized report totals disagree.")
+    for key in ("passed", "total", "pass_rate", "by_family", "failures"):
+        if report.get(key) != result.get(key):
+            raise ValueError(
+                f"Manifest and normalized report disagree for {key}."
+            )
+    families = report.get("by_family") or {}
+    if sum(int(item["total"]) for item in families.values()) != report.get("total"):
+        raise ValueError("Family totals do not cover the normalized report.")
+    if sum(int(item["passed"]) for item in families.values()) != report.get("passed"):
+        raise ValueError("Family pass counts do not match the normalized report.")
     return manifest
 
 
@@ -160,7 +180,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--development-agent",
-        default="Codex (GPT-5.6-sol), collaboratively directed by the project author",
+        default="Codex (GPT-5.6-sol) used in the AgentFEM development workflow",
     )
     arguments = parser.parse_args()
     if arguments.verify is not None:

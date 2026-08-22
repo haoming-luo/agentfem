@@ -141,6 +141,19 @@ def test_model_api_separates_daily_advanced_and_compatibility_vocabulary():
         models.model_api("beginnerish")
 
 
+def test_package_api_tiers_are_disjoint_complete_and_importable():
+    import agentfem
+
+    tiers = tuple(set(agentfem.public_api(level)) for level in ("core", "advanced", "expert"))
+    assert not tiers[0].intersection(tiers[1])
+    assert not tiers[0].intersection(tiers[2])
+    assert not tiers[1].intersection(tiers[2])
+    assert set(agentfem.public_api()) == set().union(*tiers)
+    assert set(agentfem.public_api()) <= set(agentfem.__all__)
+    for name in agentfem.public_api():
+        assert getattr(agentfem, name).__name__ == f"agentfem.{name}"
+
+
 def test_model_step_signature_exposes_common_cross_physics_inputs():
     parameters = inspect.signature(models.Model.step).parameters
 

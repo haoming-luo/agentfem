@@ -1514,6 +1514,12 @@ therefore must not upload the fixed-adapter snapshot under the legacy
 Near-zero reference fields also need a scale-aware absolute-error fallback;
 relative L2 error is undefined at exactly zero and numerically unstable for a
 reference consisting only of discretization residual.</p>
+<p>AgentFEM reported the fixed-platform result and the proposed broader evaluation
+scope to the maintainers in
+<a href="https://github.com/YusanX/pde-agent-bench/issues/12">PDEAgent-Bench issue #12</a>.
+The opportunity is larger than one extra leaderboard row: PDEAgent-Bench can
+also become an international reference for collaboration between AI agents and
+scientific-computing platforms.</p>
 <h2 id="verified-development-snapshot">Verified Development Snapshot<a class="headerlink" href="#verified-development-snapshot" title="Permanent link">&para;</a></h2>
 <p>On 21--22 August 2026, the fixed adapter was run with the official v2 runner at
 the pinned benchmark commit above. Across complete-family runs and the
@@ -1605,6 +1611,11 @@ family macro-average. Every family exceeded a 60% final pass rate.</p>
 </tr>
 </tbody>
 </table>
+<p>The unweighted family macro-average is <strong>87.3%</strong>, and the minimum complete-
+family pass rate is <strong>65.6%</strong>. The reported execution host was a 14-inch Apple
+M5 MacBook Pro with 32 GB unified memory and macOS arm64, using one MPI rank in
+CPU mode. Thread-count environment variables were not pinned, so this result
+must not be described as a controlled single-thread measurement.</p>
 <p>Within the nine declared 3D Stokes cases, the new block route passes 4/9,
 compared with 1/9 for the previous monolithic route, while reducing the
 representative solve time by roughly one half. It passes four manufactured
@@ -1614,8 +1625,7 @@ force is absorbed by pressure under complete no-slip boundaries; their
 near-zero numerical references make a purely relative L2 comparison unstable.
 The other strict failures use the legacy 0.05 oracle-error multiplier tracked
 in the upstream protocol issue above.</p>
-<p>The original three-family set passed 170/204 cases (83.3%). Stratification by
-the benchmark's declared dimension remains essential:</p>
+<p>Stratification by the benchmark's declared dimension remains essential:</p>
 <table>
 <thead>
 <tr>
@@ -1628,46 +1638,48 @@ the benchmark's declared dimension remains essential:</p>
 <tbody>
 <tr>
 <td>all declared 2D cases</td>
-<td style="text-align: right;">170</td>
-<td style="text-align: right;">174</td>
-<td style="text-align: right;">97.7%</td>
-</tr>
-<tr>
-<td>2D Poisson</td>
-<td style="text-align: right;">77</td>
-<td style="text-align: right;">81</td>
-<td style="text-align: right;">95.1%</td>
-</tr>
-<tr>
-<td>2D heat</td>
-<td style="text-align: right;">40</td>
-<td style="text-align: right;">40</td>
-<td style="text-align: right;">100.0%</td>
-</tr>
-<tr>
-<td>2D linear elasticity</td>
-<td style="text-align: right;">53</td>
-<td style="text-align: right;">53</td>
-<td style="text-align: right;">100.0%</td>
+<td style="text-align: right;">553</td>
+<td style="text-align: right;">586</td>
+<td style="text-align: right;">94.4%</td>
 </tr>
 <tr>
 <td>all declared 3D cases</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">59</td>
+<td style="text-align: right;">8.5%</td>
+</tr>
+<tr>
+<td>3D Stokes</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">44.4%</td>
+</tr>
+<tr>
+<td>3D Helmholtz</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">10.0%</td>
+</tr>
+<tr>
+<td>other declared 3D families</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">30</td>
+<td style="text-align: right;">40</td>
 <td style="text-align: right;">0.0%</td>
 </tr>
 </tbody>
 </table>
-<p>The 3D result is not presented as an AgentFEM capability score. The public
-agent view of the scalar 3D manufactured cases is internally inconsistent:
+<p>Three-dimensional coverage is therefore the clearest remaining numerical gap,
+not something hidden by the aggregate score. The public agent view of several
+scalar 3D manufactured cases is also internally inconsistent:
 for example, <code>poisson_3d_smooth_trig</code> asks the solver to use
 <code>2*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)</code>, whereas the negative three-dimensional
 Laplacian of the stated sinusoidal field is <code>3*pi**2</code> times that field. The
 heat cases repeat the same dimensional mismatch. AgentFEM solves the exposed
 equation and deliberately does not read the withheld manufactured solution.
-The remaining 3D elasticity cases use a uniform conservative policy that has
-not yet met the official accuracy/time gate. A separate public-equation 3D
-test is retained in AgentFEM to verify the actual 3D Poisson path.</p>
+The remaining 3D elasticity and transport routes use uniform public policies
+that have not yet met the official accuracy/time gate. Separate public-
+equation tests remain in AgentFEM so benchmark-reference inconsistencies do
+not replace ordinary numerical verification.</p>
 <p>These numbers are a local fixed-adapter development result, not an official
 PDEAgent-Bench leaderboard submission and not a measurement of <code>gpt-5.1</code>.
 The agent name only satisfies the current runner interface when
@@ -1704,7 +1716,7 @@ model; the upstream <code>gpt-5.1</code> directory label is retained only for by
 traceability to the runner output.</p>
 <p>Verify a committed bundle without rerunning the numerical cases:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>tools/freeze_pdeagent_bench_evidence.py<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>--verify<span class="w"> </span>evidence/pdeagent_bench/2026-08-22-fixed-adapter
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>--verify<span class="w"> </span>evidence/pdeagent_bench/2026-08-22-fixed-adapter-3d-flow
 </code></pre></div>
 <p>The verified 558/645 development snapshot is retained in the repository at
 <a href="https://github.com/haoming-luo/agentfem/tree/main/evidence/pdeagent_bench/2026-08-22-fixed-adapter-3d-flow"><code>evidence/pdeagent_bench/2026-08-22-fixed-adapter-3d-flow</code></a>.

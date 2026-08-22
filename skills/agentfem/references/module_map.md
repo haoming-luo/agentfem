@@ -2,6 +2,8 @@
 
 Repository package paths below are relative to `src/agentfem/`.
 
+- `_api_contract.py`: dependency-free public module tiers, Model verbs, CLI
+  commands, and machine workflow stages
 - `mesh/`: mesh import/read/write, boundary/cell regions, summaries, tag
   checks, tags, and measures
 - `mesh/formats.py`: external CAE inventory, cell/facet conversion, set tags,

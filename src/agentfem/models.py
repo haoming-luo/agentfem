@@ -13,6 +13,12 @@ import numpy as np
 
 from . import constraints as constraint_api
 from . import loads as load_api
+from ._api_contract import (
+    ADVANCED_MODEL_API,
+    COMPATIBILITY_MODEL_API,
+    CORE_MODEL_API,
+    model_methods as _model_methods,
+)
 from .step_providers import (
     StepOptionContract,
     StepProvider,
@@ -20,85 +26,6 @@ from .step_providers import (
     register_step_provider,
     step_capability,
     step_providers,
-)
-
-
-CORE_MODEL_API = (
-    "field",
-    "amplitude",
-    "material",
-    "constraint",
-    "fix",
-    "prescribe",
-    "clamp",
-    "prescribed_temperature",
-    "periodic",
-    "load",
-    "traction",
-    "surface_force",
-    "body_force",
-    "heat_flux",
-    "heat_source",
-    "gravity",
-    "pressure",
-    "symmetry",
-    "roller",
-    "convection",
-    "stage",
-    "step",
-    "validate",
-    "check",
-    "summary",
-    "tree",
-)
-
-ADVANCED_MODEL_API = (
-    "remote_displacement",
-    "distributing_coupling",
-    "remote_force",
-    "centrifugal",
-    "hydrostatic_pressure",
-    "absorbing_boundary",
-    "elastic_foundation",
-    "stiffness",
-    "mass",
-    "damping",
-    "conduction",
-    "heat_capacity",
-    "thermal_expansion",
-    "lumped_mass",
-    "load_vector",
-    "external_force",
-    "internal_force",
-    "boundary_force",
-    "force_balance",
-    "operator",
-    "add_region",
-    "bcs",
-    "audit_boundaries",
-    "manifest",
-    "to_ir",
-    "write_ir",
-)
-
-COMPATIBILITY_MODEL_API = (
-    "add_field",
-    "add_amplitude",
-    "add_material",
-    "add_constraint",
-    "add_load",
-    "add_step",
-    "add_boundary_model",
-    "internal_force_vector",
-    "linear_static_step",
-    "heat_transfer_step",
-    "hyperelastic_step",
-    "mixed_hyperelastic_step",
-    "j2_plasticity_step",
-    "creep_step",
-    "explicit_dynamics_step",
-    "finite_strain_explicit_dynamics_step",
-    "implicit_dynamics_step",
 )
 
 
@@ -111,23 +38,7 @@ def model_api(level: str = "core") -> tuple[str, ...]:
     aliases.
     """
 
-    selected = str(level).lower().replace("-", "_").strip()
-    levels = {
-        "core": CORE_MODEL_API,
-        "advanced": ADVANCED_MODEL_API,
-        "compatibility": COMPATIBILITY_MODEL_API,
-        "all": tuple(
-            dict.fromkeys(
-                CORE_MODEL_API + ADVANCED_MODEL_API + COMPATIBILITY_MODEL_API
-            )
-        ),
-    }
-    try:
-        return levels[selected]
-    except KeyError as exc:
-        raise ValueError(
-            "model_api level must be core, advanced, compatibility, or all."
-        ) from exc
+    return _model_methods(level)
 
 
 @dataclass

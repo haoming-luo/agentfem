@@ -13,6 +13,9 @@ Public discovery is progressive. Begin with `agentfem.public_api("core")` and
 the language for new cases. Built-in Step providers publish accepted and
 required keyword names through `StepOptionContract`; inspect the same contracts
 with `agentfem capabilities --json` before generating a Step call.
+The CLI capability record and `/agentfem.json` documentation manifest are
+generated views of the same dependency-free product contract; do not infer a
+parallel workflow language from one example.
 
 1. Study context: analysis type, physics, dimension, and assumptions
 2. Solution procedure preference when more than one algorithm can solve the
