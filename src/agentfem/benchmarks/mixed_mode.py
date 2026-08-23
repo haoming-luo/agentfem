@@ -33,6 +33,21 @@ class MixedModeBendingCurve:
     mode_i_fraction: np.ndarray
     source: str
     identity_sha256: str
+    units: dict[str, str | None]
+
+    @property
+    def units_complete(self) -> bool:
+        return all(self.units[name] for name in self.units)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "schema": "agentfem.mixed-mode-bending-curve.v1",
+            "source": self.source,
+            "identity_sha256": self.identity_sha256,
+            "points": int(self.crack_length.size),
+            "units": dict(self.units),
+            "units_complete": self.units_complete,
+        }
 
     @classmethod
     def create(
@@ -43,6 +58,7 @@ class MixedModeBendingCurve:
         displacement,
         mode_i_fraction,
         source: str,
+        units: dict[str, str | None] | None = None,
     ) -> "MixedModeBendingCurve":
         arrays = {
             "crack_length": _curve_values(crack_length, name="crack_length"),
@@ -62,14 +78,34 @@ class MixedModeBendingCurve:
         selected_source = str(source).strip()
         if not selected_source:
             raise ValueError("A mixed-mode reference must declare its source.")
+        expected_units = {
+            "crack_length",
+            "load",
+            "displacement",
+            "mode_i_fraction",
+        }
+        selected_units = (
+            {name: None for name in expected_units}
+            if units is None
+            else {str(name): (None if value is None else str(value).strip()) for name, value in units.items()}
+        )
+        if set(selected_units) != expected_units:
+            raise ValueError(
+                "Mixed-mode units must identify exactly "
+                f"{sorted(expected_units)}."
+            )
+        if selected_units["mode_i_fraction"] not in {None, "1"}:
+            raise ValueError("mode_i_fraction is dimensionless and must use unit '1'.")
         digest = sha256()
         digest.update(selected_source.encode("utf-8"))
+        digest.update(repr(sorted(selected_units.items())).encode("utf-8"))
         for name, values in arrays.items():
             digest.update(name.encode("ascii"))
             digest.update(np.asarray(values, dtype="<f8").tobytes())
         return cls(
             source=selected_source,
             identity_sha256=digest.hexdigest(),
+            units=selected_units,
             **{name: value.copy() for name, value in arrays.items()},
         )
 
@@ -79,6 +115,7 @@ class MixedModeBendingCurve:
         path,
         *,
         source: str,
+        units: dict[str, str | None] | None = None,
     ) -> "MixedModeBendingCurve":
         """Read the four-column external curve contract without pandas."""
 
@@ -108,6 +145,7 @@ class MixedModeBendingCurve:
             displacement=records["displacement"],
             mode_i_fraction=records["mode_i_fraction"],
             source=source,
+            units=units,
         )
 
 
@@ -123,6 +161,7 @@ class MixedModeBendingComparison:
     load_relative_tolerance: float
     displacement_relative_tolerance: float
     mode_i_fraction_absolute_tolerance: float
+    units_consistent: bool
     accepted: bool
 
     def summary(self) -> dict[str, object]:
@@ -440,6 +479,10 @@ def compare_mixed_mode_bending_curves(
         raise ValueError(
             "Mixed-mode comparison tolerances must be finite and nonnegative."
         )
+    if reference.units != predicted.units:
+        raise ValueError(
+            "Reference and predicted mixed-mode curves must use identical units."
+        )
     if (
         predicted.crack_length[0] > reference.crack_length[0]
         or predicted.crack_length[-1] < reference.crack_length[-1]
@@ -466,6 +509,7 @@ def compare_mixed_mode_bending_curves(
             )
         )
     )
+    units_consistent = True
     return MixedModeBendingComparison(
         reference_identity_sha256=reference.identity_sha256,
         predicted_identity_sha256=predicted.identity_sha256,
@@ -475,7 +519,10 @@ def compare_mixed_mode_bending_curves(
         load_relative_tolerance=tolerances[0],
         displacement_relative_tolerance=tolerances[1],
         mode_i_fraction_absolute_tolerance=tolerances[2],
+        units_consistent=units_consistent,
         accepted=(
+            units_consistent
+            and
             load_error <= tolerances[0]
             and displacement_error <= tolerances[1]
             and mix_error <= tolerances[2]

@@ -1423,6 +1423,13 @@ coherent enough for wider extension and application development. Its focus is:</
 <p>Compatibility methods remain executable during the transition. AgentFEM
 reports preferred replacements but does not silently rewrite scientific Python
 or change modeling intent.</p>
+<p>The repository turns these conditions into an executable audit:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>python<span class="w"> </span>promotion_gate.py<span class="w"> </span>--report<span class="w"> </span>promotion.json
+</code></pre></div>
+<p>Core architecture gates run directly. Installed-wheel platform, companion
+extension, and unfamiliar-agent gates consume independent JSON acceptance
+records; missing evidence remains <code>external_evidence_required</code> rather than
+being inferred from development-machine success.</p>
 <h2 id="beyond-03">Beyond 0.3<a class="headerlink" href="#beyond-03" title="Permanent link">&para;</a></h2>
 <p>Longer-term families include phase-field fracture, broader contact,
 beam/shell formulations, deeper multi-physics coupling, scalable

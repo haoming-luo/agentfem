@@ -35,6 +35,7 @@
     "ASTM D5528/D5528M Mode-I DCB specimen family.",
     "ASTM D7905/D7905M Mode-II ENF specimen family.",
     "ASTM D6671/D6671M mixed-mode MMB specimen family.",
-    "NASA, Improved Benchmarking of Cohesive Elements in Abaqus Standard for Predicting Delamination Growth."
+    "NASA/CR-2012-217562, Development and Application of Benchmark Examples for Mixed-Mode I/II Quasi-Static Delamination Propagation Predictions, https://ntrs.nasa.gov/citations/20120007197.",
+    "NASA report 20080020385, Guidelines and Parameter Selection for the Simulation of Progressive Delamination, https://ntrs.nasa.gov/citations/20080020385."
   ]
 }

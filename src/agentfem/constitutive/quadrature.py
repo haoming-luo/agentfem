@@ -19,6 +19,38 @@ from .plasticity import J2LinearIsotropicHardening, J2PlasticState
 from .creep import ImplicitCreepState, IsotropicPowerLawCreepMaterial
 
 
+@dataclass(frozen=True)
+class _QuadratureExpressionEvaluator:
+    """Compile one UFL expression once and reevaluate only its live coefficients."""
+
+    expression: object
+    domain: object
+    cells: np.ndarray
+    value_shape: tuple[int, ...]
+
+    @classmethod
+    def create(cls, expression, quadrature_field, *, value_shape):
+        domain = quadrature_field.function.function_space.mesh
+        topology = domain.topology
+        cell_dim = topology.dim
+        topology.create_connectivity(cell_dim, cell_dim)
+        index_map = topology.index_map(cell_dim)
+        cells = np.arange(
+            index_map.size_local + index_map.num_ghosts,
+            dtype=np.int32,
+        )
+        return cls(
+            expression=fem.Expression(expression, quadrature_field.points),
+            domain=domain,
+            cells=cells,
+            value_shape=tuple(value_shape),
+        )
+
+    def evaluate(self) -> np.ndarray:
+        values = self.expression.eval(self.domain, self.cells)
+        return np.asarray(values).reshape((-1, *self.value_shape))
+
+
 def _material_record(material) -> dict[str, object]:
     if hasattr(material, "as_dict"):
         return material.as_dict()
@@ -683,6 +715,9 @@ class J2QuadratureState:
     def evaluate_strain(self, strain_expression) -> np.ndarray:
         """Evaluate a 3x3 strain expression at this state's quadrature points."""
 
+        if isinstance(strain_expression, _QuadratureExpressionEvaluator):
+            return strain_expression.evaluate()
+
         topology = self.domain.topology
         cell_dim = topology.dim
         topology.create_connectivity(cell_dim, cell_dim)
@@ -696,6 +731,15 @@ class J2QuadratureState:
             self.stress.points,
         ).eval(self.domain, cells)
         return np.asarray(evaluated).reshape((-1, 3, 3))
+
+    def compile_strain(self, strain_expression):
+        """Compile a repeatedly evaluated live-displacement strain once."""
+
+        return _QuadratureExpressionEvaluator.create(
+            strain_expression,
+            self.stress,
+            value_shape=(3, 3),
+        )
 
     def update(
         self,
@@ -905,6 +949,8 @@ class CreepQuadratureState:
         )
 
     def evaluate_strain(self, strain_expression) -> np.ndarray:
+        if isinstance(strain_expression, _QuadratureExpressionEvaluator):
+            return strain_expression.evaluate()
         topology = self.domain.topology
         cell_dim = topology.dim
         topology.create_connectivity(cell_dim, cell_dim)
@@ -918,6 +964,15 @@ class CreepQuadratureState:
             cells,
         )
         return np.asarray(evaluated).reshape((-1, 3, 3))
+
+    def compile_strain(self, strain_expression):
+        """Compile a repeatedly evaluated live-displacement strain once."""
+
+        return _QuadratureExpressionEvaluator.create(
+            strain_expression,
+            self.stress,
+            value_shape=(3, 3),
+        )
 
     def evaluate_scalar(self, expression) -> np.ndarray:
         """Evaluate a scalar field at the creep quadrature identity."""

@@ -6706,6 +6706,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>Drive a precrack through a prestressed plane-stress weak interface.</td>
 </tr>
 <tr>
+<td>function</td>
+<td><code>creep_thick_cylinder_benchmark(*, comm = MPI.COMM_WORLD, radial_cells: int = 4, angular_cells: int = 8, increments: int = 40, duration: float = 1000.0, progress: object = False) -&gt; InelasticStructuralBenchmark</code></td>
+<td>Run the NAFEMS R0027 Test 7 secondary-creep benchmark.</td>
+</tr>
+<tr>
 <td>class</td>
 <td><code>InelasticStructuralBenchmark</code></td>
 <td>Compact, rank-independent evidence from one structural benchmark.</td>
@@ -6719,6 +6724,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>j2_thick_cylinder_benchmark(*, comm = MPI.COMM_WORLD, radial_cells: int = 4, angular_cells: int = 8, increments: int = 24) -&gt; InelasticStructuralBenchmark</code></td>
 <td>Run the Comet-FEniCSx thick-cylinder first-yield benchmark.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>power_law_creep_cylinder_stress(radius, *, inner_radius: float, outer_radius: float, pressure: float, stress_exponent: float) -&gt; tuple[np.ndarray, np.ndarray, np.ndarray]</code></td>
+<td>Return the NAFEMS R0027 Test 7 steady-state cylinder stresses.</td>
 </tr>
 <tr>
 <td>function</td>

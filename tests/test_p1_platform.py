@@ -22,6 +22,7 @@ from agentfem import (
     studies,
     time,
 )
+from agentfem.constitutive import elasticity
 
 
 def test_solution_procedure_separates_problem_from_algorithm():
@@ -169,6 +170,30 @@ def test_creep_quadrature_state_uses_shared_atomic_transaction():
     assert state.transaction.schema == (
         "agentfem.power-law-creep-small-strain-state"
     )
+
+
+def test_compiled_quadrature_strain_tracks_live_displacement_coefficients():
+    domain = dolfinx_mesh.create_box(
+        MPI.COMM_SELF,
+        [np.zeros(3), np.ones(3)],
+        [1, 1, 1],
+        cell_type=dolfinx_mesh.CellType.tetrahedron,
+    )
+    displacement = fields.displacement(domain)
+    state = constitutive.CreepQuadratureState.create(domain, degree=2)
+    displacement.value.interpolate(
+        lambda x: np.vstack((x[0], 2.0 * x[1], 3.0 * x[2]))
+    )
+    evaluator = state.compile_strain(elasticity.strain(displacement.value))
+    first = state.evaluate_strain(evaluator)
+
+    displacement.value.interpolate(
+        lambda x: np.vstack((2.0 * x[0], 4.0 * x[1], 6.0 * x[2]))
+    )
+    displacement.value.x.scatter_forward()
+    second = state.evaluate_strain(evaluator)
+
+    np.testing.assert_allclose(second, 2.0 * first)
 
 
 def test_global_implicit_creep_relaxation_uses_public_step_and_fields():

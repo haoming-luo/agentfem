@@ -10,6 +10,10 @@ include CONCEPTS.md
 include AGENT_GUIDE.md
 include pyproject.toml
 include environment.yml
+include release_gate.py
+include promotion_gate.py
+include build_docs.py
+include build_knowledge.py
 include src/agentfem/py.typed
 include logo/AgentFEM_logo.png
 include logo/AgentFEM_logo_transparent.png
@@ -25,6 +29,7 @@ recursive-include src/agentfem/knowledge *.json *.md
 recursive-include src/agentfem/elements *.md
 recursive-include src/agentfem/operators *.md
 recursive-include tests *.py
+recursive-include tools *.py
 prune site
 prune examples_output
 prune examples/abaqus_c3d10h_periodic_cell/output

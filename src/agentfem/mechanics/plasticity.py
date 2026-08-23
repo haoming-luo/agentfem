@@ -200,6 +200,12 @@ class J2PlasticityStep:
     execution_events: list[object] = field(default_factory=list, init=False)
     energy_history: list[J2EnergyFrame] = field(default_factory=list, init=False)
     next_increment_size: float | None = field(default=None, init=False)
+    _strain_evaluator: object = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self._strain_evaluator = self.state.compile_strain(
+            elasticity.strain(self.solution)
+        )
 
     def solve(self, *, until: float = 1.0):
         """Advance the load path, optionally stopping at a checkpoint factor."""
@@ -336,7 +342,7 @@ class J2PlasticityStep:
             self.state.restore(state_snapshot)
             self._apply_loading(accepted_factor)
             self.state.update(
-                self.state.evaluate_strain(elasticity.strain(self.solution)),
+                self.state.evaluate_strain(self._strain_evaluator),
                 self.material,
             )
             if not isinstance(
@@ -570,7 +576,7 @@ class J2PlasticityStep:
                 self.incrementation,
             )
             self.state.update(
-                self.state.evaluate_strain(elasticity.strain(self.solution)),
+                self.state.evaluate_strain(self._strain_evaluator),
                 self.material,
             )
 
@@ -674,7 +680,7 @@ class J2PlasticityStep:
             self.incrementation,
         )
         self.state.update(
-            self.state.evaluate_strain(elasticity.strain(self.solution)), self.material
+            self.state.evaluate_strain(self._strain_evaluator), self.material
         )
 
     def _portable_checkpoint_identity(self) -> dict[str, object]:
@@ -1061,7 +1067,7 @@ class J2PlasticityStep:
         iteration = 0
         for iteration in range(self.solver_options.maximum_iterations + 1):
             update_info = self.state.update(
-                self.state.evaluate_strain(elasticity.strain(self.solution)),
+                self.state.evaluate_strain(self._strain_evaluator),
                 self.material,
             )
             rhs, norm = self._correction_rhs()
@@ -1158,7 +1164,7 @@ class J2PlasticityStep:
         while alpha + 1.0e-15 >= options.minimum_step_length:
             self._assign_trial(base, direction, alpha)
             self.state.update(
-                self.state.evaluate_strain(elasticity.strain(self.solution)),
+                self.state.evaluate_strain(self._strain_evaluator),
                 self.material,
             )
             rhs, trial_norm = self._correction_rhs()

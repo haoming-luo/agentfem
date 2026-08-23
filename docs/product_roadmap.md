@@ -127,6 +127,17 @@ Compatibility methods remain executable during the transition. AgentFEM
 reports preferred replacements but does not silently rewrite scientific Python
 or change modeling intent.
 
+The repository turns these conditions into an executable audit:
+
+```bash
+PYTHONPATH=src python promotion_gate.py --report promotion.json
+```
+
+Core architecture gates run directly. Installed-wheel platform, companion
+extension, and unfamiliar-agent gates consume independent JSON acceptance
+records; missing evidence remains `external_evidence_required` rather than
+being inferred from development-machine success.
+
 ## Beyond 0.3
 
 Longer-term families include phase-field fracture, broader contact,

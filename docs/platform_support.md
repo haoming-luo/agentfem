@@ -25,6 +25,25 @@ the exact interpreter and imported AgentFEM directory, any installed-package
 shadowing, and the availability of meshio, Gmsh, PyVista, PyTorch, and
 `dolfinx_mpc`.
 
+## Installed-wheel acceptance
+
+Platform support can be recorded with the same release workflow on every
+machine. From a clean checkout and a compatible FEniCSx environment:
+
+```bash
+python -m build
+python -m pip install --no-deps --force-reinstall dist/*.whl
+python release_gate.py --dist dist --smoke \
+  --report agent-acceptance.json \
+  --platform-report platform-acceptance.json
+```
+
+The platform report records the route, exact wheel hash, Python/FEniCSx/PETSc/
+MPI identity and verified installed templates. GitHub's platform-acceptance
+workflow produces Linux and macOS artifacts. WSL2 promotion still requires the
+same command inside a real WSL2 environment; native Linux evidence is not
+silently relabelled as Windows evidence.
+
 ## Windows recommendation
 
 Install WSL2 with Ubuntu, install Miniforge inside WSL, and follow

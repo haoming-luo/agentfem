@@ -1,0 +1,49 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.creep_nafems_r0027_test7",
+  "title": "NAFEMS R0027 Test 7 pressurized-cylinder secondary creep",
+  "status": "analytical_contract_automated_structural_convergence_pending",
+  "purpose": "Promote the global implicit creep procedure from homogeneous material paths toward a public structure-level equilibrium and stress-redistribution benchmark without overstating the current mesh-convergence evidence.",
+  "physics": "Plane-strain thick cylinder under constant internal pressure with Mises secondary power-law creep",
+  "source": {
+    "organization": "NAFEMS; publicly reproduced by Dassault Systemes SIMULIA",
+    "title": "Test 7: Axisymmetric - pressurized cylinder, secondary creep",
+    "url": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-nafemscreep.htm",
+    "reference": "NAFEMS R0027 Test 7",
+    "retrieved": "2026-08-23"
+  },
+  "execution": {
+    "command": "python -m pytest -q tests/test_external_inelastic_benchmark.py -k nafems_creep_cylinder_reference_stresses",
+    "example": "tests/test_external_inelastic_benchmark.py",
+    "structural_api": "agentfem.benchmarks.creep_thick_cylinder_benchmark",
+    "evidence": "The automated fast gate checks the published radial, hoop and axial steady-state stress solution. The structural API executes the published elastic-preload then 1000-hour creep path on a three-dimensional plane-strain quarter sector, but is deliberately excluded from the regular CI promotion set until mesh/time convergence and runtime are acceptable."
+  },
+  "parameters": {
+    "inner_radius_mm": 100.0,
+    "outer_radius_mm": 200.0,
+    "pressure_mpa": 200.0,
+    "young_modulus_mpa": 200000.0,
+    "poisson_ratio": 0.3,
+    "creep_coefficient_per_hour_mpa_n": 3.125e-14,
+    "stress_exponent": 5.0,
+    "duration_hour": 1000.0
+  },
+  "observables": [
+    "Radial, hoop and axial stress versus physical radius.",
+    "Maximum equivalent creep strain.",
+    "Accepted and rejected physical-time increments.",
+    "Final global residual norm and wall equilibrium."
+  ],
+  "acceptance": [
+    "The dependency-free analytical oracle reproduces the published five-radius stress table.",
+    "A promoted structural result must demonstrate radial, angular and time-increment convergence rather than pass on one selected mesh.",
+    "The elastic pressure preload and subsequent held-pressure creep step remain separate scientific procedures.",
+    "Runtime must be suitable for a repeatable scheduled benchmark before this card is promoted to external structural verification."
+  ],
+  "limitations": [
+    "The current structural route extrudes the axisymmetric reference into a thin three-dimensional quarter sector because the trusted global creep consumer is three-dimensional.",
+    "The current tetrahedral, faceted-sector discretization has not yet met the proposed radial and axial stress tolerances under a documented refinement study.",
+    "This card therefore validates the analytical contract and executable route, not final structural agreement with NAFEMS R0027."
+  ]
+}

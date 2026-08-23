@@ -206,6 +206,7 @@ class ImplicitCreepStep:
     execution_events: list[object] = field(default_factory=list, init=False)
     energy_history: list[CreepEnergyFrame] = field(default_factory=list, init=False)
     next_increment_size: float | None = field(default=None, init=False)
+    _strain_evaluator: object = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         self.duration = float(self.duration)
@@ -234,6 +235,9 @@ class ImplicitCreepStep:
             raise ValueError(
                 "temperature=... was supplied to an isothermal creep material."
             )
+        self._strain_evaluator = self.state.compile_strain(
+            elasticity.strain(self.solution)
+        )
 
     @property
     def accepted_factor(self) -> float:
@@ -461,7 +465,7 @@ class ImplicitCreepStep:
         for iteration in range(self.solver_options.maximum_iterations + 1):
             try:
                 update_info = self.state.update(
-                    self.state.evaluate_strain(elasticity.strain(self.solution)),
+                    self.state.evaluate_strain(self._strain_evaluator),
                     self.material,
                     time_start=start_time,
                     time_end=end_time,
@@ -570,7 +574,7 @@ class ImplicitCreepStep:
             self._assign_trial(base, direction, alpha)
             try:
                 self.state.update(
-                    self.state.evaluate_strain(elasticity.strain(self.solution)),
+                    self.state.evaluate_strain(self._strain_evaluator),
                     self.material,
                     time_start=time_start,
                     time_end=time_end,
@@ -847,7 +851,7 @@ class ImplicitCreepStep:
                 self.incrementation,
             )
             self.state.refresh_response(
-                self.state.evaluate_strain(elasticity.strain(self.solution)),
+                self.state.evaluate_strain(self._strain_evaluator),
                 self.material,
             )
 
@@ -952,7 +956,7 @@ class ImplicitCreepStep:
             self.incrementation,
         )
         self.state.refresh_response(
-            self.state.evaluate_strain(elasticity.strain(self.solution)), self.material
+            self.state.evaluate_strain(self._strain_evaluator), self.material
         )
 
     def _portable_checkpoint_identity(self) -> dict[str, object]:

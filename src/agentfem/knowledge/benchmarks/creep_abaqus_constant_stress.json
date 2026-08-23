@@ -51,6 +51,6 @@
   "limitations": [
     "The official Abaqus specimen is plane stress; AgentFEM uses a homogeneous 3D unit cube with free lateral contraction to reproduce the same uniaxial constitutive state.",
     "The criterion verifies the global Mises creep path against the official closed form, not element-by-element equivalence with CPS4.",
-    "The first global AgentFEM creep provider remains serial, isothermal, and single-material."
+    "This constant-stress case is isothermal and homogeneous even though the current provider also supports MPI, regional materials, Arrhenius temperature fields and portable restart."
   ]
 }

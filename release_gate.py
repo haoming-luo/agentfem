@@ -62,6 +62,7 @@ REQUIRED_WHEEL_MEMBERS = (
     "agentfem/surrogates/training.py",
     "agentfem/knowledge/catalog.json",
     "agentfem/knowledge/benchmarks/creep_abaqus_constant_stress.json",
+    "agentfem/knowledge/benchmarks/creep_nafems_r0027_test7.json",
     "agentfem/knowledge/benchmarks/j2_thick_cylinder_mpi.json",
     "agentfem/knowledge/cards/integration_point_recovery.json",
     "agentfem/knowledge/cards/transient_checkpoint_portability.json",
@@ -203,6 +204,10 @@ def check_distributions(directory: Path) -> Path:
         "LICENSE",
         "NOTICE",
         "pyproject.toml",
+        "release_gate.py",
+        "promotion_gate.py",
+        "build_docs.py",
+        "build_knowledge.py",
         f"src/agentfem/release/{version}.json",
         "skills/agentfem/SKILL.md",
         "skills/agentfem/agents/openai.yaml",
@@ -305,6 +310,50 @@ def run_smoke(*, wheel: Path | None = None) -> dict[str, object]:
             )
         print(json.dumps(acceptance, indent=2, sort_keys=True))
         return acceptance
+
+
+def platform_acceptance(
+    agent_acceptance: dict[str, object],
+    *,
+    wheel: Path | None,
+) -> dict[str, object]:
+    """Turn an installed release smoke into portable platform evidence."""
+
+    fingerprint = agent_acceptance["runtime_fingerprint"]
+    support = fingerprint["platform"]
+    operating_system = fingerprint["operating_system"]
+    system = str(operating_system["system"]).lower()
+    route = str(support["route"]).lower()
+    if "wsl" in route:
+        platform_id = "wsl2"
+    elif system == "darwin":
+        platform_id = "macos"
+    elif system == "linux":
+        platform_id = "linux"
+    else:
+        platform_id = system
+    templates = agent_acceptance.get("templates", {})
+    smoke_passed = bool(templates) and all(
+        item.get("provenance") == "verified" for item in templates.values()
+    )
+    installed_wheel = wheel is not None and wheel.is_file()
+    return {
+        "schema": "agentfem.platform-acceptance",
+        "schema_version": "0.1.0",
+        "status": "passed" if installed_wheel and smoke_passed else "failed",
+        "platform_id": platform_id,
+        "route": support["route"],
+        "installed_wheel": installed_wheel,
+        "wheel_sha256": _sha256(wheel) if installed_wheel else None,
+        "release_smoke": "passed" if smoke_passed else "failed",
+        "agentfem_version": agent_acceptance["agentfem_version"],
+        "python": fingerprint["python"],
+        "machine": fingerprint["machine"],
+        "operating_system": operating_system,
+        "packages": fingerprint["packages"],
+        "mpi": fingerprint["mpi"],
+        "templates": templates,
+    }
 
 
 def _installed_cli_json(arguments, *, environment, cwd) -> dict:
@@ -615,9 +664,16 @@ def main() -> None:
         type=Path,
         help="Write the installed-use acceptance record; requires --smoke.",
     )
+    parser.add_argument(
+        "--platform-report",
+        type=Path,
+        help="Write installed-wheel platform acceptance; requires --dist and --smoke.",
+    )
     options = parser.parse_args()
     if options.report is not None and not options.smoke:
         parser.error("--report requires --smoke")
+    if options.platform_report is not None and (not options.smoke or options.dist is None):
+        parser.error("--platform-report requires --dist and --smoke")
     version = check_versions(tag=options.tag)
     check_dependency_boundaries()
     check_release_contract(tag=options.tag, source_root=ROOT)
@@ -634,6 +690,17 @@ def main() -> None:
                 encoding="utf-8",
             )
             temporary.replace(options.report)
+        if options.platform_report is not None:
+            platform_record = platform_acceptance(acceptance, wheel=wheel)
+            options.platform_report.parent.mkdir(parents=True, exist_ok=True)
+            temporary = options.platform_report.with_suffix(
+                options.platform_report.suffix + ".tmp"
+            )
+            temporary.write_text(
+                json.dumps(platform_record, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            temporary.replace(options.platform_report)
     print(f"AgentFEM {version} release gate passed.")
 
 

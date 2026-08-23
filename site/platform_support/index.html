@@ -936,6 +936,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#installed-wheel-acceptance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installed-wheel acceptance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#windows-recommendation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1155,6 +1166,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#installed-wheel-acceptance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installed-wheel acceptance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#windows-recommendation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1306,6 +1328,20 @@ theoretically import one package.</p>
 the exact interpreter and imported AgentFEM directory, any installed-package
 shadowing, and the availability of meshio, Gmsh, PyVista, PyTorch, and
 <code>dolfinx_mpc</code>.</p>
+<h2 id="installed-wheel-acceptance">Installed-wheel acceptance<a class="headerlink" href="#installed-wheel-acceptance" title="Permanent link">&para;</a></h2>
+<p>Platform support can be recorded with the same release workflow on every
+machine. From a clean checkout and a compatible FEniCSx environment:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>-m<span class="w"> </span>build
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--no-deps<span class="w"> </span>--force-reinstall<span class="w"> </span>dist/*.whl
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>python<span class="w"> </span>release_gate.py<span class="w"> </span>--dist<span class="w"> </span>dist<span class="w"> </span>--smoke<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>--report<span class="w"> </span>agent-acceptance.json<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span>--platform-report<span class="w"> </span>platform-acceptance.json
+</code></pre></div>
+<p>The platform report records the route, exact wheel hash, Python/FEniCSx/PETSc/
+MPI identity and verified installed templates. GitHub's platform-acceptance
+workflow produces Linux and macOS artifacts. WSL2 promotion still requires the
+same command inside a real WSL2 environment; native Linux evidence is not
+silently relabelled as Windows evidence.</p>
 <h2 id="windows-recommendation">Windows recommendation<a class="headerlink" href="#windows-recommendation" title="Permanent link">&para;</a></h2>
 <p>Install WSL2 with Ubuntu, install Miniforge inside WSL, and follow
 <code>INSTALL.md</code>. Keep the project inside the WSL Linux filesystem for compilation
@@ -1329,8 +1365,8 @@ opening output copied or exposed from the WSL filesystem.</p>
    Gmsh Python API.</li>
 </ol>
 <p>Install only the route required by the model:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;agentfem[mesh-formats]&#39;</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;agentfem[gmsh]&#39;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;agentfem[mesh-formats]&#39;</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;agentfem[gmsh]&#39;</span>
 </code></pre></div>
 <p>The Gmsh project distributes its software under GPL-2.0-or-later with a
 published exception. AgentFEM does not vendor or bundle Gmsh, does not list it

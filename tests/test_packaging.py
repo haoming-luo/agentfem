@@ -45,6 +45,33 @@ def test_release_gate_exercises_agent_machine_entrypoints():
         assert f'"{command}"' in source
 
 
+def test_platform_acceptance_distinguishes_native_and_wsl_routes(tmp_path, monkeypatch):
+    wheel = tmp_path / "agentfem.whl"
+    wheel.write_bytes(b"immutable candidate")
+    monkeypatch.setattr(release_gate, "_sha256", lambda _path: "a" * 64)
+    acceptance = {
+        "agentfem_version": __version__,
+        "runtime_fingerprint": {
+            "platform": {"route": "Windows via WSL2/Linux"},
+            "operating_system": {"system": "Linux", "release": "wsl", "version": "x"},
+            "python": "3.11.0",
+            "machine": "x86_64",
+            "packages": {"agentfem": __version__},
+            "mpi": {"rank_count": 1},
+        },
+        "templates": {
+            "static-solid": {"provenance": "verified"},
+        },
+    }
+
+    report = release_gate.platform_acceptance(acceptance, wheel=wheel)
+
+    assert report["schema"] == "agentfem.platform-acceptance"
+    assert report["platform_id"] == "wsl2"
+    assert report["status"] == "passed"
+    assert report["installed_wheel"] is True
+
+
 def test_release_facing_examples_never_insert_the_checkout_into_sys_path():
     for relative, _ in release_gate.SMOKE_COMMANDS:
         source = (PROJECT_ROOT / relative).read_text(encoding="utf-8")

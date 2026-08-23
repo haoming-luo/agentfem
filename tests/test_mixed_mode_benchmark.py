@@ -69,6 +69,42 @@ def test_external_mixed_mode_comparison_rejects_bad_curve_and_range():
         )
 
 
+def test_external_curve_identity_includes_units_and_rejects_unit_mismatch():
+    units = {
+        "crack_length": "mm",
+        "load": "N",
+        "displacement": "mm",
+        "mode_i_fraction": "1",
+    }
+    reference = benchmarks.MixedModeBendingCurve.create(
+        crack_length=(20.0, 25.0),
+        load=(100.0, 90.0),
+        displacement=(0.4, 0.5),
+        mode_i_fraction=(0.2, 0.3),
+        source="NASA/CR-2012-217562 unit fixture",
+        units=units,
+    )
+    incompatible = benchmarks.MixedModeBendingCurve.create(
+        crack_length=(0.02, 0.025),
+        load=(100.0, 90.0),
+        displacement=(0.0004, 0.0005),
+        mode_i_fraction=(0.2, 0.3),
+        source="converted solver fixture",
+        units={**units, "crack_length": "m", "displacement": "m"},
+    )
+
+    assert reference.units_complete
+    assert reference.summary()["units"] == units
+    with pytest.raises(ValueError, match="identical units"):
+        benchmarks.compare_mixed_mode_bending_curves(
+            reference,
+            incompatible,
+            load_relative_tolerance=1.0,
+            displacement_relative_tolerance=1.0,
+            mode_i_fraction_absolute_tolerance=1.0,
+        )
+
+
 @pytest.mark.parametrize("kind", ("dcb", "enf"))
 def test_delamination_beam_oracles_recover_closed_form_energy_release(kind):
     geometry = {

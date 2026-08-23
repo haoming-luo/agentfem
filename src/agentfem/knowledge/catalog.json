@@ -57,6 +57,13 @@
       "title": "Sequential hot-wall creep assessment release contract"
     },
     {
+      "id": "agentfem.benchmark.creep_nafems_r0027_test7",
+      "physics": "Plane-strain thick cylinder under constant internal pressure with Mises secondary power-law creep",
+      "source": "src/agentfem/knowledge/benchmarks/creep_nafems_r0027_test7.json",
+      "status": "analytical_contract_automated_structural_convergence_pending",
+      "title": "NAFEMS R0027 Test 7 pressurized-cylinder secondary creep"
+    },
+    {
       "id": "agentfem.benchmark.cyclic_cohesive_global_lifecycle",
       "physics": "Quasi-static force-controlled fixed-path Mode-I cohesive fatigue",
       "source": "src/agentfem/knowledge/benchmarks/cyclic_cohesive_global_lifecycle.json",

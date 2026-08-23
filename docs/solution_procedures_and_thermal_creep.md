@@ -135,23 +135,36 @@ Implemented now:
   relaxation Golden contract;
 - a 3D component contract in which accepted transient heat states drive the
   global Arrhenius creep step on the same physical clock.
+- the published NAFEMS R0027 Test 7 thick-cylinder stress oracle and an
+  executable elastic-preload-to-creep structural route. The analytical
+  contract is automated; the full tetrahedral-sector calculation remains a
+  scheduled convergence benchmark until radial/axial stress error and runtime
+  meet its declared promotion gate.
+
+The J2 and creep Steps compile their live displacement-to-quadrature strain
+expression once. Newton iterations, line-search trials, rollback recovery and
+result reconstruction reevaluate its coefficients without repeatedly asking
+FFCx to rediscover the same compiled expression. This is an implementation
+detail below the public workflow, but it is important for long adaptive paths.
 
 Next gates:
 
-1. exercise tabulated heat properties and accepted history transfer on an
+1. complete radial/angular/time convergence for NAFEMS R0027 Test 7 and retain
+   it as a scheduled slow benchmark until its cost fits a repeatable gate;
+2. exercise tabulated heat properties and accepted history transfer on an
    external 3D power-component benchmark with time-step convergence;
-2. finish field/energy/checkpoint products on top of the common complete
+3. finish field/energy/checkpoint products on top of the common complete
    execution-event trace, accepted-increment histories, status files, and
    result manifest across heat, implicit dynamics, and explicit dynamics;
-3. exercise the portable full-Step archive on larger partition changes and
+4. exercise the portable full-Step archive on larger partition changes and
    scheduled HPC restart campaigns;
-4. add multi-element and external power-component benchmarks, then promote
+5. add multi-element and external power-component benchmarks, then promote
    the experimental global Newton MPI path;
-5. introduce K-R/Liu--Murakami damage only with near-failure time control and
+6. introduce K-R/Liu--Murakami damage only with near-failure time control and
    a declared mesh-regularization policy;
-6. add a distributed archive backend only when field histories outgrow the
+7. add a distributed archive backend only when field histories outgrow the
    current compact root-gathered format;
-7. monolithic coupling only after a real case demonstrates two-way feedback.
+8. monolithic coupling only after a real case demonstrates two-way feedback.
 
 References:
 
@@ -161,3 +174,4 @@ References:
 - [Chung and Hulbert generalized-\(\alpha\) paper](https://deepblue.lib.umich.edu/bitstream/handle/2027.42/50422/1640100803_ftp.pdf?isAllowed=y&sequence=1)
 - [Simo and Taylor, consistent tangent operators](https://escholarship.org/uc/item/9cp19009)
 - [Duxbury, Crook, and Lyons, consistent plasticity/creep integration](https://doi.org/10.1002/nme.1620370803)
+- [NAFEMS R0027 Test 7 as reproduced in the Abaqus verification guide](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-nafemscreep.htm)

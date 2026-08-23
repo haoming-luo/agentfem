@@ -9,19 +9,21 @@
   "execution": {
     "example": "tests/test_mixed_mode_benchmark.py",
     "command": "python -m pytest tests/test_mixed_mode_benchmark.py",
-    "evidence": "The dependency-free data contract validates source identity, units-by-convention columns, strictly increasing crack coordinates, interpolation coverage, explicit tolerances, deterministic SHA-256 identity, and accepted/rejected curve comparisons."
+    "evidence": "The dependency-free data contract validates source identity, explicit physical units, strictly increasing crack coordinates, interpolation coverage, explicit tolerances, deterministic SHA-256 identity, and accepted/rejected curve comparisons."
   },
   "observables": [
     "Applied load versus crack length.",
     "Load-point displacement versus crack length.",
     "Mode-I energy fraction versus crack length.",
     "Source string and deterministic numerical curve identity.",
+    "Explicit crack-length, load, displacement and dimensionless mode-fraction units.",
     "Relative L2 load/displacement errors and maximum absolute mode-fraction error."
   ],
   "acceptance": [
     "Reference and computed records use exactly crack_length, load, displacement, and mode_i_fraction columns.",
     "The computed crack-length interval covers the complete external reference interval.",
     "Every scientific tolerance is supplied by the benchmark owner rather than hidden in the comparison API.",
+    "Numerically similar curves with inconsistent declared units cannot pass comparison.",
     "A future external promotion must pin the exact public data extraction, units, geometry, material, boundary conditions, and source revision before accepted=True is cited as external verification."
   ],
   "limitations": [
@@ -30,7 +32,7 @@
     "Non-proportional cyclic mixed mode, free-path delamination, and experimental uncertainty remain outside this contract."
   ],
   "references": [
-    "NASA/CR-2003-212683: Mixed-Mode Bending Delamination Apparatus",
-    "NASA/TM-2004-213269: Mixed-Mode Bending Test Method and Data Reduction"
+    "NASA/CR-2012-217562: Development and Application of Benchmark Examples for Mixed-Mode I/II Quasi-Static Delamination Propagation Predictions, https://ntrs.nasa.gov/citations/20120007197",
+    "NASA report 20080020385: Guidelines and Parameter Selection for the Simulation of Progressive Delamination, https://ntrs.nasa.gov/citations/20080020385"
   ]
 }
