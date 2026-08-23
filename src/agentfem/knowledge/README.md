@@ -18,6 +18,10 @@ source code rather than paraphrasing it.
 
 `docs/reference/scientific_function_reference.md` is generated from the cards
 for human readers. Do not edit the generated catalog or reference manually.
+Card equations are TeX source, not ASCII mathematical pseudocode. The builder
+rejects common ambiguous forms such as bare `Delta`, `delta`, `sum`, `max`,
+`dot`, parenthesized subscripts, and double-pipe norms before they reach the
+website.
 
 ## Definition of done
 

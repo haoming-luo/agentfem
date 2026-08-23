@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 
 import build_docs
+import build_knowledge
 from agentfem._api_contract import CLI_COMMANDS, MACHINE_COMMANDS, WORKFLOW_STAGES
 from agentfem.cli import build_parser
 
@@ -87,6 +89,32 @@ def test_knowledge_import_check_uses_the_current_checkout():
     assert f"Validated {card_count} scientific function cards." in completed.stdout
 
 
+def test_scientific_equation_linter_rejects_ascii_pseudocode():
+    assert build_knowledge._equation_notation_errors(
+        "dD_f/dN=C<Delta G_bar>^m"
+    ) == ["Delta"]
+    assert build_knowledge._equation_notation_errors(
+        r"\frac{\mathrm{d}D_f}{\mathrm{d}N}=C\langle\Delta G\rangle_+^m"
+    ) == []
+
+
+def test_all_documentation_math_uses_tex_not_ascii_pseudocode():
+    delimiters = (
+        re.compile(r"\$\$(.*?)\$\$", re.DOTALL),
+        re.compile(r"\\\[(.*?)\\\]", re.DOTALL),
+        re.compile(r"\\\((.*?)\\\)", re.DOTALL),
+    )
+    failures = []
+    for path in (ROOT / "docs").rglob("*.md"):
+        source = path.read_text()
+        for delimiter in delimiters:
+            for match in delimiter.finditer(source):
+                malformed = build_knowledge._equation_notation_errors(match.group(1))
+                if malformed:
+                    failures.append((path.relative_to(ROOT), malformed, match.group(1)))
+    assert failures == []
+
+
 def test_generated_api_covers_public_workflow_objects():
     reference = build_docs.render_api_reference()
     assert "## `agentfem.studies`" in reference
@@ -155,7 +183,10 @@ def test_math_rendering_survives_instant_navigation_and_late_startup():
     assert "await document.fonts.ready" in script
     assert "[data-md-component='content']" in script
     assert '!node.querySelector("mjx-container")' in script
-    assert "mathJax.startup.output.clearCache()" in script
+    assert "typeset: false" in script
+    assert 'llbracket: "\\\\mathopen{[\\\\![}"' in script
+    assert 'rrbracket: "\\\\mathclose{]\\\\!]}"' in script
+    assert "clearCache()" not in script
     assert "mathJax.typesetClear()" in script
     assert "mathJax.texReset()" in script
     assert "mathJax.typesetPromise(pending)" in script
@@ -171,6 +202,20 @@ def test_theory_reference_states_equations_and_result_locations():
     assert "## Result locations and recovery" in theory
     assert r"\mathbf{M}\ddot{\mathbf{u}}" in theory
     assert "Integration points" in theory
+    assert "hide:\n  - toc" in theory
+    assert r"where \(I=\operatorname{tr}" in theory
+    assert "where (I=" not in theory
+
+
+def test_generated_heavy_references_hide_the_redundant_secondary_toc():
+    api = build_docs.render_api_reference()
+    scientific = build_knowledge.build_reference(
+        build_knowledge._read_records(build_knowledge.CARD_DIR),
+        build_knowledge._read_records(build_knowledge.BENCHMARK_DIR),
+    )
+
+    assert "hide:\n  - toc" in api.split("---", 2)[1]
+    assert "hide:\n  - toc" in scientific.split("---", 2)[1]
 
 
 def test_manual_layout_keeps_navigation_and_footer_visually_separate():

@@ -230,6 +230,8 @@
           
             
               
+                
+              
               <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
                 <div class="md-sidebar__scrollwrap">
                   <div class="md-sidebar__inner">
@@ -299,6 +301,8 @@
       
         
           
+        
+      
         
       
         
@@ -1549,7 +1553,9 @@
             
             
               
-              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" hidden>
                 <div class="md-sidebar__scrollwrap">
                   <div class="md-sidebar__inner">
                     
@@ -2141,6 +2147,8 @@
               
                 
 
+  
+
 
 
   
@@ -2190,6 +2198,8 @@
               <article class="md-content__inner md-typeset">
                 
                   
+  
+
 
 
   
@@ -4112,6 +4122,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>class</td>
 <td><code>ResultFieldArtifacts</code></td>
 <td>One completed-result field dataset and its explicit layout contract.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>UnifiedXDMFTimeSeries(path, *, deformation_scale: float = 0.0, store_reference_geometry: bool = True, compression: int = 4) -&gt; None</code></td>
+<td>Incremental single-grid XDMF/HDF5 writer for serial result histories.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -6532,6 +6547,21 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>CapabilityEvidence</code></td>
+<td>Evidence supporting one declared constitutive maturity boundary.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>audit_capability_evidence() -&gt; tuple[CapabilityEvidence, ...]</code></td>
+<td>Return a stable, machine-readable audit for the whole catalog.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>capability_evidence(capability: ConstitutiveCapability, *, benchmarks: tuple[BenchmarkSpec, ...] \| None = None) -&gt; CapabilityEvidence</code></td>
+<td>Audit one catalog capability against the benchmark registry.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>GoldenBenchmark</code></td>
 <td>A named collection of numerical observables from a benchmark card.</td>
 </tr>
@@ -7304,6 +7334,8 @@ and evidence remain in the linked guides and scientific function reference.</p>
 
 
 
+  
+
 
 
                 
@@ -7327,6 +7359,8 @@ and evidence remain in the linked guides and scientific function reference.</p>
         <footer class="md-footer">
   
     
+      
+        
       
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         

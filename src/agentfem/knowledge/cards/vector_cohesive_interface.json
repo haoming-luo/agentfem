@@ -21,22 +21,22 @@
     "equations": [
       {
         "label": "interface kinematics",
-        "expression": "\\delta_n=\\llbracket u\\rrbracket\\cdot n,\\quad \\boldsymbol\\delta_t=\\llbracket u\\rrbracket-\\delta_n n",
+        "expression": "\\delta_n=\\llbracket\\mathbf{u}\\rrbracket\\cdot\\mathbf{n},\\quad \\boldsymbol{\\delta}_t=\\llbracket\\mathbf{u}\\rrbracket-\\delta_n\\mathbf{n}",
         "description": "The same decomposition drives line and triangular-surface facets."
       },
       {
         "label": "quadratic damage initiation",
-        "expression": "(\\langle t_n\\rangle/T_n)^2+(\\|t_t\\|/T_t)^2=1",
+        "expression": "\\left(\\frac{\\langle t_n\\rangle_{+}}{T_n}\\right)^2+\\left(\\frac{\\lVert\\mathbf{t}_t\\rVert}{T_t}\\right)^2=1",
         "description": "Compression does not initiate cohesive damage."
       },
       {
         "label": "BK mixed fracture energy",
-        "expression": "G_c=G_{Ic}+(G_{IIc}-G_{Ic})(G_s/(G_n+G_s))^\\eta",
+        "expression": "G_c=G_{\\mathrm{I}c}+(G_{\\mathrm{II}c}-G_{\\mathrm{I}c})\\left(\\frac{G_s}{G_n+G_s}\\right)^{\\eta}",
         "description": "Power-law energy interaction is an alternative explicit option."
       },
       {
         "label": "spherical continuation",
-        "expression": "\\|\\Delta u\\|^2+(\\alpha\\Delta\\lambda)^2=\\Delta s^2",
+        "expression": "\\lVert\\Delta\\mathbf{u}\\rVert^2+(\\alpha\\,\\Delta\\lambda)^2=(\\Delta s)^2",
         "description": "Post-peak path following adds one load unknown to the existing cohesive residual."
       }
     ],

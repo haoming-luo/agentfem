@@ -40,12 +40,12 @@
     "equations": [
       {
         "label": "local opening load ratio",
-        "expression": "R_delta=delta_min^+/delta_max^+",
+        "expression": "R_{\\delta}=\\frac{\\delta_{\\min}^{+}}{\\delta_{\\max}^{+}}",
         "description": "The local ratio changes with closure, shielding and crack interaction instead of copying one applied global load ratio to every integration point."
       },
       {
         "label": "reference fatigue rate",
-        "expression": "dD_f/dN=C<((Delta delta/delta_f)-threshold)/(1-threshold)>^m(delta_max^+/delta_f)^q(1-D_f)^p",
+        "expression": "\\frac{\\mathrm{d}D_f}{\\mathrm{d}N}=C\\left\\langle\\frac{\\Delta\\delta/\\delta_f-\\eta_{\\mathrm{th}}}{1-\\eta_{\\mathrm{th}}}\\right\\rangle_{+}^{m}\\left(\\frac{\\delta_{\\max}^{+}}{\\delta_f}\\right)^q(1-D_f)^p",
         "description": "A transparent reference law; alternative calibrated laws retain the same state and lifecycle protocol."
       },
       {

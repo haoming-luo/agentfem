@@ -230,6 +230,8 @@
           
             
               
+                
+              
               <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
                 <div class="md-sidebar__scrollwrap">
                   <div class="md-sidebar__inner">
@@ -299,6 +301,8 @@
       
         
           
+        
+      
         
       
         
@@ -5618,7 +5622,9 @@
             
             
               
-              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" hidden>
                 <div class="md-sidebar__scrollwrap">
                   <div class="md-sidebar__inner">
                     
@@ -10279,6 +10285,8 @@
               
                 
 
+  
+
 
 
   
@@ -10328,6 +10336,8 @@
               <article class="md-content__inner md-typeset">
                 
                   
+  
+
 
 
   
@@ -11053,12 +11063,12 @@ the compact machine-readable <code>agentfem/knowledge/catalog.json</code>.</p>
 <p>Fatigue cycles are neither transient time increments nor output frames; a replaceable cyclic cohesive law advances irreversible interface state from accepted local opening extrema while preserving the declared monotonic envelope.</p>
 <p><strong>local opening load ratio</strong></p>
 <div class="arithmatex">\[
-R_delta=delta_min^+/delta_max^+
+R_{\delta}=\frac{\delta_{\min}^{+}}{\delta_{\max}^{+}}
 \]</div>
 <p>The local ratio changes with closure, shielding and crack interaction instead of copying one applied global load ratio to every integration point.</p>
 <p><strong>reference fatigue rate</strong></p>
 <div class="arithmatex">\[
-dD_f/dN=C&lt;((Delta delta/delta_f)-threshold)/(1-threshold)&gt;^m(delta_max^+/delta_f)^q(1-D_f)^p
+\frac{\mathrm{d}D_f}{\mathrm{d}N}=C\left\langle\frac{\Delta\delta/\delta_f-\eta_{\mathrm{th}}}{1-\eta_{\mathrm{th}}}\right\rangle_{+}^{m}\left(\frac{\delta_{\max}^{+}}{\delta_f}\right)^q(1-D_f)^p
 \]</div>
 <p>A transparent reference law; alternative calibrated laws retain the same state and lifecycle protocol.</p>
 <p><strong>combined damage</strong></p>
@@ -11755,22 +11765,22 @@ W=\frac{\mu}{2}(J^{-2/3}I_1-3)+\frac{\kappa}{2}(J-1)^2
 <p>A mixed-mode fatigue update consumes either true accepted valley/peak vectors for a proportional cycle or an ordered closed sequence of within-cycle jump vectors, resolves work-conjugate normal and shear cohesive-energy variations, and advances one replaceable irreversible state through a declared interaction rule.</p>
 <p><strong>local cohesive energy channels</strong></p>
 <div class="arithmatex">\[
-G_I^coh=0.5 K_n&lt;delta_n&gt;^2, G_II^coh=0.5 K_t||delta_t||^2
+G_{\mathrm{I}}^{\mathrm{coh}}=\frac{1}{2}K_n\langle\delta_n\rangle_{+}^{2},\qquad G_{\mathrm{II}}^{\mathrm{coh}}=\frac{1}{2}K_t\lVert\boldsymbol{\delta}_t\rVert^2
 \]</div>
 <p>These material-point damage drivers are explicitly distinguished from a structure-level J-integral or VCCT result.</p>
 <p><strong>BK range interaction</strong></p>
 <div class="arithmatex">\[
-G_c(beta)=G_Ic+(G_IIc-G_Ic) beta^eta, beta=Delta G_II/(Delta G_I+Delta G_II)
+G_c(\beta)=G_{\mathrm{I}c}+(G_{\mathrm{II}c}-G_{\mathrm{I}c})\beta^{\eta},\qquad \beta=\frac{\Delta G_{\mathrm{II}}}{\Delta G_{\mathrm{I}}+\Delta G_{\mathrm{II}}}
 \]</div>
 <p>A power-law interaction is available through the same explicit driver contract.</p>
 <p><strong>reference cyclic evolution</strong></p>
 <div class="arithmatex">\[
-dD_f/dN=C&lt;Delta G_bar&gt;^m(1-D_f)^p
+\frac{\mathrm{d}D_f}{\mathrm{d}N}=C\left\langle\overline{\Delta G}\right\rangle_{+}^{m}(1-D_f)^p
 \]</div>
 <p>The normalized range includes the mixed threshold and critical energy, and constant extrema use exact residual-power integration.</p>
 <p><strong>ordered path measure</strong></p>
 <div class="arithmatex">\[
-Phi_path=sum_s I_s &lt;Delta G_s-G_th(beta_s)&gt;_+/(G_c(beta_s)-G_th(beta_s))
+\Phi_{\mathrm{path}}=\sum_s I_s\frac{\left\langle\Delta G_s-G_{\mathrm{th}}(\beta_s)\right\rangle_{+}}{G_c(\beta_s)-G_{\mathrm{th}}(\beta_s)}
 \]</div>
 <p>Positive variations of each local cohesive energy channel retain their order and segment mode mix; channel unloading does not create a second fictitious fatigue increment, while constant-total-energy mode transfer is preserved.</p>
 <h4 id="inputs_7">Inputs<a class="headerlink" href="#inputs_7" title="Permanent link">&para;</a></h4>
@@ -13014,12 +13024,12 @@ r_f=R_f[H(k_f)\bmod |R_f|]
 <p>External work is a sum over named work-conjugate generalized forces and motions; recoverable and dissipative energy channels are compared through their committed cycle-block increments.</p>
 <p><strong>resolved station work</strong></p>
 <div class="arithmatex">\[
-Delta W_q=0.5(Q_i+Q_(i+1)) dot (q_(i+1)-q_i)
+\Delta W_q=\frac{1}{2}(\mathbf{Q}_i+\mathbf{Q}_{i+1})\cdot(\mathbf{q}_{i+1}-\mathbf{q}_i)
 \]</div>
 <p>Vector force-translation and moment-rotation pairs share the same trapezoidal contract.</p>
 <p><strong>cycle-block balance</strong></p>
 <div class="arithmatex">\[
-epsilon_E=|W_ext-Delta E_accounted|/max(|W_ext|,|Delta E_accounted|,epsilon)
+\varepsilon_E=\frac{\left|W_{\mathrm{ext}}-\Delta E_{\mathrm{accounted}}\right|}{\max\left(\left|W_{\mathrm{ext}}\right|,\left|\Delta E_{\mathrm{accounted}}\right|,\varepsilon\right)}
 \]</div>
 <p>The acceptance error participates in the global cycle transaction rather than being calculated after irreversible state is committed.</p>
 <h4 id="inputs_17">Inputs<a class="headerlink" href="#inputs_17" title="Permanent link">&para;</a></h4>
@@ -14885,22 +14895,22 @@ k_i=\left(\operatorname{quantize}(\mathbf{x}_i;\,\mathbf{b},\tau),\,c_i[,\,n_i]\
 <p>A split cohesive interface must constrain and damage the complete displacement jump declared by its physical law; normal-only traction is a special slip model rather than the default meaning of a three-dimensional cohesive surface.</p>
 <p><strong>interface kinematics</strong></p>
 <div class="arithmatex">\[
-\delta_n=\llbracket u\rrbracket\cdot n,\quad \boldsymbol\delta_t=\llbracket u\rrbracket-\delta_n n
+\delta_n=\llbracket\mathbf{u}\rrbracket\cdot\mathbf{n},\quad \boldsymbol{\delta}_t=\llbracket\mathbf{u}\rrbracket-\delta_n\mathbf{n}
 \]</div>
 <p>The same decomposition drives line and triangular-surface facets.</p>
 <p><strong>quadratic damage initiation</strong></p>
 <div class="arithmatex">\[
-(\langle t_n\rangle/T_n)^2+(\|t_t\|/T_t)^2=1
+\left(\frac{\langle t_n\rangle_{+}}{T_n}\right)^2+\left(\frac{\lVert\mathbf{t}_t\rVert}{T_t}\right)^2=1
 \]</div>
 <p>Compression does not initiate cohesive damage.</p>
 <p><strong>BK mixed fracture energy</strong></p>
 <div class="arithmatex">\[
-G_c=G_{Ic}+(G_{IIc}-G_{Ic})(G_s/(G_n+G_s))^\eta
+G_c=G_{\mathrm{I}c}+(G_{\mathrm{II}c}-G_{\mathrm{I}c})\left(\frac{G_s}{G_n+G_s}\right)^{\eta}
 \]</div>
 <p>Power-law energy interaction is an alternative explicit option.</p>
 <p><strong>spherical continuation</strong></p>
 <div class="arithmatex">\[
-\|\Delta u\|^2+(\alpha\Delta\lambda)^2=\Delta s^2
+\lVert\Delta\mathbf{u}\rVert^2+(\alpha\,\Delta\lambda)^2=(\Delta s)^2
 \]</div>
 <p>Post-peak path following adds one load unknown to the existing cohesive residual.</p>
 <h4 id="inputs_31">Inputs<a class="headerlink" href="#inputs_31" title="Permanent link">&para;</a></h4>
@@ -15026,8 +15036,13 @@ G_c=G_{Ic}+(G_{IIc}-G_{Ic})(G_s/(G_n+G_s))^\eta
 
 
 
+  
+  
 
 
+
+
+  
 
 
 
@@ -15052,6 +15067,8 @@ G_c=G_{Ic}+(G_{IIc}-G_{Ic})(G_s/(G_n+G_s))^\eta
         <footer class="md-footer">
   
     
+      
+        
       
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         

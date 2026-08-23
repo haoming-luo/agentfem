@@ -3,12 +3,22 @@ window.MathJax = {
     inlineMath: [["\\(", "\\)"]],
     displayMath: [["\\[", "\\]"], ["$$", "$$"]],
     packages: { "[+]": ["boldsymbol"] },
+    macros: {
+      // stmaryrd-style jump brackets used by the cohesive-interface manual.
+      // Defining the two delimiters locally keeps the vendored MathJax bundle
+      // self-contained and prevents red "Undefined control sequence" output.
+      llbracket: "\\mathopen{[\\![}",
+      rrbracket: "\\mathclose{]\\!]}",
+    },
     processEscapes: true,
     processEnvironments: true,
   },
   options: {
     ignoreHtmlClass: ".*|",
     processHtmlClass: "arithmatex",
+  },
+  startup: {
+    typeset: false,
   },
 };
 
@@ -75,14 +85,10 @@ window.MathJax = {
       (node) => !node.querySelector("mjx-container"),
     );
     if (pending.length > 0) {
-      /* Material replaces the page body during instant navigation, including
-       * MathJax's adaptive CHTML style element.  Reset the matching internal
-       * cache before processing the new page; otherwise MathJax can believe
-       * that common glyph rules still exist and render only newly seen
-       * characters until a full browser refresh. */
-      if (mathJax.startup.output && mathJax.startup.output.clearCache) {
-        mathJax.startup.output.clearCache();
-      }
+      /* Clear MathJax's record of nodes from the page that Material replaced,
+       * but keep the CHTML glyph/style cache. Clearing the output cache here
+       * removes shared font rules and is the reason a first instant-navigation
+       * render can contain only part of an equation until a hard refresh. */
       if (mathJax.typesetClear) {
         mathJax.typesetClear();
       }

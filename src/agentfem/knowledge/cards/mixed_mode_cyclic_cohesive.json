@@ -33,22 +33,22 @@
     "equations": [
       {
         "label": "local cohesive energy channels",
-        "expression": "G_I^coh=0.5 K_n<delta_n>^2, G_II^coh=0.5 K_t||delta_t||^2",
+        "expression": "G_{\\mathrm{I}}^{\\mathrm{coh}}=\\frac{1}{2}K_n\\langle\\delta_n\\rangle_{+}^{2},\\qquad G_{\\mathrm{II}}^{\\mathrm{coh}}=\\frac{1}{2}K_t\\lVert\\boldsymbol{\\delta}_t\\rVert^2",
         "description": "These material-point damage drivers are explicitly distinguished from a structure-level J-integral or VCCT result."
       },
       {
         "label": "BK range interaction",
-        "expression": "G_c(beta)=G_Ic+(G_IIc-G_Ic) beta^eta, beta=Delta G_II/(Delta G_I+Delta G_II)",
+        "expression": "G_c(\\beta)=G_{\\mathrm{I}c}+(G_{\\mathrm{II}c}-G_{\\mathrm{I}c})\\beta^{\\eta},\\qquad \\beta=\\frac{\\Delta G_{\\mathrm{II}}}{\\Delta G_{\\mathrm{I}}+\\Delta G_{\\mathrm{II}}}",
         "description": "A power-law interaction is available through the same explicit driver contract."
       },
       {
         "label": "reference cyclic evolution",
-        "expression": "dD_f/dN=C<Delta G_bar>^m(1-D_f)^p",
+        "expression": "\\frac{\\mathrm{d}D_f}{\\mathrm{d}N}=C\\left\\langle\\overline{\\Delta G}\\right\\rangle_{+}^{m}(1-D_f)^p",
         "description": "The normalized range includes the mixed threshold and critical energy, and constant extrema use exact residual-power integration."
       },
       {
         "label": "ordered path measure",
-        "expression": "Phi_path=sum_s I_s <Delta G_s-G_th(beta_s)>_+/(G_c(beta_s)-G_th(beta_s))",
+        "expression": "\\Phi_{\\mathrm{path}}=\\sum_s I_s\\frac{\\left\\langle\\Delta G_s-G_{\\mathrm{th}}(\\beta_s)\\right\\rangle_{+}}{G_c(\\beta_s)-G_{\\mathrm{th}}(\\beta_s)}",
         "description": "Positive variations of each local cohesive energy channel retain their order and segment mode mix; channel unloading does not create a second fictitious fatigue increment, while constant-total-energy mode transfer is preserved."
       }
     ],

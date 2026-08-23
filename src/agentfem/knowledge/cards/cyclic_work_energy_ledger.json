@@ -24,12 +24,12 @@
     "equations": [
       {
         "label": "resolved station work",
-        "expression": "Delta W_q=0.5(Q_i+Q_(i+1)) dot (q_(i+1)-q_i)",
+        "expression": "\\Delta W_q=\\frac{1}{2}(\\mathbf{Q}_i+\\mathbf{Q}_{i+1})\\cdot(\\mathbf{q}_{i+1}-\\mathbf{q}_i)",
         "description": "Vector force-translation and moment-rotation pairs share the same trapezoidal contract."
       },
       {
         "label": "cycle-block balance",
-        "expression": "epsilon_E=|W_ext-Delta E_accounted|/max(|W_ext|,|Delta E_accounted|,epsilon)",
+        "expression": "\\varepsilon_E=\\frac{\\left|W_{\\mathrm{ext}}-\\Delta E_{\\mathrm{accounted}}\\right|}{\\max\\left(\\left|W_{\\mathrm{ext}}\\right|,\\left|\\Delta E_{\\mathrm{accounted}}\\right|,\\varepsilon\\right)}",
         "description": "The acceptance error participates in the global cycle transaction rather than being calculated after irreversible state is committed."
       }
     ],

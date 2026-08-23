@@ -305,6 +305,8 @@
       
         
       
+        
+      
     
     
     
@@ -869,6 +871,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#capability-evidence-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Capability evidence audit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#discretization-evidence" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1234,6 +1247,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#capability-evidence-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Capability evidence audit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#discretization-evidence" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1449,18 +1473,32 @@ engineering workflow, but cannot by itself promote a result to <code>verified</c
 <p><code>GoldenBenchmark.claims(...)</code> retains the benchmark identifier, reference
 version, tolerance, unit, expected value, and validity statement in the result
 manifest. A Golden remains regression evidence, not experimental validation.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">claim</span> <span class="o">=</span> <span class="n">verification</span><span class="o">.</span><span class="n">VerificationClaim</span><span class="o">.</span><span class="n">compare</span><span class="p">(</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;beam_reference&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">observable</span><span class="o">=</span><span class="s2">&quot;tip_displacement&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">actual</span><span class="o">=</span><span class="n">tip_u</span><span class="p">,</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">expected</span><span class="o">=</span><span class="n">reference_u</span><span class="p">,</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">reference</span><span class="o">=</span><span class="s2">&quot;Euler--Bernoulli closed form&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">relative_tolerance</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">validity_domain</span><span class="o">=</span><span class="s2">&quot;slender beam with negligible shear deformation&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">applicable</span><span class="o">=</span><span class="n">is_slender</span><span class="p">,</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="p">)</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">result</span><span class="o">.</span><span class="n">add_verification</span><span class="p">(</span><span class="n">verification</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="n">claim</span><span class="p">))</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">trust_level</span><span class="p">)</span>
+<h2 id="capability-evidence-audit">Capability evidence audit<a class="headerlink" href="#capability-evidence-audit" title="Permanent link">&para;</a></h2>
+<p>The constitutive catalog and benchmark registry are joined by a machine-
+readable audit:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">agentfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">benchmarks</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">benchmarks</span><span class="o">.</span><span class="n">audit_capability_evidence</span><span class="p">():</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">capability</span><span class="p">,</span> <span class="n">item</span><span class="o">.</span><span class="n">maturity</span><span class="p">,</span> <span class="n">item</span><span class="o">.</span><span class="n">gaps</span><span class="p">)</span>
+</code></pre></div>
+<p>The same records appear under <code>constitutive_evidence</code> in
+<code>agentfem capabilities --json</code>. The audit checks that the declared maturity has
+the corresponding interface, material-point, curve, post-processing, or
+finite-element evidence. It intentionally does not promote an experimental
+capability merely because its present tests pass; external validation,
+generality, and stated limitations remain separate scientific claims.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">claim</span> <span class="o">=</span> <span class="n">verification</span><span class="o">.</span><span class="n">VerificationClaim</span><span class="o">.</span><span class="n">compare</span><span class="p">(</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;beam_reference&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">observable</span><span class="o">=</span><span class="s2">&quot;tip_displacement&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">actual</span><span class="o">=</span><span class="n">tip_u</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">expected</span><span class="o">=</span><span class="n">reference_u</span><span class="p">,</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">reference</span><span class="o">=</span><span class="s2">&quot;Euler--Bernoulli closed form&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">relative_tolerance</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">validity_domain</span><span class="o">=</span><span class="s2">&quot;slender beam with negligible shear deformation&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">applicable</span><span class="o">=</span><span class="n">is_slender</span><span class="p">,</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="p">)</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="n">result</span><span class="o">.</span><span class="n">add_verification</span><span class="p">(</span><span class="n">verification</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="n">claim</span><span class="p">))</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">trust_level</span><span class="p">)</span>
 </code></pre></div>
 <p>The validity domain is part of the claim. If <code>is_slender</code> is false, the claim
 is <code>inconclusive</code>; AgentFEM does not declare either the finite-element result
@@ -1470,19 +1508,19 @@ or the reference formula correct by construction.</p>
 strictly decreasing characteristic size. It reports the last relative change
 and, for uniformly refined triples, an observed order. A required order that
 cannot be estimated makes the claim inconclusive.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">study</span> <span class="o">=</span> <span class="n">verification</span><span class="o">.</span><span class="n">convergence_study</span><span class="p">(</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="s2">&quot;hole_peak_stress&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="s2">&quot;maximum circumferential stress&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="p">(</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="n">verification</span><span class="o">.</span><span class="n">ConvergenceSample</span><span class="p">(</span><span class="n">h1</span><span class="p">,</span> <span class="n">s1</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;coarse&quot;</span><span class="p">),</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="n">verification</span><span class="o">.</span><span class="n">ConvergenceSample</span><span class="p">(</span><span class="n">h2</span><span class="p">,</span> <span class="n">s2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;medium&quot;</span><span class="p">),</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="n">verification</span><span class="o">.</span><span class="n">ConvergenceSample</span><span class="p">(</span><span class="n">h3</span><span class="p">,</span> <span class="n">s3</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;fine&quot;</span><span class="p">),</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="p">),</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="p">)</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">claim</span> <span class="o">=</span> <span class="n">study</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">maximum_relative_change</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="n">minimum_observed_order</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">study</span> <span class="o">=</span> <span class="n">verification</span><span class="o">.</span><span class="n">convergence_study</span><span class="p">(</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="s2">&quot;hole_peak_stress&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="s2">&quot;maximum circumferential stress&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="p">(</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        <span class="n">verification</span><span class="o">.</span><span class="n">ConvergenceSample</span><span class="p">(</span><span class="n">h1</span><span class="p">,</span> <span class="n">s1</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;coarse&quot;</span><span class="p">),</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>        <span class="n">verification</span><span class="o">.</span><span class="n">ConvergenceSample</span><span class="p">(</span><span class="n">h2</span><span class="p">,</span> <span class="n">s2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;medium&quot;</span><span class="p">),</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>        <span class="n">verification</span><span class="o">.</span><span class="n">ConvergenceSample</span><span class="p">(</span><span class="n">h3</span><span class="p">,</span> <span class="n">s3</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;fine&quot;</span><span class="p">),</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="p">),</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="p">)</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">claim</span> <span class="o">=</span> <span class="n">study</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="n">maximum_relative_change</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="n">minimum_observed_order</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="p">)</span>
 </code></pre></div>
 <p>Successive relative change is an initial engineering contract, not a complete
 uncertainty estimate. Richardson extrapolation, GCI, singular-field handling,
@@ -1505,10 +1543,10 @@ and goal-oriented error estimators remain separate future consumers.</p>
   reproductions.</li>
 </ul>
 <h2 id="simulation-to-learning-gate">Simulation-to-learning gate<a class="headerlink" href="#simulation-to-learning-gate" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">campaign_report</span><span class="o">.</span><span class="n">require_dataset</span><span class="p">(</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">minimum_samples</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">quality</span><span class="o">=</span><span class="s2">&quot;engineering&quot;</span><span class="p">,</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">campaign_report</span><span class="o">.</span><span class="n">require_dataset</span><span class="p">(</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">minimum_samples</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">quality</span><span class="o">=</span><span class="s2">&quot;engineering&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="p">)</span>
 </code></pre></div>
 <p>This requires every evaluator to return a <code>SimulationResult</code> that passed the
 named policy. The accepted dataset records the policy decision in its metadata.

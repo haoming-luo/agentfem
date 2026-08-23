@@ -230,6 +230,8 @@
           
             
               
+                
+              
               <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
                 <div class="md-sidebar__scrollwrap">
                   <div class="md-sidebar__inner">
@@ -299,6 +301,8 @@
       
         
           
+        
+      
         
       
         
@@ -1098,7 +1102,9 @@
             
             
               
-              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" hidden>
                 <div class="md-sidebar__scrollwrap">
                   <div class="md-sidebar__inner">
                     
@@ -1239,6 +1245,8 @@
               
                 
 
+  
+
 
 
   
@@ -1288,6 +1296,8 @@
               <article class="md-content__inner md-typeset">
                 
                   
+  
+
 
 
   
@@ -1457,8 +1467,8 @@ the reduced energy reported as Eq. (17) by Wang, Fineberg, and Needleman,</p>
 \psi=\frac{\mu}{2}\left[
 c(I+J^{-2}-3)+(1-c)(J^2+IJ^{-2}-3)\right],
 \]</div>
-<p>where (I=\operatorname{tr}(\mathbf F\mathbf F^T)), (J=\det\mathbf F), and
-the out-of-plane stretch is (J^{-1}). The same energy supplies the first
+<p>where <span class="arithmatex">\(I=\operatorname{tr}(\mathbf F\mathbf F^T)\)</span>, <span class="arithmatex">\(J=\det\mathbf F\)</span>, and
+the out-of-plane stretch is <span class="arithmatex">\(J^{-1}\)</span>. The same energy supplies the first
 Piola stress, material tangent, finite-strain Explicit residual, recoverable
 energy, and prestrained acoustic tensor. The cited paper uses this relation to
 characterize/convert the measured material response; its reported numerical
@@ -1486,8 +1496,8 @@ temperature through a normalized Arrhenius coefficient. Backward Euler solves</p
 \qquad
 q_{n+1}=q_{\mathrm{trial}}-3G\Delta\gamma.
 \]</div>
-<p>For the temperature-dependent route, (A) is evaluated at every creep
-quadrature point from the prescribed absolute temperature (T).</p>
+<p>For the temperature-dependent route, <span class="arithmatex">\(A\)</span> is evaluated at every creep
+quadrature point from the prescribed absolute temperature <span class="arithmatex">\(T\)</span>.</p>
 <p>For both routes, quadrature state remains trial state during global Newton
 iterations. Stress, plastic/creep strain, equivalent inelastic strain, and the
 next-increment state are committed atomically only after the full increment is
@@ -1557,8 +1567,13 @@ definition available when an engineer needs to inspect or cite it.</p>
 
 
 
+  
+  
 
 
+
+
+  
 
 
 
@@ -1583,6 +1598,8 @@ definition available when an engineer needs to inspect or cite it.</p>
         <footer class="md-footer">
   
     
+      
+        
       
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
