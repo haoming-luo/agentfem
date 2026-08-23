@@ -5,7 +5,7 @@
   "title": "Global implicit power-law creep",
   "kind": "material",
   "status": "supported",
-  "summary": "Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, optional scalar, field, or physical-time-history Arrhenius temperature dependence, atomic rollback, portable restart, regional materials, and standard creep fields.",
+  "summary": "Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, endpoint creep-rate error control, adaptive physical-time increments, optional scalar, field, or physical-time-history Arrhenius temperature dependence, atomic rollback, portable restart, regional materials, and standard creep fields.",
   "public_api": [
     "agentfem.studies.creep_solid",
     "agentfem.constitutive.isotropic_power_law",
@@ -38,6 +38,11 @@
         "label": "global equilibrium",
         "expression": "\\int_{\\Omega}\\boldsymbol{\\sigma}\\!\\left(\\boldsymbol{\\varepsilon}(\\mathbf{u}_{n+1}),\\mathbf{CE}_n,\\Delta t\\right):\\boldsymbol{\\varepsilon}(\\mathbf{v})\\,d\\Omega=\\mathcal{F}_{\\mathrm{ext}}(t_{n+1};\\mathbf{v})",
         "description": "The global Newton matrix consumes the analytical algorithmic consistent tangent of the same local update."
+      },
+      {
+        "label": "time-integration error indicator",
+        "expression": "e_{cr}=\\max_q\\left|\\dot{\\bar\\varepsilon}^{cr}_{q,n+1}-\\dot{\\bar\\varepsilon}^{cr}_{q,n}\\right|\\Delta t",
+        "description": "A declared creep_strain_error_tolerance may reject an otherwise converged increment independently of the equilibrium residual."
       }
     ],
     "inputs": [
@@ -51,7 +56,7 @@
         "name": "physical duration and increment controls",
         "type": "positive duration plus fixed or automatic incrementation",
         "unit_role": "time",
-        "description": "Normalized increment sizes map to physical time; amplitudes are evaluated in physical time."
+        "description": "Normalized increment sizes map to physical time; amplitudes are evaluated in physical time. A procedure-specific endpoint creep-rate tolerance may control integration accuracy."
       },
       {
         "name": "temperature",
@@ -74,10 +79,10 @@
         "description": "Creep strain tensor and accumulated equivalent creep strain."
       },
       {
-        "name": "time, Newton, local-update and dissipation histories",
+        "name": "time, Newton, local-update, integration-error and dissipation histories",
         "type": "structured histories and execution events",
         "unit_role": "time, iterations, strain, and energy",
-        "description": "Accepted times, maximum creep increment, local/global iterations, elastic energy, and creep dissipation."
+        "description": "Accepted times, maximum creep increment, endpoint creep-rate error estimate, local/global iterations, elastic energy, and creep dissipation."
       },
       {
         "name": "TEMP and temperature evidence",
@@ -95,8 +100,10 @@
       "Ordinary loads and prescribed values are held at full magnitude by default; an explicit amplitude defines any physical-time history.",
       "CE and CEEQ are committed only after local integration, global Newton convergence, and increment-level acceptance all succeed.",
       "maximum_inelastic_increment limits the maximum quadrature-point CEEQ increment and causes rollback/cutback when exceeded.",
-      "Checkpoint restore reconstructs stress from accepted strain and CE without advancing a fictitious time increment."
-      ,"A failed attempt restores the temperature history to the accepted increment start time together with displacement and quadrature state."
+      "creep_strain_error_tolerance limits the endpoint creep-rate change times the physical increment and causes the same atomic rollback/cutback when exceeded.",
+      "Checkpoint restore reconstructs stress from accepted strain and CE without advancing a fictitious time increment.",
+      "A failed attempt restores the temperature history to the accepted increment start time together with displacement and quadrature state.",
+      "Result histories inherit the model's declared consistent time unit; without a unit declaration they remain explicitly unitless rather than being mislabeled as seconds."
     ],
     "applicability": [
       "Isothermal or prescribed-temperature three-dimensional studies governed by a calibrated Mises power-law creep relation.",
@@ -122,13 +129,15 @@
     ],
     "benchmarks": [
       "agentfem.benchmark.implicit_creep_relaxation",
-      "agentfem.benchmark.arrhenius_global_creep"
+      "agentfem.benchmark.arrhenius_global_creep",
+      "agentfem.benchmark.creep_nafems_r0027_test7"
     ],
     "validation_rules": [
       "Reject non-3D, nonpositive-duration, uncovered regional quadrature points, or incompatible material use.",
       "Verify the analytical tangent independently against a centered material-point derivative.",
       "Commit shared transaction state only after a globally accepted physical-time increment.",
       "Evaluate and record positive kelvin temperatures at the creep quadrature identity for every attempted increment.",
+      "Keep equilibrium convergence and creep time-integration accuracy as separate acceptance decisions.",
       "Restore displacement, CE, CEEQ, physical time, next increment, histories, energies, and events from a compatible checkpoint."
     ]
   },
@@ -140,6 +149,10 @@
     {
       "title": "A consistent formulation for the integration of combined plasticity and creep",
       "locator": "doi:10.1002/nme.1620370803"
+    },
+    {
+      "title": "Abaqus VISCO procedure and CETOL definition",
+      "locator": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEKEYRefMap/simakey-r-visco.htm"
     }
   ],
   "related_cards": [

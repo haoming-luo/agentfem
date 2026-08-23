@@ -51,7 +51,11 @@ this sequence visible unless there is a strong reason to encapsulate it.
     artifact as a continuation segment and records its physical start time.
     Stateful J2 and creep steps use the same `solve_result(output=...)` call:
     raw quadrature state stays inspectable in the result, while explicitly
-    recovered `*_CELL` fields enter the visualization dataset.
+    recovered `*_CELL` fields enter the visualization dataset. For implicit
+    creep, keep Newton convergence, maximum accepted CEEQ increment, and the
+    optional endpoint creep-rate time-error tolerance as separate acceptance
+    decisions. Declare a model unit system when time histories require a
+    physical unit label.
 18. Evaluate physical QoIs, diagnostics, and histories. Keep coefficient
     statistics distinct from assembled physical integrals.
 19. Write visualization/output artifacts and attach them to the result. The

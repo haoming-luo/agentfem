@@ -1524,11 +1524,27 @@ promote damage, mesh regularization, or structural rupture prediction.</p>
 <li>a 3D component contract in which accepted transient heat states drive the
   global Arrhenius creep step on the same physical clock.</li>
 <li>the published NAFEMS R0027 Test 7 thick-cylinder stress oracle and an
-  executable elastic-preload-to-creep structural route. The analytical
-  contract is automated; the full tetrahedral-sector calculation remains a
-  scheduled convergence benchmark until radial/axial stress error and runtime
-  meet its declared promotion gate.</li>
+  executable elastic-preload-to-creep structural route. The fast analytical
+  contract is automated. The scheduled structural gate uses a one-layer Q2
+  hexahedral quarter sector, direct volume-weighted quadrature-point stress
+  errors, and a creep endpoint-rate integration estimator. The 4 by 8 mesh
+  crosses the declared 8% radial/hoop/axial error gate; the 3 by 6 mesh does
+  not, so the refinement evidence remains visible rather than being replaced
+  by a smoothed contour comparison. Halving the endpoint-rate tolerance from
+  <code>5e-4</code> to <code>2.5e-4</code> changes the final maximum CEEQ by approximately <code>1.5e-7</code>
+  relatively and leaves all three reported terminal stress errors unchanged
+  to their reported precision.</li>
 </ul>
+<p>For creep, nonlinear equilibrium convergence and time-integration accuracy
+are separate decisions. <code>creep_strain_error_tolerance</code> limits</p>
+<div class="arithmatex">\[
+\max_q\left|\dot{\bar\varepsilon}^{cr}_{q,n+1}
+-\dot{\bar\varepsilon}^{cr}_{q,n}\right|\Delta t,
+\]</div>
+<p>at owned integration points. An otherwise converged increment that exceeds
+the tolerance is rolled back and cut back atomically. This follows the public
+NAFEMS/Abaqus <code>CETOL</code> meaning; <code>maximum_inelastic_increment</code> remains the
+separate bound on the magnitude of the accepted CEEQ increment.</p>
 <p>The J2 and creep Steps compile their live displacement-to-quadrature strain
 expression once. Newton iterations, line-search trials, rollback recovery and
 result reconstruction reevaluate its coefficients without repeatedly asking
@@ -1542,8 +1558,10 @@ and multi-material regions retain pointwise material dispatch so scientific
 semantics take precedence over batching.</p>
 <p>Next gates:</p>
 <ol>
-<li>complete radial/angular/time convergence for NAFEMS R0027 Test 7 and retain
-   it as a scheduled slow benchmark until its cost fits a repeatable gate;</li>
+<li>improve the 3D global Newton/increment controller toward the public
+   axisymmetric deck's 40-increment execution efficiency without weakening
+   the scientific gates, and add intermediate-time observables when a
+   transient rather than terminal benchmark contract is available;</li>
 <li>exercise tabulated heat properties and accepted history transfer on an
    external 3D power-component benchmark with time-step convergence;</li>
 <li>finish field/energy/checkpoint products on top of the common complete

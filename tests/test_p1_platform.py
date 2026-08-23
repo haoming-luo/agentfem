@@ -21,6 +21,7 @@ from agentfem import (
     steps,
     studies,
     time,
+    units,
 )
 from agentfem.constitutive import elasticity
 
@@ -390,6 +391,37 @@ def test_global_implicit_creep_state_limit_forces_real_cutback():
     assert max(
         item.maximum_creep_increment for item in step.accepted_increments
     ) <= control.maximum_inelastic_increment * (1.0 + 1.0e-10)
+
+
+def test_global_creep_records_endpoint_rate_integration_error():
+    control = steps.automatic(
+        initial=0.5,
+        minimum=0.01,
+        maximum=0.5,
+        max_increments=100,
+        max_cutbacks=10,
+        cutback_factor=0.5,
+    )
+    step, _ = _creep_relaxation_patch(
+        duration=1.0,
+        incrementation=control,
+        creep_strain_error_tolerance=1.0e-5,
+    )
+
+    simulation = step.solve_result()
+    estimates = [
+        item.creep_strain_error_estimate for item in step.accepted_increments
+    ]
+
+    assert estimates
+    assert max(estimates) > 0.0
+    assert max(estimates) <= step.creep_strain_error_tolerance
+    rejected = [item for item in step.attempted_increments if not item.converged]
+    assert rejected
+    assert "creep strain-rate integration estimate" in rejected[0].rejection_reason
+    assert simulation.histories["creep_strain_error_estimate"].latest > 0.0
+    assert simulation.histories["creep_strain_error_estimate"].abscissa_unit is None
+    assert step.summary()["creep_strain_error_tolerance"] == 1.0e-5
 
 
 def test_global_j2_checkpoint_restart_matches_uninterrupted_path(tmp_path):
@@ -964,6 +996,8 @@ def _creep_relaxation_patch(
     incrementation=None,
     arrhenius_temperature_range=None,
     duration: float = 10.0,
+    creep_strain_error_tolerance=None,
+    unit_system=None,
 ):
     """Homogeneous 3D constant-strain relaxation with free contraction."""
 
@@ -972,6 +1006,7 @@ def _creep_relaxation_patch(
         study=studies.creep_solid(),
         mesh=domain,
         name="power_law_creep_relaxation",
+        units=unit_system,
     )
     displacement = model.field(fields.displacement(domain))
     material_factory = (
@@ -1040,8 +1075,22 @@ def _creep_relaxation_patch(
         ),
         progress=False,
         temperature=temperature,
+        creep_strain_error_tolerance=creep_strain_error_tolerance,
     )
     return step, displacement
+
+
+def test_global_creep_histories_inherit_declared_model_time_unit():
+    step, _ = _creep_relaxation_patch(
+        duration=1.0,
+        incrementation=steps.fixed(2),
+        unit_system=units.consistent(length="mm", mass="kg", time="h"),
+    )
+
+    simulation = step.solve_result()
+
+    assert simulation.histories["newton_iterations"].abscissa_unit == "h"
+    assert simulation.histories["creep_dissipation"].abscissa_unit == "h"
 
 
 def test_global_arrhenius_creep_consumes_nonuniform_temperature_field(tmp_path):

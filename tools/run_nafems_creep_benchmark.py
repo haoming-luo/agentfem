@@ -14,9 +14,29 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--radial-cells", type=int, default=4)
     parser.add_argument("--angular-cells", type=int, default=8)
-    parser.add_argument("--increments", type=int, default=40)
+    parser.add_argument(
+        "--increments",
+        type=int,
+        default=220,
+        help=(
+            "Maximum accepted creep increments. The official axisymmetric "
+            "Abaqus deck uses 40; AgentFEM's current 3D route declares its "
+            "larger execution allowance explicitly."
+        ),
+    )
     parser.add_argument("--duration", type=float, default=1000.0)
+    parser.add_argument(
+        "--creep-tolerance",
+        type=float,
+        default=5.0e-4,
+        help="Endpoint creep-rate integration-error tolerance.",
+    )
     parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument(
+        "--progress",
+        action="store_true",
+        help="Print every nonlinear increment; default output is the final record only.",
+    )
     parser.add_argument("--require-acceptable", action="store_true")
     options = parser.parse_args()
 
@@ -26,7 +46,8 @@ def main() -> None:
         angular_cells=options.angular_cells,
         increments=options.increments,
         duration=options.duration,
-        progress=True,
+        creep_strain_error_tolerance=options.creep_tolerance,
+        progress=options.progress,
     )
     record = {
         "schema": "agentfem.external-structural-benchmark",
@@ -39,6 +60,7 @@ def main() -> None:
             "angular_cells": options.angular_cells,
             "increments": options.increments,
             "duration_hour": options.duration,
+            "creep_strain_error_tolerance": options.creep_tolerance,
         },
         "assessment": assessment.as_dict(),
         "runtime_seconds": perf_counter() - started,

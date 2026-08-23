@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from math import pi
 
 import basix.ufl
+from dolfinx import fem
 from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 import numpy as np
@@ -65,19 +66,23 @@ def thick_cylinder_sector_mesh(
     thickness: float,
     radial_cells: int,
     angular_cells: int,
+    cell_type: str = "tetrahedron",
     comm=MPI.COMM_WORLD,
 ):
-    """Create a one-layer 3D quarter-cylinder tetrahedral benchmark mesh."""
+    """Create a one-layer 3D quarter-cylinder benchmark mesh."""
 
     inner = float(inner_radius)
     outer = float(outer_radius)
     height = float(thickness)
     nr = int(radial_cells)
     nt = int(angular_cells)
+    selected_cell = str(cell_type).strip().lower()
     if not 0.0 < inner < outer or height <= 0.0:
         raise ValueError("Cylinder radii and thickness must be positive with inner < outer.")
     if nr < 1 or nt < 2:
         raise ValueError("The cylinder sector needs radial_cells >= 1 and angular_cells >= 2.")
+    if selected_cell not in {"tetrahedron", "hexahedron"}:
+        raise ValueError("cell_type must be 'tetrahedron' or 'hexahedron'.")
 
     if comm.rank == 0:
         radii = np.linspace(inner, outer, nr + 1)
@@ -95,30 +100,34 @@ def thick_cylinder_sector_mesh(
         def node(i: int, j: int, k: int) -> int:
             return k * (nt + 1) * (nr + 1) + j * (nr + 1) + i
 
-        cells: list[tuple[int, int, int, int]] = []
+        cells = []
         for j in range(nt):
             for i in range(nr):
                 a, b = node(i, j, 0), node(i + 1, j, 0)
                 c, d = node(i, j + 1, 0), node(i + 1, j + 1, 0)
                 e, f = node(i, j, 1), node(i + 1, j, 1)
                 g, h = node(i, j + 1, 1), node(i + 1, j + 1, 1)
-                cells.extend(
-                    (
-                        (a, b, d, h),
-                        (a, d, c, h),
-                        (a, c, g, h),
-                        (a, g, e, h),
-                        (a, e, f, h),
-                        (a, f, b, h),
+                if selected_cell == "hexahedron":
+                    cells.append((a, b, c, d, e, f, g, h))
+                else:
+                    cells.extend(
+                        (
+                            (a, b, d, h),
+                            (a, d, c, h),
+                            (a, c, g, h),
+                            (a, g, e, h),
+                            (a, e, f, h),
+                            (a, f, b, h),
+                        )
                     )
-                )
         topology = np.asarray(cells, dtype=np.int64)
     else:
         coordinates = np.empty((0, 3), dtype=float)
-        topology = np.empty((0, 4), dtype=np.int64)
+        vertices = 8 if selected_cell == "hexahedron" else 4
+        topology = np.empty((0, vertices), dtype=np.int64)
 
     coordinate_element = ufl.Mesh(
-        basix.ufl.element("Lagrange", "tetrahedron", 1, shape=(3,))
+        basix.ufl.element("Lagrange", selected_cell, 1, shape=(3,))
     )
     return dolfinx_mesh.create_mesh(comm, topology, coordinate_element, coordinates)
 
@@ -354,30 +363,56 @@ def creep_thick_cylinder_benchmark(
     comm=MPI.COMM_WORLD,
     radial_cells: int = 4,
     angular_cells: int = 8,
-    increments: int = 40,
+    increments: int = 220,
     duration: float = 1000.0,
+    creep_strain_error_tolerance: float = 5.0e-4,
     progress: object = False,
 ) -> InelasticStructuralBenchmark:
     """Run the NAFEMS R0027 Test 7 secondary-creep benchmark.
 
     The public reference is reproduced in the Abaqus verification manual as
     "Test 7: Axisymmetric -- pressurized cylinder, secondary creep". AgentFEM
-    uses a thin three-dimensional quarter sector because its trusted global
-    creep provider is deliberately three-dimensional; axial displacement is
-    constrained everywhere to recover the published plane-strain assumption.
+    uses a one-layer three-dimensional quarter sector because its trusted
+    global creep provider is deliberately three-dimensional; axial
+    displacement is constrained everywhere to recover the published
+    plane-strain assumption.
     """
 
-    inner_radius, outer_radius, thickness = 100.0, 200.0, 1.0
+    inner_radius, outer_radius = 100.0, 200.0
     pressure, exponent = 200.0, 5.0
+    selected_radial_cells = int(radial_cells)
+    selected_angular_cells = int(angular_cells)
+    if selected_radial_cells < 1 or selected_angular_cells < 2:
+        raise ValueError(
+            "The creep cylinder requires radial_cells >= 1 and angular_cells >= 2."
+        )
+    # Plane strain is imposed kinematically at every axial displacement dof;
+    # it does not require a vanishingly thin extrusion.  Keep one fixed 10 mm
+    # domain through the refinement study: unlike the former 1 mm sliver it
+    # avoids pathological aspect ratios on the target meshes, and unlike a
+    # mesh-dependent thickness it preserves one physical convergence problem.
+    thickness = 10.0
     selected_increments = int(increments)
     if selected_increments < 1:
         raise ValueError("increments must be a positive integer.")
+    selected_duration = float(duration)
+    if not np.isfinite(selected_duration) or selected_duration <= 0.0:
+        raise ValueError("duration must be finite and positive.")
+    selected_creep_tolerance = float(creep_strain_error_tolerance)
+    if (
+        not np.isfinite(selected_creep_tolerance)
+        or selected_creep_tolerance <= 0.0
+    ):
+        raise ValueError(
+            "creep_strain_error_tolerance must be finite and positive."
+        )
     domain = thick_cylinder_sector_mesh(
         inner_radius=inner_radius,
         outer_radius=outer_radius,
         thickness=thickness,
-        radial_cells=radial_cells,
-        angular_cells=angular_cells,
+        radial_cells=selected_radial_cells,
+        angular_cells=selected_angular_cells,
+        cell_type="hexahedron",
         comm=comm,
     )
     model, displacement, inner = _cylinder_model(
@@ -428,62 +463,74 @@ def creep_thick_cylinder_benchmark(
     step = model.step(
         target=displacement,
         material=material,
-        duration=float(duration),
+        duration=selected_duration,
         incrementation=steps.automatic(
-            initial=1.0 / selected_increments,
-            minimum=1.0e-6,
-            maximum=max(
-                1.0 / selected_increments,
-                min(0.05, 2.0 / selected_increments),
+            # The public NAFEMS/Abaqus deck uses 0.01 h initially, 5e-4 h as
+            # the minimum, at most 40 accepted increments, and CETOL=5e-4.
+            # Normalize the physical times because AgentFEM Step controls use
+            # the interval 0..1; temporal accuracy is governed separately by
+            # creep_strain_error_tolerance below.
+            initial=min(1.0, 0.01 / selected_duration),
+            minimum=min(
+                min(1.0, 0.01 / selected_duration),
+                5.0e-4 / selected_duration,
             ),
-            max_increments=max(500, 10 * selected_increments),
-            max_cutbacks=12,
-            growth_factor=1.25,
-            fast_iterations=4,
-            slow_iterations=12,
+            maximum=1.0,
+            max_increments=selected_increments,
+            max_cutbacks=20,
+            cutback_factor=0.5,
+            growth_factor=2.0,
+            fast_iterations=6,
+            slow_iterations=20,
         ),
         solver_options=solvers.newton(
             relative_tolerance=1.0e-8,
-            absolute_tolerance=1.0e-7,
+            # The force-residual norm is dimensional.  This floor remains
+            # about 1e-8 of the benchmark load scale and prevents ever-smaller
+            # cutbacks from demanding accuracy below assembly roundoff.
+            absolute_tolerance=1.0e-3,
             maximum_iterations=30,
             line_search="backtracking",
             linear_solver=solvers.direct_solver(package="mumps"),
         ),
+        creep_strain_error_tolerance=selected_creep_tolerance,
         progress=progress,
     )
     result = step.solve_result()
 
-    stress = result.field("S_CELL")
+    # Compare the constitutive evidence where it actually lives.  A DG0 cell
+    # average evaluated at the cell midpoint is useful for visualization but
+    # adds a recovery error to a material-point verification problem.  The
+    # benchmark therefore integrates the error directly at the same physical
+    # quadrature points used by the creep update.
+    stress = step.state.stress
     cell_map = domain.topology.index_map(domain.topology.dim)
     owned = int(cell_map.size_local)
     cells = np.arange(owned, dtype=np.int32)
-    midpoints = dolfinx_mesh.compute_midpoints(domain, domain.topology.dim, cells)
-    radius = np.linalg.norm(midpoints[:, :2], axis=1)
-    values = np.empty((owned, 3, 3), dtype=float)
-    block_size = int(stress.function_space.dofmap.bs)
-    for cell in cells:
-        dofs = stress.function_space.dofmap.cell_dofs(int(cell))
-        if len(dofs) != 1 or block_size != 9:
-            raise RuntimeError(
-                "Creep benchmark requires one DG0 tensor block per cell."
-            )
-        start = int(dofs[0]) * block_size
-        values[int(cell)] = stress.x.array[
-            start : start + block_size
-        ].reshape((3, 3))
+    coordinates = fem.Expression(
+        ufl.SpatialCoordinate(domain), stress.points
+    ).eval(domain, cells).reshape((-1, 3))
+    determinants = np.abs(
+        fem.Expression(
+            ufl.JacobianDeterminant(domain), stress.points
+        ).eval(domain, cells).reshape(-1)
+    )
+    weights = determinants * np.tile(stress.weights, owned)
+    radius = np.linalg.norm(coordinates[:, :2], axis=1)
+    values = stress.owned_values.reshape((-1, 3, 3))
 
     radial_direction = np.column_stack(
         (
-            midpoints[:, 0] / radius,
-            midpoints[:, 1] / radius,
-            np.zeros(owned),
+            coordinates[:, 0] / radius,
+            coordinates[:, 1] / radius,
+            np.zeros(len(radius)),
         )
     )
     hoop_direction = np.column_stack(
         (
-            -midpoints[:, 1] / radius,
-            midpoints[:, 0] / radius,
-            np.zeros(owned),
+            -coordinates[:, 1] / radius,
+            coordinates[:, 0] / radius,
+            np.zeros(len(radius)),
         )
     )
     radial_stress = np.einsum(
@@ -503,13 +550,14 @@ def creep_thick_cylinder_benchmark(
 
     def global_relative_l2(actual: np.ndarray, expected: np.ndarray) -> float:
         numerator = comm.allreduce(
-            float(np.sum((actual - expected) ** 2)), op=MPI.SUM
+            float(np.sum(weights * (actual - expected) ** 2)), op=MPI.SUM
         )
         denominator = comm.allreduce(
-            float(np.sum(expected**2)), op=MPI.SUM
+            float(np.sum(weights * expected**2)), op=MPI.SUM
         )
         return float(np.sqrt(numerator / denominator))
 
+    final_increment = step.accepted_increments[-1]
     quantities = {
         "radial_stress_relative_l2": global_relative_l2(radial_stress, exact[0]),
         "hoop_stress_relative_l2": global_relative_l2(hoop_stress, exact[1]),
@@ -518,6 +566,18 @@ def creep_thick_cylinder_benchmark(
             result.quantity("maximum_equivalent_creep_strain")
         ),
         "final_residual_norm": float(step.accepted_increments[-1].residual_norm),
+        "final_relative_residual": float(
+            final_increment.residual_norm
+            / max(final_increment.initial_residual_norm, np.finfo(float).tiny)
+        ),
+        "accepted_increment_count": float(len(step.accepted_increments)),
+        "attempt_count": float(len(step.attempted_increments)),
+        "maximum_creep_strain_error_estimate": float(
+            max(
+                item.creep_strain_error_estimate
+                for item in step.accepted_increments
+            )
+        ),
     }
     return InelasticStructuralBenchmark(
         name="nafems_r0027_test_7_secondary_creep",
@@ -527,7 +587,8 @@ def creep_thick_cylinder_benchmark(
             "radial_stress_relative_l2": 0.08,
             "hoop_stress_relative_l2": 0.08,
             "axial_stress_relative_l2": 0.08,
-            "final_residual_norm": 1.0e-6,
+            "final_relative_residual": 2.0e-8,
+            "maximum_creep_strain_error_estimate": selected_creep_tolerance,
         },
     )
 

@@ -165,10 +165,15 @@ class StandardRunReporter:
                 f"CONVERGED {elapsed:.6f}"
             )
         elif kind == "increment_cutback":
+            reason = (
+                ""
+                if not getattr(event, "message", None)
+                else f" | reason={event.message}"
+            )
             self._print(
                 f"  [INC {event.increment} | ATT {event.attempt}] CUTBACK "
                 f"| residual={_number(event.residual_norm)} "
-                f"| next d={event.next_increment:.3g}"
+                f"| next d={event.next_increment:.3g}{reason}"
             )
             self._write_status(
                 f"{event.step_number} {event.increment} {event.attempt} "

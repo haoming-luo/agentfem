@@ -85,6 +85,12 @@ finite-element simulation with AgentFEM.
   `steps.fixed(...)` only when exact fixed subdivision is scientifically
   intended. `max_increments` limits accepted increments; Newton `max_it`
   limits iterations in one attempt.
+- Global implicit creep has an additional physical-time accuracy decision:
+  `creep_strain_error_tolerance` bounds the endpoint creep-rate change times
+  the attempted increment. Keep it distinct from Newton convergence and
+  `maximum_inelastic_increment`; all three may independently trigger atomic
+  rollback and cutback. Result time units come from the model `UnitSystem` and
+  remain undeclared when no consistent-unit contract was supplied.
 - Multi-Step activation: use `model.stage(...)` and pass its result as
   `configuration=` to `model.step(...)`; keep asset inheritance separate from
   incrementation and nonlinear solver controls.

@@ -1246,6 +1246,7 @@ register_step_provider(
             "method",
             "incrementation",
             "quadrature_degree",
+            "creep_strain_error_tolerance",
             "progress",
             "status_file",
             "amplitude",

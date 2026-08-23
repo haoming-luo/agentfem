@@ -136,10 +136,29 @@ Implemented now:
 - a 3D component contract in which accepted transient heat states drive the
   global Arrhenius creep step on the same physical clock.
 - the published NAFEMS R0027 Test 7 thick-cylinder stress oracle and an
-  executable elastic-preload-to-creep structural route. The analytical
-  contract is automated; the full tetrahedral-sector calculation remains a
-  scheduled convergence benchmark until radial/axial stress error and runtime
-  meet its declared promotion gate.
+  executable elastic-preload-to-creep structural route. The fast analytical
+  contract is automated. The scheduled structural gate uses a one-layer Q2
+  hexahedral quarter sector, direct volume-weighted quadrature-point stress
+  errors, and a creep endpoint-rate integration estimator. The 4 by 8 mesh
+  crosses the declared 8% radial/hoop/axial error gate; the 3 by 6 mesh does
+  not, so the refinement evidence remains visible rather than being replaced
+  by a smoothed contour comparison. Halving the endpoint-rate tolerance from
+  `5e-4` to `2.5e-4` changes the final maximum CEEQ by approximately `1.5e-7`
+  relatively and leaves all three reported terminal stress errors unchanged
+  to their reported precision.
+
+For creep, nonlinear equilibrium convergence and time-integration accuracy
+are separate decisions. `creep_strain_error_tolerance` limits
+
+\[
+\max_q\left|\dot{\bar\varepsilon}^{cr}_{q,n+1}
+-\dot{\bar\varepsilon}^{cr}_{q,n}\right|\Delta t,
+\]
+
+at owned integration points. An otherwise converged increment that exceeds
+the tolerance is rolled back and cut back atomically. This follows the public
+NAFEMS/Abaqus `CETOL` meaning; `maximum_inelastic_increment` remains the
+separate bound on the magnitude of the accepted CEEQ increment.
 
 The J2 and creep Steps compile their live displacement-to-quadrature strain
 expression once. Newton iterations, line-search trials, rollback recovery and
@@ -156,8 +175,10 @@ semantics take precedence over batching.
 
 Next gates:
 
-1. complete radial/angular/time convergence for NAFEMS R0027 Test 7 and retain
-   it as a scheduled slow benchmark until its cost fits a repeatable gate;
+1. improve the 3D global Newton/increment controller toward the public
+   axisymmetric deck's 40-increment execution efficiency without weakening
+   the scientific gates, and add intermediate-time observables when a
+   transient rather than terminal benchmark contract is available;
 2. exercise tabulated heat properties and accepted history transfer on an
    external 3D power-component benchmark with time-step convergence;
 3. finish field/energy/checkpoint products on top of the common complete

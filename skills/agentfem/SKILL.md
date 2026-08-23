@@ -104,6 +104,13 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   serial/MPI structural evidence; global Arrhenius power-law creep remains a
   3D small-strain foundation with a stricter MPI maturity boundary. Other creep
   laws remain material-point or assessment consumers.
+- For global implicit creep, keep Newton equilibrium, maximum accepted CEEQ
+  increment, and endpoint creep-rate time-integration accuracy as three
+  separate controls. Use `creep_strain_error_tolerance` when a physical-time
+  accuracy gate is required; a rejected increment must restore displacement,
+  quadrature state, stress, tangent, loading, and temperature atomically.
+  Declare a model `UnitSystem` when result histories need a physical time-unit
+  label; never infer seconds from an undeclared consistent-unit system.
 - Prefer sequential heat-transfer then thermal-stress analysis when coupling
   is one way. Do not claim fully coupled thermo-mechanics unless temperature
   and mechanics are solved in one consistent nonlinear system.

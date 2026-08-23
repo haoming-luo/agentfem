@@ -11,6 +11,7 @@ import numpy as np
 import ufl
 from dolfinx import fem
 import dolfinx.fem.petsc as fem_petsc
+from mpi4py import MPI
 from petsc4py import PETSc
 
 from .. import amplitudes
@@ -18,6 +19,7 @@ from .. import procedures
 from .. import steps as step_controls
 from ..constitutive import elasticity
 from ..constitutive.creep import IsotropicPowerLawCreepMaterial
+from ..constitutive.creep import von_mises
 from ..constitutive.quadrature import (
     CreepQuadratureState,
     QuadratureField,
@@ -46,6 +48,7 @@ class CreepIncrementInfo:
     residual_norm: float
     creeping_points: int
     maximum_creep_increment: float
+    creep_strain_error_estimate: float
     maximum_local_iterations: int
     minimum_temperature: float | None = None
     maximum_temperature: float | None = None
@@ -71,6 +74,9 @@ class CreepIncrementInfo:
             "creeping_points": self.creeping_points,
             "maximum_creep_increment": finite_or_none(
                 self.maximum_creep_increment
+            ),
+            "creep_strain_error_estimate": finite_or_none(
+                self.creep_strain_error_estimate
             ),
             "maximum_local_iterations": self.maximum_local_iterations,
             "minimum_temperature": self.minimum_temperature,
@@ -104,6 +110,11 @@ class CreepIncrementInfo:
                 float("inf")
                 if record["maximum_creep_increment"] is None
                 else float(record["maximum_creep_increment"])
+            ),
+            creep_strain_error_estimate=(
+                0.0
+                if record.get("creep_strain_error_estimate") is None
+                else float(record["creep_strain_error_estimate"])
             ),
             maximum_local_iterations=int(record["maximum_local_iterations"]),
             minimum_temperature=(
@@ -193,6 +204,8 @@ class ImplicitCreepStep:
     duration: float
     incrementation: object
     solver_options: NewtonSolverOptions
+    creep_strain_error_tolerance: float | None = None
+    time_unit: str | None = None
     study: object | None = None
     progress: object = True
     status_file: object | None = None
@@ -212,6 +225,21 @@ class ImplicitCreepStep:
         self.duration = float(self.duration)
         if not np.isfinite(self.duration) or self.duration <= 0.0:
             raise ValueError("Implicit creep duration must be finite and positive.")
+        if self.creep_strain_error_tolerance is not None:
+            self.creep_strain_error_tolerance = float(
+                self.creep_strain_error_tolerance
+            )
+            if (
+                not np.isfinite(self.creep_strain_error_tolerance)
+                or self.creep_strain_error_tolerance <= 0.0
+            ):
+                raise ValueError(
+                    "creep_strain_error_tolerance must be finite and positive."
+                )
+        if self.time_unit is not None:
+            self.time_unit = str(self.time_unit).strip()
+            if not self.time_unit:
+                raise ValueError("time_unit must be nonempty when declared.")
         materials = (
             tuple(self.material.materials.values())
             if isinstance(self.material, QuadratureMaterialMap)
@@ -278,6 +306,10 @@ class ImplicitCreepStep:
             ),
         )
         self._apply_loading(self.accepted_time)
+        self.state.refresh_response(
+            self.state.evaluate_strain(self._strain_evaluator),
+            self.material,
+        )
         while accepted_factor < until_factor - 1.0e-12:
             increment = len(self.accepted_increments) + len(accepted) + 1
             if isinstance(self.incrementation, step_controls.AutomaticIncrementation):
@@ -315,6 +347,9 @@ class ImplicitCreepStep:
             )
             displacement_snapshot = self.solution.x.array.copy()
             state_snapshot = self.state.snapshot()
+            stress_snapshot = self.state.stress.values.copy()
+            tangent_snapshot = self.state.tangent.values.copy()
+            start_temperature_values = self._temperature_values()
             self._apply_loading(end_time)
             info = self._solve_increment(
                 increment=increment,
@@ -325,6 +360,29 @@ class ImplicitCreepStep:
                 end_time=end_time,
                 reporter=reporter,
             )
+            if info.converged and self.creep_strain_error_tolerance is not None:
+                error_estimate = self._creep_strain_error_estimate(
+                    stress_snapshot,
+                    self.state.stress.values,
+                    time_start=start_time,
+                    time_end=end_time,
+                    temperature_start=start_temperature_values,
+                    temperature_end=self._temperature_values(),
+                )
+                info = replace(
+                    info,
+                    creep_strain_error_estimate=error_estimate,
+                )
+                if error_estimate > self.creep_strain_error_tolerance:
+                    info = replace(
+                        info,
+                        converged=False,
+                        rejection_reason=(
+                            "creep strain-rate integration estimate "
+                            f"{error_estimate:.6g} exceeds "
+                            f"{self.creep_strain_error_tolerance:.6g}"
+                        ),
+                    )
             if (
                 info.converged
                 and isinstance(self.incrementation, step_controls.AutomaticIncrementation)
@@ -376,6 +434,8 @@ class ImplicitCreepStep:
             self.solution.x.array[:] = displacement_snapshot
             self.solution.x.scatter_forward()
             self.state.restore(state_snapshot)
+            self.state.stress.assign(stress_snapshot)
+            self.state.tangent.assign(tangent_snapshot)
             self._apply_loading(start_time)
             if not isinstance(self.incrementation, step_controls.AutomaticIncrementation):
                 self.accepted_increments.extend(accepted)
@@ -438,6 +498,99 @@ class ImplicitCreepStep:
             ),
         )
         return self.solution
+
+    def _creep_strain_error_estimate(
+        self,
+        stress_start,
+        stress_end,
+        *,
+        time_start: float,
+        time_end: float,
+        temperature_start=None,
+        temperature_end=None,
+    ) -> float:
+        """Return the maximum endpoint-rate integration error indicator.
+
+        The measure follows the standard creep time-integration control
+        ``abs(rate_end - rate_start) * dt``.  It controls temporal accuracy;
+        it is deliberately independent of Newton residual convergence.
+        """
+
+        old = np.asarray(stress_start, dtype=float).reshape((-1, 3, 3))
+        new = np.asarray(stress_end, dtype=float).reshape((-1, 3, 3))
+        if old.shape != new.shape:
+            raise ValueError("Creep endpoint stress layouts do not match.")
+        start_temperatures = (
+            None
+            if temperature_start is None
+            else np.asarray(temperature_start, dtype=float).reshape(-1)
+        )
+        end_temperatures = (
+            None
+            if temperature_end is None
+            else np.asarray(temperature_end, dtype=float).reshape(-1)
+        )
+        if (start_temperatures is None) != (end_temperatures is None):
+            raise ValueError("Creep endpoint temperature modes do not match.")
+        if start_temperatures is not None and (
+            len(start_temperatures) != len(old) or len(end_temperatures) != len(old)
+        ):
+            raise ValueError("Creep endpoint temperature layouts do not match.")
+
+        points_per_cell = len(self.state.stress.points)
+        cell_map = self.state.domain.topology.index_map(
+            self.state.domain.topology.dim
+        )
+        owned_points = int(cell_map.size_local) * points_per_cell
+        local_maximum = 0.0
+        for index in range(owned_points):
+            selected_material = (
+                self.material.material_for_point(
+                    index,
+                    points_per_cell=points_per_cell,
+                )
+                if isinstance(self.material, QuadratureMaterialMap)
+                else self.material
+            )
+            start_temperature = (
+                None
+                if start_temperatures is None
+                else float(start_temperatures[index])
+            )
+            end_temperature = (
+                None
+                if end_temperatures is None
+                else float(end_temperatures[index])
+            )
+            rate_start = self._equivalent_creep_rate(
+                selected_material,
+                von_mises(old[index]),
+                time_start,
+                start_temperature,
+            )
+            rate_end = self._equivalent_creep_rate(
+                selected_material,
+                von_mises(new[index]),
+                time_end,
+                end_temperature,
+            )
+            local_maximum = max(
+                local_maximum,
+                abs(rate_end - rate_start) * (time_end - time_start),
+            )
+        return float(
+            self.state.domain.comm.allreduce(local_maximum, op=MPI.MAX)
+        )
+
+    @staticmethod
+    def _equivalent_creep_rate(material, stress, time, temperature) -> float:
+        if material.temperature_dependence is None:
+            return material.creep.equivalent_rate(stress, time)
+        return material.temperature_dependence.equivalent_rate(
+            stress,
+            time,
+            temperature=temperature,
+        )
 
     def _solve_increment(
         self,
@@ -550,6 +703,7 @@ class ImplicitCreepStep:
             residual_norm=float(norm),
             creeping_points=int(update_info["creeping_points"]),
             maximum_creep_increment=float(update_info["maximum_creep_increment"]),
+            creep_strain_error_estimate=0.0,
             maximum_local_iterations=int(update_info["maximum_local_iterations"]),
             minimum_temperature=update_info["minimum_temperature"],
             maximum_temperature=update_info["maximum_temperature"],
@@ -969,6 +1123,7 @@ class ImplicitCreepStep:
             "material": self.material.as_dict(),
             "amplitude": self.amplitude.summary(),
             "incrementation": self.incrementation.summary(),
+            "creep_strain_error_tolerance": self.creep_strain_error_tolerance,
             "solution": function_portable_identity(self.solution),
             "quadrature": self.state.summary()["transaction"],
             "temperature": self._portable_temperature_summary(),
@@ -1004,6 +1159,7 @@ class ImplicitCreepStep:
             "material": self.material.as_dict(),
             "amplitude": self.amplitude.summary(),
             "incrementation": self.incrementation.summary(),
+            "creep_strain_error_tolerance": self.creep_strain_error_tolerance,
             "solution": function_partition_identity(self.solution),
             "creep_strain": function_partition_identity(
                 self.state.creep_strain.function
@@ -1146,6 +1302,10 @@ class ImplicitCreepStep:
                 "maximum_creep_increment": [
                     item.maximum_creep_increment for item in self.accepted_increments
                 ],
+                "creep_strain_error_estimate": [
+                    item.creep_strain_error_estimate
+                    for item in self.accepted_increments
+                ],
                 "maximum_local_iterations": [
                     item.maximum_local_iterations for item in self.accepted_increments
                 ],
@@ -1170,7 +1330,7 @@ class ImplicitCreepStep:
                 times,
                 increment_histories,
                 abscissa_name="time",
-                abscissa_unit="s",
+                abscissa_unit=self.time_unit,
             )
         if self.energy_history:
             times = np.asarray([item.time for item in self.energy_history])
@@ -1188,7 +1348,7 @@ class ImplicitCreepStep:
                     ],
                 },
                 abscissa_name="time",
-                abscissa_unit="s",
+                abscissa_unit=self.time_unit,
             )
         for checkpoint in self.checkpoints:
             result.add_checkpoint(checkpoint)
@@ -1212,6 +1372,8 @@ class ImplicitCreepStep:
             "duration": self.duration,
             "accepted_time": self.accepted_time,
             "incrementation": self.incrementation.summary(),
+            "creep_strain_error_tolerance": self.creep_strain_error_tolerance,
+            "time_unit": self.time_unit,
             "solver": self.solver_options.summary(),
             "amplitude": self.amplitude.summary(),
             "temperature": self._temperature_summary(),
@@ -1275,6 +1437,8 @@ def implicit_creep_step(
     incrementation=None,
     solver_options=None,
     quadrature_degree: int = 2,
+    creep_strain_error_tolerance: float | None = None,
+    time_unit: str | None = None,
     progress=True,
     status_file=None,
     amplitude=None,
@@ -1369,6 +1533,8 @@ def implicit_creep_step(
         duration=duration,
         incrementation=step_controls.normalize(incrementation),
         solver_options=newton() if solver_options is None else solver_options,
+        creep_strain_error_tolerance=creep_strain_error_tolerance,
+        time_unit=time_unit,
         study=study,
         progress=progress,
         status_file=status_file,

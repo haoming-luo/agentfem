@@ -8,6 +8,13 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Add an endpoint creep-rate time-integration error control for the global
+  implicit creep Step. It remains independent of Newton convergence and the
+  maximum accepted CEEQ increment, and rejected attempts restore displacement,
+  quadrature state, stress, tangent, loading, and temperature atomically.
+- Add a scheduled NAFEMS R0027 Test 7 structural route using a one-layer Q2
+  hexahedral quarter cylinder, direct volume-weighted integration-point stress
+  error, and explicit spatial/time-refinement evidence.
 - Add machine-readable lifecycle and replacement metadata for the Model
   vocabulary, expose it through Python and capability JSON, and report
   material/procedure-specific compatibility calls through `agentfem upgrade`
@@ -55,6 +62,11 @@ experimental formulation to a validated one.
 
 ### Changed
 
+- Let global creep histories inherit the model's declared consistent time
+  unit; an undeclared unit system no longer labels arbitrary model time as
+  seconds.
+- Print the scientific rejection reason when an automatic nonlinear increment
+  is cut back.
 - Move finite-strain and mixed hyperelasticity, explicit dynamics,
   finite-strain explicit dynamics, and implicit structural dynamics behind
   provider-owned scientific builders; their historical Model methods remain

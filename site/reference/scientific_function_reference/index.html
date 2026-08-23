@@ -10618,7 +10618,7 @@ the compact machine-readable <code>agentfem/knowledge/catalog.json</code>.</p>
 <td><code>agentfem.benchmark.creep_nafems_r0027_test7</code></td>
 <td>NAFEMS R0027 Test 7 pressurized-cylinder secondary creep</td>
 <td>Plane-strain thick cylinder under constant internal pressure with Mises secondary power-law creep</td>
-<td>analytical_contract_automated_structural_convergence_pending</td>
+<td>external_structural_verification_scheduled</td>
 </tr>
 <tr>
 <td><code>agentfem.benchmark.cyclic_cohesive_global_lifecycle</code></td>
@@ -11322,7 +11322,7 @@ P_{33}(F_{\alpha\beta},\lambda_3)=\partial\psi/\partial\lambda_3=0,\quad \lambda
 <strong>Kind:</strong> <code>material</code><br>
 <strong>Status:</strong> <code>supported</code><br>
 <strong>Source card:</strong> <code>src/agentfem/knowledge/cards/global_implicit_creep.json</code></p>
-<p>Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, adaptive physical-time increments, optional scalar, field, or physical-time-history Arrhenius temperature dependence, atomic rollback, portable restart, regional materials, and standard creep fields.</p>
+<p>Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, endpoint creep-rate error control, adaptive physical-time increments, optional scalar, field, or physical-time-history Arrhenius temperature dependence, atomic rollback, portable restart, regional materials, and standard creep fields.</p>
 <h3 id="public-api_4">Public API<a class="headerlink" href="#public-api_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>agentfem.studies.creep_solid</code></li>
@@ -11350,6 +11350,11 @@ q_{n+1}=q_{\mathrm{trial}}-3G\,\Delta\gamma
 \int_{\Omega}\boldsymbol{\sigma}\!\left(\boldsymbol{\varepsilon}(\mathbf{u}_{n+1}),\mathbf{CE}_n,\Delta t\right):\boldsymbol{\varepsilon}(\mathbf{v})\,d\Omega=\mathcal{F}_{\mathrm{ext}}(t_{n+1};\mathbf{v})
 \]</div>
 <p>The global Newton matrix consumes the analytical algorithmic consistent tangent of the same local update.</p>
+<p><strong>time-integration error indicator</strong></p>
+<div class="arithmatex">\[
+e_{cr}=\max_q\left|\dot{\bar\varepsilon}^{cr}_{q,n+1}-\dot{\bar\varepsilon}^{cr}_{q,n}\right|\Delta t
+\]</div>
+<p>A declared creep_strain_error_tolerance may reject an otherwise converged increment independently of the equilibrium residual.</p>
 <h4 id="inputs_4">Inputs<a class="headerlink" href="#inputs_4" title="Permanent link">&para;</a></h4>
 <table>
 <thead>
@@ -11371,7 +11376,7 @@ q_{n+1}=q_{\mathrm{trial}}-3G\,\Delta\gamma
 <td>physical duration and increment controls</td>
 <td>positive duration plus fixed or automatic incrementation</td>
 <td>time</td>
-<td>Normalized increment sizes map to physical time; amplitudes are evaluated in physical time.</td>
+<td>Normalized increment sizes map to physical time; amplitudes are evaluated in physical time. A procedure-specific endpoint creep-rate tolerance may control integration accuracy.</td>
 </tr>
 <tr>
 <td>temperature</td>
@@ -11405,10 +11410,10 @@ q_{n+1}=q_{\mathrm{trial}}-3G\,\Delta\gamma
 <td>Creep strain tensor and accumulated equivalent creep strain.</td>
 </tr>
 <tr>
-<td>time, Newton, local-update and dissipation histories</td>
+<td>time, Newton, local-update, integration-error and dissipation histories</td>
 <td>structured histories and execution events</td>
 <td>time, iterations, strain, and energy</td>
-<td>Accepted times, maximum creep increment, local/global iterations, elastic energy, and creep dissipation.</td>
+<td>Accepted times, maximum creep increment, endpoint creep-rate error estimate, local/global iterations, elastic energy, and creep dissipation.</td>
 </tr>
 <tr>
 <td>TEMP and temperature evidence</td>
@@ -11429,8 +11434,10 @@ q_{n+1}=q_{\mathrm{trial}}-3G\,\Delta\gamma
 <li>Ordinary loads and prescribed values are held at full magnitude by default; an explicit amplitude defines any physical-time history.</li>
 <li>CE and CEEQ are committed only after local integration, global Newton convergence, and increment-level acceptance all succeed.</li>
 <li>maximum_inelastic_increment limits the maximum quadrature-point CEEQ increment and causes rollback/cutback when exceeded.</li>
+<li>creep_strain_error_tolerance limits the endpoint creep-rate change times the physical increment and causes the same atomic rollback/cutback when exceeded.</li>
 <li>Checkpoint restore reconstructs stress from accepted strain and CE without advancing a fictitious time increment.</li>
 <li>A failed attempt restores the temperature history to the accepted increment start time together with displacement and quadrature state.</li>
+<li>Result histories inherit the model's declared consistent time unit; without a unit declaration they remain explicitly unitless rather than being mislabeled as seconds.</li>
 </ul>
 <h4 id="applicability_4">Applicability<a class="headerlink" href="#applicability_4" title="Permanent link">&para;</a></h4>
 <ul>
@@ -11457,6 +11464,7 @@ q_{n+1}=q_{\mathrm{trial}}-3G\,\Delta\gamma
 <ul>
 <li><code>agentfem.benchmark.implicit_creep_relaxation</code></li>
 <li><code>agentfem.benchmark.arrhenius_global_creep</code></li>
+<li><code>agentfem.benchmark.creep_nafems_r0027_test7</code></li>
 </ul>
 <p><strong>Validation rules</strong></p>
 <ul>
@@ -11464,12 +11472,14 @@ q_{n+1}=q_{\mathrm{trial}}-3G\,\Delta\gamma
 <li>Verify the analytical tangent independently against a centered material-point derivative.</li>
 <li>Commit shared transaction state only after a globally accepted physical-time increment.</li>
 <li>Evaluate and record positive kelvin temperatures at the creep quadrature identity for every attempted increment.</li>
+<li>Keep equilibrium convergence and creep time-integration accuracy as separate acceptance decisions.</li>
 <li>Restore displacement, CE, CEEQ, physical time, next increment, histories, energies, and events from a compatible checkpoint.</li>
 </ul>
 <h3 id="references_4">References<a class="headerlink" href="#references_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Consistent tangent operators for rate independent elasto-plasticity: <code>https://escholarship.org/uc/item/9cp19009</code></li>
 <li>A consistent formulation for the integration of combined plasticity and creep: <code>doi:10.1002/nme.1620370803</code></li>
+<li>Abaqus VISCO procedure and CETOL definition: <code>https://docs.software.vt.edu/abaqusv2025/English/SIMACAEKEYRefMap/simakey-r-visco.htm</code></li>
 </ul>
 <p><a id="agentfem-material-j2_global_plasticity"></a></p>
 <h2 id="global-small-strain-j2-plasticity">Global small-strain J2 plasticity<a class="headerlink" href="#global-small-strain-j2-plasticity" title="Permanent link">&para;</a></h2>

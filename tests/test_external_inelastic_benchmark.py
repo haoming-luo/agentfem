@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 
 from agentfem import benchmarks
@@ -34,6 +35,49 @@ def test_nafems_creep_benchmark_rejects_nonpositive_increment_count():
         benchmarks.creep_thick_cylinder_benchmark(
             comm=MPI.COMM_SELF,
             increments=0,
+        )
+
+
+def test_nafems_creep_benchmark_rejects_nonpositive_time_tolerance():
+    with pytest.raises(
+        ValueError,
+        match="creep_strain_error_tolerance must be finite and positive",
+    ):
+        benchmarks.creep_thick_cylinder_benchmark(
+            comm=MPI.COMM_SELF,
+            radial_cells=1,
+            angular_cells=2,
+            increments=1,
+            creep_strain_error_tolerance=0.0,
+            progress=False,
+        )
+
+
+def test_thick_cylinder_sector_supports_structured_hexahedra():
+    domain = benchmarks.thick_cylinder_sector_mesh(
+        inner_radius=100.0,
+        outer_radius=200.0,
+        thickness=10.0,
+        radial_cells=2,
+        angular_cells=4,
+        cell_type="hexahedron",
+        comm=MPI.COMM_SELF,
+    )
+
+    assert domain.topology.cell_type == dolfinx_mesh.CellType.hexahedron
+    assert domain.topology.index_map(domain.topology.dim).size_local == 8
+
+
+def test_thick_cylinder_sector_rejects_unknown_cell_type():
+    with pytest.raises(ValueError, match="tetrahedron.*hexahedron"):
+        benchmarks.thick_cylinder_sector_mesh(
+            inner_radius=100.0,
+            outer_radius=200.0,
+            thickness=10.0,
+            radial_cells=2,
+            angular_cells=4,
+            cell_type="wedge",
+            comm=MPI.COMM_SELF,
         )
 
 

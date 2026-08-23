@@ -213,10 +213,15 @@ postprocessor. The first global J2 route has committed/trial quadrature state,
 an algorithmically consistent tangent, rollback/cutback, rank-count-portable
 restart, and serial/MPI evidence from a public thick-cylinder structural
 benchmark. Temperature-dependent Arrhenius
-power-law creep remains a local constitutive capability, not a claimed global
-creep analysis. Path-dependent material FEM integration additionally requires
-quadrature state, a consistent tangent or documented alternative, increment
-control, convergence evidence, and restart behavior.
+power-law creep is integrated in a three-dimensional small-strain global Step
+with shared quadrature state, an analytical algorithmic tangent, atomic
+cutback/restart, prescribed temperature histories, and serial external
+structural evidence. Its distributed state is MPI-safe, while distributed
+global equilibrium retains an explicit experimental boundary. Other creep
+families remain local or assessment capabilities unless their own catalog
+evidence says otherwise. Path-dependent material FEM integration additionally
+requires quadrature state, a consistent tangent or documented alternative,
+increment control, convergence evidence, and restart behavior.
 
 A cyclic cohesive law is one path-dependent constitutive family. Its platform
 contract is the monotonic limit, local cycle extrema, fatigue threshold,
@@ -351,6 +356,10 @@ limits Iterations in one Attempt and therefore has different semantics.
 For stateful materials, a converged global Attempt may still be rejected when
 a declared inelastic-state increment is excessive; that is a physical/numerical
 acceptance control, not a Newton tolerance.
+Implicit creep may also declare an endpoint creep-rate error tolerance. It
+controls physical-time integration accuracy independently of both the Newton
+residual and the magnitude of the accepted CEEQ increment; failure of any one
+criterion rolls back the same complete transaction.
 
 ## Output Interval and Frame
 
