@@ -208,6 +208,7 @@ def check_distributions(directory: Path) -> Path:
         "promotion_gate.py",
         "build_docs.py",
         "build_knowledge.py",
+        "tools/run_wsl2_acceptance.sh",
         f"src/agentfem/release/{version}.json",
         "skills/agentfem/SKILL.md",
         "skills/agentfem/agents/openai.yaml",
@@ -284,7 +285,11 @@ def _forbidden_distribution_members(members) -> list[str]:
     )
 
 
-def run_smoke(*, wheel: Path | None = None) -> dict[str, object]:
+def run_smoke(
+    *,
+    wheel: Path | None = None,
+    mpi_ranks: int = 1,
+) -> dict[str, object]:
     """Exercise an installed distribution and reject same-version stale code."""
 
     with _smoke_environment(wheel) as environment:
@@ -308,6 +313,11 @@ def run_smoke(*, wheel: Path | None = None) -> dict[str, object]:
             acceptance["templates"] = run_installed_project_smoke(
                 environment=environment
             )
+            if int(mpi_ranks) > 1:
+                acceptance["mpi_smoke"] = run_installed_mpi_smoke(
+                    ranks=int(mpi_ranks),
+                    environment=environment,
+                )
         print(json.dumps(acceptance, indent=2, sort_keys=True))
         return acceptance
 
@@ -324,8 +334,10 @@ def platform_acceptance(
     operating_system = fingerprint["operating_system"]
     system = str(operating_system["system"]).lower()
     route = str(support["route"]).lower()
-    if "wsl" in route:
+    if "wsl2" in route:
         platform_id = "wsl2"
+    elif "wsl1" in route:
+        platform_id = "wsl1"
     elif system == "darwin":
         platform_id = "macos"
     elif system == "linux":
@@ -337,10 +349,34 @@ def platform_acceptance(
         item.get("provenance") == "verified" for item in templates.values()
     )
     installed_wheel = wheel is not None and wheel.is_file()
-    return {
+    mpi_smoke = agent_acceptance.get("mpi_smoke")
+    wsl = None
+    route_passed = True
+    if platform_id == "wsl2":
+        kernel = " ".join(
+            str(operating_system.get(name, ""))
+            for name in ("release", "version")
+        ).lower()
+        wsl = {
+            "distro_name": os.environ.get("WSL_DISTRO_NAME"),
+            "interop_present": bool(os.environ.get("WSL_INTEROP")),
+            "kernel_mentions_wsl2": "wsl2" in kernel
+            or "microsoft-standard" in kernel,
+        }
+        route_passed = bool(
+            wsl["kernel_mentions_wsl2"]
+            and isinstance(mpi_smoke, dict)
+            and mpi_smoke.get("status") == "passed"
+            and int(mpi_smoke.get("rank_count", 0)) >= 2
+        )
+    record = {
         "schema": "agentfem.platform-acceptance",
         "schema_version": "0.1.0",
-        "status": "passed" if installed_wheel and smoke_passed else "failed",
+        "status": (
+            "passed"
+            if installed_wheel and smoke_passed and route_passed
+            else "failed"
+        ),
         "platform_id": platform_id,
         "route": support["route"],
         "installed_wheel": installed_wheel,
@@ -353,7 +389,44 @@ def platform_acceptance(
         "packages": fingerprint["packages"],
         "mpi": fingerprint["mpi"],
         "templates": templates,
+        "mpi_smoke": mpi_smoke,
     }
+    if wsl is not None:
+        record["wsl"] = wsl
+    return record
+
+
+def require_platform_acceptance(
+    record: dict[str, object],
+    *,
+    expected: str,
+) -> None:
+    """Reject evidence produced on a different or weaker platform route."""
+
+    selected = str(expected).strip().lower()
+    actual = str(record.get("platform_id", "")).lower()
+    if record.get("status") != "passed" or actual != selected:
+        raise RuntimeError(
+            f"Required {selected!r} acceptance, received {actual!r} "
+            f"with status {record.get('status')!r}."
+        )
+    if selected != "wsl2":
+        return
+    operating_system = record.get("operating_system", {})
+    route = str(record.get("route", "")).lower()
+    wsl = record.get("wsl", {})
+    mpi = record.get("mpi_smoke") or {}
+    if (
+        str(operating_system.get("system", "")).lower() != "linux"
+        or "wsl2" not in route
+        or wsl.get("kernel_mentions_wsl2") is not True
+    ):
+        raise RuntimeError(
+            "WSL2 acceptance requires a Linux runtime with a real "
+            "microsoft-standard-WSL2 kernel."
+        )
+    if mpi.get("status") != "passed" or int(mpi.get("rank_count", 0)) < 2:
+        raise RuntimeError("WSL2 acceptance requires a two-rank installed-wheel MPI smoke.")
 
 
 def _installed_cli_json(arguments, *, environment, cwd) -> dict:
@@ -654,11 +727,48 @@ def run_installed_project_smoke(*, environment=None) -> dict[str, object]:
     return accepted
 
 
+def run_installed_mpi_smoke(*, ranks: int, environment=None) -> dict[str, object]:
+    """Exercise an installed wheel through the active environment's MPI launcher."""
+
+    from agentfem import platforms
+
+    selected = int(ranks)
+    if selected < 2:
+        raise ValueError("Installed MPI smoke requires at least two ranks.")
+    launcher = platforms.runtime_report().mpi.get("recommended_launcher")
+    if not launcher:
+        raise RuntimeError("No MPI launcher matches the active mpi4py environment.")
+    subprocess.run(
+        [
+            str(launcher),
+            "-n",
+            str(selected),
+            sys.executable,
+            str(ROOT / "examples" / "static_elasticity_2d.py"),
+        ],
+        cwd=ROOT,
+        check=True,
+        env=environment,
+    )
+    return {
+        "status": "passed",
+        "rank_count": selected,
+        "launcher": str(launcher),
+        "workflow": "examples/static_elasticity_2d.py",
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dist", type=Path)
     parser.add_argument("--tag")
     parser.add_argument("--smoke", action="store_true")
+    parser.add_argument(
+        "--mpi-ranks",
+        type=int,
+        default=1,
+        help="Also run the installed-wheel smoke with this MPI rank count.",
+    )
     parser.add_argument(
         "--report",
         type=Path,
@@ -669,11 +779,20 @@ def main() -> None:
         type=Path,
         help="Write installed-wheel platform acceptance; requires --dist and --smoke.",
     )
+    parser.add_argument(
+        "--require-platform",
+        choices=("linux", "macos", "wsl2"),
+        help="Fail unless the platform report proves this exact route.",
+    )
     options = parser.parse_args()
     if options.report is not None and not options.smoke:
         parser.error("--report requires --smoke")
     if options.platform_report is not None and (not options.smoke or options.dist is None):
         parser.error("--platform-report requires --dist and --smoke")
+    if options.require_platform is not None and options.platform_report is None:
+        parser.error("--require-platform requires --platform-report")
+    if options.require_platform == "wsl2" and options.mpi_ranks < 2:
+        parser.error("WSL2 acceptance requires --mpi-ranks 2 or greater")
     version = check_versions(tag=options.tag)
     check_dependency_boundaries()
     check_release_contract(tag=options.tag, source_root=ROOT)
@@ -681,7 +800,7 @@ def main() -> None:
     if options.dist is not None:
         wheel = check_distributions(options.dist)
     if options.smoke:
-        acceptance = run_smoke(wheel=wheel)
+        acceptance = run_smoke(wheel=wheel, mpi_ranks=options.mpi_ranks)
         if options.report is not None:
             options.report.parent.mkdir(parents=True, exist_ok=True)
             temporary = options.report.with_suffix(options.report.suffix + ".tmp")
@@ -701,6 +820,11 @@ def main() -> None:
                 encoding="utf-8",
             )
             temporary.replace(options.platform_report)
+            if options.require_platform is not None:
+                require_platform_acceptance(
+                    platform_record,
+                    expected=options.require_platform,
+                )
     print(f"AgentFEM {version} release gate passed.")
 
 

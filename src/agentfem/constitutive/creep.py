@@ -106,6 +106,19 @@ class ImplicitCreepUpdate:
 
 
 @dataclass(frozen=True)
+class ImplicitCreepBatchUpdate:
+    """Vectorized backward-Euler updates for one homogeneous material region."""
+
+    stress: np.ndarray
+    creep_strain: np.ndarray
+    equivalent_creep_strain: np.ndarray
+    equivalent_increment: np.ndarray
+    algorithmic_tangent: np.ndarray
+    local_iterations: np.ndarray
+    converged: np.ndarray
+
+
+@dataclass(frozen=True)
 class IsotropicPowerLawCreepMaterial:
     """Isotropic elasticity with an implicit Mises power-law creep branch.
 
@@ -316,6 +329,208 @@ class IsotropicPowerLawCreepMaterial:
             equivalent_increment=float(increment),
             algorithmic_tangent=tangent,
             local_iterations=iterations,
+        )
+
+    def update_many(
+        self,
+        total_strain,
+        *,
+        time_start: float,
+        time_end: float,
+        creep_strain,
+        equivalent_creep_strain,
+        tolerance: float = 1.0e-12,
+        maximum_iterations: int = 30,
+    ) -> ImplicitCreepBatchUpdate:
+        """Integrate many isothermal points with the scalar algorithm exactly.
+
+        This is a performance path, not a second constitutive model. It uses
+        the same safeguarded backward-Euler equations and consistent tangent
+        as :meth:`update`, while evaluating a homogeneous quadrature region in
+        NumPy batches. Temperature-dependent and heterogeneous regions retain
+        the scalar dispatch where each point may select a different law.
+        """
+
+        if self.temperature_dependence is not None:
+            raise ValueError(
+                "update_many is the homogeneous isothermal path; "
+                "temperature-dependent updates require point temperatures."
+            )
+        strain = np.asarray(total_strain, dtype=float)
+        old_creep = np.asarray(creep_strain, dtype=float)
+        old_equivalent = np.asarray(equivalent_creep_strain, dtype=float).reshape(-1)
+        if strain.ndim != 3 or strain.shape[1:] != (3, 3):
+            raise ValueError("total_strain must have shape (points, 3, 3).")
+        if old_creep.shape != strain.shape or old_equivalent.shape != (len(strain),):
+            raise ValueError("Batch creep state and strain layouts do not match.")
+        if (
+            np.any(~np.isfinite(strain))
+            or np.any(~np.isfinite(old_creep))
+            or np.any(~np.isfinite(old_equivalent))
+            or np.any(old_equivalent < 0.0)
+        ):
+            raise ValueError("Batch strain and creep state must be finite and valid.")
+        start = float(time_start)
+        end = float(time_end)
+        dt = end - start
+        if not np.isfinite(start) or not np.isfinite(end) or start < 0.0 or dt <= 0.0:
+            raise ValueError("Creep update requires finite 0 <= time_start < time_end.")
+        if tolerance <= 0.0 or maximum_iterations <= 0:
+            raise ValueError("Local tolerance and maximum_iterations must be positive.")
+
+        strain = 0.5 * (strain + np.swapaxes(strain, 1, 2))
+        identity = np.eye(3)
+        elastic_trial = strain - old_creep
+        trace = np.trace(elastic_trial, axis1=1, axis2=2)
+        deviatoric_strain = elastic_trial - trace[:, None, None] * identity / 3.0
+        trial_stress = (
+            2.0 * self.shear_modulus * deviatoric_strain
+            + self.bulk_modulus * trace[:, None, None] * identity
+        )
+        stress_trace = np.trace(trial_stress, axis1=1, axis2=2)
+        trial_deviator = trial_stress - stress_trace[:, None, None] * identity / 3.0
+        q_trial = np.sqrt(1.5 * np.sum(trial_deviator**2, axis=(1, 2)))
+        active = q_trial > max(1.0, self.young) * tolerance
+
+        upper = np.zeros_like(q_trial)
+        upper[active] = q_trial[active] / (3.0 * self.shear_modulus)
+        time_factor = (
+            1.0
+            if self.creep.time_exponent == 0.0
+            else (end / self.creep.reference_time) ** self.creep.time_exponent
+        )
+
+        def rates(equivalent):
+            return (
+                self.creep.coefficient
+                * (equivalent / self.creep.reference_stress)
+                ** self.creep.stress_exponent
+                * time_factor
+            )
+
+        increment = np.zeros_like(q_trial)
+        increment[active] = np.minimum(
+            dt * rates(q_trial[active]),
+            upper[active],
+        )
+        lower = np.zeros_like(q_trial)
+        converged = ~active
+        local_iterations = np.zeros(len(strain), dtype=np.int32)
+        for iteration in range(1, int(maximum_iterations) + 1):
+            pending = active & ~converged
+            if not np.any(pending):
+                break
+            q = np.maximum(
+                0.0,
+                q_trial[pending] - 3.0 * self.shear_modulus * increment[pending],
+            )
+            rate = rates(q)
+            residual = increment[pending] - dt * rate
+            scale = np.maximum.reduce(
+                (
+                    np.ones_like(rate),
+                    upper[pending],
+                    np.abs(increment[pending]),
+                    dt * rate,
+                )
+            )
+            selected = np.flatnonzero(pending)
+            finished = np.abs(residual) <= tolerance * scale
+            converged[selected[finished]] = True
+            local_iterations[selected] = iteration
+            remaining = ~finished
+            if not np.any(remaining):
+                continue
+            indices = selected[remaining]
+            residual = residual[remaining]
+            q = q[remaining]
+            rate = rate[remaining]
+            positive = residual > 0.0
+            upper[indices[positive]] = increment[indices[positive]]
+            lower[indices[~positive]] = increment[indices[~positive]]
+            derivative_rate = np.zeros_like(rate)
+            nonzero = (q > 0.0) & (rate != 0.0)
+            derivative_rate[nonzero] = (
+                self.creep.stress_exponent * rate[nonzero] / q[nonzero]
+            )
+            derivative = 1.0 + 3.0 * self.shear_modulus * dt * derivative_rate
+            candidate = increment[indices] - residual / derivative
+            outside = (candidate <= lower[indices]) | (candidate >= upper[indices])
+            candidate[outside] = 0.5 * (
+                lower[indices[outside]] + upper[indices[outside]]
+            )
+            increment[indices] = candidate
+        if not np.all(converged):
+            index = int(np.flatnonzero(~converged)[0])
+            raise RuntimeError(
+                "Implicit power-law creep batch update did not converge at "
+                f"point {index} within {maximum_iterations} iterations."
+            )
+
+        q = np.maximum(0.0, q_trial - 3.0 * self.shear_modulus * increment)
+        direction = np.zeros_like(trial_deviator)
+        direction[active] = (
+            1.5
+            * trial_deviator[active]
+            / q_trial[active, None, None]
+        )
+        next_creep = old_creep + increment[:, None, None] * direction
+        reduction = np.ones_like(q_trial)
+        reduction[active] = q[active] / q_trial[active]
+        pressure = stress_trace[:, None, None] * identity / 3.0
+        stress = pressure + reduction[:, None, None] * trial_deviator
+
+        rate = rates(q)
+        rate_derivative = np.zeros_like(rate)
+        nonzero = active & (q > 0.0) & (rate != 0.0)
+        rate_derivative[nonzero] = (
+            self.creep.stress_exponent * rate[nonzero] / q[nonzero]
+        )
+        d_increment_d_qtrial = np.zeros_like(q_trial)
+        d_increment_d_qtrial[nonzero] = (
+            dt
+            * rate_derivative[nonzero]
+            / (
+                1.0
+                + 3.0 * self.shear_modulus * dt * rate_derivative[nonzero]
+            )
+        )
+        radial_coefficient = np.zeros_like(q_trial)
+        radial_coefficient[active] = (
+            d_increment_d_qtrial[active] / q_trial[active]
+            - increment[active] / q_trial[active] ** 2
+        )
+        symmetric_identity = 0.5 * (
+            np.einsum("ik,jl->ijkl", identity, identity)
+            + np.einsum("il,jk->ijkl", identity, identity)
+        )
+        deviatoric_identity = symmetric_identity - np.einsum(
+            "ij,kl->ijkl", identity, identity
+        ) / 3.0
+        tangent = np.broadcast_to(
+            self.bulk_modulus * np.einsum("ij,kl->ijkl", identity, identity),
+            (len(strain), 3, 3, 3, 3),
+        ).copy()
+        tangent += (
+            2.0
+            * self.shear_modulus
+            * reduction[:, None, None, None, None]
+            * deviatoric_identity
+        )
+        tangent -= (
+            6.0
+            * self.shear_modulus**2
+            * radial_coefficient[:, None, None, None, None]
+            * np.einsum("nij,nkl->nijkl", trial_deviator, direction)
+        )
+        return ImplicitCreepBatchUpdate(
+            stress=stress,
+            creep_strain=next_creep,
+            equivalent_creep_strain=old_equivalent + increment,
+            equivalent_increment=increment,
+            algorithmic_tangent=tangent,
+            local_iterations=local_iterations,
+            converged=converged,
         )
 
     def as_dict(self) -> dict[str, object]:

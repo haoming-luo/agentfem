@@ -1,6 +1,8 @@
 from pathlib import Path
 import tomllib
 
+import pytest
+
 import release_gate
 from agentfem import __version__, cli
 
@@ -53,7 +55,11 @@ def test_platform_acceptance_distinguishes_native_and_wsl_routes(tmp_path, monke
         "agentfem_version": __version__,
         "runtime_fingerprint": {
             "platform": {"route": "Windows via WSL2/Linux"},
-            "operating_system": {"system": "Linux", "release": "wsl", "version": "x"},
+            "operating_system": {
+                "system": "Linux",
+                "release": "6.6.87.2-microsoft-standard-WSL2",
+                "version": "x",
+            },
             "python": "3.11.0",
             "machine": "x86_64",
             "packages": {"agentfem": __version__},
@@ -62,6 +68,7 @@ def test_platform_acceptance_distinguishes_native_and_wsl_routes(tmp_path, monke
         "templates": {
             "static-solid": {"provenance": "verified"},
         },
+        "mpi_smoke": {"status": "passed", "rank_count": 2},
     }
 
     report = release_gate.platform_acceptance(acceptance, wheel=wheel)
@@ -70,6 +77,43 @@ def test_platform_acceptance_distinguishes_native_and_wsl_routes(tmp_path, monke
     assert report["platform_id"] == "wsl2"
     assert report["status"] == "passed"
     assert report["installed_wheel"] is True
+
+    weak = release_gate.platform_acceptance(
+        {**acceptance, "mpi_smoke": None},
+        wheel=wheel,
+    )
+    assert weak["status"] == "failed"
+
+
+def test_wsl2_platform_requirement_rejects_wsl1_and_requires_mpi():
+    accepted = {
+        "status": "passed",
+        "platform_id": "wsl2",
+        "route": "Windows via WSL2/Linux",
+        "operating_system": {
+            "system": "Linux",
+            "release": "6.6.87.2-microsoft-standard-WSL2",
+        },
+        "wsl": {"kernel_mentions_wsl2": True},
+        "mpi_smoke": {"status": "passed", "rank_count": 2},
+    }
+
+    release_gate.require_platform_acceptance(accepted, expected="wsl2")
+
+    with pytest.raises(RuntimeError, match="two-rank"):
+        release_gate.require_platform_acceptance(
+            {**accepted, "mpi_smoke": None},
+            expected="wsl2",
+        )
+    with pytest.raises(RuntimeError, match="real"):
+        release_gate.require_platform_acceptance(
+            {
+                **accepted,
+                "route": "Windows via WSL1/Linux",
+                "wsl": {"kernel_mentions_wsl2": False},
+            },
+            expected="wsl2",
+        )
 
 
 def test_release_facing_examples_never_insert_the_checkout_into_sys_path():

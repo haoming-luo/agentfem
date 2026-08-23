@@ -29,7 +29,7 @@ recursive-include src/agentfem/knowledge *.json *.md
 recursive-include src/agentfem/elements *.md
 recursive-include src/agentfem/operators *.md
 recursive-include tests *.py
-recursive-include tools *.py
+recursive-include tools *.py *.sh
 prune site
 prune examples_output
 prune examples/abaqus_c3d10h_periodic_cell/output

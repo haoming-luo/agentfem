@@ -1037,6 +1037,62 @@ class CreepQuadratureState:
         local_temperatures = (
             None if temperatures is None else temperatures[:owned_points]
         )
+        if (
+            not isinstance(material, QuadratureMaterialMap)
+            and temperatures is None
+            and material.temperature_dependence is None
+        ):
+            try:
+                batch = material.update_many(
+                    strains,
+                    time_start=time_start,
+                    time_end=time_end,
+                    creep_strain=committed_ce,
+                    equivalent_creep_strain=committed_ceeq,
+                )
+            except Exception as exc:
+                local_problem = (
+                    "Creep batch update failed: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+            problems = self.domain.comm.allgather(local_problem)
+            if any(problem is not None for problem in problems):
+                rank = next(
+                    index for index, problem in enumerate(problems)
+                    if problem is not None
+                )
+                raise RuntimeError(f"Rank {rank}: {problems[rank]}")
+            self.stress.assign(batch.stress)
+            self.tangent.assign(batch.algorithmic_tangent)
+            self.trial_creep_strain.assign(batch.creep_strain)
+            self.trial_equivalent_creep_strain.assign(
+                batch.equivalent_creep_strain
+            )
+            local_increment = batch.equivalent_increment[:owned_points]
+            local_iterations = batch.local_iterations[:owned_points]
+            return {
+                "points": int(self.domain.comm.allreduce(owned_points, op=MPI.SUM)),
+                "creeping_points": int(
+                    self.domain.comm.allreduce(
+                        int(np.count_nonzero(local_increment > 0.0)),
+                        op=MPI.SUM,
+                    )
+                ),
+                "maximum_creep_increment": float(
+                    self.domain.comm.allreduce(
+                        np.max(local_increment, initial=0.0),
+                        op=MPI.MAX,
+                    )
+                ),
+                "maximum_local_iterations": int(
+                    self.domain.comm.allreduce(
+                        np.max(local_iterations, initial=0),
+                        op=MPI.MAX,
+                    )
+                ),
+                "minimum_temperature": None,
+                "maximum_temperature": None,
+            }
         for index, strain in enumerate(strains):
             old = ImplicitCreepState(committed_ce[index], committed_ceeq[index])
             selected_material = (

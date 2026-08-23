@@ -11,6 +11,7 @@ from agentfem import __version__, dependencies, mesh, platforms
 def test_platform_support_does_not_overclaim_native_windows():
     native = platforms.support_for("Windows")
     wsl = platforms.support_for("Linux", wsl=True)
+    wsl1 = platforms.support_for("Linux", wsl=True, wsl_version=1)
 
     assert native.level == "experimental"
     assert native.recommended is False
@@ -18,6 +19,8 @@ def test_platform_support_does_not_overclaim_native_windows():
     assert any("dolfinx_mpc" in item for item in native.limitations)
     assert wsl.route == "Windows via WSL2/Linux"
     assert wsl.recommended is True
+    assert wsl1.route == "Windows via WSL1/Linux"
+    assert wsl1.level == "unsupported"
 
 
 def test_optional_dependency_error_names_capability_and_install_extra(monkeypatch):

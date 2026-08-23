@@ -2866,6 +2866,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>ImplicitCreepBatchUpdate</code></td>
+<td>Vectorized backward-Euler updates for one homogeneous material region.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>ImplicitCreepState</code></td>
 <td>Committed small-strain creep state at one integration point.</td>
 </tr>
@@ -7128,7 +7133,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>support_for(system: str, *, wsl: bool = False) -&gt; PlatformSupport</code></td>
+<td><code>support_for(system: str, *, wsl: bool = False, wsl_version: int \| None = None) -&gt; PlatformSupport</code></td>
 <td>Return the first-release support tier for an operating-system route.</td>
 </tr>
 <tr>

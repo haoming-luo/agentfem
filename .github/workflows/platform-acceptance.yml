@@ -49,7 +49,8 @@ jobs:
         run: |
           python release_gate.py --dist dist --smoke \
             --report /tmp/agentfem-agent-acceptance.json \
-            --platform-report /tmp/agentfem-platform-acceptance.json
+            --platform-report /tmp/agentfem-platform-acceptance.json \
+            --require-platform "${{ matrix.platform }}"
 
       - name: Upload platform evidence
         if: always()

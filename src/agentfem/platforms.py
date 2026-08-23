@@ -121,10 +121,21 @@ def support_for(
     system: str,
     *,
     wsl: bool = False,
+    wsl_version: int | None = None,
 ) -> PlatformSupport:
     """Return the first-release support tier for an operating-system route."""
 
     selected = str(system).strip().lower()
+    if selected == "linux" and wsl and wsl_version == 1:
+        return PlatformSupport(
+            system="Windows",
+            route="Windows via WSL1/Linux",
+            level="unsupported",
+            evidence=("Microsoft compatibility layer detected without a WSL2 kernel",),
+            limitations=(
+                "AgentFEM's Windows route requires the real Linux kernel supplied by WSL2",
+            ),
+        )
     if selected == "linux" and wsl:
         return PlatformSupport(
             system="Windows",
@@ -178,7 +189,12 @@ def current_support() -> PlatformSupport:
     """Detect the current OS, including Windows Subsystem for Linux."""
 
     system = _platform.system()
-    return support_for(system, wsl=system == "Linux" and _is_wsl())
+    wsl_version = _wsl_version() if system == "Linux" else None
+    return support_for(
+        system,
+        wsl=wsl_version is not None,
+        wsl_version=wsl_version,
+    )
 
 
 def runtime_report() -> RuntimeReport:
@@ -430,12 +446,24 @@ def _distribution_identity() -> dict[str, object] | None:
     }
 
 
-def _is_wsl() -> bool:
+def _wsl_version() -> int | None:
     try:
-        text = Path("/proc/version").read_text(encoding="utf-8").lower()
+        version = Path("/proc/version").read_text(encoding="utf-8").lower()
     except OSError:
-        return False
-    return "microsoft" in text or "wsl" in text
+        return None
+    release = _platform.release().lower()
+    text = f"{release}\n{version}"
+    if "microsoft" not in text and "wsl" not in text:
+        return None
+    if "wsl2" in text or "microsoft-standard" in text:
+        return 2
+    return 1
+
+
+def _is_wsl() -> bool:
+    """Return whether the runtime is any WSL generation."""
+
+    return _wsl_version() is not None
 
 
 def _version(package: str) -> str | None:

@@ -29,6 +29,14 @@ def test_nafems_creep_cylinder_reference_stresses_match_published_table():
     )
 
 
+def test_nafems_creep_benchmark_rejects_nonpositive_increment_count():
+    with pytest.raises(ValueError, match="positive integer"):
+        benchmarks.creep_thick_cylinder_benchmark(
+            comm=MPI.COMM_SELF,
+            increments=0,
+        )
+
+
 def test_public_thick_cylinder_brackets_first_yield_in_serial_and_mpi():
     if MPI.COMM_WORLD.size not in {1, 2}:
         pytest.skip("the versioned external J2 contract covers one and two ranks")

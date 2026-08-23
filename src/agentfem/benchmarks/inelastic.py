@@ -369,6 +369,9 @@ def creep_thick_cylinder_benchmark(
 
     inner_radius, outer_radius, thickness = 100.0, 200.0, 1.0
     pressure, exponent = 200.0, 5.0
+    selected_increments = int(increments)
+    if selected_increments < 1:
+        raise ValueError("increments must be a positive integer.")
     domain = thick_cylinder_sector_mesh(
         inner_radius=inner_radius,
         outer_radius=outer_radius,
@@ -427,10 +430,13 @@ def creep_thick_cylinder_benchmark(
         material=material,
         duration=float(duration),
         incrementation=steps.automatic(
-            initial=1.0 / int(increments),
+            initial=1.0 / selected_increments,
             minimum=1.0e-6,
-            maximum=min(0.05, 2.0 / int(increments)),
-            max_increments=max(500, 10 * int(increments)),
+            maximum=max(
+                1.0 / selected_increments,
+                min(0.05, 2.0 / selected_increments),
+            ),
+            max_increments=max(500, 10 * selected_increments),
             max_cutbacks=12,
             growth_factor=1.25,
             fast_iterations=4,

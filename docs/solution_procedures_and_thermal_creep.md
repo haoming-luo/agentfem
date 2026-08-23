@@ -147,6 +147,13 @@ result reconstruction reevaluate its coefficients without repeatedly asking
 FFCx to rediscover the same compiled expression. This is an implementation
 detail below the public workflow, but it is important for long adaptive paths.
 
+Homogeneous isothermal creep regions also use a vectorized quadrature update.
+This is an execution optimization, not a second constitutive model: the batch
+follows the same safeguarded backward-Euler equation and returns the same
+algorithmic tangent as the scalar material-point update. Temperature-dependent
+and multi-material regions retain pointwise material dispatch so scientific
+semantics take precedence over batching.
+
 Next gates:
 
 1. complete radial/angular/time convergence for NAFEMS R0027 Test 7 and retain

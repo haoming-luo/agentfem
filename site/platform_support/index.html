@@ -944,6 +944,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Installed-wheel acceptance">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#real-wsl2-acceptance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real WSL2 acceptance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1174,6 +1191,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Installed-wheel acceptance">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#real-wsl2-acceptance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real WSL2 acceptance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1342,6 +1376,27 @@ MPI identity and verified installed templates. GitHub's platform-acceptance
 workflow produces Linux and macOS artifacts. WSL2 promotion still requires the
 same command inside a real WSL2 environment; native Linux evidence is not
 silently relabelled as Windows evidence.</p>
+<h3 id="real-wsl2-acceptance">Real WSL2 acceptance<a class="headerlink" href="#real-wsl2-acceptance" title="Permanent link">&para;</a></h3>
+<p>From Windows PowerShell, first prove that the selected distribution is WSL2:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">wsl</span> <span class="p">-</span><span class="n">-list</span> <span class="p">-</span><span class="n">-verbose</span>
+</code></pre></div>
+<p>Then enter that distribution, keep the checkout in its Linux filesystem,
+activate the FEniCSx environment, and run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>bash<span class="w"> </span>tools/run_wsl2_acceptance.sh<span class="w"> </span>wsl2-acceptance
+</code></pre></div>
+<p>The script checks for a <code>microsoft-standard-WSL2</code> kernel, builds one immutable
+wheel/sdist pair, runs the installed release workflows, and performs a
+two-rank MPI smoke. Internally it uses the fail-closed command:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>release_gate.py<span class="w"> </span>--dist<span class="w"> </span>DIST<span class="w"> </span>--smoke<span class="w"> </span>--mpi-ranks<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>--require-platform<span class="w"> </span>wsl2<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span>--report<span class="w"> </span>agent-acceptance.json<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span>--platform-report<span class="w"> </span>platform-acceptance-wsl2.json
+</code></pre></div>
+<p>Running that command on native Linux or WSL1 is an error, so its JSON cannot
+be produced by relabelling ordinary Ubuntu evidence. The resulting platform
+record contains the exact wheel hash, kernel route, distribution name when
+available, MPI launcher and rank count, package versions, templates and
+result-provenance checks.</p>
 <h2 id="windows-recommendation">Windows recommendation<a class="headerlink" href="#windows-recommendation" title="Permanent link">&para;</a></h2>
 <p>Install WSL2 with Ubuntu, install Miniforge inside WSL, and follow
 <code>INSTALL.md</code>. Keep the project inside the WSL Linux filesystem for compilation
@@ -1365,8 +1420,8 @@ opening output copied or exposed from the WSL filesystem.</p>
    Gmsh Python API.</li>
 </ol>
 <p>Install only the route required by the model:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;agentfem[mesh-formats]&#39;</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;agentfem[gmsh]&#39;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;agentfem[mesh-formats]&#39;</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;agentfem[gmsh]&#39;</span>
 </code></pre></div>
 <p>The Gmsh project distributes its software under GPL-2.0-or-later with a
 published exception. AgentFEM does not vendor or bundle Gmsh, does not list it

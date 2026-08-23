@@ -44,6 +44,38 @@ workflow produces Linux and macOS artifacts. WSL2 promotion still requires the
 same command inside a real WSL2 environment; native Linux evidence is not
 silently relabelled as Windows evidence.
 
+### Real WSL2 acceptance
+
+From Windows PowerShell, first prove that the selected distribution is WSL2:
+
+```powershell
+wsl --list --verbose
+```
+
+Then enter that distribution, keep the checkout in its Linux filesystem,
+activate the FEniCSx environment, and run:
+
+```bash
+bash tools/run_wsl2_acceptance.sh wsl2-acceptance
+```
+
+The script checks for a `microsoft-standard-WSL2` kernel, builds one immutable
+wheel/sdist pair, runs the installed release workflows, and performs a
+two-rank MPI smoke. Internally it uses the fail-closed command:
+
+```bash
+python release_gate.py --dist DIST --smoke --mpi-ranks 2 \
+  --require-platform wsl2 \
+  --report agent-acceptance.json \
+  --platform-report platform-acceptance-wsl2.json
+```
+
+Running that command on native Linux or WSL1 is an error, so its JSON cannot
+be produced by relabelling ordinary Ubuntu evidence. The resulting platform
+record contains the exact wheel hash, kernel route, distribution name when
+available, MPI launcher and rank count, package versions, templates and
+result-provenance checks.
+
 ## Windows recommendation
 
 Install WSL2 with Ubuntu, install Miniforge inside WSL, and follow

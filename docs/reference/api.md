@@ -159,6 +159,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `CreepDamageState` | Local creep strain and scalar continuum-damage state. |
 | class | `CreepDamageUpdate` | Accepted material-point increment from a creep-damage law. |
 | class | `CreepHistory` | Integrated piecewise-constant stress history. |
+| class | `ImplicitCreepBatchUpdate` | Vectorized backward-Euler updates for one homogeneous material region. |
 | class | `ImplicitCreepState` | Committed small-strain creep state at one integration point. |
 | class | `ImplicitCreepUpdate` | Backward-Euler material-point update and consistent tangent. |
 | class | `IsotropicPowerLawCreepMaterial` | Isotropic elasticity with an implicit Mises power-law creep branch. |
@@ -1120,7 +1121,7 @@ This package exposes its public objects through focused submodules.
 | --- | --- | --- |
 | class | `PlatformSupport` | One operating-system support decision with explicit limitations. |
 | class | `RuntimeReport` | Compact runtime inventory for bug reports and agent inspection. |
-| function | `support_for(system: str, *, wsl: bool = False) -> PlatformSupport` | Return the first-release support tier for an operating-system route. |
+| function | `support_for(system: str, *, wsl: bool = False, wsl_version: int \| None = None) -> PlatformSupport` | Return the first-release support tier for an operating-system route. |
 | function | `current_support() -> PlatformSupport` | Detect the current OS, including Windows Subsystem for Linux. |
 | function | `runtime_report() -> RuntimeReport` | Return versions and optional integrations useful in issue reports. |
 

@@ -129,6 +129,70 @@ def test_implicit_power_law_creep_tangent_matches_backward_euler_update():
     np.testing.assert_allclose(analytical, numerical, rtol=2.0e-7, atol=5.0e-4)
 
 
+def test_vectorized_creep_update_is_identical_to_scalar_material_path():
+    material = constitutive.isotropic_power_law(
+        young=200.0e3,
+        poisson=0.3,
+        density=1.0,
+        coefficient=2.0e-6,
+        stress_exponent=3.0,
+        reference_stress=100.0,
+    )
+    strains = np.asarray(
+        (
+            np.zeros((3, 3)),
+            np.diag((0.002, -0.001, -0.001)),
+            ((0.001, 0.0004, 0.0), (0.0004, -0.0005, 0.0), (0.0, 0.0, -0.0005)),
+        ),
+        dtype=float,
+    )
+    creep_strain = np.zeros_like(strains)
+    equivalent = np.asarray((0.0, 0.01, 0.02))
+    batch = material.update_many(
+        strains,
+        time_start=0.0,
+        time_end=10.0,
+        creep_strain=creep_strain,
+        equivalent_creep_strain=equivalent,
+    )
+    scalar = tuple(
+        material.update(
+            strain,
+            time_start=0.0,
+            time_end=10.0,
+            state=constitutive.ImplicitCreepState(old, accumulated),
+        )
+        for strain, old, accumulated in zip(
+            strains,
+            creep_strain,
+            equivalent,
+            strict=True,
+        )
+    )
+
+    np.testing.assert_allclose(batch.stress, [item.stress for item in scalar])
+    np.testing.assert_allclose(
+        batch.algorithmic_tangent,
+        [item.algorithmic_tangent for item in scalar],
+    )
+    np.testing.assert_allclose(
+        batch.creep_strain,
+        [item.state.creep_strain for item in scalar],
+    )
+    np.testing.assert_allclose(
+        batch.equivalent_creep_strain,
+        [item.state.equivalent_creep_strain for item in scalar],
+    )
+    np.testing.assert_allclose(
+        batch.equivalent_increment,
+        [item.equivalent_increment for item in scalar],
+    )
+    np.testing.assert_array_equal(
+        batch.local_iterations,
+        [item.local_iterations for item in scalar],
+    )
+
+
 def test_creep_quadrature_state_uses_shared_atomic_transaction():
     domain = dolfinx_mesh.create_box(
         MPI.COMM_SELF,
