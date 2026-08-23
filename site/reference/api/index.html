@@ -5696,7 +5696,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>implicit_creep_step(*, displacement, material, duration: float, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, temperature = None, name: str = 'implicit_creep', _experimental_distributed: bool = False) -&gt; ImplicitCreepStep</code></td>
+<td><code>implicit_creep_step(*, displacement, material, duration: float, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, creep_strain_error_tolerance: float \| None = None, time_unit: str \| None = None, progress = True, status_file = None, amplitude = None, temperature = None, name: str = 'implicit_creep', _experimental_distributed: bool = False) -&gt; ImplicitCreepStep</code></td>
 <td>Build the first global 3D implicit power-law creep step.</td>
 </tr>
 <tr>
@@ -6712,7 +6712,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>creep_thick_cylinder_benchmark(*, comm = MPI.COMM_WORLD, radial_cells: int = 4, angular_cells: int = 8, increments: int = 40, duration: float = 1000.0, progress: object = False) -&gt; InelasticStructuralBenchmark</code></td>
+<td><code>creep_thick_cylinder_benchmark(*, comm = MPI.COMM_WORLD, radial_cells: int = 4, angular_cells: int = 8, increments: int = 220, duration: float = 1000.0, creep_strain_error_tolerance: float = 0.0005, progress: object = False) -&gt; InelasticStructuralBenchmark</code></td>
 <td>Run the NAFEMS R0027 Test 7 secondary-creep benchmark.</td>
 </tr>
 <tr>
@@ -6737,8 +6737,8 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>thick_cylinder_sector_mesh(*, inner_radius: float, outer_radius: float, thickness: float, radial_cells: int, angular_cells: int, comm = MPI.COMM_WORLD)</code></td>
-<td>Create a one-layer 3D quarter-cylinder tetrahedral benchmark mesh.</td>
+<td><code>thick_cylinder_sector_mesh(*, inner_radius: float, outer_radius: float, thickness: float, radial_cells: int, angular_cells: int, cell_type: str = 'tetrahedron', comm = MPI.COMM_WORLD)</code></td>
+<td>Create a one-layer 3D quarter-cylinder benchmark mesh.</td>
 </tr>
 </tbody>
 </table>
