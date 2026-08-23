@@ -708,8 +708,12 @@ def presentation(
 
 def _register_field_artifacts(result, artifacts: FieldOutputArtifacts) -> None:
     if artifacts.reference_xdmf is not None:
-        result.add_artifact("field_history", artifacts.reference_xdmf)
+        result.add_artifact("scientific_field_history", artifacts.reference_xdmf)
+        if artifacts.deformed_pvd is None:
+            result.add_artifact("field_history", artifacts.reference_xdmf)
     if artifacts.unified_xdmf is not None:
         result.add_artifact("field_history", artifacts.unified_xdmf)
     if artifacts.deformed_pvd is not None:
+        result.add_artifact("field_history", artifacts.deformed_pvd)
+        result.add_artifact("fields_paraview", artifacts.deformed_pvd)
         result.add_artifact("deformed_field_history", artifacts.deformed_pvd)

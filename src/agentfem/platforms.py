@@ -65,6 +65,8 @@ class RuntimeReport:
 
     def summary(self) -> dict[str, object]:
         return {
+            "schema": "agentfem.runtime-report",
+            "schema_version": "0.1.0",
             "platform": self.platform.summary(),
             "python": self.python,
             "machine": self.machine,

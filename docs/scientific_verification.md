@@ -58,6 +58,25 @@ result.verify(
 version, tolerance, unit, expected value, and validity statement in the result
 manifest. A Golden remains regression evidence, not experimental validation.
 
+## Capability evidence audit
+
+The constitutive catalog and benchmark registry are joined by a machine-
+readable audit:
+
+```python
+from agentfem import benchmarks
+
+for item in benchmarks.audit_capability_evidence():
+    print(item.capability, item.maturity, item.gaps)
+```
+
+The same records appear under `constitutive_evidence` in
+`agentfem capabilities --json`. The audit checks that the declared maturity has
+the corresponding interface, material-point, curve, post-processing, or
+finite-element evidence. It intentionally does not promote an experimental
+capability merely because its present tests pass; external validation,
+generality, and stated limitations remain separate scientific claims.
+
 ```python
 claim = verification.VerificationClaim.compare(
     name="beam_reference",

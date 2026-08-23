@@ -478,7 +478,7 @@ def main(argv: list[str] | None = None) -> int:
             _emit(record, as_json=args.json, human=human)
             return 0
         if args.command == "capabilities":
-            from . import constitutive, models, public_api
+            from . import benchmarks, constitutive, models, public_api
             public_modules = {
                 level: public_api(level)
                 for level in ("core", "advanced", "expert")
@@ -501,6 +501,10 @@ def main(argv: list[str] | None = None) -> int:
                 "runtime": platforms.runtime_report().summary(),
                 "constitutive": tuple(
                     item.as_dict() for item in constitutive.capabilities()
+                ),
+                "constitutive_evidence": tuple(
+                    item.as_dict()
+                    for item in benchmarks.audit_capability_evidence()
                 ),
                 "step_providers": tuple(
                     item.summary() for item in models.step_providers()

@@ -120,6 +120,7 @@ nav:
       - get_started/index.md
       - Install and First Project: getting_started.md
       - For AI Agents: agents/index.md
+      - Agent Acceptance: agents/acceptance.md
 
   - User Guide:
       - guide/index.md

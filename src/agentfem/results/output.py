@@ -34,6 +34,7 @@ class ResultFieldArtifacts:
 
     xdmf: Path
     hdf5: Path | None
+    paraview: Path | None
     backend: str
     layout: str
     geometry: str
@@ -42,13 +43,16 @@ class ResultFieldArtifacts:
     omitted_fields: tuple[str, ...] = ()
 
     def summary(self) -> dict[str, object]:
-        return {
+        summary = {
             "status": "completed",
             "backend": self.backend,
             "layout": self.layout,
             "geometry": self.geometry,
             "warp_field": self.warp_field,
         }
+        if self.paraview is not None:
+            summary["paraview"] = str(self.paraview)
+        return summary
 
 
 @dataclass(frozen=True)
@@ -172,13 +176,20 @@ class FieldOutput:
 
         pvd_path = None
         frame_paths = ()
+        if domain.comm.size > 1 and self.backend in {"xdmf", "both"}:
+            pvd_path = write_parallel_vtk_series(
+                output / f"{basename}.pvd",
+                selected,
+                per_frame_fields,
+            )
         if self.backend in {"pvd", "both"}:
             if domain.comm.size > 1:
-                pvd_path = write_parallel_vtk_series(
-                    output / f"{basename}_parallel.pvd",
-                    selected,
-                    per_frame_fields,
-                )
+                if pvd_path is None:
+                    pvd_path = write_parallel_vtk_series(
+                        output / f"{basename}.pvd",
+                        selected,
+                        per_frame_fields,
+                    )
             else:
                 pvd_path, frame_paths = write_deformed_vtk_series(
                     output / f"{basename}_deformed.pvd",
@@ -289,6 +300,236 @@ def write_parallel_xdmf_series(
     return xdmf
 
 
+class UnifiedXDMFTimeSeries:
+    """Incremental single-grid XDMF/HDF5 writer for serial result histories.
+
+    Every accepted frame is one XDMF ``Uniform`` grid carrying the primary
+    point field and all compatible point/cell attributes.  Unlike repeated
+    DOLFINx ``write_function`` calls, this layout opens in ParaView as one
+    geometry per time value and therefore needs no ``Extract Block`` step.
+    """
+
+    def __init__(
+        self,
+        path,
+        *,
+        deformation_scale: float = 0.0,
+        store_reference_geometry: bool = True,
+        compression: int = 4,
+    ) -> None:
+        self.path = Path(path)
+        self.h5_path = self.path.with_suffix(".h5")
+        self.deformation_scale = float(deformation_scale)
+        self.store_reference_geometry = bool(store_reference_geometry)
+        self.compression = int(compression)
+        self._h5 = None
+        self._root = None
+        self._temporal = None
+        self._frame_count = 0
+        self._field_contract = None
+
+    def __enter__(self):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        if self._h5 is not None:
+            self._h5.close()
+            self._h5 = None
+        if exc_type is None:
+            if self._frame_count == 0:
+                raise ValueError("UnifiedXDMFTimeSeries wrote no result frames.")
+            tree = ET.ElementTree(self._root)
+            ET.indent(tree, space="  ")
+            tree.write(self.path, encoding="utf-8", xml_declaration=True)
+        return False
+
+    def _initialize(self, primary) -> None:
+        domain = primary.function_space.mesh
+        if domain.comm.size != 1:
+            raise NotImplementedError(
+                "Unified compressed XDMF is a serial writer. Under MPI use "
+                "ParaViewTimeSeries, which keeps one dataset per saved time."
+            )
+        topology, cell_types, coordinates = plot.vtk_mesh(primary.function_space)
+        nodes_per_cell = int(topology[0])
+        connectivity = np.asarray(topology).reshape(
+            -1, nodes_per_cell + 1
+        )[:, 1:]
+        unique_cell_types = np.unique(cell_types)
+        if unique_cell_types.size != 1:
+            raise ValueError("Unified XDMF currently requires one VTK cell type.")
+        primary_shape = tuple(getattr(primary, "ufl_shape", ()))
+        if len(primary_shape) > 1:
+            raise NotImplementedError(
+                "Unified XDMF primary fields support scalar or vector fields."
+            )
+        vector_primary = len(primary_shape) == 1
+        primary_name = (
+            "U" if vector_primary else str(getattr(primary, "name", "Primary"))
+        )
+        topology_type = _xdmf_topology_type(
+            domain.topology.cell_type.name,
+            nodes_per_cell,
+        )
+        effective_scale = self.deformation_scale if vector_primary else 0.0
+
+        self._connectivity = connectivity
+        self._reference_coordinates = coordinates
+        self._topology_type = topology_type
+        self._nodes_per_cell = nodes_per_cell
+        self._cell_count = len(cell_types)
+        self._point_count = coordinates.shape[0]
+        self._primary_shape = primary_shape
+        self._primary_name = primary_name
+        self._vector_primary = vector_primary
+        self._effective_scale = effective_scale
+        self._h5_options = {
+            "compression": "gzip",
+            "compression_opts": self.compression,
+            "shuffle": True,
+        }
+
+        self._root = ET.Element("Xdmf", Version="3.0")
+        xml_domain = ET.SubElement(self._root, "Domain")
+        self._temporal = ET.SubElement(
+            xml_domain,
+            "Grid",
+            Name="Results",
+            GridType="Collection",
+            CollectionType="Temporal",
+        )
+        self._h5 = h5py.File(self.h5_path, "w")
+        self._h5.attrs["agentfem_schema"] = "agentfem.unified-xdmf"
+        self._h5.attrs["schema_version"] = "0.1.0"
+        self._h5.attrs["deformation_scale"] = effective_scale
+        self._h5.attrs["vtk_cell_type"] = int(unique_cell_types[0])
+        self._h5.attrs["xdmf_topology_type"] = topology_type
+        self._h5.attrs["nodes_per_cell"] = nodes_per_cell
+        self._h5.attrs["point_count"] = self._point_count
+        self._h5.attrs["cell_count"] = self._cell_count
+        self._h5.attrs["primary_field"] = primary_name
+        self._h5.attrs["geometry_mode"] = (
+            "deformed" if effective_scale != 0.0 else "reference"
+        )
+        mesh_group = self._h5.create_group("Mesh")
+        mesh_group.create_dataset(
+            "Topology", data=connectivity, **self._h5_options
+        )
+        if self.store_reference_geometry:
+            mesh_group.create_dataset(
+                "ReferenceGeometry", data=coordinates, **self._h5_options
+            )
+
+    def write_fields(self, time: float, *fields) -> None:
+        """Append one time value with one primary and any auxiliary fields."""
+
+        if not fields:
+            raise ValueError("UnifiedXDMFTimeSeries requires at least one field.")
+        primary, *auxiliary = fields
+        if self._h5 is None:
+            self._initialize(primary)
+        if tuple(getattr(primary, "ufl_shape", ())) != self._primary_shape:
+            raise ValueError("Unified XDMF primary-field shape changed between frames.")
+
+        value_size = (
+            int(np.prod(self._primary_shape)) if self._primary_shape else 1
+        )
+        primary_values = np.asarray(primary.x.array).reshape(-1, value_size)
+        if primary_values.shape[0] != self._point_count:
+            raise ValueError("Unified XDMF primary-field dofs must match mesh points.")
+        displacement = np.zeros_like(self._reference_coordinates)
+        if self._vector_primary:
+            displacement[:, : int(self._primary_shape[0])] = primary_values
+        geometry = (
+            self._reference_coordinates + self._effective_scale * displacement
+        )
+
+        frame_name = f"{self._frame_count:04d}"
+        frame_group = self._h5.create_group(f"Frames/{frame_name}")
+        frame_group.attrs["load_factor"] = float(time)
+        frame_group.attrs["coordinate"] = float(time)
+        frame_group.create_dataset(
+            "Geometry", data=geometry, **self._h5_options
+        )
+        point_group = frame_group.create_group("Point")
+        cell_group = frame_group.create_group("Cell")
+        stored_primary = (
+            primary_values if self._vector_primary else primary_values[:, 0]
+        )
+        point_group.create_dataset(
+            self._primary_name, data=stored_primary, **self._h5_options
+        )
+        attributes = [(self._primary_name, "Node", stored_primary)]
+        if self._vector_primary:
+            magnitude = np.linalg.norm(primary_values, axis=1)
+            point_group.create_dataset("UMAG", data=magnitude, **self._h5_options)
+            attributes.append(("UMAG", "Node", magnitude))
+
+        for field in auxiliary:
+            name = str(getattr(field, "name", "Field"))
+            if name in {self._primary_name, "UMAG"}:
+                continue
+            center, shaped = _unified_field_values(
+                field,
+                solution_space=primary.function_space,
+                point_count=self._point_count,
+                cell_count=self._cell_count,
+            )
+            group = point_group if center == "Node" else cell_group
+            group.create_dataset(name, data=shaped, **self._h5_options)
+            attributes.append((name, center, shaped))
+
+        contract = tuple(
+            (name, center, tuple(np.asarray(values).shape[1:]))
+            for name, center, values in attributes
+        )
+        if self._field_contract is None:
+            self._field_contract = contract
+        elif contract != self._field_contract:
+            raise ValueError(
+                "Unified XDMF field names, locations, or shapes changed "
+                "between frames."
+            )
+
+        grid = ET.SubElement(
+            self._temporal,
+            "Grid",
+            Name=f"Frame_{frame_name}",
+            GridType="Uniform",
+        )
+        ET.SubElement(grid, "Time", Value=f"{float(time):.16g}")
+        topology_xml = ET.SubElement(
+            grid,
+            "Topology",
+            TopologyType=self._topology_type,
+            NumberOfElements=str(self._cell_count),
+            NodesPerElement=str(self._nodes_per_cell),
+        )
+        _data_item(
+            topology_xml,
+            dimensions=self._connectivity.shape,
+            number_type="Int",
+            value=f"{self.h5_path.name}:/Mesh/Topology",
+        )
+        geometry_xml = ET.SubElement(grid, "Geometry", GeometryType="XYZ")
+        _data_item(
+            geometry_xml,
+            dimensions=geometry.shape,
+            value=f"{self.h5_path.name}:/Frames/{frame_name}/Geometry",
+        )
+        for name, center, values in attributes:
+            group_name = "Point" if center == "Node" else "Cell"
+            _attribute(
+                grid,
+                name,
+                center,
+                values,
+                f"{self.h5_path.name}:/Frames/{frame_name}/{group_name}/{name}",
+            )
+        self._frame_count += 1
+
+
 def write_unified_xdmf_series(
     xdmf_path,
     snapshots,
@@ -308,212 +549,24 @@ def write_unified_xdmf_series(
     """
 
     selected = tuple(snapshots)
-    # ``cell_fields`` is retained as the positional API name for compatibility;
-    # frames may now contain both point and cell fields.
     fields_by_frame = tuple(cell_fields)
     if not selected or len(selected) != len(fields_by_frame):
         raise ValueError(
             "Unified XDMF requires equal non-empty snapshot and field frames."
         )
-    solution0 = selected[0].solution
-    domain = solution0.function_space.mesh
-    if domain.comm.size != 1:
-        raise NotImplementedError(
-            "Unified compressed XDMF currently supports serial output. "
-            "Use the DOLFINx writer or add collective parallel HDF5 support."
-        )
     xdmf = Path(xdmf_path)
-    xdmf.parent.mkdir(parents=True, exist_ok=True)
-    h5_path = xdmf.with_suffix(".h5")
-    topology, cell_types, reference_coordinates = plot.vtk_mesh(
-        solution0.function_space
-    )
-    nodes_per_cell = int(topology[0])
-    connectivity = np.asarray(topology).reshape(-1, nodes_per_cell + 1)[:, 1:]
-    topology_type = _xdmf_topology_type(
-        domain.topology.cell_type.name,
-        nodes_per_cell,
-    )
-    cell_count = len(cell_types)
-    point_count = reference_coordinates.shape[0]
-    primary_shape = tuple(getattr(solution0, "ufl_shape", ()))
-    if len(primary_shape) > 1:
-        raise NotImplementedError(
-            "Unified XDMF primary fields currently support scalar or vector fields."
-        )
-    vector_primary = len(primary_shape) == 1
-    primary_name = (
-        "U" if vector_primary else str(getattr(solution0, "name", "Primary"))
-    )
-    effective_deformation_scale = (
-        float(deformation_scale) if vector_primary else 0.0
-    )
-    h5_options = {
-        "compression": "gzip",
-        "compression_opts": int(compression),
-        "shuffle": True,
-    }
-
-    root = ET.Element("Xdmf", Version="3.0")
-    xml_domain = ET.SubElement(root, "Domain")
-    temporal = ET.SubElement(
-        xml_domain,
-        "Grid",
-        Name="Results",
-        GridType="Collection",
-        CollectionType="Temporal",
-    )
-    with h5py.File(h5_path, "w") as h5:
-        h5.attrs["agentfem_schema"] = "agentfem.unified-xdmf"
-        h5.attrs["schema_version"] = "0.1.0"
-        h5.attrs["deformation_scale"] = effective_deformation_scale
-        unique_cell_types = np.unique(cell_types)
-        if unique_cell_types.size != 1:
-            raise ValueError("Unified XDMF currently requires one VTK cell type.")
-        h5.attrs["vtk_cell_type"] = int(unique_cell_types[0])
-        h5.attrs["xdmf_topology_type"] = topology_type
-        h5.attrs["nodes_per_cell"] = nodes_per_cell
-        h5.attrs["point_count"] = point_count
-        h5.attrs["cell_count"] = cell_count
-        h5.attrs["primary_field"] = primary_name
-        h5.attrs["geometry_mode"] = (
-            "deformed" if effective_deformation_scale != 0.0 else "reference"
-        )
-        mesh_group = h5.create_group("Mesh")
-        mesh_group.create_dataset(
-            "Topology",
-            data=connectivity,
-            **h5_options,
-        )
-        if store_reference_geometry:
-            mesh_group.create_dataset(
-                "ReferenceGeometry",
-                data=reference_coordinates,
-                **h5_options,
+    with UnifiedXDMFTimeSeries(
+        xdmf,
+        deformation_scale=deformation_scale,
+        store_reference_geometry=store_reference_geometry,
+        compression=compression,
+    ) as writer:
+        for snapshot, fields in zip(selected, fields_by_frame):
+            writer.write_fields(
+                float(snapshot.load_factor),
+                snapshot.solution,
+                *tuple(fields),
             )
-        for index, (snapshot, fields) in enumerate(
-            zip(selected, fields_by_frame)
-        ):
-            frame_name = f"{index:04d}"
-            frame_group = h5.create_group(f"Frames/{frame_name}")
-            frame_group.attrs["load_factor"] = float(snapshot.load_factor)
-            solution = snapshot.solution
-            current_shape = tuple(getattr(solution, "ufl_shape", ()))
-            if current_shape != primary_shape:
-                raise ValueError("Unified XDMF primary-field shape changed between frames.")
-            value_size = int(np.prod(current_shape)) if current_shape else 1
-            primary_values = np.asarray(solution.x.array).reshape(-1, value_size)
-            if primary_values.shape[0] != point_count:
-                raise ValueError(
-                    "Unified XDMF primary-field dofs must match mesh points."
-                )
-            displacement = np.zeros_like(reference_coordinates)
-            if vector_primary:
-                value_dimension = int(primary_shape[0])
-                displacement[:, :value_dimension] = primary_values
-            geometry = (
-                reference_coordinates
-                + effective_deformation_scale * displacement
-            )
-            frame_group.create_dataset("Geometry", data=geometry, **h5_options)
-            point_group = frame_group.create_group("Point")
-            point_group.create_dataset(
-                primary_name,
-                data=(primary_values if vector_primary else primary_values[:, 0]),
-                **h5_options,
-            )
-            if vector_primary:
-                point_group.create_dataset(
-                    "UMAG",
-                    data=np.linalg.norm(primary_values, axis=1),
-                    **h5_options,
-                )
-            cell_group = frame_group.create_group("Cell")
-            shaped_point_fields = []
-            shaped_cell_fields = []
-            for field in fields:
-                name = str(getattr(field, "name", "Field"))
-                if name in {primary_name, "UMAG"}:
-                    continue
-                center, shaped = _unified_field_values(
-                    field,
-                    solution_space=solution.function_space,
-                    point_count=point_count,
-                    cell_count=cell_count,
-                )
-                group = point_group if center == "Node" else cell_group
-                group.create_dataset(name, data=shaped, **h5_options)
-                selected = shaped_point_fields if center == "Node" else shaped_cell_fields
-                selected.append((name, shaped))
-
-            grid = ET.SubElement(
-                temporal,
-                "Grid",
-                Name=f"Frame_{frame_name}",
-                GridType="Uniform",
-            )
-            ET.SubElement(grid, "Time", Value=f"{snapshot.load_factor:.16g}")
-            topology_xml = ET.SubElement(
-                grid,
-                "Topology",
-                TopologyType=topology_type,
-                NumberOfElements=str(cell_count),
-                NodesPerElement=str(nodes_per_cell),
-            )
-            _data_item(
-                topology_xml,
-                dimensions=connectivity.shape,
-                number_type="Int",
-                value=f"{h5_path.name}:/Mesh/Topology",
-            )
-            geometry_xml = ET.SubElement(
-                grid,
-                "Geometry",
-                GeometryType="XYZ",
-            )
-            _data_item(
-                geometry_xml,
-                dimensions=geometry.shape,
-                value=f"{h5_path.name}:/Frames/{frame_name}/Geometry",
-            )
-            stored_primary = (
-                primary_values if vector_primary else primary_values[:, 0]
-            )
-            _attribute(
-                grid,
-                primary_name,
-                "Node",
-                stored_primary,
-                f"{h5_path.name}:/Frames/{frame_name}/Point/{primary_name}",
-            )
-            if vector_primary:
-                magnitude = np.linalg.norm(primary_values, axis=1)
-                _attribute(
-                    grid,
-                    "UMAG",
-                    "Node",
-                    magnitude,
-                    f"{h5_path.name}:/Frames/{frame_name}/Point/UMAG",
-                )
-            for field_name, shaped in shaped_point_fields:
-                _attribute(
-                    grid,
-                    field_name,
-                    "Node",
-                    shaped,
-                    f"{h5_path.name}:/Frames/{frame_name}/Point/{field_name}",
-                )
-            for field_name, shaped in shaped_cell_fields:
-                _attribute(
-                    grid,
-                    field_name,
-                    "Cell",
-                    shaped,
-                    f"{h5_path.name}:/Frames/{frame_name}/Cell/{field_name}",
-                )
-    tree = ET.ElementTree(root)
-    ET.indent(tree, space="  ")
-    tree.write(xdmf, encoding="utf-8", xml_declaration=True)
     return xdmf
 
 
@@ -584,6 +637,7 @@ def write_result_fields(
         )
         layout = "single_uniform_grid"
         backend = "agentfem_unified_xdmf"
+        paraview = None
     else:
         from .. import io
 
@@ -604,12 +658,16 @@ def write_result_fields(
             output_fields.append(function)
         with io.XDMFTimeSeries(selected_path, domain) as writer:
             writer.write_fields(float(time), *output_fields)
-        layout = "dolfinx_multigrid"
-        backend = "dolfinx_xdmf_collective"
+        paraview = selected_path.with_suffix(".pvd")
+        with io.ParaViewTimeSeries(paraview, domain) as writer:
+            writer.write_fields(float(time), *output_fields)
+        layout = "scientific_xdmf_plus_single_paraview_dataset"
+        backend = "dolfinx_collective_xdmf_and_vtk"
     hdf5 = selected_path.with_suffix(".h5")
     return ResultFieldArtifacts(
         xdmf=selected_path,
         hdf5=hdf5 if hdf5.exists() else None,
+        paraview=paraview,
         backend=backend,
         layout=layout,
         geometry=("deformed" if float(deformation_scale) != 0.0 else "reference"),
@@ -651,6 +709,8 @@ def attach_result_field_output(
         result.add_artifact("fields_xdmf", artifacts.xdmf)
         if artifacts.hdf5 is not None:
             result.add_artifact("fields_hdf5", artifacts.hdf5)
+        if artifacts.paraview is not None:
+            result.add_artifact("fields_paraview", artifacts.paraview)
     except Exception as exc:
         result.status = "completed_with_output_errors"
         result.metadata["field_output"] = {

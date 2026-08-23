@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
+
 import numpy as np
 import pytest
 from mpi4py import MPI
@@ -335,6 +337,16 @@ def test_transient_heat_transfer_consumes_convection_boundary(tmp_path):
     assert float(convection.ambient_temperature.value) == 320.0
     assert simulation.artifacts["fields_xdmf"].is_file()
     assert simulation.artifacts["fields_hdf5"].is_file()
+    frames = ET.parse(simulation.artifacts["fields_xdmf"]).findall(
+        ".//Grid[@GridType='Uniform']"
+    )
+    assert len(frames) == 2
+    assert all(
+        {attribute.attrib["Name"] for attribute in frame.findall("Attribute")}
+        == {"Temperature"}
+        for frame in frames
+    )
+    assert simulation.metadata["field_output"]["layout"] == "single_uniform_grid"
     assert simulation.metadata["case_role"] == "transient_contract_test"
     assert simulation.metadata["execution_context"]["model"] == "cooling"
     policies = simulation.metadata["execution_context"]["policies"]

@@ -201,7 +201,7 @@ def test_parallel_paraview_series_has_one_dataset_with_point_and_cell_fields(tmp
         assert tree.find(".//PCellData/PDataArray[@Name='MISES']") is not None
 
 
-def test_named_boundary_reaction_and_static_result_are_distributed():
+def test_named_boundary_reaction_and_static_result_are_distributed(tmp_path):
     if MPI.COMM_WORLD.size < 2:
         pytest.skip("distributed reaction extraction requires at least two MPI ranks")
 
@@ -250,7 +250,9 @@ def test_named_boundary_reaction_and_static_result_are_distributed():
     assert boundary_evidence["bottom"]["measure"] == pytest.approx(1.0)
 
     step = model.step(target=displacement)
-    simulation = step.solve_result()
+    root = str(tmp_path) if MPI.COMM_WORLD.rank == 0 else None
+    root = MPI.COMM_WORLD.bcast(root, root=0)
+    simulation = step.solve_result(output=Path(root) / "static_result.xdmf")
 
     assert results.reaction_resultant(
         step.problem,
@@ -270,3 +272,12 @@ def test_named_boundary_reaction_and_static_result_are_distributed():
     assert simulation.quantities["relative_force_balance_error"].value < 1.0e-10
     assert {"S", "E", "MISES"} <= set(simulation.fields)
     assert "SENER" not in simulation.fields
+    assert simulation.artifacts["fields_paraview"].is_file()
+    assert simulation.metadata["field_output"]["layout"] == (
+        "scientific_xdmf_plus_single_paraview_dataset"
+    )
+    if MPI.COMM_WORLD.rank == 0:
+        datasets_xml = ET.parse(
+            simulation.artifacts["fields_paraview"]
+        ).findall(".//DataSet")
+        assert len(datasets_xml) == 1

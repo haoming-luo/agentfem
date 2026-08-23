@@ -839,6 +839,42 @@ def _write_two_frame_unified_xdmf(tmp_path):
     return xdmf
 
 
+def test_incremental_unified_writer_keeps_all_fields_on_each_time_grid(tmp_path):
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    V = fem.functionspace(domain, ("Lagrange", 1, (2,)))
+    Q = fem.functionspace(domain, ("DG", 0))
+    displacement = fem.Function(V, name="Displacement")
+    velocity = fem.Function(V, name="Velocity")
+    stress = fem.Function(Q, name="MISES")
+    output = tmp_path / "incremental.xdmf"
+
+    with results.UnifiedXDMFTimeSeries(output) as writer:
+        writer.write_fields(0.0, displacement, velocity, stress)
+        displacement.x.array[:] = 0.1
+        velocity.x.array[:] = 0.2
+        stress.x.array[:] = 10.0
+        writer.write_fields(1.0, displacement, velocity, stress)
+
+    frames = ET.parse(output).findall(".//Grid[@GridType='Uniform']")
+    assert len(frames) == 2
+    for frame in frames:
+        assert {
+            item.attrib["Name"]: item.attrib["Center"]
+            for item in frame.findall("Attribute")
+        } == {
+            "U": "Node",
+            "UMAG": "Node",
+            "Velocity": "Node",
+            "MISES": "Cell",
+        }
+
+
 def test_unified_xdmf_keeps_deformed_time_series_and_fields_in_one_h5(tmp_path):
     xdmf = _write_two_frame_unified_xdmf(tmp_path)
 

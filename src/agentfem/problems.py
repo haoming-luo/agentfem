@@ -1144,6 +1144,8 @@ class ExplicitDynamicsStep:
     last_output: Path | None = field(default=None, init=False)
     last_output_fields: tuple[object, ...] = field(default=(), init=False)
     last_output_start_time: float | None = field(default=None, init=False)
+    last_output_backend: str | None = field(default=None, init=False)
+    last_output_layout: str | None = field(default=None, init=False)
     completed_steps: int = field(default=0, init=False)
     history_records: list[dict[str, float]] = field(default_factory=list, init=False)
     checkpoints: list[object] = field(default_factory=list, init=False)
@@ -1275,7 +1277,14 @@ class ExplicitDynamicsStep:
 
         if domain is None:
             domain = self.state.u.function_space.mesh
-        with io.XDMFTimeSeries(self.last_output, domain) as xdmf:
+        series, actual_output, backend, layout = _transient_result_series(
+            self.last_output,
+            domain,
+        )
+        self.last_output = actual_output
+        self.last_output_backend = backend
+        self.last_output_layout = layout
+        with series as xdmf:
             _refresh_transient_output_fields(live_field_sets)
             xdmf.write_fields(self.completed_steps * self.dt, *output_fields)
             for info in stepper:
@@ -1441,6 +1450,8 @@ class ImplicitDynamicsStep:
     last_output: Path | None = field(default=None, init=False)
     last_output_fields: tuple[object, ...] = field(default=(), init=False)
     last_output_start_time: float | None = field(default=None, init=False)
+    last_output_backend: str | None = field(default=None, init=False)
+    last_output_layout: str | None = field(default=None, init=False)
     completed_steps: int = field(default=0, init=False)
     history_records: list[dict[str, float]] = field(default_factory=list, init=False)
     checkpoints: list[object] = field(default_factory=list, init=False)
@@ -1508,7 +1519,14 @@ class ImplicitDynamicsStep:
             _emit_transient_completed(reporter, self)
             return self
         domain = self.state.u.function_space.mesh
-        with io.XDMFTimeSeries(self.last_output, domain) as xdmf:
+        series, actual_output, backend, layout = _transient_result_series(
+            self.last_output,
+            domain,
+        )
+        self.last_output = actual_output
+        self.last_output_backend = backend
+        self.last_output_layout = layout
+        with series as xdmf:
             xdmf.write_fields(self.completed_steps * self.dt, *output_fields)
             for info in stepper:
                 self._advance_one(info.time)
@@ -1678,6 +1696,8 @@ class FirstOrderTransientStep:
     last_output: Path | None = field(default=None, init=False)
     last_output_fields: tuple[object, ...] = field(default=(), init=False)
     last_output_start_time: float | None = field(default=None, init=False)
+    last_output_backend: str | None = field(default=None, init=False)
+    last_output_layout: str | None = field(default=None, init=False)
     completed_steps: int = field(default=0, init=False)
     history_records: list[dict[str, float]] = field(default_factory=list, init=False)
     checkpoints: list[object] = field(default_factory=list, init=False)
@@ -1794,7 +1814,14 @@ class FirstOrderTransientStep:
             _emit_transient_completed(reporter, self)
             return self
         domain = self.current.function_space.mesh
-        with io.XDMFTimeSeries(self.last_output, domain) as xdmf:
+        series, actual_output, backend, layout = _transient_result_series(
+            self.last_output,
+            domain,
+        )
+        self.last_output = actual_output
+        self.last_output_backend = backend
+        self.last_output_layout = layout
+        with series as xdmf:
             xdmf.write_fields(self.completed_steps * self.dt, *selected_fields)
             for info in stepper:
                 advance(info)
@@ -1946,7 +1973,7 @@ def _solve_transient_result(
 
 
 def _attach_transient_output(result, step, output_fields) -> None:
-    """Attach the accepted time axis and one logical XDMF/HDF5 dataset."""
+    """Attach the accepted time axis and one single-geometry field dataset."""
 
     result.metadata["accepted_times"] = tuple(float(item) for item in step.accepted_times)
     output_start = step.last_output_start_time
@@ -2002,10 +2029,26 @@ def _attach_transient_output(result, step, output_fields) -> None:
     path = step.last_output
     if path is None:
         return
-    result.add_artifact("fields_xdmf", path)
-    heavy_data = path.with_suffix(".h5")
-    if heavy_data.is_file():
-        result.add_artifact("fields_hdf5", heavy_data)
+    result.metadata["field_output"] = {
+        "status": "completed",
+        "backend": getattr(step, "last_output_backend", None),
+        "layout": getattr(step, "last_output_layout", None),
+        "geometry": "reference",
+        "warp_field": (
+            "U"
+            if output_fields
+            and len(tuple(getattr(_unwrap_result_field(output_fields[0]), "ufl_shape", ())))
+            == 1
+            else None
+        ),
+    }
+    if path.suffix.lower() == ".pvd":
+        result.add_artifact("fields_paraview", path)
+    else:
+        result.add_artifact("fields_xdmf", path)
+        heavy_data = path.with_suffix(".h5")
+        if heavy_data.is_file():
+            result.add_artifact("fields_hdf5", heavy_data)
     for item in output_fields:
         function = getattr(item, "value", item)
         name = getattr(function, "name", type(function).__name__)
@@ -2014,7 +2057,7 @@ def _attach_transient_output(result, step, output_fields) -> None:
             function,
             artifact=path,
             description=(
-                "Transient field in the shared XDMF/HDF5 series; "
+                "Transient field in the shared single-geometry series; "
                 f"this output segment starts at time {output_start:g}."
             ),
         )
@@ -3298,6 +3341,37 @@ def _transient_output_fields(selected):
     if not output:
         raise ValueError("Transient output requires at least one field.")
     return tuple(output), tuple(live)
+
+
+def _transient_result_series(path, domain):
+    """Choose one ParaView-readable dataset layout for transient output."""
+
+    selected = Path(path)
+    if selected.suffix.lower() == ".pvd" or domain.comm.size > 1:
+        from . import io
+
+        actual = (
+            selected
+            if selected.suffix.lower() == ".pvd"
+            else selected.with_suffix(".pvd")
+        )
+        return (
+            io.ParaViewTimeSeries(actual, domain),
+            actual,
+            "dolfinx_vtk_collective",
+            "single_unstructured_grid_per_time",
+        )
+
+    from .results.output import UnifiedXDMFTimeSeries
+
+    if selected.suffix.lower() != ".xdmf":
+        raise ValueError("Transient field output must use an .xdmf or .pvd path.")
+    return (
+        UnifiedXDMFTimeSeries(selected, deformation_scale=0.0),
+        selected,
+        "agentfem_unified_xdmf",
+        "single_uniform_grid",
+    )
 
 
 def _refresh_transient_output_fields(live_field_sets) -> None:

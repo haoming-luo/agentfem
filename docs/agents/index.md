@@ -13,6 +13,7 @@ status and scientific evidence.
 | `/agentfem.json` | Versioned documentation and command manifest |
 | `src/agentfem/knowledge/catalog.json` | Scientific cards, formulas, evidence, consumers, and maturity |
 | `agentfem doctor --json` | Environment capability check |
+| `agentfem capabilities --json` | Public API, providers, maturity, and benchmark evidence |
 | `agentfem check --json` | Static project and upgrade check |
 | `agentfem run --json` | Addressable execution result |
 | `agentfem inspect --json` | Result and artifact discovery |
@@ -35,3 +36,4 @@ benchmark evidence, and any explicit failure record.
 - [Scientific trust and verification](../scientific_verification.md)
 - [Project upgrades](../project_upgrades.md)
 - [AgentFEM skill](skill.md)
+- [Agent acceptance contract](acceptance.md)

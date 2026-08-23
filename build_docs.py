@@ -316,6 +316,8 @@ def render_api_reference() -> str:
         "---",
         "title: Python API",
         "description: Automatically generated public AgentFEM Python API index.",
+        "hide:",
+        "  - toc",
         "---",
         "",
         "# Python API",

@@ -61,6 +61,7 @@ def test_mesh_namespace_keeps_external_gmsh_import_lazy():
 
 def test_runtime_report_is_serializable_and_names_optional_integrations():
     report = platforms.runtime_report().summary()
+    assert report["schema"] == "agentfem.runtime-report"
 
     assert report["python"]
     assert report["platform"]["level"]

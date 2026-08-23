@@ -1,6 +1,8 @@
 ---
 title: Python API
 description: Automatically generated public AgentFEM Python API index.
+hide:
+  - toc
 ---
 
 # Python API
@@ -427,6 +429,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `FieldOutput` | What fields to save, how often, and in which configuration. |
 | class | `FieldOutputArtifacts` | Files and final live fields produced by one output plan. |
 | class | `ResultFieldArtifacts` | One completed-result field dataset and its explicit layout contract. |
+| class | `UnifiedXDMFTimeSeries(path, *, deformation_scale: float = 0.0, store_reference_geometry: bool = True, compression: int = 4) -> None` | Incremental single-grid XDMF/HDF5 writer for serial result histories. |
 | function | `field_output(*variables, every: int \| str \| None = None, intervals: int \| None = None, configuration: str = 'deformed', deformation_scale: float = 1.0, backend: str = 'xdmf') -> FieldOutput` | Create a concise, inspectable field-output request. |
 | function | `read_unified_xdmf_series(xdmf_path) -> tuple[object, ...]` | Read AgentFEM's compact XDMF/HDF5 frames as PyVista grids. |
 | function | `write_deformed_vtk_series(pvd_path, snapshots, cell_fields, *, deformation_scale: float = 1.0) -> tuple[Path, tuple[Path, ...]]` | Write one deformed VTU grid per frame and a ParaView PVD collection. |
@@ -978,6 +981,9 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `BenchmarkSpec` | One verification obligation and its executable evidence. |
 | function | `benchmark(identifier: str) -> BenchmarkSpec` | Return one benchmark by stable identifier. |
 | function | `list_benchmarks(*, capability: str \| None = None) -> tuple[BenchmarkSpec, ...]` | Return all benchmarks or those for one capability. |
+| class | `CapabilityEvidence` | Evidence supporting one declared constitutive maturity boundary. |
+| function | `audit_capability_evidence() -> tuple[CapabilityEvidence, ...]` | Return a stable, machine-readable audit for the whole catalog. |
+| function | `capability_evidence(capability: ConstitutiveCapability, *, benchmarks: tuple[BenchmarkSpec, ...] \| None = None) -> CapabilityEvidence` | Audit one catalog capability against the benchmark registry. |
 | class | `GoldenBenchmark` | A named collection of numerical observables from a benchmark card. |
 | class | `GoldenQuantity` | One expected physical observable with explicit numerical tolerances. |
 | function | `golden_benchmark(identifier: str) -> GoldenBenchmark` | Load a numerical contract by stable benchmark-card identifier. |

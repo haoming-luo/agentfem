@@ -74,13 +74,13 @@ recommended ParaView product for a multi-field serial analysis. Existing
 files can be inspected with **Extract Block**, followed by **Append
 Attributes**, then **Warp By Vector**.
 
-Under MPI, AgentFEM continues to prefer DOLFINx's collective XDMF/HDF5 path
-over gathering a large distributed mesh to rank zero. That path can still
-appear as multiple blocks in ParaView. A future collective single-grid writer
-must preserve mixed point/cell fields and high-order geometry. VTX/BP remains
-a candidate for high-order visualization, but one VTX writer requires its
-Functions to share an element type, so it is not by itself a complete answer
-for mixed P2 displacement and DG0 stress.
+Under MPI, AgentFEM keeps DOLFINx's collective XDMF/HDF5 scientific path rather
+than gathering a large distributed mesh to rank zero. The result lifecycle now
+also writes and registers a collective PVD/PVTU presentation artifact. Each
+time value has one distributed geometry carrying mixed point and cell fields,
+so the user-facing ParaView path no longer depends on multi-block extraction.
+VTX/BP remains a future option for selected high-order workflows, but it is not
+used to hide incompatible element-location semantics.
 
 Checkpoint/state output and visualization output are separate contracts:
 checkpoints preserve continuation state and identity; visualization products

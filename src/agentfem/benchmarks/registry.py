@@ -21,6 +21,7 @@ class BenchmarkSpec:
     criterion: str
     automated_test: str
     status: str = "automated"
+    evidence: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, str]:
         return {
@@ -31,6 +32,7 @@ class BenchmarkSpec:
             "criterion": self.criterion,
             "automated_test": self.automated_test,
             "status": self.status,
+            "evidence": self.evidence,
         }
 
 
@@ -461,8 +463,20 @@ _BENCHMARKS = (
             "bulk/interface/cycle state, named 3D interfaces share one solver "
             "mesh, and the facet consumer degrades force with nonnegative dissipation"
         ),
-        automated_test="tests/test_fatigue_fracture.py",
+        automated_test=(
+            "tests/test_fatigue_fracture.py; "
+            "tests/test_global_cohesive_residual.py; "
+            "tests/test_parallel_cohesive.py -k mixed_mode; "
+            "tests/portable_mixed_cyclic_cohesive_driver.py"
+        ),
         status="experimental_foundation",
+        evidence=(
+            "material_point",
+            "finite_element",
+            "failure_behavior",
+            "mpi",
+            "restart",
+        ),
     ),
     BenchmarkSpec(
         identifier="external_mesh_named_sets",
@@ -498,6 +512,60 @@ _BENCHMARKS = (
             "--displacement 0.20"
         ),
         status="manual_regression",
+    ),
+    BenchmarkSpec(
+        identifier="modified_theta_curve_projection",
+        capability="modified_theta_projection",
+        level="curve_projection",
+        reference="Evans, Wilshire and related theta-projection creep-curve formulations",
+        criterion=(
+            "a nonnegative modified-theta fit recovers a synthetic creep curve, "
+            "its rate, and time-to-strain assessment"
+        ),
+        automated_test=(
+            "tests/test_constitutive_models.py::"
+            "test_modified_theta_projection_recovers_synthetic_creep_curve"
+        ),
+        evidence=("curve_projection", "failure_behavior"),
+    ),
+    BenchmarkSpec(
+        identifier="mixed_mode_cohesive_foundation",
+        capability="mixed_mode_cohesive_interface",
+        level="material_point_and_global_facet",
+        reference=(
+            "docs/dynamic_cohesive_fracture_architecture.md#mixed-mode-interface"
+        ),
+        criterion=(
+            "pure-mode fracture energies, BK/power interaction, analytical "
+            "tangent, compression, restart, rigid-mode preflight, and serial/MPI "
+            "facet assembly remain consistent"
+        ),
+        automated_test=(
+            "tests/test_interfaces.py -k mixed_mode; "
+            "tests/test_global_cohesive_residual.py -k mixed_mode; "
+            "tests/test_parallel_cohesive.py -k mixed_mode"
+        ),
+        status="experimental_automated_foundation",
+        evidence=(
+            "material_point",
+            "finite_element",
+            "failure_behavior",
+            "mpi",
+            "restart",
+        ),
+    ),
+    BenchmarkSpec(
+        identifier="abaqus_user_material_bridge_contract",
+        capability="abaqus_user_material_bridge",
+        level="interface",
+        reference="docs/abaqus_user_material_bridge.md",
+        criterion=(
+            "UMAT/UHYPER metadata, tensor conventions, state layout, and the "
+            "non-executable migration boundary are explicit and validated"
+        ),
+        automated_test="tests/test_user_material.py",
+        status="interface_contract",
+        evidence=("interface", "failure_behavior"),
     ),
 )
 

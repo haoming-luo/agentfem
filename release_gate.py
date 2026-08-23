@@ -279,7 +279,7 @@ def _forbidden_distribution_members(members) -> list[str]:
     )
 
 
-def run_smoke(*, wheel: Path | None = None) -> None:
+def run_smoke(*, wheel: Path | None = None) -> dict[str, object]:
     """Exercise an installed distribution and reject same-version stale code."""
 
     with _smoke_environment(wheel) as environment:
@@ -288,6 +288,7 @@ def run_smoke(*, wheel: Path | None = None) -> None:
         environment["AGENTFEM_INSTALLED_SMOKE"] = "1"
         environment["AGENTFEM_CAMPAIGN_SAMPLES"] = "4"
         environment["AGENTFEM_CAMPAIGN_RUN_ID"] = "release-smoke"
+        acceptance = run_agent_entrypoint_smoke(environment=environment)
         with tempfile.TemporaryDirectory(prefix="agentfem-release-output-") as directory:
             for example, arguments in SMOKE_COMMANDS:
                 selected = tuple(
@@ -299,7 +300,73 @@ def run_smoke(*, wheel: Path | None = None) -> None:
                     check=True,
                     env=environment,
                 )
-            run_installed_project_smoke(environment=environment)
+            acceptance["templates"] = run_installed_project_smoke(
+                environment=environment
+            )
+        print(json.dumps(acceptance, indent=2, sort_keys=True))
+        return acceptance
+
+
+def _installed_cli_json(arguments, *, environment, cwd) -> dict:
+    completed = subprocess.run(
+        [sys.executable, "-m", "agentfem.cli", *arguments, "--json"],
+        cwd=cwd,
+        check=True,
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+    return json.loads(completed.stdout)
+
+
+def run_agent_entrypoint_smoke(*, environment=None) -> dict[str, object]:
+    """Verify the discovery surface an unfamiliar agent sees first."""
+
+    with tempfile.TemporaryDirectory(prefix="agentfem-agent-entrypoint-") as directory:
+        doctor = _installed_cli_json(
+            ("doctor",), environment=environment, cwd=directory
+        )
+        capabilities = _installed_cli_json(
+            ("capabilities",), environment=environment, cwd=directory
+        )
+    if doctor.get("schema") != "agentfem.runtime-report":
+        raise RuntimeError("Installed `agentfem doctor` returned an unknown schema.")
+    if capabilities.get("schema") != "agentfem.capabilities":
+        raise RuntimeError(
+            "Installed `agentfem capabilities` returned an unknown schema."
+        )
+    evidence = capabilities.get("constitutive_evidence")
+    if not isinstance(evidence, list) or not evidence:
+        raise RuntimeError("Installed capabilities omit constitutive evidence.")
+    unsupported = [
+        item["capability"]
+        for item in evidence
+        if not item.get("meets_declared_maturity", False)
+    ]
+    if unsupported:
+        raise RuntimeError(
+            "Constitutive claims outrun registered evidence: "
+            f"{unsupported}."
+        )
+    return {
+        "schema": "agentfem.agent-acceptance",
+        "schema_version": "0.1.0",
+        "agentfem_version": capabilities["agentfem_version"],
+        "runtime": "passed",
+        "runtime_fingerprint": {
+            "platform": doctor["platform"],
+            "operating_system": doctor["operating_system"],
+            "machine": doctor["machine"],
+            "python": doctor["python"],
+            "packages": doctor["packages"],
+            "mpi": doctor["mpi"],
+            "numerics": doctor["numerics"],
+            "execution": doctor["execution"],
+        },
+        "capability_discovery": "passed",
+        "declared_maturity_evidence": "passed",
+        "templates": {},
+    }
 
 
 @contextmanager
@@ -397,9 +464,10 @@ def _sha256(path: Path) -> str:
     return sha256(path.read_bytes()).hexdigest()
 
 
-def run_installed_project_smoke(*, environment=None) -> None:
+def run_installed_project_smoke(*, environment=None) -> dict[str, object]:
     """Prove every installed template works without repository source paths."""
 
+    accepted = {}
     with tempfile.TemporaryDirectory(prefix="agentfem-installed-") as directory:
         for template in INSTALLED_PROJECT_TEMPLATES:
             selected_project = Path(directory) / template
@@ -527,6 +595,14 @@ def run_installed_project_smoke(*, environment=None) -> None:
                 raise RuntimeError(
                     f"Installed {template} result provenance did not verify."
                 )
+            accepted[template] = {
+                "project_check": "passed",
+                "upgrade": "current",
+                "run": "completed",
+                "inspect": "passed",
+                "provenance": "verified",
+            }
+    return accepted
 
 
 def main() -> None:
@@ -534,7 +610,14 @@ def main() -> None:
     parser.add_argument("--dist", type=Path)
     parser.add_argument("--tag")
     parser.add_argument("--smoke", action="store_true")
+    parser.add_argument(
+        "--report",
+        type=Path,
+        help="Write the installed-use acceptance record; requires --smoke.",
+    )
     options = parser.parse_args()
+    if options.report is not None and not options.smoke:
+        parser.error("--report requires --smoke")
     version = check_versions(tag=options.tag)
     check_dependency_boundaries()
     check_release_contract(tag=options.tag, source_root=ROOT)
@@ -542,7 +625,15 @@ def main() -> None:
     if options.dist is not None:
         wheel = check_distributions(options.dist)
     if options.smoke:
-        run_smoke(wheel=wheel)
+        acceptance = run_smoke(wheel=wheel)
+        if options.report is not None:
+            options.report.parent.mkdir(parents=True, exist_ok=True)
+            temporary = options.report.with_suffix(options.report.suffix + ".tmp")
+            temporary.write_text(
+                json.dumps(acceptance, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            temporary.replace(options.report)
     print(f"AgentFEM {version} release gate passed.")
 
 

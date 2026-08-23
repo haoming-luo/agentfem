@@ -139,7 +139,15 @@ jobs:
         run: AGENTFEM_CAMPAIGN_SAMPLES=4 AGENTFEM_CAMPAIGN_RUN_ID=ci-mpi mpirun -n 2 python examples/static_elasticity_surrogate_campaign.py
 
       - name: Run release demo smoke suite
-        run: python release_gate.py --dist dist --smoke
+        run: python release_gate.py --dist dist --smoke --report /tmp/agentfem-agent-acceptance.json
+
+      - name: Upload agent acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: agent-acceptance-evidence
+          path: /tmp/agentfem-agent-acceptance.json
+          if-no-files-found: warn
 
       - name: Upload tested distributions
         if: always()

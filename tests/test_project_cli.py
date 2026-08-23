@@ -152,6 +152,14 @@ def test_capability_command_is_json_serializable(capsys):
         *map(set, record["public_api"].values())
     )
     assert any(item["name"] == "linear_elasticity" for item in record["constitutive"])
+    evidence = {
+        item["capability"]: item
+        for item in record["constitutive_evidence"]
+    }
+    assert evidence["linear_elasticity"]["meets_declared_maturity"] is True
+    assert evidence["mixed_mode_cohesive_interface"]["maturity"].startswith(
+        "experimental_"
+    )
     linear = next(
         item
         for item in record["step_providers"]

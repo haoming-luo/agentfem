@@ -1,3 +1,8 @@
+---
+hide:
+  - toc
+---
+
 # Theory and conventions
 
 This page is the mathematical entry point for the public AgentFEM workflow. It
@@ -173,8 +178,8 @@ the reduced energy reported as Eq. (17) by Wang, Fineberg, and Needleman,
 c(I+J^{-2}-3)+(1-c)(J^2+IJ^{-2}-3)\right],
 \]
 
-where (I=\operatorname{tr}(\mathbf F\mathbf F^T)), (J=\det\mathbf F), and
-the out-of-plane stretch is (J^{-1}). The same energy supplies the first
+where \(I=\operatorname{tr}(\mathbf F\mathbf F^T)\), \(J=\det\mathbf F\), and
+the out-of-plane stretch is \(J^{-1}\). The same energy supplies the first
 Piola stress, material tangent, finite-strain Explicit residual, recoverable
 energy, and prestrained acoustic tensor. The cited paper uses this relation to
 characterize/convert the measured material response; its reported numerical
@@ -208,8 +213,8 @@ temperature through a normalized Arrhenius coefficient. Backward Euler solves
 q_{n+1}=q_{\mathrm{trial}}-3G\Delta\gamma.
 \]
 
-For the temperature-dependent route, (A) is evaluated at every creep
-quadrature point from the prescribed absolute temperature (T).
+For the temperature-dependent route, \(A\) is evaluated at every creep
+quadrature point from the prescribed absolute temperature \(T\).
 
 For both routes, quadrature state remains trial state during global Newton
 iterations. Stress, plastic/creep strain, equivalent inelastic strain, and the

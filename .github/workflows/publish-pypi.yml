@@ -77,7 +77,14 @@ jobs:
           python -m mkdocs build --strict
 
       - name: Verify the wheel identity and release workflows
-        run: python release_gate.py --dist dist --tag "${GITHUB_REF_NAME}" --smoke
+        run: python release_gate.py --dist dist --tag "${GITHUB_REF_NAME}" --smoke --report /tmp/agentfem-agent-acceptance.json
+
+      - name: Upload installed-use acceptance evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: agent-acceptance-evidence
+          path: /tmp/agentfem-agent-acceptance.json
+          if-no-files-found: error
 
       - name: Validate versioned scientific knowledge
         run: python build_knowledge.py --check --check-imports

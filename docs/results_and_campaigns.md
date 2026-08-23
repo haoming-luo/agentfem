@@ -160,10 +160,13 @@ point attribute attached. Finite-strain presentation output can instead store
 records the backend, layout, and geometry convention.
 
 The low-level `io.XDMFTimeSeries` mirrors DOLFINx and may expose one XDMF Grid
-per Function. Prefer `step.solve_result(output=...)` for a serial multi-field
-ParaView product. The collective MPI fallback remains DOLFINx XDMF/HDF5 and can
-appear as multiple blocks; use **Extract Block**, **Append Attributes**, and
-**Warp By Vector** when a combined presentation is required.
+per Function. It is an expert compatibility API, not the normal result path.
+Prefer `step.solve_result(output=...)`: serial static and transient analyses
+write the compact single-grid XDMF/HDF5 layout. Under MPI, AgentFEM retains the
+collective XDMF/HDF5 scientific record and also registers a
+`fields_paraview` PVD artifact whose time steps each contain one geometry with
+all point and cell fields. The normal ParaView workflow therefore does not
+require **Extract Block** or **Append Attributes**.
 
 XDMF is the small XML description and HDF5 is the compact numerical payload.
 Inlining millions of values into XML would produce a much larger and slower

@@ -213,15 +213,16 @@ records that those fields were omitted from ordinary visualization attributes
 and writes the explicitly recovered `*_CELL` fields instead. No hidden nodal
 extrapolation or smoothing is introduced by asking for `output=`.
 
-The directly deformed compact writer is serial. Under MPI, AgentFEM retains two
+The same single-grid XDMF/HDF5 layout is now used incrementally by serial heat,
+implicit-dynamics, and explicit-dynamics steps; transient output no longer
+creates one repeated Grid per Function. Under MPI, AgentFEM retains two
 explicit products. DOLFINx collective XDMF/HDF5 is the compact scientific
-route. `io.ParaViewTimeSeries` and
-`results.write_parallel_vtk_series(...)` are the presentation route: each
-saved time is one parallel unstructured-grid dataset carrying `U` as PointData
-and DG0 stress/strain/state as CellData. ParaView can apply one Warp By Vector
-filter without retaining duplicate unwarped Blocks. The PVD/PVTU/VTU family
-uses multiple piece files and reference geometry, so it does not replace the
-compact checkpoint/scientific store.
+route, while a registered `fields_paraview` PVD artifact is the presentation
+route. Each saved time is one parallel unstructured-grid dataset carrying
+continuous fields as PointData and DG0 fields as CellData. ParaView can apply
+one Warp By Vector filter without duplicate unwarped Blocks or manual
+**Extract Block**. PVD/PVTU/VTU uses multiple piece files and reference
+geometry, so it does not replace checkpoint or compact scientific storage.
 
 Arbitrary chained Abaqus `*EQUATION` constraints have a distributed
 `dolfinx_mpc` backend. It resolves the source equation graph before mapping

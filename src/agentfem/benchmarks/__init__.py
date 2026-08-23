@@ -1,6 +1,7 @@
 """Reusable verification obligations and benchmark metadata."""
 
 from .registry import BenchmarkSpec, benchmark, list_benchmarks
+from .evidence import CapabilityEvidence, audit_capability_evidence, capability_evidence
 from .golden import GoldenBenchmark, GoldenQuantity, golden_benchmark
 from .mixed_mode import (
     DelaminationBenchmarkAssessment,
@@ -41,6 +42,7 @@ from .inelastic import (
 
 __all__ = [
     "BenchmarkSpec",
+    "CapabilityEvidence",
     "GoldenBenchmark",
     "GoldenQuantity",
     "DelaminationBenchmarkAssessment",
@@ -49,6 +51,8 @@ __all__ = [
     "MixedModeBendingComparison",
     "MixedModeBendingCurve",
     "benchmark",
+    "audit_capability_evidence",
+    "capability_evidence",
     "golden_benchmark",
     "WaveArrivalBenchmark",
     "CohesiveEnergyBenchmark",

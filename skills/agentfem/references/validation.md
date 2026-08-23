@@ -26,6 +26,10 @@ For constitutive changes, record one of these maturity levels:
 - `postprocessor`: consumes results but does not alter the FEM equilibrium.
 
 Every advancement requires a benchmark-registry entry and automated test.
+Run `benchmarks.audit_capability_evidence()` before changing a catalog
+maturity label. The audit must satisfy the evidence required by the declared
+maturity; a passing audit does not promote an experimental capability or erase
+its stated limitations.
 For external meshes, verify both volume and boundary named-set preservation.
 For external scientific benchmarks, pin the upstream commit, retain the exact
 public input view, classify execution/accuracy/time failures separately, and

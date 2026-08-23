@@ -16,7 +16,7 @@ import numpy as np
 import ufl
 from mpi4py import MPI
 
-from agentfem import benchmarks, constitutive, fields, io, mesh, models, results, studies
+from agentfem import benchmarks, constitutive, fields, mesh, models, results, studies
 
 
 def main() -> None:
@@ -94,8 +94,18 @@ def main() -> None:
     deviator = stress - ufl.tr(stress) / 2.0 * ufl.Identity(2)
     mises = ufl.sqrt(1.5 * ufl.inner(deviator, deviator))
     _, governing_stress = results.quadrature_extrema(mises, domain, degree=4)
-    with io.XDMFTimeSeries(output / "thermoelastic_state.xdmf", domain) as writer:
-        writer.write_fields(1.0, displacement.value, temperature.value)
+    mechanics_result.add_field(
+        "TEMP",
+        temperature.value,
+        unit="K",
+        description="Temperature field consumed by the thermoelastic solve.",
+    )
+    results.write_result_fields(
+        mechanics_result,
+        output / "thermoelastic_state.xdmf",
+        names=("Displacement", "TEMP"),
+        time=1.0,
+    )
 
     creep = constitutive.KachanovRabotnovCreep(
         creep_coefficient=2.0e-8,

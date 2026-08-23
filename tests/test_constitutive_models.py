@@ -890,3 +890,16 @@ def test_capability_and_benchmark_catalogs_state_the_actual_maturity():
         item.level == "finite_element"
         for item in benchmarks.list_benchmarks(capability="j2_plasticity")
     )
+    audit = {
+        item.capability: item
+        for item in benchmarks.audit_capability_evidence()
+    }
+    assert set(audit) == {
+        item.name for item in constitutive.capabilities()
+    }
+    assert all(item.meets_declared_maturity for item in audit.values())
+    assert "external" in audit["j2_plasticity"].demonstrated
+    assert "mpi" in audit["mixed_mode_cohesive_interface"].demonstrated
+    assert audit["mixed_mode_cohesive_interface"].maturity.startswith(
+        "experimental_"
+    )

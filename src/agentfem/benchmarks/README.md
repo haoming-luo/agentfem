@@ -2,6 +2,8 @@
 
 This package contains a machine-readable verification inventory through
 `benchmarks.list_benchmarks()`.
+`benchmarks.audit_capability_evidence()` joins that inventory to the
+constitutive maturity catalog and reports any unsupported declaration.
 
 Benchmarks are different from examples:
 
@@ -20,6 +22,8 @@ Each registry entry must identify:
 - a numerical acceptance criterion;
 - the automated test that supplies evidence;
 - the current status.
+- explicit evidence dimensions when the benchmark establishes MPI, restart,
+  failure-behavior, or other evidence not unambiguously expressed by its level.
 
 The current nonlinear-material obligations cover Neo-Hookean energy and a
 nonlinear patch, J2 radial return, power-law creep closed forms, and

@@ -38,6 +38,13 @@ def test_release_gate_exercises_every_installed_project_template():
     assert release_gate.INSTALLED_PROJECT_TEMPLATES == cli._templates()
 
 
+def test_release_gate_exercises_agent_machine_entrypoints():
+    source = (PROJECT_ROOT / "release_gate.py").read_text(encoding="utf-8")
+    assert "run_agent_entrypoint_smoke" in source
+    for command in ("doctor", "capabilities", "init", "check", "run", "inspect", "verify"):
+        assert f'"{command}"' in source
+
+
 def test_release_facing_examples_never_insert_the_checkout_into_sys_path():
     for relative, _ in release_gate.SMOKE_COMMANDS:
         source = (PROJECT_ROOT / relative).read_text(encoding="utf-8")
