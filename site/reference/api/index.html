@@ -1465,6 +1465,8 @@
       
         
       
+        
+      
     
     
     
@@ -3309,6 +3311,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tbody>
 <tr>
 <td>class</td>
+<td><code>ConstraintCapabilities</code></td>
+<td>Solver-facing capability contract for one kinematic constraint.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>DirichletConstraint</code></td>
 <td>Strong Dirichlet constraint and its optional mutable value object.</td>
 </tr>
@@ -3438,6 +3445,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>Create component-wise dof pairs for projection-style periodicity.</td>
 </tr>
 <tr>
+<td>function</td>
+<td><code>constraint_capabilities(constraint) -&gt; ConstraintCapabilities \| None</code></td>
+<td>Return the public capability contract of a known constraint asset.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>validate_solver_compatibility(*, constraints, analysis: str, procedure: str \| None = None, comm_size: int = 1)</code></td>
+<td>Validate constraint/procedure compatibility before assembly or solve.</td>
+</tr>
+<tr>
 <td>class</td>
 <td><code>PeriodicConstraintSpec</code></td>
 <td>Geometric description of a periodic constraint.</td>
@@ -3466,6 +3483,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>abaqus_periodic_cell(target, *, nodes: AbaqusNodeTable, equations: AbaqusEquationSet, anchor_node: int, reference_nodes, deformation_gradient = None, control_displacements = None, tolerance: float = 1e-09, name: str = 'abaqus_periodic_cell') -&gt; AbaqusPeriodicConstraint</code></td>
 <td>Create exact periodic equations and explicit macro-control semantics.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>RectangularPeriodicMPC</code></td>
+<td>Exact rectangular periodic relation and construction diagnostics.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>rectangular_periodic_mpc(target, *, axes = None, bcs = (), tolerance: float \| None = None, name: str = 'rectangular_periodic_mpc') -&gt; RectangularPeriodicMPC</code></td>
+<td>Constrain maximum faces of a rectangular mesh to minimum faces.</td>
 </tr>
 </tbody>
 </table>

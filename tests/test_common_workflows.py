@@ -764,6 +764,14 @@ def test_explicit_dynamics_consumes_model_constraints_and_amplitude_loads(tmp_pa
     assert {"Displacement", "Velocity", "Acceleration"}.issubset(
         simulation.fields
     )
+    field_output = simulation.metadata["field_output"]
+    assert field_output["warp_field"] == "U"
+    assert field_output["warp_field_semantic"] == "Displacement"
+    assert field_output["physical_components"] == 2
+    assert field_output["stored_components"] == 3
+    assert field_output["physical_model_dimension"] == 2
+    assert field_output["geometry_dimension"] == 3
+    assert field_output["warp_compatible"] is True
 
 
 def test_common_dynamic_study_factory_keeps_physics_and_procedure_distinct():
@@ -903,3 +911,90 @@ def test_implicit_dynamics_rejects_time_dependent_supports_before_solve():
 
     assert not report.is_valid
     assert "AFM-CONSTRAINT-002" in {item.code for item in report.errors}
+
+
+def test_periodic_projection_declares_and_enforces_procedure_capabilities():
+    periodic = constraints.PeriodicProjectionConstraint(
+        pairs=(),
+        pair_count=0,
+        maximum_coordinate_mismatch=2.0e-14,
+    )
+
+    explicit = constraints.validate_solver_compatibility(
+        constraints=(periodic,),
+        analysis="second_order_dynamics",
+        procedure="central_difference",
+        comm_size=1,
+    )
+    implicit = constraints.validate_solver_compatibility(
+        constraints=(periodic,),
+        analysis="second_order_dynamics",
+        procedure="newmark",
+        comm_size=1,
+    )
+    parallel = constraints.validate_solver_compatibility(
+        constraints=(periodic,),
+        analysis="second_order_dynamics",
+        procedure="central_difference",
+        comm_size=2,
+    )
+
+    assert explicit.is_valid
+    assert {item.code for item in implicit.errors} == {
+        "AFM-CONSTRAINT-PROCEDURE-001"
+    }
+    assert {item.code for item in parallel.errors} == {
+        "AFM-CONSTRAINT-PARALLEL-001"
+    }
+    assert periodic.summary()["capabilities"] == {
+        "kind": "periodic_constraint",
+        "enforcement": "nodal_pair_projection",
+        "analyses": ("second_order_dynamics",),
+        "procedures": ("central_difference",),
+        "strict": False,
+        "supports_parallel": False,
+    }
+    assert periodic.diagnostics()["maximum_coordinate_mismatch"] == pytest.approx(
+        2.0e-14
+    )
+
+
+def test_model_rejects_periodic_projection_for_newmark_before_problem_build():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    model = models.create(
+        study=studies.dynamic_solid(
+            dimension=2,
+            assumption="plane_stress",
+            method="newmark",
+        ),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    model.material(
+        elasticity.isotropic_elastic(
+            young=1.0e6,
+            poisson=0.3,
+            density=1000.0,
+        )
+    )
+    bottom = mesh.face(domain, axis="y", value=0.0, name="bottom", tag=1)
+    top = mesh.face(domain, axis="y", value=0.2, name="top", tag=2)
+    model.periodic(
+        displacement,
+        master=bottom,
+        slave=top,
+        match_axis="x",
+        method="projection",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="AFM-CONSTRAINT-PROCEDURE-001",
+    ):
+        model.step(target=displacement, dt=1.0e-4, steps=2)

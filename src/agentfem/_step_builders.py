@@ -708,6 +708,7 @@ def explicit_dynamics(
             checkpoint=checkpoint,
             name=name,
         )
+    selected_constraints = model.constraints if constraints is None else constraints
     model.check(
         target=target,
         step_options={
@@ -716,6 +717,7 @@ def explicit_dynamics(
             "method": "central_difference",
             "dt": dt,
             "steps": steps,
+            "constraints": selected_constraints,
         },
     )
     selected_state = state if state is not None else problems.second_order_state(target)
@@ -731,7 +733,6 @@ def explicit_dynamics(
             internal=model.internal_force(selected_state.u),
             external=(model.external_force(target) if model.loads else None),
         )
-    selected_constraints = model.constraints if constraints is None else constraints
     selected_prescribed = tuple(_as_tuple(prescribed)) + tuple(
         constraint_api.dirichlet_constraints(selected_constraints)
     )
@@ -789,6 +790,7 @@ def finite_strain_explicit_dynamics(
     from . import time as time_api
     from .constitutive import hyperelasticity
 
+    selected_constraints = model.constraints if constraints is None else constraints
     model.check(
         target=target,
         step_options={
@@ -796,6 +798,7 @@ def finite_strain_explicit_dynamics(
             "method": "central_difference",
             "dt": dt,
             "steps": steps,
+            "constraints": selected_constraints,
         },
     )
     if hasattr(model.study, "require"):
@@ -896,7 +899,6 @@ def finite_strain_explicit_dynamics(
             dt=selected_dt,
         )
         residual = damping_residual
-    selected_constraints = model.constraints if constraints is None else constraints
     selected_prescribed = constraint_api.dirichlet_constraints(selected_constraints)
     base_energy = (
         fracture.FiniteStrainEnergyMonitor(
@@ -985,6 +987,7 @@ def implicit_dynamics(
     from . import problems
     from . import time as time_api
 
+    selected_constraints = model.constraints if constraints is None else constraints
     model.check(
         target=target,
         step_options={
@@ -994,6 +997,7 @@ def implicit_dynamics(
             "method": method,
             "dt": dt,
             "steps": steps,
+            "constraints": selected_constraints,
         },
     )
     selected_state = state if state is not None else problems.second_order_state(target)
@@ -1016,7 +1020,7 @@ def implicit_dynamics(
         steps=steps,
         parameters=parameters,
         study=model.study,
-        constraints=model.constraints if constraints is None else constraints,
+        constraints=selected_constraints,
         solver_options=solver_options,
         update_load=model._time_update_callback(update_load),
         progress=progress,

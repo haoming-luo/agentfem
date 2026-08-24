@@ -631,6 +631,8 @@
       
         
       
+        
+      
     
     
     
@@ -1081,6 +1083,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../release_0.2.5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release 0.2.5
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../release_0.2.4/" class="md-nav__link">
         
   
@@ -1466,7 +1496,9 @@ preconditioner; this avoids treating a saddle-point system as an ordinary
 scalar elliptic solve. Navier--Stokes starts from a Stokes predictor and
 advances with a consistent Newton tangent. Scalar
 periodic Burgers cases use matching-face MPC constraints when the optional
-<code>dolfinx_mpc</code> integration is installed.</p>
+<code>dolfinx_mpc</code> integration is installed. The benchmark adapter consumes the
+same <code>constraints.rectangular_periodic_mpc</code> constructor exposed by the
+core package; it no longer carries a benchmark-private periodic implementation.</p>
 <p>For <span class="arithmatex">\(\Delta^2u=f\)</span>, AgentFEM exposes the mixed split
 <span class="arithmatex">\(w=-\Delta u\)</span>, <span class="arithmatex">\(-\Delta w=f\)</span>. When the public case supplies only
 <span class="arithmatex">\(u=g\)</span> on the boundary, the adapter closes the otherwise under-specified

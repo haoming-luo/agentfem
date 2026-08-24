@@ -26,7 +26,27 @@ audit, and result lifecycle for each template. It can be produced on Linux,
 macOS, or WSL2 without changing the scientific case.
 
 This deterministic gate proves that the machine interfaces needed by an agent
-are present and coherent. A fresh-agent trial remains a separate behavioral
-test: the agent must still choose an applicable model, preserve visible
-scientific choices, and explain why the result is or is not supported by its
-evidence. Successful execution alone is not scientific validation.
+are present and coherent. It does **not** impersonate an unfamiliar AI agent.
+A fresh-agent trial remains a separate behavioral test: the agent must choose
+an applicable model, preserve visible scientific choices, and explain why the
+result is or is not supported by its evidence. Successful execution alone is
+not scientific validation.
+
+After a genuinely fresh task has completed, retain its transcript and final
+scientific explanation beside the project, then record the trial with:
+
+```bash
+python tools/agent_trial_acceptance.py \
+  --project fresh-agent-project \
+  --agent "Codex/<model identity>" \
+  --transcript fresh-agent-project/agent-transcript.md \
+  --explanation fresh-agent-project/explanation.md \
+  --fresh-context --human-interventions 0 --reviewed-explanation \
+  --report fresh-agent-project/agent-trial-acceptance.json
+```
+
+The recorder independently reruns `doctor`, `capabilities`, `check`, `inspect`
+and `verify`. It refuses a source checkout, inherited project context, missing
+transcript, human repair intervention, unverified result, or unreviewed
+explanation. The reviewer confirms scientific adequacy; the recorder never
+pretends that prose quality can be inferred from a successful solve.

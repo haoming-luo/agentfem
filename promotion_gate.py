@@ -208,20 +208,29 @@ def _gate_agent(records: tuple[dict[str, object], ...]) -> GateResult:
     accepted = [
         record
         for record in records
-        if record.get("schema") == "agentfem.agent-acceptance"
+        if record.get("schema") == "agentfem.agent-trial-acceptance"
+        and record.get("status") == "passed"
+        and record.get("installed_wheel") is True
+        and record.get("fresh_context") is True
+        and record.get("human_interventions") == 0
         and record.get("runtime") == "passed"
         and record.get("capability_discovery") == "passed"
-        and record.get("declared_maturity_evidence") == "passed"
-        and record.get("templates")
+        and record.get("project_check") == "passed"
+        and record.get("simulation_result") == "passed"
+        and record.get("verification") == "passed"
+        and record.get("scientific_explanation") == "reviewed"
     ]
     gaps = () if accepted else (
-        "missing installed agent acceptance with at least one completed template",
+        "missing zero-intervention fresh-agent trial from an installed wheel",
     )
     return GateResult(
         "G7",
-        "an unfamiliar agent can inspect, build, run, verify, and explain",
+        "a fresh AI agent can inspect, build, run, verify, and explain",
         "passed" if accepted else "external_evidence_required",
-        tuple(f"agentfem:{item.get('agentfem_version')}" for item in accepted),
+        tuple(
+            f"{item.get('agent')}:{item.get('agentfem_version')}"
+            for item in accepted
+        ),
         gaps,
     )
 
@@ -263,10 +272,26 @@ def _write(path: Path, record: dict[str, object]) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--evidence", type=Path, action="append", default=[])
+    parser.add_argument(
+        "--evidence-directory",
+        type=Path,
+        action="append",
+        default=[],
+        help="Recursively consume JSON acceptance records from this directory.",
+    )
     parser.add_argument("--report", type=Path)
     parser.add_argument("--require-complete", action="store_true")
     options = parser.parse_args()
-    report = evaluate(evidence=options.evidence)
+    evidence = list(options.evidence)
+    for directory in options.evidence_directory:
+        if not directory.is_dir():
+            parser.error(f"evidence directory does not exist: {directory}")
+        evidence.extend(sorted(directory.rglob("*.json")))
+    # Artifact downloads can contain the same record more than once. Preserve
+    # stable order while preventing duplicate evidence from inflating a gate.
+    evidence = list(dict.fromkeys(Path(item).resolve() for item in evidence))
+    report = evaluate(evidence=evidence)
+    report["evidence_files"] = [str(item) for item in evidence]
     if options.report is not None:
         _write(options.report, report)
     print(json.dumps(report, indent=2, sort_keys=True))

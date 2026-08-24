@@ -17,13 +17,42 @@ from mpi4py import MPI
 from .. import amplitudes
 from ..ir.values import describe_value
 from ..kernel import constants, dofs
-from . import boundary
+from . import boundary, mpc
 from .affine import (
     AbaqusPeriodicConstraint,
     AffineReduction,
     DistributedAffineReduction,
     abaqus_periodic_cell,
 )
+from .mpc import RectangularPeriodicMPC, rectangular_periodic_mpc
+
+
+@dataclass(frozen=True)
+class ConstraintCapabilities:
+    """Solver-facing capability contract for one kinematic constraint.
+
+    Physical meaning and numerical enforcement stay separate: a periodic
+    relation may be enforced by explicit nodal projection or by exact affine
+    elimination/MPC.  Model validation, agents, and future GUIs consume this
+    same contract before any form is assembled.
+    """
+
+    kind: str
+    enforcement: str
+    analyses: tuple[str, ...] = ()
+    procedures: tuple[str, ...] = ()
+    strict: bool = True
+    supports_parallel: bool = True
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": self.kind,
+            "enforcement": self.enforcement,
+            "analyses": self.analyses,
+            "procedures": self.procedures,
+            "strict": self.strict,
+            "supports_parallel": self.supports_parallel,
+        }
 
 
 @dataclass(frozen=True)
@@ -787,6 +816,19 @@ class PeriodicProjectionConstraint:
     slave: object | None = None
     match_axis: str | int = 0
     supports_parallel: bool = False
+    tolerance: float = 1.0e-12
+    maximum_coordinate_mismatch: float = 0.0
+
+    @property
+    def capabilities(self) -> ConstraintCapabilities:
+        return ConstraintCapabilities(
+            kind="periodic_constraint",
+            enforcement="nodal_pair_projection",
+            analyses=("second_order_dynamics",),
+            procedures=("central_difference",),
+            strict=False,
+            supports_parallel=False,
+        )
 
     def apply(self, function) -> None:
         """Apply periodic equality by averaging paired dof values."""
@@ -831,8 +873,29 @@ class PeriodicProjectionConstraint:
             "master": getattr(self.master, "name", None),
             "slave": getattr(self.slave, "name", None),
             "match_axis": self.match_axis,
+            "tolerance": self.tolerance,
+            "maximum_coordinate_mismatch": self.maximum_coordinate_mismatch,
+            "unmatched_dofs": 0,
+            "strict": False,
             "supports_parallel": self.supports_parallel,
+            "capabilities": self.capabilities.summary(),
         }
+
+    def diagnostics(self, function=None) -> dict[str, object]:
+        """Return construction and optional live field mismatch evidence."""
+
+        values = {
+            "constraint": self.name,
+            "method": "projection",
+            "pair_count": self.pair_count,
+            "unmatched_dofs": 0,
+            "maximum_coordinate_mismatch": self.maximum_coordinate_mismatch,
+            "strict": False,
+            "supports_parallel": False,
+        }
+        if function is not None:
+            values["maximum_field_mismatch"] = self.mismatch(function)
+        return values
 
 
 def periodic(
@@ -859,8 +922,11 @@ def periodic(
         )
     if normalized in {"mpc", "multi_point_constraint"}:
         raise NotImplementedError(
-            "constraints.periodic(..., method='mpc') is planned but not implemented. "
-            "Use method='projection' for serial explicit projection workflows."
+            "Automatic model.step lowering for constraints.periodic(..., "
+            "method='mpc') is not yet available. Rectangular exact construction "
+            "is exposed as constraints.rectangular_periodic_mpc(...) for an "
+            "MPC-aware provider or expert problem; use method='projection' only "
+            "for serial explicit central-difference workflows."
         )
     raise ValueError(f"Unknown periodic constraint method: {method!r}.")
 
@@ -888,6 +954,7 @@ def periodic_projection(
     axis_id = _axis_id(match_axis, domain.geometry.dim)
     pairs = []
     pair_count = 0
+    maximum_coordinate_mismatch = 0.0
     components = range(V.num_sub_spaces) if getattr(V, "num_sub_spaces", 0) else (None,)
     for component in components:
         if component is None:
@@ -917,8 +984,13 @@ def periodic_projection(
         master_parent = np.asarray(master_parent[master_order], dtype=np.int32)
         slave_coords = coords[slave_child[slave_order], axis_id]
         master_coords = coords[master_child[master_order], axis_id]
+        mismatch = (
+            0.0
+            if len(slave_coords) == 0
+            else float(np.max(np.abs(slave_coords - master_coords)))
+        )
+        maximum_coordinate_mismatch = max(maximum_coordinate_mismatch, mismatch)
         if not np.allclose(slave_coords, master_coords, atol=tolerance, rtol=0.0):
-            mismatch = float(np.max(np.abs(slave_coords - master_coords)))
             raise RuntimeError(
                 "Periodic projection dofs are not aligned on match_axis "
                 f"{match_axis!r}: max mismatch={mismatch:.3e}."
@@ -932,7 +1004,135 @@ def periodic_projection(
         master=master,
         slave=slave,
         match_axis=match_axis,
+        tolerance=float(tolerance),
+        maximum_coordinate_mismatch=maximum_coordinate_mismatch,
     )
+
+
+def constraint_capabilities(constraint) -> ConstraintCapabilities | None:
+    """Return the public capability contract of a known constraint asset."""
+
+    selected = getattr(constraint, "capabilities", None)
+    if callable(selected):
+        selected = selected()
+    if isinstance(selected, ConstraintCapabilities):
+        return selected
+    if isinstance(
+        constraint,
+        (DirichletConstraint, TimeDependentDirichlet, RemoteDisplacementConstraint),
+    ) or hasattr(constraint, "dof_indices"):
+        return ConstraintCapabilities(
+            kind="dirichlet_constraint",
+            enforcement="strong_elimination",
+        )
+    return None
+
+
+def validate_solver_compatibility(
+    *,
+    constraints,
+    analysis: str,
+    procedure: str | None = None,
+    comm_size: int = 1,
+):
+    """Validate constraint/procedure compatibility before assembly or solve."""
+
+    from ..validation import ValidationReport, issue
+
+    normalized_analysis = str(analysis).lower().replace("-", "_").strip()
+    normalized_procedure = (
+        None
+        if procedure is None
+        else str(procedure).lower().replace("-", "_").strip()
+    )
+    aliases = {
+        "explicit": "central_difference",
+        "implicit": "newmark",
+        "generalizedalpha": "generalized_alpha",
+    }
+    normalized_procedure = aliases.get(normalized_procedure, normalized_procedure)
+    issues = []
+    for index, constraint in enumerate(_flatten_constraint_assets(constraints)):
+        capability = constraint_capabilities(constraint)
+        if capability is None:
+            continue
+        path = f"model.constraints[{index}]"
+        if capability.analyses and normalized_analysis not in capability.analyses:
+            issues.append(
+                issue(
+                    "AFM-CONSTRAINT-ANALYSIS-001",
+                    path,
+                    (
+                        f"{type(constraint).__name__} cannot enforce "
+                        f"analysis={normalized_analysis!r}."
+                    ),
+                    hint=(
+                        "Choose a compatible enforcement backend; periodic nodal "
+                        "projection is intended for explicit central difference."
+                    ),
+                    constraint=capability.summary(),
+                )
+            )
+        elif (
+            capability.procedures
+            and normalized_procedure is not None
+            and normalized_procedure not in capability.procedures
+        ):
+            issues.append(
+                issue(
+                    "AFM-CONSTRAINT-PROCEDURE-001",
+                    path,
+                    (
+                        f"{type(constraint).__name__} with "
+                        f"enforcement={capability.enforcement!r} does not support "
+                        f"procedure={normalized_procedure!r}."
+                    ),
+                    hint=(
+                        "Use central_difference with periodic projection, or an "
+                        "exact affine/MPC constraint supported by the implicit solver."
+                    ),
+                    constraint=capability.summary(),
+                )
+            )
+        if int(comm_size) > 1 and not capability.supports_parallel:
+            issues.append(
+                issue(
+                    "AFM-CONSTRAINT-PARALLEL-001",
+                    path,
+                    f"{type(constraint).__name__} is serial-only.",
+                    hint="Use a verified distributed affine/MPC backend or run serially.",
+                    mpi_ranks=int(comm_size),
+                    constraint=capability.summary(),
+                )
+            )
+        if (
+            isinstance(constraint, TimeDependentDirichlet)
+            and normalized_analysis == "second_order_dynamics"
+            and normalized_procedure in {"newmark", "generalized_alpha"}
+        ):
+            issues.append(
+                issue(
+                    "AFM-CONSTRAINT-002",
+                    path,
+                    "Implicit structural dynamics requires consistent prescribed displacement, velocity, and acceleration histories.",
+                    hint="Use central difference or an expert consistent-support formulation.",
+                )
+            )
+    return ValidationReport.from_issues(issues, scope="constraint_compatibility")
+
+
+def _flatten_constraint_assets(items) -> tuple[object, ...]:
+    if items is None:
+        return ()
+    if isinstance(items, (list, tuple)):
+        return tuple(
+            selected
+            for item in items
+            for selected in _flatten_constraint_assets(item)
+        )
+    if isinstance(items, ConstraintSet):
+        return (*items.dirichlet, *items.periodic)
+    return (items,)
 
 
 @dataclass(frozen=True)

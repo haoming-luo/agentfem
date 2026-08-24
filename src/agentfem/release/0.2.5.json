@@ -1,0 +1,101 @@
+{
+  "schema": "agentfem.release-contract",
+  "schema_version": "0.2.0",
+  "target_version": "0.2.5",
+  "channel": "stable",
+  "status": "candidate",
+  "supported_python": "3.11",
+  "platform_evidence": {
+    "continuous_integration": ["Linux", "macOS"],
+    "external_required": ["Windows through real WSL2"]
+  },
+  "installed_templates": [
+    "static-solid",
+    "steady-heat",
+    "structural-dynamics"
+  ],
+  "workflows": [
+    {
+      "id": "linear-static-solid",
+      "maturity": "release",
+      "example": "examples/static_elasticity_2d.py",
+      "evidence": [
+        "golden-observable",
+        "single-grid-output",
+        "2d-warp-compatible-vector",
+        "serial-and-two-rank-smoke"
+      ]
+    },
+    {
+      "id": "transient-heat",
+      "maturity": "release",
+      "example": "examples/transient_heat_2d.py",
+      "evidence": ["golden-observable", "checkpoint-tests", "installed-wheel-smoke"]
+    },
+    {
+      "id": "explicit-wave-inclusion",
+      "maturity": "engineering",
+      "example": "examples/wave_packet_inclusion_2d.py",
+      "evidence": ["stability-estimate", "absorbing-boundary-tests", "release-smoke"]
+    },
+    {
+      "id": "c3d10h-periodic-hyperelasticity",
+      "maturity": "engineering",
+      "example": "examples/abaqus_c3d10h_periodic_cell/case.py",
+      "evidence": [
+        "direct-import-tests",
+        "mixed-formulation-tests",
+        "periodic-cell-golden",
+        "constraint-capability-preflight"
+      ]
+    },
+    {
+      "id": "j2-plasticity",
+      "maturity": "engineering",
+      "example": "examples/j2_plasticity_3d.py",
+      "evidence": ["material-point-path", "global-cutback", "cross-rank-restart"]
+    },
+    {
+      "id": "implicit-power-law-creep",
+      "maturity": "engineering",
+      "example": "examples/implicit_creep_relaxation_3d.py",
+      "evidence": ["relaxation-golden", "rollback", "nafems-r0027-test7"]
+    },
+    {
+      "id": "simulation-to-learning",
+      "maturity": "engineering",
+      "example": "examples/static_elasticity_surrogate_campaign.py",
+      "evidence": ["accepted-dataset-policy", "surrogate-validation", "fem-fallback"]
+    },
+    {
+      "id": "dynamic-cohesive-fracture",
+      "maturity": "experimental",
+      "example": "examples/science_supershear_v5_protocol.py",
+      "evidence": ["v0-v4-guardrails", "mpi-interface-tests", "energy-balance-tests"]
+    }
+  ],
+  "required_gates": [
+    "version-contract-agreement",
+    "clean-wheel-and-sdist",
+    "full-serial-tests",
+    "distributed-tests",
+    "2d-warp-compatible-output",
+    "constraint-procedure-preflight",
+    "installed-wheel-identity",
+    "installed-project-template-loop",
+    "linux-and-macos-platform-acceptance",
+    "scientific-knowledge-check",
+    "documentation-strict-build",
+    "optional-pytorch-bridge"
+  ],
+  "not_release_claims": [
+    "universal finite-element coverage",
+    "native Windows solver support",
+    "automatic MPC lowering through every Step provider",
+    "general contact",
+    "general arbitrary-path fracture",
+    "monolithic thermo-mechanical coupling",
+    "a completed fresh-agent behavioral trial",
+    "automatic neural-operator or PINN training for arbitrary meshes"
+  ]
+}

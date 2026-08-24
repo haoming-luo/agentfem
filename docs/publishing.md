@@ -23,7 +23,10 @@ without storing a long-lived PyPI API token in repository secrets.
 2. Update `__version__` in `__init__.py`.
 3. Update `CITATION.cff`, `CHANGELOG.md`, and the versioned release contract.
 4. Run the smoke examples in a FEniCSx environment.
-5. Run the same release gate used by CI:
+5. Build from a clean packaging workspace. Archive or remove any stale local
+   `build/` and `dist/` directories first; the release gate rejects wheels whose
+   runtime files do not exactly match the candidate source.
+6. Run the same release gate used by CI:
 
    ```bash
    python -m pip install -e ".[dev]"
@@ -32,8 +35,8 @@ without storing a long-lived PyPI API token in repository secrets.
    python release_gate.py --dist dist --smoke
    ```
 
-6. Commit the release changes.
-7. Create and push a version tag:
+7. Commit the release changes.
+8. Create and push a version tag:
 
    ```bash
    git tag vX.Y.Z

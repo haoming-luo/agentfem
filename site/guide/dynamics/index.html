@@ -1086,6 +1086,8 @@
       
         
       
+        
+      
     
     
     
@@ -1356,6 +1358,20 @@ loads, fields, and results.</p>
 </tr>
 </tbody>
 </table>
+<p>The solution procedure and the constraint enforcement are checked together
+before assembly. Projection periodicity is a serial, non-strict nodal
+projection supported by central difference. Newmark and generalized-alpha do
+not silently reinterpret it as a Dirichlet condition: model validation emits
+<code>AFM-CONSTRAINT-PROCEDURE-001</code> and directs the user to an exact affine/MPC
+backend. A serial-only constraint requested under MPI similarly emits
+<code>AFM-CONSTRAINT-PARALLEL-001</code> before the solver starts.</p>
+<p><code>constraint.summary()</code> exposes the same capability contract to humans, agents,
+and future GUIs. <code>PeriodicProjectionConstraint.diagnostics(field)</code> adds the
+pair count, coordinate pairing error, unmatched count, and live field
+mismatch. Exact rectangular matching-face construction is shared through
+<code>constraints.rectangular_periodic_mpc</code>; consumers still select an MPC-aware
+linear or nonlinear solver explicitly because ordinary DOLFINx and
+<code>dolfinx_mpc</code> assembly are not interchangeable.</p>
 <h2 id="engineering-questions-to-make-explicit">Engineering questions to make explicit<a class="headerlink" href="#engineering-questions-to-make-explicit" title="Permanent link">&para;</a></h2>
 <ul>
 <li>mass representation and density;</li>

@@ -88,6 +88,43 @@ def test_artifacts_cannot_escape_run_directory(tmp_path):
         raise AssertionError("Escaping artifact path should fail.")
 
 
+def test_failed_run_records_stage_traceback_and_machine_error_fields(tmp_path):
+    (tmp_path / "case.py").write_text(
+        "raise RuntimeError('deliberate failure')\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "agentfem.toml").write_text(
+        "[project]\nname='failed-case'\nentrypoint='case.py'\n",
+        encoding="utf-8",
+    )
+
+    assert cli.main(
+        [
+            "run",
+            "--project",
+            str(tmp_path),
+            "--run-id",
+            "failed-run",
+            "--json",
+        ]
+    ) == 1
+
+    execution = json.loads(
+        (
+            tmp_path
+            / "outputs"
+            / "failed-case"
+            / "failed-run"
+            / "execution.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert execution["status"] == "failed"
+    assert execution["stage"] == "case_execution"
+    assert execution["error"]["stage"] == "case_execution"
+    assert execution["error"]["code"] is None
+    assert "RuntimeError: deliberate failure" in execution["error"]["traceback"]
+
+
 def test_cli_init_and_check_use_installed_template(tmp_path):
     target = tmp_path / "case"
     assert cli.main(["init", str(target), "--name", "my-case"]) == 0

@@ -278,6 +278,11 @@ class RunContext:
         record = {
             **self.summary(),
             "status": str(status),
+            "stage": (
+                "completed"
+                if error is None and str(status) == "completed"
+                else (None if error is None else error.get("stage", "case_execution"))
+            ),
             "structured_result": (
                 self.manifest_path.is_file()
                 if structured_result is None

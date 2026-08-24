@@ -6,6 +6,33 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-08-24
+
+### Added
+
+- Add one constraint-capability contract and preflight compatibility checks so
+  unsupported analysis, procedure, or MPI combinations fail before assembly
+  with stable diagnostics.
+- Add a public rectangular `dolfinx_mpc` construction boundary shared by
+  ordinary workflows and PDEAgent-Bench, plus periodic-pair diagnostics.
+- Add installed-wheel platform-evidence aggregation and a separate fresh-agent
+  trial recorder; deterministic CLI smoke evidence can no longer impersonate
+  an unfamiliar AI agent.
+
+### Changed
+
+- Store two-dimensional displacement and other physical vectors as
+  three-component visualization arrays on XYZ output geometry, with a zero
+  out-of-plane component, explicit `U`/`Displacement` aliases, and warp
+  metadata. The finite-element unknown remains two-dimensional.
+- Preserve the one-grid XDMF/HDF5 result layout while making new 2D results
+  directly usable by ParaView and PyVista Warp By Vector.
+- Make `agentfem doctor` distinguish imported runtime version, installed
+  distribution version, source shadowing, and MPI launcher mismatch.
+- Record model-preflight failures, stable validation codes, stage and traceback
+  in the common execution evidence instead of exposing backend attribute
+  errors.
+
 ## [0.2.4] - 2026-08-24
 
 ### Added

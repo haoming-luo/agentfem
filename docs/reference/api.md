@@ -248,6 +248,7 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| class | `ConstraintCapabilities` | Solver-facing capability contract for one kinematic constraint. |
 | class | `DirichletConstraint` | Strong Dirichlet constraint and its optional mutable value object. |
 | class | `TimeDependentDirichlet` | Dirichlet constraint driven by an amplitude. |
 | class | `RemoteDisplacementConstraint` | Rigid boundary motion prescribed about a named reference point. |
@@ -274,12 +275,16 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `PeriodicProjectionConstraint` | Projection-style periodic constraint for explicit field updates. |
 | function | `periodic(target, *, master, slave, match_axis: str \| int = 0, method: str = 'projection', tolerance: float = 1e-12, name: str = 'periodic')` | Create a periodic constraint with an explicit method choice. |
 | function | `periodic_projection(target, *, master, slave, match_axis: str \| int = 0, tolerance: float = 1e-12, name: str = 'periodic_projection') -> PeriodicProjectionConstraint` | Create component-wise dof pairs for projection-style periodicity. |
+| function | `constraint_capabilities(constraint) -> ConstraintCapabilities \| None` | Return the public capability contract of a known constraint asset. |
+| function | `validate_solver_compatibility(*, constraints, analysis: str, procedure: str \| None = None, comm_size: int = 1)` | Validate constraint/procedure compatibility before assembly or solve. |
 | class | `PeriodicConstraintSpec` | Geometric description of a periodic constraint. |
 | class | `ConstraintSet` | Collection of constraints used by assembly or field updates. |
 | class | `AbaqusPeriodicConstraint` | Periodic equations controlled by prescribed or free reference dofs. |
 | class | `AffineReduction` | Sparse serial representation of ``u = T q + offset``. |
 | class | `DistributedAffineReduction` | Homogeneous correction space for a distributed affine constraint. |
 | function | `abaqus_periodic_cell(target, *, nodes: AbaqusNodeTable, equations: AbaqusEquationSet, anchor_node: int, reference_nodes, deformation_gradient = None, control_displacements = None, tolerance: float = 1e-09, name: str = 'abaqus_periodic_cell') -> AbaqusPeriodicConstraint` | Create exact periodic equations and explicit macro-control semantics. |
+| class | `RectangularPeriodicMPC` | Exact rectangular periodic relation and construction diagnostics. |
+| function | `rectangular_periodic_mpc(target, *, axes = None, bcs = (), tolerance: float \| None = None, name: str = 'rectangular_periodic_mpc') -> RectangularPeriodicMPC` | Constrain maximum faces of a rectangular mesh to minimum faces. |
 
 ## `agentfem.amplitudes`
 

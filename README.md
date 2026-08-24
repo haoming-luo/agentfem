@@ -237,7 +237,7 @@ available as a [preprint and technical report](https://haoming-luo.github.io/age
 
 ```yaml
 title: "AgentFEM: An AI-native open-source platform for finite-element computing"
-version: "0.2.4"
+version: "0.2.5"
 authors:
   - family-names: Luo
     given-names: Haoming

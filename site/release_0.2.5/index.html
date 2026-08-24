@@ -10,31 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://haoming-luo.github.io/agentfem/guide/model_setup/">
+        <link rel="canonical" href="https://haoming-luo.github.io/agentfem/release_0.2.5/">
       
       
-        <link rel="prev" href="../creep_and_inelasticity/">
+        <link rel="prev" href="../licensing/">
       
       
-        <link rel="next" href="../../mesh_interoperability/">
+        <link rel="next" href="../release_0.2.4/">
       
       
         
       
       
-      <link rel="icon" href="../../assets/images/AgentFEM_logo_transparent.png">
+      <link rel="icon" href="../assets/images/AgentFEM_logo_transparent.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
-        <title>Meshes, Loads and Constraints - AgentFEM</title>
+        <title>Release 0.2.5 - AgentFEM</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -47,9 +47,9 @@
       
     
     
-      <link rel="stylesheet" href="../../stylesheets/extra.css">
+      <link rel="stylesheet" href="../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -77,7 +77,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#meshes-loads-and-constraints" class="md-skip">
+        <a href="#agentfem-025" class="md-skip">
           Skip to content
         </a>
       
@@ -97,9 +97,9 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="AgentFEM" class="md-header__button md-logo" aria-label="AgentFEM" data-md-component="logo">
+    <a href=".." title="AgentFEM" class="md-header__button md-logo" aria-label="AgentFEM" data-md-component="logo">
       
-  <img src="../../assets/images/AgentFEM_logo_transparent.png" alt="logo">
+  <img src="../assets/images/AgentFEM_logo_transparent.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Meshes, Loads and Constraints
+              Release 0.2.5
             
           </span>
         </div>
@@ -239,9 +239,9 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="AgentFEM" class="md-nav__button md-logo" aria-label="AgentFEM" data-md-component="logo">
+    <a href=".." title="AgentFEM" class="md-nav__button md-logo" aria-label="AgentFEM" data-md-component="logo">
       
-  <img src="../../assets/images/AgentFEM_logo_transparent.png" alt="logo">
+  <img src="../assets/images/AgentFEM_logo_transparent.png" alt="logo">
 
     </a>
     AgentFEM
@@ -268,7 +268,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href=".." class="md-nav__link">
         
   
   
@@ -322,7 +322,7 @@
   
   
   
-    <a href="../../get_started/" class="md-nav__link">
+    <a href="../get_started/" class="md-nav__link">
       
   
   
@@ -352,8 +352,6 @@
       
   
   
-    
-  
   
   
     
@@ -376,17 +374,18 @@
     
     
       
+        
+        
+      
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
-              
+  
+  
+  
+    <a href="../guide/" class="md-nav__link">
+      
   
   
   <span class="md-ellipsis">
@@ -400,451 +399,12 @@
   
   
 
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    User Guide
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-    
-      
-        
-        
-      
-    
-    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
-      
-        
-  
-  
-  
-    <a href="../solid_mechanics/" class="md-nav__link">
-      
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Core Analyses
-  
-
-    
-  </span>
-  
-  
-
       
         <span class="md-nav__icon md-icon"></span>
       
     </a>
   
 
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-    
-      
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Build a Model
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_3_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Build a Model
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Meshes, Loads and Constraints
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Meshes, Loads and Constraints
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#mesh-routes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Mesh routes
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#common-engineering-actions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Common engineering actions
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#declare-the-numerical-unit-contract" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Declare the numerical unit contract
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#go-deeper" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Go deeper
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../mesh_interoperability/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Mesh Interoperability
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../engineering_workflows/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Engineering Workflow
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-    
-      
-        
-        
-      
-    
-    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
-      
-        
-  
-  
-  
-    <a href="../results/" class="md-nav__link">
-      
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Results and Data
-  
-
-    
-  </span>
-  
-  
-
-      
-        <span class="md-nav__icon md-icon"></span>
-      
-    </a>
-  
-
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-    
-      
-        
-        
-      
-    
-    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
-      
-        
-  
-  
-  
-    <a href="../../nonlinear_materials/" class="md-nav__link">
-      
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Advanced Workflows
-  
-
-    
-  </span>
-  
-  
-
-      
-        <span class="md-nav__icon md-icon"></span>
-      
-    </a>
-  
-
-      
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
       
     </li>
   
@@ -884,7 +444,7 @@
   
   
   
-    <a href="../../examples/" class="md-nav__link">
+    <a href="../examples/" class="md-nav__link">
       
   
   
@@ -952,7 +512,7 @@
   
   
   
-    <a href="../../reference/" class="md-nav__link">
+    <a href="../reference/" class="md-nav__link">
       
   
   
@@ -1018,7 +578,7 @@
   
   
   
-    <a href="../../extend/" class="md-nav__link">
+    <a href="../extend/" class="md-nav__link">
       
   
   
@@ -1048,6 +608,8 @@
       
   
   
+    
+  
   
   
     
@@ -1076,18 +638,17 @@
     
     
       
-        
-        
-      
     
-    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
-  
-  
-  
-    <a href="../../project/" class="md-nav__link">
-      
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../project/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -1101,12 +662,381 @@
   
   
 
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Project
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../product_roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href="../trust/" class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trust and Validation
+  
+
+    
+  </span>
+  
+  
+
       
         <span class="md-nav__icon md-icon"></span>
       
     </a>
   
 
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href="../project_upgrades/" class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platform and Compatibility
+  
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release 0.2.5
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release 0.2.5
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#direct-2d-deformation-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Direct 2D deformation visualization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#constraint-preflight" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constraint preflight
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runtime-and-promotion-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime and promotion evidence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release_0.2.4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release 0.2.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release_0.2.3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release 0.2.3
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project/versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation Versions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
       
     </li>
   
@@ -1138,7 +1068,7 @@
   
   
   
-    <a href="../../publications/agentfem-platform/" class="md-nav__link">
+    <a href="../publications/agentfem-platform/" class="md-nav__link">
       
   
   
@@ -1191,10 +1121,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#mesh-routes" class="md-nav__link">
+  <a href="#direct-2d-deformation-visualization" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Mesh routes
+        Direct 2D deformation visualization
       
     </span>
   </a>
@@ -1202,10 +1132,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#common-engineering-actions" class="md-nav__link">
+  <a href="#constraint-preflight" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Common engineering actions
+        Constraint preflight
       
     </span>
   </a>
@@ -1213,10 +1143,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#declare-the-numerical-unit-contract" class="md-nav__link">
+  <a href="#runtime-and-promotion-evidence" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Declare the numerical unit contract
+        Runtime and promotion evidence
       
     </span>
   </a>
@@ -1224,10 +1154,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#go-deeper" class="md-nav__link">
+  <a href="#compatibility" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Go deeper
+        Compatibility
       
     </span>
   </a>
@@ -1259,7 +1189,7 @@
   
   
     <li class="md-path__item">
-      <a href="../.." class="md-path__link">
+      <a href=".." class="md-path__link">
         
   <span class="md-ellipsis">
     Introduction
@@ -1277,28 +1207,10 @@
     
     
       <li class="md-path__item">
-        <a href="../" class="md-path__link">
+        <a href="../project/" class="md-path__link">
           
   <span class="md-ellipsis">
-    User Guide
-  </span>
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-    
-    
-      <li class="md-path__item">
-        <a href="./" class="md-path__link">
-          
-  <span class="md-ellipsis">
-    Build a Model
+    Project
   </span>
 
         </a>
@@ -1320,51 +1232,47 @@
   
 
 
-<h1 id="meshes-loads-and-constraints">Meshes, loads, and constraints<a class="headerlink" href="#meshes-loads-and-constraints" title="Permanent link">&para;</a></h1>
-<p>Model setup is where a finite-element tool becomes practically useful. AgentFEM
-keeps imported geometry semantics, named regions, loads, constraints, boundary
-models, and step activation reusable rather than embedding them in one solver.</p>
-<h2 id="mesh-routes">Mesh routes<a class="headerlink" href="#mesh-routes" title="Permanent link">&para;</a></h2>
-<ul>
-<li>structured meshes for reproducible studies and tests;</li>
-<li>XDMF/HDF5 as the direct DOLFINx solver representation;</li>
-<li>optional Gmsh model and <code>.msh</code> routes;</li>
-<li>optional meshio conversion for external formats;</li>
-<li>Abaqus quadratic-tetrahedron, set, surface, and equation parsing;</li>
-<li>conversion fingerprints so stale cached meshes are not silently reused.</li>
-</ul>
-<h2 id="common-engineering-actions">Common engineering actions<a class="headerlink" href="#common-engineering-actions" title="Permanent link">&para;</a></h2>
-<ul>
-<li>prescribed displacement and temperature;</li>
-<li>traction, pressure, body force, gravity, centrifugal and hydrostatic loading;</li>
-<li>elastic foundations and boundary models;</li>
-<li>periodic/equation constraints;</li>
-<li>distributed force and moment resultants;</li>
-<li>step-wise activation and deactivation.</li>
-</ul>
-<h2 id="declare-the-numerical-unit-contract">Declare the numerical unit contract<a class="headerlink" href="#declare-the-numerical-unit-contract" title="Permanent link">&para;</a></h2>
-<p>Finite-element kernels operate on consistent numbers. Record the convention
-once so manifests, agents, datasets, and future interfaces do not infer units
-from magnitude:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">model</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">study</span><span class="o">=</span><span class="n">studies</span><span class="o">.</span><span class="n">static_solid</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">mesh</span><span class="o">=</span><span class="n">domain</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">units</span><span class="o">=</span><span class="n">units</span><span class="o">.</span><span class="n">n_mm_mpa</span><span class="p">(),</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span>
+<h1 id="agentfem-025">AgentFEM 0.2.5<a class="headerlink" href="#agentfem-025" title="Permanent link">&para;</a></h1>
+<p>AgentFEM 0.2.5 closes two user-facing gaps without changing the physical
+meaning of supported models: two-dimensional results are directly usable for
+deformed-shape visualization, and incompatible constraint/procedure
+combinations are rejected before numerical assembly.</p>
+<h2 id="direct-2d-deformation-visualization">Direct 2D deformation visualization<a class="headerlink" href="#direct-2d-deformation-visualization" title="Permanent link">&para;</a></h2>
+<p>A two-dimensional displacement remains a two-component finite-element
+unknown. When the XDMF geometry is stored as XYZ, AgentFEM now writes the
+visualization representation as <code>(Ux, Uy, 0)</code>. The HDF5/XDMF field therefore
+has three components and can be selected directly by ParaView or PyVista Warp
+By Vector. Three-dimensional fields are unchanged.</p>
+<p><code>U</code> remains the standard finite-element symbol stored in the field file;
+<code>Displacement</code> remains its public scientific name. The result manifest records
+that alias together with physical/model dimension, storage components and
+<code>warp_compatible=true</code>, avoiding a duplicated full-size field.</p>
+<h2 id="constraint-preflight">Constraint preflight<a class="headerlink" href="#constraint-preflight" title="Permanent link">&para;</a></h2>
+<p>Constraints now publish one inspectable capability record covering supported
+analyses, solution procedures, strictness and MPI scope. <code>model.step(...)</code>
+checks that record before lowering. A projection-only periodic constraint
+cannot accidentally enter an implicit Newmark system and fail later through a
+Dirichlet-only backend call.</p>
+<p>The public rectangular <code>dolfinx_mpc</code> constructor is shared with the
+PDEAgent-Bench integration. It exposes a strict distributed MPC object without
+claiming that every Step provider already owns MPC assembly; provider-specific
+consumption remains explicit.</p>
+<h2 id="runtime-and-promotion-evidence">Runtime and promotion evidence<a class="headerlink" href="#runtime-and-promotion-evidence" title="Permanent link">&para;</a></h2>
+<p><code>agentfem doctor</code> distinguishes the code being executed from stale installed
+distribution metadata and names the MPI launcher matching the active
+<code>mpi4py</code>. Platform acceptance now retains Linux/macOS two-rank installed-wheel
+records. Real WSL2 evidence remains fail-closed.</p>
+<p>The deterministic release smoke and a fresh AI-agent behavioral trial are now
+separate evidence classes. AgentFEM can prove that its machine entrypoints work
+without pretending that an unfamiliar agent has independently understood and
+explained a model.</p>
+<h2 id="compatibility">Compatibility<a class="headerlink" href="#compatibility" title="Permanent link">&para;</a></h2>
+<p>The public grammar remains:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Study -&gt; Model -&gt; scientific assets -&gt; model.step(...) -&gt; SimulationResult
 </code></pre></div>
-<p><code>units.si()</code> and <code>units.n_mm_mpa()</code> are ready-to-use contracts;
-<code>units.consistent(...)</code> records another coherent system. AgentFEM does not
-silently convert material constants in this layer.</p>
-<p>For imported simplex meshes, run <code>mesh.audit_quality(..., strict=True)</code> before
-assembly. The report is collective under MPI and records the threshold and
-number of poor/invalid owned cells.</p>
-<h2 id="go-deeper">Go deeper<a class="headerlink" href="#go-deeper" title="Permanent link">&para;</a></h2>
-<ul>
-<li><a href="../../mesh_interoperability/">Mesh interoperability</a></li>
-<li><a href="../../engineering_workflows/">Engineering loads, steps, and resultants</a></li>
-<li><a href="../../abaqus_c3d10h_periodic_cell/">Abaqus C3D10H periodic cell</a></li>
-<li><a href="../../examples/">Example gallery</a></li>
-</ul>
+<p>Existing 2D result files are immutable and still require a Calculator-created
+three-component vector or regeneration with 0.2.5. No constitutive capability
+is promoted by this maintenance release.</p>
 
 
 
@@ -1402,7 +1310,7 @@ number of poor/invalid owned cells.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../creep_and_inelasticity/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Creep and Inelasticity">
+          <a href="../licensing/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Licensing">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1412,20 +1320,20 @@ number of poor/invalid owned cells.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Creep and Inelasticity
+                Licensing
               </div>
             </div>
           </a>
         
         
           
-          <a href="../../mesh_interoperability/" class="md-footer__link md-footer__link--next" aria-label="Next: Mesh Interoperability">
+          <a href="../release_0.2.4/" class="md-footer__link md-footer__link--next" aria-label="Next: Release 0.2.4">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Mesh Interoperability
+                Release 0.2.4
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -1484,18 +1392,18 @@ number of poor/invalid owned cells.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.indexes", "navigation.prune", "navigation.path", "navigation.footer", "navigation.top", "navigation.tracking", "toc.follow", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.indexes", "navigation.prune", "navigation.path", "navigation.footer", "navigation.top", "navigation.tracking", "toc.follow", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
-        <script src="../../javascripts/navigation-state.js"></script>
+        <script src="../javascripts/navigation-state.js"></script>
       
-        <script src="../../javascripts/toc-current.js"></script>
+        <script src="../javascripts/toc-current.js"></script>
       
-        <script src="../../javascripts/mathjax.js"></script>
+        <script src="../javascripts/mathjax.js"></script>
       
-        <script src="../../vendor/mathjax/3.2.2/tex-chtml-full.js"></script>
+        <script src="../vendor/mathjax/3.2.2/tex-chtml-full.js"></script>
       
     
   </body>

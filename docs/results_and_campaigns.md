@@ -157,7 +157,13 @@ Ordinary static output retains reference coordinates and exposes `U` as point
 data, so **Warp By Vector** produces one deformed geometry with every cell and
 point attribute attached. Finite-strain presentation output can instead store
 `x + scale*u` directly when requested. `SimulationResult.metadata.field_output`
-records the backend, layout, and geometry convention.
+records the backend, layout, and geometry convention. For a two-dimensional
+model, the finite-element unknown remains the physical vector `(Ux, Uy)`, while
+the visualization dataset stores `U=(Ux, Uy, 0)` on XYZ geometry. ParaView can
+therefore select `U` directly as a three-component Warp vector. The result
+contract records `physical_components=2`, `stored_components=3`, both model
+and storage geometry dimensions, and the semantic alias `Displacement -> U`;
+no duplicate displacement array is written.
 
 The low-level `io.XDMFTimeSeries` mirrors DOLFINx and may expose one XDMF Grid
 per Function. It is an expert compatibility API, not the normal result path.

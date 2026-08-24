@@ -329,16 +329,16 @@ checkpoint. Cross-partition identity remains a separate future capability.
 2. Extend the implemented MPI-global strong-BC resultant and proportional
    linear-static energy closure into named region histories; define
    affine/weak reactions and non-zero prescribed-displacement work separately.
-3. Extend the implemented cumulative J2 serial checkpoint and scientific
-   identity to portable MPI cell identity and multi-region state.
-4. Extend the implemented analytical J2 Golden path, physical forced cutback,
-   cyclic amplitude, quadrature S/PE/PEEQ/MISES and nodal RF fields, and strong-displacement work/energy
-   history with projected visualization, mesh convergence, natural/affine work
-   definitions, mesh convergence, and full external-deck reproduction; the
-   published Abaqus homogeneous uniaxial constitutive state is now automated.
-5. Build global implicit creep by consuming the shared
-   `QuadratureTransaction`, adaptive controller state, and rollback machinery.
-6. Let fatigue consume verified extracted histories; add a fatigue field only
+3. Extend the implemented portable MPI J2/creep cell identity and multi-region
+   state to larger repartitioned scheduled campaigns and collective archives.
+4. Extend the implemented analytical and external J2 paths, physical cutback,
+   cyclic amplitudes, quadrature fields and strong-displacement work/energy
+   histories with natural/affine work definitions, mesh convergence, and
+   complete external-deck reproduction.
+5. Deepen the implemented global implicit creep route with external component
+   histories, accepted-time observables and execution-efficiency evidence
+   without weakening its Newton and time-integration gates.
+6. Let fatigue continue to consume verified extracted histories; add a fatigue field only
    after hotspot/element mapping and provenance are defined.
 7. Add load-controlled finite-strain examples for dead and follower pressure,
    including tangent and sign checks.

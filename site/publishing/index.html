@@ -625,6 +625,8 @@
       
         
       
+        
+      
     
     
     
@@ -827,6 +829,9 @@ without storing a long-lived PyPI API token in repository secrets.</p>
 <li>Update <code>__version__</code> in <code>__init__.py</code>.</li>
 <li>Update <code>CITATION.cff</code>, <code>CHANGELOG.md</code>, and the versioned release contract.</li>
 <li>Run the smoke examples in a FEniCSx environment.</li>
+<li>Build from a clean packaging workspace. Archive or remove any stale local
+   <code>build/</code> and <code>dist/</code> directories first; the release gate rejects wheels whose
+   runtime files do not exactly match the candidate source.</li>
 <li>Run the same release gate used by CI:</li>
 </ol>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev]&quot;</span>

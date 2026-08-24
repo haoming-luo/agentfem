@@ -151,7 +151,10 @@ outputs/<project>/<run-id>/
 └── logs/
 ```
 
-- `execution.json` answers whether the application completed or failed.
+- `execution.json` answers whether the application completed or failed. A
+  failed run records its stage, stable validation/error code when available,
+  MPI rank evidence, and complete traceback; numerical result files are not
+  required in order to diagnose a preflight or execution failure.
 - `result.json` is the published `SimulationResult`, including quantities,
   histories, artifacts, checkpoints, metadata, and verification evidence.
 - `outputs/<project>/latest.json` points to the most recent run without a

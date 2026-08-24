@@ -22,8 +22,14 @@ print(platforms.runtime_report().format())
 
 This reports the operating-system route, Python and core-package versions,
 the exact interpreter and imported AgentFEM directory, any installed-package
-shadowing, and the availability of meshio, Gmsh, PyVista, PyTorch, and
+shadowing or stale installed-version metadata, the environment-matched MPI
+launcher, and the availability of meshio, Gmsh, PyVista, PyTorch, and
 `dolfinx_mpc`.
+
+If `doctor` reports an MPI launcher mismatch, use the launcher named by
+`mpi.recommended_launcher` or let `agentfem run --mpi N` select it. A PATH
+launcher from a different MPI implementation can start ordinary processes but
+cannot safely initialize the active `mpi4py` runtime.
 
 ## Installed-wheel acceptance
 
@@ -40,9 +46,11 @@ python release_gate.py --dist dist --smoke \
 
 The platform report records the route, exact wheel hash, Python/FEniCSx/PETSc/
 MPI identity and verified installed templates. GitHub's platform-acceptance
-workflow produces Linux and macOS artifacts. WSL2 promotion still requires the
-same command inside a real WSL2 environment; native Linux evidence is not
-silently relabelled as Windows evidence.
+workflow produces Linux and macOS artifacts, including a two-rank installed-
+wheel smoke, and aggregates them into a promotion snapshot. WSL2 promotion
+still requires the same command inside a real WSL2 environment; native Linux
+or an ordinary Windows runner is not silently relabelled as Windows-through-
+WSL2 evidence.
 
 ### Real WSL2 acceptance
 
@@ -75,6 +83,15 @@ be produced by relabelling ordinary Ubuntu evidence. The resulting platform
 record contains the exact wheel hash, kernel route, distribution name when
 available, MPI launcher and rank count, package versions, templates and
 result-provenance checks.
+
+Downloaded platform, extension and agent-trial artifacts can be audited
+together without hand-maintaining a long argument list:
+
+```bash
+python promotion_gate.py \
+  --evidence-directory promotion-evidence \
+  --report promotion.json --require-complete
+```
 
 ## Windows recommendation
 

@@ -2271,31 +2271,19 @@ class Model:
                         )
                     )
 
-        if (
-            study is not None
-            and getattr(study, "analysis", None) == "second_order_dynamics"
-            and getattr(study, "preferred_procedure", None)
-            in {"newmark", "generalized_alpha"}
-        ):
-            for index, constraint in enumerate(
-                constraint_api.dirichlet_constraints(self.constraints)
-            ):
-                if isinstance(constraint, constraint_api.TimeDependentDirichlet):
-                    issues.append(
-                        issue(
-                            "AFM-CONSTRAINT-002",
-                            f"model.constraints[{index}]",
-                            (
-                                "Time-dependent prescribed supports are not yet "
-                                "implemented for implicit structural dynamics."
-                            ),
-                            hint=(
-                                "Use the Explicit procedure or prescribe consistent "
-                                "displacement, velocity, and acceleration histories "
-                                "through an expert formulation."
-                            ),
-                        )
-                    )
+        if study is not None:
+            selected_options = {} if step_options is None else dict(step_options)
+            communicator = None if domain is None else getattr(domain, "comm", None)
+            compatibility = constraint_api.validate_solver_compatibility(
+                constraints=selected_options.get("constraints", self.constraints),
+                analysis=getattr(study, "analysis", ""),
+                procedure=(
+                    selected_options.get("method")
+                    or getattr(study, "preferred_procedure", None)
+                ),
+                comm_size=int(getattr(communicator, "size", 1)),
+            )
+            issues.extend(compatibility.issues)
 
         for collection_name in (
             "fields",

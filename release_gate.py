@@ -216,6 +216,7 @@ def check_distributions(directory: Path) -> Path:
         "build_docs.py",
         "build_knowledge.py",
         "tools/run_wsl2_acceptance.sh",
+        "tools/agent_trial_acceptance.py",
         f"src/agentfem/release/{version}.json",
         "skills/agentfem/SKILL.md",
         "skills/agentfem/agents/openai.yaml",

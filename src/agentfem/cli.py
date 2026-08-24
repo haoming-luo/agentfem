@@ -168,12 +168,22 @@ def _run_context(project: ProjectConfig, run_id: str | None, output: str | None)
 def _rank_error(exc: Exception | None, *, rank: int) -> dict[str, object] | None:
     if exc is None:
         return None
-    return {
+    record = {
         "rank": int(rank),
         "type": f"{type(exc).__module__}.{type(exc).__qualname__}",
         "message": str(exc),
         "traceback": traceback.format_exc(),
+        "stage": "case_execution",
     }
+    report = getattr(exc, "report", None)
+    if report is not None and hasattr(report, "as_dict"):
+        validation = report.as_dict()
+        record["stage"] = "model_preflight"
+        record["validation"] = validation
+        errors = tuple(validation.get("issues", ()))
+        if errors:
+            record["code"] = errors[0].get("code")
+    return record
 
 
 def _collect_rank_errors(comm, local_error) -> tuple[dict[str, object], ...]:
@@ -263,6 +273,10 @@ def _command_run(args) -> int:
             "type": primary["type"],
             "message": primary["message"],
             "rank": primary["rank"],
+            "stage": primary.get("stage", "case_execution"),
+            "code": primary.get("code"),
+            "traceback": primary.get("traceback"),
+            "validation": primary.get("validation"),
             "rank_errors": rank_errors,
         }
         if MPI.COMM_WORLD.rank == 0:

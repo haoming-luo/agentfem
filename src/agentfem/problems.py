@@ -2044,17 +2044,47 @@ def _attach_transient_output(result, step, output_fields) -> None:
     path = step.last_output
     if path is None:
         return
+    primary = (
+        None if not output_fields else _unwrap_result_field(output_fields[0])
+    )
+    primary_shape = () if primary is None else tuple(getattr(primary, "ufl_shape", ()))
+    vector_primary = len(primary_shape) == 1
+    domain = None if primary is None else primary.function_space.mesh
+    backend = getattr(step, "last_output_backend", None)
+    storage_name = (
+        None
+        if not vector_primary
+        else (
+            "U"
+            if backend == "agentfem_unified_xdmf"
+            else str(getattr(primary, "name", "Displacement"))
+        )
+    )
+    semantic_name = "Displacement" if vector_primary else None
     result.metadata["field_output"] = {
         "status": "completed",
-        "backend": getattr(step, "last_output_backend", None),
+        "backend": backend,
         "layout": getattr(step, "last_output_layout", None),
         "geometry": "reference",
-        "warp_field": (
-            "U"
-            if output_fields
-            and len(tuple(getattr(_unwrap_result_field(output_fields[0]), "ufl_shape", ())))
-            == 1
-            else None
+        "warp_field": storage_name,
+        "warp_field_semantic": semantic_name,
+        "physical_components": (
+            int(primary_shape[0]) if vector_primary else None
+        ),
+        "stored_components": (
+            None if not vector_primary or domain is None else int(domain.geometry.x.shape[1])
+        ),
+        "geometry_dimension": (
+            None if domain is None else int(domain.geometry.x.shape[1])
+        ),
+        "physical_model_dimension": (
+            None if domain is None else int(domain.geometry.dim)
+        ),
+        "warp_compatible": bool(vector_primary),
+        "field_aliases": (
+            {}
+            if storage_name is None or semantic_name is None
+            else {semantic_name: storage_name}
         ),
     }
     if path.suffix.lower() == ".pvd":
@@ -3300,7 +3330,12 @@ def _collect_bcs(*, constraints=None, bcs=None) -> list:
             elif hasattr(item, "bc"):
                 result.append(item.bc)
             else:
-                result.append(item)
+                raise TypeError(
+                    "AFM-CONSTRAINT-PROCEDURE-001: implicit dynamics received "
+                    f"{type(item).__name__}, which is not a strong Dirichlet "
+                    "constraint. Run model.check() and select an exact affine/MPC "
+                    "backend for non-Dirichlet kinematic relations."
+                )
     return result
 
 

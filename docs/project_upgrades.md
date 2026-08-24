@@ -16,8 +16,9 @@ agentfem upgrade --project ./my-case --json
 ```
 
 `doctor` reports the exact Python executable, imported AgentFEM directory,
-installed-distribution directory, and whether a source checkout shadows the
-environment. `check` validates the operational project, Python syntax, and
+installed-distribution directory and version, and whether a source checkout or
+stale wheel shadows the environment. It also names the MPI launcher matching
+the active `mpi4py` implementation. `check` validates the operational project, Python syntax, and
 schema compatibility. `upgrade` adds a source-aware migration plan with stable
 diagnostic codes and line numbers.
 

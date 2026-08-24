@@ -58,12 +58,19 @@ def test_external_evidence_can_complete_platform_extension_and_agent_gates(tmp_p
             tmp_path,
             "agent.json",
             {
-                "schema": "agentfem.agent-acceptance",
+                "schema": "agentfem.agent-trial-acceptance",
+                "status": "passed",
+                "agent": "fresh-test-agent",
                 "agentfem_version": "0.3.0",
+                "installed_wheel": True,
+                "fresh_context": True,
+                "human_interventions": 0,
                 "runtime": "passed",
                 "capability_discovery": "passed",
-                "declared_maturity_evidence": "passed",
-                "templates": {"static-solid": {"run": "completed"}},
+                "project_check": "passed",
+                "simulation_result": "passed",
+                "verification": "passed",
+                "scientific_explanation": "reviewed",
             },
         )
     )
@@ -72,3 +79,23 @@ def test_external_evidence_can_complete_platform_extension_and_agent_gates(tmp_p
 
     assert report["status"] == "passed"
     assert report["passed"] == report["required"] == 7
+
+
+def test_deterministic_entrypoint_smoke_cannot_impersonate_fresh_agent(tmp_path):
+    record = _write(
+        tmp_path,
+        "automatic.json",
+        {
+            "schema": "agentfem.agent-acceptance",
+            "runtime": "passed",
+            "capability_discovery": "passed",
+            "declared_maturity_evidence": "passed",
+            "templates": {"static-solid": {"run": "completed"}},
+        },
+    )
+
+    report = promotion_gate.evaluate(evidence=(record,))
+
+    gate = next(item for item in report["gates"] if item["gate"] == "G7")
+    assert gate["passed"] is False
+    assert "fresh-agent" in gate["gaps"][0]

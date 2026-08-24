@@ -143,6 +143,14 @@ extension, and unfamiliar-agent gates consume independent JSON acceptance
 records; missing evidence remains `external_evidence_required` rather than
 being inferred from development-machine success.
 
+The executable audit currently passes G1--G4. G5 is completed only by
+installed-wheel records from Linux, macOS, and a real WSL2 kernel. G6 consumes
+the independently built `agentfem-learning` extension record. G7 requires a
+fresh-context, zero-intervention AI-agent trial whose result and explanation
+are retained and reviewed; the deterministic release smoke deliberately does
+not impersonate that behavioral evidence. Acceptance artifacts can be
+aggregated with `promotion_gate.py --evidence-directory ...`.
+
 ## Beyond 0.3
 
 Longer-term families include phase-field fracture, broader contact,

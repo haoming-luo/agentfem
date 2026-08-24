@@ -47,7 +47,7 @@ jobs:
 
       - name: Run installed-use platform acceptance
         run: |
-          python release_gate.py --dist dist --smoke \
+          python release_gate.py --dist dist --smoke --mpi-ranks 2 \
             --report /tmp/agentfem-agent-acceptance.json \
             --platform-report /tmp/agentfem-platform-acceptance.json \
             --require-platform "${{ matrix.platform }}"
@@ -57,5 +57,34 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: platform-acceptance-${{ matrix.platform }}
-          path: /tmp/agentfem-platform-acceptance.json
+          path: |
+            /tmp/agentfem-agent-acceptance.json
+            /tmp/agentfem-platform-acceptance.json
+          if-no-files-found: error
+
+  evidence-audit:
+    name: Aggregate hosted platform evidence
+    needs: installed-wheel
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download platform evidence
+        uses: actions/download-artifact@v8
+        with:
+          pattern: platform-acceptance-*
+          path: /tmp/agentfem-promotion-evidence
+
+      - name: Audit evidence without relabelling missing WSL2 or agent trials
+        run: |
+          python promotion_gate.py \
+            --evidence-directory /tmp/agentfem-promotion-evidence \
+            --report /tmp/agentfem-platform-promotion.json
+
+      - name: Upload promotion snapshot
+        uses: actions/upload-artifact@v7
+        with:
+          name: platform-promotion-snapshot
+          path: /tmp/agentfem-platform-promotion.json
           if-no-files-found: error

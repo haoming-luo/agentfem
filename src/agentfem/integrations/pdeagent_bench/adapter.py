@@ -1471,43 +1471,10 @@ def _prepare_periodic_linear_problem(a, L, solution, *, prefix: str):
             "periodic PDE cases require the optional dolfinx_mpc backend",
         ) from exc
 
-    space = solution.function_space
-    domain = space.mesh
-    dimension = int(domain.geometry.dim)
-    coordinates = domain.geometry.x[:, :dimension]
-    lower = np.array(
-        [
-            domain.comm.allreduce(float(coordinates[:, i].min()), op=MPI.MIN)
-            for i in range(dimension)
-        ]
-    )
-    upper = np.array(
-        [
-            domain.comm.allreduce(float(coordinates[:, i].max()), op=MPI.MAX)
-            for i in range(dimension)
-        ]
-    )
-    span = upper - lower
-    tolerance = 100.0 * np.finfo(float).eps * max(1.0, float(np.max(span)))
+    from ...constraints.mpc import rectangular_periodic_mpc
 
-    def slave_boundary(x):
-        selected = np.zeros(x.shape[1], dtype=bool)
-        for axis in range(dimension):
-            selected |= np.isclose(x[axis], upper[axis], atol=tolerance, rtol=0.0)
-        return selected
-
-    def matching_point(x):
-        mapped = x.copy()
-        for axis in range(dimension):
-            on_maximum = np.isclose(x[axis], upper[axis], atol=tolerance, rtol=0.0)
-            mapped[axis, on_maximum] -= span[axis]
-        return mapped
-
-    constraint = dolfinx_mpc.MultiPointConstraint(space)
-    constraint.create_periodic_constraint_geometrical(
-        space, slave_boundary, matching_point, bcs=[]
-    )
-    constraint.finalize()
+    constructed = rectangular_periodic_mpc(solution.function_space)
+    constraint = constructed.backend
     options = {
         # Semi-implicit Burgers transport is nonsymmetric. A direct solve is
         # the same robust policy used for its strongly constrained route;

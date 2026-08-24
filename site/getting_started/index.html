@@ -856,6 +856,8 @@
       
         
       
+        
+      
     
     
     
@@ -1229,7 +1231,10 @@ detects the communicator and runs the entrypoint on it.</p>
 <a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>└── logs/
 </code></pre></div>
 <ul>
-<li><code>execution.json</code> answers whether the application completed or failed.</li>
+<li><code>execution.json</code> answers whether the application completed or failed. A
+  failed run records its stage, stable validation/error code when available,
+  MPI rank evidence, and complete traceback; numerical result files are not
+  required in order to diagnose a preflight or execution failure.</li>
 <li><code>result.json</code> is the published <code>SimulationResult</code>, including quantities,
   histories, artifacts, checkpoints, metadata, and verification evidence.</li>
 <li><code>outputs/&lt;project&gt;/latest.json</code> points to the most recent run without a

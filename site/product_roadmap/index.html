@@ -631,6 +631,8 @@
       
         
       
+        
+      
     
     
     
@@ -988,6 +990,34 @@
   
 
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release_0.2.5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release 0.2.5
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1465,6 +1495,13 @@ or change modeling intent.</p>
 extension, and unfamiliar-agent gates consume independent JSON acceptance
 records; missing evidence remains <code>external_evidence_required</code> rather than
 being inferred from development-machine success.</p>
+<p>The executable audit currently passes G1--G4. G5 is completed only by
+installed-wheel records from Linux, macOS, and a real WSL2 kernel. G6 consumes
+the independently built <code>agentfem-learning</code> extension record. G7 requires a
+fresh-context, zero-intervention AI-agent trial whose result and explanation
+are retained and reviewed; the deterministic release smoke deliberately does
+not impersonate that behavioral evidence. Acceptance artifacts can be
+aggregated with <code>promotion_gate.py --evidence-directory ...</code>.</p>
 <h2 id="beyond-03">Beyond 0.3<a class="headerlink" href="#beyond-03" title="Permanent link">&para;</a></h2>
 <p>Longer-term families include phase-field fracture, broader contact,
 beam/shell formulations, deeper multi-physics coupling, scalable

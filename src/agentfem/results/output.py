@@ -41,6 +41,12 @@ class ResultFieldArtifacts:
     warp_field: str | None
     field_names: tuple[str, ...]
     omitted_fields: tuple[str, ...] = ()
+    warp_field_semantic: str | None = None
+    physical_components: int | None = None
+    stored_components: int | None = None
+    geometry_dimension: int = 3
+    physical_model_dimension: int = 3
+    warp_compatible: bool = False
 
     def summary(self) -> dict[str, object]:
         summary = {
@@ -49,6 +55,17 @@ class ResultFieldArtifacts:
             "layout": self.layout,
             "geometry": self.geometry,
             "warp_field": self.warp_field,
+            "warp_field_semantic": self.warp_field_semantic,
+            "physical_components": self.physical_components,
+            "stored_components": self.stored_components,
+            "geometry_dimension": self.geometry_dimension,
+            "physical_model_dimension": self.physical_model_dimension,
+            "warp_compatible": self.warp_compatible,
+            "field_aliases": (
+                {}
+                if self.warp_field is None or self.warp_field_semantic is None
+                else {self.warp_field_semantic: self.warp_field}
+            ),
         }
         if self.paraview is not None:
             summary["paraview"] = str(self.paraview)
@@ -380,6 +397,8 @@ class UnifiedXDMFTimeSeries:
         self._nodes_per_cell = nodes_per_cell
         self._cell_count = len(cell_types)
         self._point_count = coordinates.shape[0]
+        self._geometry_dimension = int(coordinates.shape[1])
+        self._physical_model_dimension = int(domain.geometry.dim)
         self._primary_shape = primary_shape
         self._primary_name = primary_name
         self._vector_primary = vector_primary
@@ -409,6 +428,18 @@ class UnifiedXDMFTimeSeries:
         self._h5.attrs["point_count"] = self._point_count
         self._h5.attrs["cell_count"] = self._cell_count
         self._h5.attrs["primary_field"] = primary_name
+        self._h5.attrs["primary_semantic_name"] = (
+            "Displacement" if vector_primary else primary_name
+        )
+        self._h5.attrs["geometry_dimension"] = self._geometry_dimension
+        self._h5.attrs["physical_model_dimension"] = self._physical_model_dimension
+        self._h5.attrs["primary_physical_components"] = (
+            int(primary_shape[0]) if vector_primary else 1
+        )
+        self._h5.attrs["primary_storage_components"] = (
+            self._geometry_dimension if vector_primary else 1
+        )
+        self._h5.attrs["warp_compatible"] = bool(vector_primary)
         self._h5.attrs["geometry_mode"] = (
             "deformed" if effective_scale != 0.0 else "reference"
         )
@@ -454,12 +485,18 @@ class UnifiedXDMFTimeSeries:
         )
         point_group = frame_group.create_group("Point")
         cell_group = frame_group.create_group("Cell")
-        stored_primary = (
-            primary_values if self._vector_primary else primary_values[:, 0]
-        )
-        point_group.create_dataset(
+        stored_primary = displacement if self._vector_primary else primary_values[:, 0]
+        primary_dataset = point_group.create_dataset(
             self._primary_name, data=stored_primary, **self._h5_options
         )
+        primary_dataset.attrs["physical_components"] = (
+            int(self._primary_shape[0]) if self._vector_primary else 1
+        )
+        primary_dataset.attrs["stored_components"] = (
+            self._geometry_dimension if self._vector_primary else 1
+        )
+        if self._vector_primary:
+            primary_dataset.attrs["semantic_name"] = "Displacement"
         attributes = [(self._primary_name, "Node", stored_primary)]
         if self._vector_primary:
             magnitude = np.linalg.norm(primary_values, axis=1)
@@ -476,8 +513,17 @@ class UnifiedXDMFTimeSeries:
                 point_count=self._point_count,
                 cell_count=self._cell_count,
             )
+            shaped = _visualization_vector_values(
+                shaped,
+                field,
+                components=self._geometry_dimension,
+            )
             group = point_group if center == "Node" else cell_group
-            group.create_dataset(name, data=shaped, **self._h5_options)
+            dataset = group.create_dataset(name, data=shaped, **self._h5_options)
+            field_shape = tuple(getattr(field, "ufl_shape", ()))
+            if len(field_shape) == 1:
+                dataset.attrs["physical_components"] = int(field_shape[0])
+                dataset.attrs["stored_components"] = int(np.asarray(shaped).shape[-1])
             attributes.append((name, center, shaped))
 
         contract = tuple(
@@ -627,6 +673,11 @@ def write_result_fields(
         if item is not primary
     )
     domain = solution.function_space.mesh
+    physical_shape = tuple(getattr(solution, "ufl_shape", ()))
+    vector_solution = len(physical_shape) == 1
+    physical_components = int(physical_shape[0]) if vector_solution else None
+    geometry_dimension = int(domain.geometry.x.shape[1])
+    stored_components = geometry_dimension if vector_solution else None
     selected_path = Path(path)
     if domain.comm.size == 1:
         write_unified_xdmf_series(
@@ -671,9 +722,13 @@ def write_result_fields(
         backend=backend,
         layout=layout,
         geometry=("deformed" if float(deformation_scale) != 0.0 else "reference"),
-        warp_field=(
-            "U" if len(tuple(getattr(solution, "ufl_shape", ()))) == 1 else None
-        ),
+        warp_field=("U" if vector_solution else None),
+        warp_field_semantic=("Displacement" if vector_solution else None),
+        physical_components=physical_components,
+        stored_components=stored_components,
+        geometry_dimension=geometry_dimension,
+        physical_model_dimension=int(domain.geometry.dim),
+        warp_compatible=bool(vector_solution and stored_components == geometry_dimension),
         field_names=tuple(item.name for item in writable),
         omitted_fields=tuple(
             item.name for item in live if item.location == "quadrature_points"
@@ -779,6 +834,28 @@ def _unified_field_values(
         )
     shaped = values.reshape(point_count, value_size)
     return "Node", shaped[:, 0] if value_size == 1 else shaped
+
+
+def _visualization_vector_values(values, field, *, components: int = 3) -> np.ndarray:
+    """Pad physical vectors to the coordinate dimension for VTK/ParaView.
+
+    A two-dimensional finite-element field remains a two-component unknown in
+    memory.  XDMF/VTK presentation geometry is nevertheless stored as XYZ, so
+    a zero out-of-plane component is added only to the visualization array.
+    Scalars and tensors are returned unchanged.
+    """
+
+    array = np.asarray(values)
+    shape = tuple(getattr(field, "ufl_shape", ()))
+    if len(shape) != 1 or array.ndim != 2:
+        return array
+    physical_components = int(shape[0])
+    selected_components = int(components)
+    if physical_components >= selected_components:
+        return array
+    padded = np.zeros((array.shape[0], selected_components), dtype=array.dtype)
+    padded[:, :physical_components] = array
+    return padded
 
 
 def _element_degree(space) -> int:
@@ -894,7 +971,11 @@ def write_deformed_vtk_series(
         displacement = np.zeros_like(coordinates)
         displacement[:, :value_dimension] = displacement_values
         grid.points = coordinates + float(deformation_scale) * displacement
-        grid.point_data["U"] = displacement_values
+        grid.point_data["U"] = _visualization_vector_values(
+            displacement_values,
+            solution,
+            components=coordinates.shape[1],
+        )
         grid.point_data["UMAG"] = np.linalg.norm(displacement_values, axis=1)
         cell_count = len(cell_types)
         for field in fields:

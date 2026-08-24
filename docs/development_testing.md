@@ -26,6 +26,14 @@ compares every packaged runtime file with the candidate source, and then runs
 the flagship workflows and installed project templates. A release therefore
 needs both source evidence and installed-artifact evidence.
 
+Build a release candidate from a clean packaging workspace. Setuptools may
+reuse files under an old local `build/` directory even after those files have
+left the source tree. CI starts from a fresh checkout; a local maintainer should
+remove or archive stale `build/` and `dist/` directories before `python -m
+build`. The release gate's source-to-wheel digest comparison is the final guard:
+an extra or stale runtime file is a release failure, even when the version
+number is correct.
+
 Targeted tests answer “did this edit break its owner?” Full tests answer “did
 this apparently local edit violate another public contract?” Both are needed.
 

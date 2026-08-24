@@ -100,10 +100,21 @@ class RuntimeReport:
         )
         lines.append(f"  runtime mode: {self.execution['mode']}")
         if self.execution["distribution_mismatch"]:
-            lines.append(
-                "  warning: the imported AgentFEM package differs from the installed "
-                "distribution; a source checkout may be shadowing the environment"
-            )
+            runtime = self.execution.get("runtime_version")
+            installed = self.execution.get("distribution_version")
+            if self.execution.get("version_mismatch"):
+                lines.append(
+                    "  warning: executing AgentFEM "
+                    f"{runtime}, but installed distribution metadata reports "
+                    f"{installed}; a source checkout or stale wheel is shadowing "
+                    "the environment"
+                )
+            else:
+                lines.append(
+                    "  warning: the imported AgentFEM package differs from the "
+                    "installed distribution; a source checkout may be shadowing "
+                    "the environment"
+                )
         if self.mpi["path_mismatch"]:
             lines.append(
                 "  warning: PATH mpiexec differs from the active environment; "
@@ -257,11 +268,11 @@ def runtime_report() -> RuntimeReport:
                 capability="Distributed multi-point constraints",
             ),
         ),
-        execution=_execution_identity(),
+        execution=_execution_identity(runtime_version=runtime_version),
     )
 
 
-def _execution_identity() -> dict[str, object]:
+def _execution_identity(*, runtime_version: str | None = None) -> dict[str, object]:
     """Identify the exact code and interpreter used by the current process."""
 
     imported_package = Path(__file__).resolve().parent
@@ -273,13 +284,23 @@ def _execution_identity() -> dict[str, object]:
             distribution_package = candidate
     except metadata.PackageNotFoundError:
         pass
-    mismatch = (
+    path_mismatch = (
         distribution_package is not None
         and distribution_package != imported_package
     )
     source_root = _source_root(imported_package)
     source_identity = _git_identity(source_root)
     distribution_identity = _distribution_identity()
+    distribution_version = (
+        None
+        if distribution_identity is None
+        else distribution_identity.get("version")
+    )
+    version_mismatch = bool(
+        runtime_version is not None
+        and distribution_version is not None
+        and str(runtime_version) != str(distribution_version)
+    )
     return {
         "python_executable": sys.executable,
         "working_directory": str(Path.cwd()),
@@ -287,7 +308,12 @@ def _execution_identity() -> dict[str, object]:
         "installed_distribution": (
             None if distribution_package is None else str(distribution_package)
         ),
-        "distribution_mismatch": mismatch,
+        "runtime_version": runtime_version,
+        "distribution_version": distribution_version,
+        "path_mismatch": path_mismatch,
+        "version_mismatch": version_mismatch,
+        "distribution_mismatch": path_mismatch or version_mismatch,
+        "environment_consistent": not (path_mismatch or version_mismatch),
         "mode": "source_checkout" if source_root is not None else "installed_distribution",
         "source_root": None if source_root is None else str(source_root),
         "source": source_identity,

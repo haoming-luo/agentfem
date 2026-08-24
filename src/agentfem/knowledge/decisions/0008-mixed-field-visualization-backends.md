@@ -44,6 +44,10 @@ product aesthetics alone.
 - The public API remains `OutputPlan`/`SimulationResult`, not writer-specific
   calls in every case file.
 - Serial unified XDMF/HDF5 remains useful and tested.
+- Two-dimensional physical vectors remain two-component finite-element
+  unknowns but are padded with a zero third component in XYZ visualization
+  storage. Result metadata preserves physical and storage dimensions plus the
+  `Displacement -> U` semantic/storage alias.
 - Collective MPI single-dataset presentation is implemented through
   `io.ParaViewTimeSeries`/PVD-PVTU-VTU and tested with point plus cell fields.
   It uses reference geometry plus `U`, so one ParaView Warp filter is still a

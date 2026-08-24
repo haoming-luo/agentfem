@@ -82,6 +82,10 @@ def test_runtime_report_is_serializable_and_names_optional_integrations():
         "installed_distribution",
     }
     assert isinstance(report["execution"]["distribution_mismatch"], bool)
+    assert isinstance(report["execution"]["version_mismatch"], bool)
+    assert isinstance(report["execution"]["path_mismatch"], bool)
+    assert report["execution"]["environment_consistent"] is not report["execution"]["distribution_mismatch"]
+    assert report["execution"]["runtime_version"] == __version__
     assert "source" in report["execution"]
     assert "distribution" in report["execution"]
     if report["execution"]["mode"] == "source_checkout":
@@ -93,3 +97,22 @@ def test_runtime_report_is_serializable_and_names_optional_integrations():
         "meshio",
         "torch",
     }
+
+
+def test_runtime_identity_detects_stale_distribution_version(monkeypatch):
+    monkeypatch.setattr(
+        platforms,
+        "_distribution_identity",
+        lambda: {
+            "version": "0.1.0",
+            "installer": "pip",
+            "direct_url": None,
+            "record_sha256": None,
+        },
+    )
+
+    identity = platforms._execution_identity(runtime_version="0.2.5")
+
+    assert identity["version_mismatch"] is True
+    assert identity["distribution_mismatch"] is True
+    assert identity["environment_consistent"] is False

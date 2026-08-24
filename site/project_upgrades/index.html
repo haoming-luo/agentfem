@@ -631,6 +631,8 @@
       
         
       
+        
+      
     
     
     
@@ -1011,6 +1013,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../release_0.2.5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release 0.2.5
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../release_0.2.4/" class="md-nav__link">
         
   
@@ -1304,8 +1334,9 @@ version of the installed package from the version of the project contract.</p>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>agentfem<span class="w"> </span>upgrade<span class="w"> </span>--project<span class="w"> </span>./my-case<span class="w"> </span>--json
 </code></pre></div>
 <p><code>doctor</code> reports the exact Python executable, imported AgentFEM directory,
-installed-distribution directory, and whether a source checkout shadows the
-environment. <code>check</code> validates the operational project, Python syntax, and
+installed-distribution directory and version, and whether a source checkout or
+stale wheel shadows the environment. It also names the MPI launcher matching
+the active <code>mpi4py</code> implementation. <code>check</code> validates the operational project, Python syntax, and
 schema compatibility. <code>upgrade</code> adds a source-aware migration plan with stable
 diagnostic codes and line numbers.</p>
 <p>The upgrade status has four values:</p>

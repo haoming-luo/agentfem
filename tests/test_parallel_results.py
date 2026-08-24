@@ -195,9 +195,11 @@ def test_parallel_paraview_series_has_one_dataset_with_point_and_cell_fields(tmp
         assert len(datasets_xml) == 1
         parallel_grid = output.parent / datasets_xml[0].attrib["file"]
         tree = ET.parse(parallel_grid)
-        assert tree.find(
+        displacement_array = tree.find(
             ".//PPointData/PDataArray[@Name='Displacement']"
-        ) is not None
+        )
+        assert displacement_array is not None
+        assert displacement_array.attrib["NumberOfComponents"] == "3"
         assert tree.find(".//PCellData/PDataArray[@Name='MISES']") is not None
 
 

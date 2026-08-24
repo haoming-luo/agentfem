@@ -13,6 +13,32 @@ from agentfem.mesh import abaqus
 pytest.importorskip("dolfinx_mpc")
 
 
+def test_rectangular_periodic_mpc_is_public_strict_and_distributed():
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 3, 2)
+    space = fem.functionspace(domain, ("Lagrange", 1))
+
+    periodicity = constraints.rectangular_periodic_mpc(space)
+    global_slaves = domain.comm.allreduce(
+        periodicity.backend.num_local_slaves,
+        op=MPI.SUM,
+    )
+
+    assert global_slaves > 0
+    summary = periodicity.summary()
+    assert summary.pop("tolerance") > 0.0
+    assert summary == {
+        "name": "rectangular_periodic_mpc",
+        "kind": "periodic_constraint",
+        "method": "dolfinx_mpc",
+        "enforcement": "exact_multi_point_constraint",
+        "lower": (0.0, 0.0),
+        "upper": (1.0, 1.0),
+        "axes": (0, 1),
+        "strict": True,
+        "supports_parallel": True,
+    }
+
+
 def test_distributed_abaqus_equation_mapping_and_source_order():
     domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 2, 2)
     space = fem.functionspace(domain, ("Lagrange", 1, (2,)))

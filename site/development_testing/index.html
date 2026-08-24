@@ -625,6 +625,8 @@
       
         
       
+        
+      
     
     
     
@@ -893,6 +895,13 @@ the candidate wheel into an isolated target, rejects a source-checkout import,
 compares every packaged runtime file with the candidate source, and then runs
 the flagship workflows and installed project templates. A release therefore
 needs both source evidence and installed-artifact evidence.</p>
+<p>Build a release candidate from a clean packaging workspace. Setuptools may
+reuse files under an old local <code>build/</code> directory even after those files have
+left the source tree. CI starts from a fresh checkout; a local maintainer should
+remove or archive stale <code>build/</code> and <code>dist/</code> directories before <code>python -m
+build</code>. The release gate's source-to-wheel digest comparison is the final guard:
+an extra or stale runtime file is a release failure, even when the version
+number is correct.</p>
 <p>Targeted tests answer “did this edit break its owner?” Full tests answer “did
 this apparently local edit violate another public contract?” Both are needed.</p>
 <p>For an explicit source-tree check, keep the repository root as the working

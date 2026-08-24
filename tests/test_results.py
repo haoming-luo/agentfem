@@ -18,6 +18,7 @@ from agentfem.constitutive import elasticity
 from agentfem.kernel import dofs as dof_api
 from agentfem.solvers import SolveEvent
 from agentfem.results.finite_strain import HomogenizedFrame
+from agentfem.results.output import attach_result_field_output
 
 
 def test_result_collects_qois_histories_artifacts_and_dataset_sample(tmp_path):
@@ -245,6 +246,13 @@ def test_displacement_controlled_3d_elastic_patch_writes_standard_fields(tmp_pat
         "layout": "single_uniform_grid",
         "geometry": "reference",
         "warp_field": "U",
+        "warp_field_semantic": "Displacement",
+        "physical_components": 3,
+        "stored_components": 3,
+        "geometry_dimension": 3,
+        "physical_model_dimension": 3,
+        "warp_compatible": True,
+        "field_aliases": {"Displacement": "U"},
     }
     grids = ET.parse(output).findall(".//Grid[@GridType='Uniform']")
     assert len(grids) == 1
@@ -892,12 +900,101 @@ def test_unified_xdmf_keeps_deformed_time_series_and_fields_in_one_h5(tmp_path):
         )
         assert set(h5["Frames/0001/Point"]) == {"U", "UMAG"}
         assert set(h5["Frames/0001/Cell"]) == {"MISES"}
+        displacement = np.asarray(h5["Frames/0001/Point/U"])
+        assert displacement.shape == (geometry1.shape[0], 3)
+        np.testing.assert_allclose(displacement[:, 2], 0.0)
+        assert h5.attrs["primary_semantic_name"] == "Displacement"
+        assert h5.attrs["primary_physical_components"] == 2
+        assert h5.attrs["primary_storage_components"] == 3
+        assert bool(h5.attrs["warp_compatible"]) is True
 
     uniform_grids = ET.parse(xdmf).findall(".//Grid[@GridType='Uniform']")
     assert len(uniform_grids) == 2
     for grid in uniform_grids:
-        names = {item.attrib["Name"] for item in grid.findall("Attribute")}
+        attributes = {
+            item.attrib["Name"]: item for item in grid.findall("Attribute")
+        }
+        names = set(attributes)
         assert names == {"U", "UMAG", "MISES"}
+        assert attributes["U"].attrib["AttributeType"] == "Vector"
+        assert attributes["U"].find("DataItem").attrib["Dimensions"].endswith(" 3")
+
+
+def test_two_dimensional_unified_displacement_is_directly_warpable(tmp_path):
+    pytest.importorskip("pyvista")
+    xdmf = _write_two_frame_unified_xdmf(tmp_path)
+
+    grid = results.read_unified_xdmf_series(xdmf)[-1]
+    reference_points = np.asarray(grid.points).copy()
+    displacement = np.asarray(grid.point_data["U"])
+    warped = grid.warp_by_vector("U", factor=1.0)
+
+    assert displacement.shape[1] == 3
+    np.testing.assert_allclose(displacement[:, 2], 0.0)
+    np.testing.assert_allclose(warped.points, reference_points + displacement)
+
+
+def test_unified_xdmf_keeps_three_dimensional_displacement_unchanged(tmp_path):
+    domain = mesh.cuboid(
+        (0.0, 0.0, 0.0),
+        (1.0, 1.0, 1.0),
+        (1, 1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="tetrahedron",
+    )
+    V = fem.functionspace(domain, ("Lagrange", 1, (3,)))
+    displacement = fem.Function(V, name="U")
+    displacement.interpolate(
+        lambda x: np.vstack((0.1 * x[0], 0.2 * x[1], -0.3 * x[2]))
+    )
+
+    xdmf = results.write_unified_xdmf_series(
+        tmp_path / "three_dimensional.xdmf",
+        (SimpleNamespace(solution=displacement, load_factor=1.0),),
+        ((),),
+        deformation_scale=0.0,
+    )
+
+    with h5py.File(xdmf.with_suffix(".h5"), "r") as h5:
+        stored = np.asarray(h5["Frames/0000/Point/U"])
+        assert stored.shape[1] == 3
+        np.testing.assert_allclose(stored, displacement.x.array.reshape(-1, 3))
+        assert h5.attrs["primary_physical_components"] == 3
+        assert h5.attrs["primary_storage_components"] == 3
+
+
+def test_two_dimensional_result_declares_warp_storage_contract(tmp_path):
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    V = fem.functionspace(domain, ("Lagrange", 1, (2,)))
+    displacement = fem.Function(V, name="Displacement")
+    simulation = results.SimulationResult("two_dimensional_warp")
+    simulation.add_field(
+        "Displacement",
+        displacement,
+        processing={"method": "primary_finite_element_solution"},
+    )
+
+    attach_result_field_output(
+        simulation,
+        tmp_path / "two_dimensional_warp.xdmf",
+        strict=True,
+    )
+
+    contract = simulation.metadata["field_output"]
+    assert contract["warp_field"] == "U"
+    assert contract["warp_field_semantic"] == "Displacement"
+    assert contract["field_aliases"] == {"Displacement": "U"}
+    assert contract["physical_components"] == 2
+    assert contract["stored_components"] == 3
+    assert contract["geometry_dimension"] == 3
+    assert contract["physical_model_dimension"] == 2
+    assert contract["warp_compatible"] is True
 
 
 def test_unified_xdmf_accepts_scalar_primary_field_on_reference_geometry(tmp_path):
