@@ -78,6 +78,18 @@ _BENCHMARKS = (
         status="release_regression",
     ),
     BenchmarkSpec(
+        identifier="axisymmetric_lame_cylinder",
+        capability="axisymmetric_solid",
+        level="finite_element",
+        reference="knowledge/benchmarks/axisymmetric_lame_cylinder.json",
+        criterion=(
+            "a public Q2 meridian model reproduces Lamé radial displacement, "
+            "full (r,theta,z) fields, revolved surface measure, and total force"
+        ),
+        automated_test="tests/test_common_workflows.py -k axisymmetric",
+        status="release_regression",
+    ),
+    BenchmarkSpec(
         identifier="operator_contracts",
         capability="operator_systems",
         level="interface",
@@ -233,6 +245,21 @@ _BENCHMARKS = (
             "tests/external_inelastic_benchmark_driver.py"
         ),
         status="automated_external_structural_mpi",
+    ),
+    BenchmarkSpec(
+        identifier="creep_nafems_r0027_test7",
+        capability="power_law_creep",
+        level="external_structural_verification",
+        reference="knowledge/benchmarks/creep_nafems_r0027_test7.json",
+        criterion=(
+            "a native Q2 axisymmetric meridian keeps radial, hoop, and axial "
+            "stress errors below 0.5 percent and converges under one/two/four-cell refinement"
+        ),
+        automated_test=(
+            "tests/test_external_inelastic_benchmark.py::"
+            "test_axisymmetric_nafems_creep_reaches_subpercent_stress_error"
+        ),
+        status="automated_external_structural_verification",
     ),
     BenchmarkSpec(
         identifier="thermoelastic_free_expansion",

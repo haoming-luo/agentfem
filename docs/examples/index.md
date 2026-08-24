@@ -12,6 +12,7 @@ problem-specific qualification.
 | --- | --- | --- |
 | [Wave packet with an inclusion](wave_packet_inclusion.md) | Heterogeneous solid wave, explicit central difference | Release |
 | [2D static elasticity](#2d-static-elasticity) | Plane-strain linear solid, direct linear solve | Release |
+| [Axisymmetric thick cylinder](#axisymmetric-thick-cylinder) | Full-revolution linear solid, direct linear solve | Release |
 | [Transient heat transfer](#transient-heat-transfer) | Heat equation, backward Euler | Release |
 | [Abaqus periodic hyperelastic cell](#abaqus-periodic-hyperelastic-cell) | Imported 3D quadratic mesh, equations, finite strain | Engineering |
 | [Implicit creep relaxation](#implicit-creep-relaxation) | 3D power-law creep, global/local Newton and cutback | Engineering |
@@ -45,6 +46,24 @@ python examples/static_elasticity_2d.py
 [Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_2d.py)
 · [Linear-solid guide](../guide/solid_mechanics.md)
 · [Golden benchmark record](https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/linear_static_cantilever.json)
+
+## Axisymmetric thick cylinder
+
+<span class="af-status af-status--release">Release</span>
+
+A Q2 meridian model of a long pressurized cylinder demonstrates native
+axisymmetric strain, full `(r, theta, z)` stress, the `2*pi*r` physical measure,
+pressure loading, standard output, and comparison with the analytical Lamé
+solution. The same formulation is consumed by the stateful J2 and implicit
+creep providers.
+
+```bash
+python examples/axisymmetric_thick_cylinder.py
+```
+
+[Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/axisymmetric_thick_cylinder.py)
+· [Solid-mechanics guide](../guide/solid_mechanics.md#axisymmetric-solids)
+· [Benchmark record](https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/axisymmetric_lame_cylinder.json)
 
 ## Transient heat transfer
 

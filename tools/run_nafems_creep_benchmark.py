@@ -14,17 +14,23 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--radial-cells", type=int, default=4)
     parser.add_argument("--angular-cells", type=int, default=8)
+    parser.add_argument("--axial-cells", type=int, default=1)
     parser.add_argument(
         "--increments",
         type=int,
-        default=220,
+        default=300,
         help=(
             "Maximum accepted creep increments. The official axisymmetric "
-            "Abaqus deck uses 40; AgentFEM's current 3D route declares its "
-            "larger execution allowance explicitly."
+            "Abaqus deck uses 40; AgentFEM declares its current larger "
+            "execution allowance explicitly."
         ),
     )
     parser.add_argument("--duration", type=float, default=1000.0)
+    parser.add_argument(
+        "--formulation",
+        choices=("axisymmetric", "three_dimensional_sector"),
+        default="axisymmetric",
+    )
     parser.add_argument(
         "--creep-tolerance",
         type=float,
@@ -44,10 +50,12 @@ def main() -> None:
     assessment = benchmarks.creep_thick_cylinder_benchmark(
         radial_cells=options.radial_cells,
         angular_cells=options.angular_cells,
+        axial_cells=options.axial_cells,
         increments=options.increments,
         duration=options.duration,
         creep_strain_error_tolerance=options.creep_tolerance,
         progress=options.progress,
+        formulation=options.formulation,
     )
     record = {
         "schema": "agentfem.external-structural-benchmark",
@@ -58,9 +66,11 @@ def main() -> None:
         "configuration": {
             "radial_cells": options.radial_cells,
             "angular_cells": options.angular_cells,
+            "axial_cells": options.axial_cells,
             "increments": options.increments,
             "duration_hour": options.duration,
             "creep_strain_error_tolerance": options.creep_tolerance,
+            "formulation": options.formulation,
         },
         "assessment": assessment.as_dict(),
         "runtime_seconds": perf_counter() - started,

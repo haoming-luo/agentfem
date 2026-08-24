@@ -23,7 +23,6 @@ from .. import (
     constitutive,
     constraints,
     fields,
-    mechanics,
     mesh,
     models,
     solvers,
@@ -203,34 +202,100 @@ def _cylinder_model(
     return model, displacement, inner
 
 
+def _axisymmetric_cylinder_model(
+    *,
+    inner_radius: float,
+    outer_radius: float,
+    height: float,
+    radial_cells: int,
+    axial_cells: int,
+    study,
+    degree: int = 2,
+    name: str,
+    comm=MPI.COMM_WORLD,
+):
+    """Create an exact meridian-domain cylinder model with ``(u_r, u_z)``."""
+
+    domain = mesh.rectangle(
+        (inner_radius, 0.0),
+        (outer_radius, height),
+        (radial_cells, axial_cells),
+        comm=comm,
+        cell_type="quadrilateral",
+    )
+    model = models.create(study=study, mesh=domain, name=name)
+    displacement = model.field(fields.displacement(domain, degree=degree))
+    inner = mesh.face(
+        domain,
+        axis="x",
+        value=inner_radius,
+        name="inner_wall",
+        tag=1,
+    )
+    model.constraint(constraints.axisymmetric_plane_strain(displacement))
+    return model, displacement, inner
+
+
 def j2_thick_cylinder_benchmark(
     *,
     comm=MPI.COMM_WORLD,
     radial_cells: int = 4,
     angular_cells: int = 8,
+    axial_cells: int = 1,
     increments: int = 24,
+    formulation: str = "three_dimensional_sector",
 ) -> InelasticStructuralBenchmark:
-    """Run the Comet-FEniCSx thick-cylinder first-yield benchmark."""
+    """Run the Comet-FEniCSx thick-cylinder first-yield benchmark.
+
+    The historical 3D sector remains the default to preserve its distributed
+    Golden.  ``formulation="axisymmetric"`` independently exercises the same
+    J2 return map and transaction through native meridian kinematics.
+    """
 
     inner_radius, outer_radius, thickness = 1.0, 1.3, 0.1
     young, poisson, yield_stress = 70.0e3, 0.3, 250.0
     tangent_modulus = young / 100.0
     hardening = young * tangent_modulus / (young - tangent_modulus)
-    domain = thick_cylinder_sector_mesh(
-        inner_radius=inner_radius,
-        outer_radius=outer_radius,
-        thickness=thickness,
-        radial_cells=radial_cells,
-        angular_cells=angular_cells,
-        comm=comm,
-    )
-    model, displacement, inner = _cylinder_model(
-        domain=domain,
-        inner_radius=inner_radius,
-        thickness=thickness,
-        study=studies.nonlinear_static(physics="solid_mechanics", dimension=3),
-        name="comet_j2_thick_cylinder",
-    )
+    normalized_formulation = str(formulation).strip().lower().replace("-", "_")
+    if normalized_formulation == "axisymmetric":
+        model, displacement, inner = _axisymmetric_cylinder_model(
+            inner_radius=inner_radius,
+            outer_radius=outer_radius,
+            height=thickness,
+            radial_cells=radial_cells,
+            axial_cells=axial_cells,
+            study=studies.nonlinear_static(
+                physics="solid_mechanics",
+                dimension=2,
+                assumption="axisymmetric",
+            ),
+            name="comet_j2_axisymmetric_thick_cylinder",
+            comm=comm,
+        )
+        domain = model.mesh
+    elif normalized_formulation == "three_dimensional_sector":
+        domain = thick_cylinder_sector_mesh(
+            inner_radius=inner_radius,
+            outer_radius=outer_radius,
+            thickness=thickness,
+            radial_cells=radial_cells,
+            angular_cells=angular_cells,
+            comm=comm,
+        )
+        model, displacement, inner = _cylinder_model(
+            domain=domain,
+            inner_radius=inner_radius,
+            thickness=thickness,
+            study=studies.nonlinear_static(
+                physics="solid_mechanics",
+                dimension=3,
+            ),
+            name="comet_j2_thick_cylinder",
+        )
+    else:
+        raise ValueError(
+            "formulation must be 'axisymmetric' or 'three_dimensional_sector'."
+        )
     material = model.material(
         constitutive.J2LinearIsotropicHardening(
             young=young,
@@ -249,12 +314,10 @@ def j2_thick_cylinder_benchmark(
     # remaining below the pressure-controlled limit-load regime.
     target_pressure = 1.05 * analytical
     model.pressure(target_pressure, on=inner)
-    step = mechanics.j2_plasticity_step(
-        displacement=displacement,
+    step = model.step(
+        target=displacement,
         material=material,
-        external_force=model.external_force(displacement),
         constraints=model.constraints,
-        study=model.study,
         incrementation=steps.fixed(increments),
         solver_options=solvers.newton(
             relative_tolerance=1.0e-8,
@@ -264,7 +327,6 @@ def j2_thick_cylinder_benchmark(
             linear_solver=solvers.direct_solver(package="mumps"),
         ),
         progress=False,
-        _experimental_distributed=True,
         name="comet_j2_thick_cylinder",
     )
     result = step.solve_result()
@@ -285,7 +347,9 @@ def j2_thick_cylinder_benchmark(
     bracket_width = (upper - lower) / analytical
     dofmap = step.solution.function_space.dofmap
     owned = int(dofmap.index_map.size_local) * int(dofmap.index_map_bs)
-    local_displacement = step.solution.x.array[:owned].reshape((-1, 3))
+    local_displacement = step.solution.x.array[:owned].reshape(
+        (-1, domain.geometry.dim)
+    )
     maximum_displacement = float(
         comm.allreduce(
             np.max(np.linalg.norm(local_displacement, axis=1), initial=0.0),
@@ -293,7 +357,11 @@ def j2_thick_cylinder_benchmark(
         )
     )
     return InelasticStructuralBenchmark(
-        name="comet_j2_thick_cylinder_first_yield",
+        name=(
+            "comet_j2_axisymmetric_thick_cylinder_first_yield"
+            if normalized_formulation == "axisymmetric"
+            else "comet_j2_thick_cylinder_first_yield"
+        ),
         mpi_ranks=comm.size,
         quantities={
             "yield_bracket_error": float(bracket_error),
@@ -363,29 +431,36 @@ def creep_thick_cylinder_benchmark(
     comm=MPI.COMM_WORLD,
     radial_cells: int = 4,
     angular_cells: int = 8,
-    increments: int = 220,
+    axial_cells: int = 1,
+    increments: int = 300,
     duration: float = 1000.0,
     creep_strain_error_tolerance: float = 5.0e-4,
     progress: object = False,
+    formulation: str = "axisymmetric",
 ) -> InelasticStructuralBenchmark:
     """Run the NAFEMS R0027 Test 7 secondary-creep benchmark.
 
     The public reference is reproduced in the Abaqus verification manual as
     "Test 7: Axisymmetric -- pressurized cylinder, secondary creep". AgentFEM
-    uses a one-layer three-dimensional quarter sector because its trusted
-    global creep provider is deliberately three-dimensional; axial
-    displacement is constrained everywhere to recover the published
-    plane-strain assumption.
+    uses the native two-dimensional axisymmetric lowering by default.  The
+    former one-layer three-dimensional quarter-sector route remains available
+    as ``formulation="three_dimensional_sector"`` for formulation comparison.
     """
 
     inner_radius, outer_radius = 100.0, 200.0
     pressure, exponent = 200.0, 5.0
     selected_radial_cells = int(radial_cells)
     selected_angular_cells = int(angular_cells)
-    if selected_radial_cells < 1 or selected_angular_cells < 2:
+    selected_axial_cells = int(axial_cells)
+    normalized_formulation = str(formulation).strip().lower().replace("-", "_")
+    if normalized_formulation not in {"axisymmetric", "three_dimensional_sector"}:
         raise ValueError(
-            "The creep cylinder requires radial_cells >= 1 and angular_cells >= 2."
+            "formulation must be 'axisymmetric' or 'three_dimensional_sector'."
         )
+    if selected_radial_cells < 1 or selected_axial_cells < 1:
+        raise ValueError("The creep cylinder requires positive radial and axial cells.")
+    if normalized_formulation == "three_dimensional_sector" and selected_angular_cells < 2:
+        raise ValueError("The 3D sector requires angular_cells >= 2.")
     # Plane strain is imposed kinematically at every axial displacement dof;
     # it does not require a vanishingly thin extrusion.  Keep one fixed 10 mm
     # domain through the refinement study: unlike the former 1 mm sliver it
@@ -406,23 +481,37 @@ def creep_thick_cylinder_benchmark(
         raise ValueError(
             "creep_strain_error_tolerance must be finite and positive."
         )
-    domain = thick_cylinder_sector_mesh(
-        inner_radius=inner_radius,
-        outer_radius=outer_radius,
-        thickness=thickness,
-        radial_cells=selected_radial_cells,
-        angular_cells=selected_angular_cells,
-        cell_type="hexahedron",
-        comm=comm,
-    )
-    model, displacement, inner = _cylinder_model(
-        domain=domain,
-        inner_radius=inner_radius,
-        thickness=thickness,
-        study=studies.creep_solid(),
-        degree=2,
-        name="nafems_r0027_test_7_creep_cylinder",
-    )
+    if normalized_formulation == "axisymmetric":
+        model, displacement, inner = _axisymmetric_cylinder_model(
+            inner_radius=inner_radius,
+            outer_radius=outer_radius,
+            height=thickness,
+            radial_cells=selected_radial_cells,
+            axial_cells=selected_axial_cells,
+            study=studies.creep_solid(dimension=2, assumption="axisymmetric"),
+            degree=2,
+            name="nafems_r0027_test_7_axisymmetric_creep_cylinder",
+            comm=comm,
+        )
+        domain = model.mesh
+    else:
+        domain = thick_cylinder_sector_mesh(
+            inner_radius=inner_radius,
+            outer_radius=outer_radius,
+            thickness=thickness,
+            radial_cells=selected_radial_cells,
+            angular_cells=selected_angular_cells,
+            cell_type="hexahedron",
+            comm=comm,
+        )
+        model, displacement, inner = _cylinder_model(
+            domain=domain,
+            inner_radius=inner_radius,
+            thickness=thickness,
+            study=studies.creep_solid(),
+            degree=2,
+            name="nafems_r0027_test_7_3d_creep_cylinder",
+        )
     material = model.material(
         constitutive.isotropic_power_law(
             young=200.0e3,
@@ -441,7 +530,10 @@ def creep_thick_cylinder_benchmark(
     # share the same live field because Study states physical analysis intent;
     # a creep Study must not pretend that its preload is linear static.
     preload_model = models.create(
-        study=studies.static_solid(dimension=3),
+        study=studies.static_solid(
+            dimension=model.study.dimension,
+            assumption=model.study.assumption,
+        ),
         mesh=domain,
         name="nafems_r0027_elastic_preload",
     )
@@ -507,39 +599,49 @@ def creep_thick_cylinder_benchmark(
     cell_map = domain.topology.index_map(domain.topology.dim)
     owned = int(cell_map.size_local)
     cells = np.arange(owned, dtype=np.int32)
+    geometric_dimension = domain.geometry.dim
     coordinates = fem.Expression(
         ufl.SpatialCoordinate(domain), stress.points
-    ).eval(domain, cells).reshape((-1, 3))
+    ).eval(domain, cells).reshape((-1, geometric_dimension))
     determinants = np.abs(
         fem.Expression(
             ufl.JacobianDeterminant(domain), stress.points
         ).eval(domain, cells).reshape(-1)
     )
     weights = determinants * np.tile(stress.weights, owned)
-    radius = np.linalg.norm(coordinates[:, :2], axis=1)
+    if normalized_formulation == "axisymmetric":
+        radius = coordinates[:, 0]
+        weights *= 2.0 * pi * radius
+    else:
+        radius = np.linalg.norm(coordinates[:, :2], axis=1)
     values = stress.owned_values.reshape((-1, 3, 3))
 
-    radial_direction = np.column_stack(
-        (
-            coordinates[:, 0] / radius,
-            coordinates[:, 1] / radius,
-            np.zeros(len(radius)),
+    if normalized_formulation == "axisymmetric":
+        radial_stress = values[:, 0, 0]
+        hoop_stress = values[:, 1, 1]
+        axial_stress = values[:, 2, 2]
+    else:
+        radial_direction = np.column_stack(
+            (
+                coordinates[:, 0] / radius,
+                coordinates[:, 1] / radius,
+                np.zeros(len(radius)),
+            )
         )
-    )
-    hoop_direction = np.column_stack(
-        (
-            -coordinates[:, 1] / radius,
-            coordinates[:, 0] / radius,
-            np.zeros(len(radius)),
+        hoop_direction = np.column_stack(
+            (
+                -coordinates[:, 1] / radius,
+                coordinates[:, 0] / radius,
+                np.zeros(len(radius)),
+            )
         )
-    )
-    radial_stress = np.einsum(
-        "ci,cij,cj->c", radial_direction, values, radial_direction
-    )
-    hoop_stress = np.einsum(
-        "ci,cij,cj->c", hoop_direction, values, hoop_direction
-    )
-    axial_stress = values[:, 2, 2]
+        radial_stress = np.einsum(
+            "ci,cij,cj->c", radial_direction, values, radial_direction
+        )
+        hoop_stress = np.einsum(
+            "ci,cij,cj->c", hoop_direction, values, hoop_direction
+        )
+        axial_stress = values[:, 2, 2]
     exact = power_law_creep_cylinder_stress(
         radius,
         inner_radius=inner_radius,
@@ -578,15 +680,21 @@ def creep_thick_cylinder_benchmark(
                 for item in step.accepted_increments
             )
         ),
+        "formulation_axisymmetric": float(
+            normalized_formulation == "axisymmetric"
+        ),
     }
+    stress_tolerance = (
+        5.0e-3 if normalized_formulation == "axisymmetric" else 8.0e-2
+    )
     return InelasticStructuralBenchmark(
         name="nafems_r0027_test_7_secondary_creep",
         mpi_ranks=comm.size,
         quantities=quantities,
         tolerances={
-            "radial_stress_relative_l2": 0.08,
-            "hoop_stress_relative_l2": 0.08,
-            "axial_stress_relative_l2": 0.08,
+            "radial_stress_relative_l2": stress_tolerance,
+            "hoop_stress_relative_l2": stress_tolerance,
+            "axial_stress_relative_l2": stress_tolerance,
             "final_relative_residual": 2.0e-8,
             "maximum_creep_strain_error_estimate": selected_creep_tolerance,
         },

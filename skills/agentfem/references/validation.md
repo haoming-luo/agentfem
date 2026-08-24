@@ -18,6 +18,11 @@ Minimum validation after code changes:
 
 For modeling changes, also check units, boundary-condition type, and output
 availability.
+For axisymmetric changes, verify radial regularity when the mesh reaches the
+axis, full `(r,theta,z)` tensor output, the `2*pi*r` measure in stiffness,
+loads, energy and results, analytical Lamé response, and at least one stateful
+thick-cylinder path. Do not interpret an integrated radial meridian component
+as a Cartesian vector resultant around the complete circumference.
 
 For constitutive changes, record one of these maturity levels:
 

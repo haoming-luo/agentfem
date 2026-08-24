@@ -246,6 +246,50 @@ def component_dirichlet(
     )
 
 
+def axisymmetric_plane_strain(
+    displacement,
+    *,
+    value: float = 0.0,
+    name: str = "axisymmetric_plane_strain",
+) -> DirichletConstraint:
+    """Constrain ``u_z`` everywhere in an ``(r, z)`` meridian model.
+
+    This is the long-cylinder plane-strain specialization of an axisymmetric
+    solid, not a generic requirement of axisymmetric analysis.  It includes
+    interior high-order displacement dofs and is therefore stronger and less
+    error-prone than fixing only the two end boundaries.
+    """
+
+    return component_dirichlet(
+        displacement,
+        1,
+        marker=lambda x: np.ones(x.shape[1], dtype=bool),
+        value=value,
+        name=name,
+    )
+
+
+def axisymmetric_axis(
+    displacement,
+    *,
+    location=None,
+    on=None,
+    value: float = 0.0,
+    name: str = "axisymmetric_axis",
+) -> DirichletConstraint:
+    """Enforce radial regularity ``u_r=0`` on the revolution axis."""
+
+    return component_dirichlet(
+        displacement,
+        0,
+        marker=lambda x: np.isclose(x[0], 0.0),
+        location=location,
+        on=on,
+        value=value,
+        name=name,
+    )
+
+
 def dirichlet(
     V,
     marker=None,

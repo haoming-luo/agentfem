@@ -5,7 +5,7 @@
   "title": "Projected small-strain fields, reactions, and static equilibrium",
   "kind": "workflow",
   "status": "supported",
-  "summary": "Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell-average fields, extracts MPI-global resultants, and records assembled external-force versus strong-reaction equilibrium.",
+  "summary": "Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell-average fields, including full (r,theta,z) axisymmetric tensors and weighted projection, extracts MPI-global resultants, and records assembled external-force versus strong-reaction equilibrium.",
   "public_api": [
     "agentfem.results.project",
     "agentfem.results.project_piecewise",
@@ -80,6 +80,7 @@
     "assumptions": [
       "Small-strain standard fields use the selected linear-elastic constitutive relation.",
       "Plane-strain isotropic Mises stress includes the constitutively implied out-of-plane stress.",
+      "Axisymmetric fields are full 3x3 tensors and projection uses the same 2 pi r physical measure as equilibrium.",
       "Reaction resultant semantics are limited to strong Dirichlet constraints."
     ],
     "conventions": [
@@ -139,6 +140,7 @@
   ],
   "related_cards": [
     "agentfem.workflow.result_field_sampling",
+    "agentfem.formulation.axisymmetric_solid",
     "agentfem.operator.system_contracts"
   ]
 }

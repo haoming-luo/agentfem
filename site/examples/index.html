@@ -883,6 +883,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#axisymmetric-thick-cylinder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Axisymmetric thick cylinder
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#transient-heat-transfer" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1054,6 +1065,11 @@ problem-specific qualification.</p>
 <td>Release</td>
 </tr>
 <tr>
+<td><a href="#axisymmetric-thick-cylinder">Axisymmetric thick cylinder</a></td>
+<td>Full-revolution linear solid, direct linear solve</td>
+<td>Release</td>
+</tr>
+<tr>
 <td><a href="#transient-heat-transfer">Transient heat transfer</a></td>
 <td>Heat equation, backward Euler</td>
 <td>Release</td>
@@ -1098,12 +1114,24 @@ isotropic elasticity, strong constraints, traction, a linear step, standard
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_2d.py">Source code</a>
 · <a href="../guide/solid_mechanics/">Linear-solid guide</a>
 · <a href="https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/linear_static_cantilever.json">Golden benchmark record</a></p>
+<h2 id="axisymmetric-thick-cylinder">Axisymmetric thick cylinder<a class="headerlink" href="#axisymmetric-thick-cylinder" title="Permanent link">&para;</a></h2>
+<p><span class="af-status af-status--release">Release</span></p>
+<p>A Q2 meridian model of a long pressurized cylinder demonstrates native
+axisymmetric strain, full <code>(r, theta, z)</code> stress, the <code>2*pi*r</code> physical measure,
+pressure loading, standard output, and comparison with the analytical Lamé
+solution. The same formulation is consumed by the stateful J2 and implicit
+creep providers.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>examples/axisymmetric_thick_cylinder.py
+</code></pre></div>
+<p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/axisymmetric_thick_cylinder.py">Source code</a>
+· <a href="../guide/solid_mechanics/#axisymmetric-solids">Solid-mechanics guide</a>
+· <a href="https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/axisymmetric_lame_cylinder.json">Benchmark record</a></p>
 <h2 id="transient-heat-transfer">Transient heat transfer<a class="headerlink" href="#transient-heat-transfer" title="Permanent link">&para;</a></h2>
 <p><span class="af-status af-status--release">Release</span></p>
 <p>This case exercises capacity and conduction operators, backward-Euler time
 integration, accepted-increment progress, temperature histories, unified field
 output, and a release Golden observable.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>examples/transient_heat_2d.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>examples/transient_heat_2d.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/transient_heat_2d.py">Source code</a>
 · <a href="../guide/heat_transfer/">Heat-transfer guide</a></p>
@@ -1129,7 +1157,7 @@ backward-Euler constitutive integration, analytical consistent tangent,
 physical-time automatic incrementation, rollback/cutback, creep output, energy
 evidence, and restart. The same global step can consume a prescribed
 temperature field through the Arrhenius material factory.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>examples/implicit_creep_relaxation_3d.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>examples/implicit_creep_relaxation_3d.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/implicit_creep_relaxation_3d.py">Source code</a>
 · <a href="../guide/creep_and_inelasticity/">Creep and inelasticity</a>
@@ -1140,7 +1168,7 @@ temperature field through the Arrhenius material factory.</p>
 then an explicitly identified local creep assessment. It demonstrates how the
 software distinguishes a global field solution from a material-point or
 assessment-level model.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>examples/creep_hot_wall_assessment.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>examples/creep_hot_wall_assessment.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/creep_hot_wall_assessment.py">Source code</a></p>
 <h2 id="elasticity-surrogate-campaign">Elasticity surrogate campaign<a class="headerlink" href="#elasticity-surrogate-campaign" title="Permanent link">&para;</a></h2>
@@ -1148,7 +1176,7 @@ assessment-level model.</p>
 <p>The campaign varies declared parameters, runs the same finite-element model,
 records failures and evidence, creates an accepted scientific dataset, trains
 a surrogate, checks its applicability domain, and retains an FEM fallback.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>examples/static_elasticity_surrogate_campaign.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>examples/static_elasticity_surrogate_campaign.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_surrogate_campaign.py">Source code</a>
 · <a href="../guide/simulation_to_learning/">Simulation to learning</a></p>

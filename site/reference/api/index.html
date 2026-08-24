@@ -3300,6 +3300,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
+<td><code>axisymmetric_plane_strain(displacement, *, value: float = 0.0, name: str = 'axisymmetric_plane_strain') -&gt; DirichletConstraint</code></td>
+<td>Constrain <code>u_z</code> everywhere in an <code>(r, z)</code> meridian model.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>axisymmetric_axis(displacement, *, location = None, on = None, value: float = 0.0, name: str = 'axisymmetric_axis') -&gt; DirichletConstraint</code></td>
+<td>Enforce radial regularity <code>u_r=0</code> on the revolution axis.</td>
+</tr>
+<tr>
+<td>function</td>
 <td><code>dirichlet(V, marker = None, value = 0.0, *, component: int \| None = None, location = None, on = None, name: str = 'dirichlet') -&gt; DirichletConstraint</code></td>
 <td>Create scalar or component-wise Dirichlet data from one entry point.</td>
 </tr>
@@ -3604,7 +3614,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>surface_force(resultant, *, location = None, on = None, reference_measure: float \| None = None, system = None, name: str = 'surface_force') -&gt; SurfaceResultantLoad</code></td>
+<td><code>surface_force(resultant, *, location = None, on = None, reference_measure: float \| None = None, study = None, system = None, name: str = 'surface_force') -&gt; SurfaceResultantLoad</code></td>
 <td>Distribute a total reference-configuration force over a boundary.</td>
 </tr>
 <tr>
@@ -3825,8 +3835,8 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>boundary_resultant(traction, *, on)</code></td>
-<td>Integrate a traction/flux expression over a named boundary.</td>
+<td><code>boundary_resultant(traction, *, on, study = None)</code></td>
+<td>Integrate traction/flux over a named physical boundary.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -3870,17 +3880,17 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>region_average(expression, *, on)</code></td>
+<td><code>region_average(expression, *, on, study = None)</code></td>
 <td>Return a measure-weighted average over a named mesh region.</td>
 </tr>
 <tr>
 <td>function</td>
-<td><code>region_integral(expression, *, on)</code></td>
-<td>Integrate a scalar, vector, or tensor over a named mesh region.</td>
+<td><code>region_integral(expression, *, on, study = None)</code></td>
+<td>Integrate over a named region using its declared physical measure.</td>
 </tr>
 <tr>
 <td>function</td>
-<td><code>region_measure(*, on) -&gt; float</code></td>
+<td><code>region_measure(*, on, study = None) -&gt; float</code></td>
 <td>Return the global length, area, or volume of a named region.</td>
 </tr>
 <tr>
@@ -3915,12 +3925,12 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>project(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField')</code></td>
+<td><code>project(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0)</code></td>
 <td>Return the global L2 projection of a UFL expression.</td>
 </tr>
 <tr>
 <td>function</td>
-<td><code>project_piecewise(terms, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField')</code></td>
+<td><code>project_piecewise(terms, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0)</code></td>
 <td>Project region-dependent expressions into one finite-element field.</td>
 </tr>
 <tr>
@@ -5697,7 +5707,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tr>
 <td>function</td>
 <td><code>implicit_creep_step(*, displacement, material, duration: float, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, creep_strain_error_tolerance: float \| None = None, time_unit: str \| None = None, progress = True, status_file = None, amplitude = None, temperature = None, name: str = 'implicit_creep', _experimental_distributed: bool = False) -&gt; ImplicitCreepStep</code></td>
-<td>Build the first global 3D implicit power-law creep step.</td>
+<td>Build global 3D or axisymmetric implicit power-law creep.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -5717,7 +5727,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tr>
 <td>function</td>
 <td><code>j2_plasticity_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'j2_plasticity', _experimental_distributed: bool = False) -&gt; J2PlasticityStep</code></td>
-<td>Build a global 3D J2 step from a displacement and load operator.</td>
+<td>Build a global 3D or axisymmetric J2 step.</td>
 </tr>
 </tbody>
 </table>
@@ -5813,7 +5823,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>force_vector(target, loads = None, *, load = None) -&gt; OperatorForm</code></td>
+<td><code>force_vector(target, loads = None, *, load = None, study = None) -&gt; OperatorForm</code></td>
 <td>Create a total force/source vector from one or more load objects.</td>
 </tr>
 <tr>
@@ -5853,7 +5863,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>load_vector(target, loads = None, *, load = None) -&gt; OperatorForm</code></td>
+<td><code>load_vector(target, loads = None, *, load = None, study = None) -&gt; OperatorForm</code></td>
 <td>Create a total external-load vector <code>F</code> for a target unknown.</td>
 </tr>
 <tr>
@@ -6712,7 +6722,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>creep_thick_cylinder_benchmark(*, comm = MPI.COMM_WORLD, radial_cells: int = 4, angular_cells: int = 8, increments: int = 220, duration: float = 1000.0, creep_strain_error_tolerance: float = 0.0005, progress: object = False) -&gt; InelasticStructuralBenchmark</code></td>
+<td><code>creep_thick_cylinder_benchmark(*, comm = MPI.COMM_WORLD, radial_cells: int = 4, angular_cells: int = 8, axial_cells: int = 1, increments: int = 300, duration: float = 1000.0, creep_strain_error_tolerance: float = 0.0005, progress: object = False, formulation: str = 'axisymmetric') -&gt; InelasticStructuralBenchmark</code></td>
 <td>Run the NAFEMS R0027 Test 7 secondary-creep benchmark.</td>
 </tr>
 <tr>
@@ -6727,7 +6737,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>j2_thick_cylinder_benchmark(*, comm = MPI.COMM_WORLD, radial_cells: int = 4, angular_cells: int = 8, increments: int = 24) -&gt; InelasticStructuralBenchmark</code></td>
+<td><code>j2_thick_cylinder_benchmark(*, comm = MPI.COMM_WORLD, radial_cells: int = 4, angular_cells: int = 8, axial_cells: int = 1, increments: int = 24, formulation: str = 'three_dimensional_sector') -&gt; InelasticStructuralBenchmark</code></td>
 <td>Run the Comet-FEniCSx thick-cylinder first-yield benchmark.</td>
 </tr>
 <tr>

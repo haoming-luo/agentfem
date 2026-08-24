@@ -68,7 +68,7 @@ CAE for a future in which people and AI advance science together.
 ```
 
 The manuscript describes AgentFEM version 0.2.1. The project continues to
-evolve; consult the [release notes](../release_0.2.2.md) for subsequent
+evolve; consult the [release notes](../release_0.2.3.md) for subsequent
 capabilities.
 
 **Keywords:** finite-element method; scientific software; AI agents;

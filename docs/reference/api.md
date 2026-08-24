@@ -251,6 +251,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `dirichlet_constraints(constraints) -> tuple[object, ...]` | Return concrete Dirichlet assets from nested model constraint sets. |
 | function | `scalar_dirichlet(V, marker = None, value = 0.0, *, location = None, on = None, name: str = 'dirichlet') -> DirichletConstraint` | Semantic wrapper for scalar essential boundary data. |
 | function | `component_dirichlet(V, component: int, marker = None, value = 0.0, *, location = None, on = None, name: str = 'dirichlet') -> DirichletConstraint` | Semantic wrapper for vector-component essential boundary data. |
+| function | `axisymmetric_plane_strain(displacement, *, value: float = 0.0, name: str = 'axisymmetric_plane_strain') -> DirichletConstraint` | Constrain ``u_z`` everywhere in an ``(r, z)`` meridian model. |
+| function | `axisymmetric_axis(displacement, *, location = None, on = None, value: float = 0.0, name: str = 'axisymmetric_axis') -> DirichletConstraint` | Enforce radial regularity ``u_r=0`` on the revolution axis. |
 | function | `dirichlet(V, marker = None, value = 0.0, *, component: int \| None = None, location = None, on = None, name: str = 'dirichlet') -> DirichletConstraint` | Create scalar or component-wise Dirichlet data from one entry point. |
 | function | `time_dependent_component_dirichlet(target, component: int, marker = None, value = None, *, amplitude = None, location = None, on = None, name: str = 'time_dependent_dirichlet') -> TimeDependentDirichlet` | Create a component-wise Dirichlet constraint driven by an amplitude. |
 | function | `time_dependent_scalar_dirichlet(target, marker = None, value = None, *, amplitude = None, location = None, on = None, name: str = 'time_dependent_dirichlet') -> TimeDependentDirichlet` | Create a scalar Dirichlet constraint driven by an amplitude. |
@@ -317,7 +319,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `neumann(value, measure, *, name: str = 'neumann_load') -> NeumannLoad` | Create a Neumann force/flux/traction term for the weak RHS. |
 | function | `with_amplitude(load, amplitude, *, domain = None, name: str \| None = None) -> AmplitudeLoad` | Drive an existing load by a scalar amplitude multiplier. |
 | function | `traction(value, *, location = None, on = None, system = None, name: str = 'traction') -> BoundaryLoad` | Create a traction in global or an explicit local coordinate system. |
-| function | `surface_force(resultant, *, location = None, on = None, reference_measure: float \| None = None, system = None, name: str = 'surface_force') -> SurfaceResultantLoad` | Distribute a total reference-configuration force over a boundary. |
+| function | `surface_force(resultant, *, location = None, on = None, reference_measure: float \| None = None, study = None, system = None, name: str = 'surface_force') -> SurfaceResultantLoad` | Distribute a total reference-configuration force over a boundary. |
 | function | `distributing_coupling(force, *, moment = None, reference_point = None, location = None, on = None, system = None, name: str = 'distributing_coupling') -> DistributedCouplingLoad` | Distribute force/moment over a surface with tributary-area weighting. |
 | function | `remote_force(force, *, reference_point, moment = None, location = None, on = None, system = None, name: str = 'remote_force') -> DistributedCouplingLoad` | Apply a reference-point force/moment through a continuum surface. |
 | function | `pressure(value, *, location = None, on = None, normal = None, configuration: str = 'reference', displacement = None, name: str = 'pressure') -> PressureLoad` | Create inward pressure on a reference or current boundary. |
@@ -369,7 +371,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `StaticForceBalance` | Global algebraic force equilibrium for one linear static solid. |
 | class | `StaticWorkBalance` | Energy closure including proportional prescribed boundary motion. |
 | function | `average(expression, *, measure = ufl.dx, comm = None)` | Return the measure-weighted global average of an expression. |
-| function | `boundary_resultant(traction, *, on)` | Integrate a traction/flux expression over a named boundary. |
+| function | `boundary_resultant(traction, *, on, study = None)` | Integrate traction/flux over a named physical boundary. |
 | function | `field_extrema(field, *, magnitude: bool = False, location: bool = False) -> dict[str, object]` | Return MPI-global field extrema, optionally with physical locations. |
 | function | `free_body_resultant(*, boundary_tractions = (), body_forces = (), about) -> ForceMomentResultant` | Integrate boundary and volume forces into one free-body resultant. |
 | function | `external_force_resultant(problem)` | Return the MPI-global resultant of a linear problem's assembled RHS. |
@@ -378,17 +380,17 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `probe(field, *, at, padding: float = 1e-10)` | Return one scalar, vector, or tensor field value at a physical point. |
 | function | `quadrature_extrema(expression, domain, *, degree: int = 4) -> tuple[float, float]` | Return global min/max sampled at Basix quadrature points. |
 | function | `reaction_resultant(problem, *, on = None, component: int \| None = None, name: str = 'RF')` | Return an MPI-global strong-constraint reaction resultant. |
-| function | `region_average(expression, *, on)` | Return a measure-weighted average over a named mesh region. |
-| function | `region_integral(expression, *, on)` | Integrate a scalar, vector, or tensor over a named mesh region. |
-| function | `region_measure(*, on) -> float` | Return the global length, area, or volume of a named region. |
+| function | `region_average(expression, *, on, study = None)` | Return a measure-weighted average over a named mesh region. |
+| function | `region_integral(expression, *, on, study = None)` | Integrate over a named region using its declared physical measure. |
+| function | `region_measure(*, on, study = None) -> float` | Return the global length, area, or volume of a named region. |
 | function | `sample_path(field, *, start, end, count: int = 101, padding: float = 1e-10, missing: str = 'raise') -> PathSample` | Sample a field along the straight segment from ``start`` to ``end``. |
 | function | `sample_points(field, points, *, padding: float = 1e-10, missing: str = 'raise') -> np.ndarray` | Evaluate a finite-element field at common physical points under MPI. |
 | function | `sample_rectilinear_grid(field, *, bbox, shape, reduction: str \| None = None, component: int \| None = None, padding: float = 1e-10) -> RectilinearGridSample` | Sample a scalar or vector field on a 2D/3D rectilinear grid. |
 | function | `section_resultant(stress, *, on, normal = None, about = None) -> ForceMomentResultant` | Integrate section force and moment from a Cauchy/nominal stress field. |
 | function | `static_force_balance(problem) -> StaticForceBalance` | Evaluate ``R + F = 0`` for a converged linear static solid. |
 | function | `static_work_balance(problem, *, constraints = ()) -> StaticWorkBalance` | Evaluate linear-static work including nonzero strong Dirichlet data. |
-| function | `project(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField')` | Return the global L2 projection of a UFL expression. |
-| function | `project_piecewise(terms, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField')` | Project region-dependent expressions into one finite-element field. |
+| function | `project(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0)` | Return the global L2 projection of a UFL expression. |
+| function | `project_piecewise(terms, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0)` | Project region-dependent expressions into one finite-element field. |
 | function | `small_strain_cell_fields(displacement, properties, *, study = None, variables = ('S', 'E', 'MISES', 'SENER'), degree: int = 0) -> tuple[object, ...]` | Create standard projected fields for linear small-strain elasticity. |
 | function | `small_strain_partition_fields(displacement, assignments, *, study = None, variables = ('S', 'E', 'MISES', 'SENER'), degree: int = 0) -> tuple[object, ...]` | Create standard fields for a complete regional material partition. |
 | class | `FieldRecovery` | A reviewable conversion from constitutive evidence to a field. |
@@ -790,11 +792,11 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `CreepIncrementInfo` | Public AgentFEM object. |
 | class | `CreepPathInfo` | Public AgentFEM object. |
 | class | `ImplicitCreepStep` | Adaptive backward-Euler creep step with global Newton equilibrium. |
-| function | `implicit_creep_step(*, displacement, material, duration: float, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, creep_strain_error_tolerance: float \| None = None, time_unit: str \| None = None, progress = True, status_file = None, amplitude = None, temperature = None, name: str = 'implicit_creep', _experimental_distributed: bool = False) -> ImplicitCreepStep` | Build the first global 3D implicit power-law creep step. |
+| function | `implicit_creep_step(*, displacement, material, duration: float, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, creep_strain_error_tolerance: float \| None = None, time_unit: str \| None = None, progress = True, status_file = None, amplitude = None, temperature = None, name: str = 'implicit_creep', _experimental_distributed: bool = False) -> ImplicitCreepStep` | Build global 3D or axisymmetric implicit power-law creep. |
 | class | `J2IncrementInfo` | Public AgentFEM object. |
 | class | `J2LoadPathInfo` | Public AgentFEM object. |
 | class | `J2PlasticityStep` | Incremental global equilibrium for 3D small-strain J2 plasticity. |
-| function | `j2_plasticity_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'j2_plasticity', _experimental_distributed: bool = False) -> J2PlasticityStep` | Build a global 3D J2 step from a displacement and load operator. |
+| function | `j2_plasticity_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'j2_plasticity', _experimental_distributed: bool = False) -> J2PlasticityStep` | Build a global 3D or axisymmetric J2 step. |
 
 ## `agentfem.operators`
 
@@ -816,7 +818,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `damping_operator(trial_function, test_function = None, coefficient = None, *, measure = ufl.dx) -> OperatorForm` | Create a viscous damping operator ``C``. |
 | function | `dual_product(vector_operator, field) -> float` | Return the global discrete pairing ``field^T vector_operator``. |
 | function | `diffusion_operator(trial_function, test_function = None, conductivity = None, *, measure = ufl.dx) -> OperatorForm` | Create a scalar diffusion/conduction operator. |
-| function | `force_vector(target, loads = None, *, load = None) -> OperatorForm` | Create a total force/source vector from one or more load objects. |
+| function | `force_vector(target, loads = None, *, load = None, study = None) -> OperatorForm` | Create a total force/source vector from one or more load objects. |
 | function | `form_arity(expression) -> int \| None` | Return the number of UFL arguments, or ``None`` for opaque backends. |
 | function | `flux_vector(flux, target, *, measure = None, location = None) -> OperatorForm` | Create a prescribed scalar boundary-flux vector. |
 | function | `heat_capacity_operator(temperature, capacity, *, measure = ufl.dx) -> OperatorForm` | Create a heat-capacity operator ``C`` for transient heat problems. |
@@ -824,7 +826,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `heat_conduction_operator(temperature, conductivity, *, measure = ufl.dx) -> OperatorForm` | Create a heat-conduction operator ``K`` for ``-div(k grad(T))``. |
 | function | `heat_source_vector(source, temperature, *, measure = ufl.dx) -> OperatorForm` | Create a heat-source vector ``Q`` for a temperature unknown. |
 | function | `inertial_force_vector(acceleration, target, density = 1.0, *, measure = ufl.dx) -> OperatorForm` | Create the inertial virtual-work vector ``F_inertia = M a``. |
-| function | `load_vector(target, loads = None, *, load = None) -> OperatorForm` | Create a total external-load vector ``F`` for a target unknown. |
+| function | `load_vector(target, loads = None, *, load = None, study = None) -> OperatorForm` | Create a total external-load vector ``F`` for a target unknown. |
 | function | `lumped_mass(V, density = 1.0, *, measure = ufl.dx)` | Assemble a lumped mass vector for explicit dynamics. |
 | function | `lumped_operator(V, coefficient = 1.0, *, measure = ufl.dx)` | Assemble a generic lumped diagonal operator. |
 | function | `mass_action_vector(field, target, coefficient = 1.0, *, measure = ufl.dx) -> OperatorForm` | Create a vector from a mass-like operator acting on a known field. |
@@ -1014,10 +1016,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `jmps_weak_interface_convergence_v4(*, history_every: int = 20, spatial_speed_tolerance: float = 0.1, temporal_speed_tolerance: float = 0.02) -> WeakInterfaceConvergenceStudy` | Run the opt-in two-dimensional V4 supershear convergence contract. |
 | function | `plane_stress_thin_3d_crosscheck(*, axial_stretch: float = 1.12, reference_thickness: float = 0.02, cells = (2, 2, 1), young: float = 1000000.0, poisson: float = 0.49, density: float = 1000.0, tolerance: float = 1e-09) -> ThinThreeDimensionalCrossCheck` | Compare condensed 2D membrane response with a thin 3D FEM patch. |
 | function | `prestressed_weak_interface_separation(*, label: str = 'v4_candidate', cells: int = 60, transverse_cells: int = 2, length: float = 3.0, height: float = 1.0, precrack_length: float = 0.5, axial_strain: float = 0.12, strength: float = 10.0, fracture_energy: float = 0.1, initial_stiffness: float = 10000.0, young: float = 1000.0, poisson: float = 0.49, density: float = 1.0, total_time: float = 0.2, time_step_scale: float = 0.8, damping: float = 0.0, history_every: int = 1, impact_displacement: float = 0.0, impact_rise_time: float \| None = None, speed_fit_length: float \| None = None, bulk_material = None, retain_trace: bool = False) -> WeakInterfaceTransitionBenchmark` | Drive a precrack through a prestressed plane-stress weak interface. |
-| function | `creep_thick_cylinder_benchmark(*, comm = MPI.COMM_WORLD, radial_cells: int = 4, angular_cells: int = 8, increments: int = 220, duration: float = 1000.0, creep_strain_error_tolerance: float = 0.0005, progress: object = False) -> InelasticStructuralBenchmark` | Run the NAFEMS R0027 Test 7 secondary-creep benchmark. |
+| function | `creep_thick_cylinder_benchmark(*, comm = MPI.COMM_WORLD, radial_cells: int = 4, angular_cells: int = 8, axial_cells: int = 1, increments: int = 300, duration: float = 1000.0, creep_strain_error_tolerance: float = 0.0005, progress: object = False, formulation: str = 'axisymmetric') -> InelasticStructuralBenchmark` | Run the NAFEMS R0027 Test 7 secondary-creep benchmark. |
 | class | `InelasticStructuralBenchmark` | Compact, rank-independent evidence from one structural benchmark. |
 | function | `j2_plane_strain_first_yield_pressure(*, inner_radius: float, outer_radius: float, poisson: float, yield_stress: float) -> float` | Lamé plane-strain pressure at first Mises yield on the inner wall. |
-| function | `j2_thick_cylinder_benchmark(*, comm = MPI.COMM_WORLD, radial_cells: int = 4, angular_cells: int = 8, increments: int = 24) -> InelasticStructuralBenchmark` | Run the Comet-FEniCSx thick-cylinder first-yield benchmark. |
+| function | `j2_thick_cylinder_benchmark(*, comm = MPI.COMM_WORLD, radial_cells: int = 4, angular_cells: int = 8, axial_cells: int = 1, increments: int = 24, formulation: str = 'three_dimensional_sector') -> InelasticStructuralBenchmark` | Run the Comet-FEniCSx thick-cylinder first-yield benchmark. |
 | function | `power_law_creep_cylinder_stress(radius, *, inner_radius: float, outer_radius: float, pressure: float, stress_exponent: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]` | Return the NAFEMS R0027 Test 7 steady-state cylinder stresses. |
 | function | `thick_cylinder_sector_mesh(*, inner_radius: float, outer_radius: float, thickness: float, radial_cells: int, angular_cells: int, cell_type: str = 'tetrahedron', comm = MPI.COMM_WORLD)` | Create a one-layer 3D quarter-cylinder benchmark mesh. |
 

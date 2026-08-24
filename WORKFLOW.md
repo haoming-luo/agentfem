@@ -7,6 +7,9 @@ this sequence visible unless there is a strong reason to encapsulate it.
 
 1. Define the study context: analysis type, physics, dimension, and modeling
    assumptions.
+   For a revolved small-strain solid use `dimension=2,
+   assumption="axisymmetric"`; this declaration lowers kinematics, operators,
+   loads, and standard results consistently.
 2. Select a solution-procedure preference only when the same physical problem
    admits more than one route, for example Standard/Newmark,
    Standard/generalized-alpha, or Explicit/central difference. Keep this

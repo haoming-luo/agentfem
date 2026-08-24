@@ -360,6 +360,7 @@ class Model:
             on=on,
             location=location,
             reference_measure=reference_measure,
+            study=self.study,
             system=system,
             name=name,
         )
@@ -378,6 +379,13 @@ class Model:
         name: str = "distributing_coupling",
     ):
         """Distribute a reference-point force/moment over a solid surface."""
+
+        if getattr(self.study, "assumption", None) == "axisymmetric":
+            raise NotImplementedError(
+                "Axisymmetric distributing coupling needs an explicit ring/reference "
+                "kinematic definition and is not yet supported. Use surface_force "
+                "for a uniform physical resultant."
+            )
 
         load = load_api.distributing_coupling(
             force,
@@ -403,6 +411,13 @@ class Model:
         name: str = "remote_force",
     ):
         """Apply a reference-point resultant through a continuum surface."""
+
+        if getattr(self.study, "assumption", None) == "axisymmetric":
+            raise NotImplementedError(
+                "Axisymmetric remote force needs an explicit ring/reference "
+                "kinematic definition and is not yet supported. Use surface_force "
+                "for a uniform physical resultant."
+            )
 
         load = load_api.remote_force(
             force,
@@ -827,7 +842,10 @@ class Model:
 
         import ufl
 
+        from . import _axisymmetric
         from . import operators
+
+        weight = _axisymmetric.integration_weight(target, self.study)
 
         records = (
             (self._material_record(material),)
@@ -856,7 +874,7 @@ class Model:
             parts.append(
                 operators.mass_operator(
                     target,
-                    _density(record.item),
+                    _density(record.item) * weight,
                     measure=selected_measure,
                 ).renamed(f"{name}_{index}" if len(records) > 1 else name)
             )
@@ -871,11 +889,12 @@ class Model:
 
         import ufl
 
+        from . import _axisymmetric
         from . import operators
 
         return operators.damping_operator(
             target,
-            coefficient,
+            coefficient * _axisymmetric.integration_weight(target, self.study),
             measure=ufl.dx if measure is None else measure,
         ).renamed(name)
 
@@ -1026,13 +1045,20 @@ class Model:
             raise ValueError("model.lumped_mass currently supports method='row_sum'.")
 
         from . import assembly
+        from . import _axisymmetric
         from . import problems
 
         V = _space(target)
+        weight = _axisymmetric.integration_weight(target, self.study)
         if material is not None:
             record = self._material_record(material)
             selected_measure = measure if measure is not None else _record_measure(record)
-            mass = _assemble_lumped_mass(assembly, V, _density(record.item), selected_measure)
+            mass = _assemble_lumped_mass(
+                assembly,
+                V,
+                _density(record.item) * weight,
+                selected_measure,
+            )
             return problems.LumpedMassOperator(
                 mass=mass,
                 inv_mass=assembly.inverse_diagonal(mass),
@@ -1048,7 +1074,12 @@ class Model:
         if len(self.materials) == 1:
             record = self.materials[0]
             selected_measure = measure if measure is not None else _record_measure(record)
-            mass = _assemble_lumped_mass(assembly, V, _density(record.item), selected_measure)
+            mass = _assemble_lumped_mass(
+                assembly,
+                V,
+                _density(record.item) * weight,
+                selected_measure,
+            )
             return problems.LumpedMassOperator(
                 mass=mass,
                 inv_mass=assembly.inverse_diagonal(mass),
@@ -1060,7 +1091,12 @@ class Model:
             if record.region is None:
                 missing.append(_describe(record.item))
                 continue
-            part = _assemble_lumped_mass(assembly, V, _density(record.item), record.region.measure)
+            part = _assemble_lumped_mass(
+                assembly,
+                V,
+                _density(record.item) * weight,
+                record.region.measure,
+            )
             mass = part if mass is None else mass + part
         if missing:
             raise ValueError(
@@ -1078,7 +1114,12 @@ class Model:
         from . import operators
 
         selected_loads = self.loads if loads is None and load is None else loads
-        return operators.load_vector(target, selected_loads, load=load)
+        return operators.load_vector(
+            target,
+            selected_loads,
+            load=load,
+            study=self.study,
+        )
 
     def external_force(self, target, loads=None, *, load=None):
         """Create the external force/source vector from model loads."""
@@ -2114,6 +2155,56 @@ class Model:
                         mesh_dimension=int(mesh_dimension),
                     )
                 )
+            elif (
+                getattr(study, "assumption", None) == "axisymmetric"
+                and int(mesh_dimension) == 2
+            ):
+                from mpi4py import MPI
+
+                coordinates = np.asarray(domain.geometry.x[:, 0], dtype=float)
+                local_min = float(np.min(coordinates)) if coordinates.size else np.inf
+                local_max = float(np.max(np.abs(coordinates))) if coordinates.size else 0.0
+                minimum_radius = float(
+                    domain.comm.allreduce(local_min, op=MPI.MIN)
+                )
+                radius_scale = float(
+                    domain.comm.allreduce(local_max, op=MPI.MAX)
+                )
+                tolerance = 1.0e-12 * max(1.0, radius_scale)
+                if minimum_radius < -tolerance:
+                    issues.append(
+                        issue(
+                            "AFM-AXISYM-001",
+                            "model.mesh.geometry.x[:,0]",
+                            "An axisymmetric meridian cannot contain negative radius.",
+                            hint="Define the meridian in coordinates (r,z) with r >= 0.",
+                            minimum_radius=minimum_radius,
+                        )
+                    )
+                elif minimum_radius <= tolerance:
+                    names = {
+                        str(getattr(item, "name", "")).strip().lower()
+                        for item in constraint_api.dirichlet_constraints(
+                            self.constraints
+                        )
+                    }
+                    has_axis_regularity = any(
+                        name == "axisymmetric_axis" or name.startswith("symmetry_x")
+                        for name in names
+                    )
+                    if not has_axis_regularity:
+                        issues.append(
+                            issue(
+                                "AFM-AXISYM-002",
+                                "model.constraints",
+                                "The meridian reaches r=0 without a declared radial regularity constraint.",
+                                severity="warning",
+                                hint=(
+                                    "Register constraints.axisymmetric_axis(u, on=axis) "
+                                    "or an equivalent named x-normal symmetry constraint."
+                                ),
+                            )
+                        )
 
         if not self.fields:
             issues.append(

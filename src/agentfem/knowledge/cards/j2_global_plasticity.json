@@ -5,7 +5,7 @@
   "title": "Global small-strain J2 plasticity",
   "kind": "material",
   "status": "supported",
-  "summary": "Three-dimensional Mises plasticity with linear isotropic hardening, a shared quadrature transaction, analytical algorithmic tangent, cyclic amplitude paths, physical-increment cutback, cumulative serial restart, standard fields, and work/energy histories verified on homogeneous and nonuniform structural paths.",
+  "summary": "Three-dimensional and two-dimensional axisymmetric Mises plasticity with linear isotropic hardening, a shared quadrature transaction, analytical algorithmic tangent, cyclic amplitude paths, physical-increment cutback, portable restart, standard fields, and work/energy histories verified on homogeneous, nonuniform, and public thick-cylinder paths.",
   "public_api": [
     "agentfem.constitutive.J2LinearIsotropicHardening",
     "agentfem.constitutive.J2QuadratureState",
@@ -84,7 +84,7 @@
       }
     ],
     "assumptions": [
-      "Small strain and three spatial dimensions.",
+      "Small strain, either three spatial dimensions or a two-dimensional axisymmetric meridian.",
       "Rate independence, associative Mises flow, and linear isotropic hardening.",
       "Natural loads and nonzero engineering Dirichlet targets share one named amplitude; the step coordinate remains monotone while amplitude values may reverse."
     ],
@@ -95,14 +95,14 @@
       "maximum_inelastic_increment limits the equivalent plastic-strain increment and triggers rollback/cutback after an otherwise converged Newton attempt."
     ],
     "applicability": [
-      "Monotone or reviewed tabular cyclic small-strain 3D solid loading within the implemented isotropic-hardening law.",
+      "Monotone or reviewed tabular cyclic small-strain 3D or axisymmetric solid loading within the implemented isotropic-hardening law.",
       "Laboratory-scale regression and research workflows requiring inspectable state.",
       "Nonuniform displacement-controlled structures with simultaneous elastic and plastic integration points."
     ],
     "limitations": [
-      "The first global provider is serial-only and has no plane-stress local constraint, finite-strain plasticity, kinematic hardening, or multi-region driver.",
+      "There is no plane-stress local constraint, finite-strain plasticity, or kinematic hardening.",
       "External-work histories are currently available for nonzero strong prescribed displacements; natural, weak, and affine-MPC work require separate verified definitions.",
-      "No external NAFEMS benchmark has yet promoted this path to benchmark-verified maturity."
+      "The public thick-cylinder route verifies first yield; cyclic hardening still requires an external structure-level benchmark."
     ]
   },
   "usage": {
@@ -119,10 +119,11 @@
     "benchmarks": [
       "agentfem.benchmark.j2_global_restart",
       "agentfem.benchmark.j2_multielement_patch",
-      "agentfem.benchmark.j2_nonuniform_bending"
+      "agentfem.benchmark.j2_nonuniform_bending",
+      "agentfem.benchmark.j2_thick_cylinder_mpi"
     ],
     "validation_rules": [
-      "Reject non-3D and multi-rank global use.",
+      "Reject unsupported dimensional assumptions and nonphysical material parameters.",
       "Reject nonphysical material parameters.",
       "Commit shared transaction state only after global and constitutive-increment acceptance.",
       "Restore field, constitutive state, adaptive next-increment state, energy history, accepted/attempt histories, and execution events after restart."
@@ -139,6 +140,7 @@
     }
   ],
   "related_cards": [
+    "agentfem.formulation.axisymmetric_solid",
     "agentfem.workflow.solution_procedures"
   ]
 }

@@ -85,6 +85,15 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   `studies.transient_heat_transfer`, and `studies.dynamic_solid` for common
   cases. Attach `amplitudes` to loads, prescribed values, and supported
   boundary models so procedures update them automatically.
+- For a revolved small-strain solid, declare
+  `studies.static_solid(dimension=2, assumption="axisymmetric")`; never emulate
+  it with plane strain plus ad hoc `r` factors. Meridian fields are `(r,z)`,
+  tensors are `(r,theta,z)`, and the model-first workflow applies `2*pi*r` to
+  operators and loads. Pass the same Study to direct result-integral helpers.
+  Use `constraints.axisymmetric_plane_strain(...)` only for the long-cylinder
+  specialization that requires zero axial strain everywhere.
+  If the meridian reaches `r=0`, register
+  `constraints.axisymmetric_axis(u, on=axis)` and retain its validation evidence.
 - Use `amplitudes.basis(...)` for multiple named loading modes. Preserve
   coefficient order, value/velocity/acceleration behavior, endpoint audit, and
   the content fingerprint. Anonymous callables remain valid but are not a
@@ -102,7 +111,7 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
 - Stateful materials must use quadrature-owned committed/trial state and prove
   rollback plus restart equivalence. The current global J2 route has declared
   serial/MPI structural evidence; global Arrhenius power-law creep remains a
-  3D small-strain foundation with a stricter MPI maturity boundary. Other creep
+  3D/axisymmetric small-strain foundation with a stricter MPI maturity boundary. Other creep
   laws remain material-point or assessment consumers.
 - For global implicit creep, keep Newton equilibrium, maximum accepted CEEQ
   increment, and endpoint creep-rate time-integration accuracy as three

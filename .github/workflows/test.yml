@@ -121,6 +121,9 @@ jobs:
       - name: Verify distributed inelastic equilibrium and transactions
         run: mpirun -n 2 python -m pytest tests/test_parallel_inelastic.py -k distributed
 
+      - name: Verify native axisymmetric J2 path with two MPI ranks
+        run: mpirun -n 2 python tests/axisymmetric_mpi_driver.py
+
       - name: Verify external J2 structure across MPI rank counts
         run: |
           python tests/external_inelastic_benchmark_driver.py write /tmp/agentfem-j2-cylinder.json

@@ -8,6 +8,7 @@ AgentFEM was initiated by Haoming Luo and open-sourced on GitHub in July 2026.
 ## Current project information
 
 - [Product roadmap](../product_roadmap.md)
+- [Release 0.2.3](../release_0.2.3.md)
 - [Release 0.2.2](../release_0.2.2.md)
 - [Trust and operations](../trust/index.md)
 - [Validation](../validation.md)

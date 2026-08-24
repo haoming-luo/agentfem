@@ -14,6 +14,7 @@ from dolfinx import geometry as geometry_api
 from mpi4py import MPI
 
 from .. import fields as field_api
+from .. import _axisymmetric
 from ..kernel import dofs
 
 
@@ -223,30 +224,48 @@ def quadrature_extrema(
     )
 
 
-def region_integral(expression, *, on):
-    """Integrate a scalar, vector, or tensor over a named mesh region."""
+def region_integral(expression, *, on, study=None):
+    """Integrate over a named region using its declared physical measure.
 
-    return integral(expression, measure=_region_measure(on))
+    Pass the model ``study`` for an axisymmetric meridian so the result uses
+    the full-revolution ``2*pi*r`` measure instead of planar unit thickness.
+    """
+
+    weight = _axisymmetric.integration_weight(on.domain, study)
+    return integral(weight * expression, measure=_region_measure(on))
 
 
-def region_average(expression, *, on):
+def region_average(expression, *, on, study=None):
     """Return a measure-weighted average over a named mesh region."""
 
-    return average(expression, measure=_region_measure(on))
+    weight = _axisymmetric.integration_weight(on.domain, study)
+    measure = _region_measure(on)
+    denominator = integral(weight, measure=measure, comm=on.domain.comm)
+    if denominator <= 0.0:
+        raise ValueError("region_average requires a region with positive measure.")
+    return integral(weight * expression, measure=measure, comm=on.domain.comm) / denominator
 
 
-def region_measure(*, on) -> float:
+def region_measure(*, on, study=None) -> float:
     """Return the global length, area, or volume of a named region."""
 
     measure = _region_measure(on)
     comm = _comm_from_measure(measure)
-    return float(_assemble_component(ufl.as_ufl(1.0), measure, comm))
+    weight = _axisymmetric.integration_weight(on.domain, study)
+    return float(_assemble_component(weight, measure, comm))
 
 
-def boundary_resultant(traction, *, on):
-    """Integrate a traction/flux expression over a named boundary."""
+def boundary_resultant(traction, *, on, study=None):
+    """Integrate traction/flux over a named physical boundary.
 
-    return integral(traction, measure=_region_measure(on))
+    In an axisymmetric study the returned meridional components use the
+    full-revolution ``2*pi*r`` measure.  An axial component is a physical
+    resultant; a radial component is the circumferential integral of radial
+    magnitude, not a Cartesian vector sum (which vanishes by symmetry).
+    """
+
+    weight = _axisymmetric.integration_weight(on.domain, study)
+    return integral(weight * traction, measure=_region_measure(on))
 
 
 def section_resultant(stress, *, on, normal=None, about=None) -> ForceMomentResultant:

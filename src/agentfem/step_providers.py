@@ -680,6 +680,16 @@ def _supports_elasticity(material) -> bool:
     )
 
 
+def _supports_axisymmetric_elasticity(material) -> bool:
+    """Require a constitutive record that defines the full isotropic hoop response."""
+
+    return (
+        hasattr(material, "young")
+        and hasattr(material, "poisson")
+        and not hasattr(material, "stiffness_voigt")
+    )
+
+
 def _supports_dynamics(material) -> bool:
     return (
         _supports_elasticity(material)
@@ -733,12 +743,16 @@ def _accept_linear_static(model, request: StepRequest) -> bool:
         return False
     physics = getattr(study, "physics", None)
     if physics == "solid_mechanics":
+        material_predicate = (
+            _supports_axisymmetric_elasticity
+            if getattr(study, "assumption", None) == "axisymmetric"
+            else _supports_elasticity
+        )
         return (
-            getattr(study, "assumption", None) != "axisymmetric"
-            and _is_vector_target(request.target)
+            _is_vector_target(request.target)
             and (
                 _has_complete_linear_system(request)
-                or _all_materials_support(model, request, _supports_elasticity)
+                or _all_materials_support(model, request, material_predicate)
             )
         )
     if physics == "heat_transfer":
@@ -840,7 +854,13 @@ def _accept_j2(model, request: StepRequest) -> bool:
     return (
         getattr(study, "physics", None) == "solid_mechanics"
         and _is_vector_target(request.target)
-        and getattr(study, "dimension", None) == 3
+        and (
+            getattr(study, "dimension", None) == 3
+            or (
+                getattr(study, "dimension", None) == 2
+                and getattr(study, "assumption", None) == "axisymmetric"
+            )
+        )
         and _all_materials_support(
             model, request, lambda item: isinstance(item, J2LinearIsotropicHardening)
         )
@@ -874,7 +894,13 @@ def _accept_implicit_creep(model, request: StepRequest) -> bool:
     return (
         getattr(study, "physics", None) == "solid_mechanics"
         and getattr(study, "analysis", None) == "nonlinear_transient"
-        and getattr(study, "dimension", None) == 3
+        and (
+            getattr(study, "dimension", None) == 3
+            or (
+                getattr(study, "dimension", None) == 2
+                and getattr(study, "assumption", None) == "axisymmetric"
+            )
+        )
         and _is_vector_target(request.target)
         and _normalize(method or "implicit_creep")
         in {"implicit_creep", "backward_euler", "backward_euler_newton"}

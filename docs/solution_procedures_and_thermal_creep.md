@@ -119,7 +119,7 @@ Implemented now:
 - sequential isotropic thermal expansion as a visible vector operator;
 - normalized Arrhenius temperature dependence at material-point and global
   integration-point level;
-- global 3D J2 quadrature state with regional materials, analytical tangent,
+- global 3D and axisymmetric J2 quadrature state with regional materials, analytical tangent,
   and portable full-Step restart;
 - cumulative J2 restart history, analytical uniaxial Golden verification,
   quadrature S/PE/PEEQ/MISES and nodal RF result fields, cyclic amplitude, physical-increment cutback,
@@ -128,24 +128,26 @@ Implemented now:
   and modified-theta curve projection;
 - a sequential hot-wall FEM-to-creep assessment example with explicit
   calibration and maturity boundaries.
-- global 3D power-law creep with backward Euler, analytical tangent, shared
+- global 3D and axisymmetric power-law creep with backward Euler, analytical tangent, shared
   transaction, automatic cutback, CE/CEEQ/S/MISES/RF/TEMP, prescribed
   Arrhenius temperature fields, dissipation history, regional materials,
   portable full-Step restart, MPI-portable quadrature state, and a
   relaxation Golden contract;
 - a 3D component contract in which accepted transient heat states drive the
   global Arrhenius creep step on the same physical clock.
-- the published NAFEMS R0027 Test 7 thick-cylinder stress oracle and an
-  executable elastic-preload-to-creep structural route. The fast analytical
-  contract is automated. The scheduled structural gate uses a one-layer Q2
-  hexahedral quarter sector, direct volume-weighted quadrature-point stress
-  errors, and a creep endpoint-rate integration estimator. The 4 by 8 mesh
-  crosses the declared 8% radial/hoop/axial error gate; the 3 by 6 mesh does
-  not, so the refinement evidence remains visible rather than being replaced
-  by a smoothed contour comparison. Halving the endpoint-rate tolerance from
-  `5e-4` to `2.5e-4` changes the final maximum CEEQ by approximately `1.5e-7`
-  relatively and leaves all three reported terminal stress errors unchanged
-  to their reported precision.
+- the published NAFEMS R0027 Test 7 thick-cylinder stress oracle and a native
+  Q2 axisymmetric elastic-preload-to-creep route. One-, two-, and four-cell
+  radial meridians reduce the maximum radial/hoop/axial stress error from
+  `1.40%` to `0.203%` to `0.0268%`. On the four-cell mesh the individual
+  errors are `0.0141%`, `0.0145%`, and `0.0268%`, measured directly from
+  integration-point stress with the full-revolution volume weight. The
+  `0.5%` automated acceptance criterion is AgentFEM's verification contract,
+  not an official NAFEMS tolerance. The public Abaqus reproduction reports
+  differences from the reference solution rather than a pass/fail threshold:
+  its largest tabulated radial-stress difference is `1.84%` for CAX8R
+  (`1.85%` for CCL24R), and its largest hoop-stress difference is `1.00%`.
+  The former 3D quarter-sector formulation remains available as an explicit
+  comparison route.
 
 For creep, nonlinear equilibrium convergence and time-integration accuracy
 are separate decisions. `creep_strain_error_tolerance` limits
@@ -175,8 +177,8 @@ semantics take precedence over batching.
 
 Next gates:
 
-1. improve the 3D global Newton/increment controller toward the public
-   axisymmetric deck's 40-increment execution efficiency without weakening
+1. improve the global Newton/increment controller toward the public deck's
+   40-increment execution efficiency without weakening
    the scientific gates, and add intermediate-time observables when a
    transient rather than terminal benchmark contract is available;
 2. exercise tabulated heat properties and accepted history transfer on an

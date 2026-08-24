@@ -30,6 +30,7 @@ ROOT = Path(__file__).resolve().parent
 SOURCE_PACKAGE = ROOT / "src" / "agentfem"
 REQUIRED_WHEEL_MEMBERS = (
     "agentfem/__init__.py",
+    "agentfem/_axisymmetric.py",
     "agentfem/_step_builders.py",
     "agentfem/models.py",
     "agentfem/dependencies.py",
@@ -63,8 +64,10 @@ REQUIRED_WHEEL_MEMBERS = (
     "agentfem/knowledge/catalog.json",
     "agentfem/knowledge/benchmarks/creep_abaqus_constant_stress.json",
     "agentfem/knowledge/benchmarks/creep_nafems_r0027_test7.json",
+    "agentfem/knowledge/benchmarks/axisymmetric_lame_cylinder.json",
     "agentfem/knowledge/benchmarks/j2_thick_cylinder_mpi.json",
     "agentfem/knowledge/cards/integration_point_recovery.json",
+    "agentfem/knowledge/cards/axisymmetric_solid.json",
     "agentfem/knowledge/cards/transient_checkpoint_portability.json",
     "agentfem/knowledge/decisions/0016-thin-model-facade-and-execution-policy.md",
     "agentfem/knowledge/decisions/0017-public-api-lifecycle.md",
@@ -74,6 +77,7 @@ FORBIDDEN_DISTRIBUTION_PARTS = ("__pycache__",)
 FORBIDDEN_DISTRIBUTION_SUFFIXES = (".pyc", ".pyo")
 SMOKE_COMMANDS = (
     ("examples/static_elasticity_2d.py", ()),
+    ("examples/axisymmetric_thick_cylinder.py", ()),
     ("examples/transient_heat_2d.py", ()),
     ("examples/wave_packet_inclusion_2d.py", ()),
     (

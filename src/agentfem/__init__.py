@@ -10,7 +10,7 @@ from ._api_contract import (
     workflow_modules as _workflow_modules,
 )
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 
 def public_api(level: str = "all") -> tuple[str, ...]:

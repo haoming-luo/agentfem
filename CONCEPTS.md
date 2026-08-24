@@ -12,6 +12,11 @@ modeling declaration and validation object; it does not assemble or solve.
 Constitutive laws and operators may use it to select modeling assumptions such
 as 2D plane strain or plane stress.
 
+An axisymmetric solid is declared as a two-dimensional `(r,z)` Study but is not
+a planar unit-thickness approximation. Its displacement is `(u_r,u_z)`, its
+stress and strain remain full `(r,theta,z)` tensors, and physical integrals use
+the full-revolution `2*pi*r` measure.
+
 ## Solution Procedure
 
 A numerical route used to solve a declared study. The study answers what

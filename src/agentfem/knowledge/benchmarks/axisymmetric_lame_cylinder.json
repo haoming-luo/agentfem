@@ -1,0 +1,35 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.axisymmetric_lame_cylinder",
+  "title": "Axisymmetric Lamé thick-cylinder elasticity",
+  "status": "release_regression",
+  "purpose": "Verify axisymmetric kinematics, full-revolution pressure work, isotropic constitutive coupling, full tensor output, and the public Study-to-Result workflow against the analytical Lamé solution.",
+  "physics": "small-strain isotropic axisymmetric elasticity for a long pressurized thick cylinder",
+  "source": {
+    "organization": "classical elasticity",
+    "title": "Lamé thick-cylinder solution",
+    "reference": "closed-form radial displacement and stress field"
+  },
+  "execution": {
+    "command": "python -m pytest -q tests/test_common_workflows.py -k axisymmetric",
+    "example": "examples/axisymmetric_thick_cylinder.py",
+    "structural_api": "Study -> Model -> pressure -> model.step -> SimulationResult",
+    "evidence": "The automated P2 meridian test compares every radial displacement degree of freedom with the closed-form Lamé solution, checks full 3x3 stress output, and independently verifies conversion between a requested total end force and the revolved annular area."
+  },
+  "acceptance": [
+    "The P2 meridian solution reproduces analytical radial displacement within the versioned finite-element tolerance.",
+    "S and E are emitted as full 3x3 tensors ordered (r,theta,z).",
+    "A requested total axial surface force is divided by the revolved annular area and integrates back to the requested force."
+  ],
+  "observables": [
+    "radial displacement error",
+    "radial, hoop, and axial stress",
+    "revolved boundary measure and total force",
+    "static force balance"
+  ],
+  "limitations": [
+    "This is a small-strain isotropic benchmark.",
+    "The long-cylinder specialization fixes axial displacement throughout the meridian; general axisymmetric models do not require that constraint."
+  ]
+}

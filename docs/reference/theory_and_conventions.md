@@ -88,9 +88,26 @@ For a two-dimensional solid, the Study must state one of the following:
 | --- | --- |
 | Plane strain | Out-of-plane strain is constrained to zero; the three-dimensional Lamé constants are retained. |
 | Plane stress | Out-of-plane stress is zero; the in-plane volumetric coefficient is \(\lambda_{ps}=E\nu/(1-\nu^2)\). |
+| Axisymmetric | The meridian uses \((r,z)\) coordinates and \((u_r,u_z)\) displacement; strain and stress remain full three-dimensional tensors ordered \((r,\theta,z)\). |
 
-Axisymmetric elasticity requires radial kinematics and weighted integration and
-is not currently implied by either two-dimensional assumption.
+For an axisymmetric solid,
+
+\[
+\boldsymbol{\varepsilon}=
+\begin{bmatrix}
+u_{r,r} & 0 & \tfrac12(u_{r,z}+u_{z,r})\\
+0 & u_r/r & 0\\
+\tfrac12(u_{r,z}+u_{z,r}) & 0 & u_{z,z}
+\end{bmatrix},
+\]
+
+and every physical weak-form integral uses the full-revolution measure
+\(2\pi r\,dr\,dz\). The same lowering is shared by stiffness, pressure,
+traction, body loads, energies, projected fields, and result integrals. A mesh
+that touches \(r=0\) must enforce the regularity condition \(u_r=0\) on the
+axis. `axisymmetric_plane_strain(...)` is a long-cylinder specialization that
+fixes \(u_z\) throughout the meridian; it is not part of the general
+definition of axisymmetry.
 
 ## Thermal balance and thermoelastic strain
 
@@ -189,8 +206,8 @@ claiming that Eq. (17) was the paper's finite-element constitutive update.
 
 ## J2 plasticity and creep state
 
-The supported global J2 route is three-dimensional, small-strain, associative
-Mises plasticity with linear isotropic hardening. Its trial yield function and
+The supported global J2 route is three-dimensional or axisymmetric,
+small-strain, associative Mises plasticity with linear isotropic hardening. Its trial yield function and
 closed-form plastic multiplier are
 
 \[
@@ -201,8 +218,8 @@ f_{\mathrm{trial}}
 \quad\text{when }f_{\mathrm{trial}}>0.
 \]
 
-The supported global creep route is three-dimensional, small-strain Mises
-power-law creep. It may be isothermal or consume a positive scalar/field
+The supported global creep route is three-dimensional or axisymmetric,
+small-strain Mises power-law creep. It may be isothermal or consume a positive scalar/field
 temperature through a normalized Arrhenius coefficient. Backward Euler solves
 
 \[

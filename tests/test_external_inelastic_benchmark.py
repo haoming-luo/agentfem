@@ -81,6 +81,40 @@ def test_thick_cylinder_sector_rejects_unknown_cell_type():
         )
 
 
+def test_axisymmetric_j2_thick_cylinder_brackets_first_yield():
+    assessment = benchmarks.j2_thick_cylinder_benchmark(
+        comm=MPI.COMM_SELF,
+        radial_cells=4,
+        axial_cells=1,
+        increments=24,
+        formulation="axisymmetric",
+    )
+
+    assert assessment.acceptable
+    assert assessment.quantities["maximum_equivalent_plastic_strain"] > 0.0
+    assert assessment.quantities["yield_bracket_error"] < 0.01
+
+
+def test_axisymmetric_nafems_creep_reaches_subpercent_stress_error():
+    assessment = benchmarks.creep_thick_cylinder_benchmark(
+        comm=MPI.COMM_SELF,
+        radial_cells=4,
+        axial_cells=1,
+        increments=300,
+        progress=False,
+        formulation="axisymmetric",
+    )
+
+    assert assessment.acceptable
+    assert assessment.quantities["formulation_axisymmetric"] == 1.0
+    for name in (
+        "radial_stress_relative_l2",
+        "hoop_stress_relative_l2",
+        "axial_stress_relative_l2",
+    ):
+        assert assessment.quantities[name] < 5.0e-3
+
+
 def test_public_thick_cylinder_brackets_first_yield_in_serial_and_mpi():
     if MPI.COMM_WORLD.size not in {1, 2}:
         pytest.skip("the versioned external J2 contract covers one and two ranks")

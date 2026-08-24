@@ -11,6 +11,7 @@ from mpi4py import MPI
 from petsc4py import PETSc
 
 from . import amplitudes
+from . import _axisymmetric
 from .constraints import boundary
 from .constraints import TimeDependentDirichlet
 from .constraints import time_dependent_component_dirichlet as _constraint_time_dirichlet
@@ -549,14 +550,16 @@ def surface_force(
     location=None,
     on=None,
     reference_measure: float | None = None,
+    study=None,
     system=None,
     name: str = "surface_force",
 ) -> SurfaceResultantLoad:
     """Distribute a total reference-configuration force over a boundary.
 
     ``resultant`` is the desired MPI-global force vector.  AgentFEM computes
-    the selected edge length in 2D or surface area in 3D and applies the
-    uniform traction ``resultant / reference_measure``.  Pass an explicit
+    the selected edge length in planar 2D, revolved area in axisymmetric 2D,
+    or surface area in 3D and applies the uniform traction
+    ``resultant / reference_measure``.  Pass an explicit
     ``reference_measure`` only when the geometric measure is intentionally
     supplied by an external model.
     """
@@ -574,7 +577,8 @@ def surface_force(
         raise ValueError("surface_force resultant components must be finite.")
     area = reference_measure
     if area is None:
-        local = fem.assemble_scalar(fem.form(ufl.as_ufl(1.0) * selected.measure))
+        weight = _axisymmetric.integration_weight(selected.domain, study)
+        local = fem.assemble_scalar(fem.form(weight * selected.measure))
         area = selected.domain.comm.allreduce(float(local), op=MPI.SUM)
     area = float(area)
     if not np.isfinite(area) or area <= 0.0:

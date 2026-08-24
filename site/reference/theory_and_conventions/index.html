@@ -1382,10 +1382,28 @@ identified tangent <span class="arithmatex">\(\mathbf{K}_t=\partial\mathbf{R}/\p
 <td>Plane stress</td>
 <td>Out-of-plane stress is zero; the in-plane volumetric coefficient is <span class="arithmatex">\(\lambda_{ps}=E\nu/(1-\nu^2)\)</span>.</td>
 </tr>
+<tr>
+<td>Axisymmetric</td>
+<td>The meridian uses <span class="arithmatex">\((r,z)\)</span> coordinates and <span class="arithmatex">\((u_r,u_z)\)</span> displacement; strain and stress remain full three-dimensional tensors ordered <span class="arithmatex">\((r,\theta,z)\)</span>.</td>
+</tr>
 </tbody>
 </table>
-<p>Axisymmetric elasticity requires radial kinematics and weighted integration and
-is not currently implied by either two-dimensional assumption.</p>
+<p>For an axisymmetric solid,</p>
+<div class="arithmatex">\[
+\boldsymbol{\varepsilon}=
+\begin{bmatrix}
+u_{r,r} &amp; 0 &amp; \tfrac12(u_{r,z}+u_{z,r})\\
+0 &amp; u_r/r &amp; 0\\
+\tfrac12(u_{r,z}+u_{z,r}) &amp; 0 &amp; u_{z,z}
+\end{bmatrix},
+\]</div>
+<p>and every physical weak-form integral uses the full-revolution measure
+<span class="arithmatex">\(2\pi r\,dr\,dz\)</span>. The same lowering is shared by stiffness, pressure,
+traction, body loads, energies, projected fields, and result integrals. A mesh
+that touches <span class="arithmatex">\(r=0\)</span> must enforce the regularity condition <span class="arithmatex">\(u_r=0\)</span> on the
+axis. <code>axisymmetric_plane_strain(...)</code> is a long-cylinder specialization that
+fixes <span class="arithmatex">\(u_z\)</span> throughout the meridian; it is not part of the general
+definition of axisymmetry.</p>
 <h2 id="thermal-balance-and-thermoelastic-strain">Thermal balance and thermoelastic strain<a class="headerlink" href="#thermal-balance-and-thermoelastic-strain" title="Permanent link">&para;</a></h2>
 <p>The transient heat equation used by the thermal workflow is</p>
 <div class="arithmatex">\[
@@ -1476,8 +1494,8 @@ finite-element procedure is separately described as plane-stress
 hypoelastic. AgentFEM therefore records those roles separately instead of
 claiming that Eq. (17) was the paper's finite-element constitutive update.</p>
 <h2 id="j2-plasticity-and-creep-state">J2 plasticity and creep state<a class="headerlink" href="#j2-plasticity-and-creep-state" title="Permanent link">&para;</a></h2>
-<p>The supported global J2 route is three-dimensional, small-strain, associative
-Mises plasticity with linear isotropic hardening. Its trial yield function and
+<p>The supported global J2 route is three-dimensional or axisymmetric,
+small-strain, associative Mises plasticity with linear isotropic hardening. Its trial yield function and
 closed-form plastic multiplier are</p>
 <div class="arithmatex">\[
 f_{\mathrm{trial}}
@@ -1486,8 +1504,8 @@ f_{\mathrm{trial}}
 \Delta\gamma=\frac{f_{\mathrm{trial}}}{3G+H}
 \quad\text{when }f_{\mathrm{trial}}&gt;0.
 \]</div>
-<p>The supported global creep route is three-dimensional, small-strain Mises
-power-law creep. It may be isothermal or consume a positive scalar/field
+<p>The supported global creep route is three-dimensional or axisymmetric,
+small-strain Mises power-law creep. It may be isothermal or consume a positive scalar/field
 temperature through a normalized Arrhenius coefficient. Backward Euler solves</p>
 <div class="arithmatex">\[
 \Delta\gamma

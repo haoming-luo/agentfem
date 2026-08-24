@@ -14,6 +14,7 @@ import dolfinx.fem.petsc as fem_petsc
 from mpi4py import MPI
 from petsc4py import PETSc
 
+from .. import _axisymmetric
 from .. import amplitudes
 from .. import procedures
 from .. import steps as step_controls
@@ -264,7 +265,7 @@ class ImplicitCreepStep:
                 "temperature=... was supplied to an isothermal creep material."
             )
         self._strain_evaluator = self.state.compile_strain(
-            elasticity.strain(self.solution)
+            elasticity.strain(self.solution, study=self.study)
         )
 
     @property
@@ -828,9 +829,15 @@ class ImplicitCreepStep:
         return result
 
     def _record_energy(self, time: float, old_state) -> None:
-        mechanical_strain = elasticity.strain(self.solution) - self.state.creep_strain.function
+        weight = _axisymmetric.integration_weight(self.solution, self.study)
+        mechanical_strain = (
+            elasticity.strain(self.solution, study=self.study)
+            - self.state.creep_strain.function
+        )
         elastic_density = 0.5 * ufl.inner(self.state.stress.function, mechanical_strain)
-        elastic_local = fem.assemble_scalar(fem.form(elastic_density * self.state.measure))
+        elastic_local = fem.assemble_scalar(
+            fem.form(weight * elastic_density * self.state.measure)
+        )
         elastic = float(self.state.domain.comm.allreduce(elastic_local))
 
         increment = QuadratureField.create(
@@ -844,7 +851,10 @@ class ImplicitCreepStep:
             self.state.creep_strain.values - np.asarray(old_state["creep_strain"])
         )
         dissipation_density = ufl.inner(self.state.stress.function, increment.function)
-        local = fem.assemble_scalar(fem.form(dissipation_density * self.state.measure))
+        weight = _axisymmetric.integration_weight(self.solution, self.study)
+        local = fem.assemble_scalar(
+            fem.form(weight * dissipation_density * self.state.measure)
+        )
         dissipation_increment = float(self.state.domain.comm.allreduce(local))
         cumulative = dissipation_increment
         if self.energy_history:
@@ -1446,7 +1456,7 @@ def implicit_creep_step(
     name: str = "implicit_creep",
     _experimental_distributed: bool = False,
 ) -> ImplicitCreepStep:
-    """Build the first global 3D implicit power-law creep step."""
+    """Build global 3D or axisymmetric implicit power-law creep."""
 
     if not isinstance(
         material, (IsotropicPowerLawCreepMaterial, QuadratureMaterialMap)
@@ -1465,9 +1475,12 @@ def implicit_creep_step(
             "yet passed the MPI partition-interface patch test. Run this Step "
             "in serial."
         )
-    if domain.geometry.dim != 3:
+    axisymmetric = _axisymmetric.is_axisymmetric(study)
+    if domain.geometry.dim != 3 and not (
+        domain.geometry.dim == 2 and axisymmetric
+    ):
         raise NotImplementedError(
-            "The first global creep driver supports 3D small-strain solids."
+            "Global creep supports 3D or 2D axisymmetric small-strain solids."
         )
     state = CreepQuadratureState.create(domain, degree=quadrature_degree)
     selected_amplitude = (
@@ -1476,8 +1489,8 @@ def implicit_creep_step(
         else amplitudes.as_amplitude(amplitude, name="creep_load_amplitude")
     )
     load_factor = fem.Constant(domain, PETSc.ScalarType(selected_amplitude(0.0)))
-    strain_test = elasticity.strain(displacement.test)
-    strain_trial = elasticity.strain(displacement.trial)
+    strain_test = elasticity.strain(displacement.test, study=study)
+    strain_trial = elasticity.strain(displacement.trial, study=study)
     stress = state.stress.function
     tangent = state.tangent.function
     i, j, k, l = ufl.indices(4)
@@ -1485,10 +1498,11 @@ def implicit_creep_step(
         tangent[i, j, k, l] * strain_trial[k, l],
         (i, j),
     )
-    residual = ufl.inner(stress, strain_test) * state.measure
+    weight = _axisymmetric.integration_weight(displacement.value, study)
+    residual = weight * ufl.inner(stress, strain_test) * state.measure
     if external_force is not None:
         residual -= load_factor * external_force.expression
-    jacobian = ufl.inner(tangent_action, strain_test) * state.measure
+    jacobian = weight * ufl.inner(tangent_action, strain_test) * state.measure
     selected_bcs = []
     prescribed_values = []
     time_dependent_constraints = []

@@ -11,6 +11,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | External mesh inventory, cell/facet set conversion, and manifests | `mesh/formats.py` |
 | Abaqus labels, equations, periodic-cell geometry, and source-order output | `mesh/abaqus.py` |
 | Study context: analysis type, physics, dimension, and assumptions | `studies.py` |
+| Shared axisymmetric (r,z) kinematics and full-revolution lowering | `_axisymmetric.py` |
 | Standard/Explicit family, equation order, algorithm, and state policy | `procedures.py` |
 | Model registry/facade, amplitudes, material assignments, checks, summaries, and model-first operators | `models.py` |
 | Built-in scientific Step construction behind the facade | `_step_builders.py` |

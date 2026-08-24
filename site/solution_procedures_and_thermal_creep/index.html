@@ -1507,7 +1507,7 @@ promote damage, mesh regularization, or structural rupture prediction.</p>
 <li>sequential isotropic thermal expansion as a visible vector operator;</li>
 <li>normalized Arrhenius temperature dependence at material-point and global
   integration-point level;</li>
-<li>global 3D J2 quadrature state with regional materials, analytical tangent,
+<li>global 3D and axisymmetric J2 quadrature state with regional materials, analytical tangent,
   and portable full-Step restart;</li>
 <li>cumulative J2 restart history, analytical uniaxial Golden verification,
   quadrature S/PE/PEEQ/MISES and nodal RF result fields, cyclic amplitude, physical-increment cutback,
@@ -1516,24 +1516,26 @@ promote damage, mesh regularization, or structural rupture prediction.</p>
   and modified-theta curve projection;</li>
 <li>a sequential hot-wall FEM-to-creep assessment example with explicit
   calibration and maturity boundaries.</li>
-<li>global 3D power-law creep with backward Euler, analytical tangent, shared
+<li>global 3D and axisymmetric power-law creep with backward Euler, analytical tangent, shared
   transaction, automatic cutback, CE/CEEQ/S/MISES/RF/TEMP, prescribed
   Arrhenius temperature fields, dissipation history, regional materials,
   portable full-Step restart, MPI-portable quadrature state, and a
   relaxation Golden contract;</li>
 <li>a 3D component contract in which accepted transient heat states drive the
   global Arrhenius creep step on the same physical clock.</li>
-<li>the published NAFEMS R0027 Test 7 thick-cylinder stress oracle and an
-  executable elastic-preload-to-creep structural route. The fast analytical
-  contract is automated. The scheduled structural gate uses a one-layer Q2
-  hexahedral quarter sector, direct volume-weighted quadrature-point stress
-  errors, and a creep endpoint-rate integration estimator. The 4 by 8 mesh
-  crosses the declared 8% radial/hoop/axial error gate; the 3 by 6 mesh does
-  not, so the refinement evidence remains visible rather than being replaced
-  by a smoothed contour comparison. Halving the endpoint-rate tolerance from
-  <code>5e-4</code> to <code>2.5e-4</code> changes the final maximum CEEQ by approximately <code>1.5e-7</code>
-  relatively and leaves all three reported terminal stress errors unchanged
-  to their reported precision.</li>
+<li>the published NAFEMS R0027 Test 7 thick-cylinder stress oracle and a native
+  Q2 axisymmetric elastic-preload-to-creep route. One-, two-, and four-cell
+  radial meridians reduce the maximum radial/hoop/axial stress error from
+  <code>1.40%</code> to <code>0.203%</code> to <code>0.0268%</code>. On the four-cell mesh the individual
+  errors are <code>0.0141%</code>, <code>0.0145%</code>, and <code>0.0268%</code>, measured directly from
+  integration-point stress with the full-revolution volume weight. The
+  <code>0.5%</code> automated acceptance criterion is AgentFEM's verification contract,
+  not an official NAFEMS tolerance. The public Abaqus reproduction reports
+  differences from the reference solution rather than a pass/fail threshold:
+  its largest tabulated radial-stress difference is <code>1.84%</code> for CAX8R
+  (<code>1.85%</code> for CCL24R), and its largest hoop-stress difference is <code>1.00%</code>.
+  The former 3D quarter-sector formulation remains available as an explicit
+  comparison route.</li>
 </ul>
 <p>For creep, nonlinear equilibrium convergence and time-integration accuracy
 are separate decisions. <code>creep_strain_error_tolerance</code> limits</p>
@@ -1558,8 +1560,8 @@ and multi-material regions retain pointwise material dispatch so scientific
 semantics take precedence over batching.</p>
 <p>Next gates:</p>
 <ol>
-<li>improve the 3D global Newton/increment controller toward the public
-   axisymmetric deck's 40-increment execution efficiency without weakening
+<li>improve the global Newton/increment controller toward the public deck's
+   40-increment execution efficiency without weakening
    the scientific gates, and add intermediate-time observables when a
    transient rather than terminal benchmark contract is available;</li>
 <li>exercise tabulated heat properties and accepted history transfer on an

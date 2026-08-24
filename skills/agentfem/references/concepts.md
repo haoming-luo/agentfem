@@ -2,6 +2,9 @@
 
 - Study: early analysis context containing analysis type, physics, dimension,
   and modeling assumptions.
+- Axisymmetric solid: a two-dimensional `(r,z)` meridian whose displacement is
+  `(u_r,u_z)`, whose stress/strain tensors retain `(r,theta,z)`, and whose
+  physical integrals use the full-revolution `2*pi*r` measure.
 - Solution procedure: Standard/Explicit family, equation order, integration
   algorithm, statefulness, and global-solve requirements. It describes how a
   Study is solved without redefining the physical problem.

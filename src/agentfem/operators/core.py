@@ -814,11 +814,15 @@ def boundary_model_vector(boundary_model, velocity, test_function=None) -> Opera
     )
 
 
-def force_vector(target, loads=None, *, load=None) -> OperatorForm:
+def force_vector(target, loads=None, *, load=None, study=None) -> OperatorForm:
     """Create a total force/source vector from one or more load objects."""
 
     selected = _normalize_loads(loads, load)
     test = _test(target)
+    if study is not None:
+        from agentfem import _axisymmetric
+
+        test = _axisymmetric.weighted_test(test, study)
     expression = None
     for item in selected:
         if not hasattr(item, "form"):
@@ -834,10 +838,10 @@ def force_vector(target, loads=None, *, load=None) -> OperatorForm:
     )
 
 
-def load_vector(target, loads=None, *, load=None) -> OperatorForm:
+def load_vector(target, loads=None, *, load=None, study=None) -> OperatorForm:
     """Create a total external-load vector ``F`` for a target unknown."""
 
-    return force_vector(target=target, loads=loads, load=load)
+    return force_vector(target=target, loads=loads, load=load, study=study)
 
 
 def stiffness(field, properties=None, *, law=None, study=None, temperature=None, measure=ufl.dx) -> OperatorForm:

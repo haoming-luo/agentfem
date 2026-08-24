@@ -4,8 +4,8 @@
   "id": "agentfem.benchmark.j2_thick_cylinder_mpi",
   "title": "Public thick-cylinder J2 structural benchmark in serial and MPI",
   "status": "automated_external_structural_mpi",
-  "purpose": "Verify the distributed global J2 equilibrium route on a nonuniform structure against an external public problem and an analytical first-yield criterion, then require one-rank/two-rank equivalence.",
-  "physics": "three-dimensional extrusion of a plane-strain quarter cylinder with small-strain Mises plasticity and linear isotropic hardening",
+  "purpose": "Verify the global J2 equilibrium route on a nonuniform thick cylinder against an external public problem and an analytical first-yield criterion, and retain the distributed three-dimensional route for one-rank/two-rank equivalence.",
+  "physics": "native axisymmetric and three-dimensional plane-strain thick cylinders with small-strain Mises plasticity and linear isotropic hardening",
   "source": {
     "organization": "Computational Mechanics Numerical Tours with FEniCSx",
     "title": "Elasto-plastic analysis of a 2D von Mises material",
@@ -21,15 +21,17 @@
   "execution": {
     "command": "python tests/external_inelastic_benchmark_driver.py write /tmp/agentfem-j2-cylinder.json && mpirun -n 2 python tests/external_inelastic_benchmark_driver.py compare /tmp/agentfem-j2-cylinder.json",
     "example": "tests/external_inelastic_benchmark_driver.py",
-    "evidence": "The same native AgentFEM model is solved with one and two MPI ranks. Both runs bracket the independently calculated Lamé/Mises first-yield pressure, and the driver compares maximum displacement and maximum PEEQ across rank counts.",
+    "evidence": "The native axisymmetric public workflow brackets the independently calculated Lamé/Mises first-yield pressure. The retained three-dimensional model is solved with one and two MPI ranks to compare maximum displacement and maximum PEEQ across rank counts.",
     "serial": "python -m pytest -q tests/test_external_inelastic_benchmark.py",
     "mpi": "mpirun -n 2 python -m pytest -q tests/test_external_inelastic_benchmark.py",
+    "axisymmetric_mpi": "mpirun -n 2 python tests/axisymmetric_mpi_driver.py",
     "cross_rank": "python tests/external_inelastic_benchmark_driver.py write /tmp/agentfem-j2-cylinder.json && mpirun -n 2 python tests/external_inelastic_benchmark_driver.py compare /tmp/agentfem-j2-cylinder.json",
-    "mesh": "native P2 tetrahedral 3D quarter-cylinder extrusion, four radial by eight angular cells and one axial layer",
+    "mesh": "native P2 quadrilateral axisymmetric meridian for formulation verification; P2 tetrahedral 3D quarter-cylinder extrusion for MPI equivalence",
     "increments": 24
   },
   "acceptance": [
     "The first increment with plastic integration points and the preceding elastic increment bracket the analytical first-yield pressure.",
+    "The native axisymmetric route reaches the same analytical bracket through the public Study, Model, pressure, constraint, and model.step workflow.",
     "The normalized yield bracket misses the analytical threshold by no more than 3 percent and has width no greater than 8 percent.",
     "The final global residual is no greater than 1e-7.",
     "Maximum displacement and maximum PEEQ agree between one and two MPI ranks within the versioned floating-point tolerance."
@@ -42,7 +44,7 @@
     "one-rank/two-rank equivalence"
   ],
   "limitations": [
-    "This verifies the current 3D small-strain linear-isotropic-hardening J2 route, not plane stress, kinematic hardening, or finite-strain plasticity.",
+    "This verifies the current 3D and axisymmetric small-strain linear-isotropic-hardening J2 routes, not plane stress, kinematic hardening, or finite-strain plasticity.",
     "The geometry uses straight-sided tetrahedral facets; the declared tolerances include the versioned geometric and load-increment discretization.",
     "The test is numerical verification against a public structural problem and analytical invariant, not experimental material validation."
   ]

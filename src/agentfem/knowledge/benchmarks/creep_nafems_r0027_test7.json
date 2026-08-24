@@ -3,8 +3,8 @@
   "schema_version": "0.1.0",
   "id": "agentfem.benchmark.creep_nafems_r0027_test7",
   "title": "NAFEMS R0027 Test 7 pressurized-cylinder secondary creep",
-  "status": "external_structural_verification_scheduled",
-  "purpose": "Verify the global implicit creep procedure against a public structure-level equilibrium and stress-redistribution benchmark while retaining the difference between the published axisymmetric discretization and AgentFEM's current three-dimensional route.",
+  "status": "automated_external_structural_verification",
+  "purpose": "Verify the native axisymmetric global implicit creep procedure against a public structure-level equilibrium and stress-redistribution benchmark, including spatial convergence and time-integration acceptance evidence.",
   "physics": "Plane-strain thick cylinder under constant internal pressure with Mises secondary power-law creep",
   "source": {
     "organization": "NAFEMS; publicly reproduced by Dassault Systemes SIMULIA",
@@ -17,7 +17,7 @@
     "command": "python tools/run_nafems_creep_benchmark.py --report nafems-r0027.json --require-acceptable",
     "example": "tests/test_external_inelastic_benchmark.py",
     "structural_api": "agentfem.benchmarks.creep_thick_cylinder_benchmark",
-    "evidence": "The fast gate checks the published radial, hoop and axial steady-state solution. The scheduled structural route applies the elastic pressure preload, advances 1000 hours with an endpoint creep-rate error estimate, and compares raw integration-point stresses with volume-weighted relative L2 norms. A 4 by 8 one-layer Q2 hexahedral quarter sector produced 0.55%, 4.76% and 6.35% radial, hoop and axial errors on Apple Silicon; a 3 by 6 mesh produced 0.97%, 6.39% and 8.63%, so only the declared fine mesh crosses the 8% promotion gate. Halving the time-error tolerance from 5e-4 to 2.5e-4 changed maximum CEEQ by about 1.5e-7 relatively and left the three stress-error measures unchanged to reported precision."
+    "evidence": "The structural route applies the elastic pressure preload, advances 1000 hours with an endpoint creep-rate error estimate, and compares raw integration-point stresses with full-revolution volume-weighted relative L2 norms. Native Q2 axisymmetric meridians with one, two, and four radial cells produced maximum component errors of 1.40%, 0.203%, and 0.0268%, respectively. On the four-cell mesh the radial, hoop, and axial errors were 0.0141%, 0.0145%, and 0.0268%; 224 increments were accepted and every accepted endpoint-rate estimate satisfied 5e-4. The older 3D quarter-sector route remains available as an explicit comparison formulation rather than defining the public benchmark."
   },
   "parameters": {
     "inner_radius_mm": 100.0,
@@ -29,7 +29,10 @@
     "stress_exponent": 5.0,
     "duration_hour": 1000.0,
     "creep_strain_error_tolerance": 0.0005,
-    "structural_cell": "one-layer quadratic hexahedron"
+    "structural_cell": "quadratic quadrilateral axisymmetric meridian",
+    "formulation": "axisymmetric",
+    "radial_cells": 4,
+    "axial_cells": 1
   },
   "observables": [
     "Radial, hoop and axial stress versus physical radius.",
@@ -39,14 +42,16 @@
   ],
   "acceptance": [
     "The dependency-free analytical oracle reproduces the published five-radius stress table.",
-    "The fine structural result must cross the radial, hoop and axial 8% volume-weighted integration-point error gates and show an improving coarse-to-fine spatial sequence.",
+    "The four-cell structural result must keep radial, hoop and axial full-revolution volume-weighted integration-point errors below 0.5 percent.",
+    "One-, two-, and four-cell Q2 meridians must show monotone spatial convergence for all three stress components.",
     "Every accepted increment must satisfy the declared endpoint creep-rate integration estimate, independently of Newton convergence.",
     "The elastic pressure preload and subsequent held-pressure creep step remain separate scientific procedures.",
-    "The structural calculation remains a scheduled slow gate; the analytical oracle remains in regular CI."
+    "The four-cell structural calculation is an automated focused test; the dependency-free analytical oracle remains in regular CI."
   ],
   "limitations": [
-    "The structural route extrudes the axisymmetric reference into a fixed one-layer three-dimensional quarter sector because the trusted global creep consumer is three-dimensional; every axial displacement degree of freedom enforces plane strain.",
-    "The public Abaqus deck uses four CAX8R radial elements and at most 40 increments. AgentFEM currently uses a quadratic hexahedral three-dimensional route and permits up to 220 accepted increments; agreement in stress is verified, but execution efficiency is not claimed equivalent.",
+    "The public Abaqus deck uses four CAX8R radial elements and at most 40 increments. AgentFEM uses a native Q2 axisymmetric meridian and currently accepts 224 increments under its independent endpoint-rate controller; stress accuracy is verified, but execution efficiency is not claimed equivalent.",
+    "The 0.5 percent component criterion is an AgentFEM verification contract, not an official NAFEMS acceptance tolerance.",
+    "The public Abaqus comparison reports differences rather than an acceptance limit: the largest tabulated radial-stress difference is 1.84 percent for CAX8R (1.85 percent for CCL24R), and the largest hoop-stress difference is 1.00 percent.",
     "Two endpoint-rate tolerances provide a terminal-time refinement check; richer transient-history convergence remains a separate obligation when intermediate-time response is used."
   ]
 }

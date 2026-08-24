@@ -6,15 +6,21 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-08-24
+
 ### Added
 
 - Add an endpoint creep-rate time-integration error control for the global
   implicit creep Step. It remains independent of Newton convergence and the
   maximum accepted CEEQ increment, and rejected attempts restore displacement,
   quadrature state, stress, tangent, loading, and temperature atomically.
-- Add a scheduled NAFEMS R0027 Test 7 structural route using a one-layer Q2
-  hexahedral quarter cylinder, direct volume-weighted integration-point stress
-  error, and explicit spatial/time-refinement evidence.
+- Add a native small-strain axisymmetric solid formulation with shared
+  `(r,z)` kinematics, full `(r,theta,z)` tensors, `2*pi*r` operator/load/result
+  lowering, public total-force semantics, standard fields, linear elasticity,
+  J2 plasticity, and implicit power-law creep. The NAFEMS R0027 Test 7 route
+  now uses four Q2 radial cells and keeps radial, hoop, and axial stress errors
+  below `0.03%`; the declared `0.5%` gate is an AgentFEM contract rather than
+  an official NAFEMS tolerance.
 - Add machine-readable lifecycle and replacement metadata for the Model
   vocabulary, expose it through Python and capability JSON, and report
   material/procedure-specific compatibility calls through `agentfem upgrade`
@@ -260,7 +266,8 @@ because the package version is stable.
   platform with readable study, model, step, result, campaign, and evidence
   contracts.
 
-[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/haoming-luo/agentfem/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/haoming-luo/agentfem/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/haoming-luo/agentfem/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/haoming-luo/agentfem/compare/v0.2.0a2...v0.2.0

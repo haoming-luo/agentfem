@@ -46,19 +46,21 @@
     ],
     "assumptions": [
       "The traction is uniform over the selected reference boundary.",
-      "In 2D the resultant is per unit out-of-plane thickness."
+      "In planar 2D the resultant is per unit out-of-plane thickness; in an axisymmetric Study, model.surface_force uses the complete revolved boundary area."
     ],
     "conventions": [
       "The force vector follows global coordinates.",
       "Amplitude scaling acts on the complete distributed load.",
-      "The geometric measure is assembled unless an explicit positive reference_measure is supplied."
+      "The geometric measure is assembled unless an explicit positive reference_measure is supplied.",
+      "Direct loads.surface_force calls require study=study to select axisymmetric rather than planar measure semantics."
     ],
     "applicability": [
       "Continuum-solid end loads, verification beams, specimens, and distributing-load workflows."
     ],
     "limitations": [
       "surface_force is uniform; use distributing_coupling when a reference-point moment must also be transmitted.",
-      "The distributing load preserves resultants but does not yet create kinematic reference-point degrees of freedom or an MPC constraint."
+      "The distributing load preserves resultants but does not yet create kinematic reference-point degrees of freedom or an MPC constraint.",
+      "Axisymmetric distributing_coupling and remote_force are rejected until ring/reference kinematics and moment semantics are implemented."
     ]
   },
   "usage": {
@@ -83,6 +85,7 @@
   ],
   "related_cards": [
     "agentfem.workflow.standard_result_projection",
+    "agentfem.formulation.axisymmetric_solid",
     "agentfem.operator.system_contracts"
   ]
 }

@@ -15,6 +15,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 
 | Stable ID | Title | Kind | Status |
 | --- | --- | --- | --- |
+| [`agentfem.formulation.axisymmetric_solid`](#agentfem-formulation-axisymmetric_solid) | Axisymmetric solid formulation | workflow | supported |
 | [`agentfem.load.surface_resultant`](#agentfem-load-surface_resultant) | Uniform boundary traction from a requested resultant force | workflow | supported |
 | [`agentfem.material.creep_damage_assessment`](#agentfem-material-creep_damage_assessment) | Creep damage and modified-theta assessment | material | supported |
 | [`agentfem.material.cyclic_cohesive_fatigue`](#agentfem-material-cyclic_cohesive_fatigue) | Cyclic cohesive damage with an independent cycle coordinate | material | experimental |
@@ -53,6 +54,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | Stable ID | Title | Physics | Status |
 | --- | --- | --- | --- |
 | `agentfem.benchmark.arrhenius_global_creep` | Transient heat to global Arrhenius creep contract | three-dimensional small-strain Mises power-law creep with prescribed or time-varying Arrhenius temperature fields | automated_regression |
+| `agentfem.benchmark.axisymmetric_lame_cylinder` | Axisymmetric Lamé thick-cylinder elasticity | small-strain isotropic axisymmetric elasticity for a long pressurized thick cylinder | release_regression |
 | `agentfem.benchmark.c3d10h_periodic_cell` | Imported C3D10H near-incompressible periodic cell | three-dimensional near-incompressible mixed Neo-Hookean periodic homogenization | manual_release_regression |
 | `agentfem.benchmark.cae_reliability_cliffs` | CAE reliability cliffs: orientation, discretization, and reference applicability | cross-cutting finite-element verification | partial_automated_suite |
 | `agentfem.benchmark.campaign_surrogate_pipeline` | Static-elasticity campaign to guarded surrogate pipeline | parameterized small-strain isotropic linear elasticity | executable_integration |
@@ -60,7 +62,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.creep_abaqus_constant_stress` | Official Abaqus time-hardening constant-stress creep case | three-dimensional small-strain Mises time-hardening power-law creep | automated_external_verification |
 | `agentfem.benchmark.creep_damage_material_paths` | Creep-damage material paths and curve projection | Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection | automated_regression |
 | `agentfem.benchmark.creep_hot_wall_release` | Sequential hot-wall creep assessment release contract | sequential transient heat conduction, plane-strain thermoelasticity, and local creep-damage assessment | automated_regression |
-| `agentfem.benchmark.creep_nafems_r0027_test7` | NAFEMS R0027 Test 7 pressurized-cylinder secondary creep | Plane-strain thick cylinder under constant internal pressure with Mises secondary power-law creep | external_structural_verification_scheduled |
+| `agentfem.benchmark.creep_nafems_r0027_test7` | NAFEMS R0027 Test 7 pressurized-cylinder secondary creep | Plane-strain thick cylinder under constant internal pressure with Mises secondary power-law creep | automated_external_structural_verification |
 | `agentfem.benchmark.cyclic_cohesive_global_lifecycle` | Global cyclic cohesive transaction, cutback, restart and named 3D interfaces | Quasi-static force-controlled fixed-path Mode-I cohesive fatigue | experimental_automated_foundation |
 | `agentfem.benchmark.delamination_structural_family` | DCB, ENF and MMB structural cohesive verification family | Fixed-path delamination under DCB Mode I, ENF Mode II and MMB mixed-mode loading | analytical_oracles_automated_external_curves_pending |
 | `agentfem.benchmark.distributed_cohesive_force` | Two-rank sparse fixed-path cohesive force and portable restart | Two-dimensional normal and mixed-mode bilinear cohesive interfaces in finite-strain assembly and Explicit dynamics | experimental_mpi_sparse_automated |
@@ -72,7 +74,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.j2_global_restart` | Three-dimensional J2 path, physical cutback, cyclic amplitude, energy, and restart equivalence | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_regression |
 | `agentfem.benchmark.j2_multielement_patch` | Multi-element global J2 plasticity patch | three-dimensional small-strain rate-independent J2 plasticity with linear isotropic hardening | automated |
 | `agentfem.benchmark.j2_nonuniform_bending` | Nonuniform three-dimensional J2 bending path | three-dimensional small-strain Mises plasticity with linear isotropic hardening under displacement-controlled bending | automated_regression |
-| `agentfem.benchmark.j2_thick_cylinder_mpi` | Public thick-cylinder J2 structural benchmark in serial and MPI | three-dimensional extrusion of a plane-strain quarter cylinder with small-strain Mises plasticity and linear isotropic hardening | automated_external_structural_mpi |
+| `agentfem.benchmark.j2_thick_cylinder_mpi` | Public thick-cylinder J2 structural benchmark in serial and MPI | native axisymmetric and three-dimensional plane-strain thick cylinders with small-strain Mises plasticity and linear isotropic hardening | automated_external_structural_mpi |
 | `agentfem.benchmark.jmps_weak_interface_convergence_v4` | Two-dimensional weak-interface supershear refinement contract | near-incompressible finite-strain plane-stress Neo-Hookean strip with ten or more cells through the height, homogeneous preload, smooth remote impact, a fixed bilinear Mode-I cohesive interface, and a precrack | experimental_v4_2d_convergence_accepted |
 | `agentfem.benchmark.jmps_weak_interface_transition_v4` | Prestressed weak-interface crack-to-supershear-to-spall mechanism ladder | near-incompressible finite-strain plane-stress Neo-Hookean strip with homogeneous preload, smooth remote impact, a fixed zero-thickness bilinear Mode-I interface, and a precrack | experimental_v4_mechanism_executable |
 | `agentfem.benchmark.linear_static_cantilever` | Two-dimensional linear-static cantilever | small-strain isotropic linear elasticity in plane strain | numerical_regression |
@@ -88,6 +90,128 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.transient_heat_release` | Implicit-Euler transient heat release regression | two-dimensional transient heat conduction with constant isotropic properties | numerical_regression |
 | `agentfem.benchmark.vector_cohesive_interface` | Vector cohesive kinematics, mixed-mode energy and model rank | Two- and three-dimensional fixed-path cohesive interfaces under normal, shear, mixed and compressive separation | experimental_automated_foundation |
 | `agentfem.benchmark.wave_release` | Explicit elastic-wave inclusion release contract | two-dimensional plane-strain linear elastodynamics | automated_regression |
+
+<a id="agentfem-formulation-axisymmetric_solid"></a>
+
+## Axisymmetric solid formulation
+
+**Stable ID:** `agentfem.formulation.axisymmetric_solid`<br>
+**Kind:** `workflow`<br>
+**Status:** `supported`<br>
+**Source card:** `src/agentfem/knowledge/cards/axisymmetric_solid.json`
+
+Small-strain axisymmetric solids on an (r,z) meridian with full three-dimensional strain and stress, full-revolution integration, engineering loads, standard fields, elastic statics, J2 plasticity, and implicit Mises creep.
+
+### Public API
+
+- `agentfem.studies.static_solid`
+- `agentfem.studies.nonlinear_static`
+- `agentfem.studies.creep_solid`
+- `agentfem.constraints.axisymmetric_plane_strain`
+- `agentfem.constraints.axisymmetric_axis`
+- `agentfem.models.Model.surface_force`
+- `agentfem.models.Model.step`
+- `agentfem.results.region_integral`
+- `agentfem.results.region_average`
+- `agentfem.results.region_measure`
+- `agentfem.results.boundary_resultant`
+
+### Scientific contract
+
+The public declaration Study(dimension=2, assumption='axisymmetric') is lowered once to meridian kinematics and the cylindrical Jacobian; constitutive tensors remain full three-dimensional objects ordered (r, theta, z).
+
+**axisymmetric strain**
+
+$$
+\boldsymbol{\varepsilon}=\begin{bmatrix}u_{r,r}&0&\tfrac12(u_{r,z}+u_{z,r})\\0&u_r/r&0\\\tfrac12(u_{r,z}+u_{z,r})&0&u_{z,z}\end{bmatrix}
+$$
+
+The meridian displacement is ordered (u_r,u_z), while tensors are ordered (r,theta,z).
+
+**full-revolution virtual work**
+
+$$
+\delta W_{\mathrm{int}}=2\pi\int_{\Omega_{rz}}\boldsymbol{\sigma}:\boldsymbol{\varepsilon}(\mathbf v)\,r\,dr\,dz
+$$
+
+The same 2 pi r measure is used by stiffness, body force, traction, energy, projection, and physical result integrals.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| meridian mesh | two-dimensional mesh in coordinates (r,z) | length | The radial coordinate must be nonnegative. If the domain touches r=0, radial regularity requires u_r=0 on the axis. |
+| Study | solid_mechanics, dimension=2, assumption=axisymmetric | semantic formulation | The Study controls provider selection, weak-form lowering, result recovery, and validation. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| U | two-component meridian displacement | length | Components are U_r and U_z. |
+| S and E | full 3x3 tensors | stress and strain | The hoop component is retained rather than collapsed into a planar three-component tensor. |
+| physical integrals | full-revolution scalar or meridional component result | area, volume, force, or energy | Pass study=study to public region and boundary integration helpers. |
+
+#### Assumptions
+
+- Geometry, material assignment, loading, and solution are invariant about the z axis.
+- Small strain; finite-strain axisymmetric kinematics are not implied by this formulation.
+- Isotropic elasticity is supported; planar anisotropic stiffness matrices do not define the missing hoop coupling and are rejected.
+
+#### Conventions
+
+- Coordinates and displacement use (r,z); embedded tensors use (r,theta,z).
+- The 2 pi factor is retained so loads, reactions, energies, and measures describe the complete revolved body.
+- constraints.axisymmetric_plane_strain fixes U_z throughout a long-cylinder meridian and is a benchmark specialization, not a general axisymmetry requirement.
+- An integrated radial meridian traction is a circumferential integral of radial magnitude, not a Cartesian vector resultant, which cancels by symmetry.
+
+#### Applicability
+
+- Axisymmetric linear elasticity and thermoelasticity.
+- Axisymmetric small-strain J2 plasticity with linear isotropic hardening.
+- Axisymmetric small-strain Mises power-law creep in the supported serial global route.
+
+#### Limitations
+
+- Finite-strain, contact, reference-point moment coupling, and general anisotropic axisymmetric materials are not yet supported.
+- Axisymmetric implicit creep retains the same serial public-provider maturity boundary as the three-dimensional route.
+- A meridian mesh is not a planar unit-thickness model; direct low-level integrations that omit the Study retain planar semantics.
+
+### Minimal example
+
+```python
+study = studies.static_solid(dimension=2, assumption='axisymmetric')
+model = models.create(study=study, mesh=meridian)
+u = model.field(fields.displacement(meridian, degree=2))
+model.material(constitutive.isotropic_elastic(young=E, poisson=nu))
+model.pressure(p, on=inner_wall)
+result = model.step(target=u).solve_result()
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_common_workflows.py`
+- `tests/test_external_inelastic_benchmark.py`
+- `tests/axisymmetric_mpi_driver.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.axisymmetric_lame_cylinder`
+- `agentfem.benchmark.j2_thick_cylinder_mpi`
+- `agentfem.benchmark.creep_nafems_r0027_test7`
+
+**Validation rules**
+
+- Reject non-isotropic planar stiffness in an axisymmetric Study.
+- Require regular radial kinematics when the meridian touches the symmetry axis.
+- Verify the Lamé displacement field and full-revolution total-force conversion.
+- Verify nonlinear quadrature state against public thick-cylinder J2 and NAFEMS creep references.
+
+### References
+
+- Abaqus axisymmetric solid elements: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEELMRefMap/simaelm-r-axisymelem.htm`
+- NAFEMS R0027 Test 7 reproduced in the Abaqus benchmark guide: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-creeptest7.htm`
 
 <a id="agentfem-load-surface_resultant"></a>
 
@@ -143,13 +267,14 @@ The boundary measure and verification integral are MPI-global.
 #### Assumptions
 
 - The traction is uniform over the selected reference boundary.
-- In 2D the resultant is per unit out-of-plane thickness.
+- In planar 2D the resultant is per unit out-of-plane thickness; in an axisymmetric Study, model.surface_force uses the complete revolved boundary area.
 
 #### Conventions
 
 - The force vector follows global coordinates.
 - Amplitude scaling acts on the complete distributed load.
 - The geometric measure is assembled unless an explicit positive reference_measure is supplied.
+- Direct loads.surface_force calls require study=study to select axisymmetric rather than planar measure semantics.
 
 #### Applicability
 
@@ -159,6 +284,7 @@ The boundary measure and verification integral are MPI-global.
 
 - surface_force is uniform; use distributing_coupling when a reference-point moment must also be transmitted.
 - The distributing load preserves resultants but does not yet create kinematic reference-point degrees of freedom or an MPC constraint.
+- Axisymmetric distributing_coupling and remote_force are rejected until ring/reference kinematics and moment semantics are implemented.
 
 ### Minimal example
 
@@ -556,7 +682,7 @@ step = model.step(target=u, material=material, steps=100)
 **Status:** `supported`<br>
 **Source card:** `src/agentfem/knowledge/cards/global_implicit_creep.json`
 
-Three-dimensional small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, endpoint creep-rate error control, adaptive physical-time increments, optional scalar, field, or physical-time-history Arrhenius temperature dependence, atomic rollback, portable restart, regional materials, and standard creep fields.
+Three-dimensional and two-dimensional axisymmetric small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, endpoint creep-rate error control, adaptive physical-time increments, optional scalar, field, or physical-time-history Arrhenius temperature dependence, atomic rollback, portable restart, regional materials, and standard creep fields.
 
 ### Public API
 
@@ -623,7 +749,7 @@ A declared creep_strain_error_tolerance may reject an otherwise converged increm
 
 #### Assumptions
 
-- Small strain, three spatial dimensions, isotropic elasticity, and associative Mises creep; temperature changes the Arrhenius rate but not elastic properties.
+- Small strain, either three spatial dimensions or a two-dimensional axisymmetric meridian, isotropic elasticity, and associative Mises creep; temperature changes the Arrhenius rate but not elastic properties.
 - Quasi-static equilibrium; inertia is not part of this procedure.
 - Each integration point resolves exactly one declared regional material.
 
@@ -639,7 +765,7 @@ A declared creep_strain_error_tolerance may reject an otherwise converged increm
 
 #### Applicability
 
-- Isothermal or prescribed-temperature three-dimensional studies governed by a calibrated Mises power-law creep relation.
+- Isothermal or prescribed-temperature three-dimensional or axisymmetric studies governed by a calibrated Mises power-law creep relation.
 - Stress-relaxation and creep-deformation workflows requiring inspectable state, cutback, and restart evidence.
 
 #### Limitations
@@ -670,7 +796,7 @@ Create studies.creep_solid(), register constitutive.isotropic_power_law(...) or 
 
 **Validation rules**
 
-- Reject non-3D, nonpositive-duration, uncovered regional quadrature points, or incompatible material use.
+- Reject unsupported dimensional assumptions, nonpositive duration, uncovered regional quadrature points, or incompatible material use.
 - Verify the analytical tangent independently against a centered material-point derivative.
 - Commit shared transaction state only after a globally accepted physical-time increment.
 - Evaluate and record positive kelvin temperatures at the creep quadrature identity for every attempted increment.
@@ -692,7 +818,7 @@ Create studies.creep_solid(), register constitutive.isotropic_power_law(...) or 
 **Status:** `supported`<br>
 **Source card:** `src/agentfem/knowledge/cards/j2_global_plasticity.json`
 
-Three-dimensional Mises plasticity with linear isotropic hardening, a shared quadrature transaction, analytical algorithmic tangent, cyclic amplitude paths, physical-increment cutback, cumulative serial restart, standard fields, and work/energy histories verified on homogeneous and nonuniform structural paths.
+Three-dimensional and two-dimensional axisymmetric Mises plasticity with linear isotropic hardening, a shared quadrature transaction, analytical algorithmic tangent, cyclic amplitude paths, physical-increment cutback, portable restart, standard fields, and work/energy histories verified on homogeneous, nonuniform, and public thick-cylinder paths.
 
 ### Public API
 
@@ -748,7 +874,7 @@ Newton iterations use trial state based on the last committed increment.
 
 #### Assumptions
 
-- Small strain and three spatial dimensions.
+- Small strain, either three spatial dimensions or a two-dimensional axisymmetric meridian.
 - Rate independence, associative Mises flow, and linear isotropic hardening.
 - Natural loads and nonzero engineering Dirichlet targets share one named amplitude; the step coordinate remains monotone while amplitude values may reverse.
 
@@ -761,15 +887,15 @@ Newton iterations use trial state based on the last committed increment.
 
 #### Applicability
 
-- Monotone or reviewed tabular cyclic small-strain 3D solid loading within the implemented isotropic-hardening law.
+- Monotone or reviewed tabular cyclic small-strain 3D or axisymmetric solid loading within the implemented isotropic-hardening law.
 - Laboratory-scale regression and research workflows requiring inspectable state.
 - Nonuniform displacement-controlled structures with simultaneous elastic and plastic integration points.
 
 #### Limitations
 
-- The first global provider is serial-only and has no plane-stress local constraint, finite-strain plasticity, kinematic hardening, or multi-region driver.
+- There is no plane-stress local constraint, finite-strain plasticity, or kinematic hardening.
 - External-work histories are currently available for nonzero strong prescribed displacements; natural, weak, and affine-MPC work require separate verified definitions.
-- No external NAFEMS benchmark has yet promoted this path to benchmark-verified maturity.
+- The public thick-cylinder route verifies first yield; cyclic hardening still requires an external structure-level benchmark.
 
 ### Minimal example
 
@@ -789,10 +915,11 @@ Register J2LinearIsotropicHardening in a 3D nonlinear_static Model, add supports
 - `agentfem.benchmark.j2_global_restart`
 - `agentfem.benchmark.j2_multielement_patch`
 - `agentfem.benchmark.j2_nonuniform_bending`
+- `agentfem.benchmark.j2_thick_cylinder_mpi`
 
 **Validation rules**
 
-- Reject non-3D and multi-rank global use.
+- Reject unsupported dimensional assumptions and nonphysical material parameters.
 - Reject nonphysical material parameters.
 - Commit shared transaction state only after global and constitutive-increment acceptance.
 - Restore field, constitutive state, adaptive next-increment state, energy history, accepted/attempt histories, and execution events after restart.
@@ -3225,7 +3352,7 @@ step = model.step(target=u, procedure=procedures.generalized_alpha(), dt=..., st
 **Status:** `supported`<br>
 **Source card:** `src/agentfem/knowledge/cards/standard_result_projection.json`
 
-Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell-average fields, extracts MPI-global resultants, and records assembled external-force versus strong-reaction equilibrium.
+Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell-average fields, including full (r,theta,z) axisymmetric tensors and weighted projection, extracts MPI-global resultants, and records assembled external-force versus strong-reaction equilibrium.
 
 ### Public API
 
@@ -3296,6 +3423,7 @@ Natural loads and strong prescribed values are ramped proportionally from zero; 
 
 - Small-strain standard fields use the selected linear-elastic constitutive relation.
 - Plane-strain isotropic Mises stress includes the constitutively implied out-of-plane stress.
+- Axisymmetric fields are full 3x3 tensors and projection uses the same 2 pi r physical measure as equilibrium.
 - Reaction resultant semantics are limited to strong Dirichlet constraints.
 
 #### Conventions

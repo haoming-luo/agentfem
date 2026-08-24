@@ -1,0 +1,137 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.formulation.axisymmetric_solid",
+  "title": "Axisymmetric solid formulation",
+  "kind": "workflow",
+  "status": "supported",
+  "summary": "Small-strain axisymmetric solids on an (r,z) meridian with full three-dimensional strain and stress, full-revolution integration, engineering loads, standard fields, elastic statics, J2 plasticity, and implicit Mises creep.",
+  "public_api": [
+    "agentfem.studies.static_solid",
+    "agentfem.studies.nonlinear_static",
+    "agentfem.studies.creep_solid",
+    "agentfem.constraints.axisymmetric_plane_strain",
+    "agentfem.constraints.axisymmetric_axis",
+    "agentfem.models.Model.surface_force",
+    "agentfem.models.Model.step",
+    "agentfem.results.region_integral",
+    "agentfem.results.region_average",
+    "agentfem.results.region_measure",
+    "agentfem.results.boundary_resultant"
+  ],
+  "implementation": [
+    "_axisymmetric.py",
+    "constitutive/elasticity.py",
+    "operators/elasticity.py",
+    "mechanics/plasticity.py",
+    "mechanics/creep.py",
+    "results/projection.py"
+  ],
+  "science": {
+    "statement": "The public declaration Study(dimension=2, assumption='axisymmetric') is lowered once to meridian kinematics and the cylindrical Jacobian; constitutive tensors remain full three-dimensional objects ordered (r, theta, z).",
+    "equations": [
+      {
+        "label": "axisymmetric strain",
+        "expression": "\\boldsymbol{\\varepsilon}=\\begin{bmatrix}u_{r,r}&0&\\tfrac12(u_{r,z}+u_{z,r})\\\\0&u_r/r&0\\\\\\tfrac12(u_{r,z}+u_{z,r})&0&u_{z,z}\\end{bmatrix}",
+        "description": "The meridian displacement is ordered (u_r,u_z), while tensors are ordered (r,theta,z)."
+      },
+      {
+        "label": "full-revolution virtual work",
+        "expression": "\\delta W_{\\mathrm{int}}=2\\pi\\int_{\\Omega_{rz}}\\boldsymbol{\\sigma}:\\boldsymbol{\\varepsilon}(\\mathbf v)\\,r\\,dr\\,dz",
+        "description": "The same 2 pi r measure is used by stiffness, body force, traction, energy, projection, and physical result integrals."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "meridian mesh",
+        "type": "two-dimensional mesh in coordinates (r,z)",
+        "unit_role": "length",
+        "description": "The radial coordinate must be nonnegative. If the domain touches r=0, radial regularity requires u_r=0 on the axis."
+      },
+      {
+        "name": "Study",
+        "type": "solid_mechanics, dimension=2, assumption=axisymmetric",
+        "unit_role": "semantic formulation",
+        "description": "The Study controls provider selection, weak-form lowering, result recovery, and validation."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "U",
+        "type": "two-component meridian displacement",
+        "unit_role": "length",
+        "description": "Components are U_r and U_z."
+      },
+      {
+        "name": "S and E",
+        "type": "full 3x3 tensors",
+        "unit_role": "stress and strain",
+        "description": "The hoop component is retained rather than collapsed into a planar three-component tensor."
+      },
+      {
+        "name": "physical integrals",
+        "type": "full-revolution scalar or meridional component result",
+        "unit_role": "area, volume, force, or energy",
+        "description": "Pass study=study to public region and boundary integration helpers."
+      }
+    ],
+    "assumptions": [
+      "Geometry, material assignment, loading, and solution are invariant about the z axis.",
+      "Small strain; finite-strain axisymmetric kinematics are not implied by this formulation.",
+      "Isotropic elasticity is supported; planar anisotropic stiffness matrices do not define the missing hoop coupling and are rejected."
+    ],
+    "conventions": [
+      "Coordinates and displacement use (r,z); embedded tensors use (r,theta,z).",
+      "The 2 pi factor is retained so loads, reactions, energies, and measures describe the complete revolved body.",
+      "constraints.axisymmetric_plane_strain fixes U_z throughout a long-cylinder meridian and is a benchmark specialization, not a general axisymmetry requirement.",
+      "An integrated radial meridian traction is a circumferential integral of radial magnitude, not a Cartesian vector resultant, which cancels by symmetry."
+    ],
+    "applicability": [
+      "Axisymmetric linear elasticity and thermoelasticity.",
+      "Axisymmetric small-strain J2 plasticity with linear isotropic hardening.",
+      "Axisymmetric small-strain Mises power-law creep in the supported serial global route."
+    ],
+    "limitations": [
+      "Finite-strain, contact, reference-point moment coupling, and general anisotropic axisymmetric materials are not yet supported.",
+      "Axisymmetric implicit creep retains the same serial public-provider maturity boundary as the three-dimensional route.",
+      "A meridian mesh is not a planar unit-thickness model; direct low-level integrations that omit the Study retain planar semantics."
+    ]
+  },
+  "usage": {
+    "minimal_example": "study = studies.static_solid(dimension=2, assumption='axisymmetric')\nmodel = models.create(study=study, mesh=meridian)\nu = model.field(fields.displacement(meridian, degree=2))\nmodel.material(constitutive.isotropic_elastic(young=E, poisson=nu))\nmodel.pressure(p, on=inner_wall)\nresult = model.step(target=u).solve_result()",
+    "examples": ["examples/axisymmetric_thick_cylinder.py"]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_common_workflows.py",
+      "tests/test_external_inelastic_benchmark.py",
+      "tests/axisymmetric_mpi_driver.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.axisymmetric_lame_cylinder",
+      "agentfem.benchmark.j2_thick_cylinder_mpi",
+      "agentfem.benchmark.creep_nafems_r0027_test7"
+    ],
+    "validation_rules": [
+      "Reject non-isotropic planar stiffness in an axisymmetric Study.",
+      "Require regular radial kinematics when the meridian touches the symmetry axis.",
+      "Verify the Lamé displacement field and full-revolution total-force conversion.",
+      "Verify nonlinear quadrature state against public thick-cylinder J2 and NAFEMS creep references."
+    ]
+  },
+  "references": [
+    {
+      "title": "Abaqus axisymmetric solid elements",
+      "locator": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEELMRefMap/simaelm-r-axisymelem.htm"
+    },
+    {
+      "title": "NAFEMS R0027 Test 7 reproduced in the Abaqus benchmark guide",
+      "locator": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-creeptest7.htm"
+    }
+  ],
+  "related_cards": [
+    "agentfem.material.j2_global_plasticity",
+    "agentfem.material.global_implicit_creep",
+    "agentfem.workflow.standard_result_projection"
+  ]
+}

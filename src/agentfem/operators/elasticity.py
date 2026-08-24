@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ufl
 
-from agentfem import forms
+from agentfem import _axisymmetric
 from agentfem.constitutive import elasticity
 from agentfem.operators.core import OperatorForm
 
@@ -15,16 +15,18 @@ def stiffness_operator(displacement, test_function=None, properties=None, *, stu
     if study is not None and hasattr(study, "require"):
         study.require(physics="solid_mechanics")
     trial, test, props = _elastic_args(displacement, test_function, properties)
+    weight = _axisymmetric.integration_weight(trial, study)
     return OperatorForm(
         name="K",
         kind="elastic_stiffness_operator",
         role="matrix",
         family="elasticity",
-        expression=forms.stiffness_form(
+        expression=ufl.inner(
             elasticity.stress(trial, props, study=study, temperature=temperature),
-            elasticity.strain(test),
-            measure=measure,
-        ),
+            elasticity.strain(test, study=study),
+        )
+        * weight
+        * measure,
     )
 
 
@@ -40,16 +42,18 @@ def internal_force_vector(displacement, test_function=None, properties=None, *, 
     if study is not None and hasattr(study, "require"):
         study.require(physics="solid_mechanics")
     trial, test, props = _elastic_args(displacement, test_function, properties)
+    weight = _axisymmetric.integration_weight(trial, study)
     return OperatorForm(
         name="F_int",
         kind="elastic_internal_force_vector",
         role="vector",
         family="elasticity",
-        expression=forms.stiffness_form(
+        expression=ufl.inner(
             elasticity.stress(trial, props, study=study),
-            elasticity.strain(test),
-            measure=measure,
-        ),
+            elasticity.strain(test, study=study),
+        )
+        * weight
+        * measure,
     )
 
 
@@ -76,16 +80,15 @@ def thermal_expansion_vector(
         study=study,
         dimension=dimension,
     )
+    weight = _axisymmetric.integration_weight(test, study)
     return OperatorForm(
         name=name,
         kind="thermal_expansion_vector",
         role="vector",
         family="thermoelasticity",
-        expression=forms.stiffness_form(
-            stress,
-            elasticity.strain(test),
-            measure=measure,
-        ),
+        expression=ufl.inner(stress, elasticity.strain(test, study=study))
+        * weight
+        * measure,
         metadata={
             "reference_temperature": properties.reference_temperature,
             "thermal_expansion": (

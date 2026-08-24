@@ -6,6 +6,7 @@ import ufl
 from dolfinx import fem
 import dolfinx.fem.petsc as fem_petsc
 
+from .. import _axisymmetric
 from .. import fields as field_api
 from ..constitutive import elasticity
 from .field_catalog import resolve_field_variables
@@ -18,6 +19,7 @@ def project(
     family: str = "DG",
     degree: int = 0,
     name: str = "ProjectedField",
+    weight=1.0,
 ):
     """Return the global L2 projection of a UFL expression.
 
@@ -36,11 +38,12 @@ def project(
             "Could not infer a mesh from the expression; pass domain=... explicitly."
         )
     return _project_terms(
-        ((expression, ufl.dx(domain=selected_domain)),),
+        ((expression, ufl.dx(domain=selected_domain), weight),),
         domain=selected_domain,
         family=family,
         degree=selected_degree,
         name=name,
+        weight=weight,
     )
 
 
@@ -51,6 +54,7 @@ def project_piecewise(
     family: str = "DG",
     degree: int = 0,
     name: str = "ProjectedField",
+    weight=1.0,
 ):
     """Project region-dependent expressions into one finite-element field.
 
@@ -77,10 +81,11 @@ def project_piecewise(
         family=family,
         degree=selected_degree,
         name=name,
+        weight=weight,
     )
 
 
-def _project_terms(terms, *, domain, family, degree, name):
+def _project_terms(terms, *, domain, family, degree, name, weight=1.0):
     shape = tuple(getattr(terms[0][0], "ufl_shape", ()))
     element = (
         (str(family), degree)
@@ -93,11 +98,18 @@ def _project_terms(terms, *, domain, family, degree, name):
     output = fem.Function(space, name=str(name))
     lhs = None
     rhs = None
-    for expression, measure in terms:
+    for term in terms:
+        if len(term) == 2:
+            expression, measure = term
+            term_weight = weight
+        elif len(term) == 3:
+            expression, measure, term_weight = term
+        else:
+            raise ValueError("Projection terms must be (expression, measure[, weight]).")
         if tuple(getattr(expression, "ufl_shape", ())) != shape:
             raise ValueError("All piecewise projection expressions need one value shape.")
-        lhs_term = ufl.inner(trial, test) * measure
-        rhs_term = ufl.inner(expression, test) * measure
+        lhs_term = term_weight * ufl.inner(trial, test) * measure
+        rhs_term = term_weight * ufl.inner(expression, test) * measure
         lhs = lhs_term if lhs is None else lhs + lhs_term
         rhs = rhs_term if rhs is None else rhs + rhs_term
     problem = fem_petsc.LinearProblem(
@@ -142,6 +154,7 @@ def small_strain_cell_fields(
         study=study,
         variables=tuple(item.key for item in requested),
     )
+    weight = _axisymmetric.integration_weight(function, study)
     fields = []
     for variable in requested:
         if variable.key == "U":
@@ -157,6 +170,7 @@ def small_strain_cell_fields(
                 family="DG",
                 degree=degree,
                 name=variable.key,
+                weight=weight,
             )
         )
     return tuple(fields)
@@ -187,6 +201,7 @@ def small_strain_partition_fields(
             "Every material in a multi-material result needs a cell region."
         )
     requested = resolve_field_variables(variables, finite_strain=False)
+    weight = _axisymmetric.integration_weight(function, study)
     regional = []
     for properties, measure in normalized:
         regional.append(
@@ -210,7 +225,7 @@ def small_strain_partition_fields(
                 raise NotImplementedError(
                     f"Small-strain output does not provide {variable.key!r}."
                 )
-            terms.append((expressions[variable.key], measure))
+            terms.append((expressions[variable.key], measure, weight))
         fields.append(
             project_piecewise(
                 terms,
@@ -230,7 +245,7 @@ def _small_strain_expressions(
     study=None,
     variables=("S", "E", "MISES", "SENER"),
 ):
-    strain = elasticity.strain(function)
+    strain = elasticity.strain(function, study=study)
     stress = elasticity.stress(function, properties, study=study)
     expressions = {
         "S": stress,

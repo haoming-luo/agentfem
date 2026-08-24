@@ -12,6 +12,7 @@ from dolfinx import fem
 import dolfinx.fem.petsc as fem_petsc
 from petsc4py import PETSc
 
+from .. import _axisymmetric
 from .. import procedures
 from .. import amplitudes
 from .. import steps as step_controls
@@ -204,7 +205,7 @@ class J2PlasticityStep:
 
     def __post_init__(self) -> None:
         self._strain_evaluator = self.state.compile_strain(
-            elasticity.strain(self.solution)
+            elasticity.strain(self.solution, study=self.study)
         )
 
     def solve(self, *, until: float = 1.0):
@@ -950,7 +951,8 @@ class J2PlasticityStep:
         balance for a non-proportional loading history.
         """
 
-        strain = elasticity.strain(self.solution)
+        strain = elasticity.strain(self.solution, study=self.study)
+        weight = _axisymmetric.integration_weight(self.solution, self.study)
         plastic_strain = self.state.plastic_strain.function
         peeq = self.state.equivalent_plastic_strain.function
         stress = self.state.stress.function
@@ -992,7 +994,9 @@ class J2PlasticityStep:
             hardening_density,
             dissipation_density,
         ):
-            local = fem.assemble_scalar(fem.form(density * self.state.measure))
+            local = fem.assemble_scalar(
+                fem.form(weight * density * self.state.measure)
+            )
             values.append(float(self.state.domain.comm.allreduce(local)))
         elastic, hardening, dissipation = values
         return {
@@ -1336,19 +1340,22 @@ def j2_plasticity_step(
     name: str = "j2_plasticity",
     _experimental_distributed: bool = False,
 ) -> J2PlasticityStep:
-    """Build a global 3D J2 step from a displacement and load operator."""
+    """Build a global 3D or axisymmetric J2 step."""
 
     if not isinstance(material, (J2LinearIsotropicHardening, QuadratureMaterialMap)):
         raise TypeError(
             "j2_plasticity_step requires J2LinearIsotropicHardening or a "
             "QuadratureMaterialMap of that family."
         )
-    if displacement.value.function_space.mesh.geometry.dim != 3:
+    domain = displacement.value.function_space.mesh
+    axisymmetric = _axisymmetric.is_axisymmetric(study)
+    if domain.geometry.dim != 3 and not (
+        domain.geometry.dim == 2 and axisymmetric
+    ):
         raise NotImplementedError(
-            "The first global J2 driver supports 3D small-strain solids. "
+            "Global J2 supports 3D or 2D axisymmetric small-strain solids. "
             "Plane stress needs a separate local return-map constraint."
         )
-    domain = displacement.value.function_space.mesh
     if isinstance(material, QuadratureMaterialMap) and material.domain is not domain:
         raise ValueError("J2 quadrature material map belongs to a different mesh.")
     # ``_experimental_distributed`` is retained temporarily for source
@@ -1363,8 +1370,8 @@ def j2_plasticity_step(
     if not np.isclose(selected_amplitude(0.0), 0.0):
         raise ValueError("A J2 load amplitude must start at zero.")
     load_factor = fem.Constant(domain, PETSc.ScalarType(0.0))
-    strain_test = elasticity.strain(displacement.test)
-    strain_trial = elasticity.strain(displacement.trial)
+    strain_test = elasticity.strain(displacement.test, study=study)
+    strain_trial = elasticity.strain(displacement.trial, study=study)
     stress = state.stress.function
     tangent = state.tangent.function
     i, j, k, l = ufl.indices(4)
@@ -1372,10 +1379,11 @@ def j2_plasticity_step(
         tangent[i, j, k, l] * strain_trial[k, l],
         (i, j),
     )
-    residual = ufl.inner(stress, strain_test) * state.measure
+    weight = _axisymmetric.integration_weight(displacement.value, study)
+    residual = weight * ufl.inner(stress, strain_test) * state.measure
     if external_force is not None:
         residual -= load_factor * external_force.expression
-    jacobian = ufl.inner(tangent_action, strain_test) * state.measure
+    jacobian = weight * ufl.inner(tangent_action, strain_test) * state.measure
     selected_bcs = []
     prescribed_values = []
     for item in constraints or ():

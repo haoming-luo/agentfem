@@ -9,6 +9,7 @@ from mpi4py import MPI
 from agentfem import (
     amplitudes,
     constitutive,
+    constraints,
     fields,
     mesh,
     models,
@@ -230,6 +231,109 @@ def test_surface_force_distributes_requested_resultant_over_reference_boundary()
     assert balance.relative_error < 1.0e-10
 
 
+def test_axisymmetric_surface_force_uses_revolved_boundary_area():
+    domain = mesh.rectangle(
+        (1.0, 0.0),
+        (2.0, 0.5),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    study = studies.static_solid(dimension=2, assumption="axisymmetric")
+    model = models.create(study=study, mesh=domain, name="axisymmetric_end_force")
+    top = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[1], 0.5),
+        name="loaded_annulus",
+        tag=1,
+    )
+    load = model.surface_force((0.0, 300.0), on=top)
+
+    applied = results.boundary_resultant(load.value, on=top, study=study)
+
+    np.testing.assert_allclose(applied, [0.0, 300.0], rtol=1.0e-12, atol=1.0e-12)
+    assert load.reference_measure == pytest.approx(3.0 * np.pi)
+
+
+def test_axisymmetric_validation_requires_nonnegative_radius_and_axis_regularity():
+    negative_domain = mesh.rectangle(
+        (-0.1, 0.0),
+        (1.0, 1.0),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    study = studies.static_solid(dimension=2, assumption="axisymmetric")
+    invalid = models.create(study=study, mesh=negative_domain)
+    invalid.field(fields.displacement(negative_domain))
+    invalid.material(
+        elasticity.isotropic_elastic(young=1000.0, poisson=0.3, density=1.0)
+    )
+    report = invalid.validate()
+    assert any(item.code == "AFM-AXISYM-001" for item in report.errors)
+
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    model = models.create(study=study, mesh=domain)
+    displacement = model.field(fields.displacement(domain))
+    model.material(
+        elasticity.isotropic_elastic(young=1000.0, poisson=0.3, density=1.0)
+    )
+    warning = model.validate()
+    assert any(item.code == "AFM-AXISYM-002" for item in warning.warnings)
+
+    axis = mesh.face(domain, axis="x", value=0.0, name="axis", tag=1)
+    model.constraint(constraints.axisymmetric_axis(displacement, on=axis))
+    regular = model.validate()
+    assert not any(item.code == "AFM-AXISYM-002" for item in regular.issues)
+
+
+def test_axisymmetric_lumped_mass_is_the_full_revolved_body_mass():
+    domain = mesh.rectangle(
+        (1.0, 0.0),
+        (2.0, 0.5),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    study = studies.static_solid(dimension=2, assumption="axisymmetric")
+    model = models.create(study=study, mesh=domain)
+    displacement = model.field(fields.displacement(domain))
+    material = model.material(
+        elasticity.isotropic_elastic(young=1000.0, poisson=0.3, density=2.0)
+    )
+
+    lumped = model.lumped_mass(displacement, material=material)
+
+    physical_mass = 2.0 * np.pi * (2.0**2 - 1.0**2) * 0.5
+    assert np.sum(lumped.mass) == pytest.approx(2.0 * physical_mass)
+
+
+def test_axisymmetric_reference_coupling_rejects_undefined_ring_kinematics():
+    domain = mesh.rectangle(
+        (1.0, 0.0),
+        (2.0, 0.5),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    model = models.create(
+        study=studies.static_solid(dimension=2, assumption="axisymmetric"),
+        mesh=domain,
+    )
+    top = mesh.face(domain, axis="y", value=0.5, name="top", tag=1)
+
+    with pytest.raises(NotImplementedError, match="ring/reference"):
+        model.distributing_coupling((0.0, 1.0), on=top)
+    with pytest.raises(NotImplementedError, match="ring/reference"):
+        model.remote_force((0.0, 1.0), reference_point=(0.0, 0.5), on=top)
+
+
 def test_steady_heat_transfer_consumes_flux_and_convection(tmp_path):
     domain = mesh.rectangle(
         (0.0, 0.0),
@@ -448,35 +552,62 @@ def test_multimaterial_heat_combines_region_conduction_capacity_and_history():
     assert float(np.max(temperature.value.x.array)) <= 400.0 + 1.0e-8
 
 
-def test_model_validation_rejects_declared_but_unimplemented_study_combination():
+def test_axisymmetric_static_solid_matches_lame_cylinder_displacement():
+    inner_radius, outer_radius = 1.0, 2.0
+    young, poisson, pressure = 1000.0, 0.3, 10.0
     domain = mesh.rectangle(
-        (0.0, 0.0),
-        (1.0, 0.2),
-        (2, 1),
+        (inner_radius, 0.0),
+        (outer_radius, 0.2),
+        (8, 1),
         comm=MPI.COMM_SELF,
         cell_type="quadrilateral",
     )
     model = models.create(
         study=studies.static_solid(dimension=2, assumption="axisymmetric"),
         mesh=domain,
-        name="unsupported_axisymmetric",
+        name="lame_axisymmetric_cylinder",
     )
-    model.field(fields.displacement(domain))
-    model.material(
+    displacement = model.field(fields.displacement(domain, degree=2))
+    material = model.material(
         elasticity.isotropic_elastic(
-            young=1.0e6,
-            poisson=0.3,
-            density=1000.0,
+            young=young,
+            poisson=poisson,
+            density=1.0,
         )
+    )
+    model.constraint(constraints.axisymmetric_plane_strain(displacement))
+    model.pressure(
+        pressure,
+        on=mesh.face(
+            domain,
+            axis="x",
+            value=inner_radius,
+            name="inner_wall",
+            tag=1,
+        ),
     )
 
     report = model.validate()
+    assert report.is_valid
+    result = model.step(target=displacement).solve_result()
 
-    assert not report.is_valid
-    capability_issue = next(
-        item for item in report.errors if item.code == "AFM-STUDY-002"
+    radial_coordinates = displacement.space.tabulate_dof_coordinates()[:, 0]
+    radial_values = displacement.value.x.array.reshape((-1, 2))[:, 0]
+    lame_a = pressure * inner_radius**2 / (
+        outer_radius**2 - inner_radius**2
     )
-    assert capability_issue.context["capability"]["supported"] is False
+    lame_b = pressure * inner_radius**2 * outer_radius**2 / (
+        outer_radius**2 - inner_radius**2
+    )
+    expected = (1.0 + poisson) / young * (
+        (1.0 - 2.0 * poisson) * lame_a * radial_coordinates
+        + lame_b / radial_coordinates
+    )
+    relative_error = np.linalg.norm(radial_values - expected) / np.linalg.norm(expected)
+
+    assert result.status == "completed"
+    assert relative_error < 2.0e-3
+    assert result.fields["S"].field.ufl_shape == (3, 3)
 
 
 def test_transient_heat_automatically_updates_amplitude_driven_source():

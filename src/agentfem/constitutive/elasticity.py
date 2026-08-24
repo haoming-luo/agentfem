@@ -6,6 +6,7 @@ import numpy as np
 import ufl
 
 from agentfem import fields as field_api
+from agentfem import _axisymmetric
 from agentfem.materials.properties import (
     ElasticAnisotropic2DProperties,
     ElasticIsotropicProperties,
@@ -14,10 +15,12 @@ from agentfem.materials.properties import (
 )
 
 
-def strain(displacement):
-    """Small-strain tensor, ``sym(grad(u))``."""
+def strain(displacement, *, study=None):
+    """Small-strain tensor for Cartesian or declared axisymmetric kinematics."""
 
     displacement = field_api.unwrap(displacement)
+    if _axisymmetric.is_axisymmetric(study):
+        return _axisymmetric.strain(displacement)
     return ufl.sym(ufl.grad(displacement))
 
 
@@ -84,6 +87,12 @@ def isotropic_stress(displacement, properties: ElasticIsotropicProperties, *, st
     displacement = field_api.unwrap(displacement)
     if study is not None:
         _require_elastic_study_supported(study)
+        if _axisymmetric.is_axisymmetric(study):
+            eps = strain(displacement, study=study)
+            young, poisson = _elastic_coefficients(properties, temperature)
+            lambda_ = young * poisson / ((1.0 + poisson) * (1.0 - 2.0 * poisson))
+            mu = young / (2.0 * (1.0 + poisson))
+            return lambda_ * ufl.tr(eps) * ufl.Identity(3) + 2.0 * mu * eps
         if study.dimension == 2 and study.assumption == "plane_stress":
             return isotropic_plane_stress_2d(displacement, properties, temperature=temperature)
         if study.dimension == 2 and study.assumption == "plane_strain":
@@ -125,7 +134,10 @@ def thermoelastic_stress(displacement, temperature, properties, *, study=None):
     lambda_ = young * poisson / ((1.0 + poisson) * (1.0 - 2.0 * poisson))
     mu = young / (2.0 * (1.0 + poisson))
     alpha_delta = _coefficient(properties, "thermal_expansion", selected_temperature) * delta_temperature
-    eps = strain(displacement)
+    eps = strain(displacement, study=study)
+    if _axisymmetric.is_axisymmetric(study):
+        mechanical = eps - alpha_delta * ufl.Identity(3)
+        return lambda_ * ufl.tr(mechanical) * ufl.Identity(3) + 2.0 * mu * mechanical
     if dimension == 2 and getattr(study, "assumption", None) == "plane_stress":
         mechanical = eps - alpha_delta * ufl.Identity(2)
         plane_stress_lambda = young * poisson / (
@@ -162,6 +174,8 @@ def thermal_expansion_stress(temperature, properties, *, study=None, dimension=N
     alpha_delta = _coefficient(properties, "thermal_expansion", selected) * (
         selected - properties.reference_temperature
     )
+    if _axisymmetric.is_axisymmetric(study):
+        return (2.0 * mu + 3.0 * lambda_) * alpha_delta * ufl.Identity(3)
     if selected_dimension == 2 and getattr(study, "assumption", None) == "plane_stress":
         plane_stress_lambda = young * poisson / (
             1.0 - poisson**2
@@ -207,6 +221,11 @@ def anisotropic_stress_2d(displacement, properties: ElasticAnisotropic2DProperti
     displacement = field_api.unwrap(displacement)
     if study is not None:
         _require_2d_study_supported(study)
+        if _axisymmetric.is_axisymmetric(study):
+            raise NotImplementedError(
+                "Axisymmetric elasticity currently supports isotropic materials; "
+                "a planar 3-component stiffness matrix does not define the hoop response."
+            )
     strain_voigt = engineering_strain_voigt_2d(displacement)
     stress_voigt = ufl.dot(ufl.as_matrix(properties.stiffness_voigt.tolist()), strain_voigt)
     return stress_voigt_to_tensor_2d(stress_voigt)
@@ -252,15 +271,10 @@ def _require_elastic_study_supported(study) -> None:
 
 def _require_2d_study_supported(study) -> None:
     assumption = getattr(study, "assumption", None)
-    if assumption == "axisymmetric":
-        raise NotImplementedError(
-            "Axisymmetric elasticity requires radial strain and weighted "
-            "integration; it is not implemented yet."
-        )
-    if assumption not in {"plane_stress", "plane_strain"}:
+    if assumption not in {"plane_stress", "plane_strain", "axisymmetric"}:
         raise ValueError(
-            "2D elasticity requires study.assumption='plane_stress' or "
-            "'plane_strain'."
+            "2D elasticity requires study.assumption='plane_stress', "
+            "'plane_strain', or 'axisymmetric'."
         )
 
 
