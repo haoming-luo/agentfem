@@ -276,6 +276,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `periodic(target, *, master, slave, match_axis: str \| int = 0, method: str = 'projection', tolerance: float = 1e-12, name: str = 'periodic')` | Create a periodic constraint with an explicit method choice. |
 | function | `periodic_projection(target, *, master, slave, match_axis: str \| int = 0, tolerance: float = 1e-12, name: str = 'periodic_projection') -> PeriodicProjectionConstraint` | Create component-wise dof pairs for projection-style periodicity. |
 | function | `constraint_capabilities(constraint) -> ConstraintCapabilities \| None` | Return the public capability contract of a known constraint asset. |
+| function | `constraint_balance_contract(constraints) -> dict[str, object]` | Describe whether strong-reaction force/work diagnostics are complete. |
 | function | `validate_solver_compatibility(*, constraints, analysis: str, procedure: str \| None = None, comm_size: int = 1)` | Validate constraint/procedure compatibility before assembly or solve. |
 | class | `PeriodicConstraintSpec` | Geometric description of a periodic constraint. |
 | class | `ConstraintSet` | Collection of constraints used by assembly or field updates. |
@@ -397,7 +398,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `sample_points(field, points, *, padding: float = 1e-10, missing: str = 'raise') -> np.ndarray` | Evaluate a finite-element field at common physical points under MPI. |
 | function | `sample_rectilinear_grid(field, *, bbox, shape, reduction: str \| None = None, component: int \| None = None, padding: float = 1e-10) -> RectilinearGridSample` | Sample a scalar or vector field on a 2D/3D rectilinear grid. |
 | function | `section_resultant(stress, *, on, normal = None, about = None) -> ForceMomentResultant` | Integrate section force and moment from a Cauchy/nominal stress field. |
-| function | `static_force_balance(problem) -> StaticForceBalance` | Evaluate ``R + F = 0`` for a converged linear static solid. |
+| function | `static_force_balance(problem, *, constraints = ()) -> StaticForceBalance` | Evaluate ``R + F = 0`` for a converged linear static solid. |
 | function | `static_work_balance(problem, *, constraints = ()) -> StaticWorkBalance` | Evaluate linear-static work including nonzero strong Dirichlet data. |
 | function | `project(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0)` | Return the global L2 projection of a UFL expression. |
 | function | `project_piecewise(terms, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0)` | Project region-dependent expressions into one finite-element field. |

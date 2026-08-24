@@ -3451,6 +3451,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
+<td><code>constraint_balance_contract(constraints) -&gt; dict[str, object]</code></td>
+<td>Describe whether strong-reaction force/work diagnostics are complete.</td>
+</tr>
+<tr>
+<td>function</td>
 <td><code>validate_solver_compatibility(*, constraints, analysis: str, procedure: str \| None = None, comm_size: int = 1)</code></td>
 <td>Validate constraint/procedure compatibility before assembly or solve.</td>
 </tr>
@@ -3991,7 +3996,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>static_force_balance(problem) -&gt; StaticForceBalance</code></td>
+<td><code>static_force_balance(problem, *, constraints = ()) -&gt; StaticForceBalance</code></td>
 <td>Evaluate <code>R + F = 0</code> for a converged linear static solid.</td>
 </tr>
 <tr>
