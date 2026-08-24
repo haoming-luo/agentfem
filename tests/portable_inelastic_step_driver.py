@@ -23,9 +23,7 @@ def _step(kind: str):
         study=(
             studies.creep_solid()
             if kind == "creep"
-            else studies.nonlinear_static(
-                physics="solid_mechanics", dimension=3
-            )
+            else studies.static_solid(dimension=3, nonlinear=True)
         ),
         mesh=domain,
         name=f"portable_{kind}_step",
@@ -41,6 +39,15 @@ def _step(kind: str):
             reference_stress=1.0,
         )
         if kind == "creep"
+        else constitutive.chaboche(
+            young=1000.0,
+            poisson=0.3,
+            yield_stress=0.4,
+            backstresses=((120.0, 10.0), (40.0, 2.0)),
+            isotropic_saturation=0.2,
+            isotropic_rate=4.0,
+        )
+        if kind == "chaboche"
         else constitutive.J2LinearIsotropicHardening(
             young=1000.0,
             poisson=0.3,
@@ -90,6 +97,12 @@ def _state(step, kind: str):
     points = len(step.state.stress.points)
     keys = np.asarray(step.state.domain.topology.original_cell_index[:owned])
     values = selected.values.reshape(-1)[: owned * points].reshape((owned, points))
+    if kind == "chaboche":
+        backstresses = step.state.backstresses.values[: owned * points]
+        values = np.concatenate(
+            (values[..., None], backstresses.reshape((owned, points, -1))),
+            axis=-1,
+        )
     return dict(zip(keys.tolist(), values.tolist(), strict=True))
 
 
@@ -99,7 +112,7 @@ def main() -> None:
     parser.add_argument("root", type=Path)
     arguments = parser.parse_args()
 
-    for kind in ("j2", "creep"):
+    for kind in ("j2", "chaboche", "creep"):
         path = arguments.root.with_name(arguments.root.name + f"-{kind}")
         if arguments.action == "write":
             step = _step(kind)

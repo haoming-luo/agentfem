@@ -1,0 +1,184 @@
+{
+  "schema": "agentfem.release-contract",
+  "schema_version": "0.2.0",
+  "target_version": "0.2.4",
+  "channel": "stable",
+  "status": "candidate",
+  "supported_python": "3.11",
+  "platform_evidence": {
+    "continuous_integration": "Linux",
+    "local_development": [
+      "Linux",
+      "macOS with conda-forge FEniCSx",
+      "Windows through WSL2"
+    ]
+  },
+  "installed_templates": [
+    "static-solid",
+    "steady-heat",
+    "structural-dynamics"
+  ],
+  "workflows": [
+    {
+      "id": "linear-static-solid",
+      "maturity": "release",
+      "example": "examples/static_elasticity_2d.py",
+      "evidence": ["golden-observable", "serial-smoke", "two-rank-smoke"]
+    },
+    {
+      "id": "axisymmetric-small-strain-solid",
+      "maturity": "release",
+      "example": "examples/axisymmetric_thick_cylinder.py",
+      "evidence": [
+        "analytical-lame-golden",
+        "full-tensor-projection",
+        "two-rank-j2-path",
+        "nafems-r0027-creep"
+      ]
+    },
+    {
+      "id": "transient-heat",
+      "maturity": "release",
+      "example": "examples/transient_heat_2d.py",
+      "evidence": ["golden-observable", "checkpoint-tests", "installed-wheel-smoke"]
+    },
+    {
+      "id": "explicit-wave-inclusion",
+      "maturity": "engineering",
+      "example": "examples/wave_packet_inclusion_2d.py",
+      "evidence": ["release-smoke", "explicit-dynamics-tests", "absorbing-boundary-tests"]
+    },
+    {
+      "id": "c3d10h-periodic-hyperelasticity",
+      "maturity": "engineering",
+      "example": "examples/abaqus_c3d10h_periodic_cell/case.py",
+      "evidence": ["direct-import-tests", "mixed-formulation-tests", "periodic-cell-golden"]
+    },
+    {
+      "id": "j2-plasticity",
+      "maturity": "engineering",
+      "example": "examples/j2_plasticity_3d.py",
+      "evidence": [
+        "material-point-path",
+        "global-cutback-tests",
+        "cross-rank-restart",
+        "external-thick-cylinder-yield-benchmark",
+        "serial-two-rank-equivalence"
+      ]
+    },
+    {
+      "id": "chaboche-cyclic-plasticity",
+      "maturity": "experimental",
+      "example": "examples/chaboche_cyclic_3d.py",
+      "evidence": [
+        "official-model-definition",
+        "shifted-yield-and-discrete-tangent",
+        "bauschinger-reversal",
+        "global-cycle-and-restart"
+      ]
+    },
+    {
+      "id": "implicit-power-law-creep",
+      "maturity": "engineering",
+      "example": "examples/implicit_creep_relaxation_3d.py",
+      "evidence": [
+        "relaxation-golden",
+        "rollback-tests",
+        "restart-tests",
+        "endpoint-time-integration-control",
+        "nafems-r0027-test7"
+      ]
+    },
+    {
+      "id": "sequential-thermal-creep-evidence",
+      "maturity": "engineering",
+      "example": "examples/creep_hot_wall_assessment.py",
+      "evidence": [
+        "accepted-field-history-identity",
+        "source-study-and-procedure",
+        "layered-thermal-mechanical-ledger",
+        "portable-history-tests"
+      ]
+    },
+    {
+      "id": "engineering-creep-fatigue-v1",
+      "maturity": "engineering",
+      "example": "examples/creep_fatigue_assessment.py",
+      "evidence": [
+        "named-history-dwell-extraction",
+        "explicit-rupture-source",
+        "out-of-range-failure",
+        "structured-assessment-attachment"
+      ]
+    },
+    {
+      "id": "simulation-to-learning",
+      "maturity": "engineering",
+      "example": "examples/static_elasticity_surrogate_campaign.py",
+      "evidence": ["accepted-dataset-policy", "surrogate-validation", "fem-fallback"]
+    },
+    {
+      "id": "user-neural-field-executor",
+      "maturity": "engineering",
+      "example": "tests/test_learning.py",
+      "evidence": [
+        "framework-neutral-request",
+        "serial-step-result-lifecycle",
+        "two-rank-collective-execution",
+        "root-only-result-manifest",
+        "executor-identity-and-options"
+      ]
+    },
+    {
+      "id": "dynamic-cohesive-fracture",
+      "maturity": "experimental",
+      "example": "examples/science_supershear_v5_protocol.py",
+      "evidence": ["v0-v4-guardrails", "mpi-interface-tests", "energy-balance-tests"]
+    },
+    {
+      "id": "cyclic-cohesive-fatigue",
+      "maturity": "experimental",
+      "example": "tests/test_fatigue_fracture.py",
+      "evidence": [
+        "global-cycle-transaction-tests",
+        "physical-facet-restart-tests",
+        "persistent-crack-identity-tests",
+        "mixed-mode-ordered-path-tests",
+        "paris-postprocessing-tests"
+      ]
+    }
+  ],
+  "required_gates": [
+    "version-contract-agreement",
+    "clean-wheel-and-sdist",
+    "full-serial-tests",
+    "distributed-tests",
+    "axisymmetric-analytical-and-stateful-benchmarks",
+    "cross-rank-checkpoint-portability",
+    "installed-wheel-identity",
+    "installed-project-template-loop",
+    "release-workflow-smokes",
+    "framework-neutral-neural-field-lifecycle",
+    "scientific-knowledge-check",
+    "documentation-strict-build",
+    "optional-pytorch-bridge",
+    "build-provenance-attestation-when-repository-visibility-supports-it"
+  ],
+  "not_release_claims": [
+    "universal finite-element coverage",
+    "general industrial code validation",
+    "native Windows solver support",
+    "finite-strain or plane-stress cyclic plasticity",
+    "structure-level validated Chaboche hysteresis prediction",
+    "complete Chaboche cyclic energy closure",
+    "monolithic thermo-mechanical coupling",
+    "coupled creep-fatigue damage evolution",
+    "embedded ASME, R5, company, or material-specific allowable data",
+    "general arbitrary-path fracture",
+    "validated cylinder fatigue-crack prediction",
+    "Paris-law-driven crack propagation",
+    "binary-compatible Abaqus user-subroutine execution",
+    "bundled general XDEM or universal neural-field training",
+    "automatic neural-operator or PINN training for arbitrary meshes"
+  ]
+}

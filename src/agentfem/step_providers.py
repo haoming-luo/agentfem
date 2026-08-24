@@ -848,7 +848,10 @@ def _accept_mixed_neo_hookean(model, request: StepRequest) -> bool:
 
 
 def _accept_j2(model, request: StepRequest) -> bool:
-    from .constitutive.plasticity import J2LinearIsotropicHardening
+    from .constitutive.plasticity import (
+        ChabocheCombinedHardening,
+        J2LinearIsotropicHardening,
+    )
 
     study = getattr(model, "study", None)
     return (
@@ -862,7 +865,12 @@ def _accept_j2(model, request: StepRequest) -> bool:
             )
         )
         and _all_materials_support(
-            model, request, lambda item: isinstance(item, J2LinearIsotropicHardening)
+            model,
+            request,
+            lambda item: isinstance(
+                item,
+                (J2LinearIsotropicHardening, ChabocheCombinedHardening),
+            ),
         )
     )
 

@@ -23,11 +23,21 @@ global finite-element contract.
   material-point/evaluation maturity unless a global consumer is present;
 - modified-theta projection as a curve-assessment tool;
 - source-identified creep time fractions and explicit creep--fatigue
-  interaction diagrams as an engineering postprocessor;
-- small-strain J2 plasticity through a stateful global route.
+  interaction diagrams as an engineering postprocessor; declared dwell
+  intervals may be extracted from named stress and temperature histories;
+- small-strain J2 plasticity through a stateful global route, including an
+  experimental multi-backstress Chaboche combined-hardening material using
+  the same Step, quadrature transaction, output and restart lifecycle.
 
 The maturity label is part of the interface: the presence of a formula does not
 silently imply a validated global analysis procedure.
+
+For cyclic plasticity, `constitutive.chaboche(...)` accepts one or more
+`(C_i, gamma_i)` pairs plus optional exponential isotropic saturation. It
+publishes `S`, `PE`, `PEEQ`, total backstress `ALPHA`, and `MISES`. Its local
+consistency, reversal response, global cycle and restart are automated; a
+structure-level stabilized-hysteresis comparison and complete recovery-
+dissipation energy closure remain promotion gates.
 
 ## Go deeper
 

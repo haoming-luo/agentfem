@@ -212,17 +212,22 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `plane_stress_thickness_stretch_value(deformation_gradient, properties: PlaneStressNeoHookeanProperties, *, tolerance: float = 1e-12, maximum_iterations: int = 30) -> float` | Solve the local ``P33=0`` condition for one numerical 2x2 ``F``. |
 | function | `plane_stress_uniaxial_deformation_gradient(axial_stretch: float, properties: PlaneStressNeoHookeanProperties \| MooneyRivlinProperties, *, tolerance: float = 1e-12, maximum_iterations: int = 30) -> np.ndarray` | Return homogeneous uniaxial ``F2`` with traction-free lateral faces. |
 | function | `supports_hyperelastic_study(properties, *, dimension: int, assumption) -> bool` | Return whether one material has a formulation for the declared Study. |
+| class | `ChabocheCombinedHardening` | Small-strain J2 plasticity with nonlinear combined hardening. |
+| class | `ChabocheState` | History for small-strain combined isotropic/kinematic hardening. |
 | class | `J2LinearIsotropicHardening` | Rate-independent von Mises plasticity with linear isotropic hardening. |
 | class | `J2PlasticState` | History variables for small-strain isotropic J2 plasticity. |
 | class | `J2Update` | Result of one radial-return material-point update. |
 | class | `UniaxialPlasticState` | History variables for the exact one-dimensional counterpart. |
+| function | `chaboche(*, young: float, poisson: float, yield_stress: float, backstresses: Iterable[tuple[float, float]], isotropic_saturation: float = 0.0, isotropic_rate: float = 0.0, name: str = 'Chaboche combined hardening') -> ChabocheCombinedHardening` | Create a combined-hardening material from ``(C, gamma)`` pairs. |
 | function | `update_uniaxial(total_strain: float, material: J2LinearIsotropicHardening, state: UniaxialPlasticState \| None = None) -> tuple[float, UniaxialPlasticState]` | Return stress and state for a one-dimensional bilinear material test. |
 | function | `von_mises(stress) -> float` | Return ``sqrt(3/2 s:s)`` for a symmetric Cauchy stress. |
+| class | `ChabocheQuadratureState` | Committed/trial integration-point state for combined-hardening J2. |
 | class | `CreepQuadratureState` | Committed/trial integration-point state for implicit 3D creep. |
 | class | `J2QuadratureState` | Committed/trial integration-point state for 3D small-strain J2. |
 | class | `QuadratureField` | A DOLFINx quadrature function with an explicit NumPy point view. |
 | class | `QuadratureMaterialMap` | Cell-region material dispatch shared by stateful solid procedures. |
 | class | `QuadratureTransaction` | Shared trial/commit/rollback contract for integration-point state. |
+| function | `j2_quadrature_state(domain, material, *, degree: int = 2, scheme: str = 'default')` | Create the quadrature state matching one homogeneous J2 family. |
 | function | `load_portable_quadrature_state(path, state, *, material = None) -> None` | Collectively restore committed state under a changed MPI partition. |
 | function | `save_portable_quadrature_state(path, state, *, material = None) -> Path` | Collectively save committed state by physical cell and point identity. |
 | class | `AbaqusUserMaterialBridge` | Truthful capability description for an intended UMAT/UHYPER adapter. |
@@ -538,7 +543,11 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| class | `SequentialEnergyLedger` | Layered evidence for a one-way heat-to-mechanics workflow. |
+| function | `sequential_energy_ledger(thermal_result, mechanical_result, *, field_history = None) -> SequentialEnergyLedger` | Audit thermal and mechanical energy channels across sequential steps. |
 | class | `CreepDamageBlock` | One dwell or service block for the time-fraction rule. |
+| class | `DwellInterval` | One explicitly declared hold interval in a result time history. |
+| function | `creep_blocks_from_result(result, *, stress_history: str, temperature_history: str, dwells: Iterable[DwellInterval], rupture_time: Callable[[float, float], float], rupture_source: str, stress_reducer: str = 'maximum_absolute', temperature_reducer: str = 'maximum') -> tuple[CreepDamageBlock, ...]` | Create source-identified creep blocks from named result histories. |
 | class | `CreepDamageAssessment` | Auditable linear time-fraction assessment over service blocks. |
 | class | `InteractionDiagram` | Declared creep/fatigue allowable boundary in damage coordinates. |
 | class | `CreepFatigueAssessment` | Combined engineering assessment from independent damage consumers. |
@@ -546,6 +555,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `interaction_diagram(*, points, name: str, source: str) -> InteractionDiagram` | Create an explicit piecewise-linear creep/fatigue interaction curve. |
 | function | `linear_interaction() -> InteractionDiagram` | Return the transparent reference boundary ``Dc + Df = 1``. |
 | function | `creep_fatigue(*, fatigue: FatigueAssessment, creep: CreepDamageAssessment, interaction: InteractionDiagram \| None = None) -> CreepFatigueAssessment` | Combine existing fatigue and creep assessments against one boundary. |
+| function | `creep_fatigue_from_result(result, *, fatigue_history: str, fatigue_curve, stress_history: str, temperature_history: str, dwells: Iterable[DwellInterval], rupture_time: Callable[[float, float], float], rupture_source: str, interaction: InteractionDiagram \| None = None, ultimate_strength: float \| None = None, stress_reducer: str = 'maximum_absolute', temperature_reducer: str = 'maximum') -> CreepFatigueAssessment` | Build the engineering V1 assessment from named result histories. |
 
 ## `agentfem.boundary_models`
 

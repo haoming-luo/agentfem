@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 import json
 from pathlib import Path
+from typing import Mapping
 
 import numpy as np
 
@@ -36,6 +37,7 @@ class FieldHistory:
     interpolation: str = "linear"
     outside: str = "error"
     every: int = 1
+    metadata: Mapping[str, object] = field(default_factory=dict)
     _times: list[float] = field(default_factory=list, init=False, repr=False)
     _snapshots: list[np.ndarray] = field(default_factory=list, init=False, repr=False)
     _active_time: float | None = field(default=None, init=False, repr=False)
@@ -56,6 +58,13 @@ class FieldHistory:
         if int(self.every) <= 0:
             raise ValueError("FieldHistory every must be a positive integer.")
         self.every = int(self.every)
+        try:
+            normalized_metadata = json.loads(
+                json.dumps(dict(self.metadata), sort_keys=True)
+            )
+        except (TypeError, ValueError) as exc:
+            raise ValueError("FieldHistory metadata must be JSON serializable.") from exc
+        self.metadata = normalized_metadata
         selected = _unwrap(self.source)
         if hasattr(selected, "function_space"):
             shape = getattr(selected, "ufl_shape", ())
@@ -178,6 +187,7 @@ class FieldHistory:
             "unit": self.unit,
             "interpolation": self.interpolation,
             "outside": self.outside,
+            "metadata": dict(self.metadata),
             "frame_count": self.frame_count,
             "times": list(self._times),
             "values_sha256": digest.hexdigest(),
@@ -285,6 +295,7 @@ class FieldHistory:
                 interpolation=metadata["interpolation"],
                 outside=metadata["outside"],
                 every=int(metadata.get("every", 1)),
+                metadata=metadata.get("metadata", {}),
             )
             times = np.asarray(data["times"], dtype=float)
             snapshots = np.asarray(data["snapshots"], dtype=float)
@@ -398,6 +409,7 @@ class FieldHistory:
             "unit": self.unit,
             "interpolation": self.interpolation,
             "outside": self.outside,
+            "metadata": dict(self.metadata),
             "frame_count": self.frame_count,
             "times": list(self._times),
             "values_sha256": response["digest"],

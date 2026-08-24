@@ -184,6 +184,7 @@ nav:
           - Project Compatibility and Upgrades: project_upgrades.md
           - Platform and Optional Dependencies: platform_support.md
           - Licensing: licensing.md
+      - Release 0.2.4: release_0.2.4.md
       - Release 0.2.3: release_0.2.3.md
       - Documentation Versions: project/versioning.md
 

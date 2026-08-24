@@ -17,11 +17,16 @@ from .. import procedures
 from .. import amplitudes
 from .. import steps as step_controls
 from ..constitutive import elasticity
-from ..constitutive.plasticity import J2LinearIsotropicHardening
+from ..constitutive.plasticity import (
+    ChabocheCombinedHardening,
+    J2LinearIsotropicHardening,
+)
 from ..constitutive.quadrature import (
+    ChabocheQuadratureState,
     J2QuadratureState,
     QuadratureField,
     QuadratureMaterialMap,
+    j2_quadrature_state,
 )
 from ..diagnostics import (
     SolveEventRecorder,
@@ -151,6 +156,7 @@ class J2EnergyFrame:
     generalized_reaction: float | None
     external_work: float | None
     energy_balance_error: float | None
+    kinematic_hardening_energy: float = 0.0
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -164,8 +170,8 @@ class J2EnergyFrame:
             **{
                 field: (
                     None
-                    if record[field] is None
-                    else float(record[field])
+                    if record.get(field, 0.0) is None
+                    else float(record.get(field, 0.0))
                 )
                 for field in cls.__dataclass_fields__
             }
@@ -178,8 +184,8 @@ class J2PlasticityStep:
 
     name: str
     solution: object
-    material: J2LinearIsotropicHardening | QuadratureMaterialMap
-    state: J2QuadratureState
+    material: J2LinearIsotropicHardening | ChabocheCombinedHardening | QuadratureMaterialMap
+    state: J2QuadratureState | ChabocheQuadratureState
     residual_form: object
     tangent_form: object
     load_factor: object
@@ -426,18 +432,36 @@ class J2PlasticityStep:
             selected = selected.with_suffix(".npz")
         selected.parent.mkdir(parents=True, exist_ok=True)
         state = self.state.snapshot()
-        identity = self._checkpoint_identity()
         from ..checkpointing import atomic_savez
 
+        schema = (
+            "agentfem.j2-step-checkpoint.v6"
+            if isinstance(self.state, ChabocheQuadratureState)
+            else "agentfem.j2-step-checkpoint.v4"
+        )
+        identity = (
+            self._checkpoint_identity()
+            if schema.endswith(".v6")
+            else self._legacy_checkpoint_identity()
+        )
+        state_payload = (
+            {"state_names": json.dumps(tuple(state)), **state}
+            if schema.endswith(".v6")
+            else {
+                "plastic_strain": state["plastic_strain"],
+                "equivalent_plastic_strain": state[
+                    "equivalent_plastic_strain"
+                ],
+            }
+        )
         atomic_savez(
             selected,
-            schema="agentfem.j2-step-checkpoint.v4",
+            schema=schema,
             step_identity=json.dumps(identity, sort_keys=True),
             displacement=self.solution.x.array,
             accepted_load_factor=self.accepted_load_factor,
             amplitude_summary=json.dumps(self.amplitude.summary()),
-            plastic_strain=state["plastic_strain"],
-            equivalent_plastic_strain=state["equivalent_plastic_strain"],
+            **state_payload,
             accepted_increments=json.dumps(
                 [item.as_dict() for item in self.accepted_increments]
             ),
@@ -461,14 +485,14 @@ class J2PlasticityStep:
         record = CheckpointRecord(
             name=f"{self.name}_{self.accepted_load_factor:g}",
             path=selected,
-            schema="agentfem.j2-step-checkpoint.v4",
+            schema=schema,
             step_name=self.name,
             coordinate_name="load_factor",
             coordinate_value=self.accepted_load_factor,
             portable=False,
             metadata={
                 "reason": "serial dof and quadrature layout checkpoint",
-                "state_variables": ("U", "PE", "PEEQ"),
+                "state_variables": ("U", *tuple(self.state.transaction.names)),
                 "amplitude": self.amplitude.summary(),
                 "identity": identity,
             },
@@ -505,13 +529,22 @@ class J2PlasticityStep:
                 "agentfem.j2-step-checkpoint.v2",
                 "agentfem.j2-step-checkpoint.v3",
                 "agentfem.j2-step-checkpoint.v4",
+                "agentfem.j2-step-checkpoint.v6",
             }:
                 raise ValueError("Unsupported J2 step checkpoint schema.")
             displacement = np.asarray(data["displacement"])
-            if schema == "agentfem.j2-step-checkpoint.v4":
+            if schema in {
+                "agentfem.j2-step-checkpoint.v4",
+                "agentfem.j2-step-checkpoint.v6",
+            }:
                 stored_identity = json.loads(str(data["step_identity"]))
                 current_identity = json.loads(
-                    json.dumps(self._checkpoint_identity(), sort_keys=True)
+                    json.dumps(
+                        self._legacy_checkpoint_identity()
+                        if schema == "agentfem.j2-step-checkpoint.v4"
+                        else self._checkpoint_identity(),
+                        sort_keys=True,
+                    )
                 )
                 if stored_identity != current_identity:
                     raise ValueError(
@@ -523,14 +556,16 @@ class J2PlasticityStep:
                 raise ValueError("Checkpoint displacement layout does not match.")
             self.solution.x.array[:] = displacement
             self.solution.x.scatter_forward()
-            self.state.restore(
-                {
-                    "plastic_strain": data["plastic_strain"],
-                    "equivalent_plastic_strain": data[
-                        "equivalent_plastic_strain"
-                    ],
-                }
+            state_names = (
+                tuple(json.loads(str(data["state_names"])))
+                if schema == "agentfem.j2-step-checkpoint.v6"
+                else ("plastic_strain", "equivalent_plastic_strain")
             )
+            if state_names != tuple(self.state.transaction.names):
+                raise ValueError(
+                    "Checkpoint and current J2 state variables differ."
+                )
+            self.state.restore({name: data[name] for name in state_names})
             self.accepted_load_factor = float(data["accepted_load_factor"])
             if "amplitude_summary" in data:
                 restored_amplitude = json.loads(str(data["amplitude_summary"]))
@@ -548,6 +583,7 @@ class J2PlasticityStep:
                 "agentfem.j2-step-checkpoint.v2",
                 "agentfem.j2-step-checkpoint.v3",
                 "agentfem.j2-step-checkpoint.v4",
+                "agentfem.j2-step-checkpoint.v6",
             }:
                 self.accepted_increments.extend(
                     J2IncrementInfo.from_dict(item)
@@ -634,7 +670,12 @@ class J2PlasticityStep:
                 coordinate_name="load_factor",
                 coordinate_value=self.accepted_load_factor,
                 portable=True,
-                metadata={"state_variables": ("U", "PE", "PEEQ")},
+                metadata={
+                    "state_variables": (
+                        "U",
+                        *tuple(self.state.transaction.names),
+                    )
+                },
             )
         )
         return manifest
@@ -699,6 +740,23 @@ class J2PlasticityStep:
 
     def _checkpoint_identity(self) -> dict[str, object]:
         """Return the stateful procedure identity required for safe restart."""
+
+        from ..checkpointing import function_partition_identity
+
+        return {
+            "step_name": self.name,
+            "procedure": self.procedure.summary(),
+            "material": self.material.as_dict(),
+            "incrementation": self.incrementation.summary(),
+            "solution": function_partition_identity(self.solution),
+            "quadrature_state": {
+                name: function_partition_identity(field.function)
+                for name, field in self.state.transaction.committed.items()
+            },
+        }
+
+    def _legacy_checkpoint_identity(self) -> dict[str, object]:
+        """Reconstruct the v4 identity for released isotropic-J2 archives."""
 
         from ..checkpointing import function_partition_identity
 
@@ -797,6 +855,21 @@ class J2PlasticityStep:
                 "committed": True,
             },
         )
+        if isinstance(self.state, ChabocheQuadratureState):
+            result.add_field(
+                "ALPHA",
+                self.state.total_backstress().function,
+                location="quadrature_points",
+                description="Total Chaboche backstress at integration points.",
+                processing={
+                    "source_position": "quadrature_points",
+                    "method": "sum_backstress_components",
+                    "representation": "quadrature_values",
+                    "derived_from": ("BACKSTRESSES",),
+                    "postprocessed": False,
+                    "committed": True,
+                },
+            )
         result.add_field(
             "MISES",
             self.state.equivalent_stress().function,
@@ -811,12 +884,17 @@ class J2PlasticityStep:
                 "interelement_smoothing": False,
             },
         )
-        for source, recovered_name in (
+        recovery_sources = [
             (self.state.stress, "S_CELL"),
             (self.state.plastic_strain, "PE_CELL"),
             (self.state.equivalent_plastic_strain, "PEEQ_CELL"),
             (self.state.equivalent_stress(), "MISES_CELL"),
-        ):
+        ]
+        if isinstance(self.state, ChabocheQuadratureState):
+            recovery_sources.append(
+                (self.state.total_backstress(), "ALPHA_CELL")
+            )
+        for source, recovered_name in recovery_sources:
             recovered = recover_integration_point_field(
                 source,
                 name=recovered_name,
@@ -902,6 +980,10 @@ class J2PlasticityStep:
                         item.isotropic_hardening_energy
                         for item in self.energy_history
                     ],
+                    "kinematic_hardening_energy": [
+                        item.kinematic_hardening_energy
+                        for item in self.energy_history
+                    ],
                     "plastic_dissipation": [
                         item.plastic_dissipation for item in self.energy_history
                     ],
@@ -919,15 +1001,22 @@ class J2PlasticityStep:
                         "external_work": [
                             item.external_work for item in self.energy_history
                         ],
-                        "energy_balance_error": [
-                            item.energy_balance_error
-                            for item in self.energy_history
-                        ],
                         "generalized_reaction": [
                             item.generalized_reaction
                             for item in self.energy_history
                         ],
                     },
+                    abscissa_name="step_coordinate",
+                    abscissa_unit=None,
+                )
+            if all(
+                item.energy_balance_error is not None
+                for item in self.energy_history
+            ):
+                result.add_history(
+                    "energy_balance_error",
+                    coordinates,
+                    [item.energy_balance_error for item in self.energy_history],
                     abscissa_name="step_coordinate",
                     abscissa_unit=None,
                 )
@@ -960,50 +1049,95 @@ class J2PlasticityStep:
             stress,
             strain - plastic_strain,
         )
+        points_per_cell = len(self.state.stress.points)
         if isinstance(self.material, QuadratureMaterialMap):
-            hardening = QuadratureField.create(
-                self.state.domain,
-                name="HARDENING_MODULUS",
-                degree=self.state.degree,
-                scheme=self.state.scheme,
-            )
-            yield_stress = QuadratureField.create(
-                self.state.domain,
-                name="YIELD_STRESS",
-                degree=self.state.degree,
-                scheme=self.state.scheme,
-            )
-            points_per_cell = len(self.state.stress.points)
             regions = np.repeat(self.material.cell_regions, points_per_cell)
-            hardening.assign(
-                [self.material.materials[int(region)].hardening_modulus for region in regions]
+            point_materials = tuple(
+                self.material.materials[int(region)] for region in regions
             )
-            yield_stress.assign(
-                [self.material.materials[int(region)].yield_stress for region in regions]
-            )
-            hardening_coefficient = hardening.function
-            yield_coefficient = yield_stress.function
         else:
-            hardening_coefficient = self.material.hardening_modulus
-            yield_coefficient = self.material.yield_stress
-        hardening_density = 0.5 * hardening_coefficient * peeq**2
-        dissipation_density = yield_coefficient * peeq
+            point_materials = (self.material,) * len(self.state.stress.values)
+
+        def scalar_density(name: str, values):
+            field = QuadratureField.create(
+                self.state.domain,
+                name=name,
+                degree=self.state.degree,
+                scheme=self.state.scheme,
+            )
+            field.assign(values)
+            return field.function
+
+        peeq_values = self.state.equivalent_plastic_strain.values.reshape(-1)
+        isotropic_values = np.zeros_like(peeq_values)
+        kinematic_values = np.zeros_like(peeq_values)
+        yield_values = np.empty_like(peeq_values)
+        if isinstance(self.state, ChabocheQuadratureState):
+            backstresses = self.state.backstresses.values
+            for index, (equivalent, material) in enumerate(
+                zip(peeq_values, point_materials, strict=True)
+            ):
+                if not isinstance(material, ChabocheCombinedHardening):
+                    raise TypeError(
+                        "Chaboche state requires Chaboche material at every point."
+                    )
+                yield_values[index] = material.yield_stress
+                if material.isotropic_rate > 0.0:
+                    isotropic_values[index] = material.isotropic_saturation * (
+                        equivalent
+                        + (
+                            np.exp(-material.isotropic_rate * equivalent) - 1.0
+                        )
+                        / material.isotropic_rate
+                    )
+                kinematic_values[index] = sum(
+                    3.0 * np.tensordot(alpha, alpha) / (4.0 * modulus)
+                    for alpha, modulus in zip(
+                        backstresses[index],
+                        material.backstress_moduli,
+                        strict=True,
+                    )
+                )
+        else:
+            for index, (equivalent, material) in enumerate(
+                zip(peeq_values, point_materials, strict=True)
+            ):
+                if not isinstance(material, J2LinearIsotropicHardening):
+                    raise TypeError(
+                        "Isotropic J2 state requires one linear-hardening J2 family."
+                    )
+                yield_values[index] = material.yield_stress
+                isotropic_values[index] = (
+                    0.5 * material.hardening_modulus * equivalent**2
+                )
+        isotropic_density = scalar_density(
+            "ISOTROPIC_HARDENING_ENERGY_DENSITY", isotropic_values
+        )
+        kinematic_density = scalar_density(
+            "KINEMATIC_HARDENING_ENERGY_DENSITY", kinematic_values
+        )
+        dissipation_density = scalar_density(
+            "REFERENCE_PLASTIC_DISSIPATION_DENSITY",
+            yield_values * peeq_values,
+        )
         values = []
         for density in (
             elastic_density,
-            hardening_density,
+            isotropic_density,
+            kinematic_density,
             dissipation_density,
         ):
             local = fem.assemble_scalar(
                 fem.form(weight * density * self.state.measure)
             )
             values.append(float(self.state.domain.comm.allreduce(local)))
-        elastic, hardening, dissipation = values
+        elastic, isotropic, kinematic, dissipation = values
         return {
             "elastic_strain_energy": elastic,
-            "isotropic_hardening_energy": hardening,
+            "isotropic_hardening_energy": isotropic,
+            "kinematic_hardening_energy": kinematic,
             "plastic_dissipation": dissipation,
-            "internal_energy": elastic + hardening + dissipation,
+            "internal_energy": elastic + isotropic + kinematic + dissipation,
         }
 
     def reaction_field(self, *, name: str = "RF"):
@@ -1264,7 +1398,11 @@ class J2PlasticityStep:
             external_work = previous_work + 0.5 * (
                 previous_generalized + generalized
             ) * (load_amplitude - previous_amplitude)
-            balance = external_work - energies["internal_energy"]
+            balance = (
+                None
+                if isinstance(self.state, ChabocheQuadratureState)
+                else external_work - energies["internal_energy"]
+            )
         self.energy_history.append(
             J2EnergyFrame(
                 step_coordinate=float(step_coordinate),
@@ -1342,10 +1480,13 @@ def j2_plasticity_step(
 ) -> J2PlasticityStep:
     """Build a global 3D or axisymmetric J2 step."""
 
-    if not isinstance(material, (J2LinearIsotropicHardening, QuadratureMaterialMap)):
+    if not isinstance(
+        material,
+        (J2LinearIsotropicHardening, ChabocheCombinedHardening, QuadratureMaterialMap),
+    ):
         raise TypeError(
-            "j2_plasticity_step requires J2LinearIsotropicHardening or a "
-            "QuadratureMaterialMap of that family."
+            "j2_plasticity_step requires a supported J2 material or a "
+            "QuadratureMaterialMap of one J2 family."
         )
     domain = displacement.value.function_space.mesh
     axisymmetric = _axisymmetric.is_axisymmetric(study)
@@ -1362,7 +1503,7 @@ def j2_plasticity_step(
     # compatibility with development cases. Distributed equilibrium is now
     # public after partition-interface, cross-rank restart, and external
     # thick-cylinder structural acceptance.
-    state = J2QuadratureState.create(domain, degree=quadrature_degree)
+    state = j2_quadrature_state(domain, material, degree=quadrature_degree)
     selected_amplitude = amplitudes.ramp() if amplitude is None else amplitudes.as_amplitude(
         amplitude,
         name="j2_load_amplitude",

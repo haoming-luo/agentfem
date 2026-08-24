@@ -150,7 +150,10 @@ def j2_plasticity(
     """Build and register a global 3D small-strain J2 Step."""
 
     from . import mechanics
-    from .constitutive.plasticity import J2LinearIsotropicHardening
+    from .constitutive.plasticity import (
+        ChabocheCombinedHardening,
+        J2LinearIsotropicHardening,
+    )
     from .constitutive.quadrature import QuadratureMaterialMap
 
     model.check(target=target, step_options={"material": material})
@@ -160,11 +163,14 @@ def j2_plasticity(
         model,
         target,
         material,
-        material_type=J2LinearIsotropicHardening,
+        material_type=(J2LinearIsotropicHardening, ChabocheCombinedHardening),
         label="model.step with J2 plasticity",
     )
-    if not isinstance(material, (J2LinearIsotropicHardening, QuadratureMaterialMap)):
-        raise TypeError("model.step requires J2LinearIsotropicHardening here.")
+    if not isinstance(
+        material,
+        (J2LinearIsotropicHardening, ChabocheCombinedHardening, QuadratureMaterialMap),
+    ):
+        raise TypeError("model.step requires a supported small-strain J2 material.")
 
     time_dependent_constraints = tuple(
         item

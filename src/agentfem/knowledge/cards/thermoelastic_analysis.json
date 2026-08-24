@@ -11,6 +11,7 @@
     "agentfem.constitutive.temperature_dependent_thermoelastic",
     "agentfem.materials.temperature_property",
     "agentfem.histories.temperature",
+    "agentfem.assessments.sequential_energy_ledger",
     "agentfem.operators.thermal_expansion_vector",
     "agentfem.constitutive.ArrheniusPowerLawCreep",
     "agentfem.models.Model.step"
@@ -86,6 +87,12 @@
         "description": "Sensible enthalpy, applied rate, outward rate, and discrete closure residual."
       },
       {
+        "name": "sequential energy ledger",
+        "type": "layered thermal and mechanical evidence",
+        "unit_role": "each residual retains its own equation and unit system",
+        "description": "Links the accepted temperature-history identity while explicitly refusing a fictitious monolithic conservation claim."
+      },
+      {
         "name": "F_thermal",
         "type": "finite-element vector operator",
         "unit_role": "force",
@@ -108,6 +115,7 @@
       "All Arrhenius temperatures are kelvin.",
       "Plane strain retains the constrained out-of-plane thermal strain.",
       "Plane stress uses the reduced in-plane constitutive law."
+      ,"Accepted FieldHistory metadata retains the source Study, procedure and one-way transfer role."
     ],
     "applicability": [
       "Thermal gradients and thermal stress in laboratory and power-plant component models when one-way coupling is adequate.",

@@ -113,6 +113,13 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   serial/MPI structural evidence; global Arrhenius power-law creep remains a
   3D/axisymmetric small-strain foundation with a stricter MPI maturity boundary. Other creep
   laws remain material-point or assessment consumers.
+- Use `constitutive.chaboche(...)` for the experimental three-dimensional
+  combined-hardening route. Supply every `(C_i, gamma_i)` pair from reviewed
+  cyclic calibration data. It shares the ordinary `model.step(...)`,
+  quadrature transaction, cutback and restart lifecycle and reports total
+  backstress as `ALPHA`; do not present its current external-definition tests
+  as a structure-level stabilized-hysteresis validation or a complete cyclic
+  energy closure.
 - For global implicit creep, keep Newton equilibrium, maximum accepted CEEQ
   increment, and endpoint creep-rate time-integration accuracy as three
   separate controls. Use `creep_strain_error_tolerance` when a physical-time
@@ -148,6 +155,16 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   rupture-time block and nontrivial interaction diagram needs an explicit
   source. Do not bake ASME, R5, company, or material-specific curves into the
   open core or present an assessment as coupled constitutive damage.
+- When the evidence already lives in `SimulationResult`, declare physical
+  holds with `assessments.DwellInterval(...)` and use
+  `assessments.creep_fatigue_from_result(...)`. Name the stress and temperature
+  histories, provide a callable rupture relation and its source, and let
+  out-of-range intervals fail instead of silently clamping them.
+- For one-way heat-to-mechanics workflows, use
+  `assessments.sequential_energy_ledger(...)` to preserve the thermal and
+  mechanical residuals as separate layers. Never add them into a monolithic
+  conservation claim. `capture_history(...)` already records the source Study,
+  procedure, accepted-time role and portable content identity.
 - If conductivity or specific heat is tabulated, keep the ordinary
   `model.step(target=temperature, dt=..., steps=...)` call. AgentFEM lowers it
   to a conservative enthalpy-based nonlinear heat step. Do not also pass

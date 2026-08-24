@@ -7,6 +7,7 @@ from mpi4py import MPI
 
 from agentfem import (
     amplitudes,
+    assessments,
     benchmarks,
     constitutive,
     diagnostics,
@@ -836,6 +837,63 @@ def test_global_j2_consumes_a_nonmonotone_cyclic_amplitude():
     )
 
 
+def test_global_chaboche_cycle_uses_quadrature_state_and_restart(tmp_path):
+    material = constitutive.chaboche(
+        young=200.0e3,
+        poisson=0.3,
+        yield_stress=200.0,
+        backstresses=((22.22e3, 34.65), (8.0e3, 5.0)),
+        isotropic_saturation=2000.0,
+        isotropic_rate=0.25,
+    )
+    history = amplitudes.tabular(
+        (0.0, 0.25, 0.5, 0.75, 1.0),
+        (0.0, 1.0, 0.0, -1.0, 0.0),
+        name="combined_hardening_cycle",
+    )
+    reference, _ = _j2_uniaxial_patch(
+        material_law=material,
+        amplitude=history,
+        incrementation=steps.fixed(4),
+    )
+    result = reference.solve_result()
+
+    assert reference.last_solve_info.completed_step
+    assert isinstance(reference.state, constitutive.ChabocheQuadratureState)
+    assert np.max(np.abs(reference.state.backstresses.values)) > 0.0
+    assert {"S", "PE", "PEEQ", "ALPHA", "MISES", "RF"} <= set(result.fields)
+    assert "energy_balance_error" not in result.histories
+    assert result.histories["kinematic_hardening_energy"].latest > 0.0
+
+    partial, _ = _j2_uniaxial_patch(
+        material_law=material,
+        amplitude=history,
+        incrementation=steps.fixed(4),
+    )
+    partial.solve(until=0.5)
+    checkpoint = partial.save_checkpoint(tmp_path / "chaboche_restart.npz")
+    assert partial.checkpoints[-1].schema == "agentfem.j2-step-checkpoint.v6"
+    restarted, _ = _j2_uniaxial_patch(
+        material_law=material,
+        amplitude=history,
+        incrementation=steps.fixed(4),
+    )
+    restarted.load_checkpoint(checkpoint)
+    restarted.solve()
+    np.testing.assert_allclose(
+        restarted.solution.x.array,
+        reference.solution.x.array,
+        rtol=2.0e-7,
+        atol=2.0e-9,
+    )
+    np.testing.assert_allclose(
+        restarted.state.backstresses.values,
+        reference.state.backstresses.values,
+        rtol=2.0e-7,
+        atol=2.0e-9,
+    )
+
+
 def test_implicit_dynamics_provider_runs_newmark_and_records_procedure(tmp_path):
     domain = mesh.rectangle(
         (0.0, 0.0),
@@ -1363,6 +1421,7 @@ def test_transient_heat_history_drives_global_arrhenius_creep_component():
         unit="K",
     )
     heat_step.run()
+    thermal_simulation = heat_step.solve_result()
 
     creep_model = models.create(
         study=studies.creep_solid(),
@@ -1419,6 +1478,12 @@ def test_transient_heat_history_drives_global_arrhenius_creep_component():
     )
 
     simulation = creep_step.solve_result()
+    ledger = assessments.sequential_energy_ledger(
+        thermal_simulation,
+        simulation,
+        field_history=thermal_history,
+    )
+    ledger.attach(simulation)
 
     assert thermal_history.times == pytest.approx((0.0, 0.25, 0.5))
     assert thermal_history.active_time == pytest.approx(0.5)
@@ -1432,6 +1497,12 @@ def test_transient_heat_history_drives_global_arrhenius_creep_component():
     assert simulation.histories["maximum_creep_temperature"].latest > 850.0
     assert creep_step.material.elastic is shared_thermoelastic
     assert "internal_energy" in simulation.histories
+    assert ledger.transfer["history_identity"] == (
+        thermal_history.scientific_identity()
+    )
+    assert ledger.as_dict()["full_coupled_conservation_claim"] is False
+    assert "combined_residual" not in ledger.as_dict()
+    assert "sequential_energy" in simulation.metadata["energy_ledgers"]
 
 
 def _creep_external_abaqus_constant_stress_patch():
@@ -1539,7 +1610,9 @@ def _j2_displacement_patch():
     return step, displacement
 
 
-def _j2_uniaxial_patch(*, amplitude=None, incrementation=None, cells=(1, 1, 1)):
+def _j2_uniaxial_patch(
+    *, amplitude=None, incrementation=None, cells=(1, 1, 1), material_law=None
+):
     """Homogeneous bar with free Poisson contraction and removed rigid modes."""
 
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, *cells)
@@ -1556,6 +1629,8 @@ def _j2_uniaxial_patch(*, amplitude=None, incrementation=None, cells=(1, 1, 1)):
             yield_stress=200.0,
             hardening_modulus=2.0e3,
         )
+        if material_law is None
+        else material_law
     )
     left = mesh.boundary(
         domain,

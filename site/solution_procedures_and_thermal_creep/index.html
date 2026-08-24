@@ -1134,6 +1134,8 @@
       
         
       
+        
+      
     
     
     
@@ -1466,8 +1468,9 @@ difference <span class="arithmatex">\([h(T_{n+1})-h(T_n)]/\Delta t\)</span>, wit
 The thermal step can capture its
 accepted fields in a <code>FieldHistory</code>; the receiving creep step samples that
 history at its own physical increment endpoints. Interpolation, range policy,
-units, time coordinates, and the content hash remain part of the transfer
-contract. Saved nodal histories are keyed by physical DOF coordinates and can
+units, time coordinates, content hash, source Study, source procedure, and
+accepted-time transfer role remain part of the transfer contract. Saved nodal
+histories are keyed by physical DOF coordinates and can
 be restored across changed MPI partitions and rank counts. Plane strain keeps
 the constrained out-of-plane thermal strain; plane stress uses the reduced
 constitutive relation.</p>
@@ -1517,6 +1520,11 @@ energy plus creep dissipation. Under a changing prescribed temperature it also
 contains the unreported thermal/material energy transfer, so it is evidence for
 auditing the mechanical ledger rather than a full thermo-mechanical
 conservation error.</p>
+<p><code>assessments.sequential_energy_ledger(thermal_result, mechanical_result,
+field_history=temperature_history)</code> records this boundary explicitly. It keeps
+the thermal heat-balance residual and the receiving mechanical work/energy
+residual in separate channels. It deliberately does not add them or claim a
+monolithic thermo-mechanical conservation equation.</p>
 <p>This is implemented by reusing <code>QuadratureTransaction</code>; creep does not own a
 second private state store. Checkpoint recovery reconstructs accepted stress
 from displacement and committed <code>CE</code> without advancing a fictitious time
@@ -1542,6 +1550,11 @@ embed ASME, R5, company, or material-specific allowable curves. Licensed and
 current normative data therefore stays at the reviewed project boundary,
 while the software provides one stable decision margin and structured result
 record.</p>
+<p>For a result-driven assessment, <code>DwellInterval</code> declares each physical hold
+and <code>creep_fatigue_from_result(...)</code> extracts governing stress and temperature
+from named scalar histories. The supplied rupture-time callable and its source
+remain project assets. Out-of-range dwells, missing histories, non-scalar
+histories, and nonphysical rupture times fail explicitly.</p>
 <h2 id="current-boundary-and-next-gates">Current boundary and next gates<a class="headerlink" href="#current-boundary-and-next-gates" title="Permanent link">&para;</a></h2>
 <p>Implemented now:</p>
 <ul>
@@ -1575,7 +1588,11 @@ record.</p>
   global Arrhenius creep step on the same physical clock and through the same
   temperature-dependent thermoelastic material asset;</li>
 <li>a source-preserving engineering creep--fatigue assessment contract with
-  explicit interaction data and no hidden design-code constants;</li>
+  named-history dwell extraction, explicit interaction data, and no hidden
+  design-code constants;</li>
+<li>an experimental three-dimensional Chaboche combined-hardening route with
+  multiple Armstrong--Frederick backstresses, global cyclic equilibrium,
+  quadrature rollback and restart, and standard <code>ALPHA</code> output;</li>
 <li>the published NAFEMS R0027 Test 7 thick-cylinder stress oracle and a native
   Q2 axisymmetric elastic-preload-to-creep route. One-, two-, and four-cell
   radial meridians reduce the maximum radial/hoop/axial stress error from

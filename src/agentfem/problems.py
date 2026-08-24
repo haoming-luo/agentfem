@@ -1729,6 +1729,21 @@ class FirstOrderTransientStep:
             every=every,
             interpolation=interpolation,
             outside=outside,
+            metadata={
+                "source_step": getattr(self, "name", type(self).__name__),
+                "source_procedure": (
+                    self.procedure.summary()
+                    if hasattr(self.procedure, "summary")
+                    else None
+                ),
+                "source_study": (
+                    self.study.summary()
+                    if hasattr(self.study, "summary")
+                    else None
+                ),
+                "accepted_time_only": True,
+                "transfer_role": "sequential_field_input",
+            },
         )
         self.captured_histories.append(recorder)
         return recorder

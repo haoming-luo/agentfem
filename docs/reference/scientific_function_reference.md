@@ -17,6 +17,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | --- | --- | --- | --- |
 | [`agentfem.formulation.axisymmetric_solid`](#agentfem-formulation-axisymmetric_solid) | Axisymmetric solid formulation | workflow | supported |
 | [`agentfem.load.surface_resultant`](#agentfem-load-surface_resultant) | Uniform boundary traction from a requested resultant force | workflow | supported |
+| [`agentfem.material.chaboche_global_plasticity`](#agentfem-material-chaboche_global_plasticity) | Global Chaboche combined-hardening plasticity | material | experimental |
 | [`agentfem.material.creep_damage_assessment`](#agentfem-material-creep_damage_assessment) | Creep damage and modified-theta assessment | material | supported |
 | [`agentfem.material.cyclic_cohesive_fatigue`](#agentfem-material-cyclic_cohesive_fatigue) | Cyclic cohesive damage with an independent cycle coordinate | material | experimental |
 | [`agentfem.material.finite_strain_plane_stress`](#agentfem-material-finite_strain_plane_stress) | Locally condensed finite-strain plane-stress Neo-Hookean membrane | material | experimental |
@@ -59,6 +60,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.c3d10h_periodic_cell` | Imported C3D10H near-incompressible periodic cell | three-dimensional near-incompressible mixed Neo-Hookean periodic homogenization | manual_release_regression |
 | `agentfem.benchmark.cae_reliability_cliffs` | CAE reliability cliffs: orientation, discretization, and reference applicability | cross-cutting finite-element verification | partial_automated_suite |
 | `agentfem.benchmark.campaign_surrogate_pipeline` | Static-elasticity campaign to guarded surrogate pipeline | parameterized small-strain isotropic linear elasticity | executable_integration |
+| `agentfem.benchmark.chaboche_combined_hardening` | Combined-hardening material path and global cyclic lifecycle | three-dimensional small-strain J2 plasticity with exponential isotropic and multi-component Armstrong--Frederick kinematic hardening | external_definition_and_automated_lifecycle |
 | `agentfem.benchmark.classical_sub_rayleigh_crack_v3` | Classical sub-Rayleigh cohesive crack guardrail | precracked compressible Neo-Hookean strip with a fixed-path bilinear Mode-I cohesive interface | experimental_v3_guardrail_automated |
 | `agentfem.benchmark.creep_abaqus_constant_stress` | Official Abaqus time-hardening constant-stress creep case | three-dimensional small-strain Mises time-hardening power-law creep | automated_external_verification |
 | `agentfem.benchmark.creep_damage_material_paths` | Creep-damage material paths and curve projection | Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection | automated_regression |
@@ -317,6 +319,118 @@ model.surface_force((0.0, -50000.0), on=loaded)
 ### References
 
 - Abaqus three-dimensional solid distributed loads: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEELMRefMap/simaelm-r-3delem.htm`
+
+<a id="agentfem-material-chaboche_global_plasticity"></a>
+
+## Global Chaboche combined-hardening plasticity
+
+**Stable ID:** `agentfem.material.chaboche_global_plasticity`<br>
+**Kind:** `material`<br>
+**Status:** `experimental`<br>
+**Source card:** `src/agentfem/knowledge/cards/chaboche_global_plasticity.json`
+
+A three-dimensional small-strain J2 route with exponential isotropic hardening, multiple Armstrong--Frederick backstresses, committed quadrature state, a fully discrete tangent, cyclic amplitudes, cutback, standard fields and restart through the ordinary model.step workflow.
+
+### Public API
+
+- `agentfem.constitutive.chaboche`
+- `agentfem.constitutive.ChabocheCombinedHardening`
+- `agentfem.constitutive.ChabocheQuadratureState`
+- `agentfem.models.Model.step`
+
+### Scientific contract
+
+The yield surface translates through several Armstrong--Frederick backstresses while its radius evolves toward an exponential saturation value; one backward-Euler consistency solve supplies trial stress and state to global Newton.
+
+**yield function**
+
+$$
+f=\sqrt{\frac{3}{2}(\mathbf{s}-\boldsymbol{\alpha}):(\mathbf{s}-\boldsymbol{\alpha})}-[\sigma_{y0}+Q(1-e^{-b p})]
+$$
+
+The total backstress is the sum of all declared components.
+
+**backstress evolution**
+
+$$
+\dot{\boldsymbol{\alpha}}_i=\frac{2}{3}C_i\dot{\boldsymbol{\varepsilon}}^p-\gamma_i\boldsymbol{\alpha}_i\dot p
+$$
+
+Dynamic recovery bounds each kinematic-hardening component under repeated loading.
+
+**isotropic radius**
+
+$$
+R(p)=Q(1-e^{-bp})
+$$
+
+Q and b are both zero or both positive in the public material contract.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| elastic and initial-yield data | E, nu and initial yield stress | consistent stress system | Small-strain isotropic elastic predictor and initial Mises radius. |
+| combined-hardening data | Q, b and one or more (C_i, gamma_i) pairs | stress and inverse strain | Saturation and dynamic-recovery parameters supplied by a reviewed calibration. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| S, PE and PEEQ | quadrature fields | stress and strain | Accepted Cauchy stress, plastic strain and accumulated equivalent plastic strain. |
+| ALPHA | quadrature tensor field | stress | Sum of all committed backstress components. |
+| DDSDDE | fourth-order quadrature tensor field | stress per strain | Central directional derivative of the fully discrete return map consumed by global Newton. |
+
+#### Assumptions
+
+- Small strain and associative three-dimensional Mises plasticity.
+- Material parameters are calibrated in one consistent unit system.
+- The public cyclic path is a sequence of equilibrium states, not an implicit dynamic history.
+
+#### Conventions
+
+- Every rejected increment rolls back PE, PEEQ and every backstress component atomically.
+- The normalized Step coordinate stays monotone while the declared amplitude may reverse.
+- ALPHA is the total backstress; individual components remain in the restartable constitutive state.
+
+#### Applicability
+
+- Research and laboratory-scale three-dimensional cyclic plasticity with reviewed Chaboche calibration.
+- Displacement-controlled monotone or reversed paths requiring inspectable quadrature state.
+
+#### Limitations
+
+- Plane stress, finite-strain plasticity and temperature-dependent cyclic plasticity are not implemented.
+- No external structure-level stabilized hysteresis benchmark has promoted this route beyond experimental maturity.
+- The current energy result does not claim complete dynamic-recovery dissipation closure.
+
+### Minimal example
+
+```python
+Create constitutive.chaboche(...), register it in studies.static_solid(dimension=3, nonlinear=True), declare a tabular cyclic amplitude, and call model.step(target=u, material=steel, amplitude=history).
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_constitutive_models.py`
+- `tests/test_p1_platform.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.chaboche_combined_hardening`
+
+**Validation rules**
+
+- Reject missing or mismatched backstress parameter pairs.
+- Reject a restart whose material, mesh, quadrature state or amplitude identity differs.
+- Commit all hardening variables only after global increment acceptance.
+
+### References
+
+- Abaqus theory: models for metals subjected to cyclic loading: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-combinedhardening.htm`
+- Abaqus verification: import of combined-hardening material state: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEVERRefMap/simaver-c-import-plast.htm`
 
 <a id="agentfem-material-creep_damage_assessment"></a>
 
@@ -2154,14 +2268,17 @@ local = coordinates.cartesian(x=(0,1), y=(-1,0)); rp = coordinates.reference_poi
 **Status:** `supported`<br>
 **Source card:** `src/agentfem/knowledge/cards/creep_fatigue_assessment.json`
 
-A standard-neutral postprocessing contract for source-identified creep time fractions, existing stress-life fatigue assessments, explicit interaction diagrams, and structured result evidence.
+A standard-neutral postprocessing contract for source-identified creep time fractions, declared dwell extraction from named stress/temperature histories, existing stress-life fatigue assessments, explicit interaction diagrams, and structured result evidence.
 
 ### Public API
 
 - `agentfem.assessments.CreepDamageBlock`
+- `agentfem.assessments.DwellInterval`
+- `agentfem.assessments.creep_blocks_from_result`
 - `agentfem.assessments.creep_time_fraction`
 - `agentfem.assessments.interaction_diagram`
 - `agentfem.assessments.creep_fatigue`
+- `agentfem.assessments.creep_fatigue_from_result`
 
 ### Scientific contract
 
@@ -2188,6 +2305,7 @@ The allowable boundary is a declared piecewise-linear scientific input.
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | creep blocks | duration, rupture time, repetitions, label and source | duration and rupture time use the same time unit | Rupture times come from reviewed material data or a declared assessment relation. |
+| named result histories and dwells | scalar stress/temperature HistoryResult names and DwellInterval records | history time, stress and absolute temperature | The V1 extractor interpolates dwell endpoints, applies declared reducers and calls a source-identified project rupture relation. |
 | fatigue assessment | FatigueAssessment | dimensionless cumulative damage | Usually produced from a verified scalar history, cycle counting, mean-stress policy and S-N curve. |
 | interaction diagram | ordered creep-damage and allowable-fatigue-damage points | dimensionless damage coordinates | Normative, company or research data stay outside the core and retain their source. |
 
@@ -2208,6 +2326,7 @@ The allowable boundary is a declared piecewise-linear scientific input.
 - Creep damage is horizontal and allowable fatigue damage is vertical in an interaction diagram.
 - AgentFEM provides a transparent linear reference but no design-code or material-specific curve.
 - An assessment is a postprocessor and does not weaken stiffness or advance constitutive state.
+- A declared dwell outside either result history fails instead of silently clamping or extrapolating.
 
 #### Applicability
 
@@ -2222,7 +2341,7 @@ The allowable boundary is a declared piecewise-linear scientific input.
 ### Minimal example
 
 ```python
-Build CreepDamageBlock records, call assessments.creep_time_fraction(...), create an explicit assessments.interaction_diagram(...), then combine it with a constitutive.fatigue.FatigueAssessment through assessments.creep_fatigue(...).
+For existing result histories, declare DwellInterval records and call assessments.creep_fatigue_from_result(...) with named stress/temperature histories, a fatigue curve, and a source-identified rupture callable; direct CreepDamageBlock composition remains available.
 ```
 
 ### Verification
@@ -2239,6 +2358,7 @@ Build CreepDamageBlock records, call assessments.creep_time_fraction(...), creat
 
 - Reject missing rupture and interaction sources.
 - Reject malformed or nonmonotone interaction boundaries.
+- Reject missing, non-scalar, or out-of-range result histories and nonphysical rupture times.
 - Keep the complete fatigue, creep and interaction records with the decision.
 
 ### References
@@ -3608,6 +3728,7 @@ One isotropic material record supplies heat capacity, conductivity, elasticity, 
 - `agentfem.constitutive.temperature_dependent_thermoelastic`
 - `agentfem.materials.temperature_property`
 - `agentfem.histories.temperature`
+- `agentfem.assessments.sequential_energy_ledger`
 - `agentfem.operators.thermal_expansion_vector`
 - `agentfem.constitutive.ArrheniusPowerLawCreep`
 - `agentfem.models.Model.step`
@@ -3670,6 +3791,7 @@ The local creep coefficient retains its fitted meaning at the declared reference
 | --- | --- | --- | --- |
 | Temperature | transient scalar field | absolute temperature | Implicit-Euler heat-transfer result. |
 | thermal ledger | accepted-time history | consistent heat/heat-rate system | Sensible enthalpy, applied rate, outward rate, and discrete closure residual. |
+| sequential energy ledger | layered thermal and mechanical evidence | each residual retains its own equation and unit system | Links the accepted temperature-history identity while explicitly refusing a fictitious monolithic conservation claim. |
 | F_thermal | finite-element vector operator | force | Equivalent load from constrained thermal expansion. |
 | Displacement | vector finite-element field | length | Sequential mechanical response. |
 
@@ -3685,6 +3807,7 @@ The local creep coefficient retains its fitted meaning at the declared reference
 - All Arrhenius temperatures are kelvin.
 - Plane strain retains the constrained out-of-plane thermal strain.
 - Plane stress uses the reduced in-plane constitutive law.
+- Accepted FieldHistory metadata retains the source Study, procedure and one-way transfer role.
 
 #### Applicability
 

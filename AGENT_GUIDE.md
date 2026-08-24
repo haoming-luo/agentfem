@@ -66,6 +66,10 @@ finite-element simulation with AgentFEM.
   `constitutive.capabilities()`, then use `constitutive/`. Never turn a
   material-point law into a claimed FEM step without state/tangent/solver
   evidence.
+  `constitutive.chaboche(...)` is an experimental three-dimensional global
+  combined-hardening route with quadrature rollback/restart and `ALPHA`
+  output. Keep its external-definition evidence distinct from a calibrated
+  structure-level stabilized-hysteresis validation.
 - Absorbing or Robin-like terms: use `boundary_models/`.
 - Assembly or lumped operators: inspect `assembly.py`.
 - Time stepping: inspect `time/` and `problems.py`.
@@ -91,6 +95,12 @@ finite-element simulation with AgentFEM.
   `maximum_inelastic_increment`; all three may independently trigger atomic
   rollback and cutback. Result time units come from the model `UnitSystem` and
   remain undeclared when no consistent-unit contract was supplied.
+  For one-way thermal input, `capture_history(...)` records source Study,
+  procedure, accepted-time role and content identity. Use
+  `assessments.sequential_energy_ledger(...)` to keep heat and mechanical
+  residuals separate. For engineering creep--fatigue from result histories,
+  declare `DwellInterval` objects and pass a source-identified project rupture
+  relation to `creep_fatigue_from_result(...)`; do not embed normative curves.
 - Multi-Step activation: use `model.stage(...)` and pass its result as
   `configuration=` to `model.step(...)`; keep asset inheritance separate from
   incrementation and nonlinear solver controls.

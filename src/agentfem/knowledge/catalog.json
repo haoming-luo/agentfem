@@ -36,6 +36,13 @@
       "title": "Static-elasticity campaign to guarded surrogate pipeline"
     },
     {
+      "id": "agentfem.benchmark.chaboche_combined_hardening",
+      "physics": "three-dimensional small-strain J2 plasticity with exponential isotropic and multi-component Armstrong--Frederick kinematic hardening",
+      "source": "src/agentfem/knowledge/benchmarks/chaboche_combined_hardening.json",
+      "status": "external_definition_and_automated_lifecycle",
+      "title": "Combined-hardening material path and global cyclic lifecycle"
+    },
+    {
       "id": "agentfem.benchmark.classical_sub_rayleigh_crack_v3",
       "physics": "precracked compressible Neo-Hookean strip with a fixed-path bilinear Mode-I cohesive interface",
       "source": "src/agentfem/knowledge/benchmarks/classical_sub_rayleigh_crack_v3.json",
@@ -320,6 +327,24 @@
       "status": "supported",
       "summary": "Converts an engineering total force into a uniform reference-boundary traction while preserving the requested MPI-global resultant.",
       "title": "Uniform boundary traction from a requested resultant force"
+    },
+    {
+      "id": "agentfem.material.chaboche_global_plasticity",
+      "kind": "material",
+      "public_api": [
+        "agentfem.constitutive.chaboche",
+        "agentfem.constitutive.ChabocheCombinedHardening",
+        "agentfem.constitutive.ChabocheQuadratureState",
+        "agentfem.models.Model.step"
+      ],
+      "related_cards": [
+        "agentfem.material.j2_global_plasticity",
+        "agentfem.workflow.solution_procedures"
+      ],
+      "source": "src/agentfem/knowledge/cards/chaboche_global_plasticity.json",
+      "status": "experimental",
+      "summary": "A three-dimensional small-strain J2 route with exponential isotropic hardening, multiple Armstrong--Frederick backstresses, committed quadrature state, a fully discrete tangent, cyclic amplitudes, cutback, standard fields and restart through the ordinary model.step workflow.",
+      "title": "Global Chaboche combined-hardening plasticity"
     },
     {
       "id": "agentfem.material.creep_damage_assessment",
@@ -659,9 +684,12 @@
       "kind": "workflow",
       "public_api": [
         "agentfem.assessments.CreepDamageBlock",
+        "agentfem.assessments.DwellInterval",
+        "agentfem.assessments.creep_blocks_from_result",
         "agentfem.assessments.creep_time_fraction",
         "agentfem.assessments.interaction_diagram",
-        "agentfem.assessments.creep_fatigue"
+        "agentfem.assessments.creep_fatigue",
+        "agentfem.assessments.creep_fatigue_from_result"
       ],
       "related_cards": [
         "agentfem.material.creep_damage_assessment",
@@ -670,7 +698,7 @@
       ],
       "source": "src/agentfem/knowledge/cards/creep_fatigue_assessment.json",
       "status": "supported",
-      "summary": "A standard-neutral postprocessing contract for source-identified creep time fractions, existing stress-life fatigue assessments, explicit interaction diagrams, and structured result evidence.",
+      "summary": "A standard-neutral postprocessing contract for source-identified creep time fractions, declared dwell extraction from named stress/temperature histories, existing stress-life fatigue assessments, explicit interaction diagrams, and structured result evidence.",
       "title": "Engineering creep-fatigue assessment"
     },
     {
@@ -944,6 +972,7 @@
         "agentfem.constitutive.temperature_dependent_thermoelastic",
         "agentfem.materials.temperature_property",
         "agentfem.histories.temperature",
+        "agentfem.assessments.sequential_energy_ledger",
         "agentfem.operators.thermal_expansion_vector",
         "agentfem.constitutive.ArrheniusPowerLawCreep",
         "agentfem.models.Model.step"

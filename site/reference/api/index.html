@@ -1463,6 +1463,8 @@
       
         
       
+        
+      
     
     
     
@@ -3153,6 +3155,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>ChabocheCombinedHardening</code></td>
+<td>Small-strain J2 plasticity with nonlinear combined hardening.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ChabocheState</code></td>
+<td>History for small-strain combined isotropic/kinematic hardening.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>J2LinearIsotropicHardening</code></td>
 <td>Rate-independent von Mises plasticity with linear isotropic hardening.</td>
 </tr>
@@ -3173,6 +3185,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
+<td><code>chaboche(*, young: float, poisson: float, yield_stress: float, backstresses: Iterable[tuple[float, float]], isotropic_saturation: float = 0.0, isotropic_rate: float = 0.0, name: str = 'Chaboche combined hardening') -&gt; ChabocheCombinedHardening</code></td>
+<td>Create a combined-hardening material from <code>(C, gamma)</code> pairs.</td>
+</tr>
+<tr>
+<td>function</td>
 <td><code>update_uniaxial(total_strain: float, material: J2LinearIsotropicHardening, state: UniaxialPlasticState \| None = None) -&gt; tuple[float, UniaxialPlasticState]</code></td>
 <td>Return stress and state for a one-dimensional bilinear material test.</td>
 </tr>
@@ -3180,6 +3197,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>von_mises(stress) -&gt; float</code></td>
 <td>Return <code>sqrt(3/2 s:s)</code> for a symmetric Cauchy stress.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ChabocheQuadratureState</code></td>
+<td>Committed/trial integration-point state for combined-hardening J2.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -3205,6 +3227,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>class</td>
 <td><code>QuadratureTransaction</code></td>
 <td>Shared trial/commit/rollback contract for integration-point state.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>j2_quadrature_state(domain, material, *, degree: int = 2, scheme: str = 'default')</code></td>
+<td>Create the quadrature state matching one homogeneous J2 family.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -4588,8 +4615,28 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tbody>
 <tr>
 <td>class</td>
+<td><code>SequentialEnergyLedger</code></td>
+<td>Layered evidence for a one-way heat-to-mechanics workflow.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>sequential_energy_ledger(thermal_result, mechanical_result, *, field_history = None) -&gt; SequentialEnergyLedger</code></td>
+<td>Audit thermal and mechanical energy channels across sequential steps.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>CreepDamageBlock</code></td>
 <td>One dwell or service block for the time-fraction rule.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>DwellInterval</code></td>
+<td>One explicitly declared hold interval in a result time history.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>creep_blocks_from_result(result, *, stress_history: str, temperature_history: str, dwells: Iterable[DwellInterval], rupture_time: Callable[[float, float], float], rupture_source: str, stress_reducer: str = 'maximum_absolute', temperature_reducer: str = 'maximum') -&gt; tuple[CreepDamageBlock, ...]</code></td>
+<td>Create source-identified creep blocks from named result histories.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -4625,6 +4672,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>creep_fatigue(*, fatigue: FatigueAssessment, creep: CreepDamageAssessment, interaction: InteractionDiagram \| None = None) -&gt; CreepFatigueAssessment</code></td>
 <td>Combine existing fatigue and creep assessments against one boundary.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>creep_fatigue_from_result(result, *, fatigue_history: str, fatigue_curve, stress_history: str, temperature_history: str, dwells: Iterable[DwellInterval], rupture_time: Callable[[float, float], float], rupture_source: str, interaction: InteractionDiagram \| None = None, ultimate_strength: float \| None = None, stress_reducer: str = 'maximum_absolute', temperature_reducer: str = 'maximum') -&gt; CreepFatigueAssessment</code></td>
+<td>Build the engineering V1 assessment from named result histories.</td>
 </tr>
 </tbody>
 </table>

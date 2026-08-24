@@ -13,7 +13,7 @@
 [Installation](getting_started.md) ·
 [Examples](examples/index.md) ·
 [Python API](reference/api.md) ·
-[Release 0.2.3](release_0.2.3.md) ·
+[Release 0.2.4](release_0.2.4.md) ·
 [Apache-2.0 license](licensing.md)
 
 </div>

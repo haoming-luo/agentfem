@@ -15,7 +15,12 @@ import ufl
 from dolfinx import fem
 from mpi4py import MPI
 
-from .plasticity import J2LinearIsotropicHardening, J2PlasticState
+from .plasticity import (
+    ChabocheCombinedHardening,
+    ChabocheState,
+    J2LinearIsotropicHardening,
+    J2PlasticState,
+)
 from .creep import ImplicitCreepState, IsotropicPowerLawCreepMaterial
 
 
@@ -105,6 +110,12 @@ class QuadratureMaterialMap:
     def from_assignments(cls, domain, assignments, *, material_type):
         """Build a complete owned/ghost map from Model material assignments."""
 
+        expected_name = (
+            " or ".join(item.__name__ for item in material_type)
+            if isinstance(material_type, tuple)
+            else material_type.__name__
+        )
+
         records = tuple(assignments)
         if not records:
             raise ValueError("At least one material assignment is required.")
@@ -112,7 +123,7 @@ class QuadratureMaterialMap:
             material = records[0].item
             if not isinstance(material, material_type):
                 raise TypeError(
-                    f"Expected {material_type.__name__}, got "
+                    f"Expected {expected_name}, got "
                     f"{type(material).__name__}."
                 )
             cell_map = domain.topology.index_map(domain.topology.dim)
@@ -137,7 +148,7 @@ class QuadratureMaterialMap:
         for region_id, record in enumerate(records, start=1):
             if not isinstance(record.item, material_type):
                 raise TypeError(
-                    f"Expected {material_type.__name__}, got "
+                    f"Expected {expected_name}, got "
                     f"{type(record.item).__name__}."
                 )
             region = record.region
@@ -877,6 +888,275 @@ class J2QuadratureState:
 
 
 @dataclass
+class ChabocheQuadratureState:
+    """Committed/trial integration-point state for combined-hardening J2."""
+
+    plastic_strain: QuadratureField
+    equivalent_plastic_strain: QuadratureField
+    backstresses: QuadratureField
+    trial_plastic_strain: QuadratureField
+    trial_equivalent_plastic_strain: QuadratureField
+    trial_backstresses: QuadratureField
+    stress: QuadratureField
+    tangent: QuadratureField
+    degree: int
+    backstress_count: int
+    scheme: str = "default"
+    transaction: QuadratureTransaction = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.transaction = QuadratureTransaction(
+            committed={
+                "plastic_strain": self.plastic_strain,
+                "equivalent_plastic_strain": self.equivalent_plastic_strain,
+                "backstresses": self.backstresses,
+            },
+            trial={
+                "plastic_strain": self.trial_plastic_strain,
+                "equivalent_plastic_strain": self.trial_equivalent_plastic_strain,
+                "backstresses": self.trial_backstresses,
+            },
+            schema="agentfem.chaboche-small-strain-state",
+            metadata={
+                "integration": "backward_euler_combined_hardening",
+                "tangent": "discrete_algorithmic",
+                "backstress_count": int(self.backstress_count),
+            },
+        )
+
+    @classmethod
+    def create(
+        cls,
+        domain,
+        *,
+        backstress_count: int,
+        degree: int = 2,
+        scheme: str = "default",
+    ):
+        count = int(backstress_count)
+        if count < 1:
+            raise ValueError("backstress_count must be positive.")
+        common = {"degree": degree, "scheme": scheme}
+        return cls(
+            plastic_strain=QuadratureField.create(
+                domain, name="PE", value_shape=(3, 3), **common
+            ),
+            equivalent_plastic_strain=QuadratureField.create(
+                domain, name="PEEQ", **common
+            ),
+            backstresses=QuadratureField.create(
+                domain,
+                name="BACKSTRESSES",
+                value_shape=(count, 3, 3),
+                **common,
+            ),
+            trial_plastic_strain=QuadratureField.create(
+                domain, name="PE_trial", value_shape=(3, 3), **common
+            ),
+            trial_equivalent_plastic_strain=QuadratureField.create(
+                domain, name="PEEQ_trial", **common
+            ),
+            trial_backstresses=QuadratureField.create(
+                domain,
+                name="BACKSTRESSES_trial",
+                value_shape=(count, 3, 3),
+                **common,
+            ),
+            stress=QuadratureField.create(
+                domain, name="S", value_shape=(3, 3), **common
+            ),
+            tangent=QuadratureField.create(
+                domain, name="DDSDDE", value_shape=(3, 3, 3, 3), **common
+            ),
+            degree=int(degree),
+            backstress_count=count,
+            scheme=scheme,
+        )
+
+    @property
+    def domain(self):
+        return self.stress.function.function_space.mesh
+
+    @property
+    def measure(self):
+        return ufl.Measure(
+            "dx",
+            domain=self.domain,
+            metadata={
+                "quadrature_degree": self.degree,
+                "quadrature_scheme": self.scheme,
+            },
+        )
+
+    evaluate_strain = J2QuadratureState.evaluate_strain
+    compile_strain = J2QuadratureState.compile_strain
+    commit = J2QuadratureState.commit
+    rollback = J2QuadratureState.rollback
+    snapshot = J2QuadratureState.snapshot
+    restore = J2QuadratureState.restore
+    save = J2QuadratureState.save
+    load = J2QuadratureState.load
+    equivalent_stress = J2QuadratureState.equivalent_stress
+
+    def update(
+        self,
+        strain_values,
+        material: ChabocheCombinedHardening | QuadratureMaterialMap,
+    ) -> dict[str, float | int]:
+        strains = np.asarray(strain_values, dtype=float).reshape((-1, 3, 3))
+        committed_pe = self.plastic_strain.values
+        committed_peeq = self.equivalent_plastic_strain.values.reshape(-1)
+        committed_backstress = self.backstresses.values
+        if len(strains) != len(committed_pe):
+            raise ValueError(
+                "Strain evaluation and quadrature-state layouts do not match."
+            )
+        stresses = np.empty_like(self.stress.values)
+        tangents = np.empty_like(self.tangent.values)
+        trial_pe = np.empty_like(self.trial_plastic_strain.values)
+        trial_peeq = np.empty_like(
+            self.trial_equivalent_plastic_strain.values.reshape(-1)
+        )
+        trial_backstress = np.empty_like(self.trial_backstresses.values)
+        plastic_points = 0
+        maximum_increment = 0.0
+        local_problem = None
+        points_per_cell = len(self.stress.points)
+        cell_map = self.domain.topology.index_map(self.domain.topology.dim)
+        owned_points = int(cell_map.size_local) * points_per_cell
+        for index, strain in enumerate(strains):
+            selected_material = (
+                material.material_for_point(index, points_per_cell=points_per_cell)
+                if isinstance(material, QuadratureMaterialMap)
+                else material
+            )
+            if not isinstance(selected_material, ChabocheCombinedHardening):
+                local_problem = (
+                    "Chaboche state received a non-Chaboche material at local "
+                    f"quadrature point {index}."
+                )
+                break
+            if selected_material.backstress_count != self.backstress_count:
+                local_problem = (
+                    "All materials in one Chaboche Step must use the same "
+                    "number of backstress components."
+                )
+                break
+            old = ChabocheState(
+                committed_pe[index],
+                committed_peeq[index],
+                committed_backstress[index],
+            )
+            try:
+                update = selected_material.update(strain, old)
+            except Exception as exc:
+                local_problem = (
+                    "Chaboche material update failed at local quadrature point "
+                    f"{index}: {type(exc).__name__}: {exc}"
+                )
+                break
+            stresses[index] = update.stress
+            tangents[index] = update.algorithmic_tangent
+            trial_pe[index] = update.state.plastic_strain
+            trial_peeq[index] = update.state.equivalent_plastic_strain
+            trial_backstress[index] = update.state.backstresses
+            if index < owned_points:
+                plastic_points += int(not update.elastic)
+                maximum_increment = max(
+                    maximum_increment,
+                    update.plastic_multiplier_increment,
+                )
+        problems = self.domain.comm.allgather(local_problem)
+        if any(problem is not None for problem in problems):
+            rank = next(
+                index for index, problem in enumerate(problems) if problem is not None
+            )
+            raise RuntimeError(f"Rank {rank}: {problems[rank]}")
+        self.stress.assign(stresses)
+        self.tangent.assign(tangents)
+        self.trial_plastic_strain.assign(trial_pe)
+        self.trial_equivalent_plastic_strain.assign(trial_peeq)
+        self.trial_backstresses.assign(trial_backstress)
+        return {
+            "points": int(self.domain.comm.allreduce(owned_points, op=MPI.SUM)),
+            "plastic_points": int(
+                self.domain.comm.allreduce(plastic_points, op=MPI.SUM)
+            ),
+            "maximum_plastic_increment": float(
+                self.domain.comm.allreduce(maximum_increment, op=MPI.MAX)
+            ),
+        }
+
+    def total_backstress(self) -> QuadratureField:
+        output = QuadratureField.create(
+            self.domain,
+            name="ALPHA",
+            value_shape=(3, 3),
+            degree=self.degree,
+            scheme=self.scheme,
+        )
+        output.assign(np.sum(self.backstresses.values, axis=1))
+        return output
+
+    def summary(self) -> dict[str, object]:
+        cell_map = self.domain.topology.index_map(self.domain.topology.dim)
+        points_per_cell = len(self.stress.points)
+        return {
+            "kind": "chaboche_quadrature_state",
+            "degree": self.degree,
+            "scheme": self.scheme,
+            "points_local": int(len(self.equivalent_plastic_strain.values)),
+            "points_owned": int(cell_map.size_local) * points_per_cell,
+            "points_global": int(cell_map.size_global) * points_per_cell,
+            "portable_cell_identity": "dolfinx_original_cell_index",
+            "state_variables": (
+                "plastic_strain",
+                "equivalent_plastic_strain",
+                "backstresses",
+            ),
+            "backstress_count": self.backstress_count,
+            "trial_fields": ("stress", "algorithmic_tangent"),
+            "transaction": self.transaction.summary(),
+        }
+
+    def output_fields(self) -> tuple[object, ...]:
+        return (
+            self.stress.cell_average(name="S"),
+            self.plastic_strain.cell_average(name="PE"),
+            self.equivalent_plastic_strain.cell_average(name="PEEQ"),
+            self.total_backstress().cell_average(name="ALPHA"),
+            self.equivalent_stress().cell_average(name="MISES"),
+        )
+
+
+def j2_quadrature_state(domain, material, *, degree: int = 2, scheme: str = "default"):
+    """Create the quadrature state matching one homogeneous J2 family."""
+
+    materials = (
+        tuple(material.materials.values())
+        if isinstance(material, QuadratureMaterialMap)
+        else (material,)
+    )
+    if all(isinstance(item, J2LinearIsotropicHardening) for item in materials):
+        return J2QuadratureState.create(domain, degree=degree, scheme=scheme)
+    if all(isinstance(item, ChabocheCombinedHardening) for item in materials):
+        counts = {item.backstress_count for item in materials}
+        if len(counts) != 1:
+            raise ValueError(
+                "Regional Chaboche materials must use one backstress count."
+            )
+        return ChabocheQuadratureState.create(
+            domain,
+            backstress_count=counts.pop(),
+            degree=degree,
+            scheme=scheme,
+        )
+    raise TypeError(
+        "One J2 Step cannot mix linear-isotropic and Chaboche state schemas."
+    )
+
+
+@dataclass
 class CreepQuadratureState:
     """Committed/trial integration-point state for implicit 3D creep."""
 
@@ -1289,11 +1569,13 @@ class CreepQuadratureState:
 
 
 __all__ = [
+    "ChabocheQuadratureState",
     "CreepQuadratureState",
     "J2QuadratureState",
     "QuadratureField",
     "QuadratureMaterialMap",
     "QuadratureTransaction",
+    "j2_quadrature_state",
     "load_portable_quadrature_state",
     "save_portable_quadrature_state",
 ]

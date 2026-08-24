@@ -403,6 +403,22 @@ _BENCHMARKS = (
         automated_test="tests/test_constitutive_models.py::test_power_law_creep_matches_constant_stress_and_relaxation_solutions",
     ),
     BenchmarkSpec(
+        identifier="chaboche_combined_hardening",
+        capability="chaboche_plasticity",
+        level="material_point_and_global_lifecycle",
+        reference="knowledge/benchmarks/chaboche_combined_hardening.json",
+        criterion=(
+            "published-style combined-hardening parameters satisfy the "
+            "shifted yield surface, discrete tangent, Bauschinger reversal, "
+            "global cyclic quadrature transaction, and restart equivalence"
+        ),
+        automated_test=(
+            "tests/test_constitutive_models.py -k chaboche and "
+            "tests/test_p1_platform.py -k global_chaboche_cycle"
+        ),
+        status="external_definition_and_automated_lifecycle",
+    ),
+    BenchmarkSpec(
         identifier="implicit_creep_relaxation",
         capability="power_law_creep",
         level="finite_element",

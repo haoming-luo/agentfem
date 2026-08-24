@@ -26,10 +26,12 @@ AgentFEM currently provides executable foundations for:
 - linear static solids and steady/transient heat transfer;
 - central-difference, Newmark, and generalized-alpha structural dynamics;
 - finite-strain Neo-Hookean and Mooney--Rivlin workflows;
-- small-strain J2 plasticity and implicit power-law creep;
+- small-strain J2 plasticity, an experimental global Chaboche combined-
+  hardening route, and implicit power-law creep;
 - accepted thermal-history transfer through shared E(T)/nu(T)/alpha(T)
   thermoelastic creep properties, plus source-preserving engineering
-  creep--fatigue assessment;
+  creep--fatigue assessment, including named-history dwell extraction with
+  project-owned rupture relations;
 - fixed-path cohesive fracture, including experimental cyclic and mixed-mode
   routes;
 - Abaqus/Gmsh mesh semantics, periodic equations, C3D10/C3D10H workflows, and

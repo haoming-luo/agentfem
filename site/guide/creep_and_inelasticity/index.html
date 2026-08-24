@@ -1073,6 +1073,8 @@
       
         
       
+        
+      
     
     
     
@@ -1323,11 +1325,20 @@ global finite-element contract.</p>
   material-point/evaluation maturity unless a global consumer is present;</li>
 <li>modified-theta projection as a curve-assessment tool;</li>
 <li>source-identified creep time fractions and explicit creep--fatigue
-  interaction diagrams as an engineering postprocessor;</li>
-<li>small-strain J2 plasticity through a stateful global route.</li>
+  interaction diagrams as an engineering postprocessor; declared dwell
+  intervals may be extracted from named stress and temperature histories;</li>
+<li>small-strain J2 plasticity through a stateful global route, including an
+  experimental multi-backstress Chaboche combined-hardening material using
+  the same Step, quadrature transaction, output and restart lifecycle.</li>
 </ul>
 <p>The maturity label is part of the interface: the presence of a formula does not
 silently imply a validated global analysis procedure.</p>
+<p>For cyclic plasticity, <code>constitutive.chaboche(...)</code> accepts one or more
+<code>(C_i, gamma_i)</code> pairs plus optional exponential isotropic saturation. It
+publishes <code>S</code>, <code>PE</code>, <code>PEEQ</code>, total backstress <code>ALPHA</code>, and <code>MISES</code>. Its local
+consistency, reversal response, global cycle and restart are automated; a
+structure-level stabilized-hysteresis comparison and complete recovery-
+dissipation energy closure remain promotion gates.</p>
 <h2 id="go-deeper">Go deeper<a class="headerlink" href="#go-deeper" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../solution_procedures_and_thermal_creep/">Thermal stress and creep procedures</a></li>

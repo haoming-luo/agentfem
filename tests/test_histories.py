@@ -83,7 +83,7 @@ def test_nodal_history_roundtrips_through_portable_coordinate_archive(tmp_path):
         assert payload["snapshots"].shape[0] == 2
 
 
-def test_transient_heat_step_captures_accepted_temperature_history():
+def test_transient_heat_step_captures_accepted_temperature_history(tmp_path):
     domain = mesh.rectangle(
         (0.0, 0.0),
         (1.0, 0.2),
@@ -119,10 +119,20 @@ def test_transient_heat_step_captures_accepted_temperature_history():
 
     assert thermal_history.times == pytest.approx((0.0, 0.5, 1.0))
     assert thermal_history.frame_count == 3
+    assert thermal_history.metadata["accepted_time_only"] is True
+    assert thermal_history.metadata["transfer_role"] == "sequential_field_input"
+    assert thermal_history.metadata["source_study"]["physics"] == "heat_transfer"
     assert np.mean(thermal_history.sample(1.0)) < np.mean(
         thermal_history.sample(0.0)
     )
     assert step.summary()["captured_histories"][0]["unit"] == "K"
+
+    saved = thermal_history.save(tmp_path / "temperature.npz")
+    restored = histories.FieldHistory.load(
+        saved,
+        source=fields.temperature(domain, value=0.0),
+    )
+    assert restored.metadata == thermal_history.metadata
 
 
 def test_temperature_property_table_is_bounded_and_inspectable():

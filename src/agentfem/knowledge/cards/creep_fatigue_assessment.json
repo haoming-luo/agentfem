@@ -5,12 +5,15 @@
   "title": "Engineering creep-fatigue assessment",
   "kind": "workflow",
   "status": "supported",
-  "summary": "A standard-neutral postprocessing contract for source-identified creep time fractions, existing stress-life fatigue assessments, explicit interaction diagrams, and structured result evidence.",
+  "summary": "A standard-neutral postprocessing contract for source-identified creep time fractions, declared dwell extraction from named stress/temperature histories, existing stress-life fatigue assessments, explicit interaction diagrams, and structured result evidence.",
   "public_api": [
     "agentfem.assessments.CreepDamageBlock",
+    "agentfem.assessments.DwellInterval",
+    "agentfem.assessments.creep_blocks_from_result",
     "agentfem.assessments.creep_time_fraction",
     "agentfem.assessments.interaction_diagram",
-    "agentfem.assessments.creep_fatigue"
+    "agentfem.assessments.creep_fatigue",
+    "agentfem.assessments.creep_fatigue_from_result"
   ],
   "implementation": [
     "assessments.py",
@@ -36,6 +39,12 @@
         "type": "duration, rupture time, repetitions, label and source",
         "unit_role": "duration and rupture time use the same time unit",
         "description": "Rupture times come from reviewed material data or a declared assessment relation."
+      },
+      {
+        "name": "named result histories and dwells",
+        "type": "scalar stress/temperature HistoryResult names and DwellInterval records",
+        "unit_role": "history time, stress and absolute temperature",
+        "description": "The V1 extractor interpolates dwell endpoints, applies declared reducers and calls a source-identified project rupture relation."
       },
       {
         "name": "fatigue assessment",
@@ -72,6 +81,7 @@
       "Creep damage is horizontal and allowable fatigue damage is vertical in an interaction diagram.",
       "AgentFEM provides a transparent linear reference but no design-code or material-specific curve.",
       "An assessment is a postprocessor and does not weaken stiffness or advance constitutive state."
+      ,"A declared dwell outside either result history fails instead of silently clamping or extrapolating."
     ],
     "applicability": [
       "Exploratory and engineering life assessments with reviewed rupture, fatigue and interaction inputs.",
@@ -83,7 +93,7 @@
     ]
   },
   "usage": {
-    "minimal_example": "Build CreepDamageBlock records, call assessments.creep_time_fraction(...), create an explicit assessments.interaction_diagram(...), then combine it with a constitutive.fatigue.FatigueAssessment through assessments.creep_fatigue(...).",
+    "minimal_example": "For existing result histories, declare DwellInterval records and call assessments.creep_fatigue_from_result(...) with named stress/temperature histories, a fatigue curve, and a source-identified rupture callable; direct CreepDamageBlock composition remains available.",
     "examples": [
       "examples/creep_fatigue_assessment.py"
     ]
@@ -98,6 +108,7 @@
     "validation_rules": [
       "Reject missing rupture and interaction sources.",
       "Reject malformed or nonmonotone interaction boundaries.",
+      "Reject missing, non-scalar, or out-of-range result histories and nonphysical rupture times.",
       "Keep the complete fatigue, creep and interaction records with the decision."
     ]
   },

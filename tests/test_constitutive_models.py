@@ -589,6 +589,77 @@ def test_j2_radial_return_lands_on_the_hardened_yield_surface():
     )
 
 
+def test_chaboche_return_map_tracks_backstress_and_discrete_tangent():
+    """Exercise the public combined-hardening law with published-style data."""
+
+    material = plasticity.chaboche(
+        young=200.0e3,
+        poisson=0.3,
+        yield_stress=200.0,
+        backstresses=((22.22e3, 34.65), (8.0e3, 5.0)),
+        isotropic_saturation=2000.0,
+        isotropic_rate=0.25,
+    )
+    strain = np.array(
+        [
+            [0.006, 0.0003, 0.0],
+            [0.0003, -0.003, 0.0],
+            [0.0, 0.0, -0.003],
+        ]
+    )
+    direction = np.array(
+        [
+            [0.7, -0.2, 0.1],
+            [-0.2, -0.4, 0.05],
+            [0.1, 0.05, -0.3],
+        ]
+    )
+    update = material.update(strain)
+    shifted = update.stress - update.state.total_backstress
+
+    assert not update.elastic
+    assert update.state.backstresses.shape == (2, 3, 3)
+    assert np.linalg.norm(update.state.total_backstress) > 0.0
+    assert plasticity.von_mises(shifted) == pytest.approx(
+        material.current_yield_stress(
+            update.state.equivalent_plastic_strain
+        ),
+        rel=2.0e-9,
+    )
+    analytical = np.einsum(
+        "ijkl,kl->ij", update.algorithmic_tangent, direction
+    )
+    perturbation = 2.0e-7
+    numerical = (
+        material.update(strain + perturbation * direction).stress
+        - material.update(strain - perturbation * direction).stress
+    ) / (2.0 * perturbation)
+    np.testing.assert_allclose(analytical, numerical, rtol=5.0e-5, atol=2.0e-3)
+
+
+def test_chaboche_reversal_exhibits_kinematic_bauschinger_response():
+    material = plasticity.chaboche(
+        young=200.0e3,
+        poisson=0.3,
+        yield_stress=200.0,
+        backstresses=((22.22e3, 34.65),),
+        isotropic_saturation=2000.0,
+        isotropic_rate=0.25,
+    )
+    forward = material.update(np.diag((0.006, -0.003, -0.003)))
+    reverse = material.update(
+        np.diag((-0.002, 0.001, 0.001)), forward.state
+    )
+
+    assert reverse.state.equivalent_plastic_strain > (
+        forward.state.equivalent_plastic_strain
+    )
+    assert reverse.state.total_backstress[0, 0] < (
+        forward.state.total_backstress[0, 0]
+    )
+    assert reverse.stress[0, 0] < 0.0
+
+
 def test_uniaxial_plasticity_matches_bilinear_closed_form():
     material = plasticity.J2LinearIsotropicHardening(
         young=200.0e3,

@@ -81,19 +81,24 @@ from .hyperelasticity import (
     supports_hyperelastic_study,
 )
 from .plasticity import (
+    ChabocheCombinedHardening,
+    ChabocheState,
     J2LinearIsotropicHardening,
     J2PlasticState,
     J2Update,
     UniaxialPlasticState,
+    chaboche,
     update_uniaxial,
     von_mises,
 )
 from .quadrature import (
+    ChabocheQuadratureState,
     CreepQuadratureState,
     J2QuadratureState,
     QuadratureField,
     QuadratureMaterialMap,
     QuadratureTransaction,
+    j2_quadrature_state,
     load_portable_quadrature_state,
     save_portable_quadrature_state,
 )
@@ -119,6 +124,9 @@ __all__ = [
     "ConstitutiveCapability",
     "BasquinCurve",
     "CreepHistory",
+    "ChabocheCombinedHardening",
+    "ChabocheQuadratureState",
+    "ChabocheState",
     "ImplicitCreepBatchUpdate",
     "CreepQuadratureState",
     "QuadratureMaterialMap",
@@ -151,6 +159,8 @@ __all__ = [
     "PowerLawCreep",
     "QuadratureField",
     "QuadratureTransaction",
+    "chaboche",
+    "j2_quadrature_state",
     "load_portable_quadrature_state",
     "save_portable_quadrature_state",
     "TabulatedSNCurve",

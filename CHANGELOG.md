@@ -6,6 +6,36 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-08-24
+
+### Added
+
+- Add an experimental global Chaboche combined-hardening material with
+  exponential isotropic saturation, multiple Armstrong--Frederick
+  backstresses, backward-Euler quadrature integration, a fully discrete
+  tangent, standard `ALPHA` output, cyclic amplitudes, rollback, cutback and
+  restart through the ordinary `model.step(...)` workflow.
+- Add source Study/procedure and accepted-time transfer metadata to
+  `FieldHistory`, preserved through compact and MPI-portable archives.
+- Add a layered sequential thermal/mechanical energy ledger that keeps heat
+  balance and mechanical work residuals separate and explicitly refuses a
+  monolithic conservation claim.
+- Add engineering creep--fatigue V1 extraction from named scalar stress and
+  temperature histories with declared dwell intervals, explicit reducers,
+  user-owned rupture relations, retained sources, and addressable failure for
+  missing or out-of-range evidence.
+- Add formula-bearing scientific cards, official public model-definition
+  references, focused material/global/restart tests, and a runnable 3D cyclic
+  Chaboche example.
+
+### Changed
+
+- Preserve the released isotropic-J2 v4 serial checkpoint schema while using
+  the extensible v6 schema for multi-backstress Chaboche state.
+- Report Chaboche energy only as a state partition until dynamic-recovery
+  dissipation and a structure-level cyclic energy benchmark close the full
+  ledger.
+
 ## [0.2.3] - 2026-08-24
 
 ### Added

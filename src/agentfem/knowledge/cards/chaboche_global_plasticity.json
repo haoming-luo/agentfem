@@ -1,0 +1,128 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.material.chaboche_global_plasticity",
+  "title": "Global Chaboche combined-hardening plasticity",
+  "kind": "material",
+  "status": "experimental",
+  "summary": "A three-dimensional small-strain J2 route with exponential isotropic hardening, multiple Armstrong--Frederick backstresses, committed quadrature state, a fully discrete tangent, cyclic amplitudes, cutback, standard fields and restart through the ordinary model.step workflow.",
+  "public_api": [
+    "agentfem.constitutive.chaboche",
+    "agentfem.constitutive.ChabocheCombinedHardening",
+    "agentfem.constitutive.ChabocheQuadratureState",
+    "agentfem.models.Model.step"
+  ],
+  "implementation": [
+    "constitutive/plasticity.py",
+    "constitutive/quadrature.py",
+    "mechanics/plasticity.py",
+    "step_providers.py"
+  ],
+  "science": {
+    "statement": "The yield surface translates through several Armstrong--Frederick backstresses while its radius evolves toward an exponential saturation value; one backward-Euler consistency solve supplies trial stress and state to global Newton.",
+    "equations": [
+      {
+        "label": "yield function",
+        "expression": "f=\\sqrt{\\frac{3}{2}(\\mathbf{s}-\\boldsymbol{\\alpha}):(\\mathbf{s}-\\boldsymbol{\\alpha})}-[\\sigma_{y0}+Q(1-e^{-b p})]",
+        "description": "The total backstress is the sum of all declared components."
+      },
+      {
+        "label": "backstress evolution",
+        "expression": "\\dot{\\boldsymbol{\\alpha}}_i=\\frac{2}{3}C_i\\dot{\\boldsymbol{\\varepsilon}}^p-\\gamma_i\\boldsymbol{\\alpha}_i\\dot p",
+        "description": "Dynamic recovery bounds each kinematic-hardening component under repeated loading."
+      },
+      {
+        "label": "isotropic radius",
+        "expression": "R(p)=Q(1-e^{-bp})",
+        "description": "Q and b are both zero or both positive in the public material contract."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "elastic and initial-yield data",
+        "type": "E, nu and initial yield stress",
+        "unit_role": "consistent stress system",
+        "description": "Small-strain isotropic elastic predictor and initial Mises radius."
+      },
+      {
+        "name": "combined-hardening data",
+        "type": "Q, b and one or more (C_i, gamma_i) pairs",
+        "unit_role": "stress and inverse strain",
+        "description": "Saturation and dynamic-recovery parameters supplied by a reviewed calibration."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "S, PE and PEEQ",
+        "type": "quadrature fields",
+        "unit_role": "stress and strain",
+        "description": "Accepted Cauchy stress, plastic strain and accumulated equivalent plastic strain."
+      },
+      {
+        "name": "ALPHA",
+        "type": "quadrature tensor field",
+        "unit_role": "stress",
+        "description": "Sum of all committed backstress components."
+      },
+      {
+        "name": "DDSDDE",
+        "type": "fourth-order quadrature tensor field",
+        "unit_role": "stress per strain",
+        "description": "Central directional derivative of the fully discrete return map consumed by global Newton."
+      }
+    ],
+    "assumptions": [
+      "Small strain and associative three-dimensional Mises plasticity.",
+      "Material parameters are calibrated in one consistent unit system.",
+      "The public cyclic path is a sequence of equilibrium states, not an implicit dynamic history."
+    ],
+    "conventions": [
+      "Every rejected increment rolls back PE, PEEQ and every backstress component atomically.",
+      "The normalized Step coordinate stays monotone while the declared amplitude may reverse.",
+      "ALPHA is the total backstress; individual components remain in the restartable constitutive state."
+    ],
+    "applicability": [
+      "Research and laboratory-scale three-dimensional cyclic plasticity with reviewed Chaboche calibration.",
+      "Displacement-controlled monotone or reversed paths requiring inspectable quadrature state."
+    ],
+    "limitations": [
+      "Plane stress, finite-strain plasticity and temperature-dependent cyclic plasticity are not implemented.",
+      "No external structure-level stabilized hysteresis benchmark has promoted this route beyond experimental maturity.",
+      "The current energy result does not claim complete dynamic-recovery dissipation closure."
+    ]
+  },
+  "usage": {
+    "minimal_example": "Create constitutive.chaboche(...), register it in studies.static_solid(dimension=3, nonlinear=True), declare a tabular cyclic amplitude, and call model.step(target=u, material=steel, amplitude=history).",
+    "examples": [
+      "examples/chaboche_cyclic_3d.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_constitutive_models.py",
+      "tests/test_p1_platform.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.chaboche_combined_hardening"
+    ],
+    "validation_rules": [
+      "Reject missing or mismatched backstress parameter pairs.",
+      "Reject a restart whose material, mesh, quadrature state or amplitude identity differs.",
+      "Commit all hardening variables only after global increment acceptance."
+    ]
+  },
+  "references": [
+    {
+      "title": "Abaqus theory: models for metals subjected to cyclic loading",
+      "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-combinedhardening.htm"
+    },
+    {
+      "title": "Abaqus verification: import of combined-hardening material state",
+      "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAEVERRefMap/simaver-c-import-plast.htm"
+    }
+  ],
+  "related_cards": [
+    "agentfem.material.j2_global_plasticity",
+    "agentfem.workflow.solution_procedures"
+  ]
+}

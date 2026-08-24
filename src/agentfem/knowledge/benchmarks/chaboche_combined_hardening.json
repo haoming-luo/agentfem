@@ -1,0 +1,37 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.chaboche_combined_hardening",
+  "title": "Combined-hardening material path and global cyclic lifecycle",
+  "status": "external_definition_and_automated_lifecycle",
+  "purpose": "Verify AgentFEM's small-strain combined-hardening implementation against the published Abaqus model definition and parameter style, then exercise its native global quadrature, reversal, result, rollback and restart lifecycle.",
+  "physics": "three-dimensional small-strain J2 plasticity with exponential isotropic and multi-component Armstrong--Frederick kinematic hardening",
+  "source": {
+    "organization": "Dassault Systemes SIMULIA",
+    "title": "Models for metals subjected to cyclic loading",
+    "url": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-combinedhardening.htm",
+    "retrieved": "2026-08-24",
+    "case": "Combined nonlinear isotropic/kinematic hardening equations and published-style parameterization"
+  },
+  "execution": {
+    "command": "python -m pytest -q tests/test_constitutive_models.py -k chaboche && python -m pytest -q tests/test_p1_platform.py -k global_chaboche_cycle",
+    "example": "examples/chaboche_cyclic_3d.py",
+    "evidence": "Material-point tests enforce the shifted yield surface, discrete tangent and reversal; the global unit-cube cycle enforces quadrature-state use, standard fields and checkpoint/restart equivalence."
+  },
+  "observables": [
+    "Shifted Mises stress and current isotropic yield radius after return mapping.",
+    "Multi-component backstress and Bauschinger reversal response.",
+    "Directional derivative of the fully discrete stress update.",
+    "Global S, PE, PEEQ, ALPHA and MISES fields plus restarted final state."
+  ],
+  "acceptance": [
+    "The converged material point lies on the current shifted yield surface.",
+    "The algorithmic tensor reproduces an independent directional finite difference of the discrete map.",
+    "A reversed path advances PEEQ and reverses the axial backstress direction.",
+    "Interrupted and uninterrupted global paths recover the same displacement and backstress fields."
+  ],
+  "limitations": [
+    "This evidence checks the published constitutive definition and AgentFEM lifecycle; it does not reproduce a proprietary or experimental stabilized hysteresis curve.",
+    "Structure-level cyclic calibration and complete recovery-dissipation energy closure remain promotion gates."
+  ]
+}

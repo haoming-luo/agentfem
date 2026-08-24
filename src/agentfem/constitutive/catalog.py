@@ -63,8 +63,28 @@ _CAPABILITIES = {
         ),
         limitations=(
             "3D only; plane stress needs a constrained local return map",
-            "no kinematic-hardening global driver",
+            "combined hardening is reported separately at experimental maturity",
             "finite-strain plasticity is not implemented",
+        ),
+    ),
+    "chaboche_plasticity": ConstitutiveCapability(
+        name="chaboche_plasticity",
+        model=(
+            "small-strain J2 plasticity with exponential isotropic and "
+            "multi-component Armstrong-Frederick kinematic hardening"
+        ),
+        maturity="fem_integrated_experimental",
+        available_scope=(
+            "3D global Newton paths through the ordinary model.step interface; "
+            "committed/trial PE, PEEQ and backstress quadrature state; "
+            "backward-Euler local consistency; discrete algorithmic tangent; "
+            "non-monotone tabular amplitudes; rollback, cutback, standard "
+            "S/PE/PEEQ/ALPHA/MISES fields, and serial or portable restart"
+        ),
+        limitations=(
+            "the published external source currently verifies model definition and parameters rather than a structure-level hysteresis curve",
+            "plane stress, finite-strain plasticity, and cyclic temperature coupling are not implemented",
+            "complete Armstrong-Frederick recovery dissipation and cyclic energy closure remain a promotion gate",
         ),
     ),
     "thermoelasticity": ConstitutiveCapability(
