@@ -278,6 +278,15 @@ def test_named_boundary_reaction_and_static_result_are_distributed(tmp_path):
     assert simulation.metadata["field_output"]["layout"] == (
         "scientific_xdmf_plus_single_paraview_dataset"
     )
+    assert simulation.metadata["field_output"][
+        "recommended_visualization_artifact"
+    ].endswith(".pvd")
+    assert simulation.metadata["field_output"][
+        "visualization_requires_extract_block"
+    ] is False
+    assert simulation.metadata["field_output"][
+        "scientific_xdmf_layout"
+    ] == "collective_grid_per_field"
     if MPI.COMM_WORLD.rank == 0:
         datasets_xml = ET.parse(
             simulation.artifacts["fields_paraview"]

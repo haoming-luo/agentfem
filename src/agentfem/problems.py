@@ -984,6 +984,7 @@ class AnalysisStep:
             static_force_balance,
             static_work_balance,
         )
+        from . import constraints as constraint_api
 
         solution = self.problem.solve()
         if fields and field_variables is not None:
@@ -1038,7 +1039,22 @@ class AnalysisStep:
             and len(tuple(getattr(solution, "ufl_shape", ()))) == 1
         )
         if is_static_solid:
-            equilibrium = static_force_balance(self.problem)
+            balance_contract = constraint_api.constraint_balance_contract(
+                self.constraint_assets
+            )
+            result.metadata["constraint_balance_contract"] = balance_contract
+            try:
+                equilibrium = static_force_balance(
+                    self.problem,
+                    constraints=self.constraint_assets,
+                )
+            except NotImplementedError as exc:
+                equilibrium = None
+                result.metadata["static_equilibrium"] = {
+                    "status": "unavailable",
+                    "reason": str(exc),
+                    "reaction_scope": "strong Dirichlet constraints",
+                }
             try:
                 work = static_work_balance(
                     self.problem,
@@ -1050,29 +1066,30 @@ class AnalysisStep:
                     "status": "unavailable",
                     "reason": str(exc),
                 }
-            result.add_quantities(
-                {
-                    "external_force_resultant": equilibrium.external,
-                    "reaction_force_resultant": equilibrium.reaction,
-                    "force_balance_residual": equilibrium.residual,
-                    "relative_force_balance_error": equilibrium.relative_error,
-                },
-                kind="diagnostic",
-                descriptions={
-                    "external_force_resultant": (
-                        "Resultant of the assembled linear-system right-hand side."
-                    ),
-                    "reaction_force_resultant": (
-                        "Resultant of strong-constraint algebraic reactions."
-                    ),
-                    "force_balance_residual": "Reaction plus external-force resultant.",
-                    "relative_force_balance_error": (
-                        "Norm of the force-balance residual divided by the larger "
-                        "external or reaction resultant norm."
-                    ),
-                },
-            )
-            result.metadata["static_equilibrium"] = equilibrium.as_dict()
+            if equilibrium is not None:
+                result.add_quantities(
+                    {
+                        "external_force_resultant": equilibrium.external,
+                        "reaction_force_resultant": equilibrium.reaction,
+                        "force_balance_residual": equilibrium.residual,
+                        "relative_force_balance_error": equilibrium.relative_error,
+                    },
+                    kind="diagnostic",
+                    descriptions={
+                        "external_force_resultant": (
+                            "Resultant of the assembled linear-system right-hand side."
+                        ),
+                        "reaction_force_resultant": (
+                            "Resultant of strong-constraint algebraic reactions."
+                        ),
+                        "force_balance_residual": "Reaction plus external-force resultant.",
+                        "relative_force_balance_error": (
+                            "Norm of the force-balance residual divided by the larger "
+                            "external or reaction resultant norm."
+                        ),
+                    },
+                )
+                result.metadata["static_equilibrium"] = equilibrium.as_dict()
             if work is not None:
                 result.add_quantities(
                     {
@@ -2061,11 +2078,19 @@ def _attach_transient_output(result, step, output_fields) -> None:
         )
     )
     semantic_name = "Displacement" if vector_primary else None
+    is_paraview = path.suffix.lower() == ".pvd"
     result.metadata["field_output"] = {
         "status": "completed",
         "backend": backend,
         "layout": getattr(step, "last_output_layout", None),
         "geometry": "reference",
+        "scientific_artifact": None if is_paraview else str(path),
+        "scientific_xdmf_layout": (
+            "not_emitted" if is_paraview else "single_uniform_grid"
+        ),
+        "recommended_visualization_artifact": str(path),
+        "visualization_geometry_datasets_per_time": 1,
+        "visualization_requires_extract_block": False,
         "warp_field": storage_name,
         "warp_field_semantic": semantic_name,
         "physical_components": (

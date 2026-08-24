@@ -110,7 +110,7 @@
     "limitations": [
       "Nonlinear implicit structural dynamics is not implemented.",
       "Moving-support kinematics for implicit dynamics are not implemented.",
-      "Checkpoint retention is implemented for shared transient routes; portable cross-partition restart currently covers nodal state but not quadrature/internal-variable state."
+      "Shared transient routes provide partition-independent nodal restart; J2, Chaboche, and implicit creep additionally own full-Step portable checkpoints for their named quadrature/internal-variable state."
     ]
   },
   "usage": {

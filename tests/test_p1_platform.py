@@ -10,6 +10,7 @@ from agentfem import (
     assessments,
     benchmarks,
     constitutive,
+    constraints,
     diagnostics,
     fields,
     histories,
@@ -1143,6 +1144,50 @@ def test_linear_static_result_includes_nonzero_prescribed_motion_work():
     assert simulation.metadata["static_work"]["reaction_scope"] == (
         "strong Dirichlet constraints"
     )
+
+
+def test_linear_static_result_does_not_publish_partial_periodic_balance():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    model = models.create(
+        study=studies.static_solid(dimension=2, assumption="plane_stress"),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    model.material(
+        constitutive.isotropic_elastic(
+            young=2.0e5,
+            poisson=0.3,
+            density=1.0,
+        )
+    )
+    left = mesh.face(domain, axis="x", value=0.0, name="left", tag=1)
+    right = mesh.face(domain, axis="x", value=1.0, name="right", tag=2)
+    model.fix(displacement, on=left, value=0.0)
+    model.traction((10.0, 0.0), on=right)
+    step = model.step(target=displacement)
+    unresolved = constraints.PeriodicConstraintSpec(
+        slave_marker=lambda x: np.isclose(x[1], 0.2),
+        master_marker=lambda x: np.isclose(x[1], 0.0),
+        map_slave_to_master=lambda x: x,
+        name="unresolved_periodic_y",
+    )
+    step.constraint_assets = (*step.constraint_assets, unresolved)
+
+    simulation = step.solve_result()
+
+    assert "relative_force_balance_error" not in simulation.quantities
+    assert "energy_balance_error" not in simulation.quantities
+    assert simulation.metadata["static_equilibrium"]["status"] == "unavailable"
+    assert simulation.metadata["static_work"]["status"] == "unavailable"
+    contract = simulation.metadata["constraint_balance_contract"]
+    assert contract["force_balance_gaps"] == ("unresolved_periodic_y",)
+    assert contract["work_balance_gaps"] == ("unresolved_periodic_y",)
 
 
 def _j2_patch():

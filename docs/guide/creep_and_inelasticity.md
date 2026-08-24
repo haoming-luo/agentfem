@@ -12,8 +12,9 @@ global finite-element contract.
   dissipation, and portable full-Step restart;
 - MPI-safe regional quadrature updates and rank-count-portable J2/creep
   full-Step archives; J2 distributed global Newton has public thick-cylinder
-  structural evidence, while the creep route retains a NAFEMS structural
-  promotion gate;
+  structural evidence, while native axisymmetric creep now reproduces NAFEMS
+  R0027 Test 7. An independent distributed creep component benchmark remains
+  distinct from the existing MPI regional patch and restart tests;
 - scalar, finite-element or accepted-history temperature input consumed at
   creep integration points by the normalized Arrhenius rate, shared
   E(T)/nu(T)/alpha(T), thermal strain and consistent tangent;

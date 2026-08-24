@@ -112,7 +112,7 @@
       "Stress-relaxation and creep-deformation workflows requiring inspectable state, cutback, and restart evidence."
     ],
     "limitations": [
-      "The MPI global Newton route remains experimental pending an independent component benchmark.",
+      "The MPI global Newton route has regional patch, rollback, and cross-rank-count restart evidence; the external NAFEMS R0027 structure benchmark currently exercises the native serial axisymmetric route rather than an independent distributed component model.",
       "Portable nodal histories are root-gathered; global damage and mesh regularization are not part of this route.",
       "External component or code-standard validation remains required before application-specific qualification."
     ]

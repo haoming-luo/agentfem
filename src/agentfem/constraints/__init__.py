@@ -43,6 +43,8 @@ class ConstraintCapabilities:
     procedures: tuple[str, ...] = ()
     strict: bool = True
     supports_parallel: bool = True
+    reaction_evidence: str = "provider_defined"
+    work_evidence: str = "provider_defined"
 
     def summary(self) -> dict[str, object]:
         return {
@@ -52,6 +54,8 @@ class ConstraintCapabilities:
             "procedures": self.procedures,
             "strict": self.strict,
             "supports_parallel": self.supports_parallel,
+            "reaction_evidence": self.reaction_evidence,
+            "work_evidence": self.work_evidence,
         }
 
 
@@ -828,6 +832,8 @@ class PeriodicProjectionConstraint:
             procedures=("central_difference",),
             strict=False,
             supports_parallel=False,
+            reaction_evidence="unavailable",
+            work_evidence="unavailable",
         )
 
     def apply(self, function) -> None:
@@ -1024,8 +1030,83 @@ def constraint_capabilities(constraint) -> ConstraintCapabilities | None:
         return ConstraintCapabilities(
             kind="dirichlet_constraint",
             enforcement="strong_elimination",
+            reaction_evidence="unconstrained_residual",
+            work_evidence=(
+                "proportional_prescribed_path"
+                if getattr(constraint, "value", None) is not None
+                or getattr(constraint, "constant", None) is not None
+                else "uninspectable_prescribed_value"
+            ),
+        )
+    if isinstance(constraint, RectangularPeriodicMPC):
+        return ConstraintCapabilities(
+            kind="periodic_constraint",
+            enforcement="exact_multi_point_constraint",
+            strict=True,
+            supports_parallel=True,
+            reaction_evidence="provider_dual_required",
+            work_evidence="provider_dual_path_required",
+        )
+    if isinstance(constraint, AbaqusPeriodicConstraint):
+        return ConstraintCapabilities(
+            kind="periodic_constraint",
+            enforcement="exact_affine_elimination",
+            strict=True,
+            supports_parallel=bool(constraint.summary()["supports_parallel"]),
+            reaction_evidence="provider_dual_required",
+            work_evidence="provider_dual_path_required",
+        )
+    if isinstance(constraint, PeriodicConstraintSpec):
+        return ConstraintCapabilities(
+            kind="periodic_constraint",
+            enforcement="unresolved_periodic_specification",
+            strict=False,
+            supports_parallel=False,
+            reaction_evidence="unavailable",
+            work_evidence="unavailable",
         )
     return None
+
+
+def constraint_balance_contract(constraints) -> dict[str, object]:
+    """Describe whether strong-reaction force/work diagnostics are complete.
+
+    Strong Dirichlet elimination exposes reactions through the unconstrained
+    residual.  MPC, weak, contact, projection, and unknown constraint assets
+    require their own dual variables; this contract prevents those forces from
+    being silently omitted from a global balance reported as complete.
+    """
+
+    records = []
+    force_gaps = []
+    work_gaps = []
+    for item in _flatten_constraint_assets(constraints):
+        capability = constraint_capabilities(item)
+        name = str(getattr(item, "name", type(item).__name__))
+        if capability is None:
+            summary = {
+                "name": name,
+                "kind": type(item).__name__,
+                "enforcement": "unknown",
+                "reaction_evidence": "unavailable",
+                "work_evidence": "unavailable",
+            }
+        else:
+            summary = {"name": name, **capability.summary()}
+        records.append(summary)
+        if summary["reaction_evidence"] != "unconstrained_residual":
+            force_gaps.append(name)
+        if summary["work_evidence"] != "proportional_prescribed_path":
+            work_gaps.append(name)
+    return {
+        "kind": "constraint_balance_contract",
+        "reaction_scope": "strong Dirichlet constraints",
+        "force_balance_available": not force_gaps,
+        "work_balance_available": not work_gaps,
+        "force_balance_gaps": tuple(force_gaps),
+        "work_balance_gaps": tuple(work_gaps),
+        "constraints": tuple(records),
+    }
 
 
 def validate_solver_compatibility(

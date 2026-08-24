@@ -172,7 +172,19 @@ write the compact single-grid XDMF/HDF5 layout. Under MPI, AgentFEM retains the
 collective XDMF/HDF5 scientific record and also registers a
 `fields_paraview` PVD artifact whose time steps each contain one geometry with
 all point and cell fields. The normal ParaView workflow therefore does not
-require **Extract Block** or **Append Attributes**.
+require **Extract Block** or **Append Attributes**. The machine-readable
+`field_output.recommended_visualization_artifact` points to the compact XDMF
+in serial and to this PVD in MPI; `visualization_requires_extract_block` is
+therefore false even though the collective scientific XDMF retains DOLFINx's
+grid-per-field organization.
+
+Static balance evidence also fails closed. Strong Dirichlet reactions use the
+unconstrained assembled residual, but MPC, weak, contact, projection, and
+multiplier constraints require provider-owned dual forces. When any declared
+constraint lacks that channel, `SimulationResult` records
+`static_equilibrium.status = unavailable` and a
+`constraint_balance_contract` instead of publishing a partial reaction sum as
+a complete equilibrium check.
 
 XDMF is the small XML description and HDF5 is the compact numerical payload.
 Inlining millions of values into XML would produce a much larger and slower

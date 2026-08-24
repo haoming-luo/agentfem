@@ -889,7 +889,7 @@ A declared creep_strain_error_tolerance may reject an otherwise converged increm
 
 #### Limitations
 
-- The MPI global Newton route remains experimental pending an independent component benchmark.
+- The MPI global Newton route has regional patch, rollback, and cross-rank-count restart evidence; the external NAFEMS R0027 structure benchmark currently exercises the native serial axisymmetric route rather than an independent distributed component model.
 - Portable nodal histories are root-gathered; global damage and mesh regularization are not part of this route.
 - External component or code-standard validation remains required before application-specific qualification.
 
@@ -3539,7 +3539,7 @@ Algorithmic parameters control stability, accuracy, and high-frequency dissipati
 
 - Nonlinear implicit structural dynamics is not implemented.
 - Moving-support kinematics for implicit dynamics are not implemented.
-- Checkpoint retention is implemented for shared transient routes; portable cross-partition restart currently covers nodal state but not quadrature/internal-variable state.
+- Shared transient routes provide partition-independent nodal restart; J2, Chaboche, and implicit creep additionally own full-Step portable checkpoints for their named quadrature/internal-variable state.
 
 ### Minimal example
 
@@ -3593,6 +3593,7 @@ Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell
 - `agentfem.results.external_force_resultant`
 - `agentfem.results.static_force_balance`
 - `agentfem.results.static_work_balance`
+- `agentfem.constraints.constraint_balance_contract`
 - `agentfem.mesh.tagged_boundary_region`
 - `agentfem.diagnostics.linear_static_energy`
 
@@ -3662,7 +3663,8 @@ Natural loads and strong prescribed values are ramped proportionally from zero; 
 - Non-zero strong prescribed-displacement work is recorded separately from natural-load work and included in total external work.
 - Imported physical boundaries use their facet tag for both strong topological dof location and weak integration; an optional marker is audit evidence.
 - field_extrema(location=True) identifies its finite-element-dof sampling, coordinate, rank, global dof, and DG0 cell where applicable.
-- Model-generated linear static solids attach assembled external force, strong reaction, balance residual, and relative error to SimulationResult.
+- Model-generated linear static solids attach assembled external force, strong reaction, balance residual, and relative error only when every declared constraint has complete strong-reaction semantics.
+- MPC, weak, contact, projection, multiplier, and unknown constraint assets fail closed through a machine-readable constraint_balance_contract; partial reactions are never presented as complete equilibrium.
 
 #### Applicability
 
@@ -3671,7 +3673,7 @@ Natural loads and strong prescribed values are ramped proportionally from zero; 
 #### Limitations
 
 - Nodal smoothing and superconvergent stress recovery are not implemented.
-- Affine MPC, weak, and contact reactions need dedicated dual definitions; the strong-Dirichlet work formula is rejected for those assets.
+- Affine MPC, weak, and contact reactions need dedicated provider dual definitions; both strong-Dirichlet force and work balances are marked unavailable for those assets.
 - Thermoelastic output requires temperature-aware field construction in a later extension.
 
 ### Minimal example
@@ -3702,6 +3704,7 @@ peak = results.field_extrema(result.fields['MISES'], location=True)
 - Compare affine displacement projection with its analytical constant strain.
 - Check named-boundary reaction equilibrium and proportional static energy closure.
 - Check the automatically attached assembled-force, strong-reaction, and relative global balance evidence.
+- Check that unresolved periodic/MPC evidence suppresses partial force and work balances and reports the missing named channel.
 - Verify a regional two-material series bar through one piecewise projection.
 
 ### References

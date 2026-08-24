@@ -951,6 +951,7 @@
         "agentfem.results.external_force_resultant",
         "agentfem.results.static_force_balance",
         "agentfem.results.static_work_balance",
+        "agentfem.constraints.constraint_balance_contract",
         "agentfem.mesh.tagged_boundary_region",
         "agentfem.diagnostics.linear_static_energy"
       ],

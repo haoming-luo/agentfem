@@ -1457,7 +1457,12 @@ route. Each saved time is one parallel unstructured-grid dataset carrying
 continuous fields as PointData and DG0 fields as CellData. ParaView can apply
 one Warp By Vector filter without duplicate unwarped Blocks or manual
 <strong>Extract Block</strong>. PVD/PVTU/VTU uses multiple piece files and reference
-geometry, so it does not replace checkpoint or compact scientific storage.</p>
+geometry, so it does not replace checkpoint or compact scientific storage.
+<code>SimulationResult.metadata["field_output"]</code> makes the choice executable:
+<code>recommended_visualization_artifact</code> is the file users and agents should open,
+while <code>scientific_artifact</code> retains the compact numerical record and
+<code>visualization_requires_extract_block</code> states whether a block-selection step
+is necessary. The ordinary serial and MPI result paths both report <code>False</code>.</p>
 <p>Arbitrary chained Abaqus <code>*EQUATION</code> constraints have a distributed
 <code>dolfinx_mpc</code> backend. It resolves the source equation graph before mapping
 labels to global dofs, explicitly supplies relations for owned and ghost

@@ -595,13 +595,24 @@ def external_force_resultant(problem):
         vector.destroy()
 
 
-def static_force_balance(problem) -> StaticForceBalance:
+def static_force_balance(problem, *, constraints=()) -> StaticForceBalance:
     """Evaluate ``R + F = 0`` for a converged linear static solid.
 
     Reactions are the unconstrained residual at strong Dirichlet dofs. Affine
-    MPC, weak, contact, and multiplier reactions need dedicated definitions
-    and are intentionally not folded into this diagnostic.
+    MPC, weak, contact, and multiplier reactions need dedicated definitions.
+    When such an asset is declared, the diagnostic fails closed instead of
+    publishing a partial resultant as a complete force balance.
     """
+
+    from .. import constraints as constraint_api
+
+    contract = constraint_api.constraint_balance_contract(constraints)
+    if not contract["force_balance_available"]:
+        raise NotImplementedError(
+            "static_force_balance requires complete strong-Dirichlet reaction "
+            "evidence; dedicated provider dual reactions are missing for "
+            f"{contract['force_balance_gaps']!r}."
+        )
 
     external = external_force_resultant(problem)
     reaction = reaction_resultant(problem)
@@ -637,6 +648,14 @@ def static_work_balance(problem, *, constraints=()) -> StaticWorkBalance:
         raise TypeError("static_work_balance requires a linear system problem.")
     from .. import constraints as constraint_api
     from .. import operators
+
+    contract = constraint_api.constraint_balance_contract(constraints)
+    if not contract["work_balance_available"]:
+        raise NotImplementedError(
+            "static_work_balance requires inspectable proportional strong-"
+            "Dirichlet paths; dedicated provider dual work is missing for "
+            f"{contract['work_balance_gaps']!r}."
+        )
 
     solution = problem._solution()
     strain = 0.5 * operators.quadratic_form(problem.system.K, solution)

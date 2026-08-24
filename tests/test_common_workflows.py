@@ -772,6 +772,9 @@ def test_explicit_dynamics_consumes_model_constraints_and_amplitude_loads(tmp_pa
     assert field_output["physical_model_dimension"] == 2
     assert field_output["geometry_dimension"] == 3
     assert field_output["warp_compatible"] is True
+    assert field_output["recommended_visualization_artifact"].endswith(".xdmf")
+    assert field_output["visualization_requires_extract_block"] is False
+    assert field_output["scientific_xdmf_layout"] == "single_uniform_grid"
 
 
 def test_common_dynamic_study_factory_keeps_physics_and_procedure_distinct():
@@ -953,9 +956,31 @@ def test_periodic_projection_declares_and_enforces_procedure_capabilities():
         "procedures": ("central_difference",),
         "strict": False,
         "supports_parallel": False,
+        "reaction_evidence": "unavailable",
+        "work_evidence": "unavailable",
     }
     assert periodic.diagnostics()["maximum_coordinate_mismatch"] == pytest.approx(
         2.0e-14
+    )
+
+
+def test_constraint_balance_contract_refuses_partial_mpc_reactions():
+    periodic = constraints.RectangularPeriodicMPC(
+        backend=object(),
+        lower=(0.0, 0.0),
+        upper=(1.0, 1.0),
+        axes=(0,),
+        tolerance=1.0e-12,
+        name="periodic_x",
+    )
+
+    contract = constraints.constraint_balance_contract((periodic,))
+
+    assert contract["force_balance_available"] is False
+    assert contract["work_balance_available"] is False
+    assert contract["force_balance_gaps"] == ("periodic_x",)
+    assert contract["constraints"][0]["reaction_evidence"] == (
+        "provider_dual_required"
     )
 
 

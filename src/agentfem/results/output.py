@@ -49,11 +49,21 @@ class ResultFieldArtifacts:
     warp_compatible: bool = False
 
     def summary(self) -> dict[str, object]:
+        visualization = self.paraview if self.paraview is not None else self.xdmf
         summary = {
             "status": "completed",
             "backend": self.backend,
             "layout": self.layout,
             "geometry": self.geometry,
+            "scientific_artifact": str(self.xdmf),
+            "scientific_xdmf_layout": (
+                "collective_grid_per_field"
+                if self.paraview is not None
+                else "single_uniform_grid"
+            ),
+            "recommended_visualization_artifact": str(visualization),
+            "visualization_geometry_datasets_per_time": 1,
+            "visualization_requires_extract_block": False,
             "warp_field": self.warp_field,
             "warp_field_semantic": self.warp_field_semantic,
             "physical_components": self.physical_components,

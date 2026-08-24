@@ -140,14 +140,19 @@ finite-element simulation with AgentFEM.
   are written for visualization. Use `results.small_strain_partition_fields`
   for reviewed
   regional projections and `results.reaction_resultant(..., on=..., component=...)`
-  only for named strong-constraint reactions.
+  only for named strong-constraint reactions. Inspect
+  `SimulationResult.metadata["constraint_balance_contract"]` before claiming
+  global equilibrium: MPC, weak, contact, projection, or multiplier channels
+  remain unavailable until their active provider supplies actual dual forces.
   For imported physical surfaces use `mesh.tagged_boundary_region(...)` for
   both strong and weak conditions, call `model.audit_boundaries(strict=True)`,
   and use `results.region_measure(on=...)` rather than application-owned UFL.
   Request `field_extrema(..., location=True)` when publishing a peak. Serial
   `solve_result(output=...)` writes one Uniform Grid with mixed point/cell
   attributes; low-level `io.XDMFTimeSeries` retains DOLFINx multi-Grid
-  semantics.
+  semantics. Under MPI, open the `field_output` metadata's
+  `recommended_visualization_artifact` (normally PVD), not the scientific
+  multi-Grid XDMF; that route needs no Extract Block step.
   For field-learning data, create a fixed `surrogates.ObservationGrid` and call
   `datasets.fem_observation_sample`; preserve its units, layout, and mask.
   For a direct solver or external benchmark contract, use

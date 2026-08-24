@@ -27,7 +27,9 @@ AgentFEM currently provides executable foundations for:
 - central-difference, Newmark, and generalized-alpha structural dynamics;
 - finite-strain Neo-Hookean and Mooney--Rivlin workflows;
 - small-strain J2 plasticity, an experimental global Chaboche combined-
-  hardening route, and implicit power-law creep;
+  hardening route, and implicit power-law creep, including regional MPI state,
+  cross-rank-count portable restart, and bounded external Abaqus/NAFEMS
+  benchmarks;
 - accepted thermal-history transfer through shared E(T)/nu(T)/alpha(T)
   thermoelastic creep properties, plus source-preserving engineering
   creep--fatigue assessment, including named-history dwell extraction with
@@ -37,7 +39,8 @@ AgentFEM currently provides executable foundations for:
 - Abaqus/Gmsh mesh semantics, periodic equations, C3D10/C3D10H workflows, and
   MPI execution;
 - common fields, histories, energy records, checkpoint/restart, provenance,
-  convergence evidence, and ParaView-oriented output;
+  convergence evidence, and ParaView-oriented output with one recommended
+  visualization dataset per saved time in serial and MPI;
 - resumable parameter campaigns, scientific datasets, surrogate models, and
   provider-neutral learning interfaces.
 
@@ -60,7 +63,9 @@ Deepen the finite-element core before broadening the catalog:
 - external and convergence evidence for nonlinear materials and cohesive
   fracture;
 - richer thermal--mechanical and high-temperature histories;
-- consistent reactions, work, energy, state recovery, and restart semantics;
+- provider-owned reactions, work, and energy for MPC/weak/contact constraints;
+  unsupported dual channels already fail closed rather than publishing a
+  partial balance;
 - selected cyclic plasticity, creep--fatigue, and fracture extensions.
 
 ### 2. Engineering workflow
@@ -71,7 +76,8 @@ Make real simulation projects easier to construct and maintain:
 - richer imported-mesh regions, surfaces, sets, and quality diagnostics;
 - multi-Step activation, inheritance, predefined fields, and engineering
   postprocessing;
-- coherent serial/MPI visualization and scalable checkpoint identity.
+- richer direct integration-point exchange and scalable collective checkpoint
+  backends beyond the current portable laboratory-scale state contracts.
 
 ### 3. AI and data
 
@@ -143,9 +149,9 @@ extension, and unfamiliar-agent gates consume independent JSON acceptance
 records; missing evidence remains `external_evidence_required` rather than
 being inferred from development-machine success.
 
-The executable audit currently passes G1--G4. G5 is completed only by
+G1--G4 run directly from the repository. G5 is completed only by
 installed-wheel records from Linux, macOS, and a real WSL2 kernel. G6 consumes
-the independently built `agentfem-learning` extension record. G7 requires a
+the independently built `agentfem-learning` extension record. G7 consumes a
 fresh-context, zero-intervention AI-agent trial whose result and explanation
 are retained and reviewed; the deterministic release smoke deliberately does
 not impersonate that behavioral evidence. Acceptance artifacts can be

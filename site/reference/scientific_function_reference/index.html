@@ -12641,7 +12641,7 @@ e_{cr}=\max_q\left|\dot{\bar\varepsilon}^{cr}_{q,n+1}-\dot{\bar\varepsilon}^{cr}
 </ul>
 <h4 id="limitations_6">Limitations<a class="headerlink" href="#limitations_6" title="Permanent link">&para;</a></h4>
 <ul>
-<li>The MPI global Newton route remains experimental pending an independent component benchmark.</li>
+<li>The MPI global Newton route has regional patch, rollback, and cross-rank-count restart evidence; the external NAFEMS R0027 structure benchmark currently exercises the native serial axisymmetric route rather than an independent distributed component model.</li>
 <li>Portable nodal histories are root-gathered; global damage and mesh regularization are not part of this route.</li>
 <li>External component or code-standard validation remains required before application-specific qualification.</li>
 </ul>
@@ -15771,7 +15771,7 @@ q=\frac{12(3V)^{2/3}}{\sum_e l_e^2}
 <ul>
 <li>Nonlinear implicit structural dynamics is not implemented.</li>
 <li>Moving-support kinematics for implicit dynamics are not implemented.</li>
-<li>Checkpoint retention is implemented for shared transient routes; portable cross-partition restart currently covers nodal state but not quadrature/internal-variable state.</li>
+<li>Shared transient routes provide partition-independent nodal restart; J2, Chaboche, and implicit creep additionally own full-Step portable checkpoints for their named quadrature/internal-variable state.</li>
 </ul>
 <h3 id="minimal-example_30">Minimal example<a class="headerlink" href="#minimal-example_30" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="n">study</span> <span class="o">=</span> <span class="n">studies</span><span class="o">.</span><span class="n">dynamic_solid</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">assumption</span><span class="o">=</span><span class="s1">&#39;plane_stress&#39;</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;newmark&#39;</span><span class="p">)</span>
@@ -15817,6 +15817,7 @@ q=\frac{12(3V)^{2/3}}{\sum_e l_e^2}
 <li><code>agentfem.results.external_force_resultant</code></li>
 <li><code>agentfem.results.static_force_balance</code></li>
 <li><code>agentfem.results.static_work_balance</code></li>
+<li><code>agentfem.constraints.constraint_balance_contract</code></li>
 <li><code>agentfem.mesh.tagged_boundary_region</code></li>
 <li><code>agentfem.diagnostics.linear_static_energy</code></li>
 </ul>
@@ -15908,7 +15909,8 @@ W_{\mathrm{ext}}=\tfrac{1}{2}\mathbf{u}^{T}\mathbf{F}+\tfrac{1}{2}\mathbf{R}_{c}
 <li>Non-zero strong prescribed-displacement work is recorded separately from natural-load work and included in total external work.</li>
 <li>Imported physical boundaries use their facet tag for both strong topological dof location and weak integration; an optional marker is audit evidence.</li>
 <li>field_extrema(location=True) identifies its finite-element-dof sampling, coordinate, rank, global dof, and DG0 cell where applicable.</li>
-<li>Model-generated linear static solids attach assembled external force, strong reaction, balance residual, and relative error to SimulationResult.</li>
+<li>Model-generated linear static solids attach assembled external force, strong reaction, balance residual, and relative error only when every declared constraint has complete strong-reaction semantics.</li>
+<li>MPC, weak, contact, projection, multiplier, and unknown constraint assets fail closed through a machine-readable constraint_balance_contract; partial reactions are never presented as complete equilibrium.</li>
 </ul>
 <h4 id="applicability_31">Applicability<a class="headerlink" href="#applicability_31" title="Permanent link">&para;</a></h4>
 <ul>
@@ -15917,7 +15919,7 @@ W_{\mathrm{ext}}=\tfrac{1}{2}\mathbf{u}^{T}\mathbf{F}+\tfrac{1}{2}\mathbf{R}_{c}
 <h4 id="limitations_31">Limitations<a class="headerlink" href="#limitations_31" title="Permanent link">&para;</a></h4>
 <ul>
 <li>Nodal smoothing and superconvergent stress recovery are not implemented.</li>
-<li>Affine MPC, weak, and contact reactions need dedicated dual definitions; the strong-Dirichlet work formula is rejected for those assets.</li>
+<li>Affine MPC, weak, and contact reactions need dedicated provider dual definitions; both strong-Dirichlet force and work balances are marked unavailable for those assets.</li>
 <li>Thermoelastic output requires temperature-aware field construction in a later extension.</li>
 </ul>
 <h3 id="minimal-example_31">Minimal example<a class="headerlink" href="#minimal-example_31" title="Permanent link">&para;</a></h3>
@@ -15944,6 +15946,7 @@ W_{\mathrm{ext}}=\tfrac{1}{2}\mathbf{u}^{T}\mathbf{F}+\tfrac{1}{2}\mathbf{R}_{c}
 <li>Compare affine displacement projection with its analytical constant strain.</li>
 <li>Check named-boundary reaction equilibrium and proportional static energy closure.</li>
 <li>Check the automatically attached assembled-force, strong-reaction, and relative global balance evidence.</li>
+<li>Check that unresolved periodic/MPC evidence suppresses partial force and work balances and reports the missing named channel.</li>
 <li>Verify a regional two-material series bar through one piecewise projection.</li>
 </ul>
 <h3 id="references_31">References<a class="headerlink" href="#references_31" title="Permanent link">&para;</a></h3>
