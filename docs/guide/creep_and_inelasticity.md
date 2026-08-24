@@ -14,11 +14,16 @@ global finite-element contract.
   full-Step archives; J2 distributed global Newton has public thick-cylinder
   structural evidence, while the creep route retains a NAFEMS structural
   promotion gate;
-- optional scalar or finite-element temperature input consumed at creep
-  integration points by a normalized Arrhenius rate law;
+- scalar, finite-element or accepted-history temperature input consumed at
+  creep integration points by the normalized Arrhenius rate, shared
+  E(T)/nu(T)/alpha(T), thermal strain and consistent tangent;
+- natural-load work, prescribed-motion work, elastic energy, creep
+  dissipation, internal energy and mechanical residual histories;
 - Kachanov–Rabotnov, Sinh, and related relations at explicitly marked
   material-point/evaluation maturity unless a global consumer is present;
 - modified-theta projection as a curve-assessment tool;
+- source-identified creep time fractions and explicit creep--fatigue
+  interaction diagrams as an engineering postprocessor;
 - small-strain J2 plasticity through a stateful global route.
 
 The maturity label is part of the interface: the presence of a formula does not

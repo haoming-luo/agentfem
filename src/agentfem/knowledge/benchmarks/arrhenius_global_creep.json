@@ -4,7 +4,7 @@
   "id": "agentfem.benchmark.arrhenius_global_creep",
   "title": "Transient heat to global Arrhenius creep contract",
   "status": "automated_regression",
-  "purpose": "Verify that prescribed and physical-time temperature fields are evaluated at the shared creep quadrature identity and consumed by the same backward-Euler update, analytical tangent, Newton path, rollback, output, and checkpoint identity as the global power-law creep state.",
+  "purpose": "Verify that prescribed and physical-time temperature fields are evaluated at the shared creep quadrature identity and consumed by the same backward-Euler update, temperature-resolved elastic response, thermal strain, analytical tangent, Newton path, rollback, output, and checkpoint identity as the global power-law creep state.",
   "physics": "three-dimensional small-strain Mises power-law creep with prescribed or time-varying Arrhenius temperature fields",
   "execution": {
     "command": "python -m pytest -q tests/test_p1_platform.py -k 'global_arrhenius_creep_consumes'",
@@ -27,7 +27,7 @@
   ],
   "limitations": [
     "The internal component contract is not an external power-component validation case.",
-    "Elastic and creep parameters other than the normalized Arrhenius coefficient remain temperature independent.",
+    "Temperature-dependent E, nu and alpha are supported when a shared thermoelastic property object is supplied; this benchmark uses a bounded internal component path rather than an external component validation.",
     "This is a regression and integration benchmark, not external component validation."
   ]
 }

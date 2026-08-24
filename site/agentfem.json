@@ -49,6 +49,7 @@
     "units",
     "io",
     "verification",
+    "assessments",
     "boundary_models",
     "campaigns",
     "convergence",
@@ -105,6 +106,7 @@
       "verification"
     ],
     "advanced": [
+      "assessments",
       "boundary_models",
       "campaigns",
       "convergence",

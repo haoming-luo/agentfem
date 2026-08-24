@@ -23,6 +23,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Constraint containers and strong BC construction | `constraints/` |
 | Loads and natural boundary data | `loads.py` |
 | Constitutive response relations and maturity catalog | `constitutive/` |
+| Standard-neutral engineering creep/fatigue assessment consumers and interaction diagrams | `assessments.py` |
 | Quadrature-point committed/trial state | `constitutive/quadrature.py` |
 | Monotonic cohesive laws, paired interface topology, and physical-keyed state | `interfaces.py`, `cohesive_checkpoint.py` |
 | Independent cycle coordinate, cyclic cohesive damage, cycle jumps, and 3D fatigue-crack observations | `fatigue_fracture.py` |

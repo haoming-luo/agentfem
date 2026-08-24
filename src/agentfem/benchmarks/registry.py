@@ -442,6 +442,33 @@ _BENCHMARKS = (
         ),
     ),
     BenchmarkSpec(
+        identifier="thermo_creep_shared_material",
+        capability="power_law_creep",
+        level="finite_element_integration",
+        reference="knowledge/benchmarks/thermo_creep_shared_material.json",
+        criterion=(
+            "one accepted transient temperature history drives Arrhenius rate, "
+            "E(T), nu(T), thermal strain, restartable state, and work/energy "
+            "evidence through the global creep step"
+        ),
+        automated_test=(
+            "tests/test_p1_platform.py::"
+            "test_transient_heat_history_drives_global_arrhenius_creep_component"
+        ),
+    ),
+    BenchmarkSpec(
+        identifier="creep_fatigue_assessment",
+        capability="creep_fatigue_assessment",
+        level="postprocessor",
+        reference="knowledge/benchmarks/creep_fatigue_assessment.json",
+        criterion=(
+            "time-fraction damage preserves every rupture source and combines "
+            "with an existing fatigue assessment only through an explicit "
+            "source-identified interaction boundary"
+        ),
+        automated_test="tests/test_assessments.py",
+    ),
+    BenchmarkSpec(
         identifier="creep_damage_material_paths",
         capability="creep_damage",
         level="material_point",

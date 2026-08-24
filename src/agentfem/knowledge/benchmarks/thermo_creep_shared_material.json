@@ -1,0 +1,31 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.thermo_creep_shared_material",
+  "title": "Shared temperature-dependent heat-to-creep material contract",
+  "status": "automated_integration",
+  "purpose": "Verify that one thermoelastic material asset and one accepted thermal history drive heat transfer, Arrhenius creep rate, temperature-dependent elastic response, thermal strain, restart identity, and structured energy evidence.",
+  "physics": "Sequential three-dimensional transient heat transfer and small-strain thermoelastic Arrhenius power-law creep",
+  "execution": {
+    "command": "python -m pytest -q tests/test_p1_platform.py::test_transient_heat_history_drives_global_arrhenius_creep_component tests/test_p1_platform.py::test_global_thermo_creep_checkpoint_restart_matches_full_path",
+    "example": "examples/implicit_creep_relaxation_3d.py",
+    "evidence": "A transient heat Step captures accepted finite-element temperature states. The global creep Step consumes the same physical clock and thermoelastic property object at its quadrature identity; a second test compares continuous and restarted temperature-dependent E(T) paths."
+  },
+  "observables": [
+    "Accepted thermal-history times and active creep time",
+    "Integration-point temperature extrema and nonuniform CEEQ",
+    "TEMP, CE, CEEQ, S, MISES, RF and recovered cell fields",
+    "Elastic energy, creep dissipation, internal energy, external work channels and mechanical energy residual"
+  ],
+  "acceptance": [
+    "The heat and creep procedures share one inspectable thermoelastic property object.",
+    "Every attempted creep increment samples positive kelvin temperature at the constitutive quadrature identity.",
+    "Rollback and checkpoint reconstruction evaluate stress and tangent at the accepted temperature without advancing fictitious creep time.",
+    "The completed result retains temperature, constitutive state and energy histories."
+  ],
+  "limitations": [
+    "This internal component integration test is not an external power-plant component validation.",
+    "The route is sequential one-way coupling; mechanical dissipation is not fed back into heat transfer.",
+    "Thermal-expansion tables are treated as secant coefficients relative to the declared reference temperature."
+  ]
+}

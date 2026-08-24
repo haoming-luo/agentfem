@@ -1040,7 +1040,7 @@ class CreepQuadratureState:
         if (
             not isinstance(material, QuadratureMaterialMap)
             and temperatures is None
-            and material.temperature_dependence is None
+            and not material.requires_temperature
         ):
             try:
                 batch = material.update_many(
@@ -1107,7 +1107,9 @@ class CreepQuadratureState:
                     time_end=time_end,
                     state=old,
                     temperature=(
-                        None if temperatures is None else float(temperatures[index])
+                        None
+                        if temperatures is None or not selected_material.requires_temperature
+                        else float(temperatures[index])
                     ),
                 )
             except Exception as exc:
@@ -1174,6 +1176,8 @@ class CreepQuadratureState:
         self,
         strain_values,
         material: IsotropicPowerLawCreepMaterial | QuadratureMaterialMap,
+        *,
+        temperature_values=None,
     ) -> None:
         """Recover accepted stress without changing committed/trial state."""
 
@@ -1187,6 +1191,17 @@ class CreepQuadratureState:
         stresses = np.empty_like(self.stress.values)
         points_per_cell = len(self.stress.points)
         tangents = np.empty_like(self.tangent.values)
+        temperatures = None
+        if temperature_values is not None:
+            temperatures = np.asarray(temperature_values, dtype=float).reshape(-1)
+            if len(temperatures) != len(strains):
+                raise ValueError(
+                    "Temperature and creep quadrature layouts do not match."
+                )
+            if np.any(~np.isfinite(temperatures)) or np.any(temperatures <= 0.0):
+                raise ValueError(
+                    "Creep quadrature temperatures must be positive kelvin values."
+                )
         for index, strain in enumerate(strains):
             selected_material = (
                 material.material_for_point(index, points_per_cell=points_per_cell)
@@ -1196,8 +1211,19 @@ class CreepQuadratureState:
             stresses[index] = selected_material.stress_from_state(
                 strain,
                 ImplicitCreepState(committed_ce[index], committed_ceeq[index]),
+                temperature=(
+                    None
+                    if temperatures is None or not selected_material.requires_temperature
+                    else float(temperatures[index])
+                ),
             )
-            tangents[index] = selected_material.elastic_tangent()
+            tangents[index] = selected_material.elastic_tangent(
+                temperature=(
+                    None
+                    if temperatures is None or not selected_material.requires_temperature
+                    else float(temperatures[index])
+                )
+            )
         self.stress.assign(stresses)
         self.tangent.assign(tangents)
         self.rollback()

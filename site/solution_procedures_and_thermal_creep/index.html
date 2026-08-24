@@ -788,6 +788,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#engineering-creep-fatigue-assessment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Engineering creep--fatigue assessment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#current-boundary-and-next-gates" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1276,6 +1287,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#engineering-creep-fatigue-assessment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Engineering creep--fatigue assessment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#current-boundary-and-next-gates" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1462,9 +1484,14 @@ A(T)=A_{\mathrm{ref}}
 \left(\frac{1}{T}-\frac{1}{T_{\mathrm{ref}}}\right)\right].
 \]</div>
 <p>The implementation uses the equivalent exponent form in code; all
-temperatures are absolute. The global three-dimensional Mises power-law route
-now accepts either an isothermal material or a scalar/finite-element
-temperature input for the normalized Arrhenius law. It provides:</p>
+temperatures are absolute. The global three-dimensional and axisymmetric Mises
+power-law route now accepts either an isothermal material or the same
+thermoelastic property asset used by heat transfer. A scalar, finite-element
+field, or accepted <code>FieldHistory</code> supplies <span class="arithmatex">\(T\)</span> at every creep quadrature
+point. The local update consumes the normalized Arrhenius rate, <span class="arithmatex">\(E(T)\)</span>,
+<span class="arithmatex">\(\nu(T)\)</span>, and the endpoint secant thermal strain
+<span class="arithmatex">\(\alpha(T)[T-T_{\mathrm{ref}}]I\)</span> through one consistent material contract.
+It provides:</p>
 <ul>
 <li>committed/trial <code>CE</code> and <code>CEEQ</code> at every quadrature point;</li>
 <li>a safeguarded backward-Euler local scalar solve over <span class="arithmatex">\(\Delta t\)</span>;</li>
@@ -1472,7 +1499,9 @@ temperature input for the normalized Arrhenius law. It provides:</p>
 <li>atomic commit after acceptance and rollback after Newton, local, or
   maximum-creep-increment failure;</li>
 <li>complete regional material assignment, fixed or automatic physical-time
-  increments, dissipation history, and portable full-Step checkpoint/restart;</li>
+  increments, natural-load work, prescribed-motion work, elastic energy,
+  creep dissipation, total internal energy, a mechanical energy residual, and
+  portable full-Step checkpoint/restart;</li>
 <li>MPI-safe regional constitutive dispatch and a portable quadrature-state
   archive keyed by original physical cell, quadrature point, rule, material
   contract, and mesh fingerprint;</li>
@@ -1483,6 +1512,11 @@ temperature input for the normalized Arrhenius law. It provides:</p>
   rollback and restart restore it to the accepted physical time;</li>
 <li>a three-dimensional homogeneous stress-relaxation Golden contract.</li>
 </ul>
+<p>The mechanical residual compares external mechanical work with stored elastic
+energy plus creep dissipation. Under a changing prescribed temperature it also
+contains the unreported thermal/material energy transfer, so it is evidence for
+auditing the mechanical ledger rather than a full thermo-mechanical
+conservation error.</p>
 <p>This is implemented by reusing <code>QuadratureTransaction</code>; creep does not own a
 second private state store. Checkpoint recovery reconstructs accepted stress
 from displacement and committed <code>CE</code> without advancing a fictitious time
@@ -1492,6 +1526,22 @@ underpins robust Newton convergence in inelastic finite elements.</p>
 Kachanov--Rabotnov remain material-point capabilities. The accepted transient
 temperature history is now an explicit transfer object; it does not silently
 promote damage, mesh regularization, or structural rupture prediction.</p>
+<h2 id="engineering-creep-fatigue-assessment">Engineering creep--fatigue assessment<a class="headerlink" href="#engineering-creep-fatigue-assessment" title="Permanent link">&para;</a></h2>
+<p><code>agentfem.assessments</code> is a postprocessing layer, not a new constitutive law.
+It combines three independently reviewable assets:</p>
+<ol>
+<li>source-identified dwell blocks evaluated by the time-fraction rule
+   <span class="arithmatex">\(D_c=\sum_i n_i t_i/t_{r,i}\)</span>;</li>
+<li>an existing <code>FatigueAssessment</code> produced from a declared stress history,
+   cycle-counting policy, mean-stress policy and S--N curve;</li>
+<li>an explicit interaction diagram whose points and source are supplied by
+   the project.</li>
+</ol>
+<p>AgentFEM includes only the transparent reference <span class="arithmatex">\(D_c+D_f=1\)</span>. It does not
+embed ASME, R5, company, or material-specific allowable curves. Licensed and
+current normative data therefore stays at the reviewed project boundary,
+while the software provides one stable decision margin and structured result
+record.</p>
 <h2 id="current-boundary-and-next-gates">Current boundary and next gates<a class="headerlink" href="#current-boundary-and-next-gates" title="Permanent link">&para;</a></h2>
 <p>Implemented now:</p>
 <ul>
@@ -1522,7 +1572,10 @@ promote damage, mesh regularization, or structural rupture prediction.</p>
   portable full-Step restart, MPI-portable quadrature state, and a
   relaxation Golden contract;</li>
 <li>a 3D component contract in which accepted transient heat states drive the
-  global Arrhenius creep step on the same physical clock.</li>
+  global Arrhenius creep step on the same physical clock and through the same
+  temperature-dependent thermoelastic material asset;</li>
+<li>a source-preserving engineering creep--fatigue assessment contract with
+  explicit interaction data and no hidden design-code constants;</li>
 <li>the published NAFEMS R0027 Test 7 thick-cylinder stress oracle and a native
   Q2 axisymmetric elastic-preload-to-creep route. One-, two-, and four-cell
   radial meridians reduce the maximum radial/hoop/axial stress error from

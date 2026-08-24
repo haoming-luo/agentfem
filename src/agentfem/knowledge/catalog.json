@@ -57,6 +57,13 @@
       "title": "Creep-damage material paths and curve projection"
     },
     {
+      "id": "agentfem.benchmark.creep_fatigue_assessment",
+      "physics": "Postprocessed creep time-fraction and stress-life fatigue damage",
+      "source": "src/agentfem/knowledge/benchmarks/creep_fatigue_assessment.json",
+      "status": "automated_postprocessor",
+      "title": "Source-identified engineering creep-fatigue assessment"
+    },
+    {
       "id": "agentfem.benchmark.creep_hot_wall_release",
       "physics": "sequential transient heat conduction, plane-strain thermoelasticity, and local creep-damage assessment",
       "source": "src/agentfem/knowledge/benchmarks/creep_hot_wall_release.json",
@@ -232,6 +239,13 @@
       "title": "Finite-strain plane-stress and thin-three-dimensional patch cross-check"
     },
     {
+      "id": "agentfem.benchmark.thermo_creep_shared_material",
+      "physics": "Sequential three-dimensional transient heat transfer and small-strain thermoelastic Arrhenius power-law creep",
+      "source": "src/agentfem/knowledge/benchmarks/thermo_creep_shared_material.json",
+      "status": "automated_integration",
+      "title": "Shared temperature-dependent heat-to-creep material contract"
+    },
+    {
       "id": "agentfem.benchmark.thermoelastic_free_expansion",
       "physics": "small-strain isotropic plane-stress thermoelasticity under uniform temperature change",
       "source": "src/agentfem/knowledge/benchmarks/thermoelastic_free_expansion.json",
@@ -403,7 +417,7 @@
       ],
       "source": "src/agentfem/knowledge/cards/global_implicit_creep.json",
       "status": "supported",
-      "summary": "Three-dimensional and two-dimensional axisymmetric small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, endpoint creep-rate error control, adaptive physical-time increments, optional scalar, field, or physical-time-history Arrhenius temperature dependence, atomic rollback, portable restart, regional materials, and standard creep fields.",
+      "summary": "Three-dimensional and two-dimensional axisymmetric small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, endpoint creep-rate error control, adaptive physical-time increments, shared temperature-dependent thermoelastic properties, scalar, field, or physical-time-history temperature input, atomic rollback, portable restart, work-energy evidence, regional materials, and standard creep fields.",
       "title": "Global implicit power-law creep"
     },
     {
@@ -639,6 +653,25 @@
       "status": "supported",
       "summary": "Maps explicit local components to global finite-element loads and applies force/moment or known rigid motion through a named continuum reference point.",
       "title": "Local coordinates and reference-point continuum coupling"
+    },
+    {
+      "id": "agentfem.workflow.creep_fatigue_assessment",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.assessments.CreepDamageBlock",
+        "agentfem.assessments.creep_time_fraction",
+        "agentfem.assessments.interaction_diagram",
+        "agentfem.assessments.creep_fatigue"
+      ],
+      "related_cards": [
+        "agentfem.material.creep_damage_assessment",
+        "agentfem.material.global_implicit_creep",
+        "agentfem.workflow.thermoelastic_analysis"
+      ],
+      "source": "src/agentfem/knowledge/cards/creep_fatigue_assessment.json",
+      "status": "supported",
+      "summary": "A standard-neutral postprocessing contract for source-identified creep time fractions, existing stress-life fatigue assessments, explicit interaction diagrams, and structured result evidence.",
+      "title": "Engineering creep-fatigue assessment"
     },
     {
       "id": "agentfem.workflow.cyclic_work_energy_ledger",

@@ -9,7 +9,11 @@ from typing import ClassVar
 import numpy as np
 
 from .plasticity import deviatoric, von_mises
-from agentfem.materials.properties import ElasticIsotropicProperties
+from agentfem.materials.properties import (
+    ElasticIsotropicProperties,
+    TemperatureDependentThermoElasticProperties,
+    ThermoElasticIsotropicProperties,
+)
 
 
 @dataclass(frozen=True)
@@ -131,33 +135,105 @@ class IsotropicPowerLawCreepMaterial:
     global Newton solve.
     """
 
-    elastic: ElasticIsotropicProperties
+    elastic: (
+        ElasticIsotropicProperties
+        | ThermoElasticIsotropicProperties
+        | TemperatureDependentThermoElasticProperties
+    )
     creep: "PowerLawCreep"
     name: str = "isotropic power-law creep material"
     temperature_dependence: "ArrheniusPowerLawCreep | None" = None
     stateful_constitutive: ClassVar[bool] = True
 
     @property
+    def requires_temperature(self) -> bool:
+        """Whether every integration point must receive absolute temperature."""
+
+        if self.temperature_dependence is not None:
+            return True
+        if isinstance(self.elastic, TemperatureDependentThermoElasticProperties):
+            return True
+        return isinstance(self.elastic, ThermoElasticIsotropicProperties) and (
+            self.elastic.thermal_expansion != 0.0
+        )
+
+    def _reference_elastic(self) -> ElasticIsotropicProperties:
+        if isinstance(self.elastic, TemperatureDependentThermoElasticProperties):
+            return self.elastic.at_temperature(self.elastic.reference_temperature)
+        return self.elastic
+
+    def _elastic_at(self, temperature: float | None) -> ElasticIsotropicProperties:
+        if isinstance(self.elastic, TemperatureDependentThermoElasticProperties):
+            if temperature is None:
+                raise ValueError(
+                    "Temperature-dependent elasticity requires an absolute "
+                    "temperature at every integration point."
+                )
+            return self.elastic.at_temperature(float(temperature))
+        return self.elastic
+
+    def thermal_strain(self, temperature: float | None) -> np.ndarray:
+        """Return endpoint secant thermal strain in the reference configuration.
+
+        The public thermoelastic property contract treats ``thermal_expansion``
+        as a mean/secant coefficient relative to ``reference_temperature``.
+        A future tangent-coefficient table requires an explicit integral and is
+        deliberately not inferred here.
+        """
+
+        if isinstance(self.elastic, TemperatureDependentThermoElasticProperties):
+            if temperature is None:
+                raise ValueError(
+                    "Thermoelastic creep requires an absolute temperature at "
+                    "every integration point."
+                )
+            resolved = self.elastic.at_temperature(float(temperature))
+        elif isinstance(self.elastic, ThermoElasticIsotropicProperties):
+            resolved = self.elastic
+        else:
+            return np.zeros((3, 3), dtype=float)
+        if temperature is None:
+            if resolved.thermal_expansion == 0.0:
+                return np.zeros((3, 3), dtype=float)
+            raise ValueError(
+                "Thermoelastic creep requires an absolute temperature at every "
+                "integration point."
+            )
+        increment = resolved.thermal_expansion * (
+            float(temperature) - resolved.reference_temperature
+        )
+        return increment * np.eye(3)
+
+    def _elastic_constants(
+        self, temperature: float | None
+    ) -> tuple[float, float, float]:
+        selected = self._elastic_at(temperature)
+        shear = selected.young / (2.0 * (1.0 + selected.poisson))
+        bulk = selected.young / (3.0 * (1.0 - 2.0 * selected.poisson))
+        return float(selected.young), float(shear), float(bulk)
+
+    @property
     def young(self) -> float:
-        return self.elastic.young
+        return float(self._reference_elastic().young)
 
     @property
     def poisson(self) -> float:
-        return self.elastic.poisson
+        return float(self._reference_elastic().poisson)
 
     @property
     def density(self) -> float:
-        return self.elastic.density
+        return float(self._reference_elastic().density)
 
     @property
     def shear_modulus(self) -> float:
-        return self.elastic.mu
+        return float(self._reference_elastic().mu)
 
     @property
     def bulk_modulus(self) -> float:
         return self.young / (3.0 * (1.0 - 2.0 * self.poisson))
 
-    def elastic_tangent(self) -> np.ndarray:
+    def elastic_tangent(self, *, temperature: float | None = None) -> np.ndarray:
+        _young, shear_modulus, bulk_modulus = self._elastic_constants(temperature)
         identity = np.eye(3)
         symmetric_identity = 0.5 * (
             np.einsum("ik,jl->ijkl", identity, identity)
@@ -167,14 +243,16 @@ class IsotropicPowerLawCreepMaterial:
             "ij,kl->ijkl", identity, identity
         ) / 3.0
         return (
-            self.bulk_modulus * np.einsum("ij,kl->ijkl", identity, identity)
-            + 2.0 * self.shear_modulus * deviatoric_identity
+            bulk_modulus * np.einsum("ij,kl->ijkl", identity, identity)
+            + 2.0 * shear_modulus * deviatoric_identity
         )
 
     def stress_from_state(
         self,
         total_strain,
         state: ImplicitCreepState | None = None,
+        *,
+        temperature: float | None = None,
     ) -> np.ndarray:
         """Evaluate stress from a committed state without advancing time.
 
@@ -188,10 +266,13 @@ class IsotropicPowerLawCreepMaterial:
             raise ValueError("total_strain must be a finite 3x3 tensor.")
         strain = 0.5 * (strain + strain.T)
         accepted = ImplicitCreepState() if state is None else state
-        elastic_strain = strain - accepted.creep_strain
+        _young, shear_modulus, bulk_modulus = self._elastic_constants(temperature)
+        elastic_strain = (
+            strain - accepted.creep_strain - self.thermal_strain(temperature)
+        )
         return (
-            2.0 * self.shear_modulus * deviatoric(elastic_strain)
-            + self.bulk_modulus * np.trace(elastic_strain) * np.eye(3)
+            2.0 * shear_modulus * deviatoric(elastic_strain)
+            + bulk_modulus * np.trace(elastic_strain) * np.eye(3)
         )
 
     def update(
@@ -222,7 +303,7 @@ class IsotropicPowerLawCreepMaterial:
             raise ValueError("Local tolerance and maximum_iterations must be positive.")
         old = ImplicitCreepState() if state is None else state
         if self.temperature_dependence is None:
-            if temperature is not None:
+            if temperature is not None and not self.requires_temperature:
                 raise ValueError(
                     "temperature was supplied to an isothermal creep material."
                 )
@@ -234,29 +315,30 @@ class IsotropicPowerLawCreepMaterial:
                     "integration point."
                 )
             creep_law = self.temperature_dependence.at_temperature(temperature)
-        elastic_trial = strain - old.creep_strain
+        young, shear_modulus, bulk_modulus = self._elastic_constants(temperature)
+        elastic_trial = strain - old.creep_strain - self.thermal_strain(temperature)
         trial_stress = (
-            2.0 * self.shear_modulus * deviatoric(elastic_trial)
-            + self.bulk_modulus * np.trace(elastic_trial) * np.eye(3)
+            2.0 * shear_modulus * deviatoric(elastic_trial)
+            + bulk_modulus * np.trace(elastic_trial) * np.eye(3)
         )
         trial_deviator = deviatoric(trial_stress)
         q_trial = von_mises(trial_stress)
-        if q_trial <= max(1.0, self.young) * tolerance:
+        if q_trial <= max(1.0, young) * tolerance:
             return ImplicitCreepUpdate(
                 stress=trial_stress,
                 state=old,
                 equivalent_increment=0.0,
-                algorithmic_tangent=self.elastic_tangent(),
+                algorithmic_tangent=self.elastic_tangent(temperature=temperature),
                 local_iterations=0,
             )
 
-        upper = q_trial / (3.0 * self.shear_modulus)
+        upper = q_trial / (3.0 * shear_modulus)
         increment = min(dt * creep_law.equivalent_rate(q_trial, end), upper)
         lower = 0.0
         iterations = 0
         converged = False
         for iterations in range(1, maximum_iterations + 1):
-            q = max(0.0, q_trial - 3.0 * self.shear_modulus * increment)
+            q = max(0.0, q_trial - 3.0 * shear_modulus * increment)
             rate = creep_law.equivalent_rate(q, end)
             residual = increment - dt * rate
             scale = max(1.0, upper, abs(increment), dt * rate)
@@ -272,7 +354,7 @@ class IsotropicPowerLawCreepMaterial:
                 if q <= 0.0 or rate == 0.0
                 else creep_law.stress_exponent * rate / q
             )
-            derivative = 1.0 + 3.0 * self.shear_modulus * dt * rate_derivative
+            derivative = 1.0 + 3.0 * shear_modulus * dt * rate_derivative
             candidate = increment - residual / derivative
             if not lower < candidate < upper:
                 candidate = 0.5 * (lower + upper)
@@ -283,7 +365,7 @@ class IsotropicPowerLawCreepMaterial:
                 f"{maximum_iterations} iterations."
             )
 
-        q = max(0.0, q_trial - 3.0 * self.shear_modulus * increment)
+        q = max(0.0, q_trial - 3.0 * shear_modulus * increment)
         direction = 1.5 * trial_deviator / q_trial
         creep_strain = old.creep_strain + increment * direction
         reduction = q / q_trial
@@ -299,7 +381,7 @@ class IsotropicPowerLawCreepMaterial:
             0.0
             if rate_derivative == 0.0
             else dt * rate_derivative
-            / (1.0 + 3.0 * self.shear_modulus * dt * rate_derivative)
+            / (1.0 + 3.0 * shear_modulus * dt * rate_derivative)
         )
         identity = np.eye(3)
         symmetric_identity = 0.5 * (
@@ -313,10 +395,10 @@ class IsotropicPowerLawCreepMaterial:
             d_increment_d_qtrial / q_trial - increment / q_trial**2
         )
         tangent = (
-            self.bulk_modulus * np.einsum("ij,kl->ijkl", identity, identity)
-            + 2.0 * self.shear_modulus * reduction * deviatoric_identity
+            bulk_modulus * np.einsum("ij,kl->ijkl", identity, identity)
+            + 2.0 * shear_modulus * reduction * deviatoric_identity
             - 6.0
-            * self.shear_modulus**2
+            * shear_modulus**2
             * radial_coefficient
             * np.einsum("ij,kl->ijkl", trial_deviator, direction)
         )
@@ -351,7 +433,7 @@ class IsotropicPowerLawCreepMaterial:
         the scalar dispatch where each point may select a different law.
         """
 
-        if self.temperature_dependence is not None:
+        if self.requires_temperature:
             raise ValueError(
                 "update_many is the homogeneous isothermal path; "
                 "temperature-dependent updates require point temperatures."
@@ -1079,11 +1161,63 @@ class PowerLawCreep:
         }
 
 
+def _creep_elastic_properties(
+    *,
+    elastic,
+    young: float | None,
+    poisson: float | None,
+    density: float | None,
+    name: str,
+):
+    if elastic is not None:
+        if any(value is not None for value in (young, poisson, density)):
+            raise ValueError(
+                "Pass elastic=... or young/poisson/density, not both."
+            )
+        if not isinstance(
+            elastic,
+            (
+                ElasticIsotropicProperties,
+                ThermoElasticIsotropicProperties,
+                TemperatureDependentThermoElasticProperties,
+            ),
+        ):
+            raise TypeError(
+                "elastic must be an isotropic elastic or thermoelastic property record."
+            )
+        return elastic
+    missing = [
+        key
+        for key, value in (
+            ("young", young),
+            ("poisson", poisson),
+            ("density", density),
+        )
+        if value is None
+    ]
+    if missing:
+        raise ValueError(
+            "Creep elasticity requires elastic=... or " + ", ".join(missing) + "."
+        )
+    return ElasticIsotropicProperties(
+        name=f"{name} elastic",
+        young=float(young),
+        density=float(density),
+        poisson=float(poisson),
+    )
+
+
 def isotropic_power_law(
     *,
-    young: float,
-    poisson: float,
-    density: float,
+    young: float | None = None,
+    poisson: float | None = None,
+    density: float | None = None,
+    elastic: (
+        ElasticIsotropicProperties
+        | ThermoElasticIsotropicProperties
+        | TemperatureDependentThermoElasticProperties
+        | None
+    ) = None,
     coefficient: float,
     stress_exponent: float,
     time_exponent: float = 0.0,
@@ -1093,11 +1227,12 @@ def isotropic_power_law(
 ) -> IsotropicPowerLawCreepMaterial:
     """Create one Abaqus-style material record with elastic and creep data."""
 
-    elastic = ElasticIsotropicProperties(
-        name=f"{name} elastic",
+    elastic = _creep_elastic_properties(
+        elastic=elastic,
         young=young,
-        density=density,
         poisson=poisson,
+        density=density,
+        name=name,
     )
     law = PowerLawCreep(
         coefficient=coefficient,
@@ -1232,9 +1367,15 @@ class ArrheniusPowerLawCreep:
 
 def isotropic_arrhenius_power_law(
     *,
-    young: float,
-    poisson: float,
-    density: float,
+    young: float | None = None,
+    poisson: float | None = None,
+    density: float | None = None,
+    elastic: (
+        ElasticIsotropicProperties
+        | ThermoElasticIsotropicProperties
+        | TemperatureDependentThermoElasticProperties
+        | None
+    ) = None,
     coefficient: float,
     stress_exponent: float,
     activation_energy: float,
@@ -1247,11 +1388,12 @@ def isotropic_arrhenius_power_law(
 ) -> IsotropicPowerLawCreepMaterial:
     """Create elasticity plus a globally consumable Arrhenius creep law."""
 
-    elastic = ElasticIsotropicProperties(
-        name=f"{name} elastic",
+    elastic = _creep_elastic_properties(
+        elastic=elastic,
         young=young,
-        density=density,
         poisson=poisson,
+        density=density,
+        name=name,
     )
     dependence = ArrheniusPowerLawCreep(
         coefficient=coefficient,

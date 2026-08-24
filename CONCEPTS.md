@@ -205,6 +205,15 @@ Material-point equivalence under constant extrema is necessary but does not
 replace a global structural cycle-jump error check as the crack changes the
 equilibrium solution.
 
+## Engineering Assessment
+
+An engineering assessment consumes simulation histories and reviewed project
+data without changing finite-element equilibrium or constitutive state. The
+first creep--fatigue contract keeps creep time fractions, stress-life fatigue
+damage, and an interaction diagram as separate inspectable assets. Every
+rupture relation and nontrivial interaction curve retains its source;
+AgentFEM does not embed licensed or material-specific allowable data.
+
 ## Constitutive Law
 
 A local response relation that maps state to stress, flux, tangent, or another
@@ -217,12 +226,13 @@ whether a capability is FEM-integrated, material-point verified, or a
 postprocessor. The first global J2 route has committed/trial quadrature state,
 an algorithmically consistent tangent, rollback/cutback, rank-count-portable
 restart, and serial/MPI evidence from a public thick-cylinder structural
-benchmark. Temperature-dependent Arrhenius
-power-law creep is integrated in a three-dimensional small-strain global Step
-with shared quadrature state, an analytical algorithmic tangent, atomic
-cutback/restart, prescribed temperature histories, and serial external
-structural evidence. Its distributed state is MPI-safe, while distributed
-global equilibrium retains an explicit experimental boundary. Other creep
+benchmark. Temperature-dependent Arrhenius power-law creep is integrated in a
+three-dimensional or axisymmetric small-strain global Step with shared
+quadrature state, shared E(T)/nu(T)/alpha(T) thermoelastic properties, an
+analytical algorithmic tangent, atomic cutback/restart, prescribed temperature
+histories, mechanical work/energy evidence, and serial external structural
+evidence. Its distributed state is MPI-safe, while distributed global
+equilibrium retains an explicit experimental boundary. Other creep
 families remain local or assessment capabilities unless their own catalog
 evidence says otherwise. Path-dependent material FEM integration additionally
 requires quadrature state, a consistent tangent or documented alternative,

@@ -138,6 +138,16 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   sequential properties. Do not hide interpolation in an anonymous callback
   or silently extrapolate outside laboratory data. A field-valued UFL
   coefficient requires an explicit bounded extrapolation policy.
+- Pass the same thermoelastic property asset as `elastic=...` to a global
+  power-law creep material when E(T), nu(T), alpha(T), heat properties, and
+  Arrhenius flow must share one reviewed record. Temperature is evaluated at
+  the creep quadrature identity; thermal-expansion tables are endpoint secant
+  coefficients relative to the declared reference temperature.
+- Use `assessments.creep_time_fraction(...)` and
+  `assessments.creep_fatigue(...)` only as engineering postprocessors. Every
+  rupture-time block and nontrivial interaction diagram needs an explicit
+  source. Do not bake ASME, R5, company, or material-specific curves into the
+  open core or present an assessment as coupled constitutive damage.
 - If conductivity or specific heat is tabulated, keep the ordinary
   `model.step(target=temperature, dt=..., steps=...)` call. AgentFEM lowers it
   to a conservative enthalpy-based nonlinear heat step. Do not also pass

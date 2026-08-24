@@ -33,6 +33,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.workflow.campaign_learning_pipeline`](#agentfem-workflow-campaign_learning_pipeline) | Simulation campaign to guarded learning workflow | workflow | supported |
 | [`agentfem.workflow.cohesive_state_portability`](#agentfem-workflow-cohesive_state_portability) | Physical-keyed cohesive state across MPI partitions | workflow | experimental |
 | [`agentfem.workflow.coordinate_reference_coupling`](#agentfem-workflow-coordinate_reference_coupling) | Local coordinates and reference-point continuum coupling | workflow | supported |
+| [`agentfem.workflow.creep_fatigue_assessment`](#agentfem-workflow-creep_fatigue_assessment) | Engineering creep-fatigue assessment | workflow | supported |
 | [`agentfem.workflow.cyclic_work_energy_ledger`](#agentfem-workflow-cyclic_work_energy_ledger) | Transactional generalized work and cycle-block energy ledger | workflow | experimental |
 | [`agentfem.workflow.distributed_cohesive_force`](#agentfem-workflow-distributed_cohesive_force) | Sparse physical-keyed cohesive force assembly across MPI ranks | workflow | experimental |
 | [`agentfem.workflow.dynamic_fracture_v5_evidence`](#agentfem-workflow-dynamic_fracture_v5_evidence) | Publication-data evidence for dynamic cohesive fracture | workflow | experimental |
@@ -61,6 +62,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.classical_sub_rayleigh_crack_v3` | Classical sub-Rayleigh cohesive crack guardrail | precracked compressible Neo-Hookean strip with a fixed-path bilinear Mode-I cohesive interface | experimental_v3_guardrail_automated |
 | `agentfem.benchmark.creep_abaqus_constant_stress` | Official Abaqus time-hardening constant-stress creep case | three-dimensional small-strain Mises time-hardening power-law creep | automated_external_verification |
 | `agentfem.benchmark.creep_damage_material_paths` | Creep-damage material paths and curve projection | Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection | automated_regression |
+| `agentfem.benchmark.creep_fatigue_assessment` | Source-identified engineering creep-fatigue assessment | Postprocessed creep time-fraction and stress-life fatigue damage | automated_postprocessor |
 | `agentfem.benchmark.creep_hot_wall_release` | Sequential hot-wall creep assessment release contract | sequential transient heat conduction, plane-strain thermoelasticity, and local creep-damage assessment | automated_regression |
 | `agentfem.benchmark.creep_nafems_r0027_test7` | NAFEMS R0027 Test 7 pressurized-cylinder secondary creep | Plane-strain thick cylinder under constant internal pressure with Mises secondary power-law creep | automated_external_structural_verification |
 | `agentfem.benchmark.cyclic_cohesive_global_lifecycle` | Global cyclic cohesive transaction, cutback, restart and named 3D interfaces | Quasi-static force-controlled fixed-path Mode-I cohesive fatigue | experimental_automated_foundation |
@@ -86,6 +88,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.pdeagent_bench_eleven_family` | PDEAgent-Bench eleven-family fixed-adapter milestone | Poisson, heat, linear elasticity, Helmholtz, convection--diffusion, reaction--diffusion, scalar wave, Burgers, Stokes, Navier--Stokes, and biharmonic equations | external_runner_development_snapshot |
 | `agentfem.benchmark.pdeagent_bench_scalar_seven_family` | PDEAgent-Bench seven-family fixed-adapter snapshot | Poisson, heat, linear elasticity, Helmholtz, convection--diffusion, reaction--diffusion, and scalar wave equations | external_runner_development_snapshot |
 | `agentfem.benchmark.plane_stress_thin_3d_crosscheck` | Finite-strain plane-stress and thin-three-dimensional patch cross-check | compressible Neo-Hookean finite strain under homogeneous uniaxial stretch with traction-free lateral and thickness directions | experimental_geometry_crosscheck_automated |
+| `agentfem.benchmark.thermo_creep_shared_material` | Shared temperature-dependent heat-to-creep material contract | Sequential three-dimensional transient heat transfer and small-strain thermoelastic Arrhenius power-law creep | automated_integration |
 | `agentfem.benchmark.thermoelastic_free_expansion` | Plane-stress isotropic free thermal expansion | small-strain isotropic plane-stress thermoelasticity under uniform temperature change | automated_regression |
 | `agentfem.benchmark.transient_heat_release` | Implicit-Euler transient heat release regression | two-dimensional transient heat conduction with constant isotropic properties | numerical_regression |
 | `agentfem.benchmark.vector_cohesive_interface` | Vector cohesive kinematics, mixed-mode energy and model rank | Two- and three-dimensional fixed-path cohesive interfaces under normal, shear, mixed and compressive separation | experimental_automated_foundation |
@@ -682,7 +685,7 @@ step = model.step(target=u, material=material, steps=100)
 **Status:** `supported`<br>
 **Source card:** `src/agentfem/knowledge/cards/global_implicit_creep.json`
 
-Three-dimensional and two-dimensional axisymmetric small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, endpoint creep-rate error control, adaptive physical-time increments, optional scalar, field, or physical-time-history Arrhenius temperature dependence, atomic rollback, portable restart, regional materials, and standard creep fields.
+Three-dimensional and two-dimensional axisymmetric small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, endpoint creep-rate error control, adaptive physical-time increments, shared temperature-dependent thermoelastic properties, scalar, field, or physical-time-history temperature input, atomic rollback, portable restart, work-energy evidence, regional materials, and standard creep fields.
 
 ### Public API
 
@@ -734,7 +737,7 @@ A declared creep_strain_error_tolerance may reject an otherwise converged increm
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
-| elastic and creep parameters | E, nu, density, A, n, optional time exponent and reference scales | one declared consistent stress-time system | Use isotropic_power_law to keep instantaneous elasticity and creep flow in one material record. |
+| elastic and creep parameters | E, nu, density, A, n, optional time exponent and reference scales | one declared consistent stress-time system | Use isotropic_power_law with constants or elastic=... to share E(T), nu(T), alpha(T), density and the creep flow in one material record. |
 | physical duration and increment controls | positive duration plus fixed or automatic incrementation | time | Normalized increment sizes map to physical time; amplitudes are evaluated in physical time. A procedure-specific endpoint creep-rate tolerance may control integration accuracy. |
 | temperature | positive scalar, scalar finite-element field, or physical-time FieldHistory | absolute temperature in kelvin | Required for an Arrhenius material, sampled at attempted physical time, and evaluated at the same quadrature identity as creep state. |
 
@@ -744,12 +747,12 @@ A declared creep_strain_error_tolerance may reject an otherwise converged increm
 | --- | --- | --- | --- |
 | S and MISES | quadrature tensor and scalar fields | stress | Accepted constitutive stress and its von Mises invariant. |
 | CE and CEEQ | committed quadrature state | strain | Creep strain tensor and accumulated equivalent creep strain. |
-| time, Newton, local-update, integration-error and dissipation histories | structured histories and execution events | time, iterations, strain, and energy | Accepted times, maximum creep increment, endpoint creep-rate error estimate, local/global iterations, elastic energy, and creep dissipation. |
+| time, Newton, local-update, integration-error, work and energy histories | structured histories and execution events | time, iterations, strain, and energy | Accepted times, maximum creep increment, endpoint creep-rate error estimate, local/global iterations, elastic energy, creep dissipation, natural-load work, prescribed-motion work, internal energy and mechanical residual. |
 | TEMP and temperature evidence | input field plus accepted-increment extrema | kelvin | Records the prescribed temperature field and the integration-point range actually consumed by Arrhenius updates. |
 
 #### Assumptions
 
-- Small strain, either three spatial dimensions or a two-dimensional axisymmetric meridian, isotropic elasticity, and associative Mises creep; temperature changes the Arrhenius rate but not elastic properties.
+- Small strain, either three spatial dimensions or a two-dimensional axisymmetric meridian, isotropic thermoelasticity, and associative Mises creep; a shared property asset may make the Arrhenius rate, E, nu and alpha temperature dependent.
 - Quasi-static equilibrium; inertia is not part of this procedure.
 - Each integration point resolves exactly one declared regional material.
 
@@ -762,6 +765,8 @@ A declared creep_strain_error_tolerance may reject an otherwise converged increm
 - Checkpoint restore reconstructs stress from accepted strain and CE without advancing a fictitious time increment.
 - A failed attempt restores the temperature history to the accepted increment start time together with displacement and quadrature state.
 - Result histories inherit the model's declared consistent time unit; without a unit declaration they remain explicitly unitless rather than being mislabeled as seconds.
+- Thermal-expansion tables are interpreted as mean/secant coefficients relative to the declared reference temperature.
+- The mechanical residual excludes prescribed thermal/material energy transfer and is not a full thermo-mechanical conservation error.
 
 #### Applicability
 
@@ -792,6 +797,7 @@ Create studies.creep_solid(), register constitutive.isotropic_power_law(...) or 
 
 - `agentfem.benchmark.implicit_creep_relaxation`
 - `agentfem.benchmark.arrhenius_global_creep`
+- `agentfem.benchmark.thermo_creep_shared_material`
 - `agentfem.benchmark.creep_nafems_r0027_test7`
 
 **Validation rules**
@@ -2138,6 +2144,107 @@ local = coordinates.cartesian(x=(0,1), y=(-1,0)); rp = coordinates.reference_poi
 ### References
 
 - Abaqus distributing coupling constraints: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAECSTRefMap/simacst-c-coupling.htm`
+
+<a id="agentfem-workflow-creep_fatigue_assessment"></a>
+
+## Engineering creep-fatigue assessment
+
+**Stable ID:** `agentfem.workflow.creep_fatigue_assessment`<br>
+**Kind:** `workflow`<br>
+**Status:** `supported`<br>
+**Source card:** `src/agentfem/knowledge/cards/creep_fatigue_assessment.json`
+
+A standard-neutral postprocessing contract for source-identified creep time fractions, existing stress-life fatigue assessments, explicit interaction diagrams, and structured result evidence.
+
+### Public API
+
+- `agentfem.assessments.CreepDamageBlock`
+- `agentfem.assessments.creep_time_fraction`
+- `agentfem.assessments.interaction_diagram`
+- `agentfem.assessments.creep_fatigue`
+
+### Scientific contract
+
+Creep and fatigue damage are computed by separately reviewable consumers, then compared with one explicitly sourced interaction boundary; this engineering assessment is not a coupled constitutive evolution law.
+
+**creep time fraction**
+
+$$
+D_{c}=\sum_i n_i\,t_i/t_{r,i}
+$$
+
+Each dwell duration and rupture time remains attached to its label and source.
+
+**interaction decision**
+
+$$
+D_f\leq D_{f,\mathrm{allow}}(D_c)
+$$
+
+The allowable boundary is a declared piecewise-linear scientific input.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| creep blocks | duration, rupture time, repetitions, label and source | duration and rupture time use the same time unit | Rupture times come from reviewed material data or a declared assessment relation. |
+| fatigue assessment | FatigueAssessment | dimensionless cumulative damage | Usually produced from a verified scalar history, cycle counting, mean-stress policy and S-N curve. |
+| interaction diagram | ordered creep-damage and allowable-fatigue-damage points | dimensionless damage coordinates | Normative, company or research data stay outside the core and retain their source. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| damage and margin | creep damage, fatigue damage, allowable fatigue damage and signed margin | dimensionless | Positive margin is inside the declared boundary. |
+| assessment record | JSON-safe source-preserving structure | scientific evidence | May be attached to a SimulationResult without changing the FEM solution. |
+
+#### Assumptions
+
+- The selected time-fraction rule, fatigue model and interaction curve are applicable to the assessed material, temperature and loading history.
+- Creep and fatigue damage are evaluated independently before interaction.
+
+#### Conventions
+
+- Creep damage is horizontal and allowable fatigue damage is vertical in an interaction diagram.
+- AgentFEM provides a transparent linear reference but no design-code or material-specific curve.
+- An assessment is a postprocessor and does not weaken stiffness or advance constitutive state.
+
+#### Applicability
+
+- Exploratory and engineering life assessments with reviewed rupture, fatigue and interaction inputs.
+- Traceable comparison of alternative project procedures without changing the FEM model.
+
+#### Limitations
+
+- It does not implement cyclic viscoplasticity, dwell stress relaxation or coupled continuum damage.
+- Qualification against a design standard requires licensed/current normative data and engineering review.
+
+### Minimal example
+
+```python
+Build CreepDamageBlock records, call assessments.creep_time_fraction(...), create an explicit assessments.interaction_diagram(...), then combine it with a constitutive.fatigue.FatigueAssessment through assessments.creep_fatigue(...).
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_assessments.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.creep_fatigue_assessment`
+
+**Validation rules**
+
+- Reject missing rupture and interaction sources.
+- Reject malformed or nonmonotone interaction boundaries.
+- Keep the complete fatigue, creep and interaction records with the decision.
+
+### References
+
+- ASTM E1049 cycle counting in fatigue analysis: `https://store.astm.org/standards/e1049`
+- ASME high-temperature structural design technology report: `https://www.asme.org/getmedia/4e4e3227-b157-4614-8172-572ade1c7e1d/20533.pdf`
 
 <a id="agentfem-workflow-cyclic_work_energy_ledger"></a>
 

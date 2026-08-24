@@ -20,6 +20,7 @@ from agentfem.constitutive import creep, fatigue, hyperelasticity, plasticity
 from agentfem.materials.properties import (
     ElasticAnisotropic2DProperties,
     ElasticIsotropicProperties,
+    TemperaturePropertyTable,
 )
 
 
@@ -654,6 +655,135 @@ def test_arrhenius_material_update_accelerates_with_temperature():
     assert material.as_dict()["temperature_dependence"]["model"] == (
         "arrhenius_mises_power_law_creep"
     )
+
+
+def test_thermoelastic_creep_material_consumes_shared_temperature_properties():
+    elastic = constitutive.temperature_dependent_thermoelastic(
+        young=TemperaturePropertyTable(
+            [300.0, 500.0], [200.0e3, 150.0e3], name="young"
+        ),
+        poisson=0.3,
+        density=1.0,
+        thermal_expansion=1.0e-5,
+        conductivity=1.0,
+        specific_heat=1.0,
+        reference_temperature=300.0,
+    )
+    material = constitutive.isotropic_power_law(
+        elastic=elastic,
+        coefficient=0.0,
+        stress_exponent=3.0,
+        reference_stress=100.0,
+    )
+    free_expansion = 1.0e-5 * (500.0 - 300.0) * np.eye(3)
+
+    free = material.stress_from_state(free_expansion, temperature=500.0)
+    constrained = material.stress_from_state(np.zeros((3, 3)), temperature=500.0)
+    tangent = material.elastic_tangent(temperature=500.0)
+    resolved = elastic.at_temperature(500.0)
+
+    np.testing.assert_allclose(free, 0.0, atol=1.0e-12)
+    bulk = resolved.young / (3.0 * (1.0 - 2.0 * resolved.poisson))
+    np.testing.assert_allclose(
+        constrained,
+        -3.0 * bulk * free_expansion[0, 0] * np.eye(3),
+    )
+    np.testing.assert_allclose(
+        tangent[0, 0, 0, 0], resolved.lambda_ + 2.0 * resolved.mu
+    )
+    assert material.shear_modulus == pytest.approx(
+        elastic.at_temperature(elastic.reference_temperature).mu
+    )
+    assert material.requires_temperature
+    with pytest.raises(ValueError, match="temperature"):
+        material.stress_from_state(np.zeros((3, 3)))
+
+
+def test_arrhenius_creep_accepts_the_same_thermoelastic_asset_as_heat_transfer():
+    elastic = constitutive.temperature_dependent_thermoelastic(
+        young=TemperaturePropertyTable(
+            [700.0, 900.0], [190.0e3, 140.0e3], name="young"
+        ),
+        poisson=0.3,
+        density=1.0,
+        thermal_expansion=1.2e-5,
+        conductivity=2.0,
+        specific_heat=3.0,
+        reference_temperature=700.0,
+    )
+    material = constitutive.isotropic_arrhenius_power_law(
+        elastic=elastic,
+        coefficient=1.0e-8,
+        stress_exponent=3.0,
+        activation_energy=120.0e3,
+        reference_temperature=700.0,
+        reference_stress=100.0,
+    )
+    strain = np.diag((0.003, -0.0015, -0.0015))
+
+    update = material.update(
+        strain,
+        time_start=0.0,
+        time_end=1.0,
+        temperature=850.0,
+    )
+
+    assert update.equivalent_increment > 0.0
+    assert material.as_dict()["elastic"]["model"] == (
+        "temperature_dependent_isotropic_linear_thermoelastic"
+    )
+
+
+def test_temperature_dependent_arrhenius_creep_tangent_is_consistent():
+    elastic = constitutive.temperature_dependent_thermoelastic(
+        young=TemperaturePropertyTable(
+            [700.0, 900.0], [190.0e3, 140.0e3], name="young"
+        ),
+        poisson=0.3,
+        density=1.0,
+        thermal_expansion=1.2e-5,
+        conductivity=2.0,
+        specific_heat=3.0,
+        reference_temperature=700.0,
+    )
+    material = constitutive.isotropic_arrhenius_power_law(
+        elastic=elastic,
+        coefficient=1.0e-8,
+        stress_exponent=3.0,
+        activation_energy=120.0e3,
+        reference_temperature=700.0,
+        reference_stress=100.0,
+    )
+    strain = np.asarray(
+        ((0.003, 0.0002, 0.0), (0.0002, -0.0015, 0.0), (0.0, 0.0, -0.0015))
+    )
+    direction = np.asarray(
+        ((0.3, 0.2, 0.0), (0.2, -0.1, 0.0), (0.0, 0.0, -0.2))
+    )
+    step = 1.0e-7
+    update = material.update(
+        strain,
+        time_start=0.0,
+        time_end=1.0,
+        temperature=850.0,
+    )
+    plus = material.update(
+        strain + step * direction,
+        time_start=0.0,
+        time_end=1.0,
+        temperature=850.0,
+    )
+    minus = material.update(
+        strain - step * direction,
+        time_start=0.0,
+        time_end=1.0,
+        temperature=850.0,
+    )
+
+    finite_difference = (plus.stress - minus.stress) / (2.0 * step)
+    predicted = np.einsum("ijkl,kl->ij", update.algorithmic_tangent, direction)
+
+    np.testing.assert_allclose(predicted, finite_difference, rtol=5.0e-8, atol=1.0e-5)
 
 
 def test_mises_creep_tensor_increment_is_deviatoric_and_has_requested_equivalent():

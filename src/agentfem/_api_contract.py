@@ -32,6 +32,7 @@ CORE_WORKFLOW_MODULES = (
 )
 
 ADVANCED_WORKFLOW_MODULES = (
+    "assessments",
     "boundary_models",
     "campaigns",
     "convergence",

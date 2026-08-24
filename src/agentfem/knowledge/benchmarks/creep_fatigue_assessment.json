@@ -1,0 +1,30 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.creep_fatigue_assessment",
+  "title": "Source-identified engineering creep-fatigue assessment",
+  "status": "automated_postprocessor",
+  "purpose": "Verify a standard-neutral engineering contract that combines reviewed rupture-time blocks with an existing fatigue assessment through an explicit interaction boundary.",
+  "physics": "Postprocessed creep time-fraction and stress-life fatigue damage",
+  "execution": {
+    "command": "python -m pytest -q tests/test_assessments.py",
+    "example": "examples/creep_fatigue_assessment.py",
+    "evidence": "Unit tests cover time fractions, source retention, interaction interpolation, accept/reject decisions, public discovery and structured SimulationResult attachment."
+  },
+  "observables": [
+    "Creep damage by service block and total time fraction",
+    "Fatigue damage from the existing rainflow and S-N consumer",
+    "Allowable fatigue damage at the computed creep damage",
+    "Interaction margin, decision and complete source records"
+  ],
+  "acceptance": [
+    "Every rupture-time block declares a nonempty source.",
+    "Interaction points are finite, bounded, strictly increasing in creep damage and strictly decreasing in allowable fatigue damage.",
+    "No normative or material-specific interaction points are silently supplied by AgentFEM.",
+    "The complete assessment is JSON-safe and can be attached to a SimulationResult."
+  ],
+  "limitations": [
+    "This postprocessor does not solve cyclic plasticity, dwell relaxation or coupled constitutive damage.",
+    "Project qualification remains responsible for rupture relations, fatigue curves and interaction data."
+  ]
+}

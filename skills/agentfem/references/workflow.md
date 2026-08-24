@@ -47,6 +47,8 @@ parallel workflow language from one example.
     - a resumed `solve_result(output=...)` produces an explicitly identified
       continuation segment, not reconstructed earlier frames.
 17. `SimulationResult`, physical QoIs, diagnostics, and histories
+    - optional engineering assessments consume these histories and attach
+      source-preserving decisions without changing the solved state;
 18. `result.verify("exploratory" | "engineering" | "release")`, required
     outputs, and explicit scientific claims when the result is described as
     verified/validated

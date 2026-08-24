@@ -5,7 +5,7 @@
   "title": "Global implicit power-law creep",
   "kind": "material",
   "status": "supported",
-  "summary": "Three-dimensional and two-dimensional axisymmetric small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, endpoint creep-rate error control, adaptive physical-time increments, optional scalar, field, or physical-time-history Arrhenius temperature dependence, atomic rollback, portable restart, regional materials, and standard creep fields.",
+  "summary": "Three-dimensional and two-dimensional axisymmetric small-strain Mises power-law creep with backward-Euler integration, a shared quadrature transaction, analytical consistent tangent, endpoint creep-rate error control, adaptive physical-time increments, shared temperature-dependent thermoelastic properties, scalar, field, or physical-time-history temperature input, atomic rollback, portable restart, work-energy evidence, regional materials, and standard creep fields.",
   "public_api": [
     "agentfem.studies.creep_solid",
     "agentfem.constitutive.isotropic_power_law",
@@ -50,7 +50,7 @@
         "name": "elastic and creep parameters",
         "type": "E, nu, density, A, n, optional time exponent and reference scales",
         "unit_role": "one declared consistent stress-time system",
-        "description": "Use isotropic_power_law to keep instantaneous elasticity and creep flow in one material record."
+        "description": "Use isotropic_power_law with constants or elastic=... to share E(T), nu(T), alpha(T), density and the creep flow in one material record."
       },
       {
         "name": "physical duration and increment controls",
@@ -79,10 +79,10 @@
         "description": "Creep strain tensor and accumulated equivalent creep strain."
       },
       {
-        "name": "time, Newton, local-update, integration-error and dissipation histories",
+        "name": "time, Newton, local-update, integration-error, work and energy histories",
         "type": "structured histories and execution events",
         "unit_role": "time, iterations, strain, and energy",
-        "description": "Accepted times, maximum creep increment, endpoint creep-rate error estimate, local/global iterations, elastic energy, and creep dissipation."
+        "description": "Accepted times, maximum creep increment, endpoint creep-rate error estimate, local/global iterations, elastic energy, creep dissipation, natural-load work, prescribed-motion work, internal energy and mechanical residual."
       },
       {
         "name": "TEMP and temperature evidence",
@@ -92,7 +92,7 @@
       }
     ],
     "assumptions": [
-      "Small strain, either three spatial dimensions or a two-dimensional axisymmetric meridian, isotropic elasticity, and associative Mises creep; temperature changes the Arrhenius rate but not elastic properties.",
+      "Small strain, either three spatial dimensions or a two-dimensional axisymmetric meridian, isotropic thermoelasticity, and associative Mises creep; a shared property asset may make the Arrhenius rate, E, nu and alpha temperature dependent.",
       "Quasi-static equilibrium; inertia is not part of this procedure.",
       "Each integration point resolves exactly one declared regional material."
     ],
@@ -103,7 +103,9 @@
       "creep_strain_error_tolerance limits the endpoint creep-rate change times the physical increment and causes the same atomic rollback/cutback when exceeded.",
       "Checkpoint restore reconstructs stress from accepted strain and CE without advancing a fictitious time increment.",
       "A failed attempt restores the temperature history to the accepted increment start time together with displacement and quadrature state.",
-      "Result histories inherit the model's declared consistent time unit; without a unit declaration they remain explicitly unitless rather than being mislabeled as seconds."
+      "Result histories inherit the model's declared consistent time unit; without a unit declaration they remain explicitly unitless rather than being mislabeled as seconds.",
+      "Thermal-expansion tables are interpreted as mean/secant coefficients relative to the declared reference temperature.",
+      "The mechanical residual excludes prescribed thermal/material energy transfer and is not a full thermo-mechanical conservation error."
     ],
     "applicability": [
       "Isothermal or prescribed-temperature three-dimensional or axisymmetric studies governed by a calibrated Mises power-law creep relation.",
@@ -130,6 +132,7 @@
     "benchmarks": [
       "agentfem.benchmark.implicit_creep_relaxation",
       "agentfem.benchmark.arrhenius_global_creep",
+      "agentfem.benchmark.thermo_creep_shared_material",
       "agentfem.benchmark.creep_nafems_r0027_test7"
     ],
     "validation_rules": [

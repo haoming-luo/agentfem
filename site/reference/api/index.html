@@ -979,6 +979,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agentfemassessments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.assessments
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agentfemboundary_models" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1787,6 +1798,17 @@
     <span class="md-ellipsis">
       
         agentfem.verification
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agentfemassessments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.assessments
       
     </span>
   </a>
@@ -2911,12 +2933,12 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>isotropic_power_law(*, young: float, poisson: float, density: float, coefficient: float, stress_exponent: float, time_exponent: float = 0.0, reference_stress: float = 1.0, reference_time: float = 1.0, name: str = 'isotropic power-law creep') -&gt; IsotropicPowerLawCreepMaterial</code></td>
+<td><code>isotropic_power_law(*, young: float \| None = None, poisson: float \| None = None, density: float \| None = None, elastic: ElasticIsotropicProperties \| ThermoElasticIsotropicProperties \| TemperatureDependentThermoElasticProperties \| None = None, coefficient: float, stress_exponent: float, time_exponent: float = 0.0, reference_stress: float = 1.0, reference_time: float = 1.0, name: str = 'isotropic power-law creep') -&gt; IsotropicPowerLawCreepMaterial</code></td>
 <td>Create one Abaqus-style material record with elastic and creep data.</td>
 </tr>
 <tr>
 <td>function</td>
-<td><code>isotropic_arrhenius_power_law(*, young: float, poisson: float, density: float, coefficient: float, stress_exponent: float, activation_energy: float, reference_temperature: float, time_exponent: float = 0.0, reference_stress: float = 1.0, reference_time: float = 1.0, gas_constant: float = 8.31446261815324, name: str = 'isotropic Arrhenius power-law creep') -&gt; IsotropicPowerLawCreepMaterial</code></td>
+<td><code>isotropic_arrhenius_power_law(*, young: float \| None = None, poisson: float \| None = None, density: float \| None = None, elastic: ElasticIsotropicProperties \| ThermoElasticIsotropicProperties \| TemperatureDependentThermoElasticProperties \| None = None, coefficient: float, stress_exponent: float, activation_energy: float, reference_temperature: float, time_exponent: float = 0.0, reference_stress: float = 1.0, reference_time: float = 1.0, gas_constant: float = 8.31446261815324, name: str = 'isotropic Arrhenius power-law creep') -&gt; IsotropicPowerLawCreepMaterial</code></td>
 <td>Create elasticity plus a globally consumable Arrhenius creep law.</td>
 </tr>
 <tr>
@@ -4554,6 +4576,58 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="agentfemassessments"><code>agentfem.assessments</code><a class="headerlink" href="#agentfemassessments" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Public object</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>class</td>
+<td><code>CreepDamageBlock</code></td>
+<td>One dwell or service block for the time-fraction rule.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CreepDamageAssessment</code></td>
+<td>Auditable linear time-fraction assessment over service blocks.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>InteractionDiagram</code></td>
+<td>Declared creep/fatigue allowable boundary in damage coordinates.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>CreepFatigueAssessment</code></td>
+<td>Combined engineering assessment from independent damage consumers.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>creep_time_fraction(blocks: Iterable[CreepDamageBlock]) -&gt; CreepDamageAssessment</code></td>
+<td>Evaluate the linear creep time-fraction rule for declared blocks.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>interaction_diagram(*, points, name: str, source: str) -&gt; InteractionDiagram</code></td>
+<td>Create an explicit piecewise-linear creep/fatigue interaction curve.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>linear_interaction() -&gt; InteractionDiagram</code></td>
+<td>Return the transparent reference boundary <code>Dc + Df = 1</code>.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>creep_fatigue(*, fatigue: FatigueAssessment, creep: CreepDamageAssessment, interaction: InteractionDiagram \| None = None) -&gt; CreepFatigueAssessment</code></td>
+<td>Combine existing fatigue and creep assessments against one boundary.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="agentfemboundary_models"><code>agentfem.boundary_models</code><a class="headerlink" href="#agentfemboundary_models" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -5687,7 +5761,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tr>
 <td>class</td>
 <td><code>CreepEnergyFrame</code></td>
-<td>Public AgentFEM object.</td>
+<td>Accepted work and energy evidence for one physical-time increment.</td>
 </tr>
 <tr>
 <td>class</td>

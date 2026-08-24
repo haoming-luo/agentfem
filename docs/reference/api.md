@@ -168,8 +168,8 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `PowerLawCreep` | Mises time-hardening creep law. |
 | class | `SinhCreep` | Stress-sensitive hyperbolic-sine Mises creep law. |
 | function | `integrate_stress_history(law: PowerLawCreep, times, interval_stresses) -> CreepHistory` | Integrate a piecewise-constant scalar or tensor stress history. |
-| function | `isotropic_power_law(*, young: float, poisson: float, density: float, coefficient: float, stress_exponent: float, time_exponent: float = 0.0, reference_stress: float = 1.0, reference_time: float = 1.0, name: str = 'isotropic power-law creep') -> IsotropicPowerLawCreepMaterial` | Create one Abaqus-style material record with elastic and creep data. |
-| function | `isotropic_arrhenius_power_law(*, young: float, poisson: float, density: float, coefficient: float, stress_exponent: float, activation_energy: float, reference_temperature: float, time_exponent: float = 0.0, reference_stress: float = 1.0, reference_time: float = 1.0, gas_constant: float = 8.31446261815324, name: str = 'isotropic Arrhenius power-law creep') -> IsotropicPowerLawCreepMaterial` | Create elasticity plus a globally consumable Arrhenius creep law. |
+| function | `isotropic_power_law(*, young: float \| None = None, poisson: float \| None = None, density: float \| None = None, elastic: ElasticIsotropicProperties \| ThermoElasticIsotropicProperties \| TemperatureDependentThermoElasticProperties \| None = None, coefficient: float, stress_exponent: float, time_exponent: float = 0.0, reference_stress: float = 1.0, reference_time: float = 1.0, name: str = 'isotropic power-law creep') -> IsotropicPowerLawCreepMaterial` | Create one Abaqus-style material record with elastic and creep data. |
+| function | `isotropic_arrhenius_power_law(*, young: float \| None = None, poisson: float \| None = None, density: float \| None = None, elastic: ElasticIsotropicProperties \| ThermoElasticIsotropicProperties \| TemperatureDependentThermoElasticProperties \| None = None, coefficient: float, stress_exponent: float, activation_energy: float, reference_temperature: float, time_exponent: float = 0.0, reference_stress: float = 1.0, reference_time: float = 1.0, gas_constant: float = 8.31446261815324, name: str = 'isotropic Arrhenius power-law creep') -> IsotropicPowerLawCreepMaterial` | Create elasticity plus a globally consumable Arrhenius creep law. |
 | function | `anisotropic_stress_2d(displacement, properties: ElasticAnisotropic2DProperties, *, study = None)` | 2D anisotropic stress from engineering-strain Voigt stiffness. |
 | function | `anisotropic_elastic_2d(*, stiffness_voigt, density: float, name: str = 'anisotropic elastic 2D') -> ElasticAnisotropic2DProperties` | Create 2D anisotropic linear-elastic properties. |
 | function | `estimate_elastic_wave_speeds(material) -> tuple[float, float]` | Return approximate ``(pressure_speed, shear_speed)`` for a material. |
@@ -534,6 +534,19 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `assess(result, quality: str \| QualityPolicy = 'engineering', *, claims: Iterable[VerificationClaim] = (), converged: bool \| None = None, required_quantities: Iterable[str] = (), required_histories: Iterable[str] = (), required_artifacts: Iterable[str] = (), attach: bool = True) -> VerificationReport` | Apply a quality preset and inexpensive deterministic result checks. |
 | function | `convergence_study(name: str, observable: str, samples: Iterable[ConvergenceSample], *, discretization: str = 'mesh') -> ConvergenceStudy` | Public AgentFEM object. |
 
+## `agentfem.assessments`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `CreepDamageBlock` | One dwell or service block for the time-fraction rule. |
+| class | `CreepDamageAssessment` | Auditable linear time-fraction assessment over service blocks. |
+| class | `InteractionDiagram` | Declared creep/fatigue allowable boundary in damage coordinates. |
+| class | `CreepFatigueAssessment` | Combined engineering assessment from independent damage consumers. |
+| function | `creep_time_fraction(blocks: Iterable[CreepDamageBlock]) -> CreepDamageAssessment` | Evaluate the linear creep time-fraction rule for declared blocks. |
+| function | `interaction_diagram(*, points, name: str, source: str) -> InteractionDiagram` | Create an explicit piecewise-linear creep/fatigue interaction curve. |
+| function | `linear_interaction() -> InteractionDiagram` | Return the transparent reference boundary ``Dc + Df = 1``. |
+| function | `creep_fatigue(*, fatigue: FatigueAssessment, creep: CreepDamageAssessment, interaction: InteractionDiagram \| None = None) -> CreepFatigueAssessment` | Combine existing fatigue and creep assessments against one boundary. |
+
 ## `agentfem.boundary_models`
 
 | Kind | Public object | Purpose |
@@ -788,7 +801,7 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
-| class | `CreepEnergyFrame` | Public AgentFEM object. |
+| class | `CreepEnergyFrame` | Accepted work and energy evidence for one physical-time increment. |
 | class | `CreepIncrementInfo` | Public AgentFEM object. |
 | class | `CreepPathInfo` | Public AgentFEM object. |
 | class | `ImplicitCreepStep` | Adaptive backward-Euler creep step with global Newton equilibrium. |

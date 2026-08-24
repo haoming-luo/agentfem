@@ -1,0 +1,119 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.creep_fatigue_assessment",
+  "title": "Engineering creep-fatigue assessment",
+  "kind": "workflow",
+  "status": "supported",
+  "summary": "A standard-neutral postprocessing contract for source-identified creep time fractions, existing stress-life fatigue assessments, explicit interaction diagrams, and structured result evidence.",
+  "public_api": [
+    "agentfem.assessments.CreepDamageBlock",
+    "agentfem.assessments.creep_time_fraction",
+    "agentfem.assessments.interaction_diagram",
+    "agentfem.assessments.creep_fatigue"
+  ],
+  "implementation": [
+    "assessments.py",
+    "constitutive/fatigue.py"
+  ],
+  "science": {
+    "statement": "Creep and fatigue damage are computed by separately reviewable consumers, then compared with one explicitly sourced interaction boundary; this engineering assessment is not a coupled constitutive evolution law.",
+    "equations": [
+      {
+        "label": "creep time fraction",
+        "expression": "D_{c}=\\sum_i n_i\\,t_i/t_{r,i}",
+        "description": "Each dwell duration and rupture time remains attached to its label and source."
+      },
+      {
+        "label": "interaction decision",
+        "expression": "D_f\\leq D_{f,\\mathrm{allow}}(D_c)",
+        "description": "The allowable boundary is a declared piecewise-linear scientific input."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "creep blocks",
+        "type": "duration, rupture time, repetitions, label and source",
+        "unit_role": "duration and rupture time use the same time unit",
+        "description": "Rupture times come from reviewed material data or a declared assessment relation."
+      },
+      {
+        "name": "fatigue assessment",
+        "type": "FatigueAssessment",
+        "unit_role": "dimensionless cumulative damage",
+        "description": "Usually produced from a verified scalar history, cycle counting, mean-stress policy and S-N curve."
+      },
+      {
+        "name": "interaction diagram",
+        "type": "ordered creep-damage and allowable-fatigue-damage points",
+        "unit_role": "dimensionless damage coordinates",
+        "description": "Normative, company or research data stay outside the core and retain their source."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "damage and margin",
+        "type": "creep damage, fatigue damage, allowable fatigue damage and signed margin",
+        "unit_role": "dimensionless",
+        "description": "Positive margin is inside the declared boundary."
+      },
+      {
+        "name": "assessment record",
+        "type": "JSON-safe source-preserving structure",
+        "unit_role": "scientific evidence",
+        "description": "May be attached to a SimulationResult without changing the FEM solution."
+      }
+    ],
+    "assumptions": [
+      "The selected time-fraction rule, fatigue model and interaction curve are applicable to the assessed material, temperature and loading history.",
+      "Creep and fatigue damage are evaluated independently before interaction."
+    ],
+    "conventions": [
+      "Creep damage is horizontal and allowable fatigue damage is vertical in an interaction diagram.",
+      "AgentFEM provides a transparent linear reference but no design-code or material-specific curve.",
+      "An assessment is a postprocessor and does not weaken stiffness or advance constitutive state."
+    ],
+    "applicability": [
+      "Exploratory and engineering life assessments with reviewed rupture, fatigue and interaction inputs.",
+      "Traceable comparison of alternative project procedures without changing the FEM model."
+    ],
+    "limitations": [
+      "It does not implement cyclic viscoplasticity, dwell stress relaxation or coupled continuum damage.",
+      "Qualification against a design standard requires licensed/current normative data and engineering review."
+    ]
+  },
+  "usage": {
+    "minimal_example": "Build CreepDamageBlock records, call assessments.creep_time_fraction(...), create an explicit assessments.interaction_diagram(...), then combine it with a constitutive.fatigue.FatigueAssessment through assessments.creep_fatigue(...).",
+    "examples": [
+      "examples/creep_fatigue_assessment.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_assessments.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.creep_fatigue_assessment"
+    ],
+    "validation_rules": [
+      "Reject missing rupture and interaction sources.",
+      "Reject malformed or nonmonotone interaction boundaries.",
+      "Keep the complete fatigue, creep and interaction records with the decision."
+    ]
+  },
+  "references": [
+    {
+      "title": "ASTM E1049 cycle counting in fatigue analysis",
+      "locator": "https://store.astm.org/standards/e1049"
+    },
+    {
+      "title": "ASME high-temperature structural design technology report",
+      "locator": "https://www.asme.org/getmedia/4e4e3227-b157-4614-8172-572ade1c7e1d/20533.pdf"
+    }
+  ],
+  "related_cards": [
+    "agentfem.material.creep_damage_assessment",
+    "agentfem.material.global_implicit_creep",
+    "agentfem.workflow.thermoelastic_analysis"
+  ]
+}

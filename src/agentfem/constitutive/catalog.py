@@ -73,12 +73,13 @@ _CAPABILITIES = {
         maturity="fem_integrated",
         available_scope=(
             "steady and implicit transient heat transfer with regional "
-            "multi-material conductivity/capacity, and sequential thermal-"
-            "stress analysis in 2D/3D"
+            "multi-material and tabulated conductivity/capacity; sequential "
+            "thermal-stress and thermo-creep analysis with shared tabulated "
+            "E, nu, alpha, k, and cp material assets"
         ),
         limitations=(
-            "temperature-dependent property tables are not implemented",
             "fully coupled monolithic temperature-displacement is not implemented",
+            "thermal expansion tables are interpreted as secant coefficients relative to the declared reference temperature",
         ),
     ),
     "power_law_creep": ConstitutiveCapability(
@@ -89,15 +90,17 @@ _CAPABILITIES = {
             "material-point constant-stress and relaxation checks plus a 3D "
             "small-strain global step with backward Euler, shared quadrature "
             "transaction, analytical tangent, automatic physical-time cutback, "
-            "regional materials, standard creep fields, dissipation, portable "
+            "regional materials, shared E(T)/nu(T)/alpha(T) thermoelasticity, "
+            "standard creep fields, mechanical work/energy histories, portable "
             "full-Step restart, MPI-portable quadrature state, and a scalar or "
-            "finite-element temperature field for normalized Arrhenius rates"
+            "finite-element or accepted-history temperature field for normalized "
+            "Arrhenius rates and thermal strain"
         ),
         limitations=(
-            "the first global Newton provider is 3D; its MPI route is experimental",
-            "transient thermal-history transfer is not automated",
+            "the 3D and axisymmetric global Newton routes retain an experimental MPI boundary",
             "Sinh and K-R laws remain local consumers",
-            "no external component benchmark or damage regularization",
+            "external structural evidence is currently limited to the NAFEMS thick-cylinder benchmark",
+            "no creep-damage regularization",
         ),
     ),
     "creep_damage": ConstitutiveCapability(
@@ -136,6 +139,21 @@ _CAPABILITIES = {
             "uniaxial equivalent histories only",
             "no critical-plane multiaxial fatigue",
             "linear Goodman is the only mean-stress correction",
+        ),
+    ),
+    "creep_fatigue_assessment": ConstitutiveCapability(
+        name="creep_fatigue_assessment",
+        model="creep time-fraction plus declared fatigue interaction diagram",
+        maturity="postprocessor",
+        available_scope=(
+            "source-identified dwell blocks, existing stress-life fatigue "
+            "assessments, explicit piecewise-linear interaction curves, and "
+            "structured SimulationResult attachment"
+        ),
+        limitations=(
+            "does not embed ASME, R5, company, or material-specific allowable data",
+            "does not replace cyclic plasticity, stress relaxation, or a coupled damage constitutive model",
+            "rupture time and interaction curves require reviewed project sources",
         ),
     ),
     "cyclic_cohesive_fatigue": ConstitutiveCapability(

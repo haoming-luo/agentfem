@@ -121,6 +121,7 @@ Package paths below are relative to `src/agentfem/`.
 - Constraints: `constraints/`
 - Loads and natural boundary data: `loads.py`
 - Constitutive laws and their queryable maturity catalog: `constitutive/`
+- Engineering damage and life-assessment consumers: `assessments.py`
 - Material library: `materials/`
 - Boundary models: `boundary_models/`
 - Weak-form blocks: `forms.py`

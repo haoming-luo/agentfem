@@ -237,6 +237,73 @@ def test_creep_quadrature_state_uses_shared_atomic_transaction():
     )
 
 
+def test_creep_quadrature_regions_can_mix_thermal_and_isothermal_materials():
+    domain = dolfinx_mesh.create_box(
+        MPI.COMM_SELF,
+        [np.zeros(3), np.ones(3)],
+        [1, 1, 1],
+        cell_type=dolfinx_mesh.CellType.tetrahedron,
+    )
+    state = constitutive.CreepQuadratureState.create(domain, degree=2)
+    isothermal = constitutive.isotropic_power_law(
+        young=180.0e3,
+        poisson=0.3,
+        density=1.0,
+        coefficient=1.0e-6,
+        stress_exponent=3.0,
+        reference_stress=100.0,
+    )
+    thermoelastic = constitutive.temperature_dependent_thermoelastic(
+        young=materials.temperature_property(
+            [800.0, 900.0], [200.0e3, 160.0e3], name="young"
+        ),
+        poisson=0.3,
+        density=1.0,
+        thermal_expansion=1.0e-5,
+        conductivity=2.0,
+        specific_heat=3.0,
+        reference_temperature=800.0,
+    )
+    thermal = constitutive.isotropic_arrhenius_power_law(
+        elastic=thermoelastic,
+        coefficient=1.0e-6,
+        stress_exponent=3.0,
+        activation_energy=120.0e3,
+        reference_temperature=800.0,
+        reference_stress=100.0,
+    )
+    cell_map = domain.topology.index_map(domain.topology.dim)
+    visible_cells = int(cell_map.size_local + cell_map.num_ghosts)
+    regions = 1 + np.arange(visible_cells, dtype=np.int64) % 2
+    material_map = constitutive.QuadratureMaterialMap(
+        domain,
+        {1: isothermal, 2: thermal},
+        regions,
+    )
+    point_count = len(state.equivalent_creep_strain.values)
+    strain = np.zeros((point_count, 3, 3))
+    strain[:, 0, 0] = 0.002
+    strain[:, 1, 1] = -0.001
+    strain[:, 2, 2] = -0.001
+
+    update = state.update(
+        strain,
+        material_map,
+        time_start=0.0,
+        time_end=0.1,
+        temperature_values=np.full(point_count, 850.0),
+    )
+    state.commit()
+    state.refresh_response(
+        strain,
+        material_map,
+        temperature_values=np.full(point_count, 850.0),
+    )
+
+    assert update["creeping_points"] == point_count
+    assert np.all(np.isfinite(state.stress.values))
+
+
 def test_compiled_quadrature_strain_tracks_live_displacement_coefficients():
     domain = dolfinx_mesh.create_box(
         MPI.COMM_SELF,
@@ -295,6 +362,41 @@ def test_global_implicit_creep_relaxation_uses_public_step_and_fields():
     assert np.all(
         np.diff(simulation.histories["creep_dissipation"].values) >= -1.0e-12
     )
+    assert {
+        "load_amplitude",
+        "elastic_strain_energy",
+        "internal_energy",
+        "generalized_reaction",
+        "prescribed_motion_work",
+        "external_work",
+        "mechanical_energy_residual",
+    } <= set(simulation.histories)
+    assert np.isfinite(simulation.histories["mechanical_energy_residual"].latest)
+    assert "thermal/material" in simulation.histories[
+        "mechanical_energy_residual"
+    ].description
+    assert "not a full thermo-mechanical" in simulation.metadata[
+        "mechanical_energy_ledger"
+    ]["thermal_scope"]
+    relative_residual = abs(
+        simulation.histories["mechanical_energy_residual"].latest
+    ) / simulation.histories["internal_energy"].latest
+    assert relative_residual < 0.03
+
+
+def test_creep_mechanical_energy_residual_converges_with_time_refinement():
+    relative_residuals = []
+    for increment_count in (5, 10):
+        step, _ = _creep_relaxation_patch(
+            incrementation=steps.fixed(increment_count)
+        )
+        simulation = step.solve_result()
+        relative_residuals.append(
+            abs(simulation.histories["mechanical_energy_residual"].latest)
+            / simulation.histories["internal_energy"].latest
+        )
+
+    assert relative_residuals[1] < relative_residuals[0]
 
 
 def test_creep_solve_result_writes_recovered_state_in_common_dataset(tmp_path):
@@ -321,7 +423,7 @@ def test_creep_solve_result_writes_recovered_state_in_common_dataset(tmp_path):
 
 def test_global_creep_matches_official_abaqus_constant_stress_case():
     step = _creep_external_abaqus_constant_stress_patch()
-    step.solve()
+    simulation = step.solve_result()
     golden = benchmarks.golden_benchmark(
         "agentfem.benchmark.creep_abaqus_constant_stress"
     )
@@ -338,6 +440,11 @@ def test_global_creep_matches_official_abaqus_constant_stress_case():
 
     assert all(golden.verify(observables).values())
     assert len(step.accepted_increments) == 100
+    assert simulation.histories["natural_load_work"].latest > 0.0
+    assert "prescribed_motion_work" not in simulation.histories
+    assert simulation.histories["external_work"].latest == pytest.approx(
+        simulation.histories["natural_load_work"].latest
+    )
 
 
 def test_global_implicit_creep_checkpoint_restart_matches_full_path(tmp_path):
@@ -368,6 +475,40 @@ def test_global_implicit_creep_checkpoint_restart_matches_full_path(tmp_path):
     np.testing.assert_allclose(restarted.state.stress.values, expected_stress, rtol=2e-8, atol=2e-8)
     assert [item.end_time for item in restarted.last_solve_info.increments] == pytest.approx(
         np.arange(1.0, 11.0)
+    )
+
+
+def test_global_thermo_creep_checkpoint_restart_matches_full_path(tmp_path):
+    options = {
+        "arrhenius_temperature_range": (800.0, 900.0),
+        "duration": 1.0,
+        "incrementation": steps.fixed(2),
+        "shared_thermoelastic": True,
+    }
+    reference, _ = _creep_relaxation_patch(**options)
+    reference.solve()
+
+    partial, _ = _creep_relaxation_patch(**options)
+    partial.solve(until=0.5)
+    checkpoint = partial.save_checkpoint(tmp_path / "thermo_creep_restart.npz")
+    restarted, _ = _creep_relaxation_patch(**options)
+    restarted.load_checkpoint(checkpoint)
+    np.testing.assert_allclose(restarted.state.stress.values, partial.state.stress.values)
+    restarted.solve()
+
+    np.testing.assert_allclose(restarted.solution.x.array, reference.solution.x.array)
+    np.testing.assert_allclose(
+        restarted.state.creep_strain.values,
+        reference.state.creep_strain.values,
+    )
+    np.testing.assert_allclose(restarted.state.stress.values, reference.state.stress.values)
+    np.testing.assert_allclose(
+        [item.internal_energy for item in restarted.energy_history],
+        [item.internal_energy for item in reference.energy_history],
+    )
+    np.testing.assert_allclose(
+        [item.external_work for item in restarted.energy_history],
+        [item.external_work for item in reference.energy_history],
     )
 
 
@@ -998,6 +1139,7 @@ def _creep_relaxation_patch(
     duration: float = 10.0,
     creep_strain_error_tolerance=None,
     unit_system=None,
+    shared_thermoelastic: bool = False,
 ):
     """Homogeneous 3D constant-strain relaxation with free contraction."""
 
@@ -1020,11 +1162,30 @@ def _creep_relaxation_patch(
             activation_energy=120.0e3,
             reference_temperature=800.0,
         )
+    elastic_options = {
+        "young": 200.0e3,
+        "poisson": 0.3,
+        "density": 1.0,
+    }
+    if shared_thermoelastic:
+        elastic_options = {
+            "elastic": constitutive.temperature_dependent_thermoelastic(
+                young=materials.temperature_property(
+                    [750.0, 950.0],
+                    [210.0e3, 160.0e3],
+                    name="young",
+                ),
+                poisson=0.3,
+                density=1.0,
+                thermal_expansion=1.0e-5,
+                conductivity=2.0,
+                specific_heat=3.0,
+                reference_temperature=800.0,
+            )
+        }
     material = model.material(
         material_factory(
-            young=200.0e3,
-            poisson=0.3,
-            density=1.0,
+            **elastic_options,
             coefficient=1.0e-6,
             stress_exponent=3.0,
             reference_stress=100.0,
@@ -1163,25 +1324,24 @@ def test_transient_heat_history_drives_global_arrhenius_creep_component():
         name="heat_to_creep_component",
     )
     temperature = heat_model.field(fields.temperature(domain, value=800.0))
-    heat_model.material(
-        constitutive.temperature_dependent_thermoelastic(
-            young=200.0e3,
-            poisson=0.3,
-            density=1.0,
-            thermal_expansion=1.0e-5,
-            conductivity=materials.temperature_property(
-                [750.0, 950.0],
-                [1.0, 2.0],
-                extrapolation="constant",
-            ),
-            specific_heat=materials.temperature_property(
-                [750.0, 950.0],
-                [1.0, 1.5],
-                extrapolation="constant",
-            ),
-            reference_temperature=800.0,
-        )
+    shared_thermoelastic = constitutive.temperature_dependent_thermoelastic(
+        young=200.0e3,
+        poisson=0.3,
+        density=1.0,
+        thermal_expansion=1.0e-5,
+        conductivity=materials.temperature_property(
+            [750.0, 950.0],
+            [1.0, 2.0],
+            extrapolation="constant",
+        ),
+        specific_heat=materials.temperature_property(
+            [750.0, 950.0],
+            [1.0, 1.5],
+            extrapolation="constant",
+        ),
+        reference_temperature=800.0,
     )
+    heat_model.material(shared_thermoelastic)
     heat_model.prescribed_temperature(
         temperature,
         900.0,
@@ -1212,9 +1372,7 @@ def test_transient_heat_history_drives_global_arrhenius_creep_component():
     displacement = creep_model.field(fields.displacement(domain))
     creep_model.material(
         constitutive.isotropic_arrhenius_power_law(
-            young=200.0e3,
-            poisson=0.3,
-            density=1.0,
+            elastic=shared_thermoelastic,
             coefficient=1.0e-6,
             stress_exponent=3.0,
             reference_stress=100.0,
@@ -1272,6 +1430,8 @@ def test_transient_heat_history_drives_global_arrhenius_creep_component():
     )
     assert np.ptp(creep_step.state.equivalent_creep_strain.values) > 0.0
     assert simulation.histories["maximum_creep_temperature"].latest > 850.0
+    assert creep_step.material.elastic is shared_thermoelastic
+    assert "internal_energy" in simulation.histories
 
 
 def _creep_external_abaqus_constant_stress_patch():

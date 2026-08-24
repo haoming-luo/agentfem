@@ -170,20 +170,41 @@ class CreepPathInfo:
 
 @dataclass(frozen=True)
 class CreepEnergyFrame:
+    """Accepted work and energy evidence for one physical-time increment."""
+
     time: float
+    load_amplitude: float
     elastic_strain_energy: float
     creep_dissipation_increment: float
     creep_dissipation: float
+    internal_energy: float
+    generalized_reaction: float | None = None
+    natural_load_work: float | None = None
+    prescribed_motion_work: float | None = None
+    external_work: float | None = None
+    mechanical_energy_residual: float | None = None
 
-    def as_dict(self) -> dict[str, float]:
-        return {
-            name: float(getattr(self, name))
-            for name in self.__dataclass_fields__
-        }
+    def as_dict(self) -> dict[str, float | None]:
+        return {name: getattr(self, name) for name in self.__dataclass_fields__}
 
     @classmethod
     def from_dict(cls, record: dict[str, object]) -> "CreepEnergyFrame":
-        return cls(**{name: float(record[name]) for name in cls.__dataclass_fields__})
+        elastic = float(record["elastic_strain_energy"])
+        dissipation = float(record["creep_dissipation"])
+        defaults = {
+            "load_amplitude": 1.0,
+            "internal_energy": elastic + dissipation,
+            "generalized_reaction": None,
+            "natural_load_work": None,
+            "prescribed_motion_work": None,
+            "external_work": None,
+            "mechanical_energy_residual": None,
+        }
+        values = {}
+        for name in cls.__dataclass_fields__:
+            selected = record.get(name, defaults.get(name))
+            values[name] = None if selected is None else float(selected)
+        return cls(**values)
 
 
 @dataclass
@@ -196,6 +217,7 @@ class ImplicitCreepStep:
     state: CreepQuadratureState
     residual_form: object
     tangent_form: object
+    external_force: object | None
     load_factor: object
     amplitude: amplitudes.Amplitude
     temperature: object | None
@@ -246,19 +268,11 @@ class ImplicitCreepStep:
             if isinstance(self.material, QuadratureMaterialMap)
             else (self.material,)
         )
-        temperature_modes = {
-            item.temperature_dependence is not None for item in materials
-        }
-        if len(temperature_modes) != 1:
-            raise ValueError(
-                "One creep step cannot mix isothermal and Arrhenius material "
-                "regions; split the procedure or give every region the same "
-                "temperature-dependence contract."
-            )
-        requires_temperature = temperature_modes.pop()
+        requires_temperature = any(item.requires_temperature for item in materials)
         if requires_temperature and self.temperature is None:
             raise ValueError(
-                "Temperature-dependent creep requires temperature=... in kelvin."
+                "Temperature-dependent creep or thermoelasticity requires "
+                "temperature=... in kelvin."
             )
         if not requires_temperature and self.temperature is not None:
             raise ValueError(
@@ -310,6 +324,7 @@ class ImplicitCreepStep:
         self.state.refresh_response(
             self.state.evaluate_strain(self._strain_evaluator),
             self.material,
+            temperature_values=self._temperature_values(),
         )
         while accepted_factor < until_factor - 1.0e-12:
             increment = len(self.accepted_increments) + len(accepted) + 1
@@ -351,6 +366,7 @@ class ImplicitCreepStep:
             stress_snapshot = self.state.stress.values.copy()
             tangent_snapshot = self.state.tangent.values.copy()
             start_temperature_values = self._temperature_values()
+            start_reaction_values = self.reaction_field().x.array.copy()
             self._apply_loading(end_time)
             info = self._solve_increment(
                 increment=increment,
@@ -407,7 +423,13 @@ class ImplicitCreepStep:
                 accepted_size = target_factor - accepted_factor
                 accepted_factor = target_factor
                 self.accepted_time = end_time
-                self._record_energy(end_time, state_snapshot)
+                self._record_energy(
+                    end_time,
+                    state_snapshot,
+                    previous_displacement=displacement_snapshot,
+                    start_time=start_time,
+                    start_reaction_values=start_reaction_values,
+                )
                 consecutive_cutbacks = 0
                 if isinstance(self.incrementation, step_controls.AutomaticIncrementation):
                     proposed_size = self.incrementation.after_convergence(
@@ -828,17 +850,55 @@ class ImplicitCreepStep:
             result["active_time"] = getattr(self.temperature, "active_time", None)
         return result
 
-    def _record_energy(self, time: float, old_state) -> None:
-        weight = _axisymmetric.integration_weight(self.solution, self.study)
-        mechanical_strain = (
-            elasticity.strain(self.solution, study=self.study)
-            - self.state.creep_strain.function
+    def _elastic_strain_energy(self) -> float:
+        strains = self.state.evaluate_strain(self._strain_evaluator)
+        creep_strains = self.state.creep_strain.values
+        temperatures = self._temperature_values()
+        elastic_strains = np.empty_like(creep_strains)
+        points_per_cell = len(self.state.stress.points)
+        for index, strain in enumerate(strains):
+            selected_material = (
+                self.material.material_for_point(
+                    index, points_per_cell=points_per_cell
+                )
+                if isinstance(self.material, QuadratureMaterialMap)
+                else self.material
+            )
+            temperature = (
+                None if temperatures is None else float(temperatures[index])
+            )
+            elastic_strains[index] = (
+                strain
+                - creep_strains[index]
+                - selected_material.thermal_strain(temperature)
+            )
+        elastic_field = QuadratureField.create(
+            self.state.domain,
+            name="EE",
+            degree=self.state.degree,
+            value_shape=(3, 3),
+            scheme=self.state.scheme,
         )
-        elastic_density = 0.5 * ufl.inner(self.state.stress.function, mechanical_strain)
+        elastic_field.assign(elastic_strains)
+        weight = _axisymmetric.integration_weight(self.solution, self.study)
+        elastic_density = 0.5 * ufl.inner(
+            self.state.stress.function, elastic_field.function
+        )
         elastic_local = fem.assemble_scalar(
             fem.form(weight * elastic_density * self.state.measure)
         )
-        elastic = float(self.state.domain.comm.allreduce(elastic_local))
+        return float(self.state.domain.comm.allreduce(elastic_local))
+
+    def _record_energy(
+        self,
+        time: float,
+        old_state,
+        *,
+        previous_displacement,
+        start_time: float,
+        start_reaction_values,
+    ) -> None:
+        elastic = self._elastic_strain_energy()
 
         increment = QuadratureField.create(
             self.state.domain,
@@ -859,14 +919,140 @@ class ImplicitCreepStep:
         cumulative = dissipation_increment
         if self.energy_history:
             cumulative += self.energy_history[-1].creep_dissipation
+        load_amplitude = float(self.amplitude(time))
+        previous_amplitude = float(self.amplitude(start_time))
+        natural_increment = self._natural_load_work_increment(
+            previous_displacement,
+            previous_amplitude=previous_amplitude,
+            current_amplitude=load_amplitude,
+        )
+        current_reaction_values = self.reaction_field().x.array.copy()
+        generalized = self._generalized_reaction(current_reaction_values)
+        prescribed_increment = self._prescribed_motion_work_increment(
+            previous_displacement,
+            start_reaction_values=start_reaction_values,
+            current_reaction_values=current_reaction_values,
+        )
+        previous_natural = 0.0
+        previous_prescribed = 0.0
+        if self.energy_history:
+            previous = self.energy_history[-1]
+            previous_natural = float(previous.natural_load_work or 0.0)
+            previous_prescribed = float(previous.prescribed_motion_work or 0.0)
+        natural_work = (
+            None
+            if natural_increment is None
+            else previous_natural + natural_increment
+        )
+        prescribed_work = (
+            None
+            if prescribed_increment is None
+            else previous_prescribed + prescribed_increment
+        )
+        channels = [
+            value for value in (natural_work, prescribed_work) if value is not None
+        ]
+        external_work = sum(channels) if channels else None
+        internal_energy = elastic + cumulative
+        mechanical_residual = (
+            None
+            if external_work is None
+            else external_work - internal_energy
+        )
         self.energy_history.append(
             CreepEnergyFrame(
                 time=float(time),
+                load_amplitude=load_amplitude,
                 elastic_strain_energy=elastic,
                 creep_dissipation_increment=dissipation_increment,
                 creep_dissipation=cumulative,
+                internal_energy=internal_energy,
+                generalized_reaction=generalized,
+                natural_load_work=natural_work,
+                prescribed_motion_work=prescribed_work,
+                external_work=external_work,
+                mechanical_energy_residual=mechanical_residual,
             )
         )
+
+    def _natural_load_work_increment(
+        self,
+        previous_displacement,
+        *,
+        previous_amplitude: float,
+        current_amplitude: float,
+    ) -> float | None:
+        if self.external_force is None:
+            return None
+        vector = fem_petsc.assemble_vector(fem.form(self.external_force.expression))
+        vector.ghostUpdate(
+            addv=PETSc.InsertMode.ADD,
+            mode=PETSc.ScatterMode.REVERSE,
+        )
+        index_map = self.solution.function_space.dofmap.index_map
+        owned = int(index_map.size_local) * int(
+            self.solution.function_space.dofmap.index_map_bs
+        )
+        delta = self.solution.x.array[:owned] - np.asarray(
+            previous_displacement
+        )[:owned]
+        local = float(np.vdot(vector.array_r[:owned], delta).real)
+        vector.destroy()
+        unit_work = float(self.state.domain.comm.allreduce(local))
+        return 0.5 * (previous_amplitude + current_amplitude) * unit_work
+
+    def _prescribed_motion_work_increment(
+        self,
+        previous_displacement,
+        *,
+        start_reaction_values,
+        current_reaction_values,
+    ) -> float | None:
+        active = [
+            bc
+            for _constant, target, bc in self.prescribed_values
+            if np.any(np.abs(target) > 0.0)
+        ]
+        if not active:
+            return None
+        previous = np.asarray(previous_displacement, dtype=float)
+        start_reaction = np.asarray(start_reaction_values, dtype=float)
+        current_reaction = np.asarray(current_reaction_values, dtype=float)
+        local = 0.0
+        visited: set[int] = set()
+        for bc in active:
+            dofs, owned = bc.dof_indices()
+            for dof in np.asarray(dofs[:owned], dtype=np.int32):
+                index = int(dof)
+                if index in visited:
+                    continue
+                visited.add(index)
+                delta = float(self.solution.x.array[index] - previous[index])
+                local += 0.5 * (
+                    float(start_reaction[index]) + float(current_reaction[index])
+                ) * delta
+        return float(self.state.domain.comm.allreduce(local))
+
+    def _generalized_reaction(self, reaction_values=None) -> float | None:
+        active = [
+            (target, bc)
+            for _constant, target, bc in self.prescribed_values
+            if np.any(np.abs(target) > 0.0)
+        ]
+        if not active:
+            return None
+        reaction = (
+            self.reaction_field().x.array
+            if reaction_values is None
+            else np.asarray(reaction_values, dtype=float)
+        )
+        generalized = 0.0
+        for target, bc in active:
+            dofs, owned = bc.dof_indices()
+            selected = np.asarray(dofs[:owned], dtype=np.int32)
+            scale = float(np.asarray(target).reshape(-1)[0])
+            generalized += float(np.sum(reaction[selected])) * scale
+        return float(self.state.domain.comm.allreduce(generalized))
 
     def reaction_field(self, *, name: str = "RF"):
         residual = fem_petsc.assemble_vector(self.residual_form)
@@ -1017,6 +1203,7 @@ class ImplicitCreepStep:
             self.state.refresh_response(
                 self.state.evaluate_strain(self._strain_evaluator),
                 self.material,
+                temperature_values=self._temperature_values(),
             )
 
     def _save_portable_checkpoint(self, path) -> Path:
@@ -1120,7 +1307,9 @@ class ImplicitCreepStep:
             self.incrementation,
         )
         self.state.refresh_response(
-            self.state.evaluate_strain(self._strain_evaluator), self.material
+            self.state.evaluate_strain(self._strain_evaluator),
+            self.material,
+            temperature_values=self._temperature_values(),
         )
 
     def _portable_checkpoint_identity(self) -> dict[str, object]:
@@ -1325,7 +1514,7 @@ class ImplicitCreepStep:
                 if isinstance(self.material, QuadratureMaterialMap)
                 else (self.material,)
             )
-            if all(item.temperature_dependence is not None for item in materials):
+            if any(item.requires_temperature for item in materials):
                 increment_histories.update(
                     {
                         "minimum_creep_temperature": [
@@ -1344,22 +1533,83 @@ class ImplicitCreepStep:
             )
         if self.energy_history:
             times = np.asarray([item.time for item in self.energy_history])
+            energy_histories = {
+                "load_amplitude": [item.load_amplitude for item in self.energy_history],
+                "elastic_strain_energy": [
+                    item.elastic_strain_energy for item in self.energy_history
+                ],
+                "creep_dissipation_increment": [
+                    item.creep_dissipation_increment for item in self.energy_history
+                ],
+                "creep_dissipation": [
+                    item.creep_dissipation for item in self.energy_history
+                ],
+                "internal_energy": [
+                    item.internal_energy for item in self.energy_history
+                ],
+            }
+            optional_energy_histories = {
+                "generalized_reaction": "generalized_reaction",
+                "natural_load_work": "natural_load_work",
+                "prescribed_motion_work": "prescribed_motion_work",
+                "external_work": "external_work",
+                "mechanical_energy_residual": "mechanical_energy_residual",
+            }
+            for name, attribute in optional_energy_histories.items():
+                values = [getattr(item, attribute) for item in self.energy_history]
+                if all(value is not None for value in values):
+                    energy_histories[name] = values
+            energy_descriptions = {
+                "load_amplitude": (
+                    "Applied natural-load and prescribed-motion scale."
+                ),
+                "elastic_strain_energy": (
+                    "Stored small-strain elastic energy after thermal and creep "
+                    "strain removal."
+                ),
+                "creep_dissipation_increment": (
+                    "Accepted creep dissipation in this physical-time increment."
+                ),
+                "creep_dissipation": "Cumulative nonnegative creep dissipation.",
+                "internal_energy": (
+                    "Elastic strain energy plus cumulative creep dissipation."
+                ),
+                "generalized_reaction": (
+                    "Reaction conjugate to the declared nonzero prescribed "
+                    "displacement target."
+                ),
+                "natural_load_work": (
+                    "Cumulative work of natural loads over the accepted "
+                    "displacement path."
+                ),
+                "prescribed_motion_work": (
+                    "Cumulative reaction work of nonzero strong Dirichlet motion."
+                ),
+                "external_work": (
+                    "Sum of available natural-load and prescribed-motion work "
+                    "channels."
+                ),
+                "mechanical_energy_residual": (
+                    "External mechanical work minus elastic energy and creep "
+                    "dissipation; prescribed thermal/material transfer is excluded."
+                ),
+            }
             result.add_histories(
                 times,
-                {
-                    "elastic_strain_energy": [
-                        item.elastic_strain_energy for item in self.energy_history
-                    ],
-                    "creep_dissipation_increment": [
-                        item.creep_dissipation_increment for item in self.energy_history
-                    ],
-                    "creep_dissipation": [
-                        item.creep_dissipation for item in self.energy_history
-                    ],
-                },
+                energy_histories,
                 abscissa_name="time",
                 abscissa_unit=self.time_unit,
+                descriptions=energy_descriptions,
             )
+            result.metadata["mechanical_energy_ledger"] = {
+                "internal_energy": "elastic_strain_energy + creep_dissipation",
+                "external_work": "natural_load_work + prescribed_motion_work where available",
+                "residual": "external_work - internal_energy",
+                "thermal_scope": (
+                    "prescribed thermal/material energy transfer is not included; "
+                    "the residual is not a full thermo-mechanical conservation error"
+                ),
+            }
         for checkpoint in self.checkpoints:
             result.add_checkpoint(checkpoint)
         return complete_result(
@@ -1538,6 +1788,7 @@ def implicit_creep_step(
         state=state,
         residual_form=fem.form(residual),
         tangent_form=fem.form(jacobian),
+        external_force=external_force,
         load_factor=load_factor,
         amplitude=selected_amplitude,
         temperature=temperature,

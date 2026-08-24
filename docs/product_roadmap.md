@@ -27,6 +27,9 @@ AgentFEM currently provides executable foundations for:
 - central-difference, Newmark, and generalized-alpha structural dynamics;
 - finite-strain Neo-Hookean and Mooney--Rivlin workflows;
 - small-strain J2 plasticity and implicit power-law creep;
+- accepted thermal-history transfer through shared E(T)/nu(T)/alpha(T)
+  thermoelastic creep properties, plus source-preserving engineering
+  creep--fatigue assessment;
 - fixed-path cohesive fracture, including experimental cyclic and mixed-mode
   routes;
 - Abaqus/Gmsh mesh semantics, periodic equations, C3D10/C3D10H workflows, and

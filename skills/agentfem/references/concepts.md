@@ -36,6 +36,10 @@
   tangent quantities.
 - Constitutive maturity: `fem_integrated`, `material_point_verified`, or
   `postprocessor`. Query it; do not infer it from the law name.
+- Engineering assessment: a postprocessor that consumes result histories and
+  reviewed project data without advancing constitutive state. Creep rupture
+  relations and nontrivial creep--fatigue interaction curves retain explicit
+  sources rather than becoming hidden core constants.
 - Material record: SI-unit constants plus model name and source note. It is data,
   not the equation itself.
 - Material properties: typed parameter object used by constitutive relations.

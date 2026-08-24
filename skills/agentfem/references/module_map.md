@@ -26,6 +26,8 @@ Repository package paths below are relative to `src/agentfem/`.
 - `constraints/`: constraint containers and semantic Dirichlet constructors
 - `loads.py`: loads, natural boundary data, and semantic constructors
 - `constitutive/`: local response relations and queryable maturity catalog
+- `assessments.py`: standard-neutral engineering damage consumers, explicit
+  interaction diagrams, and structured result attachment
 - `constitutive/quadrature.py`: committed/trial integration-point state
 - `mechanics/`: global stateful solid-mechanics procedures
 - `constitutive/user_material.py`: solver-neutral material-point contract and
