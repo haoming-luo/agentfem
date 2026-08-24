@@ -67,8 +67,23 @@ jobs:
     needs: installed-wheel
     if: always()
     runs-on: ubuntu-latest
+    env:
+      UCX_TLS: tcp,sm,self
+    defaults:
+      run:
+        shell: bash -el {0}
     steps:
       - uses: actions/checkout@v6
+
+      - name: Create read-only promotion audit environment
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          activate-environment: agentfem-promotion
+          environment-file: environment.yml
+          miniforge-version: latest
+          use-mamba: true
+          channels: conda-forge
+          channel-priority: strict
 
       - name: Download platform evidence
         uses: actions/download-artifact@v8
@@ -78,7 +93,7 @@ jobs:
 
       - name: Audit evidence without relabelling missing WSL2 or agent trials
         run: |
-          python promotion_gate.py \
+          PYTHONPATH="$PWD/src" python promotion_gate.py \
             --evidence-directory /tmp/agentfem-promotion-evidence \
             --report /tmp/agentfem-platform-promotion.json
 
