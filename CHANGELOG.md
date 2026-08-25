@@ -6,6 +6,13 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+### Changed
+
+- Bind platform, companion-provider, and fresh-agent promotion evidence to the
+  exact AgentFEM candidate instead of accepting stale records from an older
+  version or commit; add an immutable fresh-agent trial bundle and transcript
+  review contract.
+
 ## [0.2.5] - 2026-08-24
 
 ### Added

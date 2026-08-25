@@ -157,6 +157,10 @@ are retained and reviewed; the deterministic release smoke deliberately does
 not impersonate that behavioral evidence. Acceptance artifacts can be
 aggregated with `promotion_gate.py --evidence-directory ...`.
 
+Every external record is bound to the candidate AgentFEM version and source
+commit. Platform and fresh-agent records also retain the exact wheel digest;
+passing evidence from an older release is deliberately ineligible.
+
 ## Beyond 0.3
 
 Longer-term families include phase-field fracture, broader contact,

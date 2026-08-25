@@ -11,13 +11,14 @@ from __future__ import annotations
 import argparse
 import ast
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from hashlib import sha256
 import importlib
 from importlib import metadata
 import json
+import os
 from pathlib import Path
 import re
-import os
 import subprocess
 import sys
 import tarfile
@@ -75,6 +76,33 @@ REQUIRED_WHEEL_MEMBERS = (
     "agentfem/knowledge/decisions/0017-public-api-lifecycle.md",
     "agentfem/materials/data/steel_generic.json",
 )
+
+
+def _source_identity() -> tuple[str | None, bool | None]:
+    """Return the exact candidate commit and whether its checkout is dirty."""
+
+    commit = os.environ.get("GITHUB_SHA")
+    if not commit:
+        completed = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode == 0:
+            commit = completed.stdout.strip() or None
+    status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    dirty = bool(status.stdout.strip()) if status.returncode == 0 else None
+    return commit, dirty
+
+
 FORBIDDEN_DISTRIBUTION_PARTS = ("__pycache__",)
 FORBIDDEN_DISTRIBUTION_SUFFIXES = (".pyc", ".pyo")
 SMOKE_COMMANDS = (
@@ -217,6 +245,7 @@ def check_distributions(directory: Path) -> Path:
         "build_knowledge.py",
         "tools/run_wsl2_acceptance.sh",
         "tools/agent_trial_acceptance.py",
+        "tools/prepare_agent_trial.py",
         f"src/agentfem/release/{version}.json",
         "skills/agentfem/SKILL.md",
         "skills/agentfem/agents/openai.yaml",
@@ -377,12 +406,14 @@ def platform_acceptance(
             and mpi_smoke.get("status") == "passed"
             and int(mpi_smoke.get("rank_count", 0)) >= 2
         )
+    source_commit, source_dirty = _source_identity()
+    source_clean = bool(source_commit) and source_dirty is False
     record = {
         "schema": "agentfem.platform-acceptance",
         "schema_version": "0.1.0",
         "status": (
             "passed"
-            if installed_wheel and smoke_passed and route_passed
+            if installed_wheel and smoke_passed and route_passed and source_clean
             else "failed"
         ),
         "platform_id": platform_id,
@@ -391,6 +422,22 @@ def platform_acceptance(
         "wheel_sha256": _sha256(wheel) if installed_wheel else None,
         "release_smoke": "passed" if smoke_passed else "failed",
         "agentfem_version": agent_acceptance["agentfem_version"],
+        "source_commit": source_commit,
+        "source_dirty": source_dirty,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "ci_run_url": (
+            f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}"
+            f"/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+            if all(
+                name in os.environ
+                for name in (
+                    "GITHUB_SERVER_URL",
+                    "GITHUB_REPOSITORY",
+                    "GITHUB_RUN_ID",
+                )
+            )
+            else None
+        ),
         "python": fingerprint["python"],
         "machine": fingerprint["machine"],
         "operating_system": operating_system,

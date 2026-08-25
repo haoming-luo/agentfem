@@ -10,10 +10,19 @@ zero-intervention promotion claim.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import subprocess
 import sys
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _cli(*arguments: str, cwd: Path) -> dict[str, object]:
@@ -43,6 +52,9 @@ def evaluate(
     fresh_context: bool,
     human_interventions: int,
     explanation_reviewed: bool,
+    source_commit: str | None = None,
+    wheel: Path | None = None,
+    contract: Path | None = None,
 ) -> dict[str, object]:
     root = Path(project).resolve()
     transcript_path = Path(transcript).resolve()
@@ -64,6 +76,15 @@ def evaluate(
     explanation_ok = explanation_path.is_file() and bool(
         explanation_path.read_text(encoding="utf-8").strip()
     )
+    wheel_path = None if wheel is None else Path(wheel).resolve()
+    wheel_ok = wheel_path is not None and wheel_path.is_file()
+    wheel_sha256 = _sha256(wheel_path) if wheel_ok else None
+    contract_path = None if contract is None else Path(contract).resolve()
+    contract_record: dict[str, object] = {}
+    if contract_path is not None and contract_path.is_file():
+        loaded = json.loads(contract_path.read_text(encoding="utf-8"))
+        if isinstance(loaded, dict):
+            contract_record = loaded
     runtime = "passed" if doctor.get("schema") == "agentfem.runtime-report" else "failed"
     capability_discovery = (
         "passed"
@@ -84,6 +105,21 @@ def evaluate(
     gaps = []
     if not installed_wheel:
         gaps.append("trial did not execute one consistent installed wheel")
+    if not source_commit:
+        gaps.append("trial does not identify the exact AgentFEM source commit")
+    if not wheel_ok:
+        gaps.append("trial does not retain the exact installed wheel candidate")
+    candidate_identity_verified = bool(
+        contract_record.get("schema") == "agentfem.agent-trial-contract"
+        and contract_record.get("agentfem_version")
+        == doctor.get("packages", {}).get("agentfem")
+        and contract_record.get("source_commit") == source_commit
+        and contract_record.get("wheel")
+        == (None if wheel_path is None else wheel_path.name)
+        and contract_record.get("wheel_sha256") == wheel_sha256
+    )
+    if not candidate_identity_verified:
+        gaps.append("trial contract does not match the installed candidate identity")
     if not fresh_context:
         gaps.append("agent task inherited project-specific history")
     if int(human_interventions) != 0:
@@ -108,6 +144,16 @@ def evaluate(
         "status": "passed" if not gaps else "failed",
         "agent": str(agent),
         "agentfem_version": doctor.get("packages", {}).get("agentfem"),
+        "source_commit": source_commit,
+        "wheel": None if wheel_path is None else str(wheel_path),
+        "wheel_sha256": wheel_sha256,
+        "trial_contract": None if contract_path is None else str(contract_path),
+        "trial_contract_sha256": (
+            _sha256(contract_path)
+            if contract_path is not None and contract_path.is_file()
+            else None
+        ),
+        "candidate_identity_verified": candidate_identity_verified,
         "installed_wheel": installed_wheel,
         "fresh_context": bool(fresh_context),
         "human_interventions": int(human_interventions),
@@ -119,7 +165,9 @@ def evaluate(
         "scientific_explanation": scientific_explanation,
         "project": str(root),
         "transcript": str(transcript_path),
+        "transcript_sha256": _sha256(transcript_path) if transcript_ok else None,
         "explanation": str(explanation_path),
+        "explanation_sha256": _sha256(explanation_path) if explanation_ok else None,
         "runtime_fingerprint": doctor,
         "gaps": gaps,
     }
@@ -144,6 +192,9 @@ def main() -> None:
     parser.add_argument("--fresh-context", action="store_true")
     parser.add_argument("--human-interventions", type=int, default=0)
     parser.add_argument("--reviewed-explanation", action="store_true")
+    parser.add_argument("--source-commit", required=True)
+    parser.add_argument("--wheel", type=Path, required=True)
+    parser.add_argument("--contract", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
     options = parser.parse_args()
     report = evaluate(
@@ -154,6 +205,9 @@ def main() -> None:
         fresh_context=options.fresh_context,
         human_interventions=options.human_interventions,
         explanation_reviewed=options.reviewed_explanation,
+        source_commit=options.source_commit,
+        wheel=options.wheel,
+        contract=options.contract,
     )
     _write(options.report, report)
     print(json.dumps(report, indent=2, sort_keys=True))

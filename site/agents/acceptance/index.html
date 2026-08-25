@@ -948,21 +948,38 @@ A fresh-agent trial remains a separate behavioral test: the agent must choose
 an applicable model, preserve visible scientific choices, and explain why the
 result is or is not supported by its evidence. Successful execution alone is
 not scientific validation.</p>
+<p>Prepare an immutable trial bundle from the exact release candidate first:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>tools/prepare_agent_trial.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>--wheel<span class="w"> </span>dist/agentfem-*.whl<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--output<span class="w"> </span>fresh-agent-trial
+</code></pre></div>
+<p>The bundle contains one bounded mechanics task, an empty project directory,
+the exact wheel, its SHA-256 digest, the source commit and an independent
+review checklist. Give <code>TASK.md</code> and the bundle to a genuinely fresh agent;
+the maintainer who developed the candidate must not silently complete or
+repair the project.</p>
 <p>After a genuinely fresh task has completed, retain its transcript and final
 scientific explanation beside the project, then record the trial with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>tools/agent_trial_acceptance.py<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>--project<span class="w"> </span>fresh-agent-project<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--agent<span class="w"> </span><span class="s2">&quot;Codex/&lt;model identity&gt;&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>--transcript<span class="w"> </span>fresh-agent-project/agent-transcript.md<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span>--explanation<span class="w"> </span>fresh-agent-project/explanation.md<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span>--fresh-context<span class="w"> </span>--human-interventions<span class="w"> </span><span class="m">0</span><span class="w"> </span>--reviewed-explanation<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span>--report<span class="w"> </span>fresh-agent-project/agent-trial-acceptance.json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>tools/agent_trial_acceptance.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--project<span class="w"> </span>fresh-agent-project<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>--agent<span class="w"> </span><span class="s2">&quot;Codex/&lt;model identity&gt;&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>--transcript<span class="w"> </span>fresh-agent-project/agent-transcript.md<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span>--explanation<span class="w"> </span>fresh-agent-project/explanation.md<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span>--fresh-context<span class="w"> </span>--human-interventions<span class="w"> </span><span class="m">0</span><span class="w"> </span>--reviewed-explanation<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span>--source-commit<span class="w"> </span>&lt;commit-from-trial-contract&gt;<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span>--wheel<span class="w"> </span>fresh-agent-trial/agentfem-*.whl<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span>--contract<span class="w"> </span>fresh-agent-trial/trial-contract.json<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">  </span>--report<span class="w"> </span>fresh-agent-project/agent-trial-acceptance.json
 </code></pre></div>
 <p>The recorder independently reruns <code>doctor</code>, <code>capabilities</code>, <code>check</code>, <code>inspect</code>
 and <code>verify</code>. It refuses a source checkout, inherited project context, missing
 transcript, human repair intervention, unverified result, or unreviewed
 explanation. The reviewer confirms scientific adequacy; the recorder never
-pretends that prose quality can be inferred from a successful solve.</p>
+pretends that prose quality can be inferred from a successful solve.
+Candidate version, source commit, wheel digest, transcript digest and
+explanation digest are retained and cross-checked against the immutable trial
+contract, so an older or substituted successful trial cannot promote a newer
+release candidate.</p>
 
 
 

@@ -12,11 +12,53 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 import json
+import os
 from pathlib import Path
+import subprocess
 from typing import Callable, Iterable
 
 
 TARGET = "0.3"
+
+
+def _is_sha256(value: object) -> bool:
+    text = str(value or "")
+    return len(text) == 64 and all(
+        character in "0123456789abcdef" for character in text.lower()
+    )
+
+
+def _candidate_identity() -> tuple[str, str | None]:
+    """Return the core version and exact checkout commit under audit."""
+
+    from agentfem import __version__
+
+    commit = os.environ.get("GITHUB_SHA")
+    if not commit:
+        completed = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=Path(__file__).resolve().parent,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode == 0:
+            commit = completed.stdout.strip() or None
+    return str(__version__), commit
+
+
+def _matches_candidate(
+    record: dict[str, object],
+    *,
+    version: str,
+    commit_field: str,
+    commit: str | None,
+) -> bool:
+    if str(record.get("agentfem_version", "")) != version:
+        return False
+    if not commit or str(record.get(commit_field, "")) != commit:
+        return False
+    return True
 
 
 @dataclass(frozen=True)
@@ -162,7 +204,12 @@ def _gate_scientific_evidence() -> GateResult:
     )
 
 
-def _gate_platforms(records: tuple[dict[str, object], ...]) -> GateResult:
+def _gate_platforms(
+    records: tuple[dict[str, object], ...],
+    *,
+    version: str,
+    commit: str | None,
+) -> GateResult:
     required = {"linux", "macos", "wsl2"}
     accepted = {
         str(record.get("platform_id", "")).lower()
@@ -171,6 +218,14 @@ def _gate_platforms(records: tuple[dict[str, object], ...]) -> GateResult:
         and record.get("status") == "passed"
         and record.get("installed_wheel") is True
         and record.get("release_smoke") == "passed"
+        and record.get("source_dirty") is False
+        and _is_sha256(record.get("wheel_sha256"))
+        and _matches_candidate(
+            record,
+            version=version,
+            commit_field="source_commit",
+            commit=commit,
+        )
     }
     missing = tuple(sorted(required - accepted))
     return GateResult(
@@ -182,7 +237,12 @@ def _gate_platforms(records: tuple[dict[str, object], ...]) -> GateResult:
     )
 
 
-def _gate_extension(records: tuple[dict[str, object], ...]) -> GateResult:
+def _gate_extension(
+    records: tuple[dict[str, object], ...],
+    *,
+    version: str,
+    commit: str | None,
+) -> GateResult:
     accepted = [
         record
         for record in records
@@ -191,6 +251,15 @@ def _gate_extension(records: tuple[dict[str, object], ...]) -> GateResult:
         and record.get("installed_wheel") is True
         and record.get("core_modified") is False
         and record.get("simulation_result") == "passed"
+        and bool(record.get("companion_commit"))
+        and _is_sha256(record.get("core_wheel_sha256"))
+        and _is_sha256(record.get("extension_wheel_sha256"))
+        and _matches_candidate(
+            record,
+            version=version,
+            commit_field="core_commit",
+            commit=commit,
+        )
     ]
     gaps = () if accepted else (
         "missing installed companion/third-party provider acceptance",
@@ -204,7 +273,12 @@ def _gate_extension(records: tuple[dict[str, object], ...]) -> GateResult:
     )
 
 
-def _gate_agent(records: tuple[dict[str, object], ...]) -> GateResult:
+def _gate_agent(
+    records: tuple[dict[str, object], ...],
+    *,
+    version: str,
+    commit: str | None,
+) -> GateResult:
     accepted = [
         record
         for record in records
@@ -219,6 +293,16 @@ def _gate_agent(records: tuple[dict[str, object], ...]) -> GateResult:
         and record.get("simulation_result") == "passed"
         and record.get("verification") == "passed"
         and record.get("scientific_explanation") == "reviewed"
+        and record.get("candidate_identity_verified") is True
+        and _is_sha256(record.get("wheel_sha256"))
+        and _is_sha256(record.get("transcript_sha256"))
+        and _is_sha256(record.get("explanation_sha256"))
+        and _matches_candidate(
+            record,
+            version=version,
+            commit_field="source_commit",
+            commit=commit,
+        )
     ]
     gaps = () if accepted else (
         "missing zero-intervention fresh-agent trial from an installed wheel",
@@ -235,23 +319,33 @@ def _gate_agent(records: tuple[dict[str, object], ...]) -> GateResult:
     )
 
 
-def evaluate(*, evidence: Iterable[Path] = ()) -> dict[str, object]:
+def evaluate(
+    *,
+    evidence: Iterable[Path] = (),
+    candidate_version: str | None = None,
+    candidate_commit: str | None = None,
+) -> dict[str, object]:
     """Evaluate G1--G7 and return a stable JSON-safe report."""
 
     records = _read_evidence(tuple(Path(item) for item in evidence))
+    detected_version, detected_commit = _candidate_identity()
+    version = detected_version if candidate_version is None else str(candidate_version)
+    commit = detected_commit if candidate_commit is None else str(candidate_commit)
     gates = (
         _gate_public_language(),
         _gate_lowering(),
         _gate_result_lifecycle(),
         _gate_scientific_evidence(),
-        _gate_platforms(records),
-        _gate_extension(records),
-        _gate_agent(records),
+        _gate_platforms(records, version=version, commit=commit),
+        _gate_extension(records, version=version, commit=commit),
+        _gate_agent(records, version=version, commit=commit),
     )
     return {
         "schema": "agentfem.platform-promotion",
         "schema_version": "0.1.0",
         "target": TARGET,
+        "candidate_version": version,
+        "candidate_commit": commit,
         "status": "passed" if all(item.passed for item in gates) else "incomplete",
         "passed": sum(item.passed for item in gates),
         "required": len(gates),

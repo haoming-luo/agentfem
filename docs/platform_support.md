@@ -45,12 +45,19 @@ python release_gate.py --dist dist --smoke \
 ```
 
 The platform report records the route, exact wheel hash, Python/FEniCSx/PETSc/
-MPI identity and verified installed templates. GitHub's platform-acceptance
-workflow produces Linux and macOS artifacts, including a two-rank installed-
-wheel smoke, and aggregates them into a promotion snapshot. WSL2 promotion
+MPI identity, clean source commit and verified installed templates. GitHub's
+platform-acceptance workflow produces Linux and macOS artifacts, including a
+two-rank installed-wheel smoke, and aggregates them into a promotion snapshot.
+WSL2 promotion
 still requires the same command inside a real WSL2 environment; native Linux
 or an ordinary Windows runner is not silently relabelled as Windows-through-
 WSL2 evidence.
+
+Promotion evidence is candidate-specific. The audit rejects a passed record
+whose AgentFEM version or source commit differs from the checkout being
+promoted, and platform evidence additionally rejects a dirty source tree.
+Historical acceptance records remain useful release history but cannot be
+reused to promote a later candidate.
 
 ### Real WSL2 acceptance
 

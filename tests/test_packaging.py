@@ -51,6 +51,7 @@ def test_platform_acceptance_distinguishes_native_and_wsl_routes(tmp_path, monke
     wheel = tmp_path / "agentfem.whl"
     wheel.write_bytes(b"immutable candidate")
     monkeypatch.setattr(release_gate, "_sha256", lambda _path: "a" * 64)
+    monkeypatch.setattr(release_gate, "_source_identity", lambda: ("b" * 40, False))
     acceptance = {
         "agentfem_version": __version__,
         "runtime_fingerprint": {
@@ -77,6 +78,8 @@ def test_platform_acceptance_distinguishes_native_and_wsl_routes(tmp_path, monke
     assert report["platform_id"] == "wsl2"
     assert report["status"] == "passed"
     assert report["installed_wheel"] is True
+    assert report["source_commit"]
+    assert "generated_at" in report
 
     weak = release_gate.platform_acceptance(
         {**acceptance, "mpi_smoke": None},

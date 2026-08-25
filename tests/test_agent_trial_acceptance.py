@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
+import json
 from pathlib import Path
 
 
@@ -20,6 +22,21 @@ def test_agent_trial_requires_installed_fresh_zero_intervention_evidence(
     explanation = tmp_path / "explanation.md"
     transcript.write_text("fresh task transcript", encoding="utf-8")
     explanation.write_text("reviewed scientific explanation", encoding="utf-8")
+    wheel = tmp_path / "agentfem-0.3.0-py3-none-any.whl"
+    wheel.write_bytes(b"candidate wheel")
+    contract = tmp_path / "trial-contract.json"
+    contract.write_text(
+        json.dumps(
+            {
+                "schema": "agentfem.agent-trial-contract",
+                "agentfem_version": "0.3.0",
+                "source_commit": "a" * 40,
+                "wheel": wheel.name,
+                "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
+            }
+        ),
+        encoding="utf-8",
+    )
 
     records = {
         "doctor": {
@@ -50,6 +67,9 @@ def test_agent_trial_requires_installed_fresh_zero_intervention_evidence(
         fresh_context=True,
         human_interventions=0,
         explanation_reviewed=True,
+        source_commit="a" * 40,
+        wheel=wheel,
+        contract=contract,
     )
 
     assert report["status"] == "passed"
@@ -64,6 +84,12 @@ def test_agent_trial_requires_installed_fresh_zero_intervention_evidence(
         fresh_context=True,
         human_interventions=1,
         explanation_reviewed=True,
+        source_commit="a" * 40,
+        wheel=wheel,
+        contract=contract,
     )
     assert repaired["status"] == "failed"
     assert any("intervention" in item for item in repaired["gaps"])
+    assert report["wheel_sha256"]
+    assert report["candidate_identity_verified"] is True
+    assert report["transcript_sha256"]
