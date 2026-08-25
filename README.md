@@ -151,7 +151,7 @@ You can also run `case.py` directly with Python.
 | Heat and dynamics | Steady/transient heat transfer; Newmark and generalized-alpha dynamics; central-difference explicit dynamics |
 | Time-dependent materials | Global power-law creep plus material-point Arrhenius, Kachanov--Rabotnov, Sinh, and fatigue assessment tools |
 | Fracture interfaces | Fixed-path cohesive interfaces, cyclic cohesive fatigue, mixed-mode driving, cycle jump, rollback, and restart; advanced routes remain experimental |
-| Meshes and constraints | Structured/XDMF meshes, optional Gmsh and meshio, direct Abaqus C3D10H import, equation constraints, and distributed periodic workflows |
+| Meshes and constraints | Structured/XDMF meshes, optional Gmsh and meshio, reviewed Abaqus project migration, direct C3D10H import, equation constraints, and distributed periodic workflows |
 | Results and automation | Unified fields and histories, progress, checkpoints, Golden benchmarks, campaigns, scientific datasets, surrogate validation, and FEM fallback |
 | External PDE breadth | One public, case-independent adapter executes all 645 cases across all 11 PDEAgent-Bench families; every family exceeds 60% and the local fixed-solver snapshot passes 558 official accuracy/time gates ([method and evidence](docs/pdeagent_bench.md)) |
 

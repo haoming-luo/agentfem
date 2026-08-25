@@ -359,7 +359,35 @@ def _command_migrate_abaqus(args) -> int:
             f"Created reviewable Abaqus migration project: {record['project']}\n"
             f"  plan: {record['migration_plan']}\n"
             f"  review: {record['migration_report']}\n"
+            f"  native lowering: {record['native_lowering_status']}\n"
             "Next: run `agentfem check`, then review migration.json."
+        ),
+    )
+    return 0
+
+
+def _command_lower_abaqus(args) -> int:
+    from .mesh import lower_abaqus_migration_project
+
+    record = lower_abaqus_migration_project(
+        Path(args.project).expanduser().resolve(),
+        reviewed_by=args.reviewed_by,
+        unit_system=args.unit_system,
+        activate=args.activate,
+        force=args.force,
+    )
+    _emit(
+        record,
+        as_json=args.json,
+        human=(
+            f"Created reviewed native Abaqus draft: {record['entrypoint']}\n"
+            f"  decision: {record['lowering_record']}\n"
+            f"  status: {record['status']}\n"
+            + (
+                "Next: run `agentfem check` and `agentfem run`."
+                if args.activate
+                else "Review the draft, then rerun with --activate --force."
+            )
         ),
     )
     return 0
@@ -476,6 +504,17 @@ def build_parser() -> argparse.ArgumentParser:
     migrate_abaqus.add_argument("--name")
     migrate_abaqus.add_argument("--json", action="store_true")
 
+    lower_abaqus = sub.add_parser(
+        "lower-abaqus",
+        help="Create a reviewed native draft from an eligible Abaqus migration.",
+    )
+    lower_abaqus.add_argument("project")
+    lower_abaqus.add_argument("--reviewed-by", required=True)
+    lower_abaqus.add_argument("--unit-system", required=True)
+    lower_abaqus.add_argument("--activate", action="store_true")
+    lower_abaqus.add_argument("--force", action="store_true")
+    lower_abaqus.add_argument("--json", action="store_true")
+
     verify = sub.add_parser(
         "verify",
         help="Check a result manifest and the integrity of its registered artifacts.",
@@ -531,6 +570,8 @@ def main(argv: list[str] | None = None) -> int:
             return _command_inspect_abaqus(args)
         if args.command == "migrate-abaqus":
             return _command_migrate_abaqus(args)
+        if args.command == "lower-abaqus":
+            return _command_lower_abaqus(args)
         if args.command == "verify":
             return _command_verify(args)
         if args.command == "extensions":
@@ -585,8 +626,17 @@ def main(argv: list[str] | None = None) -> int:
             _emit(record, as_json=args.json, human=_json(record))
             return 0
     except (FileNotFoundError, FileExistsError, ValueError, RuntimeError) as exc:
+        error = {"type": type(exc).__name__, "message": str(exc)}
+        details = getattr(exc, "details", None)
+        if callable(details):
+            error["details"] = details()
         _emit(
-            {"schema": "agentfem.cli-error", "schema_version": "0.1.0", "status": "failed", "error": {"type": type(exc).__name__, "message": str(exc)}},
+            {
+                "schema": "agentfem.cli-error",
+                "schema_version": "0.1.0",
+                "status": "failed",
+                "error": error,
+            },
             as_json=getattr(args, "json", False),
             human=f"AgentFEM: {exc}",
         )

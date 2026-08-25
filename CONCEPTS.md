@@ -67,6 +67,11 @@ corresponding AgentFEM material, element formulation, load, constraint, or
 procedure. A generated migration project is therefore fail closed until its
 scientific decisions have been reviewed.
 
+A reviewed native lowering is a second, narrower object. It binds the source
+fingerprint, reviewer, unit interpretation, accepted asset mappings, retained
+warnings, and generated public AgentFEM workflow. Draft generation and project
+activation are separate actions.
+
 ## Mesh Region
 
 A named geometric location on the mesh, such as a boundary, material region, or

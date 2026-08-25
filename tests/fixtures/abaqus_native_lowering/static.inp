@@ -1,0 +1,28 @@
+*Heading
+** Versioned narrow native-lowering fixture
+*Node
+1, 0., 0., 0.
+2, 1., 0., 0.
+3, 0., 1., 0.
+4, 0., 0., 1.
+*Nset, nset=FIXED
+1, 2, 3
+*Nset, nset=MOVED
+4
+*Element, type=C3D4, elset=SOLID
+1, 1, 2, 3, 4
+*Material, name=STEEL
+*Elastic
+210000., 0.3
+*Density
+7.85e-9
+*Solid Section, elset=SOLID, material=STEEL
+*Step, name=PULL
+*Static
+*Boundary
+FIXED, 1, 3, 0.
+MOVED, 1, 2, 0.
+MOVED, 3, 3, 0.01
+*Node Output
+U, RF
+*End Step

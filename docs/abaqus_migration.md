@@ -32,6 +32,63 @@ source graph, writes machine-readable `migration.json` and a compact
 does not run until the engineer or agent has reviewed the scientific lowering
 decisions.
 
+## Reviewed native lowering
+
+Migration and native lowering are separate gates. If `migration.json` reports
+`native_lowering.status` as `eligible`, emit an inactive native draft only by
+recording the reviewer and the interpretation of the source deck's consistent
+units:
+
+```bash
+cd agentfem-model
+agentfem lower-abaqus . \
+  --reviewed-by "Haoming Luo" \
+  --unit-system "SI"
+```
+
+This writes `case.native.py`, `lowering.json`, and a fingerprinted
+`mesh/abaqus-expanded.inp`; the guarded `case.py` remains the entry point.
+After reviewing the visible workflow and decision record, activation is an
+explicit second action:
+
+```bash
+agentfem lower-abaqus . \
+  --reviewed-by "Haoming Luo" \
+  --unit-system "SI" \
+  --activate --force
+agentfem check
+agentfem run
+```
+
+The first executable route is intentionally narrow:
+
+- one displacement-based continuum topology with a declared native Lagrange
+  analogue;
+- either a flat orphan mesh or one Part instantiated once, including optional
+  translation followed by axis-angle rotation;
+- one homogeneous isotropic `*ELASTIC` material with `*DENSITY` and one
+  resolved `*SOLID SECTION` that is proven to cover every element declaration;
+- one linear `*STATIC` Step;
+- ordinary displacement `*BOUNDARY` rows targeting preserved NSETs;
+- optional `*DSLOAD` pressure on an explicit element-based SURFACE;
+- optional three-dimensional whole-material `*DLOAD, GRAV`, consumed through
+  the registered material density rather than duplicating a body-force value.
+
+The material gate accepts one constant isotropic elastic row and one constant
+density row. Temperature- or field-dependent tables remain review-required
+instead of being truncated to their first row. Two-dimensional lowering is
+currently per unit thickness, so a declared non-unit Section thickness is also
+blocked. Positive Abaqus pressure and native `model.pressure(...)` share the
+same inward convention; the decision is recorded in `lowering.json`.
+
+Reduced-integration/hourglass and hybrid declarations, multiple materials or
+instances, `NLGEOM`, concentrated loads, amplitudes, contact, equations, user
+materials, `OP`-dependent boundary inheritance, non-element surfaces, and
+unlowered assets are rejected with stable findings. Output
+requests remain source evidence while the draft uses AgentFEM's structured
+result lifecycle. A generated case is a reviewed native analogue, not a claim
+of Abaqus solver equivalence.
+
 The report records the source fingerprint, recursive include graph, element
 declarations, node and element counts, NSET/ELSET/SURFACE semantics, equation
 count, keyword inventory, and migration warnings. It does not write a
@@ -184,3 +241,5 @@ separation while expressing the final model in readable Python.  See the
 [combining material behaviors](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMATRefMap/simamat-c-matmodels.htm),
 and [section assignment](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEKEYRefMap/simakey-r-solidsection.htm)
 documentation for the source concepts.
+The one-instance derivation follows the documented [Part/Assembly scope and
+instance-positioning order](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMODRefMap/simamod-c-partassy.htm).

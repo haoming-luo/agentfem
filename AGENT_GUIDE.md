@@ -33,6 +33,13 @@ finite-element simulation with AgentFEM.
   conversion and read `docs/abaqus_migration.md`. Preserve element formulation
   suffixes and report topology-only support; never substitute a native element
   formulation silently.
+- If `migration.json` reports an eligible narrow native route, use
+  `agentfem lower-abaqus PROJECT --reviewed-by NAME --unit-system SYSTEM` to
+  create `case.native.py` and `lowering.json` without activation. Read both,
+  then use `--activate --force` only when accepted. Never invent units or
+  delete a blocking finding. Dependent material tables, partial Section
+  coverage, non-unit 2D thickness, and Step/BC inheritance require a dedicated
+  lowering route rather than a first-row or final-value approximation.
 - Study setup: use `studies.static_solid`, `studies.steady_heat_transfer`,
   `studies.transient_heat_transfer`, or `studies.dynamic_solid` for common
   workflows. Use the general factories only when the common vocabulary does

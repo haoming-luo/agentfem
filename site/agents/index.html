@@ -1088,6 +1088,10 @@ status and scientific evidence.</p>
 <td><code>agentfem migrate-abaqus model.inp ./project --json</code></td>
 <td>Fail-closed Abaqus migration project</td>
 </tr>
+<tr>
+<td><code>agentfem lower-abaqus ./project --reviewed-by NAME --unit-system SI --json</code></td>
+<td>Inactive reviewed native draft for the eligible subset</td>
+</tr>
 </tbody>
 </table>
 <h2 id="safe-operating-sequence">Safe operating sequence<a class="headerlink" href="#safe-operating-sequence" title="Permanent link">&para;</a></h2>
@@ -1100,7 +1104,9 @@ benchmark evidence, and any explicit failure record.</p>
 <p>For an Abaqus migration, inspect before creating a project. Preserve the
 complete source graph and review every issue in <code>migration.json</code>; never remove
 an element suffix, collapse Part/Instance scopes, or execute a generated
-material candidate merely because its syntax was recognized.</p>
+material candidate merely because its syntax was recognized.
+When the native subset is eligible, record reviewer and unit interpretation,
+inspect the inactive draft and decision fingerprint, and activate separately.</p>
 <h2 id="start-here">Start here<a class="headerlink" href="#start-here" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../getting_started/">Installed project workflow</a></li>

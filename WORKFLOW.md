@@ -11,6 +11,10 @@ scope, regions, section/material assignments, formulation suffixes, and every
 addressable issue before entering the standard sequence below. The generated
 project is a source-preserving migration workspace, not an executable
 whole-deck translation.
+If the narrow native route is eligible, `agentfem lower-abaqus` emits a draft
+only after `--reviewed-by` and `--unit-system` are explicit. Activation remains
+a separate choice; never bypass a blocked finding by editing the decision
+record.
 
 1. Define the study context: analysis type, physics, dimension, and modeling
    assumptions.

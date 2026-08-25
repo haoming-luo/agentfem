@@ -37,7 +37,8 @@ AgentFEM currently provides executable foundations for:
 - fixed-path cohesive fracture, including experimental cyclic and mixed-mode
   routes;
 - Abaqus/Gmsh mesh semantics, a side-effect-free Abaqus migration inventory,
-  periodic equations, C3D10/C3D10H workflows, and MPI execution;
+  reviewed narrow native static lowering, periodic equations, C3D10/C3D10H
+  workflows, and MPI execution;
 - common fields, histories, energy records, checkpoint/restart, provenance,
   convergence evidence, and ParaView-oriented output with one recommended
   visualization dataset per saved time in serial and MPI;

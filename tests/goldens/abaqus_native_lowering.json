@@ -1,0 +1,38 @@
+{
+  "assumption": null,
+  "boundaries": [
+    {
+      "components": [0, 1, 2],
+      "region": "FIXED",
+      "value": 0.0
+    },
+    {
+      "components": [0, 1],
+      "region": "MOVED",
+      "value": 0.0
+    },
+    {
+      "components": [2],
+      "region": "MOVED",
+      "value": 0.01
+    }
+  ],
+  "degree": 1,
+  "dimension": 3,
+  "finding_codes": [
+    "AFM-ABAQUS-LOWER-ASSET-101"
+  ],
+  "gravities": [],
+  "material": {
+    "constructor": "constitutive.isotropic_elastic",
+    "density": 7.85e-09,
+    "name": "STEEL",
+    "poisson": 0.3,
+    "young": 210000.0
+  },
+  "material_name": "STEEL",
+  "pressures": [],
+  "status": "eligible",
+  "step_name": "PULL",
+  "topology": "tetra"
+}

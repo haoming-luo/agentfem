@@ -3,11 +3,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
+
 from agentfem.mesh import abaqus
+from agentfem.mesh import abaqus_lowering
 from agentfem.mesh import abaqus_migration
 
 
 FIXTURES = Path(__file__).parent / "fixtures" / "abaqus_migration"
+NATIVE_FIXTURES = Path(__file__).parent / "fixtures" / "abaqus_native_lowering"
 GOLDENS = Path(__file__).parent / "goldens"
 
 
@@ -72,6 +76,27 @@ def _migration_signature(plan):
     }
 
 
+def _native_signature(assessment):
+    summary = assessment.summary()
+    return {
+        "status": summary["status"],
+        "dimension": summary["dimension"],
+        "assumption": summary["assumption"],
+        "topology": summary["topology"],
+        "degree": summary["degree"],
+        "material_name": summary["material_name"],
+        "material": summary["material"],
+        "step_name": summary["step_name"],
+        "boundaries": [
+            {key: item[key] for key in ("region", "components", "value")}
+            for item in summary["boundaries"]
+        ],
+        "pressures": summary["pressures"],
+        "gravities": summary["gravities"],
+        "finding_codes": [item["code"] for item in summary["findings"]],
+    }
+
+
 def test_scope_aware_migration_plan_matches_golden_contract():
     plan = abaqus_migration.plan(FIXTURES / "model.inp")
     expected = json.loads(
@@ -79,6 +104,17 @@ def test_scope_aware_migration_plan_matches_golden_contract():
     )
 
     assert _migration_signature(plan) == expected
+
+
+def test_native_lowering_matches_versioned_golden_contract():
+    assessment = abaqus_lowering.assess(
+        abaqus_migration.plan(NATIVE_FIXTURES / "static.inp")
+    )
+    expected = json.loads(
+        (GOLDENS / "abaqus_native_lowering.json").read_text(encoding="utf-8")
+    )
+
+    assert _native_signature(assessment) == expected
 
 
 def test_element_catalog_separates_topology_from_formulation():
@@ -540,3 +576,368 @@ def test_composite_section_is_preserved_for_review_without_fake_material(tmp_pat
         ("0.5", "MAT_B", "90.0"),
     )
     assert any(item.code == "AFM-ABAQUS-SECTION-003" for item in plan.issues)
+
+
+def _write_native_static_deck(path: Path) -> None:
+    path.write_text(
+        "\n".join(
+            (
+                "*Heading",
+                "*Node",
+                "1, 0., 0., 0.",
+                "2, 1., 0., 0.",
+                "3, 0., 1., 0.",
+                "4, 0., 0., 1.",
+                "*Nset, nset=FIXED",
+                "1, 2, 3",
+                "*Nset, nset=MOVED",
+                "4",
+                "*Element, type=C3D4, elset=SOLID",
+                "1, 1, 2, 3, 4",
+                "*Material, name=STEEL",
+                "*Elastic",
+                "210000., 0.3",
+                "*Density",
+                "7.85e-9",
+                "*Solid Section, elset=SOLID, material=STEEL",
+                "*Step, name=PULL",
+                "*Static",
+                "*Boundary",
+                "FIXED, 1, 3, 0.",
+                "MOVED, 1, 2, 0.",
+                "MOVED, 3, 3, 0.01",
+                "*Node Output",
+                "U, RF",
+                "*End Step",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def test_native_lowering_assessment_accepts_narrow_linear_static_route(tmp_path):
+    source = tmp_path / "static.inp"
+    _write_native_static_deck(source)
+
+    assessment = abaqus_lowering.assess(abaqus_migration.plan(source))
+
+    assert assessment.eligible is True
+    assert assessment.dimension == 3
+    assert assessment.assumption is None
+    assert assessment.topology == "tetra"
+    assert assessment.degree == 1
+    assert assessment.material_name == "STEEL"
+    assert [item.region for item in assessment.boundaries] == [
+        "FIXED",
+        "MOVED",
+        "MOVED",
+    ]
+    assert {item.code for item in assessment.findings} == {
+        "AFM-ABAQUS-LOWER-ASSET-101"
+    }
+
+
+def test_native_lowering_emits_reviewed_draft_without_erasing_guard(tmp_path):
+    source = tmp_path / "static.inp"
+    _write_native_static_deck(source)
+    project = tmp_path / "migrated"
+    abaqus_migration.create_project(source, project, created_with="test")
+
+    record = abaqus_lowering.lower_project(
+        project,
+        reviewed_by="Test Engineer",
+        unit_system="mm-N-s",
+    )
+
+    assert record["status"] == "drafted"
+    assert "fail-closed migration scaffold" in (project / "case.py").read_text()
+    native = (project / "case.native.py").read_text(encoding="utf-8")
+    assert "studies.static_solid" in native
+    assert "cell.node_set('FIXED')" in native
+    assert "young=210000.0" in native
+    assert 'entrypoint = "case.py"' in (project / "agentfem.toml").read_text()
+    lowering = json.loads((project / "lowering.json").read_text(encoding="utf-8"))
+    assert lowering["review"]["reviewed_by"] == "Test Engineer"
+    assert lowering["review"]["unit_system"] == "mm-N-s"
+    assert lowering["review"]["source_values_reinterpreted"] is False
+    assert lowering["expanded_source_sha256"]
+
+    activated = abaqus_lowering.lower_project(
+        project,
+        reviewed_by="Test Engineer",
+        unit_system="mm-N-s",
+        activate=True,
+        force=True,
+    )
+    assert activated["status"] == "activated"
+    assert activated["decision_fingerprint"] == record["decision_fingerprint"]
+    assert 'entrypoint = "case.native.py"' in (
+        project / "agentfem.toml"
+    ).read_text()
+
+
+def test_native_lowering_blocks_reduced_integration_and_unlowered_load(tmp_path):
+    source = tmp_path / "unsupported.inp"
+    _write_native_static_deck(source)
+    text = source.read_text(encoding="utf-8")
+    text = text.replace("type=C3D4", "type=C3D8R")
+    text = text.replace(
+        "*End Step", "*Cload\nMOVED, 3, 10.0\n*End Step"
+    )
+    source.write_text(text, encoding="utf-8")
+
+    assessment = abaqus_lowering.assess(abaqus_migration.plan(source))
+    codes = {item.code for item in assessment.findings if item.severity == "error"}
+
+    assert assessment.eligible is False
+    assert "AFM-ABAQUS-LOWER-ELEMENT-002" in codes
+    assert "AFM-ABAQUS-LOWER-LOAD-001" in codes
+
+
+def test_native_lowering_does_not_collapse_temperature_dependent_material_table(
+    tmp_path,
+):
+    source = tmp_path / "temperature-dependent.inp"
+    _write_native_static_deck(source)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            "210000., 0.3\n*Density",
+            "210000., 0.3, 20.\n190000., 0.3, 500.\n*Density",
+        ),
+        encoding="utf-8",
+    )
+
+    plan = abaqus_migration.plan(source)
+    assessment = abaqus_lowering.assess(plan)
+
+    assert plan.materials[0].translation_status == "review_required"
+    assert assessment.eligible is False
+    assert "AFM-ABAQUS-LOWER-MATERIAL-001" in {
+        item.code for item in assessment.findings
+    }
+
+
+def test_native_lowering_rejects_nonphysical_native_material_candidate(tmp_path):
+    source = tmp_path / "invalid-material.inp"
+    _write_native_static_deck(source)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace("210000., 0.3", "-1., 0.6"),
+        encoding="utf-8",
+    )
+
+    plan = abaqus_migration.plan(source)
+    assessment = abaqus_lowering.assess(plan)
+
+    assert plan.materials[0].translation_status == "review_required"
+    assert assessment.eligible is False
+
+
+def test_native_lowering_requires_section_to_cover_every_element_block(tmp_path):
+    source = tmp_path / "partially-assigned.inp"
+    _write_native_static_deck(source)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            "*Material, name=STEEL",
+            "*Element, type=C3D4, elset=UNASSIGNED\n2, 1, 2, 3, 4\n"
+            "*Material, name=STEEL",
+        ),
+        encoding="utf-8",
+    )
+
+    assessment = abaqus_lowering.assess(abaqus_migration.plan(source))
+
+    assert assessment.eligible is False
+    assert "AFM-ABAQUS-LOWER-SECTION-002" in {
+        item.code for item in assessment.findings
+    }
+
+
+def test_native_lowering_refuses_to_discard_nonunit_two_dimensional_thickness(
+    tmp_path,
+):
+    source = tmp_path / "plane-stress.inp"
+    source.write_text(
+        "\n".join(
+            (
+                "*Node",
+                "1,0,0",
+                "2,1,0",
+                "3,0,1",
+                "*Nset, nset=FIXED",
+                "1,2",
+                "*Element, type=CPS3, elset=SOLID",
+                "1,1,2,3",
+                "*Material, name=MAT",
+                "*Elastic",
+                "1000.,0.3",
+                "*Density",
+                "1.0",
+                "*Solid Section, elset=SOLID, material=MAT",
+                "2.5",
+                "*Step, name=PULL",
+                "*Static",
+                "*Boundary",
+                "FIXED,1,2,0.",
+                "*End Step",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assessment = abaqus_lowering.assess(abaqus_migration.plan(source))
+
+    assert assessment.eligible is False
+    assert "AFM-ABAQUS-LOWER-SECTION-003" in {
+        item.code for item in assessment.findings
+    }
+
+
+def test_native_lowering_requires_explicit_step_and_surface_semantics(tmp_path):
+    source = tmp_path / "ambiguous-semantics.inp"
+    _write_native_static_deck(source)
+    text = source.read_text(encoding="utf-8")
+    text = text.replace("*Static", "*Static, stabilize")
+    text = text.replace("*Boundary", "*Surface, name=LOAD, type=NODE\nMOVED\n*Boundary, op=NEW")
+    text = text.replace("*Node Output", "*Dsload\nLOAD,P,1.0\n*Node Output")
+    source.write_text(text, encoding="utf-8")
+
+    assessment = abaqus_lowering.assess(abaqus_migration.plan(source))
+    codes = {item.code for item in assessment.findings}
+
+    assert assessment.eligible is False
+    assert {
+        "AFM-ABAQUS-LOWER-STEP-004",
+        "AFM-ABAQUS-LOWER-BC-007",
+        "AFM-ABAQUS-LOWER-SURFACE-001",
+        "AFM-ABAQUS-LOWER-LOAD-004",
+    } <= codes
+
+
+def test_native_lowering_rejects_conflicting_prescribed_dofs(tmp_path):
+    source = tmp_path / "conflicting-boundary.inp"
+    _write_native_static_deck(source)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            "MOVED, 3, 3, 0.01",
+            "MOVED, 3, 3, 0.01\nMOVED, 3, 3, 0.02",
+        ),
+        encoding="utf-8",
+    )
+
+    assessment = abaqus_lowering.assess(abaqus_migration.plan(source))
+
+    assert assessment.eligible is False
+    assert "AFM-ABAQUS-LOWER-BC-008" in {
+        item.code for item in assessment.findings
+    }
+
+
+def test_native_lowering_refuses_source_mutation_after_migration(tmp_path):
+    source = tmp_path / "static.inp"
+    _write_native_static_deck(source)
+    project = tmp_path / "migrated"
+    abaqus_migration.create_project(source, project, created_with="test")
+    copied = project / "source" / "static.inp"
+    copied.write_text(copied.read_text() + "** changed\n", encoding="utf-8")
+
+    try:
+        abaqus_lowering.lower_project(
+            project,
+            reviewed_by="Test Engineer",
+            unit_system="SI",
+        )
+    except ValueError as exc:
+        assert "changed after migration planning" in str(exc)
+    else:
+        raise AssertionError("Mutated source must invalidate native lowering.")
+
+
+def test_native_lowering_flattens_one_positioned_part_instance(tmp_path):
+    source = tmp_path / "assembly.inp"
+    source.write_text(
+        "\n".join(
+            (
+                "*Part, name=BRACKET",
+                "*Node",
+                "1,0,0,0",
+                "2,1,0,0",
+                "3,0,1,0",
+                "4,0,0,1",
+                "*Nset, nset=FIXED",
+                "1,2,3",
+                "*Nset, nset=MOVED",
+                "4",
+                "*Element, type=C3D4, elset=SOLID",
+                "1,1,2,3,4",
+                "*Solid Section, elset=SOLID, material=STEEL",
+                "*End Part",
+                "*Assembly, name=A",
+                "*Instance, name=BRACKET-1, part=BRACKET",
+                "10.,20.,30.",
+                "0.,0.,0.,0.,0.,1.,90.",
+                "*End Instance",
+                "*End Assembly",
+                "*Material, name=STEEL",
+                "*Elastic",
+                "210000.,0.3",
+                "*Density",
+                "7.85e-9",
+                "*Step, name=PULL",
+                "*Static",
+                "*Boundary",
+                "BRACKET-1.FIXED,1,3,0.",
+                "BRACKET-1.MOVED,1,2,0.",
+                "BRACKET-1.MOVED,3,3,0.01",
+                "*End Step",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    project = tmp_path / "migrated"
+    abaqus_migration.create_project(source, project, created_with="test")
+
+    assessment = abaqus_lowering.assess(abaqus_migration.plan(source))
+    assert assessment.eligible is True
+    assert {item.region for item in assessment.boundaries} == {"FIXED", "MOVED"}
+    abaqus_lowering.lower_project(
+        project,
+        reviewed_by="Test Engineer",
+        unit_system="mm-N-s",
+    )
+    derived = project / "mesh" / "abaqus-expanded.inp"
+    nodes = abaqus.read_node_table(derived)
+
+    np.testing.assert_allclose(nodes.coordinate(1), [-20.0, 10.0, 30.0])
+    np.testing.assert_allclose(nodes.coordinate(2), [-20.0, 11.0, 30.0])
+    text = derived.read_text(encoding="utf-8")
+    assert "*Part" not in text
+    assert "*Instance" not in text
+    assert "*Nset, nset=FIXED" in text
+
+
+def test_native_lowering_maps_whole_material_gravity_without_density_duplication(
+    tmp_path,
+):
+    source = tmp_path / "gravity.inp"
+    _write_native_static_deck(source)
+    text = source.read_text(encoding="utf-8").replace(
+        "*End Step", "*Dload\nSOLID, GRAV, 9.81, 0., 0., -1.\n*End Step"
+    )
+    source.write_text(text, encoding="utf-8")
+    project = tmp_path / "migrated"
+    abaqus_migration.create_project(source, project, created_with="test")
+
+    assessment = abaqus_lowering.assess(abaqus_migration.plan(source))
+    assert assessment.eligible is True
+    assert assessment.gravities[0].acceleration == (0.0, 0.0, -9.81)
+    abaqus_lowering.lower_project(
+        project,
+        reviewed_by="Test Engineer",
+        unit_system="SI",
+    )
+    native = (project / "case.native.py").read_text(encoding="utf-8")
+    assert "model.gravity(" in native
+    assert "(0.0, 0.0, -9.81)" in native

@@ -12,6 +12,8 @@ Repository package paths below are relative to `src/agentfem/`.
   geometry, and source-order VTU output
 - `mesh/abaqus_migration.py`: scope-aware Abaqus engineering plans and
   fail-closed installed-project scaffolds
+- `mesh/abaqus_lowering.py`: reviewed narrow native lowering and fingerprinted
+  one-instance orphan-mesh derivation
 - `studies.py`: analysis context, physics, dimensions, and modeling assumptions
 - `procedures.py`: Standard/Explicit family, equation order, integration
   algorithm, state policy, and solve requirements

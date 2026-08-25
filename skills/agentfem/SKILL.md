@@ -281,6 +281,13 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   intentionally fail closed. Never invent missing material properties, and
   review every Step, load, boundary, interaction, and output retained under
   `pending_assets`.
+- If `migration.json` reports `native_lowering.status=eligible`, create an
+  inactive reviewed draft with `agentfem lower-abaqus PROJECT --reviewed-by
+  NAME --unit-system SYSTEM`. Inspect `case.native.py` and `lowering.json`
+  before adding `--activate --force`. A native analogue is not Abaqus solver
+  equivalence, and a blocking finding must never be bypassed. Do not collapse
+  temperature-dependent tables, partial Section assignments, non-unit 2D
+  thickness, or Step/BC inheritance into the narrow static route.
 - Read an Abaqus `C3D10H` source directly with `mesh.read_abaqus_mesh(...)`,
   inspect `cell.element_definitions`, and consume it only through the verified
   P2-displacement/DG0-pressure mixed route. Do not derive another mesh when the

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -495,6 +496,13 @@ def _expanded_lines(
         yield AbaqusSourceLocation(_logical(selected, root), line_number), raw
 
 
+def expanded_lines(path: str | Path):
+    """Return the include-expanded source while retaining source locations."""
+
+    root = Path(path).expanduser().resolve()
+    return _expanded_lines(root, root=root)
+
+
 def _native_material_candidate(
     name: str,
     blocks: tuple[AbaqusMaterialBlock, ...],
@@ -506,23 +514,42 @@ def _native_material_candidate(
         return "review_required_user_material", {}
     if not keywords or any(item not in {"*ELASTIC", "*DENSITY"} for item in keywords):
         return "review_required", {}
-    elastic = next((item for item in blocks if item.keyword == "*ELASTIC"), None)
+    elastic_blocks = [item for item in blocks if item.keyword == "*ELASTIC"]
+    density_blocks = [item for item in blocks if item.keyword == "*DENSITY"]
+    if len(elastic_blocks) != 1 or len(density_blocks) > 1:
+        return "review_required", {}
+    elastic = elastic_blocks[0]
     if (
-        elastic is None
-        or elastic.options.get("TYPE", "ISOTROPIC").upper() != "ISOTROPIC"
+        elastic.options.get("TYPE", "ISOTROPIC").upper() != "ISOTROPIC"
+        or set(elastic.options) - {"TYPE"}
+        or elastic.flags
     ):
         return "review_required", {}
-    if not elastic.rows or len(elastic.rows[0]) < 2:
+    # More rows or columns can encode temperature/field dependence.  The first
+    # native route must not silently collapse such a table to its first row.
+    if len(elastic.rows) != 1 or len(elastic.rows[0]) != 2:
         return "review_required", {}
     try:
         young, poisson = float(elastic.rows[0][0]), float(elastic.rows[0][1])
-        density_block = next(
-            (item for item in blocks if item.keyword == "*DENSITY"), None
-        )
-        if density_block is None or not density_block.rows:
+        if not density_blocks:
             return "review_required_missing_density", {}
+        density_block = density_blocks[0]
+        if (
+            density_block.options
+            or density_block.flags
+            or len(density_block.rows) != 1
+            or len(density_block.rows[0]) != 1
+        ):
+            return "review_required", {}
         density = float(density_block.rows[0][0])
     except (TypeError, ValueError):
+        return "review_required", {}
+    if (
+        not all(math.isfinite(value) for value in (young, poisson, density))
+        or young <= 0.0
+        or density <= 0.0
+        or not -1.0 < poisson < 0.5
+    ):
         return "review_required", {}
     candidate: dict[str, object] = {
         "constructor": "constitutive.isotropic_elastic",
@@ -765,6 +792,17 @@ def plan(path: str | Path) -> AbaqusMigrationPlan:
                 )
             elif active_keyword == "*NODE":
                 active_material = None
+                if options.get("NSET"):
+                    regions.append(
+                        AbaqusScopedRegion(
+                            name=options["NSET"].strip(),
+                            kind="nset",
+                            scope=scope_key(),
+                            instance=None,
+                            source="node_header",
+                            location=location,
+                        )
+                    )
             elif active_keyword in _PENDING_CATEGORIES:
                 active_material = None
                 active_pending_rows = []
@@ -1190,7 +1228,10 @@ def _markdown_cell(value: object) -> str:
     return str(value).replace("|", "\\|").replace("\n", " ")
 
 
-def _migration_report_markdown(plan_record: AbaqusMigrationPlan) -> str:
+def _migration_report_markdown(
+    plan_record: AbaqusMigrationPlan,
+    native_assessment=None,
+) -> str:
     lines = [
         "# Abaqus migration review",
         "",
@@ -1281,6 +1322,34 @@ def _migration_report_markdown(plan_record: AbaqusMigrationPlan) -> str:
     )
     if not plan_record.issues:
         lines.append("- No structural-reference errors were detected.")
+    if native_assessment is not None:
+        lines.extend(
+            (
+                "",
+                "## Native lowering gate",
+                "",
+                f"- Status: **{'eligible' if native_assessment.eligible else 'blocked'}**",
+                f"- Dimension / assumption: `{native_assessment.dimension}` / "
+                f"`{native_assessment.assumption}`",
+                f"- Element topology / degree: `{native_assessment.topology}` / "
+                f"`{native_assessment.degree}`",
+                f"- Accepted boundaries / pressures / gravities: "
+                f"{len(native_assessment.boundaries)} / "
+                f"{len(native_assessment.pressures)} / "
+                f"{len(native_assessment.gravities)}",
+                "",
+            )
+        )
+        blocking = [
+            item for item in native_assessment.findings if item.severity == "error"
+        ]
+        lines.extend(
+            f"- **{item.code}** — {item.message}" for item in blocking
+        )
+        if not blocking:
+            lines.append(
+                "- Emit an inactive reviewed draft with `agentfem lower-abaqus`."
+            )
     lines.extend(
         (
             "",
@@ -1315,6 +1384,9 @@ def create_project(
             "recursive *INCLUDE declarations first."
         )
     project_name = _safe_project_name(name or target.name)
+    from . import abaqus_lowering
+
+    native_assessment = abaqus_lowering.assess(plan_record)
     source_paths = [item.path for item in plan_record.source_graph.files]
     common_root = Path(os.path.commonpath([str(item) for item in source_paths]))
     if common_root.is_file():
@@ -1387,6 +1459,7 @@ def create_project(
         )
         record = {
             **plan_record.summary(),
+            "native_lowering": native_assessment.summary(),
             "project": {
                 "name": project_name,
                 "entrypoint": "case.py",
@@ -1399,7 +1472,8 @@ def create_project(
             encoding="utf-8",
         )
         (temporary / "migration.md").write_text(
-            _migration_report_markdown(plan_record), encoding="utf-8"
+            _migration_report_markdown(plan_record, native_assessment),
+            encoding="utf-8",
         )
         (temporary / "README.md").write_text(
             "\n".join(
@@ -1412,7 +1486,11 @@ def create_project(
                     "2. Review `migration.json` and the copied `source/` deck.",
                     "   `migration.md` is the compact human review report.",
                     "3. Select and verify native AgentFEM formulations.",
-                    "4. Replace the guard in `case.py` with the visible FEM workflow.",
+                    "4. If `native_lowering.status` is `eligible`, create a reviewed",
+                    "   draft with `agentfem lower-abaqus . --reviewed-by NAME",
+                    "   --unit-system SYSTEM`.",
+                    "5. Review `case.native.py` and `lowering.json`; activate only",
+                    "   with the explicit `--activate` option.",
                     "",
                     "The generated project does not claim Abaqus solver equivalence.",
                     "",
@@ -1453,4 +1531,5 @@ def create_project(
         "migration_plan": str(target / "migration.json"),
         "migration_report": str(target / "migration.md"),
         "source_entrypoint": str(target / root_entry),
+        "native_lowering_status": native_assessment.summary()["status"],
     }

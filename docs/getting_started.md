@@ -76,6 +76,17 @@ sections, materials, element formulations, loads, and procedures have been
 reviewed. Project creation is therefore automation of evidence and structure,
 not an unsupported whole-deck equivalence claim.
 
+If `migration.json` marks the narrow native route eligible, create an inactive
+reviewed draft with:
+
+```bash
+agentfem lower-abaqus . --reviewed-by "Your name" --unit-system SI
+```
+
+Review `case.native.py` and `lowering.json`; activation is a separate explicit
+action. Unsupported formulation or workflow semantics remain blocked rather
+than being approximated silently.
+
 Use the concise Study factories for common engineering work:
 
 ```python

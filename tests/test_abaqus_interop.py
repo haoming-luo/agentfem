@@ -7,13 +7,14 @@ import numpy as np
 import pytest
 from mpi4py import MPI
 
-from agentfem import constraints, fields, mesh
+from agentfem import cli, constraints, fields, mesh
 
 from agentfem.constraints.affine import (
     _build_reduction,
     _expand_semantic_relations,
 )
 from agentfem.mesh import abaqus
+from agentfem.mesh import abaqus_lowering, abaqus_migration
 
 
 CASE_INPUT = (
@@ -483,3 +484,113 @@ def test_periodic_cell_volume_uses_control_node_lattice():
         anchor_node=1,
         reference_nodes=(7, 9, 4),
     ) == pytest.approx(24.0)
+
+
+def test_reviewed_abaqus_native_draft_runs_to_structured_result(tmp_path, capsys):
+    pytest.importorskip("meshio")
+    source = tmp_path / "legacy-static.inp"
+    source.write_text(
+        "\n".join(
+            (
+                "*Heading",
+                "*Node",
+                "1,0,0,0",
+                "2,1,0,0",
+                "3,0,1,0",
+                "4,0,0,1",
+                "5,1,1,1",
+                "*Nset, nset=FIXED",
+                "1,2,3",
+                "*Nset, nset=MOVED",
+                "5",
+                "*Element, type=C3D4, elset=SOLID",
+                "1,1,2,3,4",
+                "2,2,3,4,5",
+                "*Material, name=STEEL",
+                "*Elastic",
+                "210000.,0.3",
+                "*Density",
+                "7.85e-9",
+                "*Solid Section, elset=SOLID, material=STEEL",
+                "*Step, name=PULL",
+                "*Static",
+                "*Boundary",
+                "FIXED,1,3,0.",
+                "MOVED,1,2,0.",
+                "MOVED,3,3,0.01",
+                "*End Step",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    project = tmp_path / "native-project"
+    abaqus_migration.create_project(source, project, created_with="test")
+    abaqus_lowering.lower_project(
+        project,
+        reviewed_by="Regression Test",
+        unit_system="mm-N-s",
+        activate=True,
+    )
+
+    assert cli.main(["run", "--project", str(project), "--json"]) == 0
+    execution = capsys.readouterr().out
+    assert '"status": "completed"' in execution
+    latest = project / "outputs" / "native-project" / "latest.json"
+    assert latest.is_file()
+
+
+def test_reviewed_abaqus_surface_pressure_lowers_and_runs(tmp_path, capsys):
+    pytest.importorskip("meshio")
+    source = tmp_path / "pressure.inp"
+    source.write_text(
+        "\n".join(
+            (
+                "*Node",
+                "1,0,0,0",
+                "2,1,0,0",
+                "3,1,1,0",
+                "4,0,1,0",
+                "5,0,0,1",
+                "6,1,0,1",
+                "7,1,1,1",
+                "8,0,1,1",
+                "*Nset, nset=FIXED",
+                "1,2,3,4",
+                "*Element, type=C3D8, elset=SOLID",
+                "1,1,2,3,4,5,6,7,8",
+                "*Surface, name=LOADED, type=ELEMENT",
+                "SOLID,S2",
+                "*Material, name=MAT",
+                "*Elastic",
+                "1000.,0.3",
+                "*Density",
+                "1.0",
+                "*Solid Section, elset=SOLID, material=MAT",
+                "*Step, name=PRESSURE",
+                "*Static",
+                "*Boundary",
+                "FIXED,1,3,0.",
+                "*Dsload",
+                "LOADED,P,1.0",
+                "*End Step",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    project = tmp_path / "pressure-project"
+    abaqus_migration.create_project(source, project, created_with="test")
+    abaqus_lowering.lower_project(
+        project,
+        reviewed_by="Regression Test",
+        unit_system="SI",
+        activate=True,
+    )
+
+    assert cli.main(["run", "--project", str(project), "--json"]) == 0
+    execution = capsys.readouterr().out
+    assert '"status": "completed"' in execution
+    native = (project / "case.native.py").read_text(encoding="utf-8")
+    assert "cell.boundary('LOADED'" in native
+    assert "model.pressure(" in native

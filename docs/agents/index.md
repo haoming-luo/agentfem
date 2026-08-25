@@ -19,6 +19,7 @@ status and scientific evidence.
 | `agentfem inspect --json` | Result and artifact discovery |
 | `agentfem inspect-abaqus model.inp --json` | Side-effect-free legacy-deck inventory |
 | `agentfem migrate-abaqus model.inp ./project --json` | Fail-closed Abaqus migration project |
+| `agentfem lower-abaqus ./project --reviewed-by NAME --unit-system SI --json` | Inactive reviewed native draft for the eligible subset |
 
 ## Safe operating sequence
 
@@ -35,6 +36,8 @@ For an Abaqus migration, inspect before creating a project. Preserve the
 complete source graph and review every issue in `migration.json`; never remove
 an element suffix, collapse Part/Instance scopes, or execute a generated
 material candidate merely because its syntax was recognized.
+When the native subset is eligible, record reviewer and unit interpretation,
+inspect the inactive draft and decision fingerprint, and activate separately.
 
 ## Start here
 

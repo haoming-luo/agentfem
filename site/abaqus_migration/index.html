@@ -695,6 +695,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#reviewed-native-lowering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reviewed native lowering
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#three-different-meanings-of-support" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1262,6 +1273,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#reviewed-native-lowering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reviewed native lowering
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#three-different-meanings-of-support" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1425,6 +1447,54 @@ source graph, writes machine-readable <code>migration.json</code> and a compact
 <code>migration.md</code> review, and creates ordinary <code>case.py</code> plus <code>agentfem.toml</code>; it
 does not run until the engineer or agent has reviewed the scientific lowering
 decisions.</p>
+<h2 id="reviewed-native-lowering">Reviewed native lowering<a class="headerlink" href="#reviewed-native-lowering" title="Permanent link">&para;</a></h2>
+<p>Migration and native lowering are separate gates. If <code>migration.json</code> reports
+<code>native_lowering.status</code> as <code>eligible</code>, emit an inactive native draft only by
+recording the reviewer and the interpretation of the source deck's consistent
+units:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">cd</span><span class="w"> </span>agentfem-model
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>agentfem<span class="w"> </span>lower-abaqus<span class="w"> </span>.<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>--reviewed-by<span class="w"> </span><span class="s2">&quot;Haoming Luo&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>--unit-system<span class="w"> </span><span class="s2">&quot;SI&quot;</span>
+</code></pre></div>
+<p>This writes <code>case.native.py</code>, <code>lowering.json</code>, and a fingerprinted
+<code>mesh/abaqus-expanded.inp</code>; the guarded <code>case.py</code> remains the entry point.
+After reviewing the visible workflow and decision record, activation is an
+explicit second action:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>agentfem<span class="w"> </span>lower-abaqus<span class="w"> </span>.<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>--reviewed-by<span class="w"> </span><span class="s2">&quot;Haoming Luo&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span>--unit-system<span class="w"> </span><span class="s2">&quot;SI&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span>--activate<span class="w"> </span>--force
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>agentfem<span class="w"> </span>check
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>agentfem<span class="w"> </span>run
+</code></pre></div>
+<p>The first executable route is intentionally narrow:</p>
+<ul>
+<li>one displacement-based continuum topology with a declared native Lagrange
+  analogue;</li>
+<li>either a flat orphan mesh or one Part instantiated once, including optional
+  translation followed by axis-angle rotation;</li>
+<li>one homogeneous isotropic <code>*ELASTIC</code> material with <code>*DENSITY</code> and one
+  resolved <code>*SOLID SECTION</code> that is proven to cover every element declaration;</li>
+<li>one linear <code>*STATIC</code> Step;</li>
+<li>ordinary displacement <code>*BOUNDARY</code> rows targeting preserved NSETs;</li>
+<li>optional <code>*DSLOAD</code> pressure on an explicit element-based SURFACE;</li>
+<li>optional three-dimensional whole-material <code>*DLOAD, GRAV</code>, consumed through
+  the registered material density rather than duplicating a body-force value.</li>
+</ul>
+<p>The material gate accepts one constant isotropic elastic row and one constant
+density row. Temperature- or field-dependent tables remain review-required
+instead of being truncated to their first row. Two-dimensional lowering is
+currently per unit thickness, so a declared non-unit Section thickness is also
+blocked. Positive Abaqus pressure and native <code>model.pressure(...)</code> share the
+same inward convention; the decision is recorded in <code>lowering.json</code>.</p>
+<p>Reduced-integration/hourglass and hybrid declarations, multiple materials or
+instances, <code>NLGEOM</code>, concentrated loads, amplitudes, contact, equations, user
+materials, <code>OP</code>-dependent boundary inheritance, non-element surfaces, and
+unlowered assets are rejected with stable findings. Output
+requests remain source evidence while the draft uses AgentFEM's structured
+result lifecycle. A generated case is a reviewed native analogue, not a claim
+of Abaqus solver equivalence.</p>
 <p>The report records the source fingerprint, recursive include graph, element
 declarations, node and element counts, NSET/ELSET/SURFACE semantics, equation
 count, keyword inventory, and migration warnings. It does not write a
@@ -1457,9 +1527,9 @@ such as higher-order bricks, shells, and cohesive elements: AgentFEM may know
 their source connectivity even when the current neutral converter or a
 dedicated native formulation is not yet available.</p>
 <p>Query the semantic catalog with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">mesh</span><span class="o">.</span><span class="n">supported_abaqus_element_types</span><span class="p">()</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">mesh</span><span class="o">.</span><span class="n">supported_abaqus_element_types</span><span class="p">(</span><span class="n">family</span><span class="o">=</span><span class="s2">&quot;continuum_solid&quot;</span><span class="p">)</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">mesh</span><span class="o">.</span><span class="n">abaqus</span><span class="o">.</span><span class="n">describe_element_type</span><span class="p">(</span><span class="s2">&quot;C3D8R&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">mesh</span><span class="o">.</span><span class="n">supported_abaqus_element_types</span><span class="p">()</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">mesh</span><span class="o">.</span><span class="n">supported_abaqus_element_types</span><span class="p">(</span><span class="n">family</span><span class="o">=</span><span class="s2">&quot;continuum_solid&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">mesh</span><span class="o">.</span><span class="n">abaqus</span><span class="o">.</span><span class="n">describe_element_type</span><span class="p">(</span><span class="s2">&quot;C3D8R&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
 </code></pre></div>
 <p>The first broad catalog covers common 2D/3D continuum solids, axisymmetric
 solids, heat-transfer topologies, cohesive declarations, and selected
@@ -1530,18 +1600,18 @@ preservation, not a claim that Abaqus execution semantics have already been
 reproduced.</p>
 <h2 id="target-migration-project">Target migration project<a class="headerlink" href="#target-migration-project" title="Permanent link">&para;</a></h2>
 <p>The intended generated project remains readable and keeps the source deck:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>project/
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>├── case.py
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>├── agentfem.toml
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>├── AGENTS.md
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>├── migration.md
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>├── migration.json
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>├── mesh/
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>├── materials/
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>├── source/
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>│   ├── model.inp
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>│   └── included-files...
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>└── outputs/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>project/
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>├── case.py
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>├── agentfem.toml
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>├── AGENTS.md
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>├── migration.md
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>├── migration.json
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>├── mesh/
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>├── materials/
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>├── source/
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>│   ├── model.inp
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>│   └── included-files...
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>└── outputs/
 </code></pre></div>
 <p>The copied input graph is authoritative migration evidence. Derived XDMF/HDF5 is a cached
 solver artifact whose manifest is invalidated when the source or conversion
@@ -1553,7 +1623,9 @@ separation while expressing the final model in readable Python.  See the
 <a href="https://docs.software.vt.edu/abaqusv2025/English/SIMACAECAERefMap/simacae-c-prppropmaterial.htm">Abaqus material definition</a>,
 <a href="https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMATRefMap/simamat-c-matmodels.htm">combining material behaviors</a>,
 and <a href="https://docs.software.vt.edu/abaqusv2025/English/SIMACAEKEYRefMap/simakey-r-solidsection.htm">section assignment</a>
-documentation for the source concepts.</p>
+documentation for the source concepts.
+The one-instance derivation follows the documented <a href="https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMODRefMap/simamod-c-partassy.htm">Part/Assembly scope and
+instance-positioning order</a>.</p>
 
 
 

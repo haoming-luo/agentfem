@@ -17,6 +17,15 @@ experimental formulation to a validated one.
   topology-only element declarations, incomplete include graphs, composite
   sections, and Abaqus user-material assets that still require source/ABI and
   constitutive verification.
+- Add `agentfem lower-abaqus`, a separately reviewed native-draft gate for a
+  narrow linear-static solid subset. It records reviewer, unit interpretation,
+  source and decision fingerprints; supports NSET displacement constraints,
+  SURFACE pressure, whole-material GRAV, and one positioned Part instance; and
+  keeps draft generation separate from activation.
+- Make the native Abaqus gate reject partial Section coverage, non-unit 2D
+  thickness, dependent material tables, boundary-state operations, ambiguous
+  Step controls, and non-element pressure surfaces instead of silently
+  changing their scientific meaning.
 
 ### Changed
 

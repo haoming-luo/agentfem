@@ -484,6 +484,36 @@ def create_abaqus_migration_project(
     )
 
 
+def assess_abaqus_native_lowering(path: str | Path):
+    """Assess whether an Abaqus source fits the reviewed native subset."""
+
+    from . import abaqus_lowering
+    from . import abaqus_migration
+
+    return abaqus_lowering.assess(abaqus_migration.plan(path))
+
+
+def lower_abaqus_migration_project(
+    project: str | Path,
+    *,
+    reviewed_by: str,
+    unit_system: str,
+    activate: bool = False,
+    force: bool = False,
+) -> dict[str, object]:
+    """Emit an explicitly reviewed native draft from a migration project."""
+
+    from . import abaqus_lowering
+
+    return abaqus_lowering.lower_project(
+        project,
+        reviewed_by=reviewed_by,
+        unit_system=unit_system,
+        activate=activate,
+        force=force,
+    )
+
+
 def supported_abaqus_element_types(*, family: str | None = None) -> tuple[str, ...]:
     """Return Abaqus declarations with explicit AgentFEM import semantics."""
 

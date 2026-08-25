@@ -177,6 +177,7 @@ CLI_COMMANDS = (
     "inspect",
     "inspect-abaqus",
     "migrate-abaqus",
+    "lower-abaqus",
     "verify",
     "capabilities",
     "extensions",
@@ -190,6 +191,10 @@ MACHINE_COMMANDS = {
     "inspect": "agentfem inspect --json",
     "abaqus_inspect": "agentfem inspect-abaqus model.inp --json",
     "abaqus_migrate": "agentfem migrate-abaqus model.inp ./project --json",
+    "abaqus_lower": (
+        "agentfem lower-abaqus ./project --reviewed-by REVIEWER "
+        "--unit-system SI --json"
+    ),
     "verify": "agentfem verify --json",
 }
 

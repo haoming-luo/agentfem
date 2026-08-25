@@ -290,6 +290,7 @@ def test_cli_creates_fail_closed_abaqus_migration_project(tmp_path, capsys):
     assert migration["ready_to_solve"] is False
     assert Path(record["migration_report"]).is_file()
     assert "Abaqus migration review" in (target / "migration.md").read_text()
+    assert "Native lowering gate" in (target / "migration.md").read_text()
     assert (target / "source" / "model.inp").is_file()
     assert (target / "source" / "mesh.inc").is_file()
     candidates = (target / "materials" / "candidates.py").read_text()
@@ -318,6 +319,98 @@ def test_cli_refuses_incomplete_abaqus_source_graph_atomically(tmp_path, capsys)
     assert failure["status"] == "failed"
     assert "incomplete Abaqus source graph" in failure["error"]["message"]
     assert not target.exists()
+
+
+def test_cli_lowers_and_activates_reviewed_abaqus_static_project(tmp_path, capsys):
+    source = tmp_path / "static.inp"
+    source.write_text(
+        "\n".join(
+            (
+                "*Node",
+                "1,0,0,0",
+                "2,1,0,0",
+                "3,0,1,0",
+                "4,0,0,1",
+                "*Nset, nset=FIXED",
+                "1,2,3",
+                "*Nset, nset=MOVED",
+                "4",
+                "*Element, type=C3D4, elset=SOLID",
+                "1,1,2,3,4",
+                "*Material, name=MAT",
+                "*Elastic",
+                "1000.,0.3",
+                "*Density",
+                "1.0",
+                "*Solid Section, elset=SOLID, material=MAT",
+                "*Step, name=LOAD",
+                "*Static",
+                "*Boundary",
+                "FIXED,1,3,0.",
+                "MOVED,1,2,0.",
+                "MOVED,3,3,0.01",
+                "*End Step",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    target = tmp_path / "migrated"
+    assert cli.main(["migrate-abaqus", str(source), str(target), "--json"]) == 0
+    capsys.readouterr()
+
+    assert (
+        cli.main(
+            [
+                "lower-abaqus",
+                str(target),
+                "--reviewed-by",
+                "Test Engineer",
+                "--unit-system",
+                "SI",
+                "--activate",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    record = json.loads(capsys.readouterr().out)
+    assert record["status"] == "activated"
+    assert Path(record["entrypoint"]).is_file()
+    assert cli.main(["check", "--project", str(target), "--json"]) == 0
+
+
+def test_cli_reports_structured_abaqus_lowering_findings(tmp_path, capsys):
+    source = tmp_path / "unsupported.inp"
+    source.write_text(
+        "*Node\n1,0,0,0\n*Element, type=C3D8R, elset=SOLID\n"
+        "1,1,1,1,1,1,1,1,1\n",
+        encoding="utf-8",
+    )
+    target = tmp_path / "migrated"
+    assert cli.main(["migrate-abaqus", str(source), str(target), "--json"]) == 0
+    capsys.readouterr()
+
+    assert (
+        cli.main(
+            [
+                "lower-abaqus",
+                str(target),
+                "--reviewed-by",
+                "Test Engineer",
+                "--unit-system",
+                "SI",
+                "--json",
+            ]
+        )
+        == 2
+    )
+    failure = json.loads(capsys.readouterr().out)
+    details = failure["error"]["details"]
+    assert details["status"] == "blocked"
+    assert "AFM-ABAQUS-LOWER-ELEMENT-002" in {
+        item["code"] for item in details["findings"]
+    }
 
 
 def test_upgrade_report_is_location_aware_and_does_not_rewrite_case(tmp_path):

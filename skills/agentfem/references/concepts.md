@@ -96,6 +96,8 @@
   unresolved decisions between a legacy model and AgentFEM. A generated
   project is fail closed; recognizing an Abaqus material or section does not
   authorize numerical lowering or prove equivalence.
+- Reviewed native lowering: an explicit source-fingerprint, reviewer, unit,
+  asset-decision, and generated-case record. Drafting does not activate it.
 - Scientific dataset: numeric inputs/outputs plus units, shapes, field
   encodings, case identities, provenance, and artifacts.
 - Surrogate: learned or reduced-order mapping whose scientific asset includes
