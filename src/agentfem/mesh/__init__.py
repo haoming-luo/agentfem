@@ -441,6 +441,18 @@ def inspect_external_mesh(path):
     return formats.inspect_external_mesh(path)
 
 
+def inspect_abaqus_input(path: str | Path) -> abaqus.AbaqusMigrationReport:
+    """Inventory Abaqus engineering semantics before conversion or solving."""
+
+    return abaqus.inspect_input(path)
+
+
+def supported_abaqus_element_types(*, family: str | None = None) -> tuple[str, ...]:
+    """Return Abaqus declarations with explicit AgentFEM import semantics."""
+
+    return abaqus.supported_element_types(family=family)
+
+
 def split_gmsh_physical_interface(*args, **kwargs):
     """Lower named Gmsh physical cell/surface groups to a split interface."""
 

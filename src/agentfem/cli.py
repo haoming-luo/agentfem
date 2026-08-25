@@ -329,6 +329,20 @@ def _command_inspect(args) -> int:
     return 0
 
 
+def _command_inspect_abaqus(args) -> int:
+    from .mesh import inspect_abaqus_input
+
+    report = inspect_abaqus_input(Path(args.path).expanduser().resolve())
+    record = report.summary()
+    if args.write:
+        destination = Path(args.write).expanduser().resolve()
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(_json(record) + "\n", encoding="utf-8")
+        record["written_report"] = str(destination)
+    _emit(record, as_json=args.json, human=report.text())
+    return 0
+
+
 def _result_manifest_path(path: str | None, project_path: str | None) -> Path:
     """Resolve a result manifest from a file, run directory, or latest pointer."""
 
@@ -423,6 +437,14 @@ def build_parser() -> argparse.ArgumentParser:
     inspect.add_argument("--project")
     inspect.add_argument("--json", action="store_true")
 
+    inspect_abaqus = sub.add_parser(
+        "inspect-abaqus",
+        help="Inventory an Abaqus input deck before migration or conversion.",
+    )
+    inspect_abaqus.add_argument("path")
+    inspect_abaqus.add_argument("--write")
+    inspect_abaqus.add_argument("--json", action="store_true")
+
     verify = sub.add_parser(
         "verify",
         help="Check a result manifest and the integrity of its registered artifacts.",
@@ -474,6 +496,8 @@ def main(argv: list[str] | None = None) -> int:
             return _command_run(args)
         if args.command == "inspect":
             return _command_inspect(args)
+        if args.command == "inspect-abaqus":
+            return _command_inspect_abaqus(args)
         if args.command == "verify":
             return _command_verify(args)
         if args.command == "extensions":

@@ -29,6 +29,10 @@ finite-element simulation with AgentFEM.
 - Mesh or boundary tagging: read `docs/module_map.md`, then use
   `mesh.summarize_mesh`, `mesh.require_cell_tags`, and
   `mesh.require_facet_tags`.
+- Abaqus migration: run `agentfem inspect-abaqus source.inp --json` before
+  conversion and read `docs/abaqus_migration.md`. Preserve element formulation
+  suffixes and report topology-only support; never substitute a native element
+  formulation silently.
 - Study setup: use `studies.static_solid`, `studies.steady_heat_transfer`,
   `studies.transient_heat_transfer`, or `studies.dynamic_solid` for common
   workflows. Use the general factories only when the common vocabulary does
@@ -70,6 +74,15 @@ finite-element simulation with AgentFEM.
   combined-hardening route with quadrature rollback/restart and `ALPHA`
   output. Keep its external-definition evidence distinct from a calibrated
   structure-level stabilized-hysteresis validation.
+- Named materials: use `materials.define(...)` when material identity, source,
+  reuse, or separate mechanical/thermal roles matter. The Study selects the
+  required physics role at `model.material(...)`; it does not choose or rewrite
+  the constitutive equation. Packaged `load_definition(...)` cards are
+  reference-only unless their source and applicability establish otherwise.
+- Project materials: `materials.load("materials/active.py")` explicitly loads
+  reviewed, trusted Python code and records its content hash. Do not use it to
+  inspect downloaded code. TOML may select an asset but is not a constitutive
+  language; installed or private collections belong in extension packages.
 - Absorbing or Robin-like terms: use `boundary_models/`.
 - Assembly or lumped operators: inspect `assembly.py`.
 - Time stepping: inspect `time/` and `problems.py`.

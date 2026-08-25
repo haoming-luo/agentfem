@@ -25,7 +25,11 @@ parallel workflow language from one example.
 5. Mesh summary and required tag checks
 6. Function spaces
 7. Fields and states
-8. Constitutive laws
+8. Constitutive laws; optionally retain identity/source through
+   `materials.define(...)` and let `model.material(...)` resolve the Study's
+   mechanical or thermal role. A reviewed project can switch a separate
+   Python asset with `materials.load("materials/active.py")`; installed or
+   private collections should use an AgentFEM extension package instead.
 9. Amplitudes when prescribed data changes with time
 10. Constraints
 11. Loads
@@ -76,3 +80,8 @@ finite-element model.
 
 Use `examples/` as executable workflow references after identifying the target
 problem type.
+
+For an Abaqus input deck, run `agentfem inspect-abaqus model.inp --json`
+before conversion. Treat `topology_only` as an explicit migration boundary;
+never erase `R`, `H`, incompatible-mode, shell, or cohesive semantics merely
+because the connectivity can be read.

@@ -9,7 +9,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Dependency-free public module, Model-verb, CLI-command, and workflow-stage inventories | `_api_contract.py` |
 | Mesh import, boundary/cell regions, tags, summaries, checks, and measures | `mesh/` |
 | External mesh inventory, cell/facet set conversion, and manifests | `mesh/formats.py` |
-| Abaqus labels, equations, periodic-cell geometry, and source-order output | `mesh/abaqus.py` |
+| Abaqus migration inventory, element semantics, labels, equations, periodic-cell geometry, and source-order output | `mesh/abaqus.py` |
 | Study context: analysis type, physics, dimension, and assumptions | `studies.py` |
 | Shared axisymmetric (r,z) kinematics and full-revolution lowering | `_axisymmetric.py` |
 | Standard/Explicit family, equation order, algorithm, and state policy | `procedures.py` |
@@ -30,7 +30,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Finite-strain cohesive forces, named interface composition, energy, wave speeds, and dynamic crack evidence | `fracture.py` |
 | Global stateful solid-mechanics procedures | `mechanics/` |
 | Material-point contracts and UMAT/UHYPER bridge specifications | `constitutive/user_material.py` |
-| Material records and property containers | `materials/` |
+| Named material definitions, project Python assets, physics-role compatibility, reference records, and property containers | `materials/` |
 | Boundary models | `boundary_models/` |
 | UFL weak-form blocks, including stiffness, mass, diffusion, and loads | `forms.py` |
 | Assembly | `assembly.py` |

@@ -780,6 +780,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#03-boundary-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.3 boundary audit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agent-oriented-refinements" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -929,6 +940,36 @@ configuration language.</p>
 <p>An omitted policy value means the selected provider owns the default. Result
 metadata labels these values as <code>declared_policies</code>; the executable
 <code>metadata["step"]</code> record remains authoritative for resolved numerical values.</p>
+<h2 id="03-boundary-audit">0.3 boundary audit<a class="headerlink" href="#03-boundary-audit" title="Permanent link">&para;</a></h2>
+<p>The 0.3 audit treats file size as a maintenance signal, not as proof of a bad
+abstraction. A split is required when two modules own the same scientific
+decision or when a lower layer imports an orchestration layer.</p>
+<ul>
+<li><code>Model</code> owns registration, inspection, and compatibility delegates. It does
+  not own built-in solution construction. Transient heat lowering now follows
+  the same <code>StepRequest -&gt; provider -&gt; _step_builders -&gt; problem</code> route as the
+  structural, nonlinear-material, and dynamics providers.</li>
+<li>A release regression test requires every historical <code>*_step()</code> method to
+  remain a thin delegate and prevents providers from calling those
+  compatibility methods.</li>
+<li>Constant volumetric heat capacity is resolved once in <code>materials</code>, rather
+  than being reimplemented by the model facade and the thermal provider.</li>
+<li>Core discovery now contains the ordinary engineering language. Procedure
+  and solver controls are advanced; raw <code>io</code>, discrete <code>problems</code>, and time
+  kernels are expert. This changes presentation, not runtime availability.</li>
+<li><code>results</code> owns scientific result semantics and the common completion path.
+  Low-level <code>io.XDMFTimeSeries</code> remains an expert DOLFINx-compatible writer;
+  ordinary workflows use the single-grid result writers and <code>SimulationResult</code>.</li>
+<li>Constitutive modules own material-point laws, while <code>mechanics</code> owns global
+  finite-element integration. Generic checkpointing owns field/time state;
+  cohesive checkpointing additionally owns physical interface identity. These
+  are deliberate layer pairs, not duplicate implementations.</li>
+</ul>
+<p>The next structural split should be evidence-driven: <code>_step_builders.py</code> may
+become a private builder package when independent provider families need
+separate ownership. Splitting it before then would move code without changing
+the architecture. WSL2 remains an external platform acceptance item and is
+not used to weaken the source-level 0.3 contracts.</p>
 <h2 id="agent-oriented-refinements">Agent-Oriented Refinements<a class="headerlink" href="#agent-oriented-refinements" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Every public helper should say what FEM concept it belongs to.</li>

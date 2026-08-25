@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://haoming-luo.github.io/agentfem/guide/results/">
+        <link rel="canonical" href="https://haoming-luo.github.io/agentfem/guide/materials/">
       
       
-        <link rel="prev" href="../../engineering_workflows/">
+        <link rel="prev" href="../model_setup/">
       
       
-        <link rel="next" href="../../results_and_campaigns/">
+        <link rel="next" href="../../mesh_interoperability/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Results and Post-processing - AgentFEM</title>
+        <title>Materials and Behaviors - AgentFEM</title>
       
     
     
@@ -77,7 +77,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#results-and-post-processing" class="md-skip">
+        <a href="#materials-and-constitutive-behaviors" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Results and Post-processing
+              Materials and Behaviors
             
           </span>
         </div>
@@ -485,73 +485,14 @@
                 
   
   
+    
+  
   
   
     
     
       
         
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-    
-      
-        
-        
-      
-    
-    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
-      
-        
-  
-  
-  
-    <a href="../model_setup/" class="md-nav__link">
-      
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Build a Model
-  
-
-    
-  </span>
-  
-  
-
-      
-        <span class="md-nav__icon md-icon"></span>
-      
-    </a>
-  
-
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    
-    
       
         
       
@@ -571,17 +512,17 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
     
   
-    Results and Data
+    Build a Model
   
 
     
@@ -592,16 +533,44 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_3_4">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_3">
             <span class="md-nav__icon md-icon"></span>
             
   
-    Results and Data
+    Build a Model
   
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../model_setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Meshes, Loads and Constraints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -626,7 +595,7 @@
   <span class="md-ellipsis">
     
   
-    Results and Post-processing
+    Materials and Behaviors
   
 
     
@@ -644,7 +613,7 @@
   <span class="md-ellipsis">
     
   
-    Results and Post-processing
+    Materials and Behaviors
   
 
     
@@ -670,10 +639,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#result-layers" class="md-nav__link">
+  <a href="#concise-mechanical-material" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Result layers
+        Concise mechanical material
       
     </span>
   </a>
@@ -681,10 +650,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#standard-questions" class="md-nav__link">
+  <a href="#one-identity-separate-physics-roles" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Standard questions
+        One identity, separate physics roles
       
     </span>
   </a>
@@ -692,10 +661,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#go-deeper" class="md-nav__link">
+  <a href="#packaged-reference-cards" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Go deeper
+        Packaged reference cards
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#user-and-private-materials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        User and private materials
       
     </span>
   </a>
@@ -718,14 +698,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../results_and_campaigns/" class="md-nav__link">
+      <a href="../../mesh_interoperability/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Results and Campaigns
+    Mesh Interoperability
   
 
     
@@ -746,14 +726,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../scientific_experiments/" class="md-nav__link">
+      <a href="../../abaqus_migration/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Scientific Experiments
+    Migrating Abaqus Projects
   
 
     
@@ -774,14 +754,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../simulation_to_learning/" class="md-nav__link">
+      <a href="../../engineering_workflows/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Simulation to Learning
+    Engineering Workflow
   
 
     
@@ -797,6 +777,65 @@
             
           </ul>
         </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href="../results/" class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Results and Data
+  
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
       
     </li>
   
@@ -1212,10 +1251,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#result-layers" class="md-nav__link">
+  <a href="#concise-mechanical-material" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Result layers
+        Concise mechanical material
       
     </span>
   </a>
@@ -1223,10 +1262,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#standard-questions" class="md-nav__link">
+  <a href="#one-identity-separate-physics-roles" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Standard questions
+        One identity, separate physics roles
       
     </span>
   </a>
@@ -1234,10 +1273,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#go-deeper" class="md-nav__link">
+  <a href="#packaged-reference-cards" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Go deeper
+        Packaged reference cards
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#user-and-private-materials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        User and private materials
       
     </span>
   </a>
@@ -1305,10 +1355,10 @@
     
     
       <li class="md-path__item">
-        <a href="./" class="md-path__link">
+        <a href="../model_setup/" class="md-path__link">
           
   <span class="md-ellipsis">
-    Results and Data
+    Build a Model
   </span>
 
         </a>
@@ -1330,79 +1380,112 @@
   
 
 
-<h1 id="results-and-post-processing">Results and post-processing<a class="headerlink" href="#results-and-post-processing" title="Permanent link">&para;</a></h1>
-<p>A useful result is more than an array written after a solver exits. AgentFEM's
-result lifecycle brings fields, histories, artifacts, progress, checkpoints,
-quality policy, verification, and failure state under one contract.</p>
-<h2 id="result-layers">Result layers<a class="headerlink" href="#result-layers" title="Permanent link">&para;</a></h2>
-<ol>
-<li><strong>Scientific fields</strong> preserve finite-element meaning on the reference
-   configuration and distinguish integration-point/discontinuous evidence from
-   optional nodal presentation fields.</li>
-<li><strong>Engineering histories</strong> record reactions, energies, balance errors,
-   resultants, paths, probes, and other quantities over load or time.</li>
-<li><strong>Visualization output</strong> makes the field set convenient to inspect without
-   changing the scientific source of truth.</li>
-<li><strong>Structured result metadata</strong> records status, trust, quality acceptance,
-   files, provenance, and restart identity.</li>
-</ol>
-<p>Accepted-frame histories use one reusable request rather than one function per
-analysis type:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">output</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">output_plan</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="s2">&quot;output&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">requests</span><span class="o">=</span><span class="p">(</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        <span class="n">results</span><span class="o">.</span><span class="n">probe_history</span><span class="p">(</span><span class="s2">&quot;tip_U2&quot;</span><span class="p">,</span> <span class="n">at</span><span class="o">=</span><span class="n">tip</span><span class="p">,</span> <span class="n">component</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;mm&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="n">results</span><span class="o">.</span><span class="n">history</span><span class="p">(</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>            <span class="s2">&quot;section_force&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>            <span class="k">lambda</span> <span class="n">frame</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">evaluate_section</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">solution</span><span class="p">),</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>            <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;N&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        <span class="p">),</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="p">),</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">)</span>
-</code></pre></div>
-<p>The same request contract can represent probes, integrals, resultants,
-energies, or application-defined quantities. The abscissa is taken from the
-accepted physical time or normalized load factor; custom frame types must
-provide an explicit coordinate instead of falling back to an arbitrary index.</p>
-<p>Transient steps evaluate the same vocabulary online, without keeping every
-field frame in memory:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">result</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">solve_result</span><span class="p">(</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">output</span><span class="o">=</span><span class="s2">&quot;results.xdmf&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">history</span><span class="o">=</span><span class="p">(</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>        <span class="n">results</span><span class="o">.</span><span class="n">probe_history</span><span class="p">(</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>            <span class="s2">&quot;sensor_temperature&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>            <span class="n">at</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">),</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>            <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;K&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>        <span class="p">),</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="n">results</span><span class="o">.</span><span class="n">history</span><span class="p">(</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>            <span class="s2">&quot;mean_temperature_dof&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>            <span class="k">lambda</span> <span class="n">accepted_step</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>                <span class="n">accepted_step</span><span class="o">.</span><span class="n">current</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">array</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>            <span class="p">),</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>            <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;K&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>        <span class="p">),</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="p">),</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="p">)</span>
-</code></pre></div>
-<p>For dynamics, an omitted <code>field=</code> selects displacement; for first-order heat
-it selects current temperature. Pass a live field or callback for another
-state variable. Vector probes require <code>component=...</code> because one history
-channel has one scalar engineering meaning.</p>
-<h2 id="standard-questions">Standard questions<a class="headerlink" href="#standard-questions" title="Permanent link">&para;</a></h2>
+<h1 id="materials-and-constitutive-behaviors">Materials and Constitutive Behaviors<a class="headerlink" href="#materials-and-constitutive-behaviors" title="Permanent link">&para;</a></h1>
+<p>A material name, a constitutive equation, and an analysis procedure are not
+the same concept.</p>
 <ul>
-<li>Did the requested step converge or complete stably?</li>
-<li>Were all required fields and histories produced?</li>
-<li>Are equilibrium, energy, and conservation errors within policy?</li>
-<li>Is the result inside the method's applicability and benchmark envelope?</li>
-<li>Can the run be reproduced or restarted from its recorded state?</li>
+<li><code>Study</code> states the physical problem and modeling assumptions.</li>
+<li>a constitutive behavior states the local response equation;</li>
+<li>a material definition retains physical identity, source, and active
+  behaviors;</li>
+<li>a model assignment attaches the resolved behavior to a region;</li>
+<li>an element formulation states how the fields are discretized.</li>
 </ul>
-<h2 id="go-deeper">Go deeper<a class="headerlink" href="#go-deeper" title="Permanent link">&para;</a></h2>
-<ul>
-<li><a href="../../results_and_campaigns/">Results and campaigns</a></li>
-<li><a href="../../result_field_semantics/">Result-field semantics</a></li>
-<li><a href="../../provenance_seal/">Result provenance seal</a></li>
-<li><a href="../simulation_to_learning/">Simulation to learning</a></li>
-</ul>
+<p>This separation lets the same physical material participate in a static,
+dynamic, thermal, or sequential analysis without copying a material card into
+every Step.</p>
+<h2 id="concise-mechanical-material">Concise mechanical material<a class="headerlink" href="#concise-mechanical-material" title="Permanent link">&para;</a></h2>
+<p>Existing direct constitutive objects remain the shortest route:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">constitutive</span><span class="o">.</span><span class="n">isotropic_elastic</span><span class="p">(</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>        <span class="n">young</span><span class="o">=</span><span class="mf">210e9</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        <span class="n">poisson</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="n">density</span><span class="o">=</span><span class="mf">7850.0</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="p">)</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span>
+</code></pre></div>
+<p>Use a named definition when identity, source, reuse, or multiple physics
+roles matter:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">steel</span> <span class="o">=</span> <span class="n">materials</span><span class="o">.</span><span class="n">define</span><span class="p">(</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="s2">&quot;laboratory steel&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">constitutive</span><span class="o">.</span><span class="n">isotropic_elastic</span><span class="p">(</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>        <span class="n">young</span><span class="o">=</span><span class="mf">210e9</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>        <span class="n">poisson</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="n">density</span><span class="o">=</span><span class="mf">7850.0</span><span class="p">,</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="p">),</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">source</span><span class="o">=</span><span class="s2">&quot;project calibration 2026-08&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">)</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span><span class="n">steel</span><span class="p">,</span> <span class="n">region</span><span class="o">=</span><span class="n">solid</span><span class="p">)</span>
+</code></pre></div>
+<p><code>isotropic</code> describes the symmetry of the elastic behavior; it is not the
+identity of the material.  Likewise J2 plasticity, Chaboche cyclic plasticity,
+Neo-Hookean hyperelasticity, and creep are behavior choices rather than names
+of physical substances.</p>
+<h2 id="one-identity-separate-physics-roles">One identity, separate physics roles<a class="headerlink" href="#one-identity-separate-physics-roles" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">alloy</span> <span class="o">=</span> <span class="n">materials</span><span class="o">.</span><span class="n">define</span><span class="p">(</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="s2">&quot;alloy specimen A&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">mechanical</span><span class="o">=</span><span class="n">mechanical_behavior</span><span class="p">,</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">thermal</span><span class="o">=</span><span class="n">thermal_behavior</span><span class="p">,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">source</span><span class="o">=</span><span class="s2">&quot;reviewed project dataset&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="p">)</span>
+</code></pre></div>
+<p>When registered, <code>model.material(alloy)</code> resolves the role required by the
+model's Study.  It checks minimum compatibility before assembly: explicit or
+implicit structural dynamics requires density; transient heat transfer
+requires conductivity and heat capacity.  The material is not chosen by the
+Study and the Study does not rewrite its constitutive equation.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">report</span> <span class="o">=</span> <span class="n">alloy</span><span class="o">.</span><span class="n">compatibility</span><span class="p">(</span><span class="n">study</span><span class="p">)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">as_dict</span><span class="p">())</span>
+</code></pre></div>
+<p>There is intentionally only one active executable model per role in one
+definition.  Choosing between an elastic approximation and a calibrated J2 or
+creep model is a scientific modeling decision, not an automatic consequence
+of the Step name.</p>
+<h2 id="packaged-reference-cards">Packaged reference cards<a class="headerlink" href="#packaged-reference-cards" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">steel_reference</span> <span class="o">=</span> <span class="n">materials</span><span class="o">.</span><span class="n">load_definition</span><span class="p">(</span><span class="s2">&quot;steel_generic&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>Packaged cards are marked <code>reference_only=True</code>.  Generic and template values
+support examples and tests; they are not design allowables, certified
+industrial parameters, or substitutes for project calibration.  A material
+summary retains the card identity, source note, selected model, and unit
+system.</p>
+<p>The older <code>materials.load_material(...)</code> API remains available and returns the
+underlying constitutive object directly.  <code>load_definition(...)</code> is preferred
+when provenance and material identity should remain attached to the model.</p>
+<h2 id="user-and-private-materials">User and private materials<a class="headerlink" href="#user-and-private-materials" title="Permanent link">&para;</a></h2>
+<p>For one project, keep an executable material outside the main case:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># materials/active.py</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">agentfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">constitutive</span><span class="p">,</span> <span class="n">materials</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">material</span> <span class="o">=</span> <span class="n">materials</span><span class="o">.</span><span class="n">define</span><span class="p">(</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="s2">&quot;project alloy&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">constitutive</span><span class="o">.</span><span class="n">isotropic_elastic</span><span class="p">(</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>        <span class="n">young</span><span class="o">=</span><span class="mf">210e9</span><span class="p">,</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>        <span class="n">poisson</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>        <span class="n">density</span><span class="o">=</span><span class="mf">7850.0</span><span class="p">,</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="p">),</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="n">source</span><span class="o">=</span><span class="s2">&quot;reviewed calibration&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="p">)</span>
+</code></pre></div>
+<p>The model then changes material without changing its analysis structure:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">active_material</span> <span class="o">=</span> <span class="n">materials</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;materials/active.py&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span><span class="n">active_material</span><span class="p">,</span> <span class="n">region</span><span class="o">=</span><span class="n">solid</span><span class="p">)</span>
+</code></pre></div>
+<p><code>materials.load(...)</code> accepts either a packaged card name or an explicit
+Python path. A Python asset publishes <code>material</code> or a zero-argument
+<code>create_material()</code> factory. AgentFEM records the absolute source path,
+selected symbol, and SHA-256 fingerprint. Loading is explicit because the
+file is trusted executable code; downloaded or unreviewed files should not be
+loaded merely to inspect them.</p>
+<p>Project-owned Python models, future MFront/MGIS adapters, and bounded
+UMAT/UHYPER migration bridges should resolve to the same constitutive behavior
+boundary.  Confidential material records belong in a separately installed
+extension package rather than in a main simulation file or the open core.</p>
+<p>AgentFEM does not require TOML for material equations.  TOML may describe an
+extension or select an active material asset; executable Python, compiled
+libraries, and large temperature/history tables remain in their natural
+files and are referenced by an explicit adapter.</p>
 
 
 
@@ -1440,7 +1523,7 @@ channel has one scalar engineering meaning.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../engineering_workflows/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Engineering Workflow">
+          <a href="../model_setup/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Meshes, Loads and Constraints">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1450,20 +1533,20 @@ channel has one scalar engineering meaning.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Engineering Workflow
+                Meshes, Loads and Constraints
               </div>
             </div>
           </a>
         
         
           
-          <a href="../../results_and_campaigns/" class="md-footer__link md-footer__link--next" aria-label="Next: Results and Campaigns">
+          <a href="../../mesh_interoperability/" class="md-footer__link md-footer__link--next" aria-label="Next: Mesh Interoperability">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Results and Campaigns
+                Mesh Interoperability
               </div>
             </div>
             <div class="md-footer__button md-icon">

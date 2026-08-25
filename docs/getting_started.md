@@ -129,10 +129,13 @@ agentfem run --run-id baseline
 agentfem run --mpi 4
 ```
 
-The equivalent explicit MPI spelling remains valid:
+The product shell is preferred because it selects the MPI launcher shipped by
+the active environment.  When an explicit launcher is required, use that same
+environment's executable rather than an unrelated `mpiexec` found earlier on
+`PATH`:
 
 ```bash
-mpiexec -n 4 agentfem run
+"$CONDA_PREFIX/bin/mpiexec" -n 4 python -m agentfem.cli run
 ```
 
 Do not start a second MPI launcher from an already distributed case. The CLI

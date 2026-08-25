@@ -10,31 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://haoming-luo.github.io/agentfem/guide/results/">
+        <link rel="canonical" href="https://haoming-luo.github.io/agentfem/abaqus_migration/">
       
       
-        <link rel="prev" href="../../engineering_workflows/">
+        <link rel="prev" href="../mesh_interoperability/">
       
       
-        <link rel="next" href="../../results_and_campaigns/">
+        <link rel="next" href="../engineering_workflows/">
       
       
         
       
       
-      <link rel="icon" href="../../assets/images/AgentFEM_logo_transparent.png">
+      <link rel="icon" href="../assets/images/AgentFEM_logo_transparent.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
-        <title>Results and Post-processing - AgentFEM</title>
+        <title>Migrating Abaqus Projects - AgentFEM</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -47,9 +47,9 @@
       
     
     
-      <link rel="stylesheet" href="../../stylesheets/extra.css">
+      <link rel="stylesheet" href="../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -77,7 +77,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#results-and-post-processing" class="md-skip">
+        <a href="#migrating-abaqus-projects" class="md-skip">
           Skip to content
         </a>
       
@@ -97,9 +97,9 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="AgentFEM" class="md-header__button md-logo" aria-label="AgentFEM" data-md-component="logo">
+    <a href=".." title="AgentFEM" class="md-header__button md-logo" aria-label="AgentFEM" data-md-component="logo">
       
-  <img src="../../assets/images/AgentFEM_logo_transparent.png" alt="logo">
+  <img src="../assets/images/AgentFEM_logo_transparent.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Results and Post-processing
+              Migrating Abaqus Projects
             
           </span>
         </div>
@@ -239,9 +239,9 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="AgentFEM" class="md-nav__button md-logo" aria-label="AgentFEM" data-md-component="logo">
+    <a href=".." title="AgentFEM" class="md-nav__button md-logo" aria-label="AgentFEM" data-md-component="logo">
       
-  <img src="../../assets/images/AgentFEM_logo_transparent.png" alt="logo">
+  <img src="../assets/images/AgentFEM_logo_transparent.png" alt="logo">
 
     </a>
     AgentFEM
@@ -268,7 +268,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href=".." class="md-nav__link">
         
   
   
@@ -322,7 +322,7 @@
   
   
   
-    <a href="../../get_started/" class="md-nav__link">
+    <a href="../get_started/" class="md-nav__link">
       
   
   
@@ -385,7 +385,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../guide/" class="md-nav__link ">
               
   
   
@@ -454,7 +454,7 @@
   
   
   
-    <a href="../solid_mechanics/" class="md-nav__link">
+    <a href="../guide/solid_mechanics/" class="md-nav__link">
       
   
   
@@ -485,73 +485,14 @@
                 
   
   
+    
+  
   
   
     
     
       
         
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-    
-      
-        
-        
-      
-    
-    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
-      
-        
-  
-  
-  
-    <a href="../model_setup/" class="md-nav__link">
-      
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Build a Model
-  
-
-    
-  </span>
-  
-  
-
-      
-        <span class="md-nav__icon md-icon"></span>
-      
-    </a>
-  
-
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    
-    
       
         
       
@@ -571,17 +512,17 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
     
   
-    Results and Data
+    Build a Model
   
 
     
@@ -592,16 +533,100 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_3_4">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_3">
             <span class="md-nav__icon md-icon"></span>
             
   
-    Results and Data
+    Build a Model
   
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/model_setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Meshes, Loads and Constraints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/materials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Materials and Behaviors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mesh_interoperability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh Interoperability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -626,7 +651,7 @@
   <span class="md-ellipsis">
     
   
-    Results and Post-processing
+    Migrating Abaqus Projects
   
 
     
@@ -644,7 +669,7 @@
   <span class="md-ellipsis">
     
   
-    Results and Post-processing
+    Migrating Abaqus Projects
   
 
     
@@ -670,10 +695,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#result-layers" class="md-nav__link">
+  <a href="#three-different-meanings-of-support" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Result layers
+        Three different meanings of support
       
     </span>
   </a>
@@ -681,10 +706,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#standard-questions" class="md-nav__link">
+  <a href="#current-preserved-semantics" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Standard questions
+        Current preserved semantics
       
     </span>
   </a>
@@ -692,10 +717,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#go-deeper" class="md-nav__link">
+  <a href="#target-migration-project" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Go deeper
+        Target migration project
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design-lineage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design lineage
       
     </span>
   </a>
@@ -718,70 +754,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../results_and_campaigns/" class="md-nav__link">
+      <a href="../engineering_workflows/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Results and Campaigns
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../scientific_experiments/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Scientific Experiments
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../simulation_to_learning/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Simulation to Learning
+    Engineering Workflow
   
 
     
@@ -820,6 +800,65 @@
       
         
       
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href="../guide/results/" class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Results and Data
+  
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
         
       
     
@@ -837,7 +876,7 @@
   
   
   
-    <a href="../../nonlinear_materials/" class="md-nav__link">
+    <a href="../nonlinear_materials/" class="md-nav__link">
       
   
   
@@ -905,7 +944,7 @@
   
   
   
-    <a href="../../examples/" class="md-nav__link">
+    <a href="../examples/" class="md-nav__link">
       
   
   
@@ -973,7 +1012,7 @@
   
   
   
-    <a href="../../reference/" class="md-nav__link">
+    <a href="../reference/" class="md-nav__link">
       
   
   
@@ -1039,7 +1078,7 @@
   
   
   
-    <a href="../../extend/" class="md-nav__link">
+    <a href="../extend/" class="md-nav__link">
       
   
   
@@ -1107,7 +1146,7 @@
   
   
   
-    <a href="../../project/" class="md-nav__link">
+    <a href="../project/" class="md-nav__link">
       
   
   
@@ -1159,7 +1198,7 @@
   
   
   
-    <a href="../../publications/agentfem-platform/" class="md-nav__link">
+    <a href="../publications/agentfem-platform/" class="md-nav__link">
       
   
   
@@ -1212,10 +1251,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#result-layers" class="md-nav__link">
+  <a href="#three-different-meanings-of-support" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Result layers
+        Three different meanings of support
       
     </span>
   </a>
@@ -1223,10 +1262,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#standard-questions" class="md-nav__link">
+  <a href="#current-preserved-semantics" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Standard questions
+        Current preserved semantics
       
     </span>
   </a>
@@ -1234,10 +1273,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#go-deeper" class="md-nav__link">
+  <a href="#target-migration-project" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Go deeper
+        Target migration project
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design-lineage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design lineage
       
     </span>
   </a>
@@ -1269,7 +1319,7 @@
   
   
     <li class="md-path__item">
-      <a href="../.." class="md-path__link">
+      <a href=".." class="md-path__link">
         
   <span class="md-ellipsis">
     Introduction
@@ -1287,7 +1337,7 @@
     
     
       <li class="md-path__item">
-        <a href="../" class="md-path__link">
+        <a href="../guide/" class="md-path__link">
           
   <span class="md-ellipsis">
     User Guide
@@ -1305,10 +1355,10 @@
     
     
       <li class="md-path__item">
-        <a href="./" class="md-path__link">
+        <a href="../guide/model_setup/" class="md-path__link">
           
   <span class="md-ellipsis">
-    Results and Data
+    Build a Model
   </span>
 
         </a>
@@ -1330,79 +1380,100 @@
   
 
 
-<h1 id="results-and-post-processing">Results and post-processing<a class="headerlink" href="#results-and-post-processing" title="Permanent link">&para;</a></h1>
-<p>A useful result is more than an array written after a solver exits. AgentFEM's
-result lifecycle brings fields, histories, artifacts, progress, checkpoints,
-quality policy, verification, and failure state under one contract.</p>
-<h2 id="result-layers">Result layers<a class="headerlink" href="#result-layers" title="Permanent link">&para;</a></h2>
+<h1 id="migrating-abaqus-projects">Migrating Abaqus Projects<a class="headerlink" href="#migrating-abaqus-projects" title="Permanent link">&para;</a></h1>
+<p>AgentFEM treats an Abaqus input deck as an engineering asset, not merely a
+container of node coordinates.  Migration therefore starts with a
+side-effect-free inventory before mesh conversion or solving:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>agentfem<span class="w"> </span>inspect-abaqus<span class="w"> </span>model.inp
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>agentfem<span class="w"> </span>inspect-abaqus<span class="w"> </span>model.inp<span class="w"> </span>--json<span class="w"> </span>--write<span class="w"> </span>migration.json
+</code></pre></div>
+<p>The same operation is available from Python:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">agentfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">mesh</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">report</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">inspect_abaqus_input</span><span class="p">(</span><span class="s2">&quot;model.inp&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">text</span><span class="p">())</span>
+</code></pre></div>
+<p>The report records the source fingerprint, element declarations, node and
+element counts, NSET/ELSET/SURFACE semantics, equation count, keyword
+inventory, and migration warnings.  It does not write a converted mesh and it
+does not infer that execution success proves formulation equivalence.</p>
+<h2 id="three-different-meanings-of-support">Three different meanings of support<a class="headerlink" href="#three-different-meanings-of-support" title="Permanent link">&para;</a></h2>
+<p>An Abaqus element name combines geometric topology with numerical choices.
+For example, <code>C3D8</code>, <code>C3D8R</code>, and <code>C3D8H</code> share eight-node hexahedral
+connectivity, but reduced integration, hourglass control, and hybrid pressure
+variables are different scientific formulations.</p>
+<p>AgentFEM reports these levels separately:</p>
 <ol>
-<li><strong>Scientific fields</strong> preserve finite-element meaning on the reference
-   configuration and distinguish integration-point/discontinuous evidence from
-   optional nodal presentation fields.</li>
-<li><strong>Engineering histories</strong> record reactions, energies, balance errors,
-   resultants, paths, probes, and other quantities over load or time.</li>
-<li><strong>Visualization output</strong> makes the field set convenient to inspect without
-   changing the scientific source of truth.</li>
-<li><strong>Structured result metadata</strong> records status, trust, quality acceptance,
-   files, provenance, and restart identity.</li>
+<li><strong>Declaration and topology</strong> — the source type, connectivity, sets, and
+   face semantics can be retained.</li>
+<li><strong>Neutral conversion</strong> — the tested meshio 5.3.x reader maps the
+   declaration to a neutral cell topology; later dependency versions are
+   checked again during release validation.</li>
+<li><strong>Native analogue</strong> — AgentFEM has a corresponding public finite-element
+   route, with its own documented variational formulation.</li>
+<li><strong>Verification evidence</strong> — an explicit benchmark supports a bounded
+   equivalence or accuracy claim.</li>
 </ol>
-<p>Accepted-frame histories use one reusable request rather than one function per
-analysis type:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">output</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">output_plan</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="s2">&quot;output&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">requests</span><span class="o">=</span><span class="p">(</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        <span class="n">results</span><span class="o">.</span><span class="n">probe_history</span><span class="p">(</span><span class="s2">&quot;tip_U2&quot;</span><span class="p">,</span> <span class="n">at</span><span class="o">=</span><span class="n">tip</span><span class="p">,</span> <span class="n">component</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;mm&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="n">results</span><span class="o">.</span><span class="n">history</span><span class="p">(</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>            <span class="s2">&quot;section_force&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>            <span class="k">lambda</span> <span class="n">frame</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">evaluate_section</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">solution</span><span class="p">),</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>            <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;N&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        <span class="p">),</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="p">),</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">)</span>
+<p>No suffix is silently discarded.  <code>C3D8R</code> may be imported as hexahedral
+topology while the report still states that Abaqus hourglass control was not
+reproduced.  A direct <code>C3D10H</code> workflow selects AgentFEM's documented P2/DG0
+mixed analogue rather than entering a displacement-only solve.</p>
+<p>These states appear independently as <code>import_capability</code>,
+<code>neutral_conversion</code>, and <code>solver_capability</code>. This is important for types
+such as higher-order bricks, shells, and cohesive elements: AgentFEM may know
+their source connectivity even when the current neutral converter or a
+dedicated native formulation is not yet available.</p>
+<p>Query the semantic catalog with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">mesh</span><span class="o">.</span><span class="n">supported_abaqus_element_types</span><span class="p">()</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">mesh</span><span class="o">.</span><span class="n">supported_abaqus_element_types</span><span class="p">(</span><span class="n">family</span><span class="o">=</span><span class="s2">&quot;continuum_solid&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">mesh</span><span class="o">.</span><span class="n">abaqus</span><span class="o">.</span><span class="n">describe_element_type</span><span class="p">(</span><span class="s2">&quot;C3D8R&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
 </code></pre></div>
-<p>The same request contract can represent probes, integrals, resultants,
-energies, or application-defined quantities. The abscissa is taken from the
-accepted physical time or normalized load factor; custom frame types must
-provide an explicit coordinate instead of falling back to an arbitrary index.</p>
-<p>Transient steps evaluate the same vocabulary online, without keeping every
-field frame in memory:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">result</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">solve_result</span><span class="p">(</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">output</span><span class="o">=</span><span class="s2">&quot;results.xdmf&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">history</span><span class="o">=</span><span class="p">(</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>        <span class="n">results</span><span class="o">.</span><span class="n">probe_history</span><span class="p">(</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>            <span class="s2">&quot;sensor_temperature&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>            <span class="n">at</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">),</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>            <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;K&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>        <span class="p">),</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="n">results</span><span class="o">.</span><span class="n">history</span><span class="p">(</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>            <span class="s2">&quot;mean_temperature_dof&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>            <span class="k">lambda</span> <span class="n">accepted_step</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>                <span class="n">accepted_step</span><span class="o">.</span><span class="n">current</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">array</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>            <span class="p">),</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>            <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;K&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>        <span class="p">),</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="p">),</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="p">)</span>
+<p>The first broad catalog covers common 2D/3D continuum solids, axisymmetric
+solids, heat-transfer topologies, cohesive declarations, and selected
+truss/beam/shell declarations.  Dedicated beam, shell, cohesive, hybrid, and
+reduced-integration lowering remains governed by its own formulation and
+verification work; catalog presence is not a solver claim.</p>
+<h2 id="current-preserved-semantics">Current preserved semantics<a class="headerlink" href="#current-preserved-semantics" title="Permanent link">&para;</a></h2>
+<p>The focused adapter currently preserves:</p>
+<ul>
+<li>source node and element labels;</li>
+<li>element declarations and formulation-relevant suffixes;</li>
+<li>NSET, ELSET, and explicit SURFACE entries;</li>
+<li>continued homogeneous EQUATION definitions;</li>
+<li>source fingerprints and conversion choices;</li>
+<li>selected three-dimensional solid face reconstruction;</li>
+<li>direct C3D4 internal-surface lowering for the existing cohesive kernel.</li>
+</ul>
+<p>The inspector recognizes familiar material, section, assembly, load,
+amplitude, and Step keywords but marks them <code>recognized_not_lowered</code>.  This is
+deliberate: a future project migrator can consume the same report and request
+an explicit decision instead of silently substituting a different material or
+procedure.</p>
+<p>Part and instance labels are scoped in Abaqus. The inspector can count decks
+with repeated labels across Parts without flattening them; the report marks
+that an instance-aware lowering decision remains. <code>*INCLUDE</code> dependencies are
+listed and missing files are diagnosed, but a single-file inspection does not
+silently execute or expand them.</p>
+<h2 id="target-migration-project">Target migration project<a class="headerlink" href="#target-migration-project" title="Permanent link">&para;</a></h2>
+<p>The intended generated project remains readable and keeps the source deck:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>project/
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>├── case.py
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>├── mesh/
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>├── materials/
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>├── source/model.inp
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>└── migration.json
 </code></pre></div>
-<p>For dynamics, an omitted <code>field=</code> selects displacement; for first-order heat
-it selects current temperature. Pass a live field or callback for another
-state variable. Vector probes require <code>component=...</code> because one history
-channel has one scalar engineering meaning.</p>
-<h2 id="standard-questions">Standard questions<a class="headerlink" href="#standard-questions" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Did the requested step converge or complete stably?</li>
-<li>Were all required fields and histories produced?</li>
-<li>Are equilibrium, energy, and conservation errors within policy?</li>
-<li>Is the result inside the method's applicability and benchmark envelope?</li>
-<li>Can the run be reproduced or restarted from its recorded state?</li>
-</ul>
-<h2 id="go-deeper">Go deeper<a class="headerlink" href="#go-deeper" title="Permanent link">&para;</a></h2>
-<ul>
-<li><a href="../../results_and_campaigns/">Results and campaigns</a></li>
-<li><a href="../../result_field_semantics/">Result-field semantics</a></li>
-<li><a href="../../provenance_seal/">Result provenance seal</a></li>
-<li><a href="../simulation_to_learning/">Simulation to learning</a></li>
-</ul>
+<p>The original input is authoritative evidence.  Derived XDMF/HDF5 is a cached
+solver artifact whose manifest is invalidated when the source or conversion
+policy changes.</p>
+<h2 id="design-lineage">Design lineage<a class="headerlink" href="#design-lineage" title="Permanent link">&para;</a></h2>
+<p>Abaqus defines a material independently of a Step, combines relevant material
+behaviors, and assigns it to regions through sections.  AgentFEM retains that
+separation while expressing the final model in readable Python.  See the
+<a href="https://docs.software.vt.edu/abaqusv2025/English/SIMACAECAERefMap/simacae-c-prppropmaterial.htm">Abaqus material definition</a>,
+<a href="https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMATRefMap/simamat-c-matmodels.htm">combining material behaviors</a>,
+and <a href="https://docs.software.vt.edu/abaqusv2025/English/SIMACAEKEYRefMap/simakey-r-solidsection.htm">section assignment</a>
+documentation for the source concepts.</p>
 
 
 
@@ -1440,7 +1511,7 @@ channel has one scalar engineering meaning.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../engineering_workflows/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Engineering Workflow">
+          <a href="../mesh_interoperability/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Mesh Interoperability">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1450,20 +1521,20 @@ channel has one scalar engineering meaning.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Engineering Workflow
+                Mesh Interoperability
               </div>
             </div>
           </a>
         
         
           
-          <a href="../../results_and_campaigns/" class="md-footer__link md-footer__link--next" aria-label="Next: Results and Campaigns">
+          <a href="../engineering_workflows/" class="md-footer__link md-footer__link--next" aria-label="Next: Engineering Workflow">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Results and Campaigns
+                Engineering Workflow
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -1522,18 +1593,18 @@ channel has one scalar engineering meaning.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.indexes", "navigation.prune", "navigation.path", "navigation.footer", "navigation.top", "navigation.tracking", "toc.follow", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.indexes", "navigation.prune", "navigation.path", "navigation.footer", "navigation.top", "navigation.tracking", "toc.follow", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
-        <script src="../../javascripts/navigation-state.js"></script>
+        <script src="../javascripts/navigation-state.js"></script>
       
-        <script src="../../javascripts/toc-current.js"></script>
+        <script src="../javascripts/toc-current.js"></script>
       
-        <script src="../../javascripts/mathjax.js"></script>
+        <script src="../javascripts/mathjax.js"></script>
       
-        <script src="../../vendor/mathjax/3.2.2/tex-chtml-full.js"></script>
+        <script src="../vendor/mathjax/3.2.2/tex-chtml-full.js"></script>
       
     
   </body>

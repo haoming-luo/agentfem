@@ -154,10 +154,19 @@ class AbaqusElementDefinition:
     source_type: str
     topology: str | None = None
     interpolation: str | None = None
+    node_count: int | None = None
+    family: str = "unknown"
+    physics: str = "unknown"
+    kinematics: str | None = None
+    integration: str | None = None
     formulation: str = "source_defined"
     pressure_interpolation: str | None = None
     additional_pressure_variables: int = 0
     additional_displacement_variables: int = 0
+    import_capability: str = "declaration_only"
+    neutral_conversion: str = "not_verified"
+    solver_capability: str = "not_declared"
+    notes: tuple[str, ...] = ()
 
     @property
     def is_hybrid(self) -> bool:
@@ -168,10 +177,19 @@ class AbaqusElementDefinition:
             "source_type": self.source_type,
             "topology": self.topology,
             "interpolation": self.interpolation,
+            "node_count": self.node_count,
+            "family": self.family,
+            "physics": self.physics,
+            "kinematics": self.kinematics,
+            "integration": self.integration,
             "formulation": self.formulation,
             "pressure_interpolation": self.pressure_interpolation,
             "additional_pressure_variables": self.additional_pressure_variables,
             "additional_displacement_variables": self.additional_displacement_variables,
+            "import_capability": self.import_capability,
+            "neutral_conversion": self.neutral_conversion,
+            "solver_capability": self.solver_capability,
+            "notes": list(self.notes),
         }
 
 
@@ -378,32 +396,38 @@ _SOLID_FACE_CORNERS = {
         "S5": (3, 7, 8, 4),
         "S6": (4, 8, 5, 1),
     },
+    "wedge": {
+        "S1": (1, 2, 3),
+        "S2": (4, 6, 5),
+        "S3": (1, 4, 5, 2),
+        "S4": (2, 5, 6, 3),
+        "S5": (3, 6, 4, 1),
+    },
 }
 
 
 def _solid_face_family(element_type: str) -> str:
-    selected = str(element_type).upper()
-    if selected.startswith("C3D10") or selected.startswith("C3D4"):
+    definition = describe_element_type(element_type)
+    if definition.topology in {"tetra", "tetra10"}:
         return "tetrahedron"
-    if selected.startswith("C3D8"):
+    if definition.topology in {"hexahedron", "hexahedron20", "hexahedron27"}:
         return "hexahedron"
+    if definition.topology in {"wedge", "wedge15"}:
+        return "wedge"
     raise NotImplementedError(
-        "Abaqus surface reconstruction currently supports C3D4/C3D10 and "
-        f"C3D8 solid families, not {element_type!r}."
+        "Abaqus surface reconstruction currently supports tetrahedral, "
+        f"hexahedral, and wedge solid families, not {element_type!r}."
     )
 
 
 def _element_node_count(element_type: str) -> int:
-    selected = str(element_type).upper()
-    if selected.startswith("C3D10"):
-        return 10
-    if selected.startswith("C3D4"):
-        return 4
-    if selected.startswith("C3D8"):
-        return 8
-    raise NotImplementedError(
-        f"Element connectivity parsing is not implemented for {element_type!r}."
-    )
+    definition = describe_element_type(element_type)
+    if definition.node_count is None:
+        raise NotImplementedError(
+            f"Element connectivity parsing is not implemented for {element_type!r}. "
+            "The keyword declaration can still be inventoried."
+        )
+    return int(definition.node_count)
 
 
 def read_element_table(path: str | Path) -> AbaqusElementTable:
@@ -462,45 +486,309 @@ def read_element_table(path: str | Path) -> AbaqusElementTable:
     return AbaqusElementTable(tuple(records))
 
 
-_C3D10_FAMILY = {
-    "C3D10": {
-        "formulation": "displacement",
-    },
-    "C3D10H": {
-        "formulation": "hybrid",
-        "pressure_interpolation": "constant",
-        "additional_pressure_variables": 1,
-    },
-    "C3D10HS": {
-        "formulation": "hybrid_improved_surface_stress",
-        "pressure_interpolation": "linear",
-        "additional_pressure_variables": 4,
-    },
-    "C3D10M": {
-        "formulation": "modified_hourglass_control",
-        "additional_displacement_variables": 3,
-    },
-    "C3D10MH": {
-        "formulation": "modified_hybrid_hourglass_control",
-        "pressure_interpolation": "linear",
-        "additional_pressure_variables": 4,
-        "additional_displacement_variables": 3,
-    },
+_ABAQUS_ELEMENT_LIBRARY: dict[str, dict[str, object]] = {}
+
+# Declarations supported by the pinned meshio 5.3.x Abaqus reader. A neutral
+# topology reader does not reproduce reduced integration, hourglass control,
+# hybrid variables, shell directors, or cohesive kinematics.
+_MESHIO_ABAQUS_TYPES = {
+    "B21", "B21H", "B22", "B22H", "B31", "B31H", "B32", "B32H",
+    "B33", "B33H", "C3D10", "C3D10H", "C3D10I", "C3D10M", "C3D10MH",
+    "C3D15", "C3D20", "C3D20H", "C3D20R", "C3D20RH", "C3D4", "C3D4H",
+    "C3D6", "C3D8", "C3D8H", "C3D8I", "C3D8IH", "C3D8R", "C3D8RH",
+    "CAX4P", "CPE6", "CPS3", "CPS4", "CPS4R", "R3D3", "S3", "S3R",
+    "S3RS", "S4", "S4R", "S4R5", "S4RS", "S4RSW", "S8R", "S8R5",
+    "S9R5", "STRI3", "STRI65", "T2D2", "T2D2H", "T2D3", "T2D3H",
+    "T3D2", "T3D2H", "T3D3", "T3D3H",
 }
+
+
+def _register_element_types(
+    names: tuple[str, ...],
+    *,
+    topology: str,
+    interpolation: str,
+    node_count: int,
+    family: str,
+    physics: str,
+    kinematics: str | None = None,
+    import_capability: str = "topology_and_semantics",
+    solver_capability: str = "topology_only",
+    **shared,
+) -> None:
+    for name in names:
+        _ABAQUS_ELEMENT_LIBRARY[name] = {
+            "topology": topology,
+            "interpolation": interpolation,
+            "node_count": node_count,
+            "family": family,
+            "physics": physics,
+            "kinematics": kinematics,
+            "import_capability": import_capability,
+            "solver_capability": solver_capability,
+            **shared,
+        }
+
+
+# Continuum solids.  Native support means that AgentFEM has a corresponding
+# public finite-element route; it does not claim byte-for-byte Abaqus element
+# equivalence.  Reduced integration, incompatible modes, and hybrid variables
+# remain explicit formulation semantics rather than aliases.
+_register_element_types(
+    ("C3D4",), topology="tetra", interpolation="linear", node_count=4,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="displacement", solver_capability="native_lagrange_analogue",
+)
+_register_element_types(
+    ("C3D4H",), topology="tetra", interpolation="linear", node_count=4,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="hybrid", pressure_interpolation="constant",
+    additional_pressure_variables=1,
+)
+_register_element_types(
+    ("C3D5",), topology="pyramid", interpolation="linear", node_count=5,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="displacement",
+)
+_register_element_types(
+    ("C3D5H",), topology="pyramid", interpolation="linear", node_count=5,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="hybrid", pressure_interpolation="source_hybrid",
+    notes=("Hybrid pressure variables require an explicit mixed formulation.",),
+)
+_register_element_types(
+    ("C3D6",), topology="wedge", interpolation="linear", node_count=6,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="displacement", solver_capability="native_lagrange_analogue",
+)
+_register_element_types(
+    ("C3D6H",), topology="wedge", interpolation="linear", node_count=6,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="hybrid", pressure_interpolation="source_hybrid",
+    notes=("Hybrid pressure variables require an explicit mixed formulation.",),
+)
+_register_element_types(
+    ("C3D15", "C3D15V"), topology="wedge15", interpolation="quadratic", node_count=15,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="displacement",
+)
+_register_element_types(
+    ("C3D15H", "C3D15VH"), topology="wedge15", interpolation="quadratic", node_count=15,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="hybrid", pressure_interpolation="source_hybrid",
+    notes=("Hybrid pressure variables require an explicit mixed formulation.",),
+)
+_register_element_types(
+    ("C3D8",), topology="hexahedron", interpolation="linear", node_count=8,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="displacement", integration="full",
+    solver_capability="native_lagrange_analogue",
+)
+_register_element_types(
+    ("C3D8R",), topology="hexahedron", interpolation="linear", node_count=8,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="displacement_hourglass_control", integration="reduced",
+    notes=("Abaqus hourglass control is not implied by topology conversion.",),
+)
+_register_element_types(
+    ("C3D8H", "C3D8RH"), topology="hexahedron", interpolation="linear", node_count=8,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="hybrid", pressure_interpolation="constant",
+    additional_pressure_variables=1,
+    notes=("Hybrid pressure variables require an explicit mixed formulation.",),
+)
+_ABAQUS_ELEMENT_LIBRARY["C3D8RH"]["integration"] = "reduced"
+_register_element_types(
+    ("C3D8I", "C3D8IH"), topology="hexahedron", interpolation="linear", node_count=8,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="incompatible_modes",
+    notes=("Incompatible-mode variables are not reproduced by neutral mesh conversion.",),
+)
+_register_element_types(
+    ("C3D10",), topology="tetra10", interpolation="quadratic", node_count=10,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="displacement", solver_capability="native_lagrange_analogue",
+)
+_register_element_types(
+    ("C3D10H",), topology="tetra10", interpolation="quadratic", node_count=10,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="hybrid", pressure_interpolation="constant",
+    additional_pressure_variables=1, solver_capability="native_mixed_analogue",
+)
+_register_element_types(
+    ("C3D10HS",), topology="tetra10", interpolation="quadratic", node_count=10,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="hybrid_improved_surface_stress", pressure_interpolation="linear",
+    additional_pressure_variables=4,
+)
+_register_element_types(
+    ("C3D10M",), topology="tetra10", interpolation="modified_quadratic", node_count=10,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="modified_hourglass_control", additional_displacement_variables=3,
+)
+_register_element_types(
+    ("C3D10MH",), topology="tetra10", interpolation="modified_quadratic", node_count=10,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="modified_hybrid_hourglass_control", pressure_interpolation="linear",
+    additional_pressure_variables=4, additional_displacement_variables=3,
+)
+_register_element_types(
+    ("C3D20",), topology="hexahedron20", interpolation="quadratic", node_count=20,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="displacement", integration="full",
+)
+_register_element_types(
+    ("C3D20R",), topology="hexahedron20", interpolation="quadratic", node_count=20,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="displacement", integration="reduced",
+)
+_register_element_types(
+    ("C3D20H", "C3D20RH"), topology="hexahedron20", interpolation="quadratic", node_count=20,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="hybrid", pressure_interpolation="linear",
+    notes=("Hybrid pressure variables require an explicit mixed formulation.",),
+)
+_ABAQUS_ELEMENT_LIBRARY["C3D20RH"]["integration"] = "reduced"
+_register_element_types(
+    ("C3D27", "C3D27R"), topology="hexahedron27", interpolation="quadratic", node_count=27,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="displacement",
+)
+_ABAQUS_ELEMENT_LIBRARY["C3D27R"]["integration"] = "reduced"
+_register_element_types(
+    ("C3D27H", "C3D27RH"), topology="hexahedron27", interpolation="quadratic", node_count=27,
+    family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
+    formulation="hybrid", pressure_interpolation="source_hybrid",
+    notes=("Hybrid pressure variables require an explicit mixed formulation.",),
+)
+_ABAQUS_ELEMENT_LIBRARY["C3D27RH"]["integration"] = "reduced"
+
+# Plane stress, plane strain, generalized plane strain, and axisymmetric solids.
+for prefix, kinematics in (
+    ("CPS", "plane_stress"),
+    ("CPE", "plane_strain"),
+    ("CPEG", "generalized_plane_strain"),
+    ("CAX", "axisymmetric"),
+):
+    _register_element_types(
+        (f"{prefix}3",), topology="triangle", interpolation="linear", node_count=3,
+        family="continuum_solid", physics="solid_mechanics", kinematics=kinematics,
+        formulation="displacement", solver_capability="native_lagrange_analogue",
+    )
+    _register_element_types(
+        (f"{prefix}4",), topology="quad", interpolation="linear", node_count=4,
+        family="continuum_solid", physics="solid_mechanics", kinematics=kinematics,
+        formulation="displacement", integration="full",
+        solver_capability="native_lagrange_analogue",
+    )
+    _register_element_types(
+        (f"{prefix}4R",), topology="quad", interpolation="linear", node_count=4,
+        family="continuum_solid", physics="solid_mechanics", kinematics=kinematics,
+        formulation="displacement_hourglass_control", integration="reduced",
+        notes=("Abaqus hourglass control is not implied by topology conversion.",),
+    )
+    _register_element_types(
+        (f"{prefix}6",), topology="triangle6", interpolation="quadratic", node_count=6,
+        family="continuum_solid", physics="solid_mechanics", kinematics=kinematics,
+        formulation="displacement", solver_capability="native_lagrange_analogue",
+    )
+    _register_element_types(
+        (f"{prefix}8", f"{prefix}8R"), topology="quad8", interpolation="quadratic", node_count=8,
+        family="continuum_solid", physics="solid_mechanics", kinematics=kinematics,
+        formulation="displacement",
+    )
+    _ABAQUS_ELEMENT_LIBRARY[f"{prefix}8R"]["integration"] = "reduced"
+
+for name in ("CPE3H", "CPE4H", "CPE4RH", "CPE6H", "CPE8H", "CPE8RH",
+             "CAX3H", "CAX4H", "CAX4RH", "CAX6H", "CAX8H", "CAX8RH"):
+    base = name.replace("RH", "R").replace("H", "")
+    source = dict(_ABAQUS_ELEMENT_LIBRARY[base])
+    source.update(
+        formulation="hybrid",
+        pressure_interpolation="constant" if source["interpolation"] == "linear" else "linear",
+        solver_capability="topology_only",
+        notes=("Hybrid pressure variables require an explicit mixed formulation.",),
+    )
+    _ABAQUS_ELEMENT_LIBRARY[name] = source
+
+# Heat-transfer and coupled temperature-displacement topologies.
+for name, topology, interpolation, nodes in (
+    ("DC2D3", "triangle", "linear", 3), ("DC2D4", "quad", "linear", 4),
+    ("DC2D6", "triangle6", "quadratic", 6), ("DC2D8", "quad8", "quadratic", 8),
+    ("DC3D4", "tetra", "linear", 4), ("DC3D6", "wedge", "linear", 6),
+    ("DC3D8", "hexahedron", "linear", 8), ("DC3D10", "tetra10", "quadratic", 10),
+    ("DC3D15", "wedge15", "quadratic", 15), ("DC3D20", "hexahedron20", "quadratic", 20),
+):
+    _register_element_types(
+        (name,), topology=topology, interpolation=interpolation, node_count=nodes,
+        family="continuum_heat", physics="heat_transfer",
+        kinematics="three_dimensional" if name.startswith("DC3") else "two_dimensional",
+        formulation="temperature", solver_capability="native_lagrange_analogue",
+    )
+
+# Interface, truss, beam, and shell declarations are parsed and retained now;
+# their dedicated kinematics remain separate roadmap items.
+for name, topology, nodes, kinematics in (
+    ("COH2D4", "quad", 4, "two_dimensional_interface"),
+    ("COHAX4", "quad", 4, "axisymmetric_interface"),
+    ("COH3D6", "wedge", 6, "three_dimensional_interface"),
+    ("COH3D8", "hexahedron", 8, "three_dimensional_interface"),
+):
+    _register_element_types(
+        (name,), topology=topology, interpolation="linear", node_count=nodes,
+        family="cohesive", physics="solid_mechanics", kinematics=kinematics,
+        formulation="cohesive", notes=("Dedicated interface lowering is required.",),
+    )
+_register_element_types(
+    ("T2D2", "T3D2", "B21", "B31"), topology="line", interpolation="linear", node_count=2,
+    family="line_structure", physics="solid_mechanics", formulation="source_defined",
+    notes=("Section and line-element kinematics are not inferred from connectivity.",),
+)
+_register_element_types(
+    ("T2D3", "T3D3", "B22", "B32"), topology="line3", interpolation="quadratic", node_count=3,
+    family="line_structure", physics="solid_mechanics", formulation="source_defined",
+    notes=("Section and line-element kinematics are not inferred from connectivity.",),
+)
+_register_element_types(
+    ("S3", "S3R", "STRI3"), topology="triangle", interpolation="linear", node_count=3,
+    family="shell", physics="solid_mechanics", formulation="shell",
+    notes=("Shell director, section, and rotational dofs require dedicated lowering.",),
+)
+_register_element_types(
+    ("S4", "S4R", "S4R5"), topology="quad", interpolation="linear", node_count=4,
+    family="shell", physics="solid_mechanics", formulation="shell",
+    notes=("Shell director, section, and rotational dofs require dedicated lowering.",),
+)
+_register_element_types(
+    ("S8R", "S8R5"), topology="quad8", interpolation="quadratic", node_count=8,
+    family="shell", physics="solid_mechanics", formulation="shell",
+    notes=("Shell director, section, and rotational dofs require dedicated lowering.",),
+)
 
 
 def describe_element_type(element_type: str) -> AbaqusElementDefinition:
     """Describe formulation information that is lost in neutral mesh I/O."""
 
     selected = str(element_type).strip().upper()
-    details = _C3D10_FAMILY.get(selected)
+    details = _ABAQUS_ELEMENT_LIBRARY.get(selected)
     if details is None:
         return AbaqusElementDefinition(source_type=selected)
-    return AbaqusElementDefinition(
-        source_type=selected,
-        topology="tetra10",
-        interpolation="quadratic",
-        **details,
+    resolved = dict(details)
+    resolved["neutral_conversion"] = (
+        "meshio_reader" if selected in _MESHIO_ABAQUS_TYPES else "not_verified"
+    )
+    return AbaqusElementDefinition(source_type=selected, **resolved)
+
+
+def supported_element_types(*, family: str | None = None) -> tuple[str, ...]:
+    """Return Abaqus declarations with explicit AgentFEM import semantics."""
+
+    if family is None:
+        return tuple(sorted(_ABAQUS_ELEMENT_LIBRARY))
+    selected = str(family).strip().lower()
+    return tuple(
+        name for name in sorted(_ABAQUS_ELEMENT_LIBRARY)
+        if str(_ABAQUS_ELEMENT_LIBRARY[name].get("family", "")).lower() == selected
     )
 
 
@@ -535,6 +823,295 @@ def read_element_definitions(path: str | Path) -> tuple[AbaqusElementDefinition,
             selected.append(describe_element_type(normalized))
             seen.add(normalized)
     return tuple(selected)
+
+
+_PRESERVED_KEYWORDS = {
+    "*HEADING", "*NODE", "*ELEMENT", "*NSET", "*ELSET", "*SURFACE",
+    "*EQUATION",
+}
+_MIGRATION_PLANNED_KEYWORDS = {
+    "*AMPLITUDE", "*ASSEMBLY", "*BOUNDARY", "*CLOAD", "*DLOAD",
+    "*DYNAMIC", "*ELASTIC", "*END ASSEMBLY", "*END INSTANCE",
+    "*END PART", "*END STEP", "*HYPERELASTIC", "*INSTANCE", "*MATERIAL",
+    "*PART", "*PLASTIC", "*SOLID SECTION", "*STATIC", "*STEP", "*INCLUDE",
+}
+
+
+@dataclass(frozen=True)
+class _AbaqusDeckInventory:
+    """Structural inventory that does not require globally unique labels."""
+
+    node_count: int
+    element_count: int | None
+    keyword_counts: tuple[tuple[str, int], ...]
+    part_names: tuple[str, ...]
+    instance_names: tuple[str, ...]
+    material_names: tuple[str, ...]
+    section_count: int
+    step_count: int
+    include_files: tuple[str, ...]
+
+
+def _keyword_options(line: str) -> tuple[str, dict[str, str]]:
+    fields = [item.strip() for item in line.split(",")]
+    options: dict[str, str] = {}
+    for item in fields[1:]:
+        if "=" in item:
+            key, value = item.split("=", 1)
+            options[key.strip().upper()] = value.strip()
+    return fields[0].upper(), options
+
+
+def _inspect_deck_structure(source: Path) -> _AbaqusDeckInventory:
+    """Count scoped Abaqus assets without pretending that labels are global."""
+
+    counts: dict[str, int] = {}
+    node_count = 0
+    element_count = 0
+    element_count_known = True
+    active_keyword = ""
+    active_element_type: str | None = None
+    pending_connectivity: list[str] = []
+    expected_connectivity: int | None = None
+    parts: list[str] = []
+    instances: list[str] = []
+    materials: list[str] = []
+    includes: list[str] = []
+    section_count = 0
+    step_count = 0
+
+    def consume_elements() -> None:
+        nonlocal element_count, pending_connectivity
+        if expected_connectivity is None:
+            return
+        record_width = expected_connectivity + 1
+        while len(pending_connectivity) >= record_width:
+            element_count += 1
+            pending_connectivity = pending_connectivity[record_width:]
+
+    for raw in source.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("**"):
+            continue
+        if line.startswith("*"):
+            if active_keyword == "*ELEMENT" and pending_connectivity:
+                element_count_known = False
+                pending_connectivity = []
+            active_keyword, options = _keyword_options(line)
+            counts[active_keyword] = counts.get(active_keyword, 0) + 1
+            active_element_type = None
+            expected_connectivity = None
+            if active_keyword == "*ELEMENT":
+                active_element_type = options.get("TYPE", "").upper() or None
+                if active_element_type is not None:
+                    definition = describe_element_type(active_element_type)
+                    expected_connectivity = definition.node_count
+                if expected_connectivity is None:
+                    element_count_known = False
+            elif active_keyword == "*PART":
+                parts.append(options.get("NAME", "<unnamed>"))
+            elif active_keyword == "*INSTANCE":
+                instances.append(options.get("NAME", "<unnamed>"))
+            elif active_keyword == "*MATERIAL":
+                materials.append(options.get("NAME", "<unnamed>"))
+            elif active_keyword.endswith(" SECTION"):
+                section_count += 1
+            elif active_keyword == "*STEP":
+                step_count += 1
+            elif active_keyword == "*INCLUDE":
+                selected = options.get("INPUT") or options.get("FILE")
+                includes.append(selected or "<unspecified>")
+            continue
+        if active_keyword == "*NODE":
+            node_count += 1
+        elif active_keyword == "*ELEMENT":
+            if expected_connectivity is None:
+                continue
+            pending_connectivity.extend(_csv_values(line))
+            consume_elements()
+    if active_keyword == "*ELEMENT" and pending_connectivity:
+        element_count_known = False
+    return _AbaqusDeckInventory(
+        node_count=node_count,
+        element_count=element_count if element_count_known else None,
+        keyword_counts=tuple(sorted(counts.items())),
+        part_names=tuple(parts),
+        instance_names=tuple(instances),
+        material_names=tuple(materials),
+        section_count=section_count,
+        step_count=step_count,
+        include_files=tuple(includes),
+    )
+
+
+@dataclass(frozen=True)
+class AbaqusMigrationReport:
+    """Side-effect-free inventory for deciding how an input deck can migrate.
+
+    ``preserved`` means AgentFEM retains the source semantics today.  It does
+    not mean that every Abaqus numerical formulation has an equivalent native
+    solver.  ``planned`` identifies familiar engineering assets that are seen
+    and reported but are not silently lowered yet.
+    """
+
+    source: Path
+    source_sha256: str
+    node_count: int
+    element_count: int | None
+    element_definitions: tuple[AbaqusElementDefinition, ...]
+    keyword_inventory: tuple[tuple[str, int, str], ...]
+    semantics: AbaqusModelSemantics
+    equation_count: int | None
+    part_names: tuple[str, ...] = ()
+    instance_names: tuple[str, ...] = ()
+    material_names: tuple[str, ...] = ()
+    section_count: int = 0
+    step_count: int = 0
+    include_files: tuple[str, ...] = ()
+    warnings: tuple[str, ...] = ()
+
+    @property
+    def topology_only_elements(self) -> tuple[str, ...]:
+        return tuple(
+            item.source_type
+            for item in self.element_definitions
+            if item.solver_capability in {"topology_only", "not_declared"}
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "schema": "agentfem.abaqus-migration-report",
+            "schema_version": "0.2.0",
+            "source": str(self.source),
+            "source_sha256": self.source_sha256,
+            "node_count": self.node_count,
+            "element_count": self.element_count,
+            "element_definitions": [item.summary() for item in self.element_definitions],
+            "topology_only_elements": list(self.topology_only_elements),
+            "keywords": [
+                {"keyword": keyword, "count": count, "status": status}
+                for keyword, count, status in self.keyword_inventory
+            ],
+            "equation_count": self.equation_count,
+            "parts": list(self.part_names),
+            "instances": list(self.instance_names),
+            "materials": list(self.material_names),
+            "section_count": self.section_count,
+            "step_count": self.step_count,
+            "include_files": list(self.include_files),
+            "model_semantics": self.semantics.summary(),
+            "warnings": list(self.warnings),
+        }
+
+    def text(self) -> str:
+        elements = ", ".join(item.source_type for item in self.element_definitions)
+        lines = [
+            f"Abaqus source: {self.source}",
+            f"Nodes/elements: {self.node_count}/{self.element_count if self.element_count is not None else 'unknown'}",
+            f"Element declarations: {elements or '<none>'}",
+            f"NSET/ELSET/SURFACE: {len(self.semantics.node_sets)}/{len(self.semantics.element_sets)}/{len(self.semantics.surfaces)}",
+            f"Equations: {self.equation_count if self.equation_count is not None else 'requires scoped resolution'}",
+            f"Parts/instances/materials: {len(self.part_names)}/{len(self.instance_names)}/{len(self.material_names)}",
+            f"Sections/steps/includes: {self.section_count}/{self.step_count}/{len(self.include_files)}",
+        ]
+        if self.topology_only_elements:
+            lines.append(
+                "Topology-only solver status: " + ", ".join(self.topology_only_elements)
+            )
+        lines.extend(f"Warning: {warning}" for warning in self.warnings)
+        return "\n".join(lines)
+
+
+def inspect_input(path: str | Path) -> AbaqusMigrationReport:
+    """Inspect an Abaqus input deck without converting or solving it."""
+
+    source = Path(path)
+    raw = source.read_bytes()
+    deck = _inspect_deck_structure(source)
+    definitions = read_element_definitions(source)
+    warnings: list[str] = []
+    try:
+        semantics = read_model_semantics(source)
+    except (TypeError, ValueError) as exc:
+        semantics = AbaqusModelSemantics()
+        warnings.append(
+            "Named-set or surface semantics require scoped/nested resolution before "
+            f"lowering ({exc})."
+        )
+    try:
+        equation_count: int | None = len(read_equations(source).equations)
+    except ValueError as exc:
+        if "No equation data" in str(exc):
+            equation_count = 0
+        else:
+            equation_count = None
+            warnings.append(
+                "Equation terms require scoped set/instance resolution before "
+                f"lowering ({exc})."
+            )
+
+    inventory = []
+    for keyword, count in deck.keyword_counts:
+        if keyword in _PRESERVED_KEYWORDS:
+            status = "preserved"
+        elif keyword in _MIGRATION_PLANNED_KEYWORDS:
+            status = "recognized_not_lowered"
+        else:
+            status = "unclassified"
+        inventory.append((keyword, count, status))
+
+    for definition in definitions:
+        if definition.solver_capability in {"topology_only", "not_declared"}:
+            warnings.append(
+                f"{definition.source_type} is retained for topology/source semantics; "
+                "no equivalent native element formulation is claimed."
+            )
+    not_lowered = [
+        keyword for keyword, _count, status in inventory
+        if status == "recognized_not_lowered"
+    ]
+    if not_lowered:
+        warnings.append(
+            "The input deck contains recognized Abaqus assets that require an "
+            f"explicit migration decision: {', '.join(not_lowered)}."
+        )
+    if deck.part_names or deck.instance_names:
+        warnings.append(
+            "Part and assembly labels are scoped in Abaqus. The inventory is valid, "
+            "but direct orphan-mesh lowering requires an explicit instance-aware "
+            "flattening step."
+        )
+    if deck.include_files:
+        missing = [
+            item for item in deck.include_files
+            if item == "<unspecified>" or not (source.parent / item).exists()
+        ]
+        warnings.append(
+            "*INCLUDE dependencies are inventoried but are not expanded by this "
+            "single-file inspection."
+        )
+        if missing:
+            warnings.append("Unresolved include files: " + ", ".join(missing) + ".")
+    return AbaqusMigrationReport(
+        source=source,
+        source_sha256=sha256(raw).hexdigest(),
+        node_count=deck.node_count,
+        element_count=deck.element_count,
+        element_definitions=definitions,
+        keyword_inventory=tuple(inventory),
+        semantics=semantics,
+        equation_count=equation_count,
+        part_names=deck.part_names,
+        instance_names=deck.instance_names,
+        material_names=deck.material_names,
+        section_count=deck.section_count,
+        step_count=deck.step_count,
+        include_files=deck.include_files,
+        warnings=tuple(warnings),
+    )
+
+
+inspect_model = inspect_input
 
 
 @dataclass(frozen=True)

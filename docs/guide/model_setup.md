@@ -10,7 +10,7 @@ models, and step activation reusable rather than embedding them in one solver.
 - XDMF/HDF5 as the direct DOLFINx solver representation;
 - optional Gmsh model and `.msh` routes;
 - optional meshio conversion for external formats;
-- Abaqus quadratic-tetrahedron, set, surface, and equation parsing;
+- Abaqus element-semantic inventory, set, surface, and equation parsing;
 - conversion fingerprints so stale cached meshes are not silently reused.
 
 ## Common engineering actions
@@ -46,7 +46,9 @@ number of poor/invalid owned cells.
 
 ## Go deeper
 
+- [Materials and constitutive behaviors](materials.md)
 - [Mesh interoperability](../mesh_interoperability.md)
+- [Migrating Abaqus projects](../abaqus_migration.md)
 - [Engineering loads, steps, and resultants](../engineering_workflows.md)
 - [Abaqus C3D10H periodic cell](../abaqus_c3d10h_periodic_cell.md)
 - [Example gallery](../examples/index.md)

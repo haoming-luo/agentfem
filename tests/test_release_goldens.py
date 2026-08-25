@@ -22,6 +22,64 @@ from agentfem import (
 from agentfem.constitutive import elasticity
 
 
+def test_compatibility_step_methods_cannot_own_scientific_lowering():
+    """Keep Model as a facade and providers as the only lowering route."""
+
+    compatibility_steps = {
+        "linear_static_step",
+        "heat_transfer_step",
+        "hyperelastic_step",
+        "mixed_hyperelastic_step",
+        "j2_plasticity_step",
+        "creep_step",
+        "explicit_dynamics_step",
+        "finite_strain_explicit_dynamics_step",
+        "implicit_dynamics_step",
+    }
+    repository = Path(__file__).resolve().parents[1]
+    model_source = repository / "src" / "agentfem" / "models.py"
+    tree = ast.parse(model_source.read_text(), filename=str(model_source))
+    model_class = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "Model"
+    )
+    methods = {
+        node.name: node
+        for node in model_class.body
+        if isinstance(node, ast.FunctionDef) and node.name in compatibility_steps
+    }
+    assert set(methods) == compatibility_steps
+    for name, method in methods.items():
+        statements = method.body[1:]  # Skip the docstring.
+        assert len(statements) == 2, f"Model.{name} must remain a thin delegate."
+        assert isinstance(statements[0], ast.ImportFrom)
+        assert isinstance(statements[1], ast.Return)
+        call = statements[1].value
+        assert isinstance(call, ast.Call)
+        assert isinstance(call.func, ast.Attribute)
+        assert isinstance(call.func.value, ast.Name)
+        assert call.func.value.id == "_step_builders"
+
+    provider_source = repository / "src" / "agentfem" / "step_providers.py"
+    provider_tree = ast.parse(
+        provider_source.read_text(),
+        filename=str(provider_source),
+    )
+    violations = [
+        f"{node.func.attr}:{node.lineno}"
+        for node in ast.walk(provider_tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "model"
+        and node.func.attr in compatibility_steps
+    ]
+    assert not violations, "Providers called compatibility builders: " + ", ".join(
+        violations
+    )
+
+
 def test_bundled_cases_use_the_canonical_model_language():
     compatibility_steps = {
         "linear_static_step",

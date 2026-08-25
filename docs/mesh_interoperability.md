@@ -12,6 +12,16 @@ This is mesh interoperability, not full solver-deck import. Material cards,
 contacts, element formulations, steps, amplitudes, coordinate systems, and
 solver controls require format-specific semantic adapters.
 
+For Abaqus input decks, run the semantic inventory before generic mesh
+conversion:
+
+```bash
+agentfem inspect-abaqus model.inp --json --write migration.json
+```
+
+The [Abaqus migration guide](abaqus_migration.md) separates declaration and
+topology, neutral conversion, native formulation, and verification evidence.
+
 Gmsh is a separate optional route. Direct in-memory Gmsh models and
 `mesh.read_gmsh_mesh(...)` require `agentfem[gmsh]`; structured DOLFINx meshes,
 XDMF, and the meshio conversion described on this page do not. This keeps both
@@ -145,9 +155,12 @@ so a C3D10 midside `NSET` can locate the corresponding P2 degree of freedom;
 it deliberately has no boundary integration measure. `boundary(...)`
 reconstructs exterior facets from official Abaqus face numbering and returns
 the same tagged `BoundaryRegion` consumed by weak loads and output resultants.
-C3D4/C3D10 and C3D8 solid families are supported first. Missing nodes,
-internal faces, unknown face identifiers, unsupported element families, and
-ambiguous coincident source nodes fail explicitly.
+Tetrahedral, hexahedral, and wedge solid families have source face semantics.
+The broader catalog can retain common continuum, heat, interface, line, and
+shell declarations without claiming that every Abaqus formulation has a
+native solver equivalent. Missing nodes, internal faces, unknown face
+identifiers, unsupported lowering, and ambiguous coincident source nodes fail
+explicitly.
 
 `imported.surface_faces(name)` remains available as source-level evidence and
 for adapters that need the original `(element_label, face_identifier)` pairs.

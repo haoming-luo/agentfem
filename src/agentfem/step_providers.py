@@ -792,6 +792,8 @@ def _accept_transient_heat(model, request: StepRequest) -> bool:
 
 
 def _lower_transient_heat(model, request: StepRequest):
+    from . import _step_builders
+
     options = dict(request.options)
     options.pop("K", None)
     options.pop("F", None)
@@ -799,7 +801,8 @@ def _lower_transient_heat(model, request: StepRequest):
     options.pop("output", None)
     options.pop("history", None)
     name = options.pop("name", None) or "transient_heat"
-    return model.heat_transfer_step(
+    return _step_builders.heat_transfer(
+        model,
         target=request.target,
         material=material,
         name=name,

@@ -132,7 +132,9 @@ nav:
           - Creep and Inelasticity: guide/creep_and_inelasticity.md
       - Build a Model:
           - Meshes, Loads and Constraints: guide/model_setup.md
+          - Materials and Behaviors: guide/materials.md
           - Mesh Interoperability: mesh_interoperability.md
+          - Migrating Abaqus Projects: abaqus_migration.md
           - Engineering Workflow: engineering_workflows.md
       - Results and Data:
           - Results and Post-processing: guide/results.md

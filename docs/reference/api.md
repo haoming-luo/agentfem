@@ -55,6 +55,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `convert_external_mesh_to_xdmf(*args, **kwargs)` | Convert Abaqus/NASTRAN/COMSOL-like external meshes to XDMF. |
 | function | `convert_external_mesh_bundle(*args, **kwargs)` | Convert selected source topologies into explicit solver-domain files. |
 | function | `inspect_external_mesh(path)` | Inventory external element blocks and named sets before conversion. |
+| function | `inspect_abaqus_input(path: str \| Path) -> abaqus.AbaqusMigrationReport` | Inventory Abaqus engineering semantics before conversion or solving. |
+| function | `supported_abaqus_element_types(*, family: str \| None = None) -> tuple[str, ...]` | Return Abaqus declarations with explicit AgentFEM import semantics. |
 | function | `split_gmsh_physical_interface(*args, **kwargs)` | Lower named Gmsh physical cell/surface groups to a split interface. |
 | function | `read_abaqus_mesh(path: str \| Path, converted_path: str \| Path, comm: MPI.Comm = MPI.COMM_WORLD, *, cell_type: str \| None = None, reuse_conversion: bool = True) -> abaqus.AbaqusMeshImport` | Convert and read an Abaqus mesh while retaining source node labels. |
 | function | `external_mesh_formats() -> dict[str, str]` | Return common external formats supported through optional ``meshio``. |
@@ -134,10 +136,18 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| class | `MaterialAssetError` | A project material asset could not be loaded unambiguously. |
+| function | `load(source: str \| Path, *, model: str \| None = None, symbol: str \| None = None, role: str = 'mechanical') -> MaterialDefinition` | Load a packaged card by name or an explicitly selected Python asset. |
+| function | `load_python(path: str \| Path, *, symbol: str \| None = None, role: str = 'mechanical') -> MaterialDefinition` | Load one trusted project-owned Python material with source provenance. |
+| class | `MaterialBehavior` | One named behavior carried by a physical material definition. |
+| class | `MaterialCompatibility` | Pre-solve explanation of one material/Study pairing. |
+| class | `MaterialDefinition` | Physical material identity plus independently reusable behaviors. |
+| function | `define(name: str, behavior = None, *, mechanical = None, thermal = None, behaviors: Mapping[str, object] \| None = None, source: str = 'user_defined', reference_only: bool = False, metadata: Mapping[str, object] \| None = None) -> MaterialDefinition` | Define a named material without coupling it to one Study. |
 | class | `MaterialRecord` | Material-library record before conversion to a constitutive law. |
 | function | `list_material_models(name: str) -> tuple[str, ...]` | List model names available for one material. |
 | function | `list_materials(*, model: str \| None = None) -> tuple[str, ...]` | List available material names, optionally filtered by model. |
 | function | `load_material(name: str, model: str \| None = None)` | Load one material model and return a constitutive material object. |
+| function | `load_definition(name: str, model: str \| None = None)` | Load a packaged reference card as a named material definition. |
 | function | `material_record(name: str) -> MaterialRecord` | Return a validated material record without constructing a model object. |
 | function | `register_material(name: str, data: dict, *, overwrite: bool = False) -> None` | Register or override a material record in memory. |
 | class | `ElasticAnisotropic2DProperties` | 2D linear-elastic properties using engineering-strain Voigt notation. |
@@ -234,15 +244,6 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `MaterialPointInput` | Solver-neutral finite-strain input for one material-point update. |
 | class | `MaterialPointOutput` | Constitutive response returned to a nonlinear finite-element driver. |
 | class | `UserMaterial` | Protocol implemented by native or adapted material-point models. |
-
-## `agentfem.coordinates`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `CartesianSystem` | Right-handed orthonormal Cartesian coordinate system. |
-| class | `ReferencePoint` | Named engineering point used for remote resultants and kinematics. |
-| function | `cartesian(*, origin = None, axes = None, x = None, y = None, z = None, name = 'local') -> CartesianSystem` | Create a Cartesian system from a matrix or named basis vectors. |
-| function | `reference_point(coordinates, *, name = 'reference_point', system = None) -> ReferencePoint` | Create a named engineering reference point. |
 
 ## `agentfem.constraints`
 
@@ -349,22 +350,6 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `RunContext` | Filesystem and identity contract shared by scripts, CLIs, GUIs, and agents. |
 | function | `current_run(*, project_root: str \| Path \| None = None, project_name: str \| None = None) -> RunContext` | Return the CLI-provided context or create one for direct Python use. |
 
-## `agentfem.procedures`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `SolutionProcedure` | Inspectable, backend-neutral description of a solution algorithm. |
-| function | `linear_static() -> SolutionProcedure` | Public AgentFEM object. |
-| function | `nonlinear_static(*, stateful: bool = False) -> SolutionProcedure` | Public AgentFEM object. |
-| function | `implicit_euler(*, nonlinear: bool = False, stateful: bool = True) -> SolutionProcedure` | Public AgentFEM object. |
-| function | `implicit_creep() -> SolutionProcedure` | Quasi-static backward-Euler creep with global Newton equilibrium. |
-| function | `newmark() -> SolutionProcedure` | Public AgentFEM object. |
-| function | `generalized_alpha() -> SolutionProcedure` | Public AgentFEM object. |
-| function | `central_difference() -> SolutionProcedure` | Public AgentFEM object. |
-| function | `cyclic_fatigue() -> SolutionProcedure` | Quasi-static peak/valley equilibrium with independent cycle blocks. |
-| function | `for_step(*, analysis: str, method: str \| None = None, stateful: bool = False)` | Resolve a procedure without coupling ``Study`` to one solver route. |
-| function | `resolve(*, analysis: str, requested: SolutionProcedure \| str \| None = None, preferred: str \| None = None, stateful: bool = False) -> SolutionProcedure` | Resolve and validate the numerical procedure for one analysis request. |
-
 ## `agentfem.results`
 
 | Kind | Public object | Purpose |
@@ -456,47 +441,6 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `render_unified_xdmf_comparison(xdmf_path, output_path, *, scalar: str = 'UMAG') -> Path` | Render the first and final grids from a unified XDMF series. |
 | function | `render_vtk_series_animation(frame_paths, output_path, *, scalar: str = 'UMAG', fps: int = 2) -> Path` | Render a GIF directly from a combined-field deformed VTU series. |
 
-## `agentfem.events`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `FirstPassageEvent` | One threshold event with explicit localization and censoring evidence. |
-| function | `first_passage(abscissa, values = None, *, threshold: float, direction: EventDirection = 'rising', localization: str = 'linear', component: int \| tuple[int, ...] \| None = None, name: str = 'first_passage', coordinate_name: str \| None = None, coordinate_unit: str \| None = None, value_name: str \| None = None, value_unit: str \| None = None) -> FirstPassageEvent` | Locate the first threshold crossing in a history or numeric arrays. |
-
-## `agentfem.expressions`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `ExpressionError` | Raised when a scientific expression is invalid or unsupported. |
-| class | `ScientificExpression` | An inspectable expression that can be lowered to UFL. |
-| function | `expression(source: str \| Real \| ScientificExpression) -> ScientificExpression` | Return a validated :class:`ScientificExpression`. |
-| function | `as_ufl(source, domain, *, parameters: Mapping[str, object] \| None = None)` | Validate and lower one scalar expression to UFL. |
-| function | `vector_as_ufl(sources: Sequence[str \| Real \| ScientificExpression], domain, *, parameters: Mapping[str, object] \| None = None)` | Validate and lower a vector of scalar expressions to UFL. |
-| function | `interpolate(target, source, *, parameters: Mapping[str, object] \| None = None) -> object` | Interpolate a validated scalar or vector expression into ``target``. |
-
-## `agentfem.solvers`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| class | `LinearSolverOptions` | PETSc KSP options for a linear solve. |
-| function | `direct_solver(*, package: str \| None = None) -> LinearSolverOptions` | Create a direct linear-solver policy without PETSc option names. |
-| class | `NonlinearSolverOptions` | PETSc SNES/KSP policy for nonlinear finite-element solves. |
-| class | `NewtonSolverOptions` | Backend-neutral Newton policy for nonlinear equilibrium. |
-| function | `newton(*, relative_tolerance: float = 1e-08, absolute_tolerance: float = 1e-09, maximum_iterations: int = 30, line_search: str \| None = 'backtracking', linear_solver: LinearSolverOptions \| None = None, error_if_not_converged: bool = True) -> NewtonSolverOptions` | Create one Newton policy for ordinary and affine-constrained steps. |
-| class | `NonlinearSolveInfo` | Convergence evidence returned by a PETSc SNES solve. |
-| class | `AffineNewtonOptions` | Newton policy for an affine-reduced nonlinear equilibrium path. |
-| class | `AffineLoadIncrementInfo` | Convergence evidence for one macroscopic load increment. |
-| class | `AffineLoadPathInfo` | Convergence evidence for an incrementally applied affine constraint. |
-| class | `SolveEvent` | One structured event emitted by an analysis procedure. |
-| function | `create_ksp(comm, options: LinearSolverOptions \| None = None)` | Create and configure a PETSc KSP object. |
-| class | `LinearSolveInfo` | PETSc KSP convergence evidence for one linear system solve. |
-| class | `PreparedLinearProblem(bilinear_form, linear_form, solution, *, bcs = None, options: LinearSolverOptions \| None = None)` | A linear problem whose constant matrix and KSP are assembled once. |
-| function | `prepare_linear_problem(bilinear_form, linear_form, solution, *, bcs = None, options: LinearSolverOptions \| None = None) -> PreparedLinearProblem` | Prepare one constant linear operator for repeated right-hand sides. |
-| function | `solve_matrix_system(A, b, x, options: LinearSolverOptions \| None = None, *, raise_on_failure: bool \| None = None) -> LinearSolveInfo` | Solve ``A x = b`` and return explicit PETSc convergence evidence. |
-| function | `solve_linear_problem(bilinear_form, linear_form, solution, *, bcs = None, options: LinearSolverOptions \| None = None, return_info: bool = False)` | Assemble and solve a standard linear variational problem. |
-| function | `solve_nonlinear_problem(residual_form, solution, *, bcs = None, jacobian_form = None, options: NonlinearSolverOptions \| NewtonSolverOptions \| None = None, petsc_options_prefix: str = 'agentfem_nonlinear_') -> tuple[object, NonlinearSolveInfo]` | Solve ``R(u; v) = 0`` with the current DOLFINx PETSc/SNES interface. |
-| function | `solve_affine_nonlinear_path(residual_form, jacobian_form, solution, constraint, *, load_factors = None, incrementation = None, output_factors = (), options: AffineNewtonOptions \| NewtonSolverOptions \| None = None, on_increment = None, acceptance_check = None, reporter = None, step_name: str = 'affine_nonlinear', step_number: int = 1) -> tuple[object, AffineLoadPathInfo]` | Solve a nonlinear path under ``u = T q + u_bar`` constraints. |
-
 ## `agentfem.steps`
 
 | Kind | Public object | Purpose |
@@ -518,17 +462,6 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `consistent(*, length, mass, time, temperature = 'K', name = 'consistent_units')` | Declare the base units used consistently by all model inputs. |
 | function | `si(*, temperature = 'K') -> UnitSystem` | Return the SI ``m-kg-s`` engineering contract. |
 | function | `n_mm_mpa(*, temperature = 'K') -> UnitSystem` | Return the common ``mm-N-s-MPa`` consistent system. |
-
-## `agentfem.io`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| function | `ensure_output_dir(path: Path, comm: MPI.Comm) -> None` | Create an output directory once, then synchronize all ranks. |
-| class | `CSVLogger` | Rank-zero CSV writer for time histories and scalar diagnostics. |
-| class | `XDMFTimeSeries(path: Path, domain, mode: str = 'w') -> None` | Small context manager for writing a mesh and time-dependent fields. |
-| class | `ParaViewTimeSeries(path: Path, domain, mode: str = 'w') -> None` | Collective VTK/PVD series with one geometry carrying all fields. |
-| class | `ResultWriter(path: Path, domain, fields = (), mode: str = 'w') -> None` | Named result writer for one mesh and a stable field list. |
-| function | `interpolate_for_xdmf(field, *, degree: int = 1, name: str \| None = None)` | Interpolate a field to an XDMF-friendly Lagrange output space. |
 
 ## `agentfem.verification`
 
@@ -629,6 +562,15 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `atomic_savez(path, **arrays) -> Path` | Atomically publish one NumPy archive in its destination directory. |
 | function | `atomic_write_text(path, content: str) -> Path` | Atomically publish UTF-8 text in its destination directory. |
 
+## `agentfem.coordinates`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `CartesianSystem` | Right-handed orthonormal Cartesian coordinate system. |
+| class | `ReferencePoint` | Named engineering point used for remote resultants and kinematics. |
+| function | `cartesian(*, origin = None, axes = None, x = None, y = None, z = None, name = 'local') -> CartesianSystem` | Create a Cartesian system from a matrix or named basis vectors. |
+| function | `reference_point(coordinates, *, name = 'reference_point', system = None) -> ReferencePoint` | Create a named engineering reference point. |
+
 ## `agentfem.datasets`
 
 | Kind | Public object | Purpose |
@@ -652,6 +594,24 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `fem_field_sample(function, encoding) -> FEMFieldSample` | Export owned nodal coefficients for external neural/PINN tooling. |
 | function | `fem_observation_sample(function, grid, *, name: str \| None = None, unit: str \| None = None, role: str = 'output', components = (), outside: str = 'raise', fill_value: float = 0.0, coordinate_map = None, configuration: str = 'reference') -> FEMFieldSample` | Sample a FEM field on a reusable structured observation grid. |
 | function | `to_torch(dataset: ScientificDataset, *, normalized_inputs: bool = True, dtype: str = 'float32', device: str = 'cpu') -> TorchDatasetBundle` | Expose a validated campaign dataset as a PyTorch ``TensorDataset``. |
+
+## `agentfem.events`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `FirstPassageEvent` | One threshold event with explicit localization and censoring evidence. |
+| function | `first_passage(abscissa, values = None, *, threshold: float, direction: EventDirection = 'rising', localization: str = 'linear', component: int \| tuple[int, ...] \| None = None, name: str = 'first_passage', coordinate_name: str \| None = None, coordinate_unit: str \| None = None, value_name: str \| None = None, value_unit: str \| None = None) -> FirstPassageEvent` | Locate the first threshold crossing in a history or numeric arrays. |
+
+## `agentfem.expressions`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `ExpressionError` | Raised when a scientific expression is invalid or unsupported. |
+| class | `ScientificExpression` | An inspectable expression that can be lowered to UFL. |
+| function | `expression(source: str \| Real \| ScientificExpression) -> ScientificExpression` | Return a validated :class:`ScientificExpression`. |
+| function | `as_ufl(source, domain, *, parameters: Mapping[str, object] \| None = None)` | Validate and lower one scalar expression to UFL. |
+| function | `vector_as_ufl(sources: Sequence[str \| Real \| ScientificExpression], domain, *, parameters: Mapping[str, object] \| None = None)` | Validate and lower a vector of scalar expressions to UFL. |
+| function | `interpolate(target, source, *, parameters: Mapping[str, object] \| None = None) -> object` | Interpolate a validated scalar or vector expression into ``target``. |
 
 ## `agentfem.fatigue_fracture`
 
@@ -894,37 +854,21 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `reaction_expression(value, law: str \| Mapping[str, object], **parameters)` | Lower a named scalar reaction law to a UFL expression. |
 | function | `streamline_upwind_operator(strong_residual, test, velocity, *, tau = None, domain = None, measure = ufl.dx, name: str = 'A_supg') -> OperatorForm` | Return a SUPG contribution ``tau R(u) (v . grad(w))``. |
 
-## `agentfem.problems`
+## `agentfem.procedures`
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
-| class | `FEMProblem` | Lightweight finite-element problem description. |
-| class | `LinearVariationalProblem` | A standard linear variational problem, ``a(u, v) = L(v)``. |
-| class | `LinearSystemProblem` | Engineering-level linear system problem, usually ``K x = F``. |
-| class | `NonlinearVariationalProblem` | Nonlinear residual problem ``R(u; v) = 0`` solved by PETSc SNES. |
-| class | `NonlinearLoadIncrementInfo` | Convergence evidence for one ordinary nonlinear load increment. |
-| class | `NonlinearLoadPathInfo` | Accepted and attempted increments for an ordinary nonlinear step. |
-| class | `IncrementalNonlinearVariationalProblem` | Ordinary nonlinear equilibrium with automatic load incrementation. |
-| class | `AffineNonlinearVariationalProblem` | Nonlinear equilibrium under an exact affine dof reduction. |
-| class | `AnalysisStep` | Inspectable analysis step that owns one algebraic solve. |
-| class | `ExplicitDynamicsStep` | Inspectable second-order explicit dynamics step. |
-| class | `ImplicitDynamicsStep` | Linear Newmark/generalized-alpha structural-dynamics step. |
-| class | `FirstOrderTransientStep` | Reusable implicit-Euler step loop for heat/diffusion problems. |
-| class | `TransientState` | Current/next fields for a first-order transient unknown. |
-| class | `SecondOrderDynamicsState` | Displacement/velocity/acceleration fields for second-order dynamics. |
-| class | `LumpedMassOperator` | Diagonal mass operator for explicit dynamics. |
-| function | `second_order_state(field_or_space, **kwargs) -> SecondOrderDynamicsState` | Create a second-order dynamics state from a field or function space. |
-| function | `linear_system(K, F, *, unknown = None, solution = None, constraints = None, bcs = None, solver_options: LinearSolverOptions \| None = None, name: str = 'Kx_eq_F') -> LinearSystemProblem` | Create a ``K x = F`` problem without exposing variational boilerplate. |
-| function | `linear_static(K, F, *, study = None, unknown = None, solution = None, constraints = None, bcs = None, solver_options: LinearSolverOptions \| None = None, result_field_factory = None, name: str = 'linear_static') -> AnalysisStep` | Create a linear static analysis step in ``K x = F`` notation. |
-| function | `nonlinear(residual, solution, *, jacobian = None, constraints = None, bcs = None, solver_options: NonlinearSolverOptions \| NewtonSolverOptions \| None = None, name: str = 'nonlinear', petsc_options_prefix: str = 'agentfem_nonlinear_') -> NonlinearVariationalProblem` | Create a general nonlinear residual problem. |
-| function | `incremental_nonlinear(residual, solution, *, factor, value_path, update_load = None, acceptance_check = None, jacobian = None, incrementation = None, constraints = None, bcs = None, solver_options: NonlinearSolverOptions \| NewtonSolverOptions \| None = None, output_every: int \| None = 1, progress = True, status_file = None, name: str = 'incremental_nonlinear', petsc_options_prefix: str = 'agentfem_incremental_nonlinear_') -> IncrementalNonlinearVariationalProblem` | Create standard-BC nonlinear equilibrium over a normalized load path. |
-| function | `affine_nonlinear(residual, solution, *, jacobian, constraint, load_factors = None, incrementation = None, solver_options: AffineNewtonOptions \| NewtonSolverOptions \| None = None, output_every: int \| None = 1, output_factors = (), acceptance_check = None, progress = True, status_file = None, name: str = 'affine_nonlinear') -> AffineNonlinearVariationalProblem` | Create a nonlinear problem reduced by an affine constraint map. |
-| class | `LoadIncrementSnapshot` | A copied solution state at one nonlinear load factor. |
-| function | `first_order_transient(*, capacity, stiffness, history, source = None, dt: float, study = None, unknown = None, solution = None, constraints = None, bcs = None, solver_options: LinearSolverOptions \| None = None, name: str = 'first_order_transient_step', method: str = 'implicit_euler') -> AnalysisStep` | Create a first-order transient step. |
-| function | `first_order_transient_run(*, capacity, stiffness, history, current, previous, dt: float, steps: int, source = None, study = None, constraints = None, bcs = None, solver_options: LinearSolverOptions \| None = None, update_load = None, save_every: int \| None = None, print_every: int \| None = None, progress = True, status_file = None, checkpoint_policy = None, name: str = 'first_order_transient') -> FirstOrderTransientStep` | Create an executable implicit-Euler time step and loop. |
-| function | `nonlinear_first_order_transient_run(*, residual, jacobian, current, previous, dt: float, steps: int, study = None, constraints = None, bcs = None, solver_options: NonlinearSolverOptions \| NewtonSolverOptions \| None = None, update_load = None, save_every: int \| None = None, print_every: int \| None = None, progress = True, status_file = None, checkpoint_policy = None, history_monitor = None, name: str = 'nonlinear_first_order_transient', petsc_options_prefix: str = 'agentfem_nonlinear_transient_') -> FirstOrderTransientStep` | Create a nonlinear implicit-Euler step with the shared lifecycle. |
-| function | `explicit_dynamics(*, state, integrator, residual, stiffness = None, dt: float, steps: int, study = None, prescribed = (), constraints = (), update_load = None, save_every: int \| None = None, print_every: int \| None = None, history_every: int = 1, progress = True, status_file = None, checkpoint_policy = None, history_monitor = None, stability = None, name: str = 'explicit_dynamics') -> ExplicitDynamicsStep` | Create a second-order explicit dynamics step. |
-| function | `implicit_dynamics(*, state, mass, stiffness, force, damping = None, dt: float, steps: int, parameters = None, study = None, constraints = (), bcs = None, solver_options: LinearSolverOptions \| None = None, update_load = None, progress = True, status_file = None, checkpoint_policy = None, save_every: int \| None = None, print_every: int \| None = None, name: str = 'implicit_dynamics') -> ImplicitDynamicsStep` | Create a linear Newmark or generalized-alpha dynamics step. |
+| class | `SolutionProcedure` | Inspectable, backend-neutral description of a solution algorithm. |
+| function | `linear_static() -> SolutionProcedure` | Public AgentFEM object. |
+| function | `nonlinear_static(*, stateful: bool = False) -> SolutionProcedure` | Public AgentFEM object. |
+| function | `implicit_euler(*, nonlinear: bool = False, stateful: bool = True) -> SolutionProcedure` | Public AgentFEM object. |
+| function | `implicit_creep() -> SolutionProcedure` | Quasi-static backward-Euler creep with global Newton equilibrium. |
+| function | `newmark() -> SolutionProcedure` | Public AgentFEM object. |
+| function | `generalized_alpha() -> SolutionProcedure` | Public AgentFEM object. |
+| function | `central_difference() -> SolutionProcedure` | Public AgentFEM object. |
+| function | `cyclic_fatigue() -> SolutionProcedure` | Quasi-static peak/valley equilibrium with independent cycle blocks. |
+| function | `for_step(*, analysis: str, method: str \| None = None, stateful: bool = False)` | Resolve a procedure without coupling ``Study`` to one solver route. |
+| function | `resolve(*, analysis: str, requested: SolutionProcedure \| str \| None = None, preferred: str \| None = None, stateful: bool = False) -> SolutionProcedure` | Resolve and validate the numerical procedure for one analysis request. |
 
 ## `agentfem.responses`
 
@@ -933,6 +877,29 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ResponseReport` | A finite-difference Jacobian and the cases that support it. |
 | class | `FiniteDifferenceResponse` | A method-neutral response contract with a finite-difference provider. |
 | function | `finite_difference(**kwargs) -> FiniteDifferenceResponse` | Create a campaign-backed finite-difference response experiment. |
+
+## `agentfem.solvers`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `LinearSolverOptions` | PETSc KSP options for a linear solve. |
+| function | `direct_solver(*, package: str \| None = None) -> LinearSolverOptions` | Create a direct linear-solver policy without PETSc option names. |
+| class | `NonlinearSolverOptions` | PETSc SNES/KSP policy for nonlinear finite-element solves. |
+| class | `NewtonSolverOptions` | Backend-neutral Newton policy for nonlinear equilibrium. |
+| function | `newton(*, relative_tolerance: float = 1e-08, absolute_tolerance: float = 1e-09, maximum_iterations: int = 30, line_search: str \| None = 'backtracking', linear_solver: LinearSolverOptions \| None = None, error_if_not_converged: bool = True) -> NewtonSolverOptions` | Create one Newton policy for ordinary and affine-constrained steps. |
+| class | `NonlinearSolveInfo` | Convergence evidence returned by a PETSc SNES solve. |
+| class | `AffineNewtonOptions` | Newton policy for an affine-reduced nonlinear equilibrium path. |
+| class | `AffineLoadIncrementInfo` | Convergence evidence for one macroscopic load increment. |
+| class | `AffineLoadPathInfo` | Convergence evidence for an incrementally applied affine constraint. |
+| class | `SolveEvent` | One structured event emitted by an analysis procedure. |
+| function | `create_ksp(comm, options: LinearSolverOptions \| None = None)` | Create and configure a PETSc KSP object. |
+| class | `LinearSolveInfo` | PETSc KSP convergence evidence for one linear system solve. |
+| class | `PreparedLinearProblem(bilinear_form, linear_form, solution, *, bcs = None, options: LinearSolverOptions \| None = None)` | A linear problem whose constant matrix and KSP are assembled once. |
+| function | `prepare_linear_problem(bilinear_form, linear_form, solution, *, bcs = None, options: LinearSolverOptions \| None = None) -> PreparedLinearProblem` | Prepare one constant linear operator for repeated right-hand sides. |
+| function | `solve_matrix_system(A, b, x, options: LinearSolverOptions \| None = None, *, raise_on_failure: bool \| None = None) -> LinearSolveInfo` | Solve ``A x = b`` and return explicit PETSc convergence evidence. |
+| function | `solve_linear_problem(bilinear_form, linear_form, solution, *, bcs = None, options: LinearSolverOptions \| None = None, return_info: bool = False)` | Assemble and solve a standard linear variational problem. |
+| function | `solve_nonlinear_problem(residual_form, solution, *, bcs = None, jacobian_form = None, options: NonlinearSolverOptions \| NewtonSolverOptions \| None = None, petsc_options_prefix: str = 'agentfem_nonlinear_') -> tuple[object, NonlinearSolveInfo]` | Solve ``R(u; v) = 0`` with the current DOLFINx PETSc/SNES interface. |
+| function | `solve_affine_nonlinear_path(residual_form, jacobian_form, solution, constraint, *, load_factors = None, incrementation = None, output_factors = (), options: AffineNewtonOptions \| NewtonSolverOptions \| None = None, on_increment = None, acceptance_check = None, reporter = None, step_name: str = 'affine_nonlinear', step_number: int = 1) -> tuple[object, AffineLoadPathInfo]` | Solve a nonlinear path under ``u = T q + u_bar`` constraints. |
 
 ## `agentfem.surrogates`
 
@@ -963,23 +930,6 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `TorchPINNAdapter` | Bind explicit residual/condition callables to a :class:`PINNSpec`. |
 | class | `SurrogateTrainingRun` | A trained model together with its independent validation evidence. |
 | function | `train(dataset: ScientificDataset, *, estimator = None, validation_fraction: float = 0.2, seed: int = 0, thresholds = None) -> SurrogateTrainingRun` | Split, fit, and independently validate one surrogate estimator. |
-
-## `agentfem.time`
-
-| Kind | Public object | Purpose |
-| --- | --- | --- |
-| function | `central_difference_predict_displacement(u_next, u, velocity, acceleration, dt: float) -> None` | Predict displacement with the explicit central-difference/Newmark formula. |
-| function | `acceleration_from_residual(acceleration, residual, inv_mass: np.ndarray) -> None` | Set acceleration from residual and inverse lumped mass. |
-| function | `central_difference_update_midstep_velocity(velocity_mid, velocity, acceleration, dt: float) -> None` | Update the central-difference mid-step velocity. |
-| function | `central_difference_correct_velocity(velocity_next, velocity, acceleration, acceleration_next, dt: float) -> None` | Correct velocity with the explicit central-difference/Newmark formula. |
-| function | `central_difference_update_velocity(velocity_next, velocity_mid, acceleration_next, dt: float) -> None` | Update whole-step velocity from mid-step velocity and new acceleration. |
-| class | `ProgressPrinter` | Rank-zero progress printer controlled by a fixed step interval. |
-| class | `TimeStep` | Metadata for one transient-solve step. |
-| class | `TimeStepper` | Iterate over transient-solve step metadata. |
-| function | `format_duration(seconds: float) -> str` | Format elapsed seconds as ``HH:MM:SS``. |
-| class | `GeneralizedAlphaParameters` | Parameters for Newmark/generalized-alpha time integration. |
-| function | `generalized_alpha(*, spectral_radius: float = 0.8)` | Second-order generalized-alpha parameters from ``rho_infinity``. |
-| function | `newmark(*, beta: float = 0.25, gamma: float = 0.5)` | Average-acceleration Newmark by default. |
 
 ## `agentfem.assembly`
 
@@ -1129,6 +1079,17 @@ This package exposes its public objects through focused submodules.
 | function | `body_force_virtual_work(force, test_function, measure = ufl.dx)` | Compatibility wrapper for ``body_load_form``. |
 | function | `boundary_flux_virtual_work(flux, test_function, ds_measure)` | Compatibility wrapper for ``boundary_load_form``. |
 
+## `agentfem.io`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| function | `ensure_output_dir(path: Path, comm: MPI.Comm) -> None` | Create an output directory once, then synchronize all ranks. |
+| class | `CSVLogger` | Rank-zero CSV writer for time histories and scalar diagnostics. |
+| class | `XDMFTimeSeries(path: Path, domain, mode: str = 'w') -> None` | Small context manager for writing a mesh and time-dependent fields. |
+| class | `ParaViewTimeSeries(path: Path, domain, mode: str = 'w') -> None` | Collective VTK/PVD series with one geometry carrying all fields. |
+| class | `ResultWriter(path: Path, domain, fields = (), mode: str = 'w') -> None` | Named result writer for one mesh and a stable field list. |
+| function | `interpolate_for_xdmf(field, *, degree: int = 1, name: str \| None = None)` | Interpolate a field to an XDMF-friendly Lagrange output space. |
+
 ## `agentfem.integrations`
 
 This package exposes its public objects through focused submodules.
@@ -1155,6 +1116,38 @@ This package exposes its public objects through focused submodules.
 | function | `support_for(system: str, *, wsl: bool = False, wsl_version: int \| None = None) -> PlatformSupport` | Return the first-release support tier for an operating-system route. |
 | function | `current_support() -> PlatformSupport` | Detect the current OS, including Windows Subsystem for Linux. |
 | function | `runtime_report() -> RuntimeReport` | Return versions and optional integrations useful in issue reports. |
+
+## `agentfem.problems`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `FEMProblem` | Lightweight finite-element problem description. |
+| class | `LinearVariationalProblem` | A standard linear variational problem, ``a(u, v) = L(v)``. |
+| class | `LinearSystemProblem` | Engineering-level linear system problem, usually ``K x = F``. |
+| class | `NonlinearVariationalProblem` | Nonlinear residual problem ``R(u; v) = 0`` solved by PETSc SNES. |
+| class | `NonlinearLoadIncrementInfo` | Convergence evidence for one ordinary nonlinear load increment. |
+| class | `NonlinearLoadPathInfo` | Accepted and attempted increments for an ordinary nonlinear step. |
+| class | `IncrementalNonlinearVariationalProblem` | Ordinary nonlinear equilibrium with automatic load incrementation. |
+| class | `AffineNonlinearVariationalProblem` | Nonlinear equilibrium under an exact affine dof reduction. |
+| class | `AnalysisStep` | Inspectable analysis step that owns one algebraic solve. |
+| class | `ExplicitDynamicsStep` | Inspectable second-order explicit dynamics step. |
+| class | `ImplicitDynamicsStep` | Linear Newmark/generalized-alpha structural-dynamics step. |
+| class | `FirstOrderTransientStep` | Reusable implicit-Euler step loop for heat/diffusion problems. |
+| class | `TransientState` | Current/next fields for a first-order transient unknown. |
+| class | `SecondOrderDynamicsState` | Displacement/velocity/acceleration fields for second-order dynamics. |
+| class | `LumpedMassOperator` | Diagonal mass operator for explicit dynamics. |
+| function | `second_order_state(field_or_space, **kwargs) -> SecondOrderDynamicsState` | Create a second-order dynamics state from a field or function space. |
+| function | `linear_system(K, F, *, unknown = None, solution = None, constraints = None, bcs = None, solver_options: LinearSolverOptions \| None = None, name: str = 'Kx_eq_F') -> LinearSystemProblem` | Create a ``K x = F`` problem without exposing variational boilerplate. |
+| function | `linear_static(K, F, *, study = None, unknown = None, solution = None, constraints = None, bcs = None, solver_options: LinearSolverOptions \| None = None, result_field_factory = None, name: str = 'linear_static') -> AnalysisStep` | Create a linear static analysis step in ``K x = F`` notation. |
+| function | `nonlinear(residual, solution, *, jacobian = None, constraints = None, bcs = None, solver_options: NonlinearSolverOptions \| NewtonSolverOptions \| None = None, name: str = 'nonlinear', petsc_options_prefix: str = 'agentfem_nonlinear_') -> NonlinearVariationalProblem` | Create a general nonlinear residual problem. |
+| function | `incremental_nonlinear(residual, solution, *, factor, value_path, update_load = None, acceptance_check = None, jacobian = None, incrementation = None, constraints = None, bcs = None, solver_options: NonlinearSolverOptions \| NewtonSolverOptions \| None = None, output_every: int \| None = 1, progress = True, status_file = None, name: str = 'incremental_nonlinear', petsc_options_prefix: str = 'agentfem_incremental_nonlinear_') -> IncrementalNonlinearVariationalProblem` | Create standard-BC nonlinear equilibrium over a normalized load path. |
+| function | `affine_nonlinear(residual, solution, *, jacobian, constraint, load_factors = None, incrementation = None, solver_options: AffineNewtonOptions \| NewtonSolverOptions \| None = None, output_every: int \| None = 1, output_factors = (), acceptance_check = None, progress = True, status_file = None, name: str = 'affine_nonlinear') -> AffineNonlinearVariationalProblem` | Create a nonlinear problem reduced by an affine constraint map. |
+| class | `LoadIncrementSnapshot` | A copied solution state at one nonlinear load factor. |
+| function | `first_order_transient(*, capacity, stiffness, history, source = None, dt: float, study = None, unknown = None, solution = None, constraints = None, bcs = None, solver_options: LinearSolverOptions \| None = None, name: str = 'first_order_transient_step', method: str = 'implicit_euler') -> AnalysisStep` | Create a first-order transient step. |
+| function | `first_order_transient_run(*, capacity, stiffness, history, current, previous, dt: float, steps: int, source = None, study = None, constraints = None, bcs = None, solver_options: LinearSolverOptions \| None = None, update_load = None, save_every: int \| None = None, print_every: int \| None = None, progress = True, status_file = None, checkpoint_policy = None, name: str = 'first_order_transient') -> FirstOrderTransientStep` | Create an executable implicit-Euler time step and loop. |
+| function | `nonlinear_first_order_transient_run(*, residual, jacobian, current, previous, dt: float, steps: int, study = None, constraints = None, bcs = None, solver_options: NonlinearSolverOptions \| NewtonSolverOptions \| None = None, update_load = None, save_every: int \| None = None, print_every: int \| None = None, progress = True, status_file = None, checkpoint_policy = None, history_monitor = None, name: str = 'nonlinear_first_order_transient', petsc_options_prefix: str = 'agentfem_nonlinear_transient_') -> FirstOrderTransientStep` | Create a nonlinear implicit-Euler step with the shared lifecycle. |
+| function | `explicit_dynamics(*, state, integrator, residual, stiffness = None, dt: float, steps: int, study = None, prescribed = (), constraints = (), update_load = None, save_every: int \| None = None, print_every: int \| None = None, history_every: int = 1, progress = True, status_file = None, checkpoint_policy = None, history_monitor = None, stability = None, name: str = 'explicit_dynamics') -> ExplicitDynamicsStep` | Create a second-order explicit dynamics step. |
+| function | `implicit_dynamics(*, state, mass, stiffness, force, damping = None, dt: float, steps: int, parameters = None, study = None, constraints = (), bcs = None, solver_options: LinearSolverOptions \| None = None, update_load = None, progress = True, status_file = None, checkpoint_policy = None, save_every: int \| None = None, print_every: int \| None = None, name: str = 'implicit_dynamics') -> ImplicitDynamicsStep` | Create a linear Newmark or generalized-alpha dynamics step. |
 
 ## `agentfem.provenance`
 
@@ -1184,6 +1177,23 @@ This package exposes its public objects through focused submodules.
 | function | `test_function(V)` | Create a UFL test function for a function space. |
 | function | `trial_function(V)` | Create a UFL trial function for a function space. |
 | function | `named_function(V, name: str, value = 0.0)` | Create a named finite-element function and optionally initialize it. |
+
+## `agentfem.time`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| function | `central_difference_predict_displacement(u_next, u, velocity, acceleration, dt: float) -> None` | Predict displacement with the explicit central-difference/Newmark formula. |
+| function | `acceleration_from_residual(acceleration, residual, inv_mass: np.ndarray) -> None` | Set acceleration from residual and inverse lumped mass. |
+| function | `central_difference_update_midstep_velocity(velocity_mid, velocity, acceleration, dt: float) -> None` | Update the central-difference mid-step velocity. |
+| function | `central_difference_correct_velocity(velocity_next, velocity, acceleration, acceleration_next, dt: float) -> None` | Correct velocity with the explicit central-difference/Newmark formula. |
+| function | `central_difference_update_velocity(velocity_next, velocity_mid, acceleration_next, dt: float) -> None` | Update whole-step velocity from mid-step velocity and new acceleration. |
+| class | `ProgressPrinter` | Rank-zero progress printer controlled by a fixed step interval. |
+| class | `TimeStep` | Metadata for one transient-solve step. |
+| class | `TimeStepper` | Iterate over transient-solve step metadata. |
+| function | `format_duration(seconds: float) -> str` | Format elapsed seconds as ``HH:MM:SS``. |
+| class | `GeneralizedAlphaParameters` | Parameters for Newmark/generalized-alpha time integration. |
+| function | `generalized_alpha(*, spectral_radius: float = 0.8)` | Second-order generalized-alpha parameters from ``rho_infinity``. |
+| function | `newmark(*, beta: float = 0.25, gamma: float = 0.5)` | Average-acceleration Newmark by default. |
 
 ## `agentfem.upgrades`
 

@@ -109,6 +109,33 @@ def load_material(name: str, model: str | None = None):
     raise ValueError(f"unsupported material model {model!r}.")
 
 
+def load_definition(name: str, model: str | None = None):
+    """Load a packaged reference card as a named material definition.
+
+    Packaged values are examples or cited reference data, not design allowables.
+    The returned definition retains that boundary in provenance while resolving
+    to the existing constitutive object when registered on a Model.
+    """
+
+    from .definitions import define
+
+    record = material_record(name)
+    selected_model = _select_model(record, model)
+    executable = load_material(name, selected_model)
+    return define(
+        record.display_name,
+        executable,
+        source=str(record.data["source"]),
+        reference_only=True,
+        metadata={
+            "library_id": record.id,
+            "family": record.data.get("family"),
+            "model": selected_model,
+            "unit_system": record.data.get("unit_system", "SI"),
+        },
+    )
+
+
 def register_material(name: str, data: dict, *, overwrite: bool = False) -> None:
     """Register or override a material record in memory.
 

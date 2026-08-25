@@ -36,8 +36,8 @@ AgentFEM currently provides executable foundations for:
   project-owned rupture relations;
 - fixed-path cohesive fracture, including experimental cyclic and mixed-mode
   routes;
-- Abaqus/Gmsh mesh semantics, periodic equations, C3D10/C3D10H workflows, and
-  MPI execution;
+- Abaqus/Gmsh mesh semantics, a side-effect-free Abaqus migration inventory,
+  periodic equations, C3D10/C3D10H workflows, and MPI execution;
 - common fields, histories, energy records, checkpoint/restart, provenance,
   convergence evidence, and ParaView-oriented output with one recommended
   visualization dataset per saved time in serial and MPI;
@@ -74,6 +74,11 @@ Make real simulation projects easier to construct and maintain:
 
 - one public Step and result lifecycle across supported procedures;
 - richer imported-mesh regions, surfaces, sets, and quality diagnostics;
+- progressive Abaqus migration from broad topology/asset inventory to selected
+  verified native formulations, without silently discarding element suffixes;
+- named material definitions that keep identity and source independent of the
+  Study while resolving compatible mechanical or thermal behavior at the
+  model boundary;
 - multi-Step activation, inheritance, predefined fields, and engineering
   postprocessing;
 - richer direct integration-point exchange and scalable collective checkpoint

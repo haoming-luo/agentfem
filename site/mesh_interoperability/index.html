@@ -13,10 +13,10 @@
         <link rel="canonical" href="https://haoming-luo.github.io/agentfem/mesh_interoperability/">
       
       
-        <link rel="prev" href="../guide/model_setup/">
+        <link rel="prev" href="../guide/materials/">
       
       
-        <link rel="next" href="../engineering_workflows/">
+        <link rel="next" href="../abaqus_migration/">
       
       
         
@@ -498,6 +498,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -555,6 +559,34 @@
     
   
     Meshes, Loads and Constraints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/materials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Materials and Behaviors
   
 
     
@@ -760,6 +792,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../abaqus_migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migrating Abaqus Projects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1486,24 +1546,30 @@ and XDMF among others.</p>
 <p>This is mesh interoperability, not full solver-deck import. Material cards,
 contacts, element formulations, steps, amplitudes, coordinate systems, and
 solver controls require format-specific semantic adapters.</p>
+<p>For Abaqus input decks, run the semantic inventory before generic mesh
+conversion:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>agentfem<span class="w"> </span>inspect-abaqus<span class="w"> </span>model.inp<span class="w"> </span>--json<span class="w"> </span>--write<span class="w"> </span>migration.json
+</code></pre></div>
+<p>The <a href="../abaqus_migration/">Abaqus migration guide</a> separates declaration and
+topology, neutral conversion, native formulation, and verification evidence.</p>
 <p>Gmsh is a separate optional route. Direct in-memory Gmsh models and
 <code>mesh.read_gmsh_mesh(...)</code> require <code>agentfem[gmsh]</code>; structured DOLFINx meshes,
 XDMF, and the meshio conversion described on this page do not. This keeps both
 the runtime and the separately licensed Gmsh package outside the AgentFEM core.</p>
 <h2 id="inspect-before-converting">Inspect Before Converting<a class="headerlink" href="#inspect-before-converting" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">agentfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">mesh</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">summary</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">inspect_external_mesh</span><span class="p">(</span><span class="s2">&quot;model.inp&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">summary</span><span class="o">.</span><span class="n">as_dict</span><span class="p">())</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">agentfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">mesh</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">summary</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">inspect_external_mesh</span><span class="p">(</span><span class="s2">&quot;model.inp&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">summary</span><span class="o">.</span><span class="n">as_dict</span><span class="p">())</span>
 </code></pre></div>
 <p>The inventory exposes point count, element blocks, cell sets, point sets, and
 data arrays. Choosing a volume topology without this inspection can silently
 discard boundary elements or mixed element families.</p>
 <p>When several topologies must be retained, convert an explicit bundle:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">bundle</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">convert_external_mesh_bundle</span><span class="p">(</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="s2">&quot;assembly.inp&quot;</span><span class="p">,</span> <span class="s2">&quot;output/mesh&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">cell_types</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;tetra10&quot;</span><span class="p">,</span> <span class="s2">&quot;hexahedron&quot;</span><span class="p">),</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">bundle</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">convert_external_mesh_bundle</span><span class="p">(</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="s2">&quot;assembly.inp&quot;</span><span class="p">,</span> <span class="s2">&quot;output/mesh&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">cell_types</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;tetra10&quot;</span><span class="p">,</span> <span class="s2">&quot;hexahedron&quot;</span><span class="p">),</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">)</span>
 </code></pre></div>
 <p>Each topology receives its own XDMF/HDF5 domain and manifest, plus one bundle
 manifest. AgentFEM does not merge unlike cells into an opaque solve mesh while
@@ -1526,14 +1592,14 @@ keep derived conversion artifacts under <code>output/mesh/</code>, while retaini
 original <code>.inp</code>/<code>.dat</code> as the authoritative source and reconversion input. The
 manifest links both identities and records topology selection and omissions.</p>
 <h2 id="preserve-volume-and-boundary-sets">Preserve Volume and Boundary Sets<a class="headerlink" href="#preserve-volume-and-boundary-sets" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">conversion</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">convert_external_mesh_to_xdmf</span><span class="p">(</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="s2">&quot;model.inp&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="s2">&quot;model.xdmf&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">cell_type</span><span class="o">=</span><span class="s2">&quot;triangle&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">facet_type</span><span class="o">=</span><span class="s2">&quot;line&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">prune_z</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="p">)</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">converted_mesh</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">read_converted_xdmf</span><span class="p">(</span><span class="n">conversion</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">conversion</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">convert_external_mesh_to_xdmf</span><span class="p">(</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="s2">&quot;model.inp&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="s2">&quot;model.xdmf&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">cell_type</span><span class="o">=</span><span class="s2">&quot;triangle&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">facet_type</span><span class="o">=</span><span class="s2">&quot;line&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">prune_z</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p">)</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">converted_mesh</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">read_converted_xdmf</span><span class="p">(</span><span class="n">conversion</span><span class="p">)</span>
 </code></pre></div>
 <p>The main XDMF contains <code>agentfem_region</code> tags for named volume/cell sets. The
 separate facet XDMF contains <code>agentfem_boundary</code> tags for named boundary sets.
@@ -1546,16 +1612,16 @@ overlap, one deterministic tag is written and the complete overlapping
 membership remains in the manifest.</p>
 <h2 id="imported-boundaries-have-one-source-of-truth">Imported Boundaries Have One Source of Truth<a class="headerlink" href="#imported-boundaries-have-one-source-of-truth" title="Permanent link">&para;</a></h2>
 <p>Physical surface tags should define imported engineering boundaries:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">support</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">tagged_boundary_region</span><span class="p">(</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">domain</span><span class="p">,</span> <span class="n">facet_tags</span><span class="p">,</span> <span class="n">tag</span><span class="o">=</span><span class="mi">101</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;bolt_holes&quot;</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p">)</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">pressure</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">tagged_boundary_region</span><span class="p">(</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">domain</span><span class="p">,</span> <span class="n">facet_tags</span><span class="p">,</span> <span class="n">tag</span><span class="o">=</span><span class="mi">102</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;pressure_surface&quot;</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="p">)</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">model</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">support</span><span class="p">)</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">model</span><span class="o">.</span><span class="n">pressure</span><span class="p">(</span><span class="mf">16.0e6</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">pressure</span><span class="p">)</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">evidence</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">audit_boundaries</span><span class="p">(</span><span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">support</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">tagged_boundary_region</span><span class="p">(</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">domain</span><span class="p">,</span> <span class="n">facet_tags</span><span class="p">,</span> <span class="n">tag</span><span class="o">=</span><span class="mi">101</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;bolt_holes&quot;</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p">)</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">pressure</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">tagged_boundary_region</span><span class="p">(</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">domain</span><span class="p">,</span> <span class="n">facet_tags</span><span class="p">,</span> <span class="n">tag</span><span class="o">=</span><span class="mi">102</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;pressure_surface&quot;</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="p">)</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">model</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">support</span><span class="p">)</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">model</span><span class="o">.</span><span class="n">pressure</span><span class="p">(</span><span class="mf">16.0e6</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">pressure</span><span class="p">)</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">evidence</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">audit_boundaries</span><span class="p">(</span><span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </code></pre></div>
 <p>Strong constraints use the tagged facets through topological dof location and
 weak terms use the same <code>ds(tag)</code>. An optional geometric marker creates a
@@ -1577,12 +1643,12 @@ displacement dofs and constructs exact affine elimination. See
 definitions, expands <code>GENERATE</code> ranges, and records node- and element-based
 <code>SURFACE</code> entries. For supported three-dimensional continuum families, these
 source semantics now become ordinary AgentFEM regions:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">cell</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">read_abaqus_mesh</span><span class="p">(</span><span class="s2">&quot;part.inp&quot;</span><span class="p">,</span> <span class="s2">&quot;output/part.xdmf&quot;</span><span class="p">)</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">support_nodes</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">node_set</span><span class="p">(</span><span class="s2">&quot;FIXED&quot;</span><span class="p">)</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">loaded_surface</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">boundary</span><span class="p">(</span><span class="s2">&quot;LOAD_FACE&quot;</span><span class="p">)</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">model</span><span class="o">.</span><span class="n">fix</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">support_nodes</span><span class="p">)</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">model</span><span class="o">.</span><span class="n">pressure</span><span class="p">(</span><span class="mf">12.0e6</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">loaded_surface</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">cell</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">read_abaqus_mesh</span><span class="p">(</span><span class="s2">&quot;part.inp&quot;</span><span class="p">,</span> <span class="s2">&quot;output/part.xdmf&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">support_nodes</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">node_set</span><span class="p">(</span><span class="s2">&quot;FIXED&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">loaded_surface</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">boundary</span><span class="p">(</span><span class="s2">&quot;LOAD_FACE&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">model</span><span class="o">.</span><span class="n">fix</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">support_nodes</span><span class="p">)</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">model</span><span class="o">.</span><span class="n">pressure</span><span class="p">(</span><span class="mf">12.0e6</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">loaded_surface</span><span class="p">)</span>
 </code></pre></div>
 <p><code>node_set(...)</code> preserves source-node identity as a coordinate-backed region
 used by strong constraints and probes. It includes high-order geometry nodes,
@@ -1590,9 +1656,12 @@ so a C3D10 midside <code>NSET</code> can locate the corresponding P2 degree of f
 it deliberately has no boundary integration measure. <code>boundary(...)</code>
 reconstructs exterior facets from official Abaqus face numbering and returns
 the same tagged <code>BoundaryRegion</code> consumed by weak loads and output resultants.
-C3D4/C3D10 and C3D8 solid families are supported first. Missing nodes,
-internal faces, unknown face identifiers, unsupported element families, and
-ambiguous coincident source nodes fail explicitly.</p>
+Tetrahedral, hexahedral, and wedge solid families have source face semantics.
+The broader catalog can retain common continuum, heat, interface, line, and
+shell declarations without claiming that every Abaqus formulation has a
+native solver equivalent. Missing nodes, internal faces, unknown face
+identifiers, unsupported lowering, and ambiguous coincident source nodes fail
+explicitly.</p>
 <p><code>imported.surface_faces(name)</code> remains available as source-level evidence and
 for adapters that need the original <code>(element_label, face_identifier)</code> pairs.</p>
 <h3 id="named-internal-surfaces-for-cohesive-fracture">Named internal surfaces for cohesive fracture<a class="headerlink" href="#named-internal-surfaces-for-cohesive-fracture" title="Permanent link">&para;</a></h3>
@@ -1601,18 +1670,18 @@ interface mesh used by the cohesive force and checkpoint machinery. For an
 Abaqus C3D4 deck, one <code>ELSET</code> selects the positive cell partition and an
 explicit element-face <code>SURFACE</code> independently proves the exact triangular
 interface:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">imported</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">read_abaqus_mesh</span><span class="p">(</span><span class="s2">&quot;weak_interface.inp&quot;</span><span class="p">,</span> <span class="s2">&quot;output/body.xdmf&quot;</span><span class="p">)</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">split</span> <span class="o">=</span> <span class="n">imported</span><span class="o">.</span><span class="n">cohesive_interface</span><span class="p">(</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">positive_elset</span><span class="o">=</span><span class="s2">&quot;UPPER_BODY&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">surface</span><span class="o">=</span><span class="s2">&quot;WEAK_INTERFACE&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">imported</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">read_abaqus_mesh</span><span class="p">(</span><span class="s2">&quot;weak_interface.inp&quot;</span><span class="p">,</span> <span class="s2">&quot;output/body.xdmf&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">split</span> <span class="o">=</span> <span class="n">imported</span><span class="o">.</span><span class="n">cohesive_interface</span><span class="p">(</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">positive_elset</span><span class="o">=</span><span class="s2">&quot;UPPER_BODY&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">surface</span><span class="o">=</span><span class="s2">&quot;WEAK_INTERFACE&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="p">)</span>
 </code></pre></div>
 <p>For Gmsh, named volume and surface physical groups carry the same contract:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">split</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">split_gmsh_physical_interface</span><span class="p">(</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="s2">&quot;weak_interface.msh&quot;</span><span class="p">,</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">positive_group</span><span class="o">=</span><span class="s2">&quot;upper_body&quot;</span><span class="p">,</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">interface_group</span><span class="o">=</span><span class="s2">&quot;weak_interface&quot;</span><span class="p">,</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">split</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">split_gmsh_physical_interface</span><span class="p">(</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="s2">&quot;weak_interface.msh&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">positive_group</span><span class="o">=</span><span class="s2">&quot;upper_body&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">interface_group</span><span class="o">=</span><span class="s2">&quot;weak_interface&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="p">)</span>
 </code></pre></div>
 <p>Both adapters reject a named surface that differs from the boundary implied by
 the cell partition. The resulting coincident faces have independent nodes and
@@ -1623,8 +1692,8 @@ matching quadratic-face cohesive kernel and verification suite exist.</p>
 <h2 id="mesh-quality-preflight">Mesh-quality preflight<a class="headerlink" href="#mesh-quality-preflight" title="Permanent link">&para;</a></h2>
 <p>Imported and generated triangle/tetrahedron domains can be audited before a
 solve with a normalized simplex mean-ratio metric:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">quality</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">audit_quality</span><span class="p">(</span><span class="n">cell</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">quality</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">quality</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">audit_quality</span><span class="p">(</span><span class="n">cell</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">quality</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
 </code></pre></div>
 <p>One denotes an equilateral simplex and zero a degenerate cell. The first
 implementation is intentionally topology-specific; quadrilateral and
@@ -1642,31 +1711,31 @@ which distinguishes C3D10H from the linear-pressure C3D10HS and C3D10MH
 families.</p>
 <p>Direct C3D10H input uses the ordinary Abaqus entry point; no source rewrite is
 needed:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">cell</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">read_abaqus_mesh</span><span class="p">(</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="s2">&quot;periodic_cell_c3d10h.dat&quot;</span><span class="p">,</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="s2">&quot;output/periodic_cell.xdmf&quot;</span><span class="p">,</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">cell_type</span><span class="o">=</span><span class="s2">&quot;tetra10&quot;</span><span class="p">,</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="p">)</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">cell</span><span class="o">.</span><span class="n">require_formulation</span><span class="p">(</span><span class="s2">&quot;hybrid&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">cell</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">read_abaqus_mesh</span><span class="p">(</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="s2">&quot;periodic_cell_c3d10h.dat&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="s2">&quot;output/periodic_cell.xdmf&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">cell_type</span><span class="o">=</span><span class="s2">&quot;tetra10&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="p">)</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">cell</span><span class="o">.</span><span class="n">require_formulation</span><span class="p">(</span><span class="s2">&quot;hybrid&quot;</span><span class="p">)</span>
 </code></pre></div>
 <p><code>cell.element_definitions</code> and the conversion manifest retain the original
 <code>C3D10H</code>, hybrid, constant-pressure identity. AgentFEM then provides an
 explicit mixed route:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">unknown</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">fields</span><span class="o">.</span><span class="n">displacement_pressure</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>  <span class="c1"># P2 / DG0</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">material</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="n">constitutive</span><span class="o">.</span><span class="n">mixed_neo_hookean</span><span class="p">(</span><span class="n">young</span><span class="o">=</span><span class="mf">1.0e6</span><span class="p">,</span> <span class="n">poisson</span><span class="o">=</span><span class="mf">0.499</span><span class="p">)</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="p">)</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">model</span><span class="o">.</span><span class="n">fix</span><span class="p">(</span><span class="n">unknown</span><span class="o">.</span><span class="n">displacement</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">support</span><span class="p">)</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">unknown</span><span class="p">,</span> <span class="n">material</span><span class="o">=</span><span class="n">material</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">unknown</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">fields</span><span class="o">.</span><span class="n">displacement_pressure</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>  <span class="c1"># P2 / DG0</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">material</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="n">constitutive</span><span class="o">.</span><span class="n">mixed_neo_hookean</span><span class="p">(</span><span class="n">young</span><span class="o">=</span><span class="mf">1.0e6</span><span class="p">,</span> <span class="n">poisson</span><span class="o">=</span><span class="mf">0.499</span><span class="p">)</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="p">)</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">model</span><span class="o">.</span><span class="n">fix</span><span class="p">(</span><span class="n">unknown</span><span class="o">.</span><span class="n">displacement</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">support</span><span class="p">)</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">unknown</span><span class="p">,</span> <span class="n">material</span><span class="o">=</span><span class="n">material</span><span class="p">)</span>
 </code></pre></div>
 <p>For controlled same-mesh studies, a large source file need not be copied and
 edited by hand:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">evidence</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">abaqus</span><span class="o">.</span><span class="n">derive_element_formulation</span><span class="p">(</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="s2">&quot;cell.dat&quot;</span><span class="p">,</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="s2">&quot;output/mesh/cell_C3D10H.dat&quot;</span><span class="p">,</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="n">source_type</span><span class="o">=</span><span class="s2">&quot;C3D10&quot;</span><span class="p">,</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="n">target_type</span><span class="o">=</span><span class="s2">&quot;C3D10H&quot;</span><span class="p">,</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">evidence</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">abaqus</span><span class="o">.</span><span class="n">derive_element_formulation</span><span class="p">(</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="s2">&quot;cell.dat&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="s2">&quot;output/mesh/cell_C3D10H.dat&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="n">source_type</span><span class="o">=</span><span class="s2">&quot;C3D10&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="n">target_type</span><span class="o">=</span><span class="s2">&quot;C3D10H&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="p">)</span>
 </code></pre></div>
 <p>The helper accepts only known equal-topology/equal-connectivity families,
 changes matching <code>*ELEMENT, TYPE=</code> values only, and writes a validated
@@ -1731,7 +1800,7 @@ format, with named-set golden manifests and a real DOLFINx read/solve check.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../guide/model_setup/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Meshes, Loads and Constraints">
+          <a href="../guide/materials/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Materials and Behaviors">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1741,20 +1810,20 @@ format, with named-set golden manifests and a real DOLFINx read/solve check.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Meshes, Loads and Constraints
+                Materials and Behaviors
               </div>
             </div>
           </a>
         
         
           
-          <a href="../engineering_workflows/" class="md-footer__link md-footer__link--next" aria-label="Next: Engineering Workflow">
+          <a href="../abaqus_migration/" class="md-footer__link md-footer__link--next" aria-label="Next: Migrating Abaqus Projects">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Engineering Workflow
+                Migrating Abaqus Projects
               </div>
             </div>
             <div class="md-footer__button md-icon">

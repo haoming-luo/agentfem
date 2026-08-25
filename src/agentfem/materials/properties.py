@@ -12,6 +12,30 @@ from math import isfinite
 import numpy as np
 
 
+def constant_volumetric_heat_capacity(material) -> float:
+    """Resolve one positive constant ``rho * c_p`` material property.
+
+    Temperature-dependent heat capacity belongs to the enthalpy-based
+    transient provider and is intentionally rejected here.
+    """
+
+    if hasattr(material, "volumetric_heat_capacity"):
+        capacity = float(material.volumetric_heat_capacity)
+        if capacity > 0.0:
+            return capacity
+    specific_heat = getattr(material, "specific_heat", None)
+    if getattr(material, "density", None) is not None and np.isscalar(specific_heat):
+        capacity = float(material.density) * float(specific_heat)
+        if capacity > 0.0:
+            return capacity
+    label = getattr(material, "name", type(material).__name__)
+    raise ValueError(
+        f"Material {label!r} does not define one constant volumetric heat "
+        "capacity. Use the automatic nonlinear heat Step for tabulated "
+        "specific heat."
+    )
+
+
 @dataclass(frozen=True)
 class TemperaturePropertyTable:
     """One material property tabulated against absolute temperature.

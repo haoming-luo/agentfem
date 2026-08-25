@@ -40,8 +40,12 @@
   reviewed project data without advancing constitutive state. Creep rupture
   relations and nontrivial creep--fatigue interaction curves retain explicit
   sources rather than becoming hidden core constants.
-- Material record: SI-unit constants plus model name and source note. It is data,
-  not the equation itself.
+- Material definition: physical identity, source, and one active executable
+  behavior per physics role. It remains independent of the Study until
+  `model.material(...)` resolves the required role.
+- Material record: SI-unit reference constants plus model name and source note.
+  It is data, not the equation itself, and packaged generic cards are not
+  industrial design allowables.
 - Material properties: typed parameter object used by constitutive relations.
 - Analysis step: solve stage under a study, such as linear static or implicit
   Euler, built from visible operators.
@@ -85,7 +89,9 @@
 - Response experiment: named output derivatives with respect to named
   parameters, first implemented as Campaign-backed finite differences.
 - External mesh conversion: a topology/set conversion with a manifest, not a
-  full commercial solver-deck import.
+  full commercial solver-deck import. For Abaqus, run
+  `agentfem inspect-abaqus ...` first and preserve the distinction among source
+  declaration, topology import, native formulation, and verification evidence.
 - Scientific dataset: numeric inputs/outputs plus units, shapes, field
   encodings, case identities, provenance, and artifacts.
 - Surrogate: learned or reduced-order mapping whose scientific asset includes

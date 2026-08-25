@@ -97,6 +97,38 @@ An omitted policy value means the selected provider owns the default. Result
 metadata labels these values as `declared_policies`; the executable
 `metadata["step"]` record remains authoritative for resolved numerical values.
 
+## 0.3 boundary audit
+
+The 0.3 audit treats file size as a maintenance signal, not as proof of a bad
+abstraction. A split is required when two modules own the same scientific
+decision or when a lower layer imports an orchestration layer.
+
+- `Model` owns registration, inspection, and compatibility delegates. It does
+  not own built-in solution construction. Transient heat lowering now follows
+  the same `StepRequest -> provider -> _step_builders -> problem` route as the
+  structural, nonlinear-material, and dynamics providers.
+- A release regression test requires every historical `*_step()` method to
+  remain a thin delegate and prevents providers from calling those
+  compatibility methods.
+- Constant volumetric heat capacity is resolved once in `materials`, rather
+  than being reimplemented by the model facade and the thermal provider.
+- Core discovery now contains the ordinary engineering language. Procedure
+  and solver controls are advanced; raw `io`, discrete `problems`, and time
+  kernels are expert. This changes presentation, not runtime availability.
+- `results` owns scientific result semantics and the common completion path.
+  Low-level `io.XDMFTimeSeries` remains an expert DOLFINx-compatible writer;
+  ordinary workflows use the single-grid result writers and `SimulationResult`.
+- Constitutive modules own material-point laws, while `mechanics` owns global
+  finite-element integration. Generic checkpointing owns field/time state;
+  cohesive checkpointing additionally owns physical interface identity. These
+  are deliberate layer pairs, not duplicate implementations.
+
+The next structural split should be evidence-driven: `_step_builders.py` may
+become a private builder package when independent provider families need
+separate ownership. Splitting it before then would move code without changing
+the architecture. WSL2 remains an external platform acceptance item and is
+not used to weaken the source-level 0.3 contracts.
+
 ## Agent-Oriented Refinements
 
 - Every public helper should say what FEM concept it belongs to.

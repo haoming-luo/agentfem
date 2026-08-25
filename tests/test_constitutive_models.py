@@ -21,7 +21,19 @@ from agentfem.materials.properties import (
     ElasticAnisotropic2DProperties,
     ElasticIsotropicProperties,
     TemperaturePropertyTable,
+    constant_volumetric_heat_capacity,
 )
+
+
+def test_constant_volumetric_heat_capacity_has_one_material_owner():
+    class ThermalMaterial:
+        name = "thermal"
+        density = 3.0
+        specific_heat = 4.0
+
+    assert constant_volumetric_heat_capacity(ThermalMaterial()) == 12.0
+    with pytest.raises(ValueError, match="constant volumetric heat capacity"):
+        constant_volumetric_heat_capacity(object())
 
 
 def test_shared_quadrature_transaction_commits_and_rolls_back_atomically():

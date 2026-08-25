@@ -177,6 +177,12 @@ def test_capability_command_is_json_serializable(capsys):
     assert "models" in record["public_api"]["core"]
     assert "surrogates" in record["public_api"]["advanced"]
     assert "backends" in record["public_api"]["expert"]
+    assert "procedures" in record["public_api"]["advanced"]
+    assert "solvers" in record["public_api"]["advanced"]
+    assert "io" in record["public_api"]["expert"]
+    assert "problems" in record["public_api"]["expert"]
+    assert "time" in record["public_api"]["expert"]
+    assert "io" not in record["public_api"]["core"]
     assert "step" in record["model_api"]["core"]
     assert "stiffness" in record["model_api"]["advanced"]
     assert "linear_static_step" in record["model_api"]["compatibility"]
@@ -204,6 +210,36 @@ def test_capability_command_is_json_serializable(capsys):
     )
     assert "solver_options" in linear["options"]["accepted"]
     assert record["extensions"]["schema"] == "agentfem.extensions"
+
+
+def test_cli_inspects_abaqus_deck_without_converting_or_solving(tmp_path, capsys):
+    source = tmp_path / "one_hex.inp"
+    source.write_text(
+        "\n".join(
+            (
+                "*Node",
+                "1,0,0,0", "2,1,0,0", "3,1,1,0", "4,0,1,0",
+                "5,0,0,1", "6,1,0,1", "7,1,1,1", "8,0,1,1",
+                "*Element, type=C3D8R, elset=SOLID",
+                "1,1,2,3,4,5,6,7,8",
+                "*Material, name=STEEL",
+                "*Elastic",
+                "2e11,0.3",
+            )
+        ),
+        encoding="utf-8",
+    )
+    report = tmp_path / "migration.json"
+
+    assert cli.main(
+        ["inspect-abaqus", str(source), "--write", str(report), "--json"]
+    ) == 0
+
+    emitted = json.loads(capsys.readouterr().out)
+    saved = json.loads(report.read_text(encoding="utf-8"))
+    assert emitted["schema"] == "agentfem.abaqus-migration-report"
+    assert emitted["topology_only_elements"] == ["C3D8R"]
+    assert saved["source_sha256"] == emitted["source_sha256"]
 
 
 def test_upgrade_report_is_location_aware_and_does_not_rewrite_case(tmp_path):
