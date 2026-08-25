@@ -27,6 +27,7 @@
     "run": "agentfem run --json",
     "inspect": "agentfem inspect --json",
     "abaqus_inspect": "agentfem inspect-abaqus model.inp --json",
+    "abaqus_migrate": "agentfem migrate-abaqus model.inp ./project --json",
     "verify": "agentfem verify --json"
   },
   "public_workflow_modules": [

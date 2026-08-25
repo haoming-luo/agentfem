@@ -10,6 +10,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Mesh import, boundary/cell regions, tags, summaries, checks, and measures | `mesh/` |
 | External mesh inventory, cell/facet set conversion, and manifests | `mesh/formats.py` |
 | Abaqus migration inventory, element semantics, labels, equations, periodic-cell geometry, and source-order output | `mesh/abaqus.py` |
+| Scope-aware Abaqus engineering migration plans and fail-closed project scaffolds | `mesh/abaqus_migration.py` |
 | Study context: analysis type, physics, dimension, and assumptions | `studies.py` |
 | Shared axisymmetric (r,z) kinematics and full-revolution lowering | `_axisymmetric.py` |
 | Standard/Explicit family, equation order, algorithm, and state policy | `procedures.py` |

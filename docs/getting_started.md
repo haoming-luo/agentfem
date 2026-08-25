@@ -60,6 +60,22 @@ regions, fields, materials, constraints, loads, steps, and result requests.
 `agentfem.toml` does not duplicate the physics; it only identifies the project
 name, Python entrypoint, and output root.
 
+For an existing Abaqus input deck, begin with migration rather than a blank
+template:
+
+```bash
+agentfem inspect-abaqus legacy/model.inp --json
+agentfem migrate-abaqus legacy/model.inp ./migrated-model
+cd migrated-model
+agentfem check
+```
+
+This creates a copied source bundle and a scope-aware `migration.json`. The
+generated `case.py` is deliberately guarded until Part/Instance transforms,
+sections, materials, element formulations, loads, and procedures have been
+reviewed. Project creation is therefore automation of evidence and structure,
+not an unsupported whole-deck equivalence claim.
+
 Use the concise Study factories for common engineering work:
 
 ```python

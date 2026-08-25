@@ -10,6 +10,8 @@ Repository package paths below are relative to `src/agentfem/`.
   and conversion manifests
 - `mesh/abaqus.py`: Abaqus node labels, `*EQUATION` parsing, periodic-cell
   geometry, and source-order VTU output
+- `mesh/abaqus_migration.py`: scope-aware Abaqus engineering plans and
+  fail-closed installed-project scaffolds
 - `studies.py`: analysis context, physics, dimensions, and modeling assumptions
 - `procedures.py`: Standard/Explicit family, equation order, integration
   algorithm, state policy, and solve requirements

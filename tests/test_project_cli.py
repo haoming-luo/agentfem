@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from agentfem import __version__, cli, project, results, upgrades
+from agentfem import __version__, cli, materials, project, results, upgrades
 
 
 def test_cohesive_checkpoint_migration_is_explicit_and_nonmutating():
@@ -242,6 +242,82 @@ def test_cli_inspects_abaqus_deck_without_converting_or_solving(tmp_path, capsys
     assert saved["source_sha256"] == emitted["source_sha256"]
     assert emitted["source_graph"]["complete"] is True
     assert emitted["source_graph"]["files"][0]["logical_path"] == "one_hex.inp"
+
+
+def test_cli_creates_fail_closed_abaqus_migration_project(tmp_path, capsys):
+    source_root = tmp_path / "legacy"
+    source_root.mkdir()
+    source = source_root / "model.inp"
+    included = source_root / "mesh.inc"
+    source.write_text(
+        "\n".join(
+            (
+                "*Include, input=mesh.inc",
+                "*Solid Section, elset=SOLID, material=STEEL",
+                "*Material, name=STEEL",
+                "*Elastic",
+                "210000.,0.3",
+                "*Density",
+                "7.85e-9",
+            )
+        ),
+        encoding="utf-8",
+    )
+    included.write_text(
+        "*Node\n1,0,0,0\n*Element, type=C3D4, elset=SOLID\n1,1,1,1,1\n",
+        encoding="utf-8",
+    )
+    target = tmp_path / "migrated"
+
+    assert (
+        cli.main(
+            [
+                "migrate-abaqus",
+                str(source),
+                str(target),
+                "--name",
+                "legacy-bracket",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    record = json.loads(capsys.readouterr().out)
+    migration = json.loads((target / "migration.json").read_text(encoding="utf-8"))
+
+    assert record["schema"] == "agentfem.abaqus-migration-project"
+    assert migration["schema"] == "agentfem.abaqus-migration-plan"
+    assert migration["ready_to_solve"] is False
+    assert Path(record["migration_report"]).is_file()
+    assert "Abaqus migration review" in (target / "migration.md").read_text()
+    assert (target / "source" / "model.inp").is_file()
+    assert (target / "source" / "mesh.inc").is_file()
+    candidates = (target / "materials" / "candidates.py").read_text()
+    assert "young=210000.0" in candidates
+    assert '"migration_status": "candidate_not_activated"' in candidates
+    assert "MATERIAL_CANDIDATES" in candidates
+    loaded = materials.load(
+        target / "materials" / "candidates.py",
+        symbol="material_1",
+    )
+    assert loaded.name == "STEEL"
+    assert loaded.behavior("mechanical").density == 7.85e-9
+    assert loaded.metadata["migration_status"] == "candidate_not_activated"
+    assert "fail-closed migration scaffold" in (target / "case.py").read_text()
+    assert cli.main(["check", "--project", str(target), "--json"]) == 0
+
+
+def test_cli_refuses_incomplete_abaqus_source_graph_atomically(tmp_path, capsys):
+    source = tmp_path / "model.inp"
+    source.write_text("*Include, input=missing.inc\n", encoding="utf-8")
+    target = tmp_path / "migrated"
+
+    assert cli.main(["migrate-abaqus", str(source), str(target), "--json"]) == 2
+
+    failure = json.loads(capsys.readouterr().out)
+    assert failure["status"] == "failed"
+    assert "incomplete Abaqus source graph" in failure["error"]["message"]
+    assert not target.exists()
 
 
 def test_upgrade_report_is_location_aware_and_does_not_rewrite_case(tmp_path):

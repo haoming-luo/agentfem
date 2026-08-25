@@ -18,6 +18,20 @@ report = mesh.inspect_abaqus_input("model.inp")
 print(report.text())
 ```
 
+When the inventory is understood, create a reviewable migration project:
+
+```bash
+agentfem migrate-abaqus model.inp ./agentfem-model
+cd agentfem-model
+agentfem check
+```
+
+The generated project is intentionally fail closed. It copies the complete
+source graph, writes machine-readable `migration.json` and a compact
+`migration.md` review, and creates ordinary `case.py` plus `agentfem.toml`; it
+does not run until the engineer or agent has reviewed the scientific lowering
+decisions.
+
 The report records the source fingerprint, recursive include graph, element
 declarations, node and element counts, NSET/ELSET/SURFACE semantics, equation
 count, keyword inventory, and migration warnings. It does not write a
@@ -94,6 +108,50 @@ content-addressed graph. Missing files and recursive cycles make the graph
 incomplete, while scoped semantics remain unflattened until an explicit
 instance-aware migration stage is selected.
 
+## Scope-aware migration plan
+
+`mesh.plan_abaqus_migration(...)` reads resolved include files in their
+declared order while retaining the original file and line number of every
+engineering object. The plan distinguishes:
+
+- model, Part, Assembly, and Instance scopes;
+- same-named NSET/ELSET declarations belonging to different scopes;
+- Part definitions from the instances that reuse them;
+- section declarations from their effective material assignments;
+- material identity from its behavior keyword blocks;
+- recognized native candidates from behaviors requiring scientific review;
+- scoped element declarations with topology and formulation-relevant suffixes;
+- Step procedures, loads, boundary conditions, amplitudes, interactions, and
+  output requests that are preserved but not yet lowered.
+
+For a conventional isotropic `*ELASTIC` card accompanied by `*DENSITY`, the
+plan records an `isotropic_elastic` candidate and its source values. If density
+is absent, the material remains review-required because AgentFEM does not
+invent the missing property. Even a complete candidate is not executed
+automatically: units, analysis assumptions, element formulation, loads, and
+verification remain project decisions.
+Composite sections retain flags and layer rows for review rather than being
+misrepresented as one homogeneous material.
+
+`*USER MATERIAL` and user-defined `*HYPERELASTIC` declarations receive a
+dedicated review status. Constants, `*DEPVAR`, and source locations remain in
+the plan, but the input deck alone cannot supply the Fortran source, compiler
+ABI, stress/tangent convention, or validation evidence required to execute a
+UMAT, VUMAT, or UHYPER. Migration therefore points toward AgentFEM's user
+material contract instead of pretending to translate arbitrary subroutines.
+
+Part-level section assignments are projected onto every matching Instance in
+`effective_assignments`. Instance positioning data remain explicit and receive
+a review finding until the corresponding mesh transform has been lowered.
+Missing Part, ELSET, or material references receive stable error codes and
+block native execution.
+
+The `pending_assets` section is equally important: it keeps source rows and
+locations for procedures, loads, boundary conditions, amplitudes,
+interactions, and output requests. Their presence in the plan is evidence of
+preservation, not a claim that Abaqus execution semantics have already been
+reproduced.
+
 ## Target migration project
 
 The intended generated project remains readable and keeps the source deck:
@@ -101,13 +159,19 @@ The intended generated project remains readable and keeps the source deck:
 ```text
 project/
 ├── case.py
+├── agentfem.toml
+├── AGENTS.md
+├── migration.md
+├── migration.json
 ├── mesh/
 ├── materials/
-├── source/model.inp
-└── migration.json
+├── source/
+│   ├── model.inp
+│   └── included-files...
+└── outputs/
 ```
 
-The original input is authoritative evidence.  Derived XDMF/HDF5 is a cached
+The copied input graph is authoritative migration evidence. Derived XDMF/HDF5 is a cached
 solver artifact whose manifest is invalidated when the source or conversion
 policy changes.
 

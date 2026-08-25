@@ -57,6 +57,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `inspect_external_mesh(path)` | Inventory external element blocks and named sets before conversion. |
 | function | `inspect_abaqus_input(path: str \| Path) -> abaqus.AbaqusMigrationReport` | Inventory Abaqus engineering semantics before conversion or solving. |
 | function | `inspect_abaqus_source_graph(path: str \| Path) -> abaqus.AbaqusSourceGraph` | Resolve and fingerprint nested Abaqus input sources without flattening. |
+| function | `plan_abaqus_migration(path: str \| Path) -> 'AbaqusMigrationPlan'` | Build a scope-aware Abaqus migration plan without solving. |
+| function | `create_abaqus_migration_project(source: str \| Path, destination: str \| Path, *, name: str \| None = None, created_with: str = 'unknown') -> dict[str, object]` | Create a fail-closed AgentFEM project from inspected Abaqus sources. |
 | function | `supported_abaqus_element_types(*, family: str \| None = None) -> tuple[str, ...]` | Return Abaqus declarations with explicit AgentFEM import semantics. |
 | function | `split_gmsh_physical_interface(*args, **kwargs)` | Lower named Gmsh physical cell/surface groups to a split interface. |
 | function | `read_abaqus_mesh(path: str \| Path, converted_path: str \| Path, comm: MPI.Comm = MPI.COMM_WORLD, *, cell_type: str \| None = None, reuse_conversion: bool = True) -> abaqus.AbaqusMeshImport` | Convert and read an Abaqus mesh while retaining source node labels. |

@@ -1,0 +1,58 @@
+{
+  "schema": "agentfem.abaqus-migration-plan",
+  "status": "review_required",
+  "ready_to_solve": false,
+  "source_complete": true,
+  "source_files": [
+    "model.inp",
+    "parts/bracket_mesh.inc",
+    "materials/steel.inc"
+  ],
+  "parts": [
+    "BRACKET"
+  ],
+  "instances": [
+    {
+      "name": "BRACKET-1",
+      "part": "BRACKET",
+      "scope": "instance:ASSEMBLY/BRACKET-1"
+    }
+  ],
+  "regions": [
+    "part:BRACKET/elset:SOLID"
+  ],
+  "element_blocks": [
+    {
+      "scope": "part:BRACKET",
+      "region": "SOLID",
+      "source_type": "C3D4",
+      "topology": "tetra",
+      "solver_capability": "native_lagrange_analogue"
+    }
+  ],
+  "materials": [
+    {
+      "name": "STEEL",
+      "translation_status": "native_candidate",
+      "constructor": "constitutive.isotropic_elastic"
+    }
+  ],
+  "sections": [
+    {
+      "scope": "part:BRACKET",
+      "region": "SOLID",
+      "material": "STEEL",
+      "status": "references_resolved"
+    }
+  ],
+  "effective_assignments": [
+    {
+      "target_scope": "instance:ASSEMBLY/BRACKET-1",
+      "region": "BRACKET-1.SOLID",
+      "material": "STEEL",
+      "inherited_from_part": true
+    }
+  ],
+  "issue_codes": [],
+  "pending_assets": []
+}

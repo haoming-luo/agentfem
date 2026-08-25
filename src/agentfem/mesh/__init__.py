@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import ufl
@@ -21,6 +22,9 @@ from . import selectors as select
 from .specs import SUPPORTED_GEOMETRIES, from_geometry_spec
 from .regions import RegionSet
 from .selectors import Selector, ball, box, disk, layer, plane, where
+
+if TYPE_CHECKING:
+    from .abaqus_migration import AbaqusMigrationPlan
 
 audit_quality = quality.audit
 cell_quality = quality.cell_quality
@@ -451,6 +455,33 @@ def inspect_abaqus_source_graph(path: str | Path) -> abaqus.AbaqusSourceGraph:
     """Resolve and fingerprint nested Abaqus input sources without flattening."""
 
     return abaqus.read_source_graph(path)
+
+
+def plan_abaqus_migration(path: str | Path) -> "AbaqusMigrationPlan":
+    """Build a scope-aware Abaqus migration plan without solving."""
+
+    from . import abaqus_migration
+
+    return abaqus_migration.plan(path)
+
+
+def create_abaqus_migration_project(
+    source: str | Path,
+    destination: str | Path,
+    *,
+    name: str | None = None,
+    created_with: str = "unknown",
+) -> dict[str, object]:
+    """Create a fail-closed AgentFEM project from inspected Abaqus sources."""
+
+    from . import abaqus_migration
+
+    return abaqus_migration.create_project(
+        source,
+        destination,
+        name=name,
+        created_with=created_with,
+    )
 
 
 def supported_abaqus_element_types(*, family: str | None = None) -> tuple[str, ...]:

@@ -53,6 +53,20 @@ COMSOL-exported neutral formats should be converted into a DOLFINx-readable
 format before analysis. AgentFEM treats this as mesh-format conversion, not as a
 physics or solver concern.
 
+## Migration Plan
+
+A migration plan is a side-effect-free bridge from an external engineering
+model to the ordinary AgentFEM workflow. It retains source identity, naming
+scope, regions, material cards, assignments, and unresolved decisions without
+pretending that syntax recognition establishes numerical equivalence.
+
+For Abaqus, the plan distinguishes model, Part, Assembly, and Instance scopes;
+section assignment remains separate from material behavior. The plan may name
+a reviewed native candidate, but only an explicit lowering step may create the
+corresponding AgentFEM material, element formulation, load, constraint, or
+procedure. A generated migration project is therefore fail closed until its
+scientific decisions have been reviewed.
+
 ## Mesh Region
 
 A named geometric location on the mesh, such as a boundary, material region, or

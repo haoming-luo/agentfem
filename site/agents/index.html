@@ -1080,6 +1080,14 @@ status and scientific evidence.</p>
 <td><code>agentfem inspect --json</code></td>
 <td>Result and artifact discovery</td>
 </tr>
+<tr>
+<td><code>agentfem inspect-abaqus model.inp --json</code></td>
+<td>Side-effect-free legacy-deck inventory</td>
+</tr>
+<tr>
+<td><code>agentfem migrate-abaqus model.inp ./project --json</code></td>
+<td>Fail-closed Abaqus migration project</td>
+</tr>
 </tbody>
 </table>
 <h2 id="safe-operating-sequence">Safe operating sequence<a class="headerlink" href="#safe-operating-sequence" title="Permanent link">&para;</a></h2>
@@ -1089,6 +1097,10 @@ status and scientific evidence.</p>
 <p>An agent must not infer scientific validity from a zero exit code. It should
 inspect convergence, requested outputs, quality policy, applicability limits,
 benchmark evidence, and any explicit failure record.</p>
+<p>For an Abaqus migration, inspect before creating a project. Preserve the
+complete source graph and review every issue in <code>migration.json</code>; never remove
+an element suffix, collapse Part/Instance scopes, or execute a generated
+material candidate merely because its syntax was recognized.</p>
 <h2 id="start-here">Start here<a class="headerlink" href="#start-here" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../getting_started/">Installed project workflow</a></li>

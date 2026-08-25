@@ -273,6 +273,14 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   model base class, or put live executable objects in result provenance.
 - Inspect external meshes before conversion, retain the conversion manifest,
   and do not call mesh conversion a full Abaqus/ANSYS model import.
+- For legacy Abaqus projects, run `agentfem inspect-abaqus ... --json` before
+  `agentfem migrate-abaqus ...`. Preserve the recursive source graph and review
+  `migration.json`; do not collapse Part/Instance scopes, discard element
+  suffixes, or execute a generated native material candidate without selecting
+  and verifying the complete AgentFEM formulation. The generated `case.py` is
+  intentionally fail closed. Never invent missing material properties, and
+  review every Step, load, boundary, interaction, and output retained under
+  `pending_assets`.
 - Read an Abaqus `C3D10H` source directly with `mesh.read_abaqus_mesh(...)`,
   inspect `cell.element_definitions`, and consume it only through the verified
   P2-displacement/DG0-pressure mixed route. Do not derive another mesh when the

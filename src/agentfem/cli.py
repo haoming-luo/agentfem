@@ -343,6 +343,28 @@ def _command_inspect_abaqus(args) -> int:
     return 0
 
 
+def _command_migrate_abaqus(args) -> int:
+    from .mesh import create_abaqus_migration_project
+
+    record = create_abaqus_migration_project(
+        Path(args.source).expanduser().resolve(),
+        Path(args.destination).expanduser().resolve(),
+        name=args.name,
+        created_with=__version__,
+    )
+    _emit(
+        record,
+        as_json=args.json,
+        human=(
+            f"Created reviewable Abaqus migration project: {record['project']}\n"
+            f"  plan: {record['migration_plan']}\n"
+            f"  review: {record['migration_report']}\n"
+            "Next: run `agentfem check`, then review migration.json."
+        ),
+    )
+    return 0
+
+
 def _result_manifest_path(path: str | None, project_path: str | None) -> Path:
     """Resolve a result manifest from a file, run directory, or latest pointer."""
 
@@ -445,6 +467,15 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_abaqus.add_argument("--write")
     inspect_abaqus.add_argument("--json", action="store_true")
 
+    migrate_abaqus = sub.add_parser(
+        "migrate-abaqus",
+        help="Create a fail-closed AgentFEM project from an Abaqus input deck.",
+    )
+    migrate_abaqus.add_argument("source")
+    migrate_abaqus.add_argument("destination")
+    migrate_abaqus.add_argument("--name")
+    migrate_abaqus.add_argument("--json", action="store_true")
+
     verify = sub.add_parser(
         "verify",
         help="Check a result manifest and the integrity of its registered artifacts.",
@@ -498,6 +529,8 @@ def main(argv: list[str] | None = None) -> int:
             return _command_inspect(args)
         if args.command == "inspect-abaqus":
             return _command_inspect_abaqus(args)
+        if args.command == "migrate-abaqus":
+            return _command_migrate_abaqus(args)
         if args.command == "verify":
             return _command_verify(args)
         if args.command == "extensions":

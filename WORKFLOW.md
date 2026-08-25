@@ -5,6 +5,13 @@ this sequence visible unless there is a strong reason to encapsulate it.
 
 ## Standard Sequence
 
+For an existing Abaqus project, first run `agentfem inspect-abaqus` and then
+`agentfem migrate-abaqus`. Review the recursive source graph, Part/Instance
+scope, regions, section/material assignments, formulation suffixes, and every
+addressable issue before entering the standard sequence below. The generated
+project is a source-preserving migration workspace, not an executable
+whole-deck translation.
+
 1. Define the study context: analysis type, physics, dimension, and modeling
    assumptions.
    For a revolved small-strain solid use `dimension=2,
@@ -112,6 +119,8 @@ Package paths below are relative to `src/agentfem/`.
 - Consistent numerical unit contracts: `units.py`
 - External CAE mesh inventory/conversion and named-set manifests:
   `mesh/formats.py`
+- Scope-aware Abaqus project migration and fail-closed scaffolds:
+  `mesh/abaqus_migration.py`
 - Study contexts: `studies.py`
 - Numerical solution-procedure descriptions: `procedures.py`
 - Model registry and checks: `models.py`

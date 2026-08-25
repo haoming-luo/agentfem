@@ -1,0 +1,12 @@
+*Heading
+** Scope-aware migration fixture
+*Part, name=BRACKET
+*Include, input=parts/bracket_mesh.inc
+*Solid Section, elset=SOLID, material=STEEL
+*End Part
+*Material, name=STEEL
+*Include, input=materials/steel.inc
+*Assembly, name=ASSEMBLY
+*Instance, name=BRACKET-1, part=BRACKET
+*End Instance
+*End Assembly

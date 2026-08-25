@@ -293,6 +293,15 @@ finite-element simulation with AgentFEM.
 - External meshes: inventory with `mesh.inspect_external_mesh(...)` before
   choosing cell/facet types. Preserve conversion manifests and never describe
   mesh conversion as full Abaqus/ANSYS deck import.
+- Abaqus projects: run `agentfem inspect-abaqus ... --json` before
+  `agentfem migrate-abaqus ...`. The migration project must preserve the
+  recursive source graph, Part/Instance scope, section/material assignments,
+  source locations, and unresolved issue codes. A generated material candidate
+  is reviewable data, not permission to execute it. Do not remove formulation
+  suffixes, flatten same-named sets across scopes, or bypass the fail-closed
+  guard before native operators and verification evidence are selected. Never
+  invent a missing material property or silently omit a Step, load, boundary,
+  interaction, or output listed under `pending_assets`.
 - Example workflows: inspect `examples/` after reading `WORKFLOW.md`.
 
 ## Agent Rules

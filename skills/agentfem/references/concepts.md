@@ -92,6 +92,10 @@
   full commercial solver-deck import. For Abaqus, run
   `agentfem inspect-abaqus ...` first and preserve the distinction among source
   declaration, topology import, native formulation, and verification evidence.
+- Migration plan: source-preserving, scope-aware engineering relationships and
+  unresolved decisions between a legacy model and AgentFEM. A generated
+  project is fail closed; recognizing an Abaqus material or section does not
+  authorize numerical lowering or prove equivalence.
 - Scientific dataset: numeric inputs/outputs plus units, shapes, field
   encodings, case identities, provenance, and artifacts.
 - Surrogate: learned or reduced-order mapping whose scientific asset includes

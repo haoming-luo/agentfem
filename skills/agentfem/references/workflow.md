@@ -82,6 +82,10 @@ Use `examples/` as executable workflow references after identifying the target
 problem type.
 
 For an Abaqus input deck, run `agentfem inspect-abaqus model.inp --json`
-before conversion. Treat `topology_only` as an explicit migration boundary;
+before `agentfem migrate-abaqus model.inp ./project --json`. Review the copied
+source graph, Part/Instance scopes, section/material assignments, and issue
+codes before replacing the generated fail-closed guard with an ordinary
+AgentFEM workflow. Treat `topology_only` as an explicit migration boundary;
 never erase `R`, `H`, incompatible-mode, shell, or cohesive semantics merely
-because the connectivity can be read.
+because the connectivity can be read. Missing material properties remain
+unresolved, and each `pending_assets` entry needs a reviewed lowering decision.

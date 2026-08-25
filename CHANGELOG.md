@@ -6,6 +6,18 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+### Added
+
+- Add `agentfem migrate-abaqus` and a fail-closed migration project containing
+  the complete recursive source graph, scope-aware Part/Instance/ELSET
+  relationships, element formulation identity, section assignments, material
+  review candidates, preserved Step/load/output assets, and human plus machine
+  migration reports.
+- Add explicit migration findings for missing material properties,
+  topology-only element declarations, incomplete include graphs, composite
+  sections, and Abaqus user-material assets that still require source/ABI and
+  constitutive verification.
+
 ### Changed
 
 - Bind platform, companion-provider, and fresh-agent promotion evidence to the

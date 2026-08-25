@@ -17,6 +17,8 @@ status and scientific evidence.
 | `agentfem check --json` | Static project and upgrade check |
 | `agentfem run --json` | Addressable execution result |
 | `agentfem inspect --json` | Result and artifact discovery |
+| `agentfem inspect-abaqus model.inp --json` | Side-effect-free legacy-deck inventory |
+| `agentfem migrate-abaqus model.inp ./project --json` | Fail-closed Abaqus migration project |
 
 ## Safe operating sequence
 
@@ -28,6 +30,11 @@ discover → doctor → init/open → inspect project → edit case.py → check
 An agent must not infer scientific validity from a zero exit code. It should
 inspect convergence, requested outputs, quality policy, applicability limits,
 benchmark evidence, and any explicit failure record.
+
+For an Abaqus migration, inspect before creating a project. Preserve the
+complete source graph and review every issue in `migration.json`; never remove
+an element suffix, collapse Part/Instance scopes, or execute a generated
+material candidate merely because its syntax was recognized.
 
 ## Start here
 

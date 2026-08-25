@@ -2434,6 +2434,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
+<td><code>plan_abaqus_migration(path: str \| Path) -&gt; 'AbaqusMigrationPlan'</code></td>
+<td>Build a scope-aware Abaqus migration plan without solving.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>create_abaqus_migration_project(source: str \| Path, destination: str \| Path, *, name: str \| None = None, created_with: str = 'unknown') -&gt; dict[str, object]</code></td>
+<td>Create a fail-closed AgentFEM project from inspected Abaqus sources.</td>
+</tr>
+<tr>
+<td>function</td>
 <td><code>supported_abaqus_element_types(*, family: str \| None = None) -&gt; tuple[str, ...]</code></td>
 <td>Return Abaqus declarations with explicit AgentFEM import semantics.</td>
 </tr>
