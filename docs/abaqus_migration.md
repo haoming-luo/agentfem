@@ -66,23 +66,28 @@ The first executable route is intentionally narrow:
   analogue;
 - either a flat orphan mesh or one Part instantiated once, including optional
   translation followed by axis-angle rotation;
-- one homogeneous isotropic `*ELASTIC` material with `*DENSITY` and one
-  resolved `*SOLID SECTION` that is proven to cover every element declaration;
+- one or more constant isotropic `*ELASTIC` materials with `*DENSITY`, assigned
+  through non-overlapping `*SOLID SECTION` ELSET regions that exactly cover
+  every element declaration;
 - one linear `*STATIC` Step;
 - ordinary displacement `*BOUNDARY` rows targeting preserved NSETs;
 - optional `*DSLOAD` pressure on an explicit element-based SURFACE;
 - optional three-dimensional whole-material `*DLOAD, GRAV`, consumed through
   the registered material density rather than duplicating a body-force value.
 
-The material gate accepts one constant isotropic elastic row and one constant
-density row. Temperature- or field-dependent tables remain review-required
-instead of being truncated to their first row. Two-dimensional lowering is
-currently per unit thickness, so a declared non-unit Section thickness is also
-blocked. Positive Abaqus pressure and native `model.pressure(...)` share the
-same inward convention; the decision is recorded in `lowering.json`.
+Each material gate accepts one constant isotropic elastic row and one constant
+density row. `AbaqusMeshImport.element_set(...)` promotes a preserved ELSET to
+a material-ready cell region only when its converted tag owns every source
+element; overlapping-set ambiguity is rejected. Temperature- or
+field-dependent tables remain review-required instead of being truncated to
+their first row. Two-dimensional lowering is currently per unit thickness, so
+a declared non-unit Section thickness is also blocked. Positive Abaqus
+pressure and native `model.pressure(...)` share the same inward convention;
+the decision is recorded in `lowering.json`.
 
-Reduced-integration/hourglass and hybrid declarations, multiple materials or
-instances, `NLGEOM`, concentrated loads, amplitudes, contact, equations, user
+Reduced-integration/hourglass and hybrid declarations, multiple instances,
+overlapping or implicitly inherited Section regions, `NLGEOM`, concentrated
+loads, amplitudes, contact, equations, user
 materials, `OP`-dependent boundary inheritance, non-element surfaces, and
 unlowered assets are rejected with stable findings. Output
 requests remain source evidence while the draft uses AgentFEM's structured

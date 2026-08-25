@@ -30,7 +30,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.operator.incompressible_flow`](#agentfem-operator-incompressible_flow) | Mixed incompressible-flow fields and operators | operator | supported |
 | [`agentfem.operator.scalar_transport_reaction`](#agentfem-operator-scalar_transport_reaction) | Scalar transport and reaction operators | operator | supported |
 | [`agentfem.operator.system_contracts`](#agentfem-operator-system_contracts) | Finite-element operator and system contracts | operator | supported |
-| [`agentfem.workflow.abaqus_engineering_regions`](#agentfem-workflow-abaqus_engineering_regions) | Abaqus node sets and element-face surfaces as FEM regions | workflow | supported |
+| [`agentfem.workflow.abaqus_engineering_regions`](#agentfem-workflow-abaqus_engineering_regions) | Abaqus node, element, and element-face sets as FEM regions | workflow | supported |
 | [`agentfem.workflow.campaign_learning_pipeline`](#agentfem-workflow-campaign_learning_pipeline) | Simulation campaign to guarded learning workflow | workflow | supported |
 | [`agentfem.workflow.cohesive_state_portability`](#agentfem-workflow-cohesive_state_portability) | Physical-keyed cohesive state across MPI partitions | workflow | experimental |
 | [`agentfem.workflow.coordinate_reference_coupling`](#agentfem-workflow-coordinate_reference_coupling) | Local coordinates and reference-point continuum coupling | workflow | supported |
@@ -1856,19 +1856,20 @@ Create C = operators.capacity_operator(T, rho_c), K = operators.conduction_opera
 
 <a id="agentfem-workflow-abaqus_engineering_regions"></a>
 
-## Abaqus node sets and element-face surfaces as FEM regions
+## Abaqus node, element, and element-face sets as FEM regions
 
 **Stable ID:** `agentfem.workflow.abaqus_engineering_regions`<br>
 **Kind:** `workflow`<br>
 **Status:** `supported`<br>
 **Source card:** `src/agentfem/knowledge/cards/abaqus_engineering_regions.json`
 
-Promotes source-labelled Abaqus NSET and supported exterior SURFACE definitions into distinct DOLFINx node and facet regions.
+Promotes source-labelled Abaqus NSET, ELSET, and supported exterior SURFACE definitions into distinct DOLFINx node, cell, and facet regions.
 
 ### Public API
 
 - `agentfem.mesh.read_abaqus_mesh`
 - `agentfem.mesh.abaqus.AbaqusMeshImport.node_set`
+- `agentfem.mesh.abaqus.AbaqusMeshImport.element_set`
 - `agentfem.mesh.abaqus.AbaqusMeshImport.boundary`
 - `agentfem.mesh.abaqus.AbaqusMeshImport.surface_faces`
 
@@ -1894,7 +1895,7 @@ The coordinate match preserves explicit source-node identity, including high-ord
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
-| NodeRegion or BoundaryRegion | source-node coordinate region or tagged exterior facets | none; boundary measure inherits geometry units | Strong constraints consume node regions; weak loads consume boundary regions through ds(tag). |
+| NodeRegion, CellRegion, or BoundaryRegion | source-node coordinate region, tagged cells, or tagged exterior facets | none; boundary measure inherits geometry units | Strong constraints consume node regions; weak loads consume boundary regions through ds(tag). |
 
 #### Assumptions
 
@@ -1904,6 +1905,7 @@ The coordinate match preserves explicit source-node identity, including high-ord
 #### Conventions
 
 - NSET does not acquire a surface measure.
+- ELSET becomes a material-ready cell region only when its converted tag owns every source element in the set.
 - High-order source nodes such as C3D10 midside nodes remain addressable by compatible finite-element spaces.
 - SURFACE face identifiers follow Abaqus solid-element node ordering.
 - Unknown or ambiguous semantics fail instead of being inferred from a normal or bounding box.
@@ -1920,7 +1922,7 @@ The coordinate match preserves explicit source-node identity, including high-ord
 ### Minimal example
 
 ```python
-cell = mesh.read_abaqus_mesh('part.inp', 'part.xdmf'); fixed = cell.node_set('FIXED'); loaded = cell.boundary('LOAD_FACE')
+cell = mesh.read_abaqus_mesh('part.inp', 'part.xdmf'); fixed = cell.node_set('FIXED'); steel = cell.element_set('STEEL'); loaded = cell.boundary('LOAD_FACE')
 ```
 
 ### Verification
@@ -1928,6 +1930,7 @@ cell = mesh.read_abaqus_mesh('part.inp', 'part.xdmf'); fixed = cell.node_set('FI
 **Tests**
 
 - `tests/test_abaqus_interop.py`
+- `tests/test_abaqus_migration.py`
 
 **Benchmarks**
 
@@ -1936,6 +1939,7 @@ cell = mesh.read_abaqus_mesh('part.inp', 'part.xdmf'); fixed = cell.node_set('FI
 **Validation rules**
 
 - Recover every requested source node or fail with missing labels.
+- Reject a converted ELSET tag that owns fewer cells than the preserved source set.
 - Match every requested face to one exterior runtime facet.
 - Reject unsupported element families and face identifiers.
 - Verify the reconstructed boundary facet count and physical measure.

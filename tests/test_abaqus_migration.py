@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import runpy
 
 import numpy as np
+from mpi4py import MPI
 
+from agentfem import mesh as fem_mesh
 from agentfem.mesh import abaqus
 from agentfem.mesh import abaqus_lowering
 from agentfem.mesh import abaqus_migration
@@ -941,3 +944,126 @@ def test_native_lowering_maps_whole_material_gravity_without_density_duplication
     native = (project / "case.native.py").read_text(encoding="utf-8")
     assert "model.gravity(" in native
     assert "(0.0, 0.0, -9.81)" in native
+
+
+def test_native_lowering_maps_multiple_solid_sections_to_material_regions(tmp_path):
+    source = tmp_path / "two-materials.inp"
+    source.write_text(
+        "\n".join(
+            (
+                "*Node",
+                "1,0,0,0",
+                "2,1,0,0",
+                "3,0,1,0",
+                "4,0,0,1",
+                "5,2,0,0",
+                "6,3,0,0",
+                "7,2,1,0",
+                "8,2,0,1",
+                "*Nset, nset=FIXED",
+                "1,2,3,4,5,6,7,8",
+                "*Element, type=C3D4, elset=SOFT",
+                "1,1,2,3,4",
+                "*Element, type=C3D4, elset=STIFF",
+                "2,5,6,7,8",
+                "*Material, name=RUBBER",
+                "*Elastic",
+                "10.,0.3",
+                "*Density",
+                "1.0",
+                "*Material, name=STEEL",
+                "*Elastic",
+                "1000.,0.25",
+                "*Density",
+                "2.0",
+                "*Solid Section, elset=SOFT, material=RUBBER",
+                "*Solid Section, elset=STIFF, material=STEEL",
+                "*Step, name=HOLD",
+                "*Static",
+                "*Boundary",
+                "FIXED,1,3,0.",
+                "*End Step",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    project = tmp_path / "migrated"
+    abaqus_migration.create_project(source, project, created_with="test")
+
+    assessment = abaqus_lowering.assess(abaqus_migration.plan(source))
+
+    assert assessment.eligible is True
+    assert assessment.material_name is None
+    assert assessment.material == {}
+    assert [item.region for item in assessment.material_assignments] == [
+        "SOFT",
+        "STIFF",
+    ]
+    assert [item.material_name for item in assessment.material_assignments] == [
+        "RUBBER",
+        "STEEL",
+    ]
+
+    abaqus_lowering.lower_project(
+        project,
+        reviewed_by="Test Engineer",
+        unit_system="SI",
+    )
+    native = (project / "case.native.py").read_text(encoding="utf-8")
+    assert "region=cell.element_set('SOFT')" in native
+    assert "region=cell.element_set('STIFF')" in native
+
+    imported = fem_mesh.read_abaqus_mesh(
+        project / "mesh" / "abaqus-expanded.inp",
+        project / "mesh" / "two-materials.xdmf",
+        comm=MPI.COMM_SELF,
+        cell_type="tetra",
+        reuse_conversion=False,
+    )
+    assert imported.element_set("soft").name == "soft"
+    assert imported.element_set("STIFF").name == "STIFF"
+
+    namespace = runpy.run_path(str(project / "case.native.py"))
+    result = namespace["main"]()
+    assert result.status == "completed"
+
+
+def test_abaqus_element_set_refuses_partial_tag_from_overlapping_sets(tmp_path):
+    source = tmp_path / "overlap.inp"
+    source.write_text(
+        "\n".join(
+            (
+                "*Node",
+                "1,0,0,0",
+                "2,1,0,0",
+                "3,0,1,0",
+                "4,0,0,1",
+                "5,2,0,0",
+                "6,3,0,0",
+                "7,2,1,0",
+                "8,2,0,1",
+                "*Element, type=C3D4, elset=SOLID",
+                "1,1,2,3,4",
+                "2,5,6,7,8",
+                "*Elset, elset=FIRST",
+                "1",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    imported = fem_mesh.read_abaqus_mesh(
+        source,
+        tmp_path / "overlap.xdmf",
+        comm=MPI.COMM_SELF,
+        cell_type="tetra",
+        reuse_conversion=False,
+    )
+
+    try:
+        imported.element_set("SOLID")
+    except ValueError as exc:
+        assert "overlaps another ELSET" in str(exc)
+    else:
+        raise AssertionError("A partial overlapping ELSET tag must be rejected.")

@@ -37,9 +37,11 @@ finite-element simulation with AgentFEM.
   `agentfem lower-abaqus PROJECT --reviewed-by NAME --unit-system SYSTEM` to
   create `case.native.py` and `lowering.json` without activation. Read both,
   then use `--activate --force` only when accepted. Never invent units or
-  delete a blocking finding. Dependent material tables, partial Section
-  coverage, non-unit 2D thickness, and Step/BC inheritance require a dedicated
-  lowering route rather than a first-row or final-value approximation.
+  delete a blocking finding. Multiple constant isotropic materials are lowered
+  only through exact, non-overlapping ELSET/Section coverage. Dependent
+  material tables, partial or ambiguous Section coverage, non-unit 2D
+  thickness, and Step/BC inheritance require a dedicated lowering route rather
+  than a first-row or final-value approximation.
 - Study setup: use `studies.static_solid`, `studies.steady_heat_transfer`,
   `studies.transient_heat_transfer`, or `studies.dynamic_solid` for common
   workflows. Use the general factories only when the common vocabulary does

@@ -610,6 +610,7 @@
       "public_api": [
         "agentfem.mesh.read_abaqus_mesh",
         "agentfem.mesh.abaqus.AbaqusMeshImport.node_set",
+        "agentfem.mesh.abaqus.AbaqusMeshImport.element_set",
         "agentfem.mesh.abaqus.AbaqusMeshImport.boundary",
         "agentfem.mesh.abaqus.AbaqusMeshImport.surface_faces"
       ],
@@ -619,8 +620,8 @@
       ],
       "source": "src/agentfem/knowledge/cards/abaqus_engineering_regions.json",
       "status": "supported",
-      "summary": "Promotes source-labelled Abaqus NSET and supported exterior SURFACE definitions into distinct DOLFINx node and facet regions.",
-      "title": "Abaqus node sets and element-face surfaces as FEM regions"
+      "summary": "Promotes source-labelled Abaqus NSET, ELSET, and supported exterior SURFACE definitions into distinct DOLFINx node, cell, and facet regions.",
+      "title": "Abaqus node, element, and element-face sets as FEM regions"
     },
     {
       "id": "agentfem.workflow.campaign_learning_pipeline",

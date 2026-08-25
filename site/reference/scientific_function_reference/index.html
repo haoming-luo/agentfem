@@ -2829,15 +2829,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#abaqus-node-sets-and-element-face-surfaces-as-fem-regions" class="md-nav__link">
+  <a href="#abaqus-node-element-and-element-face-sets-as-fem-regions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Abaqus node sets and element-face surfaces as FEM regions
+        Abaqus node, element, and element-face sets as FEM regions
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Abaqus node sets and element-face surfaces as FEM regions">
+    <nav class="md-nav" aria-label="Abaqus node, element, and element-face sets as FEM regions">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -8261,15 +8261,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#abaqus-node-sets-and-element-face-surfaces-as-fem-regions" class="md-nav__link">
+  <a href="#abaqus-node-element-and-element-face-sets-as-fem-regions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Abaqus node sets and element-face surfaces as FEM regions
+        Abaqus node, element, and element-face sets as FEM regions
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Abaqus node sets and element-face surfaces as FEM regions">
+    <nav class="md-nav" aria-label="Abaqus node, element, and element-face sets as FEM regions">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -11321,7 +11321,7 @@ the compact machine-readable <code>agentfem/knowledge/catalog.json</code>.</p>
 </tr>
 <tr>
 <td><a href="#agentfem-workflow-abaqus_engineering_regions"><code>agentfem.workflow.abaqus_engineering_regions</code></a></td>
-<td>Abaqus node sets and element-face surfaces as FEM regions</td>
+<td>Abaqus node, element, and element-face sets as FEM regions</td>
 <td>workflow</td>
 <td>supported</td>
 </tr>
@@ -13751,16 +13751,17 @@ u=g,\qquad w=-\Delta g\quad\text{on }\partial\Omega
 <li>UFL automatic differentiation manual: <code>https://docs.fenicsproject.org/ufl/2026.1.0/manual/form_language.html</code></li>
 </ul>
 <p><a id="agentfem-workflow-abaqus_engineering_regions"></a></p>
-<h2 id="abaqus-node-sets-and-element-face-surfaces-as-fem-regions">Abaqus node sets and element-face surfaces as FEM regions<a class="headerlink" href="#abaqus-node-sets-and-element-face-surfaces-as-fem-regions" title="Permanent link">&para;</a></h2>
+<h2 id="abaqus-node-element-and-element-face-sets-as-fem-regions">Abaqus node, element, and element-face sets as FEM regions<a class="headerlink" href="#abaqus-node-element-and-element-face-sets-as-fem-regions" title="Permanent link">&para;</a></h2>
 <p><strong>Stable ID:</strong> <code>agentfem.workflow.abaqus_engineering_regions</code><br>
 <strong>Kind:</strong> <code>workflow</code><br>
 <strong>Status:</strong> <code>supported</code><br>
 <strong>Source card:</strong> <code>src/agentfem/knowledge/cards/abaqus_engineering_regions.json</code></p>
-<p>Promotes source-labelled Abaqus NSET and supported exterior SURFACE definitions into distinct DOLFINx node and facet regions.</p>
+<p>Promotes source-labelled Abaqus NSET, ELSET, and supported exterior SURFACE definitions into distinct DOLFINx node, cell, and facet regions.</p>
 <h3 id="public-api_15">Public API<a class="headerlink" href="#public-api_15" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>agentfem.mesh.read_abaqus_mesh</code></li>
 <li><code>agentfem.mesh.abaqus.AbaqusMeshImport.node_set</code></li>
+<li><code>agentfem.mesh.abaqus.AbaqusMeshImport.element_set</code></li>
 <li><code>agentfem.mesh.abaqus.AbaqusMeshImport.boundary</code></li>
 <li><code>agentfem.mesh.abaqus.AbaqusMeshImport.surface_faces</code></li>
 </ul>
@@ -13802,8 +13803,8 @@ u=g,\qquad w=-\Delta g\quad\text{on }\partial\Omega
 </thead>
 <tbody>
 <tr>
-<td>NodeRegion or BoundaryRegion</td>
-<td>source-node coordinate region or tagged exterior facets</td>
+<td>NodeRegion, CellRegion, or BoundaryRegion</td>
+<td>source-node coordinate region, tagged cells, or tagged exterior facets</td>
 <td>none; boundary measure inherits geometry units</td>
 <td>Strong constraints consume node regions; weak loads consume boundary regions through ds(tag).</td>
 </tr>
@@ -13817,6 +13818,7 @@ u=g,\qquad w=-\Delta g\quad\text{on }\partial\Omega
 <h4 id="conventions_15">Conventions<a class="headerlink" href="#conventions_15" title="Permanent link">&para;</a></h4>
 <ul>
 <li>NSET does not acquire a surface measure.</li>
+<li>ELSET becomes a material-ready cell region only when its converted tag owns every source element in the set.</li>
 <li>High-order source nodes such as C3D10 midside nodes remain addressable by compatible finite-element spaces.</li>
 <li>SURFACE face identifiers follow Abaqus solid-element node ordering.</li>
 <li>Unknown or ambiguous semantics fail instead of being inferred from a normal or bounding box.</li>
@@ -13831,12 +13833,13 @@ u=g,\qquad w=-\Delta g\quad\text{on }\partial\Omega
 <li>This is mesh and region interoperability, not full Abaqus solver-deck execution.</li>
 </ul>
 <h3 id="minimal-example_15">Minimal example<a class="headerlink" href="#minimal-example_15" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">cell</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">read_abaqus_mesh</span><span class="p">(</span><span class="s1">&#39;part.inp&#39;</span><span class="p">,</span> <span class="s1">&#39;part.xdmf&#39;</span><span class="p">);</span> <span class="n">fixed</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">node_set</span><span class="p">(</span><span class="s1">&#39;FIXED&#39;</span><span class="p">);</span> <span class="n">loaded</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">boundary</span><span class="p">(</span><span class="s1">&#39;LOAD_FACE&#39;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">cell</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">read_abaqus_mesh</span><span class="p">(</span><span class="s1">&#39;part.inp&#39;</span><span class="p">,</span> <span class="s1">&#39;part.xdmf&#39;</span><span class="p">);</span> <span class="n">fixed</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">node_set</span><span class="p">(</span><span class="s1">&#39;FIXED&#39;</span><span class="p">);</span> <span class="n">steel</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">element_set</span><span class="p">(</span><span class="s1">&#39;STEEL&#39;</span><span class="p">);</span> <span class="n">loaded</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">boundary</span><span class="p">(</span><span class="s1">&#39;LOAD_FACE&#39;</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="verification_15">Verification<a class="headerlink" href="#verification_15" title="Permanent link">&para;</a></h3>
 <p><strong>Tests</strong></p>
 <ul>
 <li><code>tests/test_abaqus_interop.py</code></li>
+<li><code>tests/test_abaqus_migration.py</code></li>
 </ul>
 <p><strong>Benchmarks</strong></p>
 <ul>
@@ -13845,6 +13848,7 @@ u=g,\qquad w=-\Delta g\quad\text{on }\partial\Omega
 <p><strong>Validation rules</strong></p>
 <ul>
 <li>Recover every requested source node or fail with missing labels.</li>
+<li>Reject a converted ELSET tag that owns fewer cells than the preserved source set.</li>
 <li>Match every requested face to one exterior runtime facet.</li>
 <li>Reject unsupported element families and face identifiers.</li>
 <li>Verify the reconstructed boundary facet count and physical measure.</li>

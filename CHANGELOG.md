@@ -26,6 +26,9 @@ experimental formulation to a validated one.
   thickness, dependent material tables, boundary-state operations, ambiguous
   Step controls, and non-element pressure surfaces instead of silently
   changing their scientific meaning.
+- Promote preserved Abaqus ELSETs to material-ready cell regions with serial
+  and MPI completeness checks, and lower multiple constant isotropic materials
+  when SOLID SECTION regions exactly partition the selected solver domain.
 
 ### Changed
 

@@ -22,6 +22,28 @@ from agentfem import (
 )
 
 
+def test_abaqus_element_sets_remain_complete_across_partitions(tmp_path):
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("distributed Abaqus ELSET recovery requires at least two ranks")
+
+    source = (
+        Path(__file__).parent
+        / "fixtures"
+        / "abaqus_native_lowering"
+        / "two_materials.inp"
+    )
+    imported = mesh.read_abaqus_mesh(
+        source,
+        tmp_path / "two-materials.xdmf",
+        comm=MPI.COMM_WORLD,
+        cell_type="tetra",
+        reuse_conversion=False,
+    )
+
+    assert imported.element_set("SOFT").name == "SOFT"
+    assert imported.element_set("STIFF").name == "STIFF"
+
+
 def test_point_and_path_sampling_are_partition_independent():
     if MPI.COMM_WORLD.size < 2:
         pytest.skip("distributed point sampling requires at least two MPI ranks")

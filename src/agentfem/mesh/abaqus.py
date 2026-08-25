@@ -1626,6 +1626,54 @@ class AbaqusMeshImport:
             tolerance=selected_tolerance,
         )
 
+    def element_set(self, name: str):
+        """Promote a preserved Abaqus ``ELSET`` to a material-ready cell region.
+
+        The converter stores named cell sets as DOLFINx ``MeshTags``.  A tag
+        can represent the requested scientific region only when it owns every
+        source element in that set.  This count check deliberately rejects
+        ambiguous overlapping-set conversions instead of returning a partial
+        material region.
+        """
+
+        from . import cell_region
+
+        key = str(name).upper()
+        selected = self.element_sets.get(key)
+        if selected is None:
+            raise KeyError(f"Abaqus element set {name!r} is not present.")
+        tags_by_name = {
+            str(label).upper(): int(tag)
+            for label, tag in self.conversion.region_tags.items()
+        }
+        tag = tags_by_name.get(key)
+        if tag is None or self.cell_tags is None:
+            raise ValueError(
+                f"Abaqus element set {name!r} has no unambiguous converted "
+                "cell tag. Reconvert the mesh or resolve overlapping ELSETs."
+            )
+        owned_cells = self.domain.topology.index_map(self.domain.topology.dim).size_local
+        local_count = int(
+            np.count_nonzero(
+                (np.asarray(self.cell_tags.values) == tag)
+                & (np.asarray(self.cell_tags.indices) < owned_cells)
+            )
+        )
+        runtime_count = int(self.domain.comm.allreduce(local_count))
+        source_count = len(tuple(selected.get("labels", ())))
+        if runtime_count != source_count:
+            raise ValueError(
+                f"Abaqus element set {name!r} contains {source_count} source "
+                f"elements but its converted tag owns {runtime_count}. The set "
+                "overlaps another ELSET and cannot safely define a material region."
+            )
+        return cell_region(
+            self.domain,
+            self.cell_tags,
+            tag=tag,
+            name=str(name),
+        )
+
     def boundary(
         self,
         name: str,

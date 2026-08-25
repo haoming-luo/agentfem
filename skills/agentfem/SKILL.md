@@ -286,8 +286,11 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   NAME --unit-system SYSTEM`. Inspect `case.native.py` and `lowering.json`
   before adding `--activate --force`. A native analogue is not Abaqus solver
   equivalence, and a blocking finding must never be bypassed. Do not collapse
-  temperature-dependent tables, partial Section assignments, non-unit 2D
-  thickness, or Step/BC inheritance into the narrow static route.
+  temperature-dependent tables, partial or overlapping Section assignments,
+  non-unit 2D thickness, or Step/BC inheritance into the narrow static route.
+  Multiple constant isotropic materials are eligible only when preserved
+  ELSET/SOLID SECTION declarations exactly and unambiguously partition the
+  selected solver domain.
 - Read an Abaqus `C3D10H` source directly with `mesh.read_abaqus_mesh(...)`,
   inspect `cell.element_definitions`, and consume it only through the verified
   P2-displacement/DG0-pressure mixed route. Do not derive another mesh when the

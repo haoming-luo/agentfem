@@ -91,4 +91,6 @@ because the connectivity can be read. Missing material properties remain
 unresolved, and each `pending_assets` entry needs a reviewed lowering decision.
 If the plan reports an eligible native subset, run `agentfem lower-abaqus`
 with explicit reviewer and unit system, inspect the inactive draft, then
-activate separately. Never modify the decision JSON to hide a blocker.
+activate separately. Multiple constant isotropic materials may be lowered
+through exact ELSET/SOLID SECTION regions; partial or overlapping converted
+tags remain blockers. Never modify the decision JSON to hide a blocker.

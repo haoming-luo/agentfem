@@ -1474,22 +1474,27 @@ explicit second action:</p>
   analogue;</li>
 <li>either a flat orphan mesh or one Part instantiated once, including optional
   translation followed by axis-angle rotation;</li>
-<li>one homogeneous isotropic <code>*ELASTIC</code> material with <code>*DENSITY</code> and one
-  resolved <code>*SOLID SECTION</code> that is proven to cover every element declaration;</li>
+<li>one or more constant isotropic <code>*ELASTIC</code> materials with <code>*DENSITY</code>, assigned
+  through non-overlapping <code>*SOLID SECTION</code> ELSET regions that exactly cover
+  every element declaration;</li>
 <li>one linear <code>*STATIC</code> Step;</li>
 <li>ordinary displacement <code>*BOUNDARY</code> rows targeting preserved NSETs;</li>
 <li>optional <code>*DSLOAD</code> pressure on an explicit element-based SURFACE;</li>
 <li>optional three-dimensional whole-material <code>*DLOAD, GRAV</code>, consumed through
   the registered material density rather than duplicating a body-force value.</li>
 </ul>
-<p>The material gate accepts one constant isotropic elastic row and one constant
-density row. Temperature- or field-dependent tables remain review-required
-instead of being truncated to their first row. Two-dimensional lowering is
-currently per unit thickness, so a declared non-unit Section thickness is also
-blocked. Positive Abaqus pressure and native <code>model.pressure(...)</code> share the
-same inward convention; the decision is recorded in <code>lowering.json</code>.</p>
-<p>Reduced-integration/hourglass and hybrid declarations, multiple materials or
-instances, <code>NLGEOM</code>, concentrated loads, amplitudes, contact, equations, user
+<p>Each material gate accepts one constant isotropic elastic row and one constant
+density row. <code>AbaqusMeshImport.element_set(...)</code> promotes a preserved ELSET to
+a material-ready cell region only when its converted tag owns every source
+element; overlapping-set ambiguity is rejected. Temperature- or
+field-dependent tables remain review-required instead of being truncated to
+their first row. Two-dimensional lowering is currently per unit thickness, so
+a declared non-unit Section thickness is also blocked. Positive Abaqus
+pressure and native <code>model.pressure(...)</code> share the same inward convention;
+the decision is recorded in <code>lowering.json</code>.</p>
+<p>Reduced-integration/hourglass and hybrid declarations, multiple instances,
+overlapping or implicitly inherited Section regions, <code>NLGEOM</code>, concentrated
+loads, amplitudes, contact, equations, user
 materials, <code>OP</code>-dependent boundary inheritance, non-element surfaces, and
 unlowered assets are rejected with stable findings. Output
 requests remain source evidence while the draft uses AgentFEM's structured

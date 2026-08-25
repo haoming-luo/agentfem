@@ -2,13 +2,14 @@
   "schema": "agentfem.scientific-function-card",
   "schema_version": "0.1.0",
   "id": "agentfem.workflow.abaqus_engineering_regions",
-  "title": "Abaqus node sets and element-face surfaces as FEM regions",
+  "title": "Abaqus node, element, and element-face sets as FEM regions",
   "kind": "workflow",
   "status": "supported",
-  "summary": "Promotes source-labelled Abaqus NSET and supported exterior SURFACE definitions into distinct DOLFINx node and facet regions.",
+  "summary": "Promotes source-labelled Abaqus NSET, ELSET, and supported exterior SURFACE definitions into distinct DOLFINx node, cell, and facet regions.",
   "public_api": [
     "agentfem.mesh.read_abaqus_mesh",
     "agentfem.mesh.abaqus.AbaqusMeshImport.node_set",
+    "agentfem.mesh.abaqus.AbaqusMeshImport.element_set",
     "agentfem.mesh.abaqus.AbaqusMeshImport.boundary",
     "agentfem.mesh.abaqus.AbaqusMeshImport.surface_faces"
   ],
@@ -32,8 +33,8 @@
     ],
     "outputs": [
       {
-        "name": "NodeRegion or BoundaryRegion",
-        "type": "source-node coordinate region or tagged exterior facets",
+        "name": "NodeRegion, CellRegion, or BoundaryRegion",
+        "type": "source-node coordinate region, tagged cells, or tagged exterior facets",
         "unit_role": "none; boundary measure inherits geometry units",
         "description": "Strong constraints consume node regions; weak loads consume boundary regions through ds(tag)."
       }
@@ -44,6 +45,7 @@
     ],
     "conventions": [
       "NSET does not acquire a surface measure.",
+      "ELSET becomes a material-ready cell region only when its converted tag owns every source element in the set.",
       "High-order source nodes such as C3D10 midside nodes remain addressable by compatible finite-element spaces.",
       "SURFACE face identifiers follow Abaqus solid-element node ordering.",
       "Unknown or ambiguous semantics fail instead of being inferred from a normal or bounding box."
@@ -55,14 +57,15 @@
     ]
   },
   "usage": {
-    "minimal_example": "cell = mesh.read_abaqus_mesh('part.inp', 'part.xdmf'); fixed = cell.node_set('FIXED'); loaded = cell.boundary('LOAD_FACE')",
-    "examples": ["tests/test_abaqus_interop.py"]
+    "minimal_example": "cell = mesh.read_abaqus_mesh('part.inp', 'part.xdmf'); fixed = cell.node_set('FIXED'); steel = cell.element_set('STEEL'); loaded = cell.boundary('LOAD_FACE')",
+    "examples": ["tests/test_abaqus_interop.py", "tests/test_abaqus_migration.py"]
   },
   "verification": {
-    "tests": ["tests/test_abaqus_interop.py"],
+    "tests": ["tests/test_abaqus_interop.py", "tests/test_abaqus_migration.py"],
     "benchmarks": [],
     "validation_rules": [
       "Recover every requested source node or fail with missing labels.",
+      "Reject a converted ELSET tag that owns fewer cells than the preserved source set.",
       "Match every requested face to one exterior runtime facet.",
       "Reject unsupported element families and face identifiers.",
       "Verify the reconstructed boundary facet count and physical measure."

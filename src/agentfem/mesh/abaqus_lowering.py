@@ -90,6 +90,24 @@ class AbaqusNativeGravity:
 
 
 @dataclass(frozen=True)
+class AbaqusNativeMaterialAssignment:
+    """One reviewed isotropic material assigned to one Abaqus ``ELSET``."""
+
+    region: str
+    material_name: str
+    material: Mapping[str, object]
+    location: abaqus_migration.AbaqusSourceLocation
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "region": self.region,
+            "material_name": self.material_name,
+            "material": dict(self.material),
+            "location": self.location.summary(),
+        }
+
+
+@dataclass(frozen=True)
 class AbaqusNativeLoweringAssessment:
     """Eligibility and exact decisions for one native AgentFEM draft."""
 
@@ -100,6 +118,7 @@ class AbaqusNativeLoweringAssessment:
     degree: int | None
     material: Mapping[str, object]
     material_name: str | None
+    material_assignments: tuple[AbaqusNativeMaterialAssignment, ...]
     step_name: str | None
     boundaries: tuple[AbaqusNativeBoundary, ...]
     pressures: tuple[AbaqusNativePressure, ...]
@@ -122,6 +141,9 @@ class AbaqusNativeLoweringAssessment:
             "degree": self.degree,
             "material_name": self.material_name,
             "material": dict(self.material),
+            "material_assignments": [
+                item.summary() for item in self.material_assignments
+            ],
             "step_name": self.step_name,
             "boundaries": [item.summary() for item in self.boundaries],
             "pressures": [item.summary() for item in self.pressures],
@@ -558,59 +580,69 @@ def assess(plan: abaqus_migration.AbaqusMigrationPlan) -> AbaqusNativeLoweringAs
         plan.element_blocks, findings
     )
 
-    candidates = [
-        item for item in plan.materials if item.translation_status == "native_candidate"
-    ]
-    if len(plan.materials) != 1 or len(candidates) != 1:
+    candidates = {
+        item.name.upper(): item
+        for item in plan.materials
+        if item.translation_status == "native_candidate"
+    }
+    if not plan.materials or len(candidates) != len(plan.materials):
         findings.append(
             _finding(
                 "AFM-ABAQUS-LOWER-MATERIAL-001",
                 "error",
-                "The first native route requires exactly one complete isotropic "
-                "elastic material with density.",
+                "Native lowering requires every assigned material to be a complete "
+                "constant isotropic elastic material with density.",
             )
         )
         material, material_name = {}, None
+    elif len(candidates) == 1:
+        selected_material = next(iter(candidates.values()))
+        material = dict(selected_material.native_candidate)
+        material_name = selected_material.name
     else:
-        material = dict(candidates[0].native_candidate)
-        material_name = candidates[0].name
+        material, material_name = {}, None
 
     allowed_section_scopes = {"model"}
     if instance is not None:
         allowed_section_scopes.add(f"part:{instance.part}")
-    if (
-        len(plan.sections) != 1
-        or plan.sections[0].status != "references_resolved"
-        or plan.sections[0].scope not in allowed_section_scopes
-        or plan.sections[0].section_type != "*SOLID SECTION"
-    ):
+    valid_sections = [
+        item
+        for item in plan.sections
+        if item.status == "references_resolved"
+        and item.scope in allowed_section_scopes
+        and item.section_type == "*SOLID SECTION"
+    ]
+    if not plan.sections or len(valid_sections) != len(plan.sections):
         findings.append(
             _finding(
                 "AFM-ABAQUS-LOWER-SECTION-001",
                 "error",
-                "The first native route requires one model-scope homogeneous "
-                "*SOLID SECTION with resolved ELSET and material references.",
+                "Native lowering requires homogeneous *SOLID SECTION declarations "
+                "with resolved ELSET and material references in the selected scope.",
             )
         )
-    else:
-        section = plan.sections[0]
-        section_region = (section.region or "").upper()
-        uncovered = [
-            item
-            for item in plan.element_blocks
-            if (item.region or "").upper() != section_region
-        ]
-        if uncovered:
-            findings.append(
-                _finding(
-                    "AFM-ABAQUS-LOWER-SECTION-002",
-                    "error",
-                    "The homogeneous Section is not proven to cover every element "
-                    "declaration. The first native route requires each *ELEMENT "
-                    "block to declare the Section ELSET directly.",
-                    section.location,
-                )
+    section_regions = [(item.region or "").upper() for item in valid_sections]
+    if len(section_regions) != len(set(section_regions)):
+        findings.append(
+            _finding(
+                "AFM-ABAQUS-LOWER-SECTION-004",
+                "error",
+                "Each lowered ELSET must have exactly one SOLID SECTION assignment.",
             )
+        )
+    declared_regions = {(item.region or "").upper() for item in plan.element_blocks}
+    assigned_regions = set(section_regions)
+    if declared_regions != assigned_regions:
+        findings.append(
+            _finding(
+                "AFM-ABAQUS-LOWER-SECTION-002",
+                "error",
+                "SOLID SECTION regions must exactly cover the ELSET declared by "
+                "every *ELEMENT block; implicit subset inheritance is not guessed.",
+            )
+        )
+    material_assignments = []
+    for section in valid_sections:
         if dimension in {2} and assumption in {"plane_stress", "plane_strain"}:
             rows = section.rows
             if rows:
@@ -633,6 +665,16 @@ def assess(plan: abaqus_migration.AbaqusMigrationPlan) -> AbaqusNativeLoweringAs
                             section.location,
                         )
                     )
+        selected = candidates.get((section.material or "").upper())
+        if selected is not None and section.region is not None:
+            material_assignments.append(
+                AbaqusNativeMaterialAssignment(
+                    region=section.region.upper(),
+                    material_name=selected.name,
+                    material=dict(selected.native_candidate),
+                    location=section.location,
+                )
+            )
 
     steps = [item for item in plan.pending_assets if item.keyword == "*STEP"]
     procedures = [
@@ -780,6 +822,7 @@ def assess(plan: abaqus_migration.AbaqusMigrationPlan) -> AbaqusNativeLoweringAs
         degree=degree,
         material=material,
         material_name=material_name,
+        material_assignments=tuple(material_assignments),
         step_name=step_name,
         boundaries=boundaries,
         pressures=pressures,
@@ -937,7 +980,6 @@ def _native_case_source(assessment, *, source_entry):
         if assessment.assumption is None
         else f",\n        assumption={assessment.assumption!r}"
     )
-    material = assessment.material
     lines = [
         '"""Reviewed native AgentFEM draft lowered from an Abaqus input deck.\n\n',
         'See lowering.json for reviewer, units, decisions, and limitations.\n"""',
@@ -968,15 +1010,22 @@ def _native_case_source(assessment, *, source_entry):
         "    )",
         '    model = models.create(study=study, mesh=cell, name="migrated_model")',
         f"    displacement = model.field(fields.displacement(cell.domain, degree={assessment.degree}))",
-        "    model.material(",
-        "        elasticity.isotropic_elastic(",
-        f"            young={material['young']!r},",
-        f"            poisson={material['poisson']!r},",
-        f"            density={material['density']!r},",
-        f"            name={assessment.material_name!r},",
-        "        )",
-        "    )",
     ]
+    for assignment in assessment.material_assignments:
+        material = assignment.material
+        lines.extend(
+            (
+                "    model.material(",
+                "        elasticity.isotropic_elastic(",
+                f"            young={material['young']!r},",
+                f"            poisson={material['poisson']!r},",
+                f"            density={material['density']!r},",
+                f"            name={assignment.material_name!r},",
+                "        ),",
+                f"        region=cell.element_set({assignment.region!r}),",
+                "    )",
+            )
+        )
     for index, item in enumerate(assessment.boundaries, 1):
         lines.extend(
             (
