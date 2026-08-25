@@ -83,6 +83,53 @@ def test_abaqus_element_reader_preserves_c3d10h_formulation_identity(tmp_path):
     assert definitions[0].additional_pressure_variables == 1
 
 
+def test_abaqus_source_graph_tracks_nested_includes_and_content_identity(tmp_path):
+    root = tmp_path / "model.inp"
+    mesh_source = tmp_path / "parts" / "mesh.inp"
+    sets_source = tmp_path / "parts" / "sets.inp"
+    mesh_source.parent.mkdir()
+    root.write_text("*Heading\n*Include, input='parts/mesh.inp'\n", encoding="utf-8")
+    mesh_source.write_text(
+        "*Node\n1,0,0,0\n*Include, input=sets.inp\n", encoding="utf-8"
+    )
+    sets_source.write_text("*Nset, nset=FIXED\n1\n", encoding="utf-8")
+
+    graph = abaqus.read_source_graph(root)
+    first_fingerprint = graph.fingerprint
+
+    assert graph.complete is True
+    assert [item.logical_path for item in graph.files] == [
+        "model.inp",
+        "parts/mesh.inp",
+        "parts/sets.inp",
+    ]
+    assert [item.status for item in graph.edges] == ["resolved", "resolved"]
+    sets_source.write_text("*Nset, nset=FIXED\n1,2\n", encoding="utf-8")
+    assert abaqus.read_source_graph(root).fingerprint != first_fingerprint
+
+
+def test_abaqus_source_graph_reports_missing_and_recursive_includes(tmp_path):
+    root = tmp_path / "model.inp"
+    child = tmp_path / "child.inp"
+    root.write_text(
+        "*Include, input=child.inp\n*Include, input=missing.inp\n",
+        encoding="utf-8",
+    )
+    child.write_text("*Include, input=model.inp\n", encoding="utf-8")
+
+    report = abaqus.inspect_input(root)
+    summary = report.summary()["source_graph"]
+
+    assert summary["complete"] is False
+    assert [item["status"] for item in summary["edges"]] == [
+        "resolved",
+        "cycle",
+        "missing",
+    ]
+    assert any("AFM-ABAQUS-INCLUDE-002" in item for item in summary["issues"])
+    assert any("AFM-ABAQUS-INCLUDE-003" in item for item in summary["issues"])
+
+
 def test_c3d10h_derivation_changes_only_element_formulation_keyword(tmp_path):
     source = tmp_path / "quadratic.dat"
     source.write_text(

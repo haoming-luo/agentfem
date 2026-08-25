@@ -447,6 +447,12 @@ def inspect_abaqus_input(path: str | Path) -> abaqus.AbaqusMigrationReport:
     return abaqus.inspect_input(path)
 
 
+def inspect_abaqus_source_graph(path: str | Path) -> abaqus.AbaqusSourceGraph:
+    """Resolve and fingerprint nested Abaqus input sources without flattening."""
+
+    return abaqus.read_source_graph(path)
+
+
 def supported_abaqus_element_types(*, family: str | None = None) -> tuple[str, ...]:
     """Return Abaqus declarations with explicit AgentFEM import semantics."""
 

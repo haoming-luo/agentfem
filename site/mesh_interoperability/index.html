@@ -1550,6 +1550,13 @@ solver controls require format-specific semantic adapters.</p>
 conversion:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>agentfem<span class="w"> </span>inspect-abaqus<span class="w"> </span>model.inp<span class="w"> </span>--json<span class="w"> </span>--write<span class="w"> </span>migration.json
 </code></pre></div>
+<p>The inspector resolves nested <code>*INCLUDE</code> declarations into a
+content-addressed source graph. Every source file and include edge is retained,
+a change in any included file changes the graph fingerprint, and missing files
+or recursive cycles receive stable diagnostic codes. This stage intentionally
+does not concatenate files or pretend that Part/Instance scopes have already
+been flattened; it establishes the provenance required by later scope-aware
+migration and conversion caching.</p>
 <p>The <a href="../abaqus_migration/">Abaqus migration guide</a> separates declaration and
 topology, neutral conversion, native formulation, and verification evidence.</p>
 <p>Gmsh is a separate optional route. Direct in-memory Gmsh models and

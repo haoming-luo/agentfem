@@ -1393,10 +1393,11 @@ side-effect-free inventory before mesh conversion or solving:</p>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">report</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">inspect_abaqus_input</span><span class="p">(</span><span class="s2">&quot;model.inp&quot;</span><span class="p">)</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">text</span><span class="p">())</span>
 </code></pre></div>
-<p>The report records the source fingerprint, element declarations, node and
-element counts, NSET/ELSET/SURFACE semantics, equation count, keyword
-inventory, and migration warnings.  It does not write a converted mesh and it
-does not infer that execution success proves formulation equivalence.</p>
+<p>The report records the source fingerprint, recursive include graph, element
+declarations, node and element counts, NSET/ELSET/SURFACE semantics, equation
+count, keyword inventory, and migration warnings. It does not write a
+converted mesh and it does not infer that execution success proves formulation
+equivalence.</p>
 <h2 id="three-different-meanings-of-support">Three different meanings of support<a class="headerlink" href="#three-different-meanings-of-support" title="Permanent link">&para;</a></h2>
 <p>An Abaqus element name combines geometric topology with numerical choices.
 For example, <code>C3D8</code>, <code>C3D8R</code>, and <code>C3D8H</code> share eight-node hexahedral
@@ -1451,9 +1452,11 @@ an explicit decision instead of silently substituting a different material or
 procedure.</p>
 <p>Part and instance labels are scoped in Abaqus. The inspector can count decks
 with repeated labels across Parts without flattening them; the report marks
-that an instance-aware lowering decision remains. <code>*INCLUDE</code> dependencies are
-listed and missing files are diagnosed, but a single-file inspection does not
-silently execute or expand them.</p>
+that an instance-aware lowering decision remains. Nested <code>*INCLUDE</code>
+dependencies are resolved relative to the declaring file and recorded as a
+content-addressed graph. Missing files and recursive cycles make the graph
+incomplete, while scoped semantics remain unflattened until an explicit
+instance-aware migration stage is selected.</p>
 <h2 id="target-migration-project">Target migration project<a class="headerlink" href="#target-migration-project" title="Permanent link">&para;</a></h2>
 <p>The intended generated project remains readable and keeps the source deck:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>project/

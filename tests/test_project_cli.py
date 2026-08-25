@@ -240,6 +240,8 @@ def test_cli_inspects_abaqus_deck_without_converting_or_solving(tmp_path, capsys
     assert emitted["schema"] == "agentfem.abaqus-migration-report"
     assert emitted["topology_only_elements"] == ["C3D8R"]
     assert saved["source_sha256"] == emitted["source_sha256"]
+    assert emitted["source_graph"]["complete"] is True
+    assert emitted["source_graph"]["files"][0]["logical_path"] == "one_hex.inp"
 
 
 def test_upgrade_report_is_location_aware_and_does_not_rewrite_case(tmp_path):

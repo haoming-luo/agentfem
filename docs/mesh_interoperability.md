@@ -19,6 +19,14 @@ conversion:
 agentfem inspect-abaqus model.inp --json --write migration.json
 ```
 
+The inspector resolves nested `*INCLUDE` declarations into a
+content-addressed source graph. Every source file and include edge is retained,
+a change in any included file changes the graph fingerprint, and missing files
+or recursive cycles receive stable diagnostic codes. This stage intentionally
+does not concatenate files or pretend that Part/Instance scopes have already
+been flattened; it establishes the provenance required by later scope-aware
+migration and conversion caching.
+
 The [Abaqus migration guide](abaqus_migration.md) separates declaration and
 topology, neutral conversion, native formulation, and verification evidence.
 

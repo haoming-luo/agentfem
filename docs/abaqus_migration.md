@@ -18,10 +18,11 @@ report = mesh.inspect_abaqus_input("model.inp")
 print(report.text())
 ```
 
-The report records the source fingerprint, element declarations, node and
-element counts, NSET/ELSET/SURFACE semantics, equation count, keyword
-inventory, and migration warnings.  It does not write a converted mesh and it
-does not infer that execution success proves formulation equivalence.
+The report records the source fingerprint, recursive include graph, element
+declarations, node and element counts, NSET/ELSET/SURFACE semantics, equation
+count, keyword inventory, and migration warnings. It does not write a
+converted mesh and it does not infer that execution success proves formulation
+equivalence.
 
 ## Three different meanings of support
 
@@ -87,9 +88,11 @@ procedure.
 
 Part and instance labels are scoped in Abaqus. The inspector can count decks
 with repeated labels across Parts without flattening them; the report marks
-that an instance-aware lowering decision remains. `*INCLUDE` dependencies are
-listed and missing files are diagnosed, but a single-file inspection does not
-silently execute or expand them.
+that an instance-aware lowering decision remains. Nested `*INCLUDE`
+dependencies are resolved relative to the declaring file and recorded as a
+content-addressed graph. Missing files and recursive cycles make the graph
+incomplete, while scoped semantics remain unflattened until an explicit
+instance-aware migration stage is selected.
 
 ## Target migration project
 

@@ -149,7 +149,7 @@ def test_inspection_accepts_part_scoped_duplicate_labels_and_reports_scope(tmp_p
     assert any("instance-aware" in item for item in report.warnings)
 
 
-def test_inspection_reports_include_dependencies_without_expanding_them(tmp_path):
+def test_inspection_resolves_include_graph_without_flattening_scopes(tmp_path):
     source = tmp_path / "root.inp"
     source.write_text(
         "*Heading\n*Include, input=mesh.inc\n*Include, input=missing.inc\n",
@@ -160,7 +160,16 @@ def test_inspection_reports_include_dependencies_without_expanding_them(tmp_path
     report = abaqus.inspect_input(source)
 
     assert report.include_files == ("mesh.inc", "missing.inc")
-    assert any("not expanded" in item for item in report.warnings)
+    assert [item.logical_path for item in report.source_graph.files] == [
+        "root.inp",
+        "mesh.inc",
+    ]
+    assert [item.status for item in report.source_graph.edges] == [
+        "resolved",
+        "missing",
+    ]
+    assert report.source_graph.complete is False
+    assert any("not flattened" in item for item in report.warnings)
     assert any("missing.inc" in item for item in report.warnings)
 
 

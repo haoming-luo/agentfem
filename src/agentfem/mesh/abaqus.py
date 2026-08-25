@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 from itertools import product
 import json
+import os
 from pathlib import Path
 import re
 import numpy as np
@@ -852,6 +853,189 @@ class _AbaqusDeckInventory:
     include_files: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class AbaqusSourceFile:
+    """One content-addressed file in an Abaqus input-deck source graph."""
+
+    path: Path
+    logical_path: str
+    source_sha256: str
+    include_files: tuple[str, ...] = ()
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "path": str(self.path),
+            "logical_path": self.logical_path,
+            "source_sha256": self.source_sha256,
+            "include_files": list(self.include_files),
+        }
+
+
+@dataclass(frozen=True)
+class AbaqusIncludeEdge:
+    """One declared ``*INCLUDE`` relation and its resolution status."""
+
+    source: str
+    declaration: str
+    target: str
+    status: str
+
+    def summary(self) -> dict[str, str]:
+        return {
+            "source": self.source,
+            "declaration": self.declaration,
+            "target": self.target,
+            "status": self.status,
+        }
+
+
+@dataclass(frozen=True)
+class AbaqusSourceGraph:
+    """Recursive, content-addressed identity of one Abaqus input deck.
+
+    The graph is an inspection asset, not a flattened solver deck. Keeping
+    include relations explicit prevents nested files, missing dependencies,
+    or cycles from being hidden by eager text concatenation.
+    """
+
+    root: Path
+    files: tuple[AbaqusSourceFile, ...]
+    edges: tuple[AbaqusIncludeEdge, ...]
+    fingerprint: str
+    issues: tuple[str, ...] = ()
+
+    @property
+    def complete(self) -> bool:
+        return not self.issues and all(edge.status == "resolved" for edge in self.edges)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "schema": "agentfem.abaqus-source-graph",
+            "schema_version": "0.1.0",
+            "root": str(self.root),
+            "fingerprint": self.fingerprint,
+            "complete": self.complete,
+            "files": [item.summary() for item in self.files],
+            "edges": [item.summary() for item in self.edges],
+            "issues": list(self.issues),
+        }
+
+
+def read_source_graph(path: str | Path) -> AbaqusSourceGraph:
+    """Resolve nested Abaqus ``*INCLUDE`` files without mutating the deck.
+
+    Relative include paths are resolved from the file that declares them.
+    Missing files and recursive cycles remain inspectable issues instead of
+    being ignored or causing unbounded recursion. The graph fingerprint is
+    based on logical paths, contents, and edges, so changing any included
+    source invalidates downstream conversion evidence.
+    """
+
+    root = Path(path).expanduser().resolve()
+    if not root.is_file():
+        raise FileNotFoundError(f"Abaqus input deck does not exist: {root}")
+
+    files: dict[Path, AbaqusSourceFile] = {}
+    edges: list[AbaqusIncludeEdge] = []
+    issues: list[str] = []
+
+    def logical(selected: Path) -> str:
+        return Path(os.path.relpath(selected, root.parent)).as_posix()
+
+    def include_declarations(selected: Path) -> tuple[str, ...]:
+        declared: list[str] = []
+        for raw in selected.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line.startswith("*") or line.startswith("**"):
+                continue
+            keyword, options = _keyword_options(line)
+            if keyword != "*INCLUDE":
+                continue
+            value = options.get("INPUT") or options.get("FILE")
+            if value is None or not value.strip():
+                declared.append("<unspecified>")
+            else:
+                declared.append(value.strip().strip('"').strip("'"))
+        return tuple(declared)
+
+    def visit(selected: Path, ancestry: tuple[Path, ...]) -> None:
+        resolved = selected.expanduser().resolve()
+        if resolved in files:
+            return
+        raw = resolved.read_bytes()
+        declarations = include_declarations(resolved)
+        files[resolved] = AbaqusSourceFile(
+            path=resolved,
+            logical_path=logical(resolved),
+            source_sha256=sha256(raw).hexdigest(),
+            include_files=declarations,
+        )
+        for declaration in declarations:
+            if declaration == "<unspecified>":
+                edges.append(
+                    AbaqusIncludeEdge(
+                        logical(resolved), declaration, "<unspecified>", "missing"
+                    )
+                )
+                issues.append(
+                    f"AFM-ABAQUS-INCLUDE-001: {logical(resolved)} declares an "
+                    "*INCLUDE without INPUT=."
+                )
+                continue
+            candidate = Path(declaration).expanduser()
+            if not candidate.is_absolute():
+                candidate = resolved.parent / candidate
+            candidate = candidate.resolve()
+            target = logical(candidate)
+            if candidate in ancestry or candidate == resolved:
+                edges.append(
+                    AbaqusIncludeEdge(logical(resolved), declaration, target, "cycle")
+                )
+                issues.append(
+                    "AFM-ABAQUS-INCLUDE-002: recursive include cycle: "
+                    + " -> ".join(logical(item) for item in (*ancestry, resolved, candidate))
+                    + "."
+                )
+                continue
+            if not candidate.is_file():
+                edges.append(
+                    AbaqusIncludeEdge(logical(resolved), declaration, target, "missing")
+                )
+                issues.append(
+                    f"AFM-ABAQUS-INCLUDE-003: {logical(resolved)} references "
+                    f"missing include {declaration!r}."
+                )
+                continue
+            edges.append(
+                AbaqusIncludeEdge(logical(resolved), declaration, target, "resolved")
+            )
+            visit(candidate, (*ancestry, resolved))
+
+    visit(root, ())
+    graph_payload = {
+        "root": logical(root),
+        "files": [
+            {
+                "logical_path": item.logical_path,
+                "source_sha256": item.source_sha256,
+                "include_files": list(item.include_files),
+            }
+            for item in files.values()
+        ],
+        "edges": [item.summary() for item in edges],
+    }
+    fingerprint = sha256(
+        json.dumps(graph_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return AbaqusSourceGraph(
+        root=root,
+        files=tuple(files.values()),
+        edges=tuple(edges),
+        fingerprint=fingerprint,
+        issues=tuple(dict.fromkeys(issues)),
+    )
+
+
 def _keyword_options(line: str) -> tuple[str, dict[str, str]]:
     fields = [item.strip() for item in line.split(",")]
     options: dict[str, str] = {}
@@ -956,6 +1140,7 @@ class AbaqusMigrationReport:
 
     source: Path
     source_sha256: str
+    source_graph: AbaqusSourceGraph
     node_count: int
     element_count: int | None
     element_definitions: tuple[AbaqusElementDefinition, ...]
@@ -984,6 +1169,7 @@ class AbaqusMigrationReport:
             "schema_version": "0.2.0",
             "source": str(self.source),
             "source_sha256": self.source_sha256,
+            "source_graph": self.source_graph.summary(),
             "node_count": self.node_count,
             "element_count": self.element_count,
             "element_definitions": [item.summary() for item in self.element_definitions],
@@ -1013,6 +1199,9 @@ class AbaqusMigrationReport:
             f"Equations: {self.equation_count if self.equation_count is not None else 'requires scoped resolution'}",
             f"Parts/instances/materials: {len(self.part_names)}/{len(self.instance_names)}/{len(self.material_names)}",
             f"Sections/steps/includes: {self.section_count}/{self.step_count}/{len(self.include_files)}",
+            f"Source graph: {len(self.source_graph.files)} files, "
+            f"{len(self.source_graph.edges)} include edges, "
+            f"{'complete' if self.source_graph.complete else 'incomplete'}",
         ]
         if self.topology_only_elements:
             lines.append(
@@ -1027,6 +1216,7 @@ def inspect_input(path: str | Path) -> AbaqusMigrationReport:
 
     source = Path(path)
     raw = source.read_bytes()
+    source_graph = read_source_graph(source)
     deck = _inspect_deck_structure(source)
     definitions = read_element_definitions(source)
     warnings: list[str] = []
@@ -1082,19 +1272,15 @@ def inspect_input(path: str | Path) -> AbaqusMigrationReport:
             "flattening step."
         )
     if deck.include_files:
-        missing = [
-            item for item in deck.include_files
-            if item == "<unspecified>" or not (source.parent / item).exists()
-        ]
         warnings.append(
-            "*INCLUDE dependencies are inventoried but are not expanded by this "
-            "single-file inspection."
+            "*INCLUDE dependencies are resolved as a content-addressed source graph; "
+            "scoped engineering semantics are not flattened or silently lowered."
         )
-        if missing:
-            warnings.append("Unresolved include files: " + ", ".join(missing) + ".")
+    warnings.extend(source_graph.issues)
     return AbaqusMigrationReport(
         source=source,
         source_sha256=sha256(raw).hexdigest(),
+        source_graph=source_graph,
         node_count=deck.node_count,
         element_count=deck.element_count,
         element_definitions=definitions,
