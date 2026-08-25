@@ -680,6 +680,78 @@ def test_native_lowering_emits_reviewed_draft_without_erasing_guard(tmp_path):
     ).read_text()
 
 
+def test_native_lowering_retains_tabular_amplitude_and_scales_final_static_state(
+    tmp_path,
+):
+    source = tmp_path / "amplitude.inp"
+    _write_native_static_deck(source)
+    text = source.read_text(encoding="utf-8")
+    text = text.replace(
+        "*Step, name=PULL\n*Static",
+        "*Amplitude, name=RAMP, definition=TABULAR, time=STEP TIME\n"
+        "0., 0., 1., 0.5\n2., 0.25\n"
+        "*Step, name=PULL\n*Static\n0.1, 2.0",
+    )
+    text = text.replace(
+        "MOVED, 1, 2, 0.\nMOVED, 3, 3, 0.01",
+        "MOVED, 1, 2, 0.\n*Boundary, amplitude=RAMP\n"
+        "MOVED, 3, 3, 0.01",
+    )
+    source.write_text(text, encoding="utf-8")
+
+    assessment = abaqus_lowering.assess(abaqus_migration.plan(source))
+
+    assert assessment.eligible is True
+    assert assessment.step_time_period == 2.0
+    assert assessment.amplitudes[0].step_end_value == 0.25
+    loaded = next(item for item in assessment.boundaries if item.amplitude)
+    assert loaded.reference_value == 0.01
+    assert loaded.value == 0.0025
+    assert loaded.amplitude == "RAMP"
+    assert "AFM-ABAQUS-LOWER-AMPLITUDE-101" in {
+        item.code for item in assessment.findings
+    }
+
+    project = tmp_path / "migrated-amplitude"
+    abaqus_migration.create_project(source, project, created_with="test")
+    abaqus_lowering.lower_project(
+        project,
+        reviewed_by="Test Engineer",
+        unit_system="mm-N-s",
+    )
+    native = (project / "case.native.py").read_text(encoding="utf-8")
+    lowering = json.loads((project / "lowering.json").read_text(encoding="utf-8"))
+    assert "SOURCE_AMPLITUDES" in native
+    assert "amplitudes.tabular" in native
+    assert "value=0.0025" in native
+    assert lowering["assessment"]["amplitudes"][0]["lowering"] == (
+        "linear_static_final_state_equivalent"
+    )
+    namespace = runpy.run_path(str(project / "case.native.py"))
+    result = namespace["main"]()
+    assert result.status == "completed"
+
+
+def test_native_lowering_rejects_absolute_or_non_tabular_amplitude(tmp_path):
+    source = tmp_path / "unsupported-amplitude.inp"
+    _write_native_static_deck(source)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            "*Step, name=PULL",
+            "*Amplitude, name=ABS, value=ABSOLUTE\n0., 0., 1., 1.\n"
+            "*Step, name=PULL",
+        ),
+        encoding="utf-8",
+    )
+
+    assessment = abaqus_lowering.assess(abaqus_migration.plan(source))
+
+    assert assessment.eligible is False
+    assert "AFM-ABAQUS-LOWER-AMPLITUDE-001" in {
+        item.code for item in assessment.findings if item.severity == "error"
+    }
+
+
 def test_native_lowering_blocks_reduced_integration_and_unlowered_load(tmp_path):
     source = tmp_path / "unsupported.inp"
     _write_native_static_deck(source)

@@ -70,6 +70,8 @@ The first executable route is intentionally narrow:
   through non-overlapping `*SOLID SECTION` ELSET regions that exactly cover
   every element declaration;
 - one linear `*STATIC` Step;
+- optional named, relative `*AMPLITUDE, DEFINITION=TABULAR` histories in Step
+  time or total time;
 - ordinary displacement `*BOUNDARY` rows targeting preserved NSETs;
 - optional `*DSLOAD` pressure on an explicit element-based SURFACE;
 - optional three-dimensional whole-material `*DLOAD, GRAV`, consumed through
@@ -85,9 +87,18 @@ a declared non-unit Section thickness is also blocked. Positive Abaqus
 pressure and native `model.pressure(...)` share the same inward convention;
 the decision is recorded in `lowering.json`.
 
+For this one-Step geometrically linear route, a referenced table is retained
+as an ordinary `amplitudes.tabular(...)` source asset and evaluated at the
+declared static Step end time. The reference magnitude, amplitude name, full
+table, Step duration, endpoint multiplier, and resulting final magnitude all
+remain in `lowering.json`. The generated case computes the equivalent final
+linear equilibrium state; it does not claim to reproduce intermediate Abaqus
+increments. Absolute amplitudes, non-tabular definitions, ambiguous Step time,
+and multi-Step histories remain blocked.
+
 Reduced-integration/hourglass and hybrid declarations, multiple instances,
 overlapping or implicitly inherited Section regions, `NLGEOM`, concentrated
-loads, amplitudes, contact, equations, user
+loads, unsupported amplitude forms, contact, equations, user
 materials, `OP`-dependent boundary inheritance, non-element surfaces, and
 unlowered assets are rejected with stable findings. Output
 requests remain source evidence while the draft uses AgentFEM's structured
@@ -201,6 +212,18 @@ the plan, but the input deck alone cannot supply the Fortran source, compiler
 ABI, stress/tangent convention, or validation evidence required to execute a
 UMAT, VUMAT, or UHYPER. Migration therefore points toward AgentFEM's user
 material contract instead of pretending to translate arbitrary subroutines.
+Inspect the accompanying source independently before any adapter work:
+
+```bash
+agentfem inspect-user-material materials/legacy_umat.for \
+  --write materials/legacy_umat.inspection.json --json
+```
+
+The inspection fingerprints the file, identifies UMAT or UHYPER, inventories
+includes and subroutine calls, and selects a restricted-adapter or manual-
+adaptation route. It never compiles or executes the file and always reports
+`executable: false`; compilation and material-point/FEM verification are later
+evidence gates.
 
 Part-level section assignments are projected onto every matching Instance in
 `effective_assignments`. Instance positioning data remain explicit and receive

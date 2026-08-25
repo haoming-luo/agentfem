@@ -17,6 +17,28 @@ bridge must preserve the material-point contract:
 `constitutive.user_material` now records this solver-neutral boundary. It is an
 interface contract, not an executable Abaqus runtime.
 
+## Inspect before adapting
+
+An existing Fortran asset can now enter a deterministic inspection gate:
+
+```bash
+agentfem inspect-user-material legacy.for \
+  --write legacy.inspection.json --json
+```
+
+The command retains a SHA-256 source identity, detects a single UMAT or UHYPER
+entry point, inventories include files, distinguishes known Abaqus utility
+calls from project subroutines, and recommends one of three routes:
+
+- restricted UHYPER energy adapter;
+- restricted UMAT material-point adapter;
+- manual interface identification/adaptation.
+
+This is useful migration automation, not source translation. A clean report
+means only that the source is a candidate for the next adapter stage. A call to
+an Abaqus utility is an explicit blocker until its semantics are replaced or a
+compatible support library is provided.
+
 ## Why UHYPER is the first practical bridge
 
 UHYPER is narrower than UMAT. It describes isotropic hyperelastic energy and
@@ -55,6 +77,7 @@ as drop-in compatible.
 | Stage | Deliverable | Evidence gate |
 | --- | --- | --- |
 | 0 | Solver-neutral material-point input/output contract | validation tests |
+| 0.5 | Source inspection and route selection | fingerprinted machine-readable report |
 | 1 | UHYPER energy adapter | deformation-path stress/tangent comparison |
 | 2 | Quadrature state, trial/commit/rollback | one-element inelastic test |
 | 3 | Restricted UMAT shared-library adapter | identical material-point paths |

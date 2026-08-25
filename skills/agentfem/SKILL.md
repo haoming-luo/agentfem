@@ -291,6 +291,14 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   Multiple constant isotropic materials are eligible only when preserved
   ELSET/SOLID SECTION declarations exactly and unambiguously partition the
   selected solver domain.
+  A single linear-static Step may lower a named relative tabular amplitude to
+  its final equilibrium multiplier only when `lowering.json` retains the full
+  table, Step duration, reference value, and final value. Do not describe this
+  as an intermediate-increment replay.
+- Before adapting an Abaqus UMAT or UHYPER, run `agentfem
+  inspect-user-material SOURCE --json`. Preserve the source hash and findings.
+  `adapter_candidate` is a development route, not an executable material; an
+  Abaqus utility call requires explicit replacement and verification.
 - Read an Abaqus `C3D10H` source directly with `mesh.read_abaqus_mesh(...)`,
   inspect `cell.element_definitions`, and consume it only through the verified
   P2-displacement/DG0-pressure mixed route. Do not derive another mesh when the

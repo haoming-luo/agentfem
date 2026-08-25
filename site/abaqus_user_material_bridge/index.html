@@ -778,6 +778,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#inspect-before-adapting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspect before adapting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#why-uhyper-is-the-first-practical-bridge" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1040,6 +1051,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#inspect-before-adapting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspect before adapting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#why-uhyper-is-the-first-practical-bridge" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1156,6 +1178,23 @@ bridge must preserve the material-point contract:</p>
 </ul>
 <p><code>constitutive.user_material</code> now records this solver-neutral boundary. It is an
 interface contract, not an executable Abaqus runtime.</p>
+<h2 id="inspect-before-adapting">Inspect before adapting<a class="headerlink" href="#inspect-before-adapting" title="Permanent link">&para;</a></h2>
+<p>An existing Fortran asset can now enter a deterministic inspection gate:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>agentfem<span class="w"> </span>inspect-user-material<span class="w"> </span>legacy.for<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>--write<span class="w"> </span>legacy.inspection.json<span class="w"> </span>--json
+</code></pre></div>
+<p>The command retains a SHA-256 source identity, detects a single UMAT or UHYPER
+entry point, inventories include files, distinguishes known Abaqus utility
+calls from project subroutines, and recommends one of three routes:</p>
+<ul>
+<li>restricted UHYPER energy adapter;</li>
+<li>restricted UMAT material-point adapter;</li>
+<li>manual interface identification/adaptation.</li>
+</ul>
+<p>This is useful migration automation, not source translation. A clean report
+means only that the source is a candidate for the next adapter stage. A call to
+an Abaqus utility is an explicit blocker until its semantics are replaced or a
+compatible support library is provided.</p>
 <h2 id="why-uhyper-is-the-first-practical-bridge">Why UHYPER is the first practical bridge<a class="headerlink" href="#why-uhyper-is-the-first-practical-bridge" title="Permanent link">&para;</a></h2>
 <p>UHYPER is narrower than UMAT. It describes isotropic hyperelastic energy and
 its derivatives with respect to invariants. That maps naturally to
@@ -1200,6 +1239,11 @@ as drop-in compatible.</p>
 <td>0</td>
 <td>Solver-neutral material-point input/output contract</td>
 <td>validation tests</td>
+</tr>
+<tr>
+<td>0.5</td>
+<td>Source inspection and route selection</td>
+<td>fingerprinted machine-readable report</td>
 </tr>
 <tr>
 <td>1</td>

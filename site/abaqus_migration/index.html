@@ -1478,6 +1478,8 @@ explicit second action:</p>
   through non-overlapping <code>*SOLID SECTION</code> ELSET regions that exactly cover
   every element declaration;</li>
 <li>one linear <code>*STATIC</code> Step;</li>
+<li>optional named, relative <code>*AMPLITUDE, DEFINITION=TABULAR</code> histories in Step
+  time or total time;</li>
 <li>ordinary displacement <code>*BOUNDARY</code> rows targeting preserved NSETs;</li>
 <li>optional <code>*DSLOAD</code> pressure on an explicit element-based SURFACE;</li>
 <li>optional three-dimensional whole-material <code>*DLOAD, GRAV</code>, consumed through
@@ -1492,9 +1494,17 @@ their first row. Two-dimensional lowering is currently per unit thickness, so
 a declared non-unit Section thickness is also blocked. Positive Abaqus
 pressure and native <code>model.pressure(...)</code> share the same inward convention;
 the decision is recorded in <code>lowering.json</code>.</p>
+<p>For this one-Step geometrically linear route, a referenced table is retained
+as an ordinary <code>amplitudes.tabular(...)</code> source asset and evaluated at the
+declared static Step end time. The reference magnitude, amplitude name, full
+table, Step duration, endpoint multiplier, and resulting final magnitude all
+remain in <code>lowering.json</code>. The generated case computes the equivalent final
+linear equilibrium state; it does not claim to reproduce intermediate Abaqus
+increments. Absolute amplitudes, non-tabular definitions, ambiguous Step time,
+and multi-Step histories remain blocked.</p>
 <p>Reduced-integration/hourglass and hybrid declarations, multiple instances,
 overlapping or implicitly inherited Section regions, <code>NLGEOM</code>, concentrated
-loads, amplitudes, contact, equations, user
+loads, unsupported amplitude forms, contact, equations, user
 materials, <code>OP</code>-dependent boundary inheritance, non-element surfaces, and
 unlowered assets are rejected with stable findings. Output
 requests remain source evidence while the draft uses AgentFEM's structured
@@ -1592,7 +1602,16 @@ dedicated review status. Constants, <code>*DEPVAR</code>, and source locations r
 the plan, but the input deck alone cannot supply the Fortran source, compiler
 ABI, stress/tangent convention, or validation evidence required to execute a
 UMAT, VUMAT, or UHYPER. Migration therefore points toward AgentFEM's user
-material contract instead of pretending to translate arbitrary subroutines.</p>
+material contract instead of pretending to translate arbitrary subroutines.
+Inspect the accompanying source independently before any adapter work:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>agentfem<span class="w"> </span>inspect-user-material<span class="w"> </span>materials/legacy_umat.for<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span>--write<span class="w"> </span>materials/legacy_umat.inspection.json<span class="w"> </span>--json
+</code></pre></div>
+<p>The inspection fingerprints the file, identifies UMAT or UHYPER, inventories
+includes and subroutine calls, and selects a restricted-adapter or manual-
+adaptation route. It never compiles or executes the file and always reports
+<code>executable: false</code>; compilation and material-point/FEM verification are later
+evidence gates.</p>
 <p>Part-level section assignments are projected onto every matching Instance in
 <code>effective_assignments</code>. Instance positioning data remain explicit and receive
 a review finding until the corresponding mesh transform has been lowered.
@@ -1605,18 +1624,18 @@ preservation, not a claim that Abaqus execution semantics have already been
 reproduced.</p>
 <h2 id="target-migration-project">Target migration project<a class="headerlink" href="#target-migration-project" title="Permanent link">&para;</a></h2>
 <p>The intended generated project remains readable and keeps the source deck:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>project/
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>├── case.py
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>├── agentfem.toml
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>├── AGENTS.md
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>├── migration.md
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>├── migration.json
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>├── mesh/
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>├── materials/
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>├── source/
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>│   ├── model.inp
-<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>│   └── included-files...
-<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>└── outputs/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>project/
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>├── case.py
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>├── agentfem.toml
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>├── AGENTS.md
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>├── migration.md
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>├── migration.json
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>├── mesh/
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>├── materials/
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>├── source/
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>│   ├── model.inp
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>│   └── included-files...
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>└── outputs/
 </code></pre></div>
 <p>The copied input graph is authoritative migration evidence. Derived XDMF/HDF5 is a cached
 solver artifact whose manifest is invalidated when the source or conversion

@@ -343,6 +343,22 @@ def _command_inspect_abaqus(args) -> int:
     return 0
 
 
+def _command_inspect_user_material(args) -> int:
+    from .constitutive.user_material import inspect_abaqus_user_material
+
+    report = inspect_abaqus_user_material(
+        Path(args.path).expanduser().resolve(), kind=args.kind
+    )
+    record = report.summary()
+    if args.write:
+        destination = Path(args.write).expanduser().resolve()
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(_json(record) + "\n", encoding="utf-8")
+        record["written_report"] = str(destination)
+    _emit(record, as_json=args.json, human=report.format())
+    return 2 if report.status == "manual_adaptation_required" else 0
+
+
 def _command_migrate_abaqus(args) -> int:
     from .mesh import create_abaqus_migration_project
 
@@ -495,6 +511,17 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_abaqus.add_argument("--write")
     inspect_abaqus.add_argument("--json", action="store_true")
 
+    inspect_user_material = sub.add_parser(
+        "inspect-user-material",
+        help="Classify an Abaqus UMAT/UHYPER source before adapter development.",
+    )
+    inspect_user_material.add_argument("path")
+    inspect_user_material.add_argument(
+        "--kind", choices=("auto", "UMAT", "UHYPER"), default="auto"
+    )
+    inspect_user_material.add_argument("--write")
+    inspect_user_material.add_argument("--json", action="store_true")
+
     migrate_abaqus = sub.add_parser(
         "migrate-abaqus",
         help="Create a fail-closed AgentFEM project from an Abaqus input deck.",
@@ -568,6 +595,8 @@ def main(argv: list[str] | None = None) -> int:
             return _command_inspect(args)
         if args.command == "inspect-abaqus":
             return _command_inspect_abaqus(args)
+        if args.command == "inspect-user-material":
+            return _command_inspect_user_material(args)
         if args.command == "migrate-abaqus":
             return _command_migrate_abaqus(args)
         if args.command == "lower-abaqus":

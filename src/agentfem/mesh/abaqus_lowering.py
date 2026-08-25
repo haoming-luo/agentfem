@@ -34,6 +34,30 @@ class AbaqusNativeLoweringBlocked(ValueError):
 
 
 @dataclass(frozen=True)
+class AbaqusNativeAmplitude:
+    """One relative tabular amplitude retained by final-state lowering."""
+
+    name: str
+    times: tuple[float, ...]
+    values: tuple[float, ...]
+    time_span: str
+    step_end_value: float
+    location: abaqus_migration.AbaqusSourceLocation
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "definition": "tabular",
+            "time_span": self.time_span,
+            "times": list(self.times),
+            "values": list(self.values),
+            "step_end_value": self.step_end_value,
+            "lowering": "linear_static_final_state_equivalent",
+            "location": self.location.summary(),
+        }
+
+
+@dataclass(frozen=True)
 class AbaqusNativeBoundary:
     """One source ``*BOUNDARY`` row accepted by the native draft."""
 
@@ -42,12 +66,16 @@ class AbaqusNativeBoundary:
     value: float
     step: str | None
     location: abaqus_migration.AbaqusSourceLocation
+    reference_value: float | None = None
+    amplitude: str | None = None
 
     def summary(self) -> dict[str, object]:
         return {
             "region": self.region,
             "components": list(self.components),
             "value": self.value,
+            "reference_value": self.reference_value,
+            "amplitude": self.amplitude,
             "step": self.step,
             "location": self.location.summary(),
         }
@@ -61,11 +89,15 @@ class AbaqusNativePressure:
     value: float
     step: str
     location: abaqus_migration.AbaqusSourceLocation
+    reference_value: float | None = None
+    amplitude: str | None = None
 
     def summary(self) -> dict[str, object]:
         return {
             "surface": self.surface,
             "value": self.value,
+            "reference_value": self.reference_value,
+            "amplitude": self.amplitude,
             "source_sign_convention": "positive_pressure_acts_inward",
             "native_configuration": "reference",
             "step": self.step,
@@ -80,10 +112,18 @@ class AbaqusNativeGravity:
     acceleration: tuple[float, ...]
     step: str
     location: abaqus_migration.AbaqusSourceLocation
+    reference_acceleration: tuple[float, ...] | None = None
+    amplitude: str | None = None
 
     def summary(self) -> dict[str, object]:
         return {
             "acceleration": list(self.acceleration),
+            "reference_acceleration": (
+                None
+                if self.reference_acceleration is None
+                else list(self.reference_acceleration)
+            ),
+            "amplitude": self.amplitude,
             "step": self.step,
             "location": self.location.summary(),
         }
@@ -120,6 +160,8 @@ class AbaqusNativeLoweringAssessment:
     material_name: str | None
     material_assignments: tuple[AbaqusNativeMaterialAssignment, ...]
     step_name: str | None
+    step_time_period: float | None
+    amplitudes: tuple[AbaqusNativeAmplitude, ...]
     boundaries: tuple[AbaqusNativeBoundary, ...]
     pressures: tuple[AbaqusNativePressure, ...]
     gravities: tuple[AbaqusNativeGravity, ...]
@@ -145,6 +187,8 @@ class AbaqusNativeLoweringAssessment:
                 item.summary() for item in self.material_assignments
             ],
             "step_name": self.step_name,
+            "step_time_period": self.step_time_period,
+            "amplitudes": [item.summary() for item in self.amplitudes],
             "boundaries": [item.summary() for item in self.boundaries],
             "pressures": [item.summary() for item in self.pressures],
             "gravities": [item.summary() for item in self.gravities],
@@ -287,21 +331,172 @@ def _kinematics(element_blocks, findings):
     return dimension, assumption, selected.topology, degree
 
 
-def _parse_boundaries(plan, dimension, region_aliases, findings):
+def _step_time_period(procedure, findings):
+    """Resolve the duration used to evaluate one supported static Step."""
+
+    if procedure is None:
+        return None
+    if not procedure.rows:
+        return 1.0
+    row = procedure.rows[0]
+    if len(row) < 2:
+        findings.append(
+            _finding(
+                "AFM-ABAQUS-LOWER-STEP-005",
+                "error",
+                "A one-value *STATIC data row is ambiguous after source parsing. "
+                "Use an explicit initial increment and time period, or omit the "
+                "row to accept Abaqus' unit-time default.",
+                procedure.location,
+            )
+        )
+        return None
+    try:
+        period = float(row[1])
+    except ValueError:
+        period = math.nan
+    if not math.isfinite(period) or period <= 0.0:
+        findings.append(
+            _finding(
+                "AFM-ABAQUS-LOWER-STEP-006",
+                "error",
+                "The *STATIC time period must be finite and positive.",
+                procedure.location,
+            )
+        )
+        return None
+    return period
+
+
+def _parse_amplitudes(plan, step_time_period, findings):
+    """Parse the relative tabular subset needed by final-state lowering."""
+
+    accepted = []
+    names = set()
+    for asset in plan.pending_assets:
+        if asset.keyword != "*AMPLITUDE":
+            continue
+        name = asset.options.get("NAME", "").strip()
+        definition = asset.options.get("DEFINITION", "TABULAR").upper()
+        time_span = asset.options.get("TIME", "STEP TIME").upper()
+        value_mode = asset.options.get("VALUE", "RELATIVE").upper()
+        unsupported = set(asset.options) - {"NAME", "DEFINITION", "TIME", "VALUE"}
+        if (
+            not name
+            or asset.flags
+            or unsupported
+            or definition != "TABULAR"
+            or time_span not in {"STEP TIME", "TOTAL TIME"}
+            or value_mode != "RELATIVE"
+        ):
+            findings.append(
+                _finding(
+                    "AFM-ABAQUS-LOWER-AMPLITUDE-001",
+                    "error",
+                    "Native final-state lowering accepts named relative TABULAR "
+                    "amplitudes using STEP TIME or TOTAL TIME only.",
+                    asset.location,
+                )
+            )
+            continue
+        key = name.upper()
+        if key in names:
+            findings.append(
+                _finding(
+                    "AFM-ABAQUS-LOWER-AMPLITUDE-002",
+                    "error",
+                    f"Amplitude name {name!r} is declared more than once.",
+                    asset.location,
+                )
+            )
+            continue
+        names.add(key)
+        flattened = [value for row in asset.rows for value in row]
+        if not flattened or len(flattened) % 2:
+            findings.append(
+                _finding(
+                    "AFM-ABAQUS-LOWER-AMPLITUDE-003",
+                    "error",
+                    f"TABULAR amplitude {name!r} requires time/value pairs.",
+                    asset.location,
+                )
+            )
+            continue
+        try:
+            numbers = tuple(float(value) for value in flattened)
+        except ValueError:
+            numbers = ()
+        times = numbers[0::2]
+        values = numbers[1::2]
+        if (
+            not numbers
+            or not all(math.isfinite(value) for value in numbers)
+            or any(right <= left for left, right in zip(times, times[1:]))
+        ):
+            findings.append(
+                _finding(
+                    "AFM-ABAQUS-LOWER-AMPLITUDE-004",
+                    "error",
+                    f"TABULAR amplitude {name!r} must contain finite values and "
+                    "strictly increasing time coordinates.",
+                    asset.location,
+                )
+            )
+            continue
+        if step_time_period is None:
+            continue
+        coordinate = step_time_period
+        if coordinate <= times[0]:
+            end_value = values[0]
+        elif coordinate >= times[-1]:
+            end_value = values[-1]
+        else:
+            index = next(
+                i for i in range(len(times) - 1) if times[i] <= coordinate <= times[i + 1]
+            )
+            fraction = (coordinate - times[index]) / (times[index + 1] - times[index])
+            end_value = values[index] + fraction * (values[index + 1] - values[index])
+        accepted.append(
+            AbaqusNativeAmplitude(
+                name=name,
+                times=times,
+                values=values,
+                time_span=time_span.lower().replace(" ", "_"),
+                step_end_value=end_value,
+                location=asset.location,
+            )
+        )
+    return tuple(accepted)
+
+
+def _amplitude_scale(asset, amplitudes, findings):
+    name = asset.options.get("AMPLITUDE")
+    if not name:
+        return None, 1.0
+    selected = amplitudes.get(name.upper())
+    if selected is None:
+        findings.append(
+            _finding(
+                "AFM-ABAQUS-LOWER-AMPLITUDE-005",
+                "error",
+                f"{asset.keyword} references amplitude {name!r}, but no accepted "
+                "definition with that name exists.",
+                asset.location,
+            )
+        )
+        return name, None
+    return selected.name, selected.step_end_value
+
+
+def _parse_boundaries(plan, dimension, region_aliases, amplitudes, findings):
     accepted = []
     for asset in plan.pending_assets:
         if asset.keyword != "*BOUNDARY":
             continue
-        if asset.options.get("AMPLITUDE"):
-            findings.append(
-                _finding(
-                    "AFM-ABAQUS-LOWER-BC-001",
-                    "error",
-                    "Amplitude-driven *BOUNDARY requires an explicit amplitude "
-                    "lowering rather than a final-value substitution.",
-                    asset.location,
-                )
-            )
+        amplitude_name, amplitude_scale = _amplitude_scale(
+            asset, amplitudes, findings
+        )
+        if amplitude_scale is None:
             continue
         if asset.options.get("OP"):
             findings.append(
@@ -374,13 +569,16 @@ def _parse_boundaries(plan, dimension, region_aliases, findings):
                     )
                 )
                 continue
+            final_value = value * amplitude_scale
             accepted.append(
                 AbaqusNativeBoundary(
                     region=region,
                     components=tuple(range(first - 1, last)),
-                    value=value,
+                    value=final_value,
                     step=asset.step,
                     location=asset.location,
+                    reference_value=value,
+                    amplitude=amplitude_name,
                 )
             )
     # Abaqus can repeat inherited conditions across declarations.  Emit one
@@ -411,15 +609,17 @@ def _parse_boundaries(plan, dimension, region_aliases, findings):
                 AbaqusNativeBoundary(
                     region=item.region,
                     components=tuple(remaining),
-                    value=item.value,
-                    step=item.step,
-                    location=item.location,
+                        value=item.value,
+                        step=item.step,
+                        location=item.location,
+                        reference_value=item.reference_value,
+                        amplitude=item.amplitude,
                 )
             )
     return tuple(selected)
 
 
-def _parse_pressures(plan, surface_aliases, findings):
+def _parse_pressures(plan, surface_aliases, amplitudes, findings):
     accepted = []
     for asset in plan.pending_assets:
         if asset.category != "load":
@@ -439,15 +639,10 @@ def _parse_pressures(plan, surface_aliases, findings):
                 )
             )
             continue
-        if asset.options.get("AMPLITUDE"):
-            findings.append(
-                _finding(
-                    "AFM-ABAQUS-LOWER-LOAD-002",
-                    "error",
-                    "Amplitude-driven *DSLOAD requires an explicit amplitude lowering.",
-                    asset.location,
-                )
-            )
+        amplitude_name, amplitude_scale = _amplitude_scale(
+            asset, amplitudes, findings
+        )
+        if amplitude_scale is None:
             continue
         for row in asset.rows:
             if len(row) < 3 or row[1].upper() != "P":
@@ -488,28 +683,25 @@ def _parse_pressures(plan, surface_aliases, findings):
             accepted.append(
                 AbaqusNativePressure(
                     surface=surface,
-                    value=value,
+                    value=value * amplitude_scale,
                     step=asset.step or "<unspecified>",
                     location=asset.location,
+                    reference_value=value,
+                    amplitude=amplitude_name,
                 )
             )
     return tuple(accepted)
 
 
-def _parse_gravities(plan, dimension, section_region, findings):
+def _parse_gravities(plan, dimension, section_region, amplitudes, findings):
     accepted = []
     for asset in plan.pending_assets:
         if asset.keyword != "*DLOAD":
             continue
-        if asset.options.get("AMPLITUDE"):
-            findings.append(
-                _finding(
-                    "AFM-ABAQUS-LOWER-GRAV-001",
-                    "error",
-                    "Amplitude-driven GRAV requires explicit amplitude lowering.",
-                    asset.location,
-                )
-            )
+        amplitude_name, amplitude_scale = _amplitude_scale(
+            asset, amplitudes, findings
+        )
+        if amplitude_scale is None:
             continue
         for row in asset.rows:
             if len(row) < 6 or row[1].upper() != "GRAV":
@@ -561,11 +753,14 @@ def _parse_gravities(plan, dimension, section_region, findings):
                     )
                 )
                 continue
+            reference = tuple(magnitude * value for value in direction)
             accepted.append(
                 AbaqusNativeGravity(
-                    acceleration=tuple(magnitude * value for value in direction),
+                    acceleration=tuple(value * amplitude_scale for value in reference),
                     step=asset.step or "<unspecified>",
                     location=asset.location,
+                    reference_acceleration=reference,
+                    amplitude=amplitude_name,
                 )
             )
     return tuple(accepted)
@@ -681,6 +876,14 @@ def assess(plan: abaqus_migration.AbaqusMigrationPlan) -> AbaqusNativeLoweringAs
         item for item in plan.pending_assets if item.category == "procedure"
     ]
     step_name = steps[0].step if len(steps) == 1 else None
+    procedure = procedures[0] if len(procedures) == 1 else None
+    step_time_period = (
+        _step_time_period(procedure, findings)
+        if procedure is not None and procedure.keyword == "*STATIC"
+        else None
+    )
+    amplitude_records = _parse_amplitudes(plan, step_time_period, findings)
+    amplitude_lookup = {item.name.upper(): item for item in amplitude_records}
     if len(steps) != 1 or len(procedures) != 1 or procedures[0].keyword != "*STATIC":
         findings.append(
             _finding(
@@ -730,6 +933,7 @@ def assess(plan: abaqus_migration.AbaqusMigrationPlan) -> AbaqusNativeLoweringAs
         )
 
     allowed = {
+        "amplitude",
         "step",
         "procedure",
         "boundary_condition",
@@ -788,10 +992,30 @@ def assess(plan: abaqus_migration.AbaqusMigrationPlan) -> AbaqusNativeLoweringAs
                 surfaces[f"{instance.name.upper()}.{name}"] = name
             elif item.scope in {instance.scope, f"assembly:{instance.assembly}"}:
                 surfaces[name] = name
-    boundaries = _parse_boundaries(plan, dimension, nsets, findings)
-    pressures = _parse_pressures(plan, surfaces, findings)
+    boundaries = _parse_boundaries(
+        plan, dimension, nsets, amplitude_lookup, findings
+    )
+    pressures = _parse_pressures(plan, surfaces, amplitude_lookup, findings)
     section_region = plan.sections[0].region if len(plan.sections) == 1 else None
-    gravities = _parse_gravities(plan, dimension, section_region, findings)
+    gravities = _parse_gravities(
+        plan, dimension, section_region, amplitude_lookup, findings
+    )
+    referenced_amplitudes = {
+        item.amplitude
+        for item in (*boundaries, *pressures, *gravities)
+        if item.amplitude is not None
+    }
+    if referenced_amplitudes:
+        findings.append(
+            _finding(
+                "AFM-ABAQUS-LOWER-AMPLITUDE-101",
+                "warning",
+                "Relative tabular amplitudes are retained as source assets and "
+                "evaluated at the end of the single linear-static Step. The "
+                "native draft solves that equivalent final equilibrium state; "
+                "it does not reproduce intermediate increments.",
+            )
+        )
     if not boundaries:
         findings.append(
             _finding(
@@ -824,6 +1048,8 @@ def assess(plan: abaqus_migration.AbaqusMigrationPlan) -> AbaqusNativeLoweringAs
         material_name=material_name,
         material_assignments=tuple(material_assignments),
         step_name=step_name,
+        step_time_period=step_time_period,
+        amplitudes=amplitude_records,
         boundaries=boundaries,
         pressures=pressures,
         gravities=gravities,
@@ -988,12 +1214,29 @@ def _native_case_source(assessment, *, source_entry):
         "",
         "from mpi4py import MPI",
         "",
-        "from agentfem import fields, mesh, models, project, studies",
+        "from agentfem import amplitudes, fields, mesh, models, project, studies",
         "from agentfem.constitutive import elasticity",
         "",
         "",
         "PROJECT_ROOT = Path(__file__).resolve().parent",
         f"ABAQUS_SOURCE = PROJECT_ROOT / {source_entry!r}",
+        "",
+        "",
+        "SOURCE_AMPLITUDES = {",
+    ]
+    for item in assessment.amplitudes:
+        lines.extend(
+            (
+                f"    {item.name!r}: amplitudes.tabular(",
+                f"        {item.times!r},",
+                f"        {item.values!r},",
+                f"        name={item.name!r},",
+                "    ),",
+            )
+        )
+    lines.extend(
+        (
+        "}",
         "",
         "",
         "def main():",
@@ -1010,7 +1253,8 @@ def _native_case_source(assessment, *, source_entry):
         "    )",
         '    model = models.create(study=study, mesh=cell, name="migrated_model")',
         f"    displacement = model.field(fields.displacement(cell.domain, degree={assessment.degree}))",
-    ]
+        )
+    )
     for assignment in assessment.material_assignments:
         material = assignment.material
         lines.extend(

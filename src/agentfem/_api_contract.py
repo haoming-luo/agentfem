@@ -176,6 +176,7 @@ CLI_COMMANDS = (
     "run",
     "inspect",
     "inspect-abaqus",
+    "inspect-user-material",
     "migrate-abaqus",
     "lower-abaqus",
     "verify",
@@ -190,6 +191,9 @@ MACHINE_COMMANDS = {
     "run": "agentfem run --json",
     "inspect": "agentfem inspect --json",
     "abaqus_inspect": "agentfem inspect-abaqus model.inp --json",
+    "abaqus_user_material_inspect": (
+        "agentfem inspect-user-material material.for --json"
+    ),
     "abaqus_migrate": "agentfem migrate-abaqus model.inp ./project --json",
     "abaqus_lower": (
         "agentfem lower-abaqus ./project --reviewed-by REVIEWER "

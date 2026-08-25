@@ -624,6 +624,24 @@
       "title": "Abaqus node, element, and element-face sets as FEM regions"
     },
     {
+      "id": "agentfem.workflow.abaqus_reviewed_migration",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.mesh.plan_abaqus_migration",
+        "agentfem.mesh.assess_abaqus_native_lowering",
+        "agentfem.mesh.lower_abaqus_migration_project",
+        "agentfem.constitutive.user_material.inspect_abaqus_user_material"
+      ],
+      "related_cards": [
+        "agentfem.workflow.abaqus_engineering_regions",
+        "agentfem.workflow.scientific_verification"
+      ],
+      "source": "src/agentfem/knowledge/cards/abaqus_reviewed_migration.json",
+      "status": "experimental",
+      "summary": "Preserves an Abaqus source graph, assesses a deliberately bounded native subset, records reviewer and unit decisions, lowers an equivalent final linear-static state, and inventories UMAT/UHYPER sources without claiming arbitrary solver compatibility.",
+      "title": "Reviewed Abaqus model and user-material migration"
+    },
+    {
       "id": "agentfem.workflow.campaign_learning_pipeline",
       "kind": "workflow",
       "public_api": [

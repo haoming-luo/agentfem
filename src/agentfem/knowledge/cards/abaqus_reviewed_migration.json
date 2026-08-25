@@ -1,0 +1,102 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.abaqus_reviewed_migration",
+  "title": "Reviewed Abaqus model and user-material migration",
+  "kind": "workflow",
+  "status": "experimental",
+  "summary": "Preserves an Abaqus source graph, assesses a deliberately bounded native subset, records reviewer and unit decisions, lowers an equivalent final linear-static state, and inventories UMAT/UHYPER sources without claiming arbitrary solver compatibility.",
+  "public_api": [
+    "agentfem.mesh.plan_abaqus_migration",
+    "agentfem.mesh.assess_abaqus_native_lowering",
+    "agentfem.mesh.lower_abaqus_migration_project",
+    "agentfem.constitutive.user_material.inspect_abaqus_user_material"
+  ],
+  "implementation": [
+    "mesh/abaqus_migration.py",
+    "mesh/abaqus_lowering.py",
+    "constitutive/user_material.py",
+    "cli.py"
+  ],
+  "science": {
+    "statement": "A migrated model is executable only when every consumed Abaqus declaration has an explicit AgentFEM meaning. For a single geometrically linear static Step, the final equilibrium state depends on the end magnitudes of prescribed data, so a supported relative tabular amplitude may be evaluated at Step end while its complete source history remains evidence.",
+    "equations": [
+      {
+        "label": "final linear-static amplitude lowering",
+        "expression": "\\mathbf{K}\\mathbf{u}_{\\mathrm{end}}=a(t_{\\mathrm{end}})\\mathbf{f}_{\\mathrm{ref}}",
+        "description": "Only the final linear equilibrium state is lowered; intermediate Abaqus increments are not reproduced by this route."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "Abaqus source graph",
+        "type": "include-resolved input deck plus optional Fortran user-material source",
+        "unit_role": "reviewer-declared consistent unit system",
+        "description": "Every copied source file and separately inspected user-material file retains a content fingerprint."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "Reviewed native draft and decision evidence",
+        "type": "case.native.py, lowering.json, derived orphan mesh, and optional user-material inspection JSON",
+        "unit_role": "same consistent source units",
+        "description": "Reference values, amplitude history, final multipliers, material assignments, source locations, reviewer, and limitations remain inspectable."
+      }
+    ],
+    "assumptions": [
+      "The native route contains exactly one geometrically linear static Step.",
+      "Supported amplitudes are named relative tabular histories in Step time or total time.",
+      "The final state is a linear equilibrium problem, so the supported amplitude path has no history-dependent constitutive effect."
+    ],
+    "conventions": [
+      "Migration planning, reviewed native lowering, and user-material execution are separate gates.",
+      "An adapter-candidate UMAT/UHYPER inspection is never reported as executable.",
+      "Unsupported or ambiguous declarations produce stable findings instead of inferred behavior."
+    ],
+    "applicability": [
+      "Selected Abaqus solid models within the documented native linear-static subset.",
+      "Fortran UMAT/UHYPER source inventory before restricted adapter development."
+    ],
+    "limitations": [
+      "No arbitrary Abaqus deck execution or solver-equivalence claim.",
+      "No nonlinear, history-dependent, multi-Step, absolute, or non-tabular amplitude lowering.",
+      "User-material inspection does not compile, link, or execute Fortran code."
+    ]
+  },
+  "usage": {
+    "minimal_example": "agentfem inspect-abaqus model.inp --json; agentfem migrate-abaqus model.inp migrated --json; agentfem lower-abaqus migrated --reviewed-by REVIEWER --unit-system SI --json; agentfem inspect-user-material material.for --json",
+    "examples": [
+      "tests/fixtures/abaqus_native_lowering/static.inp",
+      "tests/test_abaqus_migration.py",
+      "tests/test_user_material_inspection.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_abaqus_migration.py",
+      "tests/test_user_material_inspection.py",
+      "tests/test_project_cli.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Reject source mutation after migration planning.",
+      "Reject missing, duplicate, non-relative, non-tabular, nonfinite, or nonmonotone amplitude definitions.",
+      "Retain reference and final magnitudes plus the complete amplitude table in lowering evidence.",
+      "Reject user-material sources with an ambiguous entry point or unresolved Abaqus utility calls from the automatic adapter-candidate route."
+    ]
+  },
+  "references": [
+    {
+      "title": "Abaqus amplitude commands and time spans",
+      "locator": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEKERRefMap/simaker-m-AmpPyc-sb.htm"
+    },
+    {
+      "title": "Abaqus UMAT interface and conventions",
+      "locator": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAESUBRefMap/simasub-c-umat.htm"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.abaqus_engineering_regions",
+    "agentfem.workflow.scientific_verification"
+  ]
+}

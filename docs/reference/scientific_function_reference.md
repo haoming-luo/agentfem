@@ -31,6 +31,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.operator.scalar_transport_reaction`](#agentfem-operator-scalar_transport_reaction) | Scalar transport and reaction operators | operator | supported |
 | [`agentfem.operator.system_contracts`](#agentfem-operator-system_contracts) | Finite-element operator and system contracts | operator | supported |
 | [`agentfem.workflow.abaqus_engineering_regions`](#agentfem-workflow-abaqus_engineering_regions) | Abaqus node, element, and element-face sets as FEM regions | workflow | supported |
+| [`agentfem.workflow.abaqus_reviewed_migration`](#agentfem-workflow-abaqus_reviewed_migration) | Reviewed Abaqus model and user-material migration | workflow | experimental |
 | [`agentfem.workflow.campaign_learning_pipeline`](#agentfem-workflow-campaign_learning_pipeline) | Simulation campaign to guarded learning workflow | workflow | supported |
 | [`agentfem.workflow.cohesive_state_portability`](#agentfem-workflow-cohesive_state_portability) | Physical-keyed cohesive state across MPI partitions | workflow | experimental |
 | [`agentfem.workflow.coordinate_reference_coupling`](#agentfem-workflow-coordinate_reference_coupling) | Local coordinates and reference-point continuum coupling | workflow | supported |
@@ -1948,6 +1949,101 @@ cell = mesh.read_abaqus_mesh('part.inp', 'part.xdmf'); fixed = cell.node_set('FI
 
 - Abaqus element-based surface definition: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEMODRefMap/simamod-c-deformablesurf.htm`
 - Abaqus three-dimensional solid node ordering and face numbering: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEELMRefMap/simaelm-r-3delem.htm`
+
+<a id="agentfem-workflow-abaqus_reviewed_migration"></a>
+
+## Reviewed Abaqus model and user-material migration
+
+**Stable ID:** `agentfem.workflow.abaqus_reviewed_migration`<br>
+**Kind:** `workflow`<br>
+**Status:** `experimental`<br>
+**Source card:** `src/agentfem/knowledge/cards/abaqus_reviewed_migration.json`
+
+Preserves an Abaqus source graph, assesses a deliberately bounded native subset, records reviewer and unit decisions, lowers an equivalent final linear-static state, and inventories UMAT/UHYPER sources without claiming arbitrary solver compatibility.
+
+### Public API
+
+- `agentfem.mesh.plan_abaqus_migration`
+- `agentfem.mesh.assess_abaqus_native_lowering`
+- `agentfem.mesh.lower_abaqus_migration_project`
+- `agentfem.constitutive.user_material.inspect_abaqus_user_material`
+
+### Scientific contract
+
+A migrated model is executable only when every consumed Abaqus declaration has an explicit AgentFEM meaning. For a single geometrically linear static Step, the final equilibrium state depends on the end magnitudes of prescribed data, so a supported relative tabular amplitude may be evaluated at Step end while its complete source history remains evidence.
+
+**final linear-static amplitude lowering**
+
+$$
+\mathbf{K}\mathbf{u}_{\mathrm{end}}=a(t_{\mathrm{end}})\mathbf{f}_{\mathrm{ref}}
+$$
+
+Only the final linear equilibrium state is lowered; intermediate Abaqus increments are not reproduced by this route.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| Abaqus source graph | include-resolved input deck plus optional Fortran user-material source | reviewer-declared consistent unit system | Every copied source file and separately inspected user-material file retains a content fingerprint. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| Reviewed native draft and decision evidence | case.native.py, lowering.json, derived orphan mesh, and optional user-material inspection JSON | same consistent source units | Reference values, amplitude history, final multipliers, material assignments, source locations, reviewer, and limitations remain inspectable. |
+
+#### Assumptions
+
+- The native route contains exactly one geometrically linear static Step.
+- Supported amplitudes are named relative tabular histories in Step time or total time.
+- The final state is a linear equilibrium problem, so the supported amplitude path has no history-dependent constitutive effect.
+
+#### Conventions
+
+- Migration planning, reviewed native lowering, and user-material execution are separate gates.
+- An adapter-candidate UMAT/UHYPER inspection is never reported as executable.
+- Unsupported or ambiguous declarations produce stable findings instead of inferred behavior.
+
+#### Applicability
+
+- Selected Abaqus solid models within the documented native linear-static subset.
+- Fortran UMAT/UHYPER source inventory before restricted adapter development.
+
+#### Limitations
+
+- No arbitrary Abaqus deck execution or solver-equivalence claim.
+- No nonlinear, history-dependent, multi-Step, absolute, or non-tabular amplitude lowering.
+- User-material inspection does not compile, link, or execute Fortran code.
+
+### Minimal example
+
+```python
+agentfem inspect-abaqus model.inp --json; agentfem migrate-abaqus model.inp migrated --json; agentfem lower-abaqus migrated --reviewed-by REVIEWER --unit-system SI --json; agentfem inspect-user-material material.for --json
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_abaqus_migration.py`
+- `tests/test_user_material_inspection.py`
+- `tests/test_project_cli.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Reject source mutation after migration planning.
+- Reject missing, duplicate, non-relative, non-tabular, nonfinite, or nonmonotone amplitude definitions.
+- Retain reference and final magnitudes plus the complete amplitude table in lowering evidence.
+- Reject user-material sources with an ambiguous entry point or unresolved Abaqus utility calls from the automatic adapter-candidate route.
+
+### References
+
+- Abaqus amplitude commands and time spans: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEKERRefMap/simaker-m-AmpPyc-sb.htm`
+- Abaqus UMAT interface and conventions: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAESUBRefMap/simasub-c-umat.htm`
 
 <a id="agentfem-workflow-campaign_learning_pipeline"></a>
 

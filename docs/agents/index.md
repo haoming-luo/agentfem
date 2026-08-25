@@ -18,6 +18,7 @@ status and scientific evidence.
 | `agentfem run --json` | Addressable execution result |
 | `agentfem inspect --json` | Result and artifact discovery |
 | `agentfem inspect-abaqus model.inp --json` | Side-effect-free legacy-deck inventory |
+| `agentfem inspect-user-material material.for --json` | Fingerprinted UMAT/UHYPER source inventory and migration route |
 | `agentfem migrate-abaqus model.inp ./project --json` | Fail-closed Abaqus migration project |
 | `agentfem lower-abaqus ./project --reviewed-by NAME --unit-system SI --json` | Inactive reviewed native draft for the eligible subset |
 
@@ -38,6 +39,8 @@ an element suffix, collapse Part/Instance scopes, or execute a generated
 material candidate merely because its syntax was recognized.
 When the native subset is eligible, record reviewer and unit interpretation,
 inspect the inactive draft and decision fingerprint, and activate separately.
+If a deck references user material, inspect its Fortran source separately;
+never interpret an `adapter_candidate` report as executable compatibility.
 
 ## Start here
 

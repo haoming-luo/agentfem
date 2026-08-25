@@ -77,6 +77,9 @@ Make real simulation projects easier to construct and maintain:
 - richer imported-mesh regions, surfaces, sets, and quality diagnostics;
 - progressive Abaqus migration from broad topology/asset inventory to selected
   verified native formulations, without silently discarding element suffixes;
+  the current linear-static gate retains relative tabular amplitudes and
+  lowers their declared final state, while source-only UMAT/UHYPER inspection
+  fingerprints legacy assets and selects the next adapter route;
 - named material definitions that keep identity and source independent of the
   Study while resolving compatible mechanical or thermal behavior at the
   model boundary;

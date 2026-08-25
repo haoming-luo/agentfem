@@ -1085,6 +1085,10 @@ status and scientific evidence.</p>
 <td>Side-effect-free legacy-deck inventory</td>
 </tr>
 <tr>
+<td><code>agentfem inspect-user-material material.for --json</code></td>
+<td>Fingerprinted UMAT/UHYPER source inventory and migration route</td>
+</tr>
+<tr>
 <td><code>agentfem migrate-abaqus model.inp ./project --json</code></td>
 <td>Fail-closed Abaqus migration project</td>
 </tr>
@@ -1106,7 +1110,9 @@ complete source graph and review every issue in <code>migration.json</code>; nev
 an element suffix, collapse Part/Instance scopes, or execute a generated
 material candidate merely because its syntax was recognized.
 When the native subset is eligible, record reviewer and unit interpretation,
-inspect the inactive draft and decision fingerprint, and activate separately.</p>
+inspect the inactive draft and decision fingerprint, and activate separately.
+If a deck references user material, inspect its Fortran source separately;
+never interpret an <code>adapter_candidate</code> report as executable compatibility.</p>
 <h2 id="start-here">Start here<a class="headerlink" href="#start-here" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../getting_started/">Installed project workflow</a></li>
