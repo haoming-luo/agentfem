@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+import zipfile
 
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "tools" / "prepare_agent_trial.py"
@@ -32,3 +33,14 @@ def test_prepare_agent_trial_binds_task_to_exact_candidate(tmp_path):
     assert (output / "project").is_dir()
     assert "plane-strain" in (output / "TASK.md").read_text()
     assert "complete fresh-task transcript" in (output / "REVIEW.md").read_text()
+
+
+def test_trial_version_comes_from_candidate_wheel_not_installed_runtime(tmp_path):
+    wheel = tmp_path / "agentfem-0.3.1-py3-none-any.whl"
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr(
+            "agentfem-0.3.1.dist-info/METADATA",
+            "Metadata-Version: 2.4\nName: agentfem\nVersion: 0.3.1\n",
+        )
+
+    assert prepare_agent_trial._wheel_version(wheel) == "0.3.1"

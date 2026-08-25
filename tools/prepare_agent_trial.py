@@ -14,6 +14,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import zipfile
 
 
 def _sha256(path: Path) -> str:
@@ -33,6 +34,29 @@ def _git_commit(root: Path) -> str:
         text=True,
     )
     return completed.stdout.strip()
+
+
+def _wheel_version(path: Path) -> str:
+    """Read the candidate version from its own wheel metadata."""
+
+    with zipfile.ZipFile(path) as archive:
+        metadata_files = sorted(
+            name
+            for name in archive.namelist()
+            if name.endswith(".dist-info/METADATA")
+        )
+        if len(metadata_files) != 1:
+            raise ValueError(
+                f"Expected one .dist-info/METADATA in {path}, found "
+                f"{len(metadata_files)}."
+            )
+        metadata = archive.read(metadata_files[0]).decode("utf-8")
+    for line in metadata.splitlines():
+        if line.startswith("Version:"):
+            version = line.partition(":")[2].strip()
+            if version:
+                return version
+    raise ValueError(f"Wheel metadata in {path} has no Version field.")
 
 
 def prepare(
@@ -119,12 +143,11 @@ def main() -> None:
     parser.add_argument("--agentfem-version")
     options = parser.parse_args()
     repository = Path(__file__).resolve().parents[1]
-    if options.agentfem_version is None:
-        from agentfem import __version__
-
-        version = __version__
-    else:
-        version = options.agentfem_version
+    version = (
+        _wheel_version(options.wheel)
+        if options.agentfem_version is None
+        else options.agentfem_version
+    )
     report = prepare(
         wheel=options.wheel,
         output=options.output,
