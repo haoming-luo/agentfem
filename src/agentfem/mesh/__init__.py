@@ -471,6 +471,7 @@ def create_abaqus_migration_project(
     *,
     name: str | None = None,
     created_with: str = "unknown",
+    user_material_sources: dict[str, str | Path] | None = None,
 ) -> dict[str, object]:
     """Create a fail-closed AgentFEM project from inspected Abaqus sources."""
 
@@ -481,6 +482,7 @@ def create_abaqus_migration_project(
         destination,
         name=name,
         created_with=created_with,
+        user_material_sources=user_material_sources,
     )
 
 

@@ -14,7 +14,12 @@ import importlib.util
 from pathlib import Path
 import sys
 
-from .definitions import MaterialDefinition, define
+from .definitions import (
+    MaterialDefinition,
+    define,
+    load_registered_definition,
+    registered_definitions,
+)
 from .library import load_definition
 
 
@@ -41,6 +46,8 @@ def load(
         return load_python(selected, symbol=symbol, role=role)
     if symbol is not None:
         raise ValueError("symbol= is valid only when loading a Python file.")
+    if str(source) in registered_definitions():
+        return load_registered_definition(str(source))
     return load_definition(str(source), model=model)
 
 

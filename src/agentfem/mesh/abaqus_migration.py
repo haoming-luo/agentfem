@@ -1231,6 +1231,7 @@ def _markdown_cell(value: object) -> str:
 def _migration_report_markdown(
     plan_record: AbaqusMigrationPlan,
     native_assessment=None,
+    user_materials: Iterable[Mapping[str, object]] = (),
 ) -> str:
     lines = [
         "# Abaqus migration review",
@@ -1350,6 +1351,25 @@ def _migration_report_markdown(
             lines.append(
                 "- Emit an inactive reviewed draft with `agentfem lower-abaqus`."
             )
+    user_material_records = tuple(user_materials)
+    if user_material_records:
+        lines.extend(("", "## User-material source assets", ""))
+        for item in user_material_records:
+            inspection = item["inspection"]
+            lines.extend(
+                (
+                    f"### {item['material']}",
+                    "",
+                    f"- Inspection: **{inspection['status']}**",
+                    f"- Interface / route: `{inspection['interface']}` / "
+                    f"`{inspection['recommended_route']}`",
+                    f"- Source files: {len(inspection['source_graph']['files'])}",
+                    f"- Source-graph fingerprint: "
+                    f"`{inspection['source_graph']['fingerprint']}`",
+                    "- Executable in AgentFEM: **false**",
+                    "",
+                )
+            )
     lines.extend(
         (
             "",
@@ -1370,6 +1390,7 @@ def create_project(
     *,
     name: str | None = None,
     created_with: str = "unknown",
+    user_material_sources: Mapping[str, str | Path] | None = None,
 ) -> dict[str, object]:
     """Create an atomic, fail-closed migration project with copied sources."""
 
@@ -1385,8 +1406,38 @@ def create_project(
         )
     project_name = _safe_project_name(name or target.name)
     from . import abaqus_lowering
+    from agentfem.constitutive.user_material import inspect_abaqus_user_material
 
     native_assessment = abaqus_lowering.assess(plan_record)
+    declared_user_materials = {
+        item.name.upper(): item.name
+        for item in plan_record.materials
+        if item.translation_status == "review_required_user_material"
+    }
+    supplied_user_materials: dict[str, tuple[str, Path]] = {}
+    for raw_name, raw_path in dict(user_material_sources or {}).items():
+        selected_name = str(raw_name).strip()
+        key = selected_name.upper()
+        if not selected_name:
+            raise ValueError("A user-material source association requires a name.")
+        if key in supplied_user_materials:
+            raise ValueError(
+                f"Abaqus user-material source {selected_name!r} was supplied twice."
+            )
+        if key not in declared_user_materials:
+            raise ValueError(
+                f"User-material source {selected_name!r} does not match a deck "
+                f"material declaring *USER MATERIAL or user *HYPERELASTIC. "
+                f"Available names={tuple(declared_user_materials.values())!r}."
+            )
+        supplied_user_materials[key] = (
+            declared_user_materials[key],
+            Path(raw_path).expanduser().resolve(),
+        )
+    inspected_user_materials = [
+        (material_name, inspect_abaqus_user_material(source_path))
+        for material_name, source_path in supplied_user_materials.values()
+    ]
     source_paths = [item.path for item in plan_record.source_graph.files]
     common_root = Path(os.path.commonpath([str(item) for item in source_paths]))
     if common_root.is_file():
@@ -1421,11 +1472,74 @@ def create_project(
                     "Abaqus material cards that AgentFEM can recognize unambiguously.",
                     "They are not imported by `case.py` and retain the source unit system.",
                     "Review units, formulation, calibration, and verification before use.",
+                    "Any `user_materials/` entries bind legacy source graphs to",
+                    "deck material names for review; they are not executable adapters.",
                     "",
                 )
             ),
             encoding="utf-8",
         )
+        user_material_records: list[dict[str, object]] = []
+        for material_name, inspection in inspected_user_materials:
+            source_files = [item.path for item in inspection.source_graph.files]
+            common_source_root = Path(
+                os.path.commonpath([str(item) for item in source_files])
+            )
+            if common_source_root.is_file():
+                common_source_root = common_source_root.parent
+            asset_root = (
+                material_directory
+                / "user_materials"
+                / _safe_project_name(material_name)
+            )
+            bundled_material_sources: dict[str, str] = {}
+            for item in inspection.source_graph.files:
+                relative = item.path.relative_to(common_source_root)
+                copied = asset_root / "source" / relative
+                copied.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(item.path, copied)
+                bundled_material_sources[item.logical_path] = copied.relative_to(
+                    temporary
+                ).as_posix()
+            root_relative = inspection.source_graph.root.relative_to(common_source_root)
+            root_entry = (asset_root / "source" / root_relative).relative_to(
+                temporary
+            ).as_posix()
+            association = {
+                "schema": "agentfem.abaqus-user-material-association",
+                "schema_version": "0.1.0",
+                "material": material_name,
+                "status": inspection.status,
+                "executable": False,
+                "source_entrypoint": root_entry,
+                "bundled_sources": bundled_material_sources,
+                "inspection": inspection.summary(),
+            }
+            user_material_records.append(association)
+            (asset_root / "inspection.json").write_text(
+                json.dumps(
+                    association,
+                    indent=2,
+                    sort_keys=True,
+                    ensure_ascii=False,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (asset_root / "README.md").write_text(
+                "\n".join(
+                    (
+                        f"# {material_name} user-material source",
+                        "",
+                        "This directory preserves a content-addressed legacy source",
+                        "graph associated with the matching Abaqus material card.",
+                        "`inspection.json` selects an adapter-development route but",
+                        "does not authorize compilation or finite-element execution.",
+                        "",
+                    )
+                ),
+                encoding="utf-8",
+            )
         mesh_directory = temporary / "mesh"
         mesh_directory.mkdir()
         (mesh_directory / "README.md").write_text(
@@ -1460,6 +1574,7 @@ def create_project(
         record = {
             **plan_record.summary(),
             "native_lowering": native_assessment.summary(),
+            "user_materials": user_material_records,
             "project": {
                 "name": project_name,
                 "entrypoint": "case.py",
@@ -1472,7 +1587,11 @@ def create_project(
             encoding="utf-8",
         )
         (temporary / "migration.md").write_text(
-            _migration_report_markdown(plan_record, native_assessment),
+            _migration_report_markdown(
+                plan_record,
+                native_assessment,
+                user_material_records,
+            ),
             encoding="utf-8",
         )
         (temporary / "README.md").write_text(
@@ -1485,6 +1604,8 @@ def create_project(
                     "1. Run `agentfem check`.",
                     "2. Review `migration.json` and the copied `source/` deck.",
                     "   `migration.md` is the compact human review report.",
+                    "   Review any fingerprinted `materials/user_materials/` source",
+                    "   assets independently; they are not executable adapters.",
                     "3. Select and verify native AgentFEM formulations.",
                     "4. If `native_lowering.status` is `eligible`, create a reviewed",
                     "   draft with `agentfem lower-abaqus . --reviewed-by NAME",
@@ -1507,6 +1628,8 @@ def create_project(
                     "- Resolve every error in migration.json before solving.",
                     "- Do not discard Abaqus element suffixes or infer equivalence.",
                     "- Keep materials, regions, assignments, and steps distinct.",
+                    "- Never treat an inspected UMAT/UHYPER as executable without",
+                    "  adapter, material-point, tangent, and global FEM evidence.",
                     "- Finish with a SimulationResult and explicit verification evidence.",
                     "",
                 )
@@ -1532,4 +1655,19 @@ def create_project(
         "migration_report": str(target / "migration.md"),
         "source_entrypoint": str(target / root_entry),
         "native_lowering_status": native_assessment.summary()["status"],
+        "user_materials": [
+            {
+                "material": item["material"],
+                "status": item["status"],
+                "executable": False,
+                "inspection": str(
+                    target
+                    / "materials"
+                    / "user_materials"
+                    / _safe_project_name(str(item["material"]))
+                    / "inspection.json"
+                ),
+            }
+            for item in user_material_records
+        ],
     }

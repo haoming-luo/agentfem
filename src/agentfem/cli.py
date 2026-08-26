@@ -39,6 +39,25 @@ def _emit(record, *, as_json: bool, human: str | None = None) -> None:
     print(_json(record) if as_json else (human or _json(record)), flush=True)
 
 
+def _named_paths(values: list[str], *, option: str) -> dict[str, Path]:
+    """Parse repeatable ``NAME=PATH`` CLI assets without guessing identity."""
+
+    selected: dict[str, Path] = {}
+    normalized: set[str] = set()
+    for value in values:
+        name, separator, path = str(value).partition("=")
+        name = name.strip()
+        path = path.strip()
+        if not separator or not name or not path:
+            raise ValueError(f"{option} requires NAME=PATH; received {value!r}.")
+        key = name.upper()
+        if key in normalized:
+            raise ValueError(f"{option} material {name!r} was supplied twice.")
+        normalized.add(key)
+        selected[name] = Path(path).expanduser().resolve()
+    return selected
+
+
 def _templates() -> tuple[str, ...]:
     root = resources.files(TEMPLATE_PACKAGE)
     return tuple(
@@ -367,6 +386,10 @@ def _command_migrate_abaqus(args) -> int:
         Path(args.destination).expanduser().resolve(),
         name=args.name,
         created_with=__version__,
+        user_material_sources=_named_paths(
+            args.user_material,
+            option="--user-material",
+        ),
     )
     _emit(
         record,
@@ -529,6 +552,17 @@ def build_parser() -> argparse.ArgumentParser:
     migrate_abaqus.add_argument("source")
     migrate_abaqus.add_argument("destination")
     migrate_abaqus.add_argument("--name")
+    migrate_abaqus.add_argument(
+        "--user-material",
+        action="append",
+        default=[],
+        metavar="NAME=PATH",
+        help=(
+            "Associate a deck *USER MATERIAL name with a UMAT/UHYPER source; "
+            "repeat for multiple materials. Sources are inspected and bundled, "
+            "never activated automatically."
+        ),
+    )
     migrate_abaqus.add_argument("--json", action="store_true")
 
     lower_abaqus = sub.add_parser(

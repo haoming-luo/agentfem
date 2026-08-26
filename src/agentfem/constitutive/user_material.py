@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
+import json
+import os
 from pathlib import Path
 import re
 from typing import Protocol, runtime_checkable
@@ -166,15 +168,84 @@ class UserMaterialInspectionIssue:
 
 
 @dataclass(frozen=True)
+class UserMaterialSourceFile:
+    """One content-addressed source in a user-material source graph."""
+
+    path: Path
+    logical_path: str
+    source_sha256: str
+    include_files: tuple[str, ...] = ()
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "path": str(self.path),
+            "logical_path": self.logical_path,
+            "source_sha256": self.source_sha256,
+            "include_files": list(self.include_files),
+        }
+
+
+@dataclass(frozen=True)
+class UserMaterialIncludeEdge:
+    """One Fortran INCLUDE relation and its resolution status."""
+
+    source: str
+    declaration: str
+    target: str
+    status: str
+
+    def summary(self) -> dict[str, str]:
+        return {
+            "source": self.source,
+            "declaration": self.declaration,
+            "target": self.target,
+            "status": self.status,
+        }
+
+
+@dataclass(frozen=True)
+class UserMaterialSourceGraph:
+    """Recursive identity of project-owned Fortran material sources."""
+
+    root: Path
+    files: tuple[UserMaterialSourceFile, ...]
+    edges: tuple[UserMaterialIncludeEdge, ...]
+    fingerprint: str
+    runtime_includes: tuple[str, ...] = ()
+    issues: tuple[str, ...] = ()
+
+    @property
+    def complete(self) -> bool:
+        return not self.issues and all(
+            item.status in {"resolved", "runtime_provided"} for item in self.edges
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "schema": "agentfem.user-material-source-graph",
+            "schema_version": "0.1.0",
+            "root": str(self.root),
+            "fingerprint": self.fingerprint,
+            "complete": self.complete,
+            "files": [item.summary() for item in self.files],
+            "edges": [item.summary() for item in self.edges],
+            "runtime_includes": list(self.runtime_includes),
+            "issues": list(self.issues),
+        }
+
+
+@dataclass(frozen=True)
 class AbaqusUserMaterialInspection:
     """Source inventory that selects a migration route without executing code."""
 
     source: str
     source_sha256: str
+    source_graph: UserMaterialSourceGraph
     interface: str | None
     entrypoints: tuple[str, ...]
     includes: tuple[str, ...]
     abaqus_utility_calls: tuple[str, ...]
+    project_calls: tuple[str, ...]
     external_calls: tuple[str, ...]
     missing_contract_symbols: tuple[str, ...]
     route: str
@@ -195,10 +266,12 @@ class AbaqusUserMaterialInspection:
             "status": self.status,
             "source": self.source,
             "source_sha256": self.source_sha256,
+            "source_graph": self.source_graph.summary(),
             "interface": self.interface,
             "entrypoints": list(self.entrypoints),
             "includes": list(self.includes),
             "abaqus_utility_calls": list(self.abaqus_utility_calls),
+            "project_calls": list(self.project_calls),
             "external_calls": list(self.external_calls),
             "missing_contract_symbols": list(self.missing_contract_symbols),
             "recommended_route": self.route,
@@ -212,13 +285,17 @@ class AbaqusUserMaterialInspection:
             f"  interface: {self.interface or '<not identified>'}",
             f"  route: {self.route}",
             f"  source SHA256: {self.source_sha256}",
+            f"  source graph: {len(self.source_graph.files)} file(s), "
+            f"{self.source_graph.fingerprint}",
         ]
         if self.abaqus_utility_calls:
             lines.append(
                 "  Abaqus utilities: " + ", ".join(self.abaqus_utility_calls)
             )
+        if self.project_calls:
+            lines.append("  project calls: " + ", ".join(self.project_calls))
         if self.external_calls:
-            lines.append("  other calls: " + ", ".join(self.external_calls))
+            lines.append("  unresolved calls: " + ", ".join(self.external_calls))
         if self.missing_contract_symbols:
             lines.append(
                 "  missing contract symbols: "
@@ -274,6 +351,129 @@ _REQUIRED_CONTRACT_SYMBOLS = {
     },
 }
 
+_ABAQUS_RUNTIME_INCLUDES = {
+    "ABA_PARAM.INC",
+    "VABA_PARAM.INC",
+}
+
+
+def read_user_material_source_graph(source: str | Path) -> UserMaterialSourceGraph:
+    """Resolve local Fortran INCLUDE files and fingerprint the complete asset.
+
+    Abaqus-provided parameter headers remain explicit runtime dependencies.
+    Project-owned includes are resolved relative to the declaring file. Missing
+    files and cycles are retained as addressable issues rather than ignored.
+    """
+
+    root = Path(source).expanduser().resolve()
+    if not root.is_file():
+        raise FileNotFoundError(root)
+    files: dict[Path, UserMaterialSourceFile] = {}
+    edges: list[UserMaterialIncludeEdge] = []
+    runtime_includes: list[str] = []
+    issues: list[str] = []
+
+    def logical(selected: Path) -> str:
+        return Path(os.path.relpath(selected, root.parent)).as_posix()
+
+    def declarations(text: str) -> tuple[str, ...]:
+        return tuple(
+            match.strip()
+            for match in re.findall(
+                r"(?im)^\s*(?:#\s*)?INCLUDE\s+['\"]([^'\"]+)['\"]",
+                text,
+            )
+        )
+
+    def visit(selected: Path, ancestry: tuple[Path, ...]) -> None:
+        resolved = selected.expanduser().resolve()
+        if resolved in files:
+            return
+        raw = resolved.read_bytes()
+        text = raw.decode("utf-8", errors="replace")
+        selected_includes = declarations(text)
+        files[resolved] = UserMaterialSourceFile(
+            path=resolved,
+            logical_path=logical(resolved),
+            source_sha256=sha256(raw).hexdigest(),
+            include_files=selected_includes,
+        )
+        for declaration in selected_includes:
+            if Path(declaration).name.upper() in _ABAQUS_RUNTIME_INCLUDES:
+                normalized = Path(declaration).name.upper()
+                runtime_includes.append(normalized)
+                edges.append(
+                    UserMaterialIncludeEdge(
+                        logical(resolved),
+                        declaration,
+                        normalized,
+                        "runtime_provided",
+                    )
+                )
+                continue
+            candidate = Path(declaration).expanduser()
+            if not candidate.is_absolute():
+                candidate = resolved.parent / candidate
+            candidate = candidate.resolve()
+            target = logical(candidate)
+            if candidate in ancestry or candidate == resolved:
+                edges.append(
+                    UserMaterialIncludeEdge(
+                        logical(resolved), declaration, target, "cycle"
+                    )
+                )
+                issues.append(
+                    "AFM-USERMAT-INCLUDE-002: recursive include cycle: "
+                    + " -> ".join(
+                        logical(item) for item in (*ancestry, resolved, candidate)
+                    )
+                    + "."
+                )
+                continue
+            if not candidate.is_file():
+                edges.append(
+                    UserMaterialIncludeEdge(
+                        logical(resolved), declaration, target, "missing"
+                    )
+                )
+                issues.append(
+                    f"AFM-USERMAT-INCLUDE-001: {logical(resolved)} references "
+                    f"missing include {declaration!r}."
+                )
+                continue
+            edges.append(
+                UserMaterialIncludeEdge(
+                    logical(resolved), declaration, target, "resolved"
+                )
+            )
+            visit(candidate, (*ancestry, resolved))
+
+    visit(root, ())
+    payload = {
+        "root": logical(root),
+        "files": [
+            {
+                "logical_path": item.logical_path,
+                "source_sha256": item.source_sha256,
+                "include_files": list(item.include_files),
+            }
+            for item in files.values()
+        ],
+        "edges": [item.summary() for item in edges],
+        "runtime_includes": sorted(set(runtime_includes)),
+    }
+    fingerprint = sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return UserMaterialSourceGraph(
+        root=root,
+        files=tuple(files.values()),
+        edges=tuple(edges),
+        fingerprint=fingerprint,
+        runtime_includes=tuple(sorted(set(runtime_includes))),
+        issues=tuple(dict.fromkeys(issues)),
+    )
+
 
 def inspect_abaqus_user_material(
     source: str | Path,
@@ -292,8 +492,13 @@ def inspect_abaqus_user_material(
         raise ValueError("Abaqus user-material inspection requires a Fortran source file.")
     if not path.is_file():
         raise FileNotFoundError(path)
+    graph = read_user_material_source_graph(path)
     raw = path.read_bytes()
-    text = raw.decode("utf-8", errors="replace")
+    texts = [
+        item.path.read_text(encoding="utf-8", errors="replace")
+        for item in graph.files
+    ]
+    text = "\n".join(texts)
     upper = text.upper()
     entrypoints = tuple(
         dict.fromkeys(
@@ -328,10 +533,17 @@ def inspect_abaqus_user_material(
         )
     )
     utilities = tuple(item for item in calls if item in _ABAQUS_UTILITY_NAMES)
+    project_calls = tuple(
+        item
+        for item in calls
+        if item in entrypoints and item not in material_entrypoints
+    )
     external = tuple(
         item
         for item in calls
-        if item not in _ABAQUS_UTILITY_NAMES and item not in material_entrypoints
+        if item not in _ABAQUS_UTILITY_NAMES
+        and item not in material_entrypoints
+        and item not in project_calls
     )
     source_symbols = set(re.findall(r"\b[A-Z][A-Z0-9_]*\b", upper))
     missing_contract_symbols = tuple(
@@ -379,9 +591,18 @@ def inspect_abaqus_user_material(
             UserMaterialInspectionIssue(
                 "AFM-USERMAT-SOURCE-101",
                 "warning",
-                "Additional subroutine calls must be compiled and reviewed with the "
-                "material source: "
+                "Unresolved subroutine calls require additional source or an "
+                "explicit replacement before compilation: "
                 + ", ".join(external),
+            )
+        )
+    for issue in graph.issues:
+        code, _, message = issue.partition(":")
+        findings.append(
+            UserMaterialInspectionIssue(
+                code or "AFM-USERMAT-INCLUDE-000",
+                "error",
+                message.strip() or issue,
             )
         )
     if interface == "UHYPER":
@@ -403,10 +624,12 @@ def inspect_abaqus_user_material(
     return AbaqusUserMaterialInspection(
         source=str(path),
         source_sha256=sha256(raw).hexdigest(),
+        source_graph=graph,
         interface=interface,
         entrypoints=entrypoints,
         includes=includes,
         abaqus_utility_calls=utilities,
+        project_calls=project_calls,
         external_calls=external,
         missing_contract_symbols=missing_contract_symbols,
         route=route,

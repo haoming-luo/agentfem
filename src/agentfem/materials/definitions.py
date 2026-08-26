@@ -10,7 +10,7 @@ kernel or invalidate the concise 0.2.x constructors.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Mapping
+from typing import Callable, Mapping
 
 
 @dataclass(frozen=True)
@@ -201,6 +201,61 @@ def define(
         reference_only=reference_only,
         metadata={} if metadata is None else metadata,
     )
+
+
+_DEFINITION_FACTORIES: dict[str, Callable[[], MaterialDefinition]] = {}
+
+
+def register_definition(
+    name: str,
+    factory: Callable[[], MaterialDefinition],
+    *,
+    overwrite: bool = False,
+) -> None:
+    """Register a lazy named material definition from an extension package.
+
+    The factory remains unexecuted during extension activation. This keeps
+    plugin discovery side-effect free while allowing native Python, compiled,
+    or adapted constitutive assets to enter through the same
+    ``materials.load(name)`` boundary as packaged reference cards.
+    """
+
+    selected = str(name).strip()
+    if not selected:
+        raise ValueError("A registered material definition requires a name.")
+    if not callable(factory):
+        raise TypeError("A registered material definition requires a callable factory.")
+    if selected in _DEFINITION_FACTORIES and not overwrite:
+        raise KeyError(
+            f"material definition {selected!r} already exists; pass overwrite=True."
+        )
+    _DEFINITION_FACTORIES[selected] = factory
+
+
+def registered_definitions() -> tuple[str, ...]:
+    """Return extension-provided material definition names in stable order."""
+
+    return tuple(sorted(_DEFINITION_FACTORIES))
+
+
+def load_registered_definition(name: str) -> MaterialDefinition:
+    """Construct one explicitly registered material definition on demand."""
+
+    selected = str(name).strip()
+    try:
+        factory = _DEFINITION_FACTORIES[selected]
+    except KeyError as exc:
+        raise KeyError(
+            f"unknown registered material definition {selected!r}. "
+            f"Available: {registered_definitions()}."
+        ) from exc
+    candidate = factory()
+    if not isinstance(candidate, MaterialDefinition):
+        raise TypeError(
+            f"Material definition factory {selected!r} returned "
+            f"{type(candidate).__name__}; expected MaterialDefinition."
+        )
+    return candidate
 
 
 def _role_for_physics(physics: str) -> str:
