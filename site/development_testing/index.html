@@ -871,8 +871,8 @@ the most expensive command after every keystroke.</p>
 </tr>
 <tr>
 <td>MPI-sensitive change</td>
-<td>Relevant two-rank modules using the environment-matched launcher</td>
-<td><code>$CONDA_PREFIX/bin/mpiexec -n 2 python -m pytest ...</code></td>
+<td>Relevant two-rank modules using the verified launcher</td>
+<td><code>agentfem mpi-run -n 2 -- python -m pytest ...</code></td>
 </tr>
 <tr>
 <td>Pull request and <code>main</code></td>
@@ -916,7 +916,7 @@ the artifact users receive.</p>
 <p>Direct MPI driver scripts do not pass through pytest's <code>pythonpath</code> setting.
 When they are used against an uninstalled checkout, prefix both serial and MPI
 commands with the checkout parent explicitly, for example:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">PYTHONPATH</span><span class="o">=</span><span class="s2">&quot;</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span><span class="s2">/src&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$CONDA_PREFIX</span><span class="s2">/bin/mpirun&quot;</span><span class="w"> </span>-n<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="se">\</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">PYTHONPATH</span><span class="o">=</span><span class="s2">&quot;</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span><span class="s2">/src&quot;</span><span class="w"> </span>agentfem<span class="w"> </span>mpi-run<span class="w"> </span>-n<span class="w"> </span><span class="m">2</span><span class="w"> </span>--<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>python<span class="w"> </span>tests/portable_inelastic_step_driver.py<span class="w"> </span>write<span class="w"> </span>/tmp/agentfem-step
 </code></pre></div>
 <p>Release CI deliberately omits this prefix after force-installing the candidate

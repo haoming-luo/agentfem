@@ -8,11 +8,11 @@ from importlib import metadata
 import json
 import platform as _platform
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 
 from . import dependencies
+from .mpi_runtime import audit_mpi_runtime
 
 
 @dataclass(frozen=True)
@@ -92,6 +92,7 @@ class RuntimeReport:
         lines.append(f"  MPI ranks: {self.mpi['rank_count']}")
         lines.append(f"  PETSc scalar: {self.numerics['petsc_scalar_type']}")
         lines.append(f"  MPI launcher: {self.mpi['recommended_launcher']}")
+        lines.append(f"  MPI launcher status: {self.mpi['code']}")
         lines.append(f"  Python executable: {self.execution['python_executable']}")
         lines.append(f"  imported AgentFEM: {self.execution['imported_package']}")
         lines.append(
@@ -120,6 +121,8 @@ class RuntimeReport:
                 "  warning: PATH mpiexec differs from the active environment; "
                 "AgentFEM will use the environment launcher"
             )
+        elif not self.mpi["compatible"]:
+            lines.append(f"  error: {self.mpi['message']}")
         lines.extend(
             f"  optional {item.package}: "
             f"{item.version if item.available else 'not installed'}"
@@ -322,40 +325,9 @@ def _execution_identity(*, runtime_version: str | None = None) -> dict[str, obje
 
 
 def _mpi_runtime() -> dict[str, object]:
-    """Describe the mpi4py vendor and avoid PATH launcher mismatches."""
+    """Describe and verify the launcher used by the active mpi4py runtime."""
 
-    try:
-        from mpi4py import MPI
-
-        vendor_name, vendor_version = MPI.get_vendor()
-        vendor = f"{vendor_name} {'.'.join(str(item) for item in vendor_version)}"
-        rank_count = int(MPI.COMM_WORLD.size)
-    except Exception as exc:
-        vendor = f"unavailable ({type(exc).__name__}: {exc})"
-        rank_count = 1
-    environment_launcher = Path(sys.prefix) / "bin" / "mpiexec"
-    path_launcher = shutil.which("mpiexec") or shutil.which("mpirun")
-    recommended = (
-        str(environment_launcher)
-        if environment_launcher.is_file()
-        else path_launcher
-    )
-    mismatch = False
-    if environment_launcher.is_file() and path_launcher is not None:
-        try:
-            mismatch = not Path(path_launcher).samefile(environment_launcher)
-        except OSError:
-            mismatch = str(Path(path_launcher).resolve()) != str(environment_launcher.resolve())
-    return {
-        "vendor": vendor,
-        "rank_count": rank_count,
-        "environment_launcher": (
-            str(environment_launcher) if environment_launcher.is_file() else None
-        ),
-        "path_launcher": path_launcher,
-        "recommended_launcher": recommended,
-        "path_mismatch": mismatch,
-    }
+    return audit_mpi_runtime().summary()
 
 
 def _numeric_runtime() -> dict[str, object]:

@@ -71,10 +71,19 @@ def test_runtime_report_is_serializable_and_names_optional_integrations():
     assert report["operating_system"]["system"]
     assert report["packages"]["agentfem"] == __version__
     assert report["mpi"]["vendor"]
+    assert report["mpi"]["family"] in {
+        "mpich",
+        "openmpi",
+        "intelmpi",
+        "msmpi",
+        "unknown",
+    }
     assert report["mpi"]["rank_count"] >= 1
     assert report["numerics"]["numpy_default_float"] == "float64"
     assert report["numerics"]["petsc_scalar_type"]
     assert "path_mismatch" in report["mpi"]
+    assert report["mpi"]["code"].startswith("AFM-MPI-LAUNCHER-")
+    assert isinstance(report["mpi"]["compatible"], bool)
     assert report["execution"]["python_executable"] == sys.executable
     assert report["execution"]["imported_package"]
     assert report["execution"]["mode"] in {

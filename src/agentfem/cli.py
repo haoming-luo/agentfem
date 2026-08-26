@@ -10,7 +10,6 @@ import json
 import os
 from pathlib import Path
 import runpy
-import shutil
 import subprocess
 import sys
 import traceback
@@ -23,6 +22,7 @@ from . import platforms
 from . import provenance
 from . import upgrades
 from ._api_contract import CAPABILITIES_SCHEMA_VERSION, CLI_COMMANDS
+from .mpi_runtime import audit_mpi_runtime, mpi_command
 from .project import PROJECT_FILENAME, ProjectConfig, RunContext, discover, new_run_id
 
 
@@ -212,32 +212,41 @@ def _collect_rank_errors(comm, local_error) -> tuple[dict[str, object], ...]:
 
 
 def _launch_mpi(args) -> int:
-    environment_launcher = Path(sys.prefix) / "bin" / "mpiexec"
-    launcher = (
-        str(environment_launcher)
-        if environment_launcher.is_file()
-        else (shutil.which("mpiexec") or shutil.which("mpirun"))
-    )
-    if launcher is None:
-        raise RuntimeError("No mpiexec or mpirun launcher was found on PATH.")
-    command = [
-        launcher,
-        "-n",
-        str(args.mpi),
+    child = [
         sys.executable,
         "-m",
         "agentfem.cli",
         "run",
     ]
     if args.project:
-        command.extend(("--project", args.project))
+        child.extend(("--project", args.project))
     if args.run_id:
-        command.extend(("--run-id", args.run_id))
+        child.extend(("--run-id", args.run_id))
     if args.output:
-        command.extend(("--output", args.output))
+        child.extend(("--output", args.output))
     if args.json:
-        command.append("--json")
-    command.append("--inside-mpi")
+        child.append("--json")
+    child.append("--inside-mpi")
+    command = mpi_command(args.mpi, child)
+    return subprocess.run(command, check=False).returncode
+
+
+def _command_mpi_run(args) -> int:
+    """Run an arbitrary command with the launcher verified by AgentFEM."""
+
+    child = tuple(args.child_command)
+    if child and child[0] == "--":
+        child = child[1:]
+    if not child:
+        raise ValueError("mpi-run requires a child command after `--`.")
+    command = mpi_command(args.ranks, child)
+    audit = audit_mpi_runtime()
+    if MPI.COMM_WORLD.rank == 0:
+        print(
+            f"AgentFEM MPI: {audit.family} launcher {audit.selected_launcher} "
+            f"({args.ranks} ranks)",
+            flush=True,
+        )
     return subprocess.run(command, check=False).returncode
 
 
@@ -521,6 +530,13 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--json", action="store_true")
     run.add_argument("--inside-mpi", action="store_true", help=argparse.SUPPRESS)
 
+    mpi_run = sub.add_parser(
+        "mpi-run",
+        help="Run a command with an MPI launcher verified against the active environment.",
+    )
+    mpi_run.add_argument("-n", "--ranks", type=int, required=True)
+    mpi_run.add_argument("child_command", nargs=argparse.REMAINDER)
+
     inspect = sub.add_parser("inspect", help="Summarize a result, execution, or latest-run record.")
     inspect.add_argument("path", nargs="?")
     inspect.add_argument("--project")
@@ -625,6 +641,10 @@ def main(argv: list[str] | None = None) -> int:
             if args.mpi <= 0:
                 parser.error("--mpi must be positive")
             return _command_run(args)
+        if args.command == "mpi-run":
+            if args.ranks <= 0:
+                parser.error("--ranks must be positive")
+            return _command_mpi_run(args)
         if args.command == "inspect":
             return _command_inspect(args)
         if args.command == "inspect-abaqus":

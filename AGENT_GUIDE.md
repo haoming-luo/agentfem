@@ -10,6 +10,9 @@ finite-element simulation with AgentFEM.
    `agentfem upgrade --json`; treat `semantic_review=true` as a requirement to
    inspect the finite-element meaning, not as permission for blind text
    replacement. For repository work, also read this guide.
+   Use `agentfem run --mpi N` for projects and
+   `agentfem mpi-run -n N -- ...` for MPI tests or external commands; never
+   guess a bare `mpiexec` because it may belong to another MPI implementation.
 2. Read `WORKFLOW.md` to identify the standard finite-element sequence.
 3. Read `CONCEPTS.md` to align terminology before changing code.
 4. Identify or create the `studies.Study` before choosing constitutive laws or

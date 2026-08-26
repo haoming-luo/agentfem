@@ -1235,11 +1235,11 @@ directory:</p>
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>agentfem<span class="w"> </span>run<span class="w"> </span>--run-id<span class="w"> </span>baseline
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>agentfem<span class="w"> </span>run<span class="w"> </span>--mpi<span class="w"> </span><span class="m">4</span>
 </code></pre></div>
-<p>The product shell is preferred because it selects the MPI launcher shipped by
-the active environment.  When an explicit launcher is required, use that same
-environment's executable rather than an unrelated <code>mpiexec</code> found earlier on
-<code>PATH</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="s2">&quot;</span><span class="nv">$CONDA_PREFIX</span><span class="s2">/bin/mpiexec&quot;</span><span class="w"> </span>-n<span class="w"> </span><span class="m">4</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>agentfem.cli<span class="w"> </span>run
+<p>The product shell inspects the launcher against the MPI implementation used by
+<code>mpi4py</code>. This avoids accidentally starting a conda MPICH runtime with a system
+Open MPI launcher. For a test or another MPI-aware program, let AgentFEM select
+the compatible launcher instead of calling bare <code>mpiexec</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>agentfem<span class="w"> </span>mpi-run<span class="w"> </span>-n<span class="w"> </span><span class="m">2</span><span class="w"> </span>--<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>tests/test_parallel_results.py
 </code></pre></div>
 <p>Do not start a second MPI launcher from an already distributed case. The CLI
 detects the communicator and runs the entrypoint on it.</p>

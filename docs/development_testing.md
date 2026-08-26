@@ -11,7 +11,7 @@ the most expensive command after every keystroke.
 | Inner development loop | Direct unit/interface tests for the changed owner | `python -m pytest -q tests/test_extensions.py` |
 | Before committing | Related workflow tests, critical static analysis, misuse tests, and generated-asset checks | `ruff check . --no-cache`; `python build_knowledge.py --check --check-imports`; `python build_docs.py --check` |
 | Before pushing a coherent code change | Complete serial suite | `python -m pytest -q` |
-| MPI-sensitive change | Relevant two-rank modules using the environment-matched launcher | `$CONDA_PREFIX/bin/mpiexec -n 2 python -m pytest ...` |
+| MPI-sensitive change | Relevant two-rank modules using the verified launcher | `agentfem mpi-run -n 2 -- python -m pytest ...` |
 | Pull request and `main` | Wheel installation, full serial, MPI, checkpoint portability, examples, documentation, and optional PyTorch bridge | GitHub Actions `Test` workflow |
 | Release candidate/tag | All preceding checks plus distribution inspection and installed-wheel release smoke | `python release_gate.py --dist dist --smoke` |
 
@@ -55,7 +55,7 @@ When they are used against an uninstalled checkout, prefix both serial and MPI
 commands with the checkout parent explicitly, for example:
 
 ```bash
-PYTHONPATH="$(pwd)/src" "$CONDA_PREFIX/bin/mpirun" -n 2 \
+PYTHONPATH="$(pwd)/src" agentfem mpi-run -n 2 -- \
   python tests/portable_inelastic_step_driver.py write /tmp/agentfem-step
 ```
 

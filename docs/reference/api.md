@@ -58,7 +58,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `inspect_abaqus_input(path: str \| Path) -> abaqus.AbaqusMigrationReport` | Inventory Abaqus engineering semantics before conversion or solving. |
 | function | `inspect_abaqus_source_graph(path: str \| Path) -> abaqus.AbaqusSourceGraph` | Resolve and fingerprint nested Abaqus input sources without flattening. |
 | function | `plan_abaqus_migration(path: str \| Path) -> 'AbaqusMigrationPlan'` | Build a scope-aware Abaqus migration plan without solving. |
-| function | `create_abaqus_migration_project(source: str \| Path, destination: str \| Path, *, name: str \| None = None, created_with: str = 'unknown') -> dict[str, object]` | Create a fail-closed AgentFEM project from inspected Abaqus sources. |
+| function | `create_abaqus_migration_project(source: str \| Path, destination: str \| Path, *, name: str \| None = None, created_with: str = 'unknown', user_material_sources: dict[str, str \| Path] \| None = None) -> dict[str, object]` | Create a fail-closed AgentFEM project from inspected Abaqus sources. |
 | function | `assess_abaqus_native_lowering(path: str \| Path)` | Assess whether an Abaqus source fits the reviewed native subset. |
 | function | `lower_abaqus_migration_project(project: str \| Path, *, reviewed_by: str, unit_system: str, activate: bool = False, force: bool = False) -> dict[str, object]` | Emit an explicitly reviewed native draft from a migration project. |
 | function | `supported_abaqus_element_types(*, family: str \| None = None) -> tuple[str, ...]` | Return Abaqus declarations with explicit AgentFEM import semantics. |
@@ -771,11 +771,15 @@ and evidence remain in the linked guides and scientific function reference.
 | Kind | Public object | Purpose |
 | --- | --- | --- |
 | class | `ConditionSpec` | A physical condition and the declared way it enters an objective. |
+| class | `IntegrationEvidence` | Independent objective re-integration and refinement evidence. |
+| class | `IntegrationPlan` | Training, held-out validation, and optional refinement integration. |
+| class | `IntegrationRule` | One inspectable numerical-integration point set. |
 | class | `NeuralFieldSpec` | Provider-neutral contract for PINN, DEM, XDEM, and related solvers. |
 | class | `NeuralRepresentation` | How one neural function represents one or more unknown fields. |
 | class | `ObjectiveTerm` | One named contribution to a neural-field optimization objective. |
 | class | `SamplingPlan` | Inspectable coordinates or integration samples for one physical set. |
 | class | `TrainableParameter` | A physical parameter inferred jointly with one or more fields. |
+| function | `integration_consistency_check(plan: IntegrationPlan, *, training_value: float, validation_value: float, refinement_values = (), balance_error: float \| None = None, relative_tolerance: float = 0.05) -> IntegrationEvidence` | Compare optimized and held-out integration without trusting loss alone. |
 | class | `NeuralFieldExecutionRequest` | Immutable input supplied to a user- or package-owned executor. |
 
 ## `agentfem.mechanics`
@@ -1006,6 +1010,9 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `j2_thick_cylinder_benchmark(*, comm = MPI.COMM_WORLD, radial_cells: int = 4, angular_cells: int = 8, axial_cells: int = 1, increments: int = 24, formulation: str = 'three_dimensional_sector') -> InelasticStructuralBenchmark` | Run the Comet-FEniCSx thick-cylinder first-yield benchmark. |
 | function | `power_law_creep_cylinder_stress(radius, *, inner_radius: float, outer_radius: float, pressure: float, stress_exponent: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]` | Return the NAFEMS R0027 Test 7 steady-state cylinder stresses. |
 | function | `thick_cylinder_sector_mesh(*, inner_radius: float, outer_radius: float, thickness: float, radial_cells: int, angular_cells: int, cell_type: str = 'tetrahedron', comm = MPI.COMM_WORLD)` | Create a one-layer 3D quarter-cylinder benchmark mesh. |
+| class | `CenterCrackLEFMBenchmark` | One solved center-crack model and its independently extracted evidence. |
+| function | `center_crack_lefm_mesh(*, half_crack_length: float = 1.0, half_width: float = 8.0, half_height: float = 8.0, comm = MPI.COMM_SELF)` | Build the serial, conforming split mesh used by the LEFM benchmark. |
+| function | `center_crack_mode_i_benchmark(*, young_modulus: float = 1000.0, poisson_ratio: float = 0.25, half_crack_length: float = 1.0, half_width: float = 8.0, half_height: float = 8.0, remote_strain: float = 0.001, relative_tolerance: float = 0.05) -> CenterCrackLEFMBenchmark` | Solve and verify a finite-plate Mode-I crack with the public workflow. |
 
 ## `agentfem.dependencies`
 

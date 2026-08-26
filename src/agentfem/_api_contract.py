@@ -174,6 +174,7 @@ CLI_COMMANDS = (
     "check",
     "upgrade",
     "run",
+    "mpi-run",
     "inspect",
     "inspect-abaqus",
     "inspect-user-material",
@@ -189,6 +190,7 @@ MACHINE_COMMANDS = {
     "capabilities": "agentfem capabilities --json",
     "project_check": "agentfem check --json",
     "run": "agentfem run --json",
+    "mpi_run": "agentfem mpi-run -n 2 -- python case.py",
     "inspect": "agentfem inspect --json",
     "abaqus_inspect": "agentfem inspect-abaqus model.inp --json",
     "abaqus_user_material_inspect": (

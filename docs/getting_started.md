@@ -156,13 +156,13 @@ agentfem run --run-id baseline
 agentfem run --mpi 4
 ```
 
-The product shell is preferred because it selects the MPI launcher shipped by
-the active environment.  When an explicit launcher is required, use that same
-environment's executable rather than an unrelated `mpiexec` found earlier on
-`PATH`:
+The product shell inspects the launcher against the MPI implementation used by
+`mpi4py`. This avoids accidentally starting a conda MPICH runtime with a system
+Open MPI launcher. For a test or another MPI-aware program, let AgentFEM select
+the compatible launcher instead of calling bare `mpiexec`:
 
 ```bash
-"$CONDA_PREFIX/bin/mpiexec" -n 4 python -m agentfem.cli run
+agentfem mpi-run -n 2 -- python -m pytest tests/test_parallel_results.py
 ```
 
 Do not start a second MPI launcher from an already distributed case. The CLI

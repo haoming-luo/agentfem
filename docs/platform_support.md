@@ -8,7 +8,7 @@ theoretically import one package.
 | Route | 26 August 2026 level | Evidence and boundary |
 | --- | --- | --- |
 | Native Linux | CI verified | Full tests, two-rank MPI, wheel and release Demo gates run on Ubuntu. |
-| Native macOS | Developer verified | Maintainer development and release verification run on Apple Silicon; the MPI launcher must match `mpi4py`. |
+| Native macOS | Developer verified | Maintainer development and release verification run on Apple Silicon; AgentFEM verifies the MPI launcher against `mpi4py`. |
 | Windows through WSL2 | Recommended Windows route | Uses the Linux FEniCSx/PETSc/MPI stack exercised by CI. Host GUI and filesystem integration remain local setup concerns. |
 | Native Windows | Experimental | FEniCSx 0.11 has `win-64` builds, but AgentFEM's PETSc route and `dolfinx_mpc` 0.11 do not form a complete conda-forge native-Windows stack, and AgentFEM has no native-Windows CI gate. |
 
@@ -26,10 +26,12 @@ shadowing or stale installed-version metadata, the environment-matched MPI
 launcher, and the availability of meshio, Gmsh, PyVista, PyTorch, and
 `dolfinx_mpc`.
 
-If `doctor` reports an MPI launcher mismatch, use the launcher named by
-`mpi.recommended_launcher` or let `agentfem run --mpi N` select it. A PATH
-launcher from a different MPI implementation can start ordinary processes but
-cannot safely initialize the active `mpi4py` runtime.
+If `doctor` reports `AFM-MPI-LAUNCHER-RECOVERED`, the incompatible `PATH`
+launcher has already been bypassed. Use `agentfem run --mpi N` for a project or
+`agentfem mpi-run -n N -- ...` for another program. A PATH launcher from a
+different MPI implementation can start ordinary processes but cannot safely
+initialize the active `mpi4py` runtime. `MISMATCH` and `MISSING` are fail-closed
+environment errors rather than numerical failures.
 
 ## Installed-wheel acceptance
 

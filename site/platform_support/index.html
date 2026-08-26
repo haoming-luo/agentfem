@@ -1399,7 +1399,7 @@ theoretically import one package.</p>
 <tr>
 <td>Native macOS</td>
 <td>Developer verified</td>
-<td>Maintainer development and release verification run on Apple Silicon; the MPI launcher must match <code>mpi4py</code>.</td>
+<td>Maintainer development and release verification run on Apple Silicon; AgentFEM verifies the MPI launcher against <code>mpi4py</code>.</td>
 </tr>
 <tr>
 <td>Windows through WSL2</td>
@@ -1423,10 +1423,12 @@ the exact interpreter and imported AgentFEM directory, any installed-package
 shadowing or stale installed-version metadata, the environment-matched MPI
 launcher, and the availability of meshio, Gmsh, PyVista, PyTorch, and
 <code>dolfinx_mpc</code>.</p>
-<p>If <code>doctor</code> reports an MPI launcher mismatch, use the launcher named by
-<code>mpi.recommended_launcher</code> or let <code>agentfem run --mpi N</code> select it. A PATH
-launcher from a different MPI implementation can start ordinary processes but
-cannot safely initialize the active <code>mpi4py</code> runtime.</p>
+<p>If <code>doctor</code> reports <code>AFM-MPI-LAUNCHER-RECOVERED</code>, the incompatible <code>PATH</code>
+launcher has already been bypassed. Use <code>agentfem run --mpi N</code> for a project or
+<code>agentfem mpi-run -n N -- ...</code> for another program. A PATH launcher from a
+different MPI implementation can start ordinary processes but cannot safely
+initialize the active <code>mpi4py</code> runtime. <code>MISMATCH</code> and <code>MISSING</code> are fail-closed
+environment errors rather than numerical failures.</p>
 <h2 id="installed-wheel-acceptance">Installed-wheel acceptance<a class="headerlink" href="#installed-wheel-acceptance" title="Permanent link">&para;</a></h2>
 <p>Platform support can be recorded with the same release workflow on every
 machine. From a clean checkout and a compatible FEniCSx environment:</p>

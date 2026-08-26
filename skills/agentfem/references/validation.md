@@ -9,6 +9,9 @@ Minimum validation after code changes:
 4. Check AF-IR JSON safety and determinism when serialization changed.
 5. Run a small serial case when the change affects execution.
 6. Run a small MPI case when the change affects parallel behavior.
+   Use `agentfem mpi-run -n 2 -- ...` (or `agentfem run --mpi 2` for a
+   project) so the launcher family is verified against the active `mpi4py`;
+   do not assume the first bare `mpiexec` on `PATH` is compatible.
 7. Report untested assumptions and unsupported backend capabilities.
 8. Keep computed/converged/verified/validated claims distinct. Use named
    quality presets for routine checks; use `verification.VerificationClaim`

@@ -1310,6 +1310,39 @@ claiming a universal trainer. It composes:</p>
 <li>independent reference, condition, balance/energy, sampling-convergence, and
   optimization-repeatability checks.</li>
 </ul>
+<p>For variational neural fields, the contract may also carry one
+<code>IntegrationPlan</code>. The training rule, independent validation rule, and
+refinement rules remain distinct scientific inputs with stable fingerprints.
+<code>integration_consistency_check(...)</code> reports disagreement and possible
+training-quadrature exploitation without treating optimizer loss as validation.</p>
+<p>Predefined fracture providers share the method-neutral assets exposed by
+<code>agentfem.fracture</code>: named straight cracks, stable crack-tip identities, local
+orientation, admissible integration-ring clearance, and ring-resolved
+stress-intensity evidence. PyTorch representations and Williams enrichment
+remain companion-provider responsibilities. Future FEM, XFEM, cohesive,
+phase-field, and neural-field consumers can therefore exchange fracture
+results without importing one another's solver architecture.</p>
+<p>The core also supplies an independent LEFM verification foundation. A straight
+central crack under a declared remote stress gives an analytical per-tip
+<code>StressIntensityReference</code>; every tip uses an explicit right-handed local
+frame. <code>WilliamsField2D</code> provides the leading mixed-mode analytical field, and
+<code>InteractionIntegralSamples2D</code> accepts solver-generated quadrature samples.
+The common reducer implements the straight-crack, homogeneous, traction-free
+interaction domain integral and the normalization</p>
+<div class="arithmatex">\[
+K_I=\frac{E'}{2}I_I,\qquad
+K_{II}=\frac{E'}{2}I_{II},\qquad
+J=\frac{K_I^2+K_{II}^2}{E'},
+\]</div>
+<p>where <span class="arithmatex">\(E'=E\)</span> in plane stress and <span class="arithmatex">\(E'=E/(1-\nu^2)\)</span> in plane strain.
+Multiple integration radii remain in the result, and both SIF and J variation
+participate in acceptance. The current formula deliberately excludes curved
+cracks, inhomogeneous materials, body forces, thermal eigenstrains, and applied
+crack-face tractions because those cases require additional integral terms.
+This scope follows established interaction-integral formulations rather than
+silently extending a convenient expression beyond its derivation; see
+<a href="https://doi.org/10.1016/S0013-7944(01)00080-7">Gosz and Moran (2002)</a> and
+<a href="https://doi.org/10.1016/j.engfracmech.2005.01.002">Walters, Paulino, and Dodds (2005)</a>.</p>
 <p>The physical coefficient of an objective is distinct from its positive
 optimization weight. For example, external work carries a negative physical
 coefficient in a total-potential-energy objective; changing loss balance must
