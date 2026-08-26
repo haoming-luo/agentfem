@@ -292,7 +292,12 @@ finite-element simulation with AgentFEM.
   Never infer fracture mode from an input label, average the two sides of a
   discontinuous field into one nodal value, or report one SIF without its local
   convention and ring-sensitivity evidence. The first geometry contract
-  deliberately rejects intersecting, touching, and curved cracks.
+  deliberately rejects intersecting, touching, and curved cracks. Use
+  `fracture.infinite_plate_stress_intensity(...)` as an analytical oracle and
+  `fracture.interaction_integral_report(...)` for common LEFM normalization;
+  do not apply the initial homogeneous straight-crack integral to curved,
+  inhomogeneous, thermally strained, body-force, or traction-bearing crack-face
+  cases without the required additional terms.
 - Neural energy integration: use `learning.IntegrationPlan` to distinguish the
   optimization rule from explicitly independent validation and refinement
   rules. Attach `integration_consistency_check(...)` evidence to the result.

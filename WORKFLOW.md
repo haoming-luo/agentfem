@@ -143,9 +143,10 @@ Package paths below are relative to `src/agentfem/`.
 - Time integration: `time/explicit.py`, `time/implicit.py`, and runtime cadence
 - Cyclic cohesive damage, cycle jumps and 3D crack observations:
   `fatigue_fracture.py`
-- Method-neutral predefined 2D crack geometry, stable tip identity, and
-  stress-intensity evidence: `fracture_geometry.py`, publicly re-exported by
-  `fracture.py`
+- Method-neutral predefined 2D crack geometry, stable tip identity, analytical
+  LEFM references, and stress-intensity evidence: `fracture_geometry.py`;
+  solver-neutral interaction-integral samples, Williams fields, and reduction:
+  `fracture_integrals.py`; both are publicly re-exported by `fracture.py`
 - Structure-level cyclic peak/valley control uses
   `fatigue_fracture.global_cyclic_fatigue_step(...)`. It owns accepted cycle
   coordinates, post-damage equilibrium checks, automatic cycle cutback and

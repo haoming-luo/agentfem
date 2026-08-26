@@ -615,8 +615,17 @@ explicitly by a consumer rather than silently simplified.
 
 A stress-intensity result belongs to one stable tip and retains every evaluated
 integration radius, the local coordinate system, units, extraction method, and
-path variation. A scalar `K_I` or `K_II` without this evidence is not the full
-AgentFEM result contract.
+path variation. Every tip frame is right-handed: `x1` is its outward extension
+direction and `x2` is the counterclockwise normal. A scalar `K_I` or `K_II`
+without this evidence is not the full AgentFEM result contract.
+
+The core analytical oracle and interaction-integral reducer are deliberately
+solver-neutral. FEM, XFEM, or neural fields supply quadrature samples; the core
+validates shapes and finiteness, applies the same LEFM normalization, preserves
+all rings, and compares the result with an independent reference. The initial
+integral scope is a straight traction-free crack in homogeneous isotropic
+linear elasticity without body force or eigenstrain. A consumer must reject or
+explicitly extend that scope when additional terms are physically required.
 
 ## Neural Operator
 

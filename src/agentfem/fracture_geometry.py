@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from hashlib import sha256
 import json
-from math import cos, hypot, isfinite, sin
+from math import cos, hypot, isfinite, pi, sin, sqrt
 from typing import Mapping, Protocol, runtime_checkable
 
 
@@ -108,7 +108,7 @@ class CrackSegment2D:
                 self.start,
                 tangent,
                 (-tangent[0], -tangent[1]),
-                normal,
+                (-normal[0], -normal[1]),
             ),
             CrackTip2D(
                 self.crack_id,
@@ -344,6 +344,142 @@ class StressIntensityReport:
         }
 
 
+@dataclass(frozen=True)
+class LinearElasticFractureMaterial2D:
+    """Isotropic elastic constants used by a two-dimensional LEFM result."""
+
+    young_modulus: float
+    poisson_ratio: float
+    assumption: str = "plane_strain"
+
+    def __post_init__(self) -> None:
+        modulus = float(self.young_modulus)
+        ratio = float(self.poisson_ratio)
+        assumption = str(self.assumption).strip().lower().replace("-", "_")
+        if not isfinite(modulus) or modulus <= 0.0:
+            raise ValueError("young_modulus must be finite and positive.")
+        if not isfinite(ratio) or not -1.0 < ratio < 0.5:
+            raise ValueError("poisson_ratio must satisfy -1 < value < 0.5.")
+        if assumption not in {"plane_stress", "plane_strain"}:
+            raise ValueError("assumption must be 'plane_stress' or 'plane_strain'.")
+        object.__setattr__(self, "young_modulus", modulus)
+        object.__setattr__(self, "poisson_ratio", ratio)
+        object.__setattr__(self, "assumption", assumption)
+
+    @property
+    def effective_modulus(self) -> float:
+        """Return E' in J=(K_I^2+K_II^2)/E'."""
+
+        if self.assumption == "plane_stress":
+            return self.young_modulus
+        return self.young_modulus / (1.0 - self.poisson_ratio**2)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "linear_elastic_fracture_material_2d",
+            "young_modulus": self.young_modulus,
+            "poisson_ratio": self.poisson_ratio,
+            "assumption": self.assumption,
+            "effective_modulus": self.effective_modulus,
+        }
+
+
+@dataclass(frozen=True)
+class RemoteStress2D:
+    """A symmetric remote Cauchy-stress tensor in global x-y coordinates."""
+
+    xx: float = 0.0
+    yy: float = 0.0
+    xy: float = 0.0
+
+    def __post_init__(self) -> None:
+        values = tuple(float(item) for item in (self.xx, self.yy, self.xy))
+        if any(not isfinite(item) for item in values):
+            raise ValueError("RemoteStress2D components must be finite.")
+        object.__setattr__(self, "xx", values[0])
+        object.__setattr__(self, "yy", values[1])
+        object.__setattr__(self, "xy", values[2])
+
+    def resolved(self, tip: CrackTip2D) -> tuple[float, float]:
+        """Return normal and shear traction in the tip's right-handed frame."""
+
+        e1x, e1y = tip.extension_direction
+        e2x, e2y = tip.normal
+        traction_x = self.xx * e2x + self.xy * e2y
+        traction_y = self.xy * e2x + self.yy * e2y
+        normal = e2x * traction_x + e2y * traction_y
+        shear = e1x * traction_x + e1y * traction_y
+        return normal, shear
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "remote_stress_2d",
+            "components": {"xx": self.xx, "yy": self.yy, "xy": self.xy},
+            "matrix": ((self.xx, self.xy), (self.xy, self.yy)),
+        }
+
+
+@dataclass(frozen=True)
+class StressIntensityReference:
+    """An analytical or independently established per-tip LEFM reference."""
+
+    crack_id: str
+    tip_id: str
+    k_i: float
+    k_ii: float
+    j_integral: float
+    method: str
+    coordinate_system: Mapping[str, object]
+    metadata: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        values = tuple(float(item) for item in (self.k_i, self.k_ii, self.j_integral))
+        if any(not isfinite(item) for item in values):
+            raise ValueError("StressIntensityReference values must be finite.")
+        object.__setattr__(self, "k_i", values[0])
+        object.__setattr__(self, "k_ii", values[1])
+        object.__setattr__(self, "j_integral", values[2])
+        object.__setattr__(self, "coordinate_system", dict(self.coordinate_system))
+        object.__setattr__(self, "metadata", dict(self.metadata))
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "stress_intensity_reference",
+            "crack_id": self.crack_id,
+            "tip_id": self.tip_id,
+            "K_I": self.k_i,
+            "K_II": self.k_ii,
+            "J": self.j_integral,
+            "method": self.method,
+            "coordinate_system": dict(self.coordinate_system),
+            "metadata": dict(self.metadata),
+        }
+
+
+@dataclass(frozen=True)
+class StressIntensityVerification:
+    """Comparison of extracted tip quantities with an independent reference."""
+
+    report: StressIntensityReport
+    reference: StressIntensityReference
+    relative_k_error: float
+    relative_j_error: float
+    tolerance: float
+    status: str
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "stress_intensity_verification",
+            "tip_id": self.report.tip_id,
+            "relative_K_error": self.relative_k_error,
+            "relative_J_error": self.relative_j_error,
+            "tolerance": self.tolerance,
+            "path_status": self.report.status,
+            "status": self.status,
+            "reference": self.reference.summary(),
+        }
+
+
 def segment(
     crack_id: str,
     *,
@@ -427,10 +563,13 @@ def stress_intensity_report(
     average_ii = sum(mode_ii) / len(mode_ii)
     average_j = sum(energy) / len(energy)
     scale = max(hypot(average_i, average_ii), 1.0e-30)
-    variation = max(
+    k_variation = max(
         hypot(item_i - average_i, item_ii - average_ii) / scale
         for item_i, item_ii in zip(mode_i, mode_ii)
     )
+    j_scale = max(abs(average_j), 1.0e-30)
+    j_variation = max(abs(item - average_j) / j_scale for item in energy)
+    variation = max(k_variation, j_variation)
     return StressIntensityReport(
         crack_id=tip.crack_id,
         tip_id=tip.tip_id,
@@ -449,8 +588,9 @@ def stress_intensity_report(
             "extension_direction": tip.extension_direction,
             "normal": tip.normal,
             "sign_convention": (
-                "K_I opens along the declared segment normal; K_II follows the "
-                "declared start-to-end crack tangent."
+                "Each tip uses a right-handed frame: x1 is the outward crack-"
+                "extension direction and x2 its counterclockwise normal. K_I "
+                "opens along x2; positive K_II shears along x1."
             ),
         },
         stress_intensity_unit=stress_intensity_unit,
@@ -460,6 +600,115 @@ def stress_intensity_report(
             "relative_path_tolerance": tolerance,
             **dict(metadata or {}),
         },
+    )
+
+
+def linear_elastic_fracture_material(
+    *,
+    young_modulus: float,
+    poisson_ratio: float,
+    assumption: str = "plane_strain",
+) -> LinearElasticFractureMaterial2D:
+    """Create the material part of a two-dimensional LEFM contract."""
+
+    return LinearElasticFractureMaterial2D(
+        young_modulus=young_modulus,
+        poisson_ratio=poisson_ratio,
+        assumption=assumption,
+    )
+
+
+def remote_stress(
+    *, xx: float = 0.0, yy: float = 0.0, xy: float = 0.0
+) -> RemoteStress2D:
+    """Create a symmetric remote stress tensor in global coordinates."""
+
+    return RemoteStress2D(xx=xx, yy=yy, xy=xy)
+
+
+def infinite_plate_stress_intensity(
+    *,
+    crack: CrackSet2D,
+    tip_id: str,
+    stress: RemoteStress2D,
+    material: LinearElasticFractureMaterial2D,
+) -> StressIntensityReference:
+    r"""Return the exact infinite-plate SIF for one straight central crack.
+
+    The crack has total length ``2a`` and is subjected to a uniform remote
+    stress. Resolving that tensor in each tip's right-handed local frame gives
+    ``K_I = sigma_nn sqrt(pi a)`` and ``K_II = tau_1n sqrt(pi a)``. This small
+    analytical oracle validates numerical extraction; it is not a finite-domain
+    correction formula.
+    """
+
+    if not isinstance(stress, RemoteStress2D):
+        raise TypeError("stress must be a RemoteStress2D record.")
+    if not isinstance(material, LinearElasticFractureMaterial2D):
+        raise TypeError("material must be a LinearElasticFractureMaterial2D record.")
+    tip = crack.tip(tip_id)
+    segment_record = crack.crack(tip.crack_id)
+    normal_stress, shear_stress = stress.resolved(tip)
+    factor = sqrt(pi * 0.5 * segment_record.length)
+    mode_i = normal_stress * factor
+    mode_ii = shear_stress * factor
+    energy = (mode_i**2 + mode_ii**2) / material.effective_modulus
+    return StressIntensityReference(
+        crack_id=tip.crack_id,
+        tip_id=tip.tip_id,
+        k_i=mode_i,
+        k_ii=mode_ii,
+        j_integral=energy,
+        method="analytical_infinite_plate_central_crack",
+        coordinate_system={
+            "origin": tip.point,
+            "extension_direction": tip.extension_direction,
+            "normal": tip.normal,
+            "handedness": "right",
+            "K_I": "positive normal traction opens the crack",
+            "K_II": "positive shear traction acts along the extension direction",
+        },
+        metadata={
+            "half_crack_length": 0.5 * segment_record.length,
+            "remote_stress": stress.summary(),
+            "material": material.summary(),
+            "scope": "infinite homogeneous isotropic plate; central straight crack",
+        },
+    )
+
+
+def verify_stress_intensity(
+    report: StressIntensityReport,
+    reference: StressIntensityReference,
+    *,
+    relative_tolerance: float = 0.03,
+) -> StressIntensityVerification:
+    """Verify one numerical extraction without hiding its path-sensitivity."""
+
+    if report.tip_id != reference.tip_id or report.crack_id != reference.crack_id:
+        raise ValueError("Report and reference must describe the same crack tip.")
+    tolerance = float(relative_tolerance)
+    if not isfinite(tolerance) or tolerance <= 0.0:
+        raise ValueError("relative_tolerance must be finite and positive.")
+    reference_scale = max(hypot(reference.k_i, reference.k_ii), 1.0e-30)
+    k_error = hypot(
+        report.k_i - reference.k_i,
+        report.k_ii - reference.k_ii,
+    ) / reference_scale
+    j_scale = max(abs(reference.j_integral), 1.0e-30)
+    j_error = abs(report.j_integral - reference.j_integral) / j_scale
+    accepted = (
+        report.status == "accepted"
+        and k_error <= tolerance
+        and j_error <= tolerance
+    )
+    return StressIntensityVerification(
+        report=report,
+        reference=reference,
+        relative_k_error=k_error,
+        relative_j_error=j_error,
+        tolerance=tolerance,
+        status="accepted" if accepted else "failed",
     )
 
 
@@ -539,9 +788,17 @@ __all__ = [
     "CrackSet2D",
     "CrackTip2D",
     "FractureField2D",
+    "LinearElasticFractureMaterial2D",
+    "RemoteStress2D",
     "StressIntensityReport",
+    "StressIntensityReference",
+    "StressIntensityVerification",
     "UnsupportedCrackGeometryError",
     "crack_set",
+    "infinite_plate_stress_intensity",
+    "linear_elastic_fracture_material",
+    "remote_stress",
     "segment",
     "stress_intensity_report",
+    "verify_stress_intensity",
 ]

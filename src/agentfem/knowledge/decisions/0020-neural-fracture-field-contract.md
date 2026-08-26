@@ -16,9 +16,10 @@ Project repositories own particular crack layouts, interaction coefficients,
 material parameters, and publication figures.
 
 The public core vocabulary uses `CrackSegment2D`, `CrackSet2D`,
-`FractureField2D`, `StressIntensityReport`, and `IntegrationPlan`. It does not
-name a core solver XDEM and does not accept a requested Mode I/II label as an
-answer. The mode is computed from the declared geometry and loading.
+`FractureField2D`, `WilliamsField2D`, `InteractionIntegralSamples2D`,
+`StressIntensityReport`, and `IntegrationPlan`. It does not name a core solver
+XDEM and does not accept a requested Mode I/II label as an answer. The mode is
+computed from the declared geometry and loading.
 
 ## Consequences
 
@@ -26,7 +27,8 @@ answer. The mode is computed from the declared geometry and loading.
   regression.
 - It records crack geometry, paired one-sided trace samples, independent
   validation integration, and a refinement integral.
-- A future interaction-integral implementation must first pass analytical and
-  ordinary FEM tests independently of the neural solver.
+- The interaction-integral reducer and its mixed-mode analytical Williams
+  Golden tests are independent of the neural solver. Ordinary FEM benchmark
+  evidence remains the next admission gate for the FEM adapter.
 - Multi-crack XDEM enters only after the single-crack vector-elastic provider,
   SIF extraction, and unsupported-geometry failures are verified.

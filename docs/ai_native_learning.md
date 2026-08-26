@@ -399,6 +399,30 @@ remain companion-provider responsibilities. Future FEM, XFEM, cohesive,
 phase-field, and neural-field consumers can therefore exchange fracture
 results without importing one another's solver architecture.
 
+The core also supplies an independent LEFM verification foundation. A straight
+central crack under a declared remote stress gives an analytical per-tip
+`StressIntensityReference`; every tip uses an explicit right-handed local
+frame. `WilliamsField2D` provides the leading mixed-mode analytical field, and
+`InteractionIntegralSamples2D` accepts solver-generated quadrature samples.
+The common reducer implements the straight-crack, homogeneous, traction-free
+interaction domain integral and the normalization
+
+\[
+K_I=\frac{E'}{2}I_I,\qquad
+K_{II}=\frac{E'}{2}I_{II},\qquad
+J=\frac{K_I^2+K_{II}^2}{E'},
+\]
+
+where \(E'=E\) in plane stress and \(E'=E/(1-\nu^2)\) in plane strain.
+Multiple integration radii remain in the result, and both SIF and J variation
+participate in acceptance. The current formula deliberately excludes curved
+cracks, inhomogeneous materials, body forces, thermal eigenstrains, and applied
+crack-face tractions because those cases require additional integral terms.
+This scope follows established interaction-integral formulations rather than
+silently extending a convenient expression beyond its derivation; see
+[Gosz and Moran (2002)](https://doi.org/10.1016/S0013-7944(01)00080-7) and
+[Walters, Paulino, and Dodds (2005)](https://doi.org/10.1016/j.engfracmech.2005.01.002).
+
 The physical coefficient of an objective is distinct from its positive
 optimization weight. For example, external work carries a negative physical
 coefficient in a total-potential-energy objective; changing loss balance must
