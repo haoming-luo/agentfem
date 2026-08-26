@@ -286,6 +286,18 @@ finite-element simulation with AgentFEM.
   `model.step(target=spec, executor=...)` without an official adapter, but it
   must return `SimulationResult`; do not serialize the live callable into
   provenance or infer scientific validation from training loss.
+- Predefined fracture fields: construct reusable straight 2D cracks through
+  `fracture.segment(...)` and `fracture.crack_set(...)`. Preserve stable
+  crack/tip identity, orientation, and fingerprints through every provider.
+  Never infer fracture mode from an input label, average the two sides of a
+  discontinuous field into one nodal value, or report one SIF without its local
+  convention and ring-sensitivity evidence. The first geometry contract
+  deliberately rejects intersecting, touching, and curved cracks.
+- Neural energy integration: use `learning.IntegrationPlan` to distinguish the
+  optimization rule from explicitly independent validation and refinement
+  rules. Attach `integration_consistency_check(...)` evidence to the result.
+  Loss reduction, held-out integration, refinement convergence, boundary
+  checks, and physical balance are separate decisions.
 - Across-case execution: use `campaigns.local_processes(workers=...)` only for
   independent cases. It deliberately uses `spawn`. Do not nest it inside a
   within-case MPI communicator; use deterministic plan shards for separate MPI

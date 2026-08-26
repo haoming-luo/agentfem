@@ -22,6 +22,17 @@ from .constitutive import hyperelasticity
 from .operators.core import OperatorForm
 from .kernel import dofs
 from .fracture_evidence import DynamicFractureEvidenceBundle
+from .fracture_geometry import (
+    CrackSegment2D,
+    CrackSet2D,
+    CrackTip2D,
+    FractureField2D,
+    StressIntensityReport,
+    UnsupportedCrackGeometryError,
+    crack_set,
+    segment,
+    stress_intensity_report,
+)
 
 
 _COHESIVE_PETSC_EVENTS = {
@@ -4753,6 +4764,12 @@ def minimum_cell_nodal_spacing(domain) -> float:
 
 
 __all__ = [
+    "CrackSegment2D",
+    "CrackSet2D",
+    "CrackTip2D",
+    "FractureField2D",
+    "StressIntensityReport",
+    "UnsupportedCrackGeometryError",
     "CohesiveForceCollection",
     "DynamicFractureEvidenceBundle",
     "DofMappedCohesiveForce",
@@ -4777,6 +4794,7 @@ __all__ = [
     "StableTimeIncrement",
     "ScientificComparison",
     "cohesive_front_ensemble",
+    "crack_set",
     "compare_curve",
     "compare_mach_cone",
     "compare_rectilinear_field",
@@ -4798,5 +4816,7 @@ __all__ = [
     "named_mode_i_cohesive_forces",
     "p1_input_node_to_block_dof",
     "separation_regime",
+    "segment",
+    "stress_intensity_report",
     "transfer_preload_to_explicit",
 ]

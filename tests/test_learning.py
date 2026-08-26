@@ -128,6 +128,71 @@ def test_sampling_plan_accepts_namespaced_provider_strategy():
     assert plan.summary()["strategy"] == "xdem:crack_tip_adaptive"
 
 
+def test_integration_plan_requires_explicitly_held_out_validation_points():
+    training = learning.IntegrationRule(
+        name="train_points",
+        role="training",
+        strategy="xdem:tensor_midpoint",
+        count=256,
+    )
+    with pytest.raises(ValueError, match="declare independence"):
+        learning.IntegrationPlan(
+            training=training,
+            validation=learning.IntegrationRule(
+                name="validation_points",
+                role="validation",
+                strategy="xdem:tensor_midpoint",
+                count=512,
+            ),
+        )
+
+
+def test_integration_consistency_distinguishes_loss_from_held_out_evidence():
+    plan = learning.IntegrationPlan(
+        training=learning.IntegrationRule(
+            name="train_points",
+            role="training",
+            strategy="xdem:tensor_midpoint",
+            count=256,
+        ),
+        validation=learning.IntegrationRule(
+            name="validation_points",
+            role="validation",
+            strategy="xdem:tensor_midpoint",
+            count=512,
+            independent_of=("train_points",),
+        ),
+        refinements=(
+            learning.IntegrationRule(
+                name="refined_points",
+                role="refinement",
+                strategy="xdem:tensor_midpoint",
+                count=1024,
+                independent_of=("train_points", "validation_points"),
+            ),
+        ),
+    )
+    accepted = learning.integration_consistency_check(
+        plan,
+        training_value=10.0,
+        validation_value=10.1,
+        refinement_values=(10.12,),
+        relative_tolerance=0.03,
+    )
+    suspicious = learning.integration_consistency_check(
+        plan,
+        training_value=6.0,
+        validation_value=10.0,
+        refinement_values=(10.1,),
+        relative_tolerance=0.03,
+    )
+
+    assert accepted.status == "accepted"
+    assert suspicious.status == "uncertain"
+    assert "possible_training_quadrature_exploitation" in suspicious.findings
+    assert len(plan.fingerprint) == 64
+
+
 def test_condition_values_are_machine_shaped_not_live_callables():
     with pytest.raises(TypeError, match="JSON-shaped"):
         learning.ConditionSpec(

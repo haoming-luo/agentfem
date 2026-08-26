@@ -385,6 +385,20 @@ claiming a universal trainer. It composes:
 - independent reference, condition, balance/energy, sampling-convergence, and
   optimization-repeatability checks.
 
+For variational neural fields, the contract may also carry one
+`IntegrationPlan`. The training rule, independent validation rule, and
+refinement rules remain distinct scientific inputs with stable fingerprints.
+`integration_consistency_check(...)` reports disagreement and possible
+training-quadrature exploitation without treating optimizer loss as validation.
+
+Predefined fracture providers share the method-neutral assets exposed by
+`agentfem.fracture`: named straight cracks, stable crack-tip identities, local
+orientation, admissible integration-ring clearance, and ring-resolved
+stress-intensity evidence. PyTorch representations and Williams enrichment
+remain companion-provider responsibilities. Future FEM, XFEM, cohesive,
+phase-field, and neural-field consumers can therefore exchange fracture
+results without importing one another's solver architecture.
+
 The physical coefficient of an objective is distinct from its positive
 optimization weight. For example, external work carries a negative physical
 coefficient in a total-potential-energy objective; changing loss balance must

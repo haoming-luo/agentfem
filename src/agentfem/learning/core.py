@@ -9,6 +9,8 @@ replaceable execution-provider concerns.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from hashlib import sha256
+import json
 from math import isfinite
 from typing import Mapping
 
@@ -55,6 +57,7 @@ _STANDARD_REPRESENTATIONS = {
     "rbf_network",
     "kan",
 }
+_INTEGRATION_ROLES = {"training", "validation", "refinement"}
 
 
 @dataclass(frozen=True)
@@ -239,6 +242,256 @@ class SamplingPlan:
 
 
 @dataclass(frozen=True)
+class IntegrationRule:
+    """One inspectable numerical-integration point set.
+
+    The rule describes scientific identity only.  Coordinates, tensor
+    creation, differentiation, and device placement remain provider concerns.
+    ``independent_of`` makes held-out validation an explicit relationship
+    rather than an inference from a different point count.
+    """
+
+    name: str
+    role: str
+    strategy: str
+    count: int | None = None
+    order: int | None = None
+    seed: int | None = None
+    independent_of: tuple[str, ...] = ()
+    implementation: str | None = None
+    metadata: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        name = _name(self.name, "IntegrationRule.name")
+        role = _choice(self.role, _INTEGRATION_ROLES, "IntegrationRule.role")
+        strategy = _extensible_name(
+            self.strategy,
+            _STANDARD_SAMPLING,
+            "IntegrationRule.strategy",
+        )
+        count = None if self.count is None else int(self.count)
+        order = None if self.order is None else int(self.order)
+        if count is not None and count <= 0:
+            raise ValueError("IntegrationRule.count must be positive when supplied.")
+        if order is not None and order <= 0:
+            raise ValueError("IntegrationRule.order must be positive when supplied.")
+        if count is None and order is None and strategy != "provided":
+            raise ValueError(
+                "IntegrationRule requires count or order unless strategy='provided'."
+            )
+        independent = tuple(
+            _name(item, "IntegrationRule.independent_of")
+            for item in self.independent_of
+        )
+        if name in independent or len(set(independent)) != len(independent):
+            raise ValueError(
+                "IntegrationRule.independent_of must be unique and exclude itself."
+            )
+        object.__setattr__(self, "name", name)
+        object.__setattr__(self, "role", role)
+        object.__setattr__(self, "strategy", strategy)
+        object.__setattr__(self, "count", count)
+        object.__setattr__(self, "order", order)
+        object.__setattr__(self, "seed", None if self.seed is None else int(self.seed))
+        object.__setattr__(self, "independent_of", independent)
+        object.__setattr__(self, "implementation", _optional_name(self.implementation))
+        object.__setattr__(self, "metadata", dict(self.metadata))
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "role": self.role,
+            "strategy": self.strategy,
+            "count": self.count,
+            "order": self.order,
+            "seed": self.seed,
+            "independent_of": self.independent_of,
+            "implementation": self.implementation,
+            "metadata": dict(self.metadata),
+        }
+
+    @property
+    def fingerprint(self) -> str:
+        return _fingerprint(self.summary())
+
+
+@dataclass(frozen=True)
+class IntegrationPlan:
+    """Training, held-out validation, and optional refinement integration."""
+
+    training: IntegrationRule
+    validation: IntegrationRule
+    refinements: tuple[IntegrationRule, ...] = ()
+    metadata: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.training, IntegrationRule):
+            raise TypeError("IntegrationPlan.training must be an IntegrationRule.")
+        if not isinstance(self.validation, IntegrationRule):
+            raise TypeError("IntegrationPlan.validation must be an IntegrationRule.")
+        refinements = tuple(self.refinements)
+        if any(not isinstance(item, IntegrationRule) for item in refinements):
+            raise TypeError("IntegrationPlan.refinements must contain IntegrationRule records.")
+        if self.training.role != "training":
+            raise ValueError("IntegrationPlan.training must have role='training'.")
+        if self.validation.role != "validation":
+            raise ValueError("IntegrationPlan.validation must have role='validation'.")
+        if any(item.role != "refinement" for item in refinements):
+            raise ValueError("IntegrationPlan refinements must have role='refinement'.")
+        rules = (self.training, self.validation, *refinements)
+        names = [item.name for item in rules]
+        if len(set(names)) != len(names):
+            raise ValueError("IntegrationPlan rule names must be unique.")
+        known_names = set(names)
+        unknown_independence = {
+            reference
+            for rule in rules
+            for reference in rule.independent_of
+            if reference not in known_names
+        }
+        if unknown_independence:
+            raise ValueError(
+                "IntegrationPlan independence references unknown rules "
+                f"{sorted(unknown_independence)!r}."
+            )
+        if self.training.name not in self.validation.independent_of:
+            raise ValueError(
+                "IntegrationPlan.validation must explicitly declare independence "
+                "from the training rule."
+            )
+        for rule in refinements:
+            required = {self.training.name, self.validation.name}
+            if not required.issubset(rule.independent_of):
+                raise ValueError(
+                    "Every refinement rule must explicitly declare independence "
+                    "from the training and validation rules."
+                )
+        object.__setattr__(self, "refinements", refinements)
+        object.__setattr__(self, "metadata", dict(self.metadata))
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "integration_plan",
+            "schema_version": "0.1.0",
+            "training": self.training.summary(),
+            "validation": self.validation.summary(),
+            "refinements": [item.summary() for item in self.refinements],
+            "metadata": dict(self.metadata),
+        }
+
+    @property
+    def fingerprint(self) -> str:
+        return _fingerprint(self.summary())
+
+
+@dataclass(frozen=True)
+class IntegrationEvidence:
+    """Independent objective re-integration and refinement evidence."""
+
+    plan_fingerprint: str
+    training_value: float
+    validation_value: float
+    refinement_values: tuple[float, ...]
+    training_validation_gap: float
+    refinement_gap: float | None
+    balance_error: float | None
+    relative_tolerance: float
+    status: str
+    findings: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        numeric = (
+            self.training_value,
+            self.validation_value,
+            self.training_validation_gap,
+            self.relative_tolerance,
+            *self.refinement_values,
+        )
+        optional = tuple(
+            item for item in (self.refinement_gap, self.balance_error) if item is not None
+        )
+        if any(not isfinite(float(item)) for item in numeric + optional):
+            raise ValueError("IntegrationEvidence values must be finite.")
+        if self.relative_tolerance <= 0.0:
+            raise ValueError("IntegrationEvidence.relative_tolerance must be positive.")
+        if self.status not in {"accepted", "uncertain", "failed", "inconclusive"}:
+            raise ValueError("IntegrationEvidence.status is not recognized.")
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "integration_evidence",
+            "schema_version": "0.1.0",
+            "plan_fingerprint": self.plan_fingerprint,
+            "training_value": self.training_value,
+            "validation_value": self.validation_value,
+            "refinement_values": self.refinement_values,
+            "training_validation_gap": self.training_validation_gap,
+            "refinement_gap": self.refinement_gap,
+            "balance_error": self.balance_error,
+            "relative_tolerance": self.relative_tolerance,
+            "status": self.status,
+            "findings": self.findings,
+        }
+
+
+def integration_consistency_check(
+    plan: IntegrationPlan,
+    *,
+    training_value: float,
+    validation_value: float,
+    refinement_values=(),
+    balance_error: float | None = None,
+    relative_tolerance: float = 0.05,
+) -> IntegrationEvidence:
+    """Compare optimized and held-out integration without trusting loss alone."""
+
+    if not isinstance(plan, IntegrationPlan):
+        raise TypeError("plan must be an IntegrationPlan.")
+    training = float(training_value)
+    validation = float(validation_value)
+    refinements = tuple(float(item) for item in refinement_values)
+    balance = None if balance_error is None else abs(float(balance_error))
+    tolerance = float(relative_tolerance)
+    values = (training, validation, *refinements)
+    if any(not isfinite(item) for item in values):
+        raise ValueError("Integrated objective values must be finite.")
+    scale = max(abs(training), abs(validation), 1.0e-30)
+    train_validation = abs(training - validation) / scale
+    if refinements:
+        sequence = (validation, *refinements)
+        refinement = max(
+            abs(right - left) / max(abs(left), abs(right), 1.0e-30)
+            for left, right in zip(sequence, sequence[1:])
+        )
+    else:
+        refinement = None
+    findings = []
+    if train_validation > tolerance:
+        findings.append("training_validation_mismatch")
+    if training < validation and train_validation > tolerance:
+        findings.append("possible_training_quadrature_exploitation")
+    if refinement is None:
+        findings.append("refinement_not_evaluated")
+    elif refinement > tolerance:
+        findings.append("integration_refinement_not_converged")
+    if balance is not None and balance > tolerance:
+        findings.append("declared_physics_balance_not_closed")
+    status = "accepted" if not findings else "uncertain"
+    return IntegrationEvidence(
+        plan_fingerprint=plan.fingerprint,
+        training_value=training,
+        validation_value=validation,
+        refinement_values=refinements,
+        training_validation_gap=train_validation,
+        refinement_gap=refinement,
+        balance_error=balance,
+        relative_tolerance=tolerance,
+        status=status,
+        findings=tuple(findings),
+    )
+
+
+@dataclass(frozen=True)
 class NeuralRepresentation:
     """How one neural function represents one or more unknown fields.
 
@@ -372,6 +625,7 @@ class NeuralFieldSpec:
     representations: tuple[NeuralRepresentation, ...]
     sampling: tuple[SamplingPlan, ...] = ()
     parameters: tuple[TrainableParameter, ...] = ()
+    integration: IntegrationPlan | None = None
     purpose: str = "forward"
     required_checks: tuple[str, ...] = (
         "independent_reference_error",
@@ -391,6 +645,7 @@ class NeuralFieldSpec:
         representations = tuple(self.representations)
         sampling = tuple(self.sampling)
         parameters = tuple(self.parameters)
+        integration = self.integration
         if not fields or not objectives or not conditions or not representations:
             raise ValueError(
                 "NeuralFieldSpec requires fields, objectives, explicit conditions, "
@@ -412,6 +667,8 @@ class NeuralFieldSpec:
             raise TypeError(
                 "NeuralFieldSpec.parameters must contain TrainableParameter records."
             )
+        if integration is not None and not isinstance(integration, IntegrationPlan):
+            raise TypeError("NeuralFieldSpec.integration must be an IntegrationPlan.")
         _unique_names(fields, "fields")
         _unique_names(objectives, "objectives")
         _unique_names(conditions, "conditions")
@@ -462,6 +719,7 @@ class NeuralFieldSpec:
         object.__setattr__(self, "representations", representations)
         object.__setattr__(self, "sampling", sampling)
         object.__setattr__(self, "parameters", parameters)
+        object.__setattr__(self, "integration", integration)
         object.__setattr__(self, "purpose", purpose)
         object.__setattr__(self, "required_checks", checks)
         object.__setattr__(self, "metadata", dict(self.metadata))
@@ -539,6 +797,9 @@ class NeuralFieldSpec:
             "representations": [item.summary() for item in self.representations],
             "sampling": [item.summary() for item in self.sampling],
             "parameters": [item.summary() for item in self.parameters],
+            "integration": (
+                None if self.integration is None else self.integration.summary()
+            ),
             "required_checks": self.required_checks,
             "metadata": dict(self.metadata),
         }
@@ -616,11 +877,22 @@ def _data_value(value: object, label: str):
     )
 
 
+def _fingerprint(record: object) -> str:
+    payload = json.dumps(
+        record, sort_keys=True, separators=(",", ":"), allow_nan=False
+    )
+    return sha256(payload.encode("utf-8")).hexdigest()
+
+
 __all__ = [
     "ConditionSpec",
+    "IntegrationEvidence",
+    "IntegrationPlan",
+    "IntegrationRule",
     "NeuralRepresentation",
     "NeuralFieldSpec",
     "ObjectiveTerm",
     "SamplingPlan",
     "TrainableParameter",
+    "integration_consistency_check",
 ]

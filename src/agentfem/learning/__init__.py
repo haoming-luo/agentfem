@@ -36,11 +36,15 @@ from ..surrogates import (
 )
 from .core import (
     ConditionSpec,
+    IntegrationEvidence,
+    IntegrationPlan,
+    IntegrationRule,
     NeuralFieldSpec,
     NeuralRepresentation,
     ObjectiveTerm,
     SamplingPlan,
     TrainableParameter,
+    integration_consistency_check,
 )
 from .execution import NeuralFieldExecutionRequest
 
@@ -51,6 +55,9 @@ __all__ = [
     "ConditionSpec",
     "FieldEncoding",
     "GuardedSurrogate",
+    "IntegrationEvidence",
+    "IntegrationPlan",
+    "IntegrationRule",
     "NeuralFieldSpec",
     "NeuralFieldExecutionRequest",
     "NeuralRepresentation",
@@ -78,4 +85,5 @@ __all__ = [
     "regular_grid",
     "train",
     "validate_predictions",
+    "integration_consistency_check",
 ]

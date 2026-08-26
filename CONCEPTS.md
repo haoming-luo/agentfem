@@ -598,6 +598,26 @@ Surrogates may substitute for repeated solves, accelerate components inside
 FEM, or participate in hybrid screening/active-learning loops. These roles
 require different evidence.
 
+## Predefined Crack Geometry and Crack Tip
+
+A predefined crack geometry is a scientific input asset, not a solver-owned
+string or a plotting annotation. The first public contract is a named,
+oriented, straight segment in two dimensions. A `CrackSet2D` preserves stable
+crack and tip identities, reference coordinates, tangent/normal directions,
+and a content fingerprint across FEM, cohesive, XFEM, phase-field, and neural-
+field consumers.
+
+The segment orientation defines the reported local coordinate and sign
+convention; it does not prescribe Mode I or Mode II loading. Fracture mode is a
+result of geometry, material, and loading. Intersecting, touching, overlapping,
+curved, boundary-terminating, or otherwise unsupported cracks must be rejected
+explicitly by a consumer rather than silently simplified.
+
+A stress-intensity result belongs to one stable tip and retains every evaluated
+integration radius, the local coordinate system, units, extraction method, and
+path variation. A scalar `K_I` or `K_II` without this evidence is not the full
+AgentFEM result contract.
+
 ## Neural Operator
 
 A learned function-to-function map. Its contract must specify field units and
@@ -625,6 +645,20 @@ A user-owned callable may execute that contract directly through
 provider remains appropriate for reusable lowering, dependency checks,
 standard artifacts, and benchmarked SolutionProcedures. Neither route makes a
 training framework part of the AgentFEM core.
+
+## Integration Plan and Evidence
+
+An `IntegrationPlan` distinguishes points used by optimization from an
+explicitly independent validation rule and optional refinement rules. A
+provider owns point generation and tensor execution; AgentFEM owns their
+scientific identity and evidence.
+
+`IntegrationEvidence` compares the optimized-point integral, held-out
+re-integration, refinement sequence, and an optional independently defined
+physics-balance residual. A decreasing optimizer loss is therefore not enough
+to establish an accepted neural energy solution. A large training/validation
+gap is retained as possible quadrature exploitation rather than hidden by a
+single final loss.
 
 ## Physics-Informed Model
 
