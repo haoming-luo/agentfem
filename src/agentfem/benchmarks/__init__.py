@@ -41,6 +41,11 @@ from .inelastic import (
     power_law_creep_cylinder_stress,
     thick_cylinder_sector_mesh,
 )
+from .lefm import (
+    CenterCrackLEFMBenchmark,
+    center_crack_lefm_mesh,
+    center_crack_mode_i_benchmark,
+)
 
 __all__ = [
     "BenchmarkSpec",
@@ -64,6 +69,9 @@ __all__ = [
     "WeakInterfaceTransitionSuite",
     "WeakInterfaceConvergenceStudy",
     "InelasticStructuralBenchmark",
+    "CenterCrackLEFMBenchmark",
+    "center_crack_lefm_mesh",
+    "center_crack_mode_i_benchmark",
     "creep_thick_cylinder_benchmark",
     "classical_cohesive_crack",
     "assess_delamination_benchmark",

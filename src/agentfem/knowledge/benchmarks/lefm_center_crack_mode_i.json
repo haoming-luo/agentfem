@@ -1,0 +1,40 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.lefm_center_crack_mode_i",
+  "title": "Mode-I center-crack LEFM extraction",
+  "status": "experimental_automated_foundation",
+  "purpose": "Verify that the public finite-element workflow and the DOLFINx interaction-domain adapter recover crack-tip stress intensity and energy release rate from a solved displacement field.",
+  "physics": "two-dimensional plane-stress isotropic linear elasticity with a traction-free straight center crack under remote tension",
+  "source": {
+    "organization": "classical linear-elastic fracture mechanics",
+    "title": "Infinite-plate center-crack solution",
+    "reference": "K_I = sigma sqrt(pi a), K_II = 0, J = K_I^2 / E for plane stress"
+  },
+  "execution": {
+    "command": "python -m pytest -q tests/test_fracture_fem.py",
+    "example": "examples/lefm_center_crack_2d.py",
+    "structural_api": "Study -> Model -> model.step -> DOLFINx interaction-domain lowering -> StressIntensityReport -> verification",
+    "evidence": "A P2 displacement solve on a conforming split mesh is sampled independently over three annular domains. The measured K_I, K_II and J are compared with the analytical infinite-plate reference; a separate exact Williams-field test verifies mixed-mode plane-stress and plane-strain normalization."
+  },
+  "acceptance": [
+    "The solved finite-plate K_I differs from sigma sqrt(pi a) by less than 3%.",
+    "The solved finite-plate J differs from K_I^2 / E by less than 5%.",
+    "The relative variation across three extraction domains is less than 2%.",
+    "The spurious K_II magnitude is less than 3% of reference K_I.",
+    "Invalid tensor shape, unsupported dimension, invalid radii and empty integration domains fail explicitly."
+  ],
+  "observables": [
+    "K_I and K_II for each extraction radius",
+    "mean stress-intensity factors and J",
+    "path variation",
+    "relative K and J error",
+    "finite-element solve status"
+  ],
+  "limitations": [
+    "The executable split-mesh fixture is serial and intended for verification rather than general crack meshing.",
+    "The current interaction-domain formula assumes a straight crack, homogeneous isotropic LEFM, quasi-static equilibrium, and no body force, thermal eigenstrain or applied crack-face traction in the extraction domain.",
+    "The finite plate is compared with an infinite-plate formula; its remaining finite-boundary and piecewise-linear geometry effects are included in the measured error.",
+    "This benchmark verifies a stationary predefined crack, not crack growth."
+  ]
+}

@@ -146,7 +146,9 @@ Package paths below are relative to `src/agentfem/`.
 - Method-neutral predefined 2D crack geometry, stable tip identity, analytical
   LEFM references, and stress-intensity evidence: `fracture_geometry.py`;
   solver-neutral interaction-integral samples, Williams fields, and reduction:
-  `fracture_integrals.py`; both are publicly re-exported by `fracture.py`
+  `fracture_integrals.py`; DOLFINx field lowering: `fracture_fem.py`; all are
+  publicly re-exported by `fracture.py`. The executable finite-element
+  acceptance reference is `benchmarks.center_crack_mode_i_benchmark()`
 - Structure-level cyclic peak/valley control uses
   `fatigue_fracture.global_cyclic_fatigue_step(...)`. It owns accepted cycle
   coordinates, post-damage equilibrium checks, automatic cycle cutback and

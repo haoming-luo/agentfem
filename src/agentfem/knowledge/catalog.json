@@ -183,6 +183,13 @@
       "title": "Prestressed weak-interface crack-to-supershear-to-spall mechanism ladder"
     },
     {
+      "id": "agentfem.benchmark.lefm_center_crack_mode_i",
+      "physics": "two-dimensional plane-stress isotropic linear elasticity with a traction-free straight center crack under remote tension",
+      "source": "src/agentfem/knowledge/benchmarks/lefm_center_crack_mode_i.json",
+      "status": "experimental_automated_foundation",
+      "title": "Mode-I center-crack LEFM extraction"
+    },
+    {
       "id": "agentfem.benchmark.linear_static_cantilever",
       "physics": "small-strain isotropic linear elasticity in plane strain",
       "source": "src/agentfem/knowledge/benchmarks/linear_static_cantilever.json",
@@ -811,6 +818,29 @@
       "status": "supported",
       "summary": "Converts J2 and creep quadrature evidence to separately named weighted DG0 cell fields without nodal extrapolation, interelement smoothing, or material-boundary averaging.",
       "title": "Traceable integration-point field recovery"
+    },
+    {
+      "id": "agentfem.workflow.lefm_interaction_integral",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.fracture.crack_set",
+        "agentfem.fracture.segment",
+        "agentfem.fracture.linear_elastic_fracture_material",
+        "agentfem.fracture.WilliamsField2D",
+        "agentfem.fracture.interaction_integral_report",
+        "agentfem.fracture.dolfinx_interaction_integral_report",
+        "agentfem.fracture.infinite_plate_stress_intensity",
+        "agentfem.fracture.verify_stress_intensity",
+        "agentfem.benchmarks.center_crack_mode_i_benchmark"
+      ],
+      "related_cards": [
+        "agentfem.workflow.scientific_verification",
+        "agentfem.workflow.result_field_sampling"
+      ],
+      "source": "src/agentfem/knowledge/cards/lefm_interaction_integral.json",
+      "status": "experimental",
+      "summary": "Defines stable straight-crack and crack-tip identities, exact mixed-mode Williams auxiliary fields, a solver-neutral interaction-domain integral, DOLFINx field lowering, path-sensitivity evidence, and analytical reference verification for stationary two-dimensional LEFM cracks.",
+      "title": "Solver-neutral LEFM stress-intensity extraction"
     },
     {
       "id": "agentfem.workflow.observation_grid_learning",

@@ -40,6 +40,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.workflow.distributed_cohesive_force`](#agentfem-workflow-distributed_cohesive_force) | Sparse physical-keyed cohesive force assembly across MPI ranks | workflow | experimental |
 | [`agentfem.workflow.dynamic_fracture_v5_evidence`](#agentfem-workflow-dynamic_fracture_v5_evidence) | Publication-data evidence for dynamic cohesive fracture | workflow | experimental |
 | [`agentfem.workflow.integration_point_recovery`](#agentfem-workflow-integration_point_recovery) | Traceable integration-point field recovery | workflow | supported |
+| [`agentfem.workflow.lefm_interaction_integral`](#agentfem-workflow-lefm_interaction_integral) | Solver-neutral LEFM stress-intensity extraction | workflow | experimental |
 | [`agentfem.workflow.observation_grid_learning`](#agentfem-workflow-observation_grid_learning) | Mesh-independent structured observation grids | workflow | supported |
 | [`agentfem.workflow.result_field_sampling`](#agentfem-workflow-result_field_sampling) | MPI-safe point and path field sampling | workflow | supported |
 | [`agentfem.workflow.scalable_campaign_evidence`](#agentfem-workflow-scalable_campaign_evidence) | Spawned campaign ensembles and convergence certificates | workflow | supported |
@@ -82,6 +83,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.j2_thick_cylinder_mpi` | Public thick-cylinder J2 structural benchmark in serial and MPI | native axisymmetric and three-dimensional plane-strain thick cylinders with small-strain Mises plasticity and linear isotropic hardening | automated_external_structural_mpi |
 | `agentfem.benchmark.jmps_weak_interface_convergence_v4` | Two-dimensional weak-interface supershear refinement contract | near-incompressible finite-strain plane-stress Neo-Hookean strip with ten or more cells through the height, homogeneous preload, smooth remote impact, a fixed bilinear Mode-I cohesive interface, and a precrack | experimental_v4_2d_convergence_accepted |
 | `agentfem.benchmark.jmps_weak_interface_transition_v4` | Prestressed weak-interface crack-to-supershear-to-spall mechanism ladder | near-incompressible finite-strain plane-stress Neo-Hookean strip with homogeneous preload, smooth remote impact, a fixed zero-thickness bilinear Mode-I interface, and a precrack | experimental_v4_mechanism_executable |
+| `agentfem.benchmark.lefm_center_crack_mode_i` | Mode-I center-crack LEFM extraction | two-dimensional plane-stress isotropic linear elasticity with a traction-free straight center crack under remote tension | experimental_automated_foundation |
 | `agentfem.benchmark.linear_static_cantilever` | Two-dimensional linear-static cantilever | small-strain isotropic linear elasticity in plane strain | numerical_regression |
 | `agentfem.benchmark.mixed_mode_bending_external_contract` | Source-identified mixed-mode bending curve comparison | Mixed-mode bending delamination or a mechanically equivalent fixed-path cohesive structure with measured load, displacement, crack length, and Mode-I fraction | contract_ready_external_data_pending |
 | `agentfem.benchmark.mixed_mode_cyclic_cohesive_foundation` | Mixed-mode cyclic cohesive paths, energy lifecycle and portable state | Fixed-path proportional and ordered non-proportional mixed-mode cyclic cohesive degradation | experimental_automated_foundation |
@@ -2910,6 +2912,125 @@ cell_peeq = result.fields['PEEQ_CELL']
 
 - Abaqus integration-point output and extrapolation semantics: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEOUTRefMap/simaout-c-std-elementintegrationpointvariables.htm`
 - Basix quadrature rules: `https://docs.fenicsproject.org/basix/main/python/demo/demo_quadrature.py.html`
+
+<a id="agentfem-workflow-lefm_interaction_integral"></a>
+
+## Solver-neutral LEFM stress-intensity extraction
+
+**Stable ID:** `agentfem.workflow.lefm_interaction_integral`<br>
+**Kind:** `workflow`<br>
+**Status:** `experimental`<br>
+**Source card:** `src/agentfem/knowledge/cards/lefm_interaction_integral.json`
+
+Defines stable straight-crack and crack-tip identities, exact mixed-mode Williams auxiliary fields, a solver-neutral interaction-domain integral, DOLFINx field lowering, path-sensitivity evidence, and analytical reference verification for stationary two-dimensional LEFM cracks.
+
+### Public API
+
+- `agentfem.fracture.crack_set`
+- `agentfem.fracture.segment`
+- `agentfem.fracture.linear_elastic_fracture_material`
+- `agentfem.fracture.WilliamsField2D`
+- `agentfem.fracture.interaction_integral_report`
+- `agentfem.fracture.dolfinx_interaction_integral_report`
+- `agentfem.fracture.infinite_plate_stress_intensity`
+- `agentfem.fracture.verify_stress_intensity`
+- `agentfem.benchmarks.center_crack_mode_i_benchmark`
+
+### Scientific contract
+
+Stress-intensity extraction is a declared transformation from displacement-gradient and stress fields to per-tip mixed-mode evidence, with multiple integration domains retained instead of reporting one favorable scalar.
+
+**interaction domain integral**
+
+$$
+I^{(1,2)}=\int_A\left(\sigma_{ij}^{(1)}u_{i,1}^{(2)}+\sigma_{ij}^{(2)}u_{i,1}^{(1)}-\sigma_{ik}^{(1)}\varepsilon_{ik}^{(2)}\delta_{1j}\right)q_{,j}\,\mathrm{d}A
+$$
+
+Actual and auxiliary fields are expressed in one right-handed local crack-tip frame; q decays linearly across the declared annulus.
+
+**stress-intensity normalization**
+
+$$
+K_m=E'I_m/2,\qquad E'=E\ \text{(plane stress)},\qquad E'=E/(1-\nu^2)\ \text{(plane strain)}
+$$
+
+A unit Williams auxiliary field is evaluated separately for Mode I and Mode II.
+
+**energy release rate**
+
+$$
+J=(K_I^2+K_{II}^2)/E'
+$$
+
+The reported J follows the same two-dimensional isotropic LEFM assumption as the extracted stress-intensity factors.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| crack geometry and tip identity | CrackSet2D and stable tip ID | length | Declares the tip point, outward extension direction, normal and sign convention. |
+| actual fields | 2 by 2 stress and displacement-gradient expressions or sampled arrays | stress and dimensionless gradient | DOLFINx lowering samples only owned cells before MPI reduction; solver-neutral samples can originate from another provider. |
+| material and integration domains | isotropic LEFM material plus inner and outer radii | stress, dimensionless Poisson ratio, and length | Multiple radii are required to expose path sensitivity. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| StressIntensityReport | per-tip K_I, K_II, J, per-radius values, path variation and status | stress times square-root length and energy per crack area | Carries coordinate, method, material and applicability metadata with the numerical result. |
+| StressIntensityVerification | reference error, path status and acceptance status | dimensionless relative error | Keeps analytical or external reference comparison separate from extraction. |
+
+#### Assumptions
+
+- The crack is straight in the integration domain and the tip frame is right-handed.
+- The material is homogeneous, isotropic and linearly elastic under plane stress or plane strain.
+- The extraction domain is quasi-static and excludes body-force, thermal-eigenstrain and applied crack-face-traction terms.
+
+#### Conventions
+
+- The local x1 axis points outward from the crack tip; x2 is its counterclockwise normal.
+- Positive K_I opens along x2 and positive K_II shears along x1.
+- Every MPI rank samples owned cells only and the scalar domain integral is summed globally.
+
+#### Applicability
+
+- Stationary straight cracks in two-dimensional homogeneous isotropic linear-elastic finite-element or neural-field solutions.
+
+#### Limitations
+
+- Curved cracks, bimaterial interfaces, three-dimensional fronts, finite-strain fracture and enriched-domain correction terms require distinct formulations.
+- A low optimizer loss or one extraction radius is not sufficient verification evidence.
+- The included mesh builder is a serial benchmark fixture, not a general crack insertion tool.
+
+### Minimal example
+
+```python
+evidence = benchmarks.center_crack_mode_i_benchmark(); assert evidence.status == 'accepted'
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_fracture_geometry.py`
+- `tests/test_fracture_integrals.py`
+- `tests/test_fracture_fem.py`
+- `tests/test_parallel_fracture_fem.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.lefm_center_crack_mode_i`
+
+**Validation rules**
+
+- Recover exact Mode-I and Mode-II Williams fields for plane stress and plane strain.
+- Recover the same exact mixed-mode field after owned-cell sampling and two-rank MPI reduction.
+- Reject invalid shapes, dimensions, radii and empty domains before returning scientific evidence.
+- Solve a real split-mesh center crack and meet K, J, path-variation and parasitic-mode tolerances.
+
+### References
+
+- An interaction energy integral method for computation of mixed-mode stress intensity factors along non-planar crack fronts in three dimensions: `https://doi.org/10.1016/S0013-7944(01)00080-7`
+- Interaction integral procedures for 3-D curved cracks including surface tractions: `https://doi.org/10.1016/j.engfracmech.2005.01.002`
 
 <a id="agentfem-workflow-observation_grid_learning"></a>
 

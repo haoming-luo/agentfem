@@ -627,6 +627,13 @@ integral scope is a straight traction-free crack in homogeneous isotropic
 linear elasticity without body force or eigenstrain. A consumer must reject or
 explicitly extend that scope when additional terms are physically required.
 
+The DOLFINx adapter samples owned cells, rotates tensor fields into the same
+right-handed tip frame, and performs one global scalar reduction. A public P2
+split-mesh center-crack benchmark verifies the full chain from `Study` and
+`Model` through the finite-element solution to extracted (K_I), (K_{II}),
+(J), path variation, and reference error. Its mesh is a verification fixture,
+not a substitute for general crack insertion or imported crack meshes.
+
 ## Neural Operator
 
 A learned function-to-function map. Its contract must specify field units and

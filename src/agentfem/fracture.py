@@ -47,6 +47,11 @@ from .fracture_integrals import (
     interaction_integral,
     interaction_integral_report,
 )
+from .fracture_fem import (
+    dolfinx_interaction_integral,
+    dolfinx_interaction_integral_report,
+    dolfinx_interaction_integral_samples,
+)
 
 
 _COHESIVE_PETSC_EVENTS = {
@@ -4816,6 +4821,9 @@ __all__ = [
     "cohesive_front_ensemble",
     "crack_set",
     "infinite_plate_stress_intensity",
+    "dolfinx_interaction_integral",
+    "dolfinx_interaction_integral_report",
+    "dolfinx_interaction_integral_samples",
     "interaction_integral",
     "interaction_integral_report",
     "linear_elastic_fracture_material",

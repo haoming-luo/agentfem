@@ -1,0 +1,135 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.lefm_interaction_integral",
+  "title": "Solver-neutral LEFM stress-intensity extraction",
+  "kind": "workflow",
+  "status": "experimental",
+  "summary": "Defines stable straight-crack and crack-tip identities, exact mixed-mode Williams auxiliary fields, a solver-neutral interaction-domain integral, DOLFINx field lowering, path-sensitivity evidence, and analytical reference verification for stationary two-dimensional LEFM cracks.",
+  "public_api": [
+    "agentfem.fracture.crack_set",
+    "agentfem.fracture.segment",
+    "agentfem.fracture.linear_elastic_fracture_material",
+    "agentfem.fracture.WilliamsField2D",
+    "agentfem.fracture.interaction_integral_report",
+    "agentfem.fracture.dolfinx_interaction_integral_report",
+    "agentfem.fracture.infinite_plate_stress_intensity",
+    "agentfem.fracture.verify_stress_intensity",
+    "agentfem.benchmarks.center_crack_mode_i_benchmark"
+  ],
+  "implementation": [
+    "fracture_geometry.py",
+    "fracture_integrals.py",
+    "fracture_fem.py",
+    "benchmarks/lefm.py"
+  ],
+  "science": {
+    "statement": "Stress-intensity extraction is a declared transformation from displacement-gradient and stress fields to per-tip mixed-mode evidence, with multiple integration domains retained instead of reporting one favorable scalar.",
+    "equations": [
+      {
+        "label": "interaction domain integral",
+        "expression": "I^{(1,2)}=\\int_A\\left(\\sigma_{ij}^{(1)}u_{i,1}^{(2)}+\\sigma_{ij}^{(2)}u_{i,1}^{(1)}-\\sigma_{ik}^{(1)}\\varepsilon_{ik}^{(2)}\\delta_{1j}\\right)q_{,j}\\,\\mathrm{d}A",
+        "description": "Actual and auxiliary fields are expressed in one right-handed local crack-tip frame; q decays linearly across the declared annulus."
+      },
+      {
+        "label": "stress-intensity normalization",
+        "expression": "K_m=E'I_m/2,\\qquad E'=E\\ \\text{(plane stress)},\\qquad E'=E/(1-\\nu^2)\\ \\text{(plane strain)}",
+        "description": "A unit Williams auxiliary field is evaluated separately for Mode I and Mode II."
+      },
+      {
+        "label": "energy release rate",
+        "expression": "J=(K_I^2+K_{II}^2)/E'",
+        "description": "The reported J follows the same two-dimensional isotropic LEFM assumption as the extracted stress-intensity factors."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "crack geometry and tip identity",
+        "type": "CrackSet2D and stable tip ID",
+        "unit_role": "length",
+        "description": "Declares the tip point, outward extension direction, normal and sign convention."
+      },
+      {
+        "name": "actual fields",
+        "type": "2 by 2 stress and displacement-gradient expressions or sampled arrays",
+        "unit_role": "stress and dimensionless gradient",
+        "description": "DOLFINx lowering samples only owned cells before MPI reduction; solver-neutral samples can originate from another provider."
+      },
+      {
+        "name": "material and integration domains",
+        "type": "isotropic LEFM material plus inner and outer radii",
+        "unit_role": "stress, dimensionless Poisson ratio, and length",
+        "description": "Multiple radii are required to expose path sensitivity."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "StressIntensityReport",
+        "type": "per-tip K_I, K_II, J, per-radius values, path variation and status",
+        "unit_role": "stress times square-root length and energy per crack area",
+        "description": "Carries coordinate, method, material and applicability metadata with the numerical result."
+      },
+      {
+        "name": "StressIntensityVerification",
+        "type": "reference error, path status and acceptance status",
+        "unit_role": "dimensionless relative error",
+        "description": "Keeps analytical or external reference comparison separate from extraction."
+      }
+    ],
+    "assumptions": [
+      "The crack is straight in the integration domain and the tip frame is right-handed.",
+      "The material is homogeneous, isotropic and linearly elastic under plane stress or plane strain.",
+      "The extraction domain is quasi-static and excludes body-force, thermal-eigenstrain and applied crack-face-traction terms."
+    ],
+    "conventions": [
+      "The local x1 axis points outward from the crack tip; x2 is its counterclockwise normal.",
+      "Positive K_I opens along x2 and positive K_II shears along x1.",
+      "Every MPI rank samples owned cells only and the scalar domain integral is summed globally."
+    ],
+    "applicability": [
+      "Stationary straight cracks in two-dimensional homogeneous isotropic linear-elastic finite-element or neural-field solutions."
+    ],
+    "limitations": [
+      "Curved cracks, bimaterial interfaces, three-dimensional fronts, finite-strain fracture and enriched-domain correction terms require distinct formulations.",
+      "A low optimizer loss or one extraction radius is not sufficient verification evidence.",
+      "The included mesh builder is a serial benchmark fixture, not a general crack insertion tool."
+    ]
+  },
+  "usage": {
+    "minimal_example": "evidence = benchmarks.center_crack_mode_i_benchmark(); assert evidence.status == 'accepted'",
+    "examples": [
+      "examples/lefm_center_crack_2d.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_fracture_geometry.py",
+      "tests/test_fracture_integrals.py",
+      "tests/test_fracture_fem.py",
+      "tests/test_parallel_fracture_fem.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.lefm_center_crack_mode_i"
+    ],
+    "validation_rules": [
+      "Recover exact Mode-I and Mode-II Williams fields for plane stress and plane strain.",
+      "Recover the same exact mixed-mode field after owned-cell sampling and two-rank MPI reduction.",
+      "Reject invalid shapes, dimensions, radii and empty domains before returning scientific evidence.",
+      "Solve a real split-mesh center crack and meet K, J, path-variation and parasitic-mode tolerances."
+    ]
+  },
+  "references": [
+    {
+      "title": "An interaction energy integral method for computation of mixed-mode stress intensity factors along non-planar crack fronts in three dimensions",
+      "locator": "https://doi.org/10.1016/S0013-7944(01)00080-7"
+    },
+    {
+      "title": "Interaction integral procedures for 3-D curved cracks including surface tractions",
+      "locator": "https://doi.org/10.1016/j.engfracmech.2005.01.002"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.scientific_verification",
+    "agentfem.workflow.result_field_sampling"
+  ]
+}

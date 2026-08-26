@@ -78,6 +78,22 @@ _BENCHMARKS = (
         status="release_regression",
     ),
     BenchmarkSpec(
+        identifier="lefm_center_crack_mode_i",
+        capability="linear_elastic_fracture_mechanics",
+        level="finite_element_and_postprocess",
+        reference="knowledge/benchmarks/lefm_center_crack_mode_i.json",
+        criterion=(
+            "a public P2 split-mesh solve recovers the infinite-plate Mode-I "
+            "stress intensity within 3%, J within 5%, and three-domain path "
+            "variation below 2%"
+        ),
+        automated_test=(
+            "tests/test_fracture_fem.py; tests/test_parallel_fracture_fem.py"
+        ),
+        status="experimental_automated_foundation",
+        evidence=("finite_element", "postprocess", "failure_behavior", "mpi"),
+    ),
+    BenchmarkSpec(
         identifier="axisymmetric_lame_cylinder",
         capability="axisymmetric_solid",
         level="finite_element",

@@ -295,6 +295,11 @@ finite-element simulation with AgentFEM.
   deliberately rejects intersecting, touching, and curved cracks. Use
   `fracture.infinite_plate_stress_intensity(...)` as an analytical oracle and
   `fracture.interaction_integral_report(...)` for common LEFM normalization;
+  use `fracture.dolfinx_interaction_integral_report(...)` to lower solved
+  DOLFINx stress and displacement-gradient fields, and keep its MPI reduction
+  and multiple-radius evidence intact. The executable
+  `benchmarks.center_crack_mode_i_benchmark()` is the first finite-element
+  acceptance reference; its split-mesh generator is not a general mesher.
   do not apply the initial homogeneous straight-crack integral to curved,
   inhomogeneous, thermally strained, body-force, or traction-bearing crack-face
   cases without the required additional terms.
