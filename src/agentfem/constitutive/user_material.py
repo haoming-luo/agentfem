@@ -9,7 +9,7 @@ comparisons against Abaqus.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from hashlib import sha256
 import json
 import os
@@ -473,6 +473,126 @@ def validated_material_update(
         raise ValueError("Material response changed the declared tangent convention.")
     material.state_schema.validate(response.state_new, label="state_new")
     return response
+
+
+@dataclass(frozen=True)
+class MaterialTangentCheck:
+    """Numerical-differentiation evidence for one declared material tangent."""
+
+    relative_error: float
+    maximum_absolute_error: float
+    relative_step: float
+    tolerance: float
+    accepted: bool
+    convention: MaterialTangentConvention
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "material_tangent_check",
+            "method": "central_difference_fixed_old_state",
+            "relative_error": self.relative_error,
+            "maximum_absolute_error": self.maximum_absolute_error,
+            "relative_step": self.relative_step,
+            "tolerance": self.tolerance,
+            "accepted": self.accepted,
+            "convention": self.convention.summary(),
+        }
+
+
+def check_material_tangent(
+    material: UserMaterial,
+    point: MaterialPointInput,
+    *,
+    relative_step: float = 1.0e-7,
+    tolerance: float = 1.0e-5,
+) -> MaterialTangentCheck:
+    """Compare a declared ``dP/dF`` against fixed-state finite differences.
+
+    The old deformation gradient and committed internal state are held fixed
+    for every perturbation. This checks the derivative of the discrete local
+    update that a global Newton iteration would consume; it is not a comparison
+    of continuum formulas evaluated along different material histories.
+    """
+
+    step = float(relative_step)
+    selected_tolerance = float(tolerance)
+    if not np.isfinite(step) or step <= 0.0:
+        raise ValueError("relative_step must be finite and positive.")
+    if not np.isfinite(selected_tolerance) or selected_tolerance <= 0.0:
+        raise ValueError("tolerance must be finite and positive.")
+    baseline = validated_material_update(material, point)
+    convention = baseline.tangent_convention
+    if (
+        convention.stress_measure != "first_piola"
+        or convention.kinematic_measure != "deformation_gradient"
+        or convention.configuration != "reference"
+        or convention.storage != "matrix_9x9"
+    ):
+        raise ValueError(
+            "Direct material tangent checking currently requires a declared "
+            "first-Piola/deformation-gradient 9x9 reference tangent. Spatial "
+            "UMAT tangents require a separately verified convention transform."
+        )
+    standard_order = tuple(
+        f"{i}{j}" for i in range(1, 4) for j in range(1, 4)
+    )
+    if set(convention.component_order) != set(standard_order):
+        raise ValueError(
+            "First-Piola tangent component_order must contain every 3D component."
+        )
+
+    def first_piola(response, deformation_gradient) -> np.ndarray:
+        selected = np.asarray(deformation_gradient, dtype=float)
+        return (
+            np.linalg.det(selected)
+            * response.cauchy_stress
+            @ np.linalg.inv(selected).T
+        )
+
+    base_gradient = point.deformation_gradient_new
+    base_piola = first_piola(baseline, base_gradient)
+    numerical = np.empty((9, 9), dtype=float)
+    for column in range(9):
+        row, component = divmod(column, 3)
+        increment = step * max(1.0, abs(float(base_gradient[row, component])))
+        plus = base_gradient.copy()
+        minus = base_gradient.copy()
+        plus[row, component] += increment
+        minus[row, component] -= increment
+        plus_response = validated_material_update(
+            material,
+            replace(point, deformation_gradient_new=plus),
+        )
+        plus_piola = first_piola(plus_response, plus)
+        if np.linalg.det(minus) > 0.0:
+            minus_response = validated_material_update(
+                material,
+                replace(point, deformation_gradient_new=minus),
+            )
+            minus_piola = first_piola(minus_response, minus)
+            derivative = (plus_piola - minus_piola) / (2.0 * increment)
+        else:
+            derivative = (plus_piola - base_piola) / increment
+        numerical[:, column] = derivative.reshape(-1)
+
+    indices = np.asarray(
+        [standard_order.index(label) for label in convention.component_order],
+        dtype=int,
+    )
+    numerical = numerical[np.ix_(indices, indices)]
+    analytic = np.asarray(baseline.consistent_tangent, dtype=float)
+    difference = analytic - numerical
+    denominator = max(float(np.linalg.norm(numerical)), np.finfo(float).tiny)
+    relative_error = float(np.linalg.norm(difference) / denominator)
+    maximum_absolute_error = float(np.max(np.abs(difference), initial=0.0))
+    return MaterialTangentCheck(
+        relative_error=relative_error,
+        maximum_absolute_error=maximum_absolute_error,
+        relative_step=step,
+        tolerance=selected_tolerance,
+        accepted=relative_error <= selected_tolerance,
+        convention=convention,
+    )
 
 
 @dataclass(frozen=True)

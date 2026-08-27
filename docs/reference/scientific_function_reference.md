@@ -1429,7 +1429,9 @@ Defines versioned named internal variables and explicit stress/kinematic tangent
 - `agentfem.constitutive.MaterialStateVariable`
 - `agentfem.constitutive.MaterialStateSchema`
 - `agentfem.constitutive.MaterialTangentConvention`
+- `agentfem.constitutive.MaterialTangentCheck`
 - `agentfem.constitutive.UserMaterial`
+- `agentfem.constitutive.check_material_tangent`
 - `agentfem.constitutive.validated_material_update`
 
 ### Scientific contract
@@ -1465,6 +1467,7 @@ This adapter convention includes Abaqus component, engineering-shear, rotating-b
 | --- | --- | --- | --- |
 | MaterialPointOutput | Cauchy stress, declared consistent tangent, typed new state, optional energy and suggested time scale | stress, tangent, state and energy density | Global-Newton eligibility is explicit and false for undeclared legacy outputs. |
 | MaterialQuadratureState | schema-lowered committed/trial integration-point fields | per-variable declared units | Scalar and tensor state initialization, aliases and full schema identity remain attached to portable checkpoint storage. |
+| MaterialTangentCheck | fixed-old-state numerical differentiation evidence | dimensionless relative error and tangent units for absolute error | Compares a declared first-Piola/deformation-gradient Jacobian against perturbations of all nine new-deformation-gradient components. |
 
 #### Assumptions
 
@@ -1485,6 +1488,7 @@ This adapter convention includes Abaqus component, engineering-shear, rotating-b
 
 - The contract does not itself compile or execute arbitrary UMAT or UHYPER source.
 - MaterialQuadratureState owns storage and atomic lifecycle, not a constitutive integration algorithm or global residual.
+- Direct numerical tangent checking currently applies to first-Piola/deformation-gradient 9x9 tangents; spatial UMAT tangents require a verified transformation.
 - No finite-strain inelastic material is promoted until material paths, tangent checks, global cutback/restart, MPI identity and an external benchmark pass.
 
 ### Minimal example
@@ -1513,6 +1517,7 @@ response = constitutive.validated_material_update(material, point)
 - Reject state-schema or tangent-convention drift across one material update.
 - Reject incompatible material schemas during portable checkpoint restore.
 - Exercise schema-driven state in the existing two-rank-write to one-rank-read acceptance driver.
+- Reject an incorrect first-Piola tangent and retain the numerical relative-error evidence.
 - Keep undeclared legacy outputs ineligible for global Newton consumption.
 
 ### References

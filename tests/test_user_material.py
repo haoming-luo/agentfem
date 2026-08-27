@@ -10,6 +10,7 @@ from agentfem.constitutive.user_material import (
     MaterialStateSchema,
     MaterialStateVariable,
     MaterialTangentConvention,
+    check_material_tangent,
     validated_material_update,
 )
 
@@ -171,3 +172,121 @@ def test_validated_material_update_fails_closed_on_contract_drift():
 
     with pytest.raises(ValueError, match="changed the declared state schema"):
         validated_material_update(DriftingMaterial(), point)
+
+
+def test_first_piola_material_tangent_check_matches_discrete_update():
+    schema = MaterialStateSchema("elastic_state")
+    convention = MaterialTangentConvention.first_piola_deformation_gradient()
+
+    class CompressibleNeoHookean:
+        name = "compressible Neo-Hookean tangent reference"
+        state_schema = schema
+        tangent_convention = convention
+        shear_modulus = 7.0
+        lame_parameter = 11.0
+
+        def update(self, point):
+            deformation_gradient = point.deformation_gradient_new
+            inverse_transpose = np.linalg.inv(deformation_gradient).T
+            logarithmic_jacobian = np.log(np.linalg.det(deformation_gradient))
+            coefficient = self.lame_parameter * logarithmic_jacobian - self.shear_modulus
+            first_piola = (
+                self.shear_modulus * deformation_gradient
+                + coefficient * inverse_transpose
+            )
+            tangent = np.empty((9, 9), dtype=float)
+            for i in range(3):
+                for j in range(3):
+                    row = 3 * i + j
+                    for k in range(3):
+                        for l in range(3):
+                            column = 3 * k + l
+                            tangent[row, column] = (
+                                self.shear_modulus * (i == k) * (j == l)
+                                + self.lame_parameter
+                                * inverse_transpose[k, l]
+                                * inverse_transpose[i, j]
+                                - coefficient
+                                * inverse_transpose[i, l]
+                                * inverse_transpose[k, j]
+                            )
+            jacobian = np.linalg.det(deformation_gradient)
+            cauchy = first_piola @ deformation_gradient.T / jacobian
+            return MaterialPointOutput(
+                cauchy_stress=cauchy,
+                consistent_tangent=tangent,
+                state_new=point.state_old,
+                tangent_convention=self.tangent_convention,
+                state_schema=self.state_schema,
+            )
+
+    point = MaterialPointInput(
+        deformation_gradient_old=np.eye(3),
+        deformation_gradient_new=np.asarray(
+            (
+                (1.10, 0.06, 0.01),
+                (0.02, 0.94, -0.03),
+                (0.00, 0.04, 1.03),
+            )
+        ),
+        time=0.0,
+        time_increment=0.1,
+        properties=[],
+        state_old=[],
+        state_schema=schema,
+    )
+    evidence = check_material_tangent(
+        CompressibleNeoHookean(),
+        point,
+        relative_step=1.0e-7,
+        tolerance=1.0e-7,
+    )
+
+    assert evidence.accepted
+    assert evidence.relative_error < 1.0e-8
+    assert evidence.summary()["method"] == "central_difference_fixed_old_state"
+
+    class IncorrectTangent(CompressibleNeoHookean):
+        def update(self, point):
+            response = super().update(point)
+            return MaterialPointOutput(
+                cauchy_stress=response.cauchy_stress,
+                consistent_tangent=np.zeros((9, 9)),
+                state_new=response.state_new,
+                tangent_convention=response.tangent_convention,
+                state_schema=response.state_schema,
+            )
+
+    rejected = check_material_tangent(IncorrectTangent(), point)
+    assert not rejected.accepted
+    assert rejected.relative_error == pytest.approx(1.0)
+
+
+def test_material_tangent_check_does_not_relabel_spatial_umat_tangent():
+    schema = MaterialStateSchema("empty")
+
+    class SpatialMaterial:
+        name = "spatial"
+        state_schema = schema
+        tangent_convention = MaterialTangentConvention.abaqus_umat()
+
+        def update(self, point):
+            return MaterialPointOutput(
+                cauchy_stress=np.zeros((3, 3)),
+                consistent_tangent=np.eye(6),
+                state_new=[],
+                tangent_convention=self.tangent_convention,
+                state_schema=self.state_schema,
+            )
+
+    point = MaterialPointInput(
+        deformation_gradient_old=np.eye(3),
+        deformation_gradient_new=np.eye(3),
+        time=0.0,
+        time_increment=0.1,
+        properties=[],
+        state_old=[],
+        state_schema=schema,
+    )
+    with pytest.raises(ValueError, match="Spatial UMAT tangents"):
+        check_material_tangent(SpatialMaterial(), point)

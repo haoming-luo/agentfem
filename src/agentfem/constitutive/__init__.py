@@ -109,8 +109,10 @@ from .user_material import (
     MaterialPointOutput,
     MaterialStateSchema,
     MaterialStateVariable,
+    MaterialTangentCheck,
     MaterialTangentConvention,
     UserMaterial,
+    check_material_tangent,
     validated_material_update,
 )
 
@@ -162,6 +164,7 @@ __all__ = [
     "MaterialQuadratureState",
     "MaterialStateSchema",
     "MaterialStateVariable",
+    "MaterialTangentCheck",
     "MaterialTangentConvention",
     "KachanovRabotnovCreep",
     "ModifiedThetaProjection",
@@ -177,6 +180,7 @@ __all__ = [
     "UniaxialPlasticState",
     "UserMaterial",
     "validated_material_update",
+    "check_material_tangent",
     "anisotropic_stress_2d",
     "anisotropic_elastic_2d",
     "assess_history",

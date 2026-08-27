@@ -3382,6 +3382,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>MaterialTangentCheck</code></td>
+<td>Numerical-differentiation evidence for one declared material tangent.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>MaterialTangentConvention</code></td>
 <td>Declared stress/kinematic pair represented by a material Jacobian.</td>
 </tr>
@@ -3389,6 +3394,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>class</td>
 <td><code>UserMaterial</code></td>
 <td>Protocol implemented by native or adapted material-point models.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>check_material_tangent(material: UserMaterial, point: MaterialPointInput, *, relative_step: float = 1e-07, tolerance: float = 1e-05) -&gt; MaterialTangentCheck</code></td>
+<td>Compare a declared <code>dP/dF</code> against fixed-state finite differences.</td>
 </tr>
 <tr>
 <td>function</td>

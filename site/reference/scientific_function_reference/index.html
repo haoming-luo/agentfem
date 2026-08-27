@@ -14756,7 +14756,9 @@ G_c(\beta)=G_{\mathrm{I}c}+(G_{\mathrm{II}c}-G_{\mathrm{I}c})\beta^{\eta},\qquad
 <li><code>agentfem.constitutive.MaterialStateVariable</code></li>
 <li><code>agentfem.constitutive.MaterialStateSchema</code></li>
 <li><code>agentfem.constitutive.MaterialTangentConvention</code></li>
+<li><code>agentfem.constitutive.MaterialTangentCheck</code></li>
 <li><code>agentfem.constitutive.UserMaterial</code></li>
+<li><code>agentfem.constitutive.check_material_tangent</code></li>
 <li><code>agentfem.constitutive.validated_material_update</code></li>
 </ul>
 <h3 id="scientific-contract_11">Scientific contract<a class="headerlink" href="#scientific-contract_11" title="Permanent link">&para;</a></h3>
@@ -14819,6 +14821,12 @@ G_c(\beta)=G_{\mathrm{I}c}+(G_{\mathrm{II}c}-G_{\mathrm{I}c})\beta^{\eta},\qquad
 <td>per-variable declared units</td>
 <td>Scalar and tensor state initialization, aliases and full schema identity remain attached to portable checkpoint storage.</td>
 </tr>
+<tr>
+<td>MaterialTangentCheck</td>
+<td>fixed-old-state numerical differentiation evidence</td>
+<td>dimensionless relative error and tangent units for absolute error</td>
+<td>Compares a declared first-Piola/deformation-gradient Jacobian against perturbations of all nine new-deformation-gradient components.</td>
+</tr>
 </tbody>
 </table>
 <h4 id="assumptions_11">Assumptions<a class="headerlink" href="#assumptions_11" title="Permanent link">&para;</a></h4>
@@ -14840,6 +14848,7 @@ G_c(\beta)=G_{\mathrm{I}c}+(G_{\mathrm{II}c}-G_{\mathrm{I}c})\beta^{\eta},\qquad
 <ul>
 <li>The contract does not itself compile or execute arbitrary UMAT or UHYPER source.</li>
 <li>MaterialQuadratureState owns storage and atomic lifecycle, not a constitutive integration algorithm or global residual.</li>
+<li>Direct numerical tangent checking currently applies to first-Piola/deformation-gradient 9x9 tangents; spatial UMAT tangents require a verified transformation.</li>
 <li>No finite-strain inelastic material is promoted until material paths, tangent checks, global cutback/restart, MPI identity and an external benchmark pass.</li>
 </ul>
 <h3 id="minimal-example_11">Minimal example<a class="headerlink" href="#minimal-example_11" title="Permanent link">&para;</a></h3>
@@ -14864,6 +14873,7 @@ G_c(\beta)=G_{\mathrm{I}c}+(G_{\mathrm{II}c}-G_{\mathrm{I}c})\beta^{\eta},\qquad
 <li>Reject state-schema or tangent-convention drift across one material update.</li>
 <li>Reject incompatible material schemas during portable checkpoint restore.</li>
 <li>Exercise schema-driven state in the existing two-rank-write to one-rank-read acceptance driver.</li>
+<li>Reject an incorrect first-Piola tangent and retain the numerical relative-error evidence.</li>
 <li>Keep undeclared legacy outputs ineligible for global Newton consumption.</li>
 </ul>
 <h3 id="references_11">References<a class="headerlink" href="#references_11" title="Permanent link">&para;</a></h3>

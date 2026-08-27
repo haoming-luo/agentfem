@@ -162,6 +162,13 @@ creep containers remain supported while their eventual convergence onto this
 neutral storage path is validated incrementally; the presence of shared
 storage does not imply that their constitutive algorithms are interchangeable.
 
+`check_material_tangent(material, point)` supplies the corresponding local
+evidence for a declared first-Piola/deformation-gradient Jacobian. Every
+perturbed call begins from the same old state, so the comparison differentiates
+the discrete material update seen by Newton rather than following nine
+different histories. Spatial rate tangents such as Abaqus `DDSDDE` are rejected
+until an adapter provides and verifies the required convention transform.
+
 ## Nonlinear control layers
 
 Three control levels remain distinct:

@@ -86,6 +86,23 @@ output alias, unit, or schema version cannot silently reuse an incompatible
 archive. This container provides storage and atomic lifecycle only; the
 material update and global residual remain separate consumers.
 
+For a provider that declares the total-Lagrangian convention
+(mathbb A=\partial\mathbf P/\partial\mathbf F), the discrete update can be
+checked directly:
+
+```python
+evidence = constitutive.check_material_tangent(material, point)
+evidence.accepted
+```
+
+The check holds the old deformation gradient and committed state fixed,
+perturbs all nine components of the new deformation gradient, reconstructs
+first Piola stress from the returned Cauchy stress, and compares the resulting
+central-difference Jacobian with the declared tangent. It intentionally rejects
+the Abaqus spatial UMAT convention: `DDSDDE` needs a verified stress/rate,
+rotation and component transformation before it can be compared with
+(\partial\mathbf P/\partial\mathbf F).
+
 ## Inspect before adapting
 
 An existing Fortran asset can now enter a deterministic inspection gate:

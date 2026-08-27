@@ -311,6 +311,10 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   create a second adapter-specific `STATEV` store. Preserve the schema in
   checkpoint identity and require a distributed-write/changed-partition-read
   test before claiming portable restart.
+  Before a total-Lagrangian provider enters global Newton, run
+  `check_material_tangent(material, point)` across elastic and plastic path
+  locations and retain the evidence. Do not use that direct `dP/dF` check for
+  a spatial UMAT tangent without a separately verified transformation.
 - Read an Abaqus `C3D10H` source directly with `mesh.read_abaqus_mesh(...)`,
   inspect `cell.element_definitions`, and consume it only through the verified
   P2-displacement/DG0-pressure mixed route. Do not derive another mesh when the

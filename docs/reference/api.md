@@ -251,8 +251,10 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `MaterialPointOutput` | Constitutive response returned to a nonlinear finite-element driver. |
 | class | `MaterialStateSchema` | Named layout for portable, auditable material internal variables. |
 | class | `MaterialStateVariable` | One named entry in a solver-neutral material state vector. |
+| class | `MaterialTangentCheck` | Numerical-differentiation evidence for one declared material tangent. |
 | class | `MaterialTangentConvention` | Declared stress/kinematic pair represented by a material Jacobian. |
 | class | `UserMaterial` | Protocol implemented by native or adapted material-point models. |
+| function | `check_material_tangent(material: UserMaterial, point: MaterialPointInput, *, relative_step: float = 1e-07, tolerance: float = 1e-05) -> MaterialTangentCheck` | Compare a declared ``dP/dF`` against fixed-state finite differences. |
 | function | `validated_material_update(material: UserMaterial, point: MaterialPointInput) -> MaterialPointOutput` | Run one material update and verify the complete solver contract. |
 
 ## `agentfem.constraints`

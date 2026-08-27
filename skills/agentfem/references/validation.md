@@ -73,6 +73,10 @@ the correct scalar or tensor initial values, and an explicit
 When a material schema is lowered to `MaterialQuadratureState`, verify scalar
 and tensor initial values, public output aliases, atomic commit/rollback,
 schema-drift rejection, and two-rank-write/changed-partition-read equivalence.
+For a declared first-Piola/deformation-gradient tangent, compare the discrete
+update against fixed-old-state numerical differentiation over all nine
+deformation-gradient components. Include elastic, plastic and near-yield path
+locations; a single check at the identity is insufficient.
 For campaigns, verify `SimulationResult -> declared QoIs -> ScientificDataset`
 without serializing live fields. Use `quality="engineering"` for ordinary
 simulation-to-learning admission and `quality="release"` only when every

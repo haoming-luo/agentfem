@@ -1275,10 +1275,23 @@ portable checkpoint identity, so changing a tensor shape, initial value,
 output alias, unit, or schema version cannot silently reuse an incompatible
 archive. This container provides storage and atomic lifecycle only; the
 material update and global residual remain separate consumers.</p>
+<p>For a provider that declares the total-Lagrangian convention
+(mathbb A=\partial\mathbf P/\partial\mathbf F), the discrete update can be
+checked directly:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">evidence</span> <span class="o">=</span> <span class="n">constitutive</span><span class="o">.</span><span class="n">check_material_tangent</span><span class="p">(</span><span class="n">material</span><span class="p">,</span> <span class="n">point</span><span class="p">)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">evidence</span><span class="o">.</span><span class="n">accepted</span>
+</code></pre></div>
+<p>The check holds the old deformation gradient and committed state fixed,
+perturbs all nine components of the new deformation gradient, reconstructs
+first Piola stress from the returned Cauchy stress, and compares the resulting
+central-difference Jacobian with the declared tangent. It intentionally rejects
+the Abaqus spatial UMAT convention: <code>DDSDDE</code> needs a verified stress/rate,
+rotation and component transformation before it can be compared with
+(\partial\mathbf P/\partial\mathbf F).</p>
 <h2 id="inspect-before-adapting">Inspect before adapting<a class="headerlink" href="#inspect-before-adapting" title="Permanent link">&para;</a></h2>
 <p>An existing Fortran asset can now enter a deterministic inspection gate:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>agentfem<span class="w"> </span>inspect-user-material<span class="w"> </span>legacy.for<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>--write<span class="w"> </span>legacy.inspection.json<span class="w"> </span>--json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>agentfem<span class="w"> </span>inspect-user-material<span class="w"> </span>legacy.for<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>--write<span class="w"> </span>legacy.inspection.json<span class="w"> </span>--json
 </code></pre></div>
 <p>The command retains a SHA-256 source identity, detects a single UMAT or UHYPER
 entry point, inventories include files, distinguishes known Abaqus utility

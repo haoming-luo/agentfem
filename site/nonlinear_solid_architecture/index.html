@@ -1594,6 +1594,12 @@ schema in portable checkpoint identity. Existing verified J2, Chaboche and
 creep containers remain supported while their eventual convergence onto this
 neutral storage path is validated incrementally; the presence of shared
 storage does not imply that their constitutive algorithms are interchangeable.</p>
+<p><code>check_material_tangent(material, point)</code> supplies the corresponding local
+evidence for a declared first-Piola/deformation-gradient Jacobian. Every
+perturbed call begins from the same old state, so the comparison differentiates
+the discrete material update seen by Newton rather than following nine
+different histories. Spatial rate tangents such as Abaqus <code>DDSDDE</code> are rejected
+until an adapter provides and verifies the required convention transform.</p>
 <h2 id="nonlinear-control-layers">Nonlinear control layers<a class="headerlink" href="#nonlinear-control-layers" title="Permanent link">&para;</a></h2>
 <p>Three control levels remain distinct:</p>
 <ol>

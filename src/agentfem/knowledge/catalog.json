@@ -544,7 +544,9 @@
         "agentfem.constitutive.MaterialStateVariable",
         "agentfem.constitutive.MaterialStateSchema",
         "agentfem.constitutive.MaterialTangentConvention",
+        "agentfem.constitutive.MaterialTangentCheck",
         "agentfem.constitutive.UserMaterial",
+        "agentfem.constitutive.check_material_tangent",
         "agentfem.constitutive.validated_material_update"
       ],
       "related_cards": [

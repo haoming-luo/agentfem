@@ -13,7 +13,9 @@
     "agentfem.constitutive.MaterialStateVariable",
     "agentfem.constitutive.MaterialStateSchema",
     "agentfem.constitutive.MaterialTangentConvention",
+    "agentfem.constitutive.MaterialTangentCheck",
     "agentfem.constitutive.UserMaterial",
+    "agentfem.constitutive.check_material_tangent",
     "agentfem.constitutive.validated_material_update"
   ],
   "implementation": [
@@ -60,6 +62,12 @@
         "type": "schema-lowered committed/trial integration-point fields",
         "unit_role": "per-variable declared units",
         "description": "Scalar and tensor state initialization, aliases and full schema identity remain attached to portable checkpoint storage."
+      },
+      {
+        "name": "MaterialTangentCheck",
+        "type": "fixed-old-state numerical differentiation evidence",
+        "unit_role": "dimensionless relative error and tangent units for absolute error",
+        "description": "Compares a declared first-Piola/deformation-gradient Jacobian against perturbations of all nine new-deformation-gradient components."
       }
     ],
     "assumptions": [
@@ -77,6 +85,7 @@
     "limitations": [
       "The contract does not itself compile or execute arbitrary UMAT or UHYPER source.",
       "MaterialQuadratureState owns storage and atomic lifecycle, not a constitutive integration algorithm or global residual.",
+      "Direct numerical tangent checking currently applies to first-Piola/deformation-gradient 9x9 tangents; spatial UMAT tangents require a verified transformation.",
       "No finite-strain inelastic material is promoted until material paths, tangent checks, global cutback/restart, MPI identity and an external benchmark pass."
     ]
   },
@@ -100,6 +109,7 @@
       "Reject state-schema or tangent-convention drift across one material update.",
       "Reject incompatible material schemas during portable checkpoint restore.",
       "Exercise schema-driven state in the existing two-rank-write to one-rank-read acceptance driver.",
+      "Reject an incorrect first-Piola tangent and retain the numerical relative-error evidence.",
       "Keep undeclared legacy outputs ineligible for global Newton consumption."
     ]
   },
