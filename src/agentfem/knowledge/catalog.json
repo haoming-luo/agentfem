@@ -535,6 +535,27 @@
       "title": "Mooney--Rivlin finite-strain solids and incompressible sheets"
     },
     {
+      "id": "agentfem.material.solver_neutral_user_material_contract",
+      "kind": "material",
+      "public_api": [
+        "agentfem.constitutive.MaterialPointInput",
+        "agentfem.constitutive.MaterialPointOutput",
+        "agentfem.constitutive.MaterialStateVariable",
+        "agentfem.constitutive.MaterialStateSchema",
+        "agentfem.constitutive.MaterialTangentConvention",
+        "agentfem.constitutive.UserMaterial",
+        "agentfem.constitutive.validated_material_update"
+      ],
+      "related_cards": [
+        "agentfem.workflow.physical_field_statistics",
+        "agentfem.workflow.scientific_verification"
+      ],
+      "source": "src/agentfem/knowledge/cards/solver_neutral_user_material_contract.json",
+      "status": "contract_only",
+      "summary": "Defines versioned named internal variables and explicit stress/kinematic tangent conventions shared by native materials and future industrial adapters, with a fail-closed validated update boundary before global Newton integration.",
+      "title": "Solver-neutral finite-strain user-material contract"
+    },
+    {
       "id": "agentfem.operator.biharmonic_split",
       "kind": "operator",
       "public_api": [

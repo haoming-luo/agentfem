@@ -20,6 +20,274 @@ from typing import Protocol, runtime_checkable
 import numpy as np
 
 
+_STATE_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
+
+
+@dataclass(frozen=True)
+class MaterialStateVariable:
+    """One named entry in a solver-neutral material state vector."""
+
+    name: str
+    shape: tuple[int, ...] = ()
+    initial_value: object = 0.0
+    unit: str | None = None
+    description: str = "User material internal variable."
+    output_name: str | None = None
+
+    def __post_init__(self) -> None:
+        if not _STATE_NAME.fullmatch(self.name):
+            raise ValueError(
+                "Material state names must start with a letter and contain only "
+                "letters, digits, or underscores."
+            )
+        shape = tuple(int(value) for value in self.shape)
+        if any(value <= 0 for value in shape):
+            raise ValueError("Material state shapes must contain positive dimensions.")
+        initial = np.asarray(self.initial_value, dtype=float)
+        if not np.all(np.isfinite(initial)):
+            raise ValueError("Material state initial_value must be finite.")
+        if shape:
+            if initial.ndim == 0:
+                initial = np.full(shape, float(initial), dtype=float)
+            elif initial.shape != shape:
+                raise ValueError(
+                    "A tensor material state initial_value must be scalar or "
+                    f"have the declared shape {shape}."
+                )
+            normalized_initial: float | tuple[float, ...] = tuple(
+                float(value) for value in initial.reshape(-1)
+            )
+        else:
+            if initial.size != 1:
+                raise ValueError(
+                    "A scalar material state initial_value must contain one value."
+                )
+            normalized_initial = float(initial.reshape(-1)[0])
+        if not str(self.description).strip():
+            raise ValueError("Material state descriptions must not be empty.")
+        if self.output_name is not None and not _STATE_NAME.fullmatch(
+            self.output_name
+        ):
+            raise ValueError("Material state output_name must be a valid field name.")
+        object.__setattr__(self, "shape", shape)
+        object.__setattr__(self, "initial_value", normalized_initial)
+
+    @property
+    def size(self) -> int:
+        return int(np.prod(self.shape, dtype=int)) if self.shape else 1
+
+    def initial_values(self) -> np.ndarray:
+        """Return the declared initial value flattened in schema order."""
+
+        if not self.shape:
+            return np.asarray([self.initial_value], dtype=float)
+        return np.asarray(self.initial_value, dtype=float).reshape(-1)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "shape": self.shape,
+            "size": self.size,
+            "initial_value": (
+                self.initial_value
+                if not self.shape
+                else np.asarray(self.initial_value, dtype=float)
+                .reshape(self.shape)
+                .tolist()
+            ),
+            "unit": self.unit,
+            "description": self.description,
+            "output_name": self.output_name,
+        }
+
+
+@dataclass(frozen=True)
+class MaterialStateSchema:
+    """Named layout for portable, auditable material internal variables."""
+
+    name: str
+    variables: tuple[MaterialStateVariable, ...] = ()
+    version: str = "0.1.0"
+
+    def __post_init__(self) -> None:
+        if not str(self.name).strip() or not str(self.version).strip():
+            raise ValueError("Material state schema name and version are required.")
+        variables = tuple(self.variables)
+        if any(not isinstance(item, MaterialStateVariable) for item in variables):
+            raise TypeError("Material state schema variables must be definitions.")
+        names = tuple(item.name for item in variables)
+        if len(set(names)) != len(names):
+            raise ValueError("Material state schema names must be unique.")
+        object.__setattr__(self, "variables", variables)
+
+    @property
+    def size(self) -> int:
+        return sum(item.size for item in self.variables)
+
+    @property
+    def identity(self) -> str:
+        return f"{self.name}@{self.version}"
+
+    def initial_state(self) -> np.ndarray:
+        values = [item.initial_values() for item in self.variables]
+        return np.concatenate(values) if values else np.empty(0, dtype=float)
+
+    def validate(self, state, *, label: str = "material state") -> np.ndarray:
+        values = np.asarray(state, dtype=float).reshape(-1)
+        if len(values) != self.size:
+            raise ValueError(
+                f"{label} has {len(values)} values but schema {self.identity!r} "
+                f"requires {self.size}."
+            )
+        if not np.all(np.isfinite(values)):
+            raise ValueError(f"{label} must contain finite values.")
+        return values.copy()
+
+    def unpack(self, state) -> dict[str, np.ndarray | float]:
+        values = self.validate(state)
+        unpacked: dict[str, np.ndarray | float] = {}
+        offset = 0
+        for item in self.variables:
+            selected = values[offset : offset + item.size]
+            unpacked[item.name] = (
+                float(selected[0])
+                if not item.shape
+                else selected.reshape(item.shape).copy()
+            )
+            offset += item.size
+        return unpacked
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "material_state_schema",
+            "identity": self.identity,
+            "size": self.size,
+            "variables": tuple(item.summary() for item in self.variables),
+        }
+
+
+@dataclass(frozen=True)
+class MaterialTangentConvention:
+    """Declared stress/kinematic pair represented by a material Jacobian.
+
+    A numerical array is not a constitutive tangent until the stress measure,
+    kinematic perturbation, configuration, storage and shear convention are
+    known.  This declaration is shared by native materials and adapters.
+    """
+
+    stress_measure: str
+    kinematic_measure: str
+    configuration: str
+    storage: str
+    component_order: tuple[str, ...]
+    shear_convention: str = "tensor"
+    objective_rate: str = "not_applicable"
+    symmetric: bool = True
+
+    def __post_init__(self) -> None:
+        stress = self.stress_measure.lower()
+        kinematic = self.kinematic_measure.lower()
+        configuration = self.configuration.lower()
+        storage = self.storage.lower()
+        shear = self.shear_convention.lower()
+        objective = self.objective_rate.lower()
+        allowed_pairs = {
+            ("first_piola", "deformation_gradient", "reference"),
+            ("second_piola", "green_lagrange_strain", "reference"),
+            ("cauchy", "rate_of_deformation", "current"),
+            ("kirchhoff", "rate_of_deformation", "current"),
+        }
+        if (stress, kinematic, configuration) not in allowed_pairs:
+            raise ValueError(
+                "Unsupported stress/kinematic/configuration tangent convention."
+            )
+        if storage not in {"matrix_6x6", "matrix_9x9", "tensor_3x3x3x3"}:
+            raise ValueError("Unsupported material tangent storage.")
+        order = tuple(str(value) for value in self.component_order)
+        expected = 6 if storage == "matrix_6x6" else 9
+        if storage != "tensor_3x3x3x3" and len(order) != expected:
+            raise ValueError(
+                f"{storage} requires {expected} declared component labels."
+            )
+        if len(set(order)) != len(order):
+            raise ValueError("Material tangent component labels must be unique.")
+        if storage == "matrix_6x6" and stress == "first_piola":
+            raise ValueError("First-Piola tangents require all nine components.")
+        if shear not in {"tensor", "engineering", "not_applicable"}:
+            raise ValueError("Unsupported material tangent shear convention.")
+        if kinematic == "rate_of_deformation" and objective == "not_applicable":
+            raise ValueError(
+                "A spatial rate tangent must declare its objective-rate convention."
+            )
+        if kinematic != "rate_of_deformation" and objective != "not_applicable":
+            raise ValueError(
+                "Objective rates apply only to rate-of-deformation tangents."
+            )
+        object.__setattr__(self, "stress_measure", stress)
+        object.__setattr__(self, "kinematic_measure", kinematic)
+        object.__setattr__(self, "configuration", configuration)
+        object.__setattr__(self, "storage", storage)
+        object.__setattr__(self, "component_order", order)
+        object.__setattr__(self, "shear_convention", shear)
+        object.__setattr__(self, "objective_rate", objective)
+
+    @property
+    def array_shape(self) -> tuple[int, ...]:
+        return {
+            "matrix_6x6": (6, 6),
+            "matrix_9x9": (9, 9),
+            "tensor_3x3x3x3": (3, 3, 3, 3),
+        }[self.storage]
+
+    def validate(self, tangent) -> np.ndarray:
+        values = np.asarray(tangent, dtype=float)
+        if values.shape != self.array_shape or not np.all(np.isfinite(values)):
+            raise ValueError(
+                f"Material tangent must be a finite array with shape "
+                f"{self.array_shape} for {self.storage}."
+            )
+        return values.copy()
+
+    @classmethod
+    def abaqus_umat(cls) -> "MaterialTangentConvention":
+        return cls(
+            stress_measure="kirchhoff",
+            kinematic_measure="rate_of_deformation",
+            configuration="current",
+            storage="matrix_6x6",
+            component_order=("11", "22", "33", "12", "13", "23"),
+            shear_convention="engineering",
+            objective_rate="abaqus_umat_corotational",
+            symmetric=False,
+        )
+
+    @classmethod
+    def first_piola_deformation_gradient(cls) -> "MaterialTangentConvention":
+        return cls(
+            stress_measure="first_piola",
+            kinematic_measure="deformation_gradient",
+            configuration="reference",
+            storage="matrix_9x9",
+            component_order=tuple(f"{i}{j}" for i in range(1, 4) for j in range(1, 4)),
+            shear_convention="not_applicable",
+            symmetric=False,
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "material_tangent_convention",
+            "stress_measure": self.stress_measure,
+            "kinematic_measure": self.kinematic_measure,
+            "configuration": self.configuration,
+            "storage": self.storage,
+            "array_shape": self.array_shape,
+            "component_order": self.component_order,
+            "shear_convention": self.shear_convention,
+            "objective_rate": self.objective_rate,
+            "symmetric": self.symmetric,
+        }
+
+
 @dataclass(frozen=True)
 class MaterialPointInput:
     """Solver-neutral finite-strain input for one material-point update."""
@@ -30,6 +298,7 @@ class MaterialPointInput:
     time_increment: float
     properties: np.ndarray
     state_old: np.ndarray
+    state_schema: MaterialStateSchema | None = None
     temperature: float | None = None
     temperature_increment: float | None = None
     field_variables: np.ndarray | None = None
@@ -51,6 +320,18 @@ class MaterialPointInput:
             if not np.all(np.isfinite(value)):
                 raise ValueError(f"{name} must contain finite values.")
             object.__setattr__(self, name, value.copy())
+        if self.state_schema is not None:
+            if not isinstance(self.state_schema, MaterialStateSchema):
+                raise TypeError("state_schema must be a MaterialStateSchema.")
+            object.__setattr__(
+                self,
+                "state_old",
+                self.state_schema.validate(self.state_old, label="state_old"),
+            )
+        for name in ("temperature", "temperature_increment"):
+            value = getattr(self, name)
+            if value is not None and not np.isfinite(value):
+                raise ValueError(f"{name} must be finite when provided.")
         if self.field_variables is not None:
             fields = np.asarray(self.field_variables, dtype=float).reshape(-1)
             if not np.all(np.isfinite(fields)):
@@ -67,6 +348,8 @@ class MaterialPointOutput:
     state_new: np.ndarray
     strain_energy_density: float | None = None
     suggested_time_scale: float = 1.0
+    tangent_convention: MaterialTangentConvention | None = None
+    state_schema: MaterialStateSchema | None = None
 
     def __post_init__(self) -> None:
         stress = np.asarray(self.cauchy_stress, dtype=float)
@@ -74,10 +357,27 @@ class MaterialPointOutput:
         state = np.asarray(self.state_new, dtype=float).reshape(-1)
         if stress.shape != (3, 3) or not np.all(np.isfinite(stress)):
             raise ValueError("cauchy_stress must be a finite 3x3 tensor.")
-        if tangent.shape != (6, 6) or not np.all(np.isfinite(tangent)):
-            raise ValueError("consistent_tangent must be a finite 6x6 matrix.")
+        stress_scale = max(float(np.linalg.norm(stress)), np.finfo(float).tiny)
+        if np.max(np.abs(stress - stress.T)) > 1.0e-10 * stress_scale:
+            raise ValueError("cauchy_stress must be symmetric.")
+        if self.tangent_convention is None:
+            if tangent.shape != (6, 6) or not np.all(np.isfinite(tangent)):
+                raise ValueError(
+                    "An undeclared legacy consistent_tangent must be a finite "
+                    "6x6 matrix."
+                )
+        else:
+            if not isinstance(self.tangent_convention, MaterialTangentConvention):
+                raise TypeError(
+                    "tangent_convention must be a MaterialTangentConvention."
+                )
+            tangent = self.tangent_convention.validate(tangent)
         if not np.all(np.isfinite(state)):
             raise ValueError("state_new must contain finite values.")
+        if self.state_schema is not None:
+            if not isinstance(self.state_schema, MaterialStateSchema):
+                raise TypeError("state_schema must be a MaterialStateSchema.")
+            state = self.state_schema.validate(state, label="state_new")
         if (
             self.strain_energy_density is not None
             and not np.isfinite(self.strain_energy_density)
@@ -92,15 +392,82 @@ class MaterialPointOutput:
         object.__setattr__(self, "consistent_tangent", tangent.copy())
         object.__setattr__(self, "state_new", state.copy())
 
+    @property
+    def global_newton_contract_complete(self) -> bool:
+        return self.tangent_convention is not None and self.state_schema is not None
+
+    def require_global_newton_contract(self) -> "MaterialPointOutput":
+        """Fail closed before a global Newton driver consumes ambiguous data."""
+
+        missing = []
+        if self.tangent_convention is None:
+            missing.append("tangent_convention")
+        if self.state_schema is None:
+            missing.append("state_schema")
+        if missing:
+            raise ValueError(
+                "Material-point output cannot enter a global Newton solve until "
+                f"it declares {', '.join(missing)}."
+            )
+        return self
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "material_point_output",
+            "global_newton_contract_complete": self.global_newton_contract_complete,
+            "tangent_convention": (
+                None
+                if self.tangent_convention is None
+                else self.tangent_convention.summary()
+            ),
+            "state_schema": (
+                None if self.state_schema is None else self.state_schema.summary()
+            ),
+            "strain_energy_density_defined": self.strain_energy_density is not None,
+            "suggested_time_scale": self.suggested_time_scale,
+        }
+
 
 @runtime_checkable
 class UserMaterial(Protocol):
     """Protocol implemented by native or adapted material-point models."""
 
     name: str
+    state_schema: MaterialStateSchema
+    tangent_convention: MaterialTangentConvention
 
     def update(self, point: MaterialPointInput) -> MaterialPointOutput:
         """Advance one integration point and return stress, state, and tangent."""
+
+
+def validated_material_update(
+    material: UserMaterial,
+    point: MaterialPointInput,
+) -> MaterialPointOutput:
+    """Run one material update and verify the complete solver contract."""
+
+    if not isinstance(material, UserMaterial):
+        raise TypeError(
+            "User material must declare name, state_schema, tangent_convention, "
+            "and update()."
+        )
+    if point.state_schema is not None and (
+        point.state_schema.identity != material.state_schema.identity
+    ):
+        raise ValueError(
+            "Material-point input state schema does not match the material."
+        )
+    material.state_schema.validate(point.state_old, label="state_old")
+    response = material.update(point)
+    if not isinstance(response, MaterialPointOutput):
+        raise TypeError("User material update() must return MaterialPointOutput.")
+    response.require_global_newton_contract()
+    if response.state_schema.identity != material.state_schema.identity:
+        raise ValueError("Material response changed the declared state schema.")
+    if response.tangent_convention != material.tangent_convention:
+        raise ValueError("Material response changed the declared tangent convention.")
+    material.state_schema.validate(response.state_new, label="state_new")
+    return response
 
 
 @dataclass(frozen=True)
@@ -132,6 +499,7 @@ class AbaqusUserMaterialBridge:
         return False
 
     def summary(self) -> dict[str, object]:
+        tangent = MaterialTangentConvention.abaqus_umat()
         return {
             "kind": "abaqus_user_material_bridge",
             "interface": self.kind,
@@ -140,6 +508,9 @@ class AbaqusUserMaterialBridge:
             "property_count": self.property_count,
             "state_variable_count": self.state_variable_count,
             "tensor_order": self.tensor_order,
+            "tangent_convention": (
+                tangent.summary() if self.kind == "UMAT" else None
+            ),
             "status": self.status,
             "executable": self.executable,
             "required_runtime": (

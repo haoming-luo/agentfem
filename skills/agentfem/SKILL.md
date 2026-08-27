@@ -299,6 +299,13 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   inspect-user-material SOURCE --json`. Preserve the source hash and findings.
   `adapter_candidate` is a development route, not an executable material; an
   Abaqus utility call requires explicit replacement and verification.
+  Native and adapted material providers must declare one
+  `MaterialStateSchema` and `MaterialTangentConvention` and enter through
+  `validated_material_update(...)`. A tensor state must retain its physical
+  initial value (for example, identity rather than zero for a plastic
+  deformation gradient). Never infer global-Newton compatibility from a 6-by-6
+  array or relabel Abaqus `DDSDDE` as a first-Piola/deformation-gradient
+  tangent.
 - Read an Abaqus `C3D10H` source directly with `mesh.read_abaqus_mesh(...)`,
   inspect `cell.element_definitions`, and consume it only through the verified
   P2-displacement/DG0-pressure mixed route. Do not derive another mesh when the

@@ -3367,8 +3367,28 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>MaterialStateSchema</code></td>
+<td>Named layout for portable, auditable material internal variables.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>MaterialStateVariable</code></td>
+<td>One named entry in a solver-neutral material state vector.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>MaterialTangentConvention</code></td>
+<td>Declared stress/kinematic pair represented by a material Jacobian.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>UserMaterial</code></td>
 <td>Protocol implemented by native or adapted material-point models.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>validated_material_update(material: UserMaterial, point: MaterialPointInput) -&gt; MaterialPointOutput</code></td>
+<td>Run one material update and verify the complete solver contract.</td>
 </tr>
 </tbody>
 </table>

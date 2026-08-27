@@ -248,7 +248,11 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `AbaqusUserMaterialBridge` | Truthful capability description for an intended UMAT/UHYPER adapter. |
 | class | `MaterialPointInput` | Solver-neutral finite-strain input for one material-point update. |
 | class | `MaterialPointOutput` | Constitutive response returned to a nonlinear finite-element driver. |
+| class | `MaterialStateSchema` | Named layout for portable, auditable material internal variables. |
+| class | `MaterialStateVariable` | One named entry in a solver-neutral material state vector. |
+| class | `MaterialTangentConvention` | Declared stress/kinematic pair represented by a material Jacobian. |
 | class | `UserMaterial` | Protocol implemented by native or adapted material-point models. |
+| function | `validated_material_update(material: UserMaterial, point: MaterialPointInput) -> MaterialPointOutput` | Run one material update and verify the complete solver contract. |
 
 ## `agentfem.constraints`
 

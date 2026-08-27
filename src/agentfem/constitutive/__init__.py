@@ -106,7 +106,11 @@ from .user_material import (
     AbaqusUserMaterialBridge,
     MaterialPointInput,
     MaterialPointOutput,
+    MaterialStateSchema,
+    MaterialStateVariable,
+    MaterialTangentConvention,
     UserMaterial,
+    validated_material_update,
 )
 
 __all__ = [
@@ -154,6 +158,9 @@ __all__ = [
     "PlaneStressNeoHookeanProperties",
     "MaterialPointInput",
     "MaterialPointOutput",
+    "MaterialStateSchema",
+    "MaterialStateVariable",
+    "MaterialTangentConvention",
     "KachanovRabotnovCreep",
     "ModifiedThetaProjection",
     "PowerLawCreep",
@@ -167,6 +174,7 @@ __all__ = [
     "SinhCreep",
     "UniaxialPlasticState",
     "UserMaterial",
+    "validated_material_update",
     "anisotropic_stress_2d",
     "anisotropic_elastic_2d",
     "assess_history",

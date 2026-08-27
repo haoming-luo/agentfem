@@ -17,6 +17,57 @@ bridge must preserve the material-point contract:
 `constitutive.user_material` now records this solver-neutral boundary. It is an
 interface contract, not an executable Abaqus runtime.
 
+## The neutral contract is explicit
+
+A finite-strain tangent cannot be identified by its array shape alone.
+AgentFEM therefore separates three public assets:
+
+- `MaterialStateVariable` names one scalar or tensor internal variable and
+  declares its shape, scalar-broadcast or explicit tensor initial value, unit,
+  description and optional output field name; this permits, for example, an
+  identity initial plastic deformation gradient rather than silently filling
+  every tensor state with zero;
+- `MaterialStateSchema` gives the complete state vector a stable versioned
+  identity and owns initialization, validation and unpacking;
+- `MaterialTangentConvention` declares the stress measure, conjugate
+  kinematic perturbation, reference/current configuration, storage layout,
+  component order, shear convention and objective-rate convention.
+
+For example, a native total-Lagrangian provider may declare
+
+```python
+tangent = constitutive.MaterialTangentConvention.first_piola_deformation_gradient()
+```
+
+which represents
+
+\[
+\mathbb A = \frac{\partial\mathbf P}{\partial\mathbf F}.
+\]
+
+The restricted Abaqus UMAT route instead declares the Abaqus spatial Jacobian
+and engineering-shear ordering:
+
+```python
+tangent = constitutive.MaterialTangentConvention.abaqus_umat()
+```
+
+These declarations are not interchangeable conversions. A provider or adapter
+must implement and verify the transformation required by the global residual
+it serves.
+
+An update becomes eligible for a future global Newton consumer only through
+
+```python
+response = constitutive.validated_material_update(material, point)
+```
+
+This call checks the input state against the material schema, runs the update,
+requires a complete tangent and state declaration, and rejects any schema or
+convention drift in the returned response. Legacy `MaterialPointOutput`
+objects without those declarations remain inspectable but fail closed when
+`require_global_newton_contract()` is called.
+
 ## Inspect before adapting
 
 An existing Fortran asset can now enter a deterministic inspection gate:
@@ -72,6 +123,14 @@ reasonable first migration target. Routines that call Abaqus utilities or
 depend on solver internals need source-level adaptation and cannot be promised
 as drop-in compatible.
 
+Abaqus defines `DDSDDE` for finite-strain UMAT as a Jacobian associated with
+the increment of Kirchhoff stress and the strain increment, with direct
+components followed by engineering shear components. It also notes that local
+orientations rotate the stored basis and that some first-order elements pass a
+modified deformation gradient. AgentFEM records these facts as adapter
+metadata; it does not relabel `DDSDDE` as
+\(\partial\mathbf P/\partial\mathbf F\).
+
 ## Progressive implementation route
 
 | Stage | Deliverable | Evidence gate |
@@ -89,3 +148,13 @@ the neutral material-point protocol. Native Python/C++ materials and Abaqus
 adapters become alternative providers behind the same boundary. This avoids
 making the public model language depend on Abaqus, while preserving a realistic
 route for valuable user-material libraries.
+
+## References
+
+- [Abaqus 2025 UMAT reference](https://docs.software.vt.edu/abaqusv2025/English/SIMACAESUBRefMap/simasub-c-umat.htm),
+  including `DDSDDE`, component storage, deformation-gradient and orientation
+  conventions.
+- C. Miehe, “Numerical computation of algorithmic (consistent) tangent moduli
+  in large-strain computational inelasticity,” *Computer Methods in Applied
+  Mechanics and Engineering* 134 (1996), 223--240.
+  [doi:10.1016/0045-7825(96)01019-5](https://doi.org/10.1016/0045-7825(96)01019-5).

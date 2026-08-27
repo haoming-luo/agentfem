@@ -1,0 +1,110 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.material.solver_neutral_user_material_contract",
+  "title": "Solver-neutral finite-strain user-material contract",
+  "kind": "material",
+  "status": "contract_only",
+  "summary": "Defines versioned named internal variables and explicit stress/kinematic tangent conventions shared by native materials and future industrial adapters, with a fail-closed validated update boundary before global Newton integration.",
+  "public_api": [
+    "agentfem.constitutive.MaterialPointInput",
+    "agentfem.constitutive.MaterialPointOutput",
+    "agentfem.constitutive.MaterialStateVariable",
+    "agentfem.constitutive.MaterialStateSchema",
+    "agentfem.constitutive.MaterialTangentConvention",
+    "agentfem.constitutive.UserMaterial",
+    "agentfem.constitutive.validated_material_update"
+  ],
+  "implementation": [
+    "constitutive/user_material.py",
+    "constitutive/quadrature.py"
+  ],
+  "science": {
+    "statement": "A constitutive Jacobian is usable by a nonlinear finite-element driver only when its stress measure, conjugate kinematic perturbation, configuration, storage, component order, shear convention and objective-rate convention are explicit and its internal state has a stable versioned identity.",
+    "equations": [
+      {
+        "label": "total-Lagrangian tangent",
+        "expression": "\\mathbb A=\\partial\\mathbf P/\\partial\\mathbf F",
+        "description": "A native first-Piola/deformation-gradient provider declares all nine components in the reference configuration."
+      },
+      {
+        "label": "Abaqus UMAT spatial Jacobian",
+        "expression": "\\mathbf C=\\frac{1}{J}\\frac{\\partial\\,\\Delta(J\\boldsymbol\\sigma)}{\\partial\\,\\Delta\\boldsymbol\\epsilon}",
+        "description": "This adapter convention includes Abaqus component, engineering-shear, rotating-basis and objective-update semantics and is not relabeled as a total-Lagrangian tangent."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "MaterialPointInput",
+        "type": "old/new deformation gradients, time, properties, typed old state and optional thermal/field data",
+        "unit_role": "provider-declared consistent units",
+        "description": "Both deformation gradients must be finite with positive determinant."
+      },
+      {
+        "name": "UserMaterial declarations",
+        "type": "name, MaterialStateSchema and MaterialTangentConvention",
+        "unit_role": "metadata and state units",
+        "description": "The declarations are stable properties of the provider rather than values inferred from returned array shapes; tensor states may declare a full physical initial value such as an identity tensor."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "MaterialPointOutput",
+        "type": "Cauchy stress, declared consistent tangent, typed new state, optional energy and suggested time scale",
+        "unit_role": "stress, tangent, state and energy density",
+        "description": "Global-Newton eligibility is explicit and false for undeclared legacy outputs."
+      }
+    ],
+    "assumptions": [
+      "One adapter is responsible for mapping its source convention into the declared neutral contract.",
+      "The global finite-element consumer uses the same declared tangent convention or performs a separately verified transformation."
+    ],
+    "conventions": [
+      "State schema identity combines a stable name and version.",
+      "First-Piola/deformation-gradient and second-Piola/Green--Lagrange tangents are reference-configuration conventions.",
+      "Cauchy or Kirchhoff rate tangents are current-configuration conventions and must declare an objective rate."
+    ],
+    "applicability": [
+      "Native or adapted three-dimensional finite-strain material-point providers entering a future quadrature/global-Newton driver."
+    ],
+    "limitations": [
+      "The contract does not itself compile or execute arbitrary UMAT or UHYPER source.",
+      "No finite-strain inelastic material is promoted until material paths, tangent checks, global cutback/restart, MPI identity and an external benchmark pass."
+    ]
+  },
+  "usage": {
+    "minimal_example": "response = constitutive.validated_material_update(material, point)",
+    "examples": [
+      "docs/abaqus_user_material_bridge.md"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_user_material.py",
+      "tests/test_user_material_inspection.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Reject invalid deformation gradients, nonfinite state and mismatched state size.",
+      "Reject tensor initial values whose shape differs from the declared state variable shape.",
+      "Reject spatial rate tangents without an objective-rate declaration.",
+      "Reject array shapes inconsistent with the declared tangent storage.",
+      "Reject state-schema or tangent-convention drift across one material update.",
+      "Keep undeclared legacy outputs ineligible for global Newton consumption."
+    ]
+  },
+  "references": [
+    {
+      "title": "Abaqus 2025 UMAT reference",
+      "locator": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAESUBRefMap/simasub-c-umat.htm"
+    },
+    {
+      "title": "Numerical computation of algorithmic consistent tangent moduli in large-strain computational inelasticity",
+      "locator": "https://doi.org/10.1016/0045-7825(96)01019-5"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.physical_field_statistics",
+    "agentfem.workflow.scientific_verification"
+  ]
+}

@@ -65,8 +65,11 @@ time values, shared topology, retained reference coordinates,
 `x + scale*u`, point/cell field presence, and physical scale metadata.
 Treat UMAT/UHYPER support as an interface specification until quadrature state,
 trial/commit/rollback, tensor conventions, compiler ABI, and consistent-tangent
-comparisons are executable. A callable shared library alone is not FEM
-compatibility.
+comparisons are executable. Require a stable `MaterialStateSchema`, including
+the correct scalar or tensor initial values, and an explicit
+`MaterialTangentConvention`; reject schema/convention drift through
+`validated_material_update(...)`. A callable shared library or an undeclared
+6-by-6 array alone is not FEM compatibility.
 For campaigns, verify `SimulationResult -> declared QoIs -> ScientificDataset`
 without serializing live fields. Use `quality="engineering"` for ordinary
 simulation-to-learning admission and `quality="release"` only when every

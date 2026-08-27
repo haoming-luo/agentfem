@@ -26,6 +26,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.material.mixed_hybrid_hyperelasticity`](#agentfem-material-mixed_hybrid_hyperelasticity) | Constant-pressure mixed Neo-Hookean solid | material | supported |
 | [`agentfem.material.mixed_mode_cyclic_cohesive`](#agentfem-material-mixed_mode_cyclic_cohesive) | Proportional and ordered-path mixed-mode cyclic cohesive damage | material | experimental |
 | [`agentfem.material.mooney_rivlin_hyperelasticity`](#agentfem-material-mooney_rivlin_hyperelasticity) | Mooney--Rivlin finite-strain solids and incompressible sheets | material | experimental |
+| [`agentfem.material.solver_neutral_user_material_contract`](#agentfem-material-solver_neutral_user_material_contract) | Solver-neutral finite-strain user-material contract | material | contract_only |
 | [`agentfem.operator.biharmonic_split`](#agentfem-operator-biharmonic_split) | Biharmonic split operators and boundary closure | operator | supported |
 | [`agentfem.operator.incompressible_flow`](#agentfem-operator-incompressible_flow) | Mixed incompressible-flow fields and operators | operator | supported |
 | [`agentfem.operator.scalar_transport_reaction`](#agentfem-operator-scalar_transport_reaction) | Scalar transport and reaction operators | operator | supported |
@@ -1408,6 +1409,111 @@ step = model.step(target=u, material=material, dt='auto', steps=100)
 ### References
 
 - Wang, Fineberg, and Needleman (2025), transition from crack-type to supershear-type to spall-type dynamics: `https://doi.org/10.1016/j.jmps.2025.106213`
+
+<a id="agentfem-material-solver_neutral_user_material_contract"></a>
+
+## Solver-neutral finite-strain user-material contract
+
+**Stable ID:** `agentfem.material.solver_neutral_user_material_contract`<br>
+**Kind:** `material`<br>
+**Status:** `contract_only`<br>
+**Source card:** `src/agentfem/knowledge/cards/solver_neutral_user_material_contract.json`
+
+Defines versioned named internal variables and explicit stress/kinematic tangent conventions shared by native materials and future industrial adapters, with a fail-closed validated update boundary before global Newton integration.
+
+### Public API
+
+- `agentfem.constitutive.MaterialPointInput`
+- `agentfem.constitutive.MaterialPointOutput`
+- `agentfem.constitutive.MaterialStateVariable`
+- `agentfem.constitutive.MaterialStateSchema`
+- `agentfem.constitutive.MaterialTangentConvention`
+- `agentfem.constitutive.UserMaterial`
+- `agentfem.constitutive.validated_material_update`
+
+### Scientific contract
+
+A constitutive Jacobian is usable by a nonlinear finite-element driver only when its stress measure, conjugate kinematic perturbation, configuration, storage, component order, shear convention and objective-rate convention are explicit and its internal state has a stable versioned identity.
+
+**total-Lagrangian tangent**
+
+$$
+\mathbb A=\partial\mathbf P/\partial\mathbf F
+$$
+
+A native first-Piola/deformation-gradient provider declares all nine components in the reference configuration.
+
+**Abaqus UMAT spatial Jacobian**
+
+$$
+\mathbf C=\frac{1}{J}\frac{\partial\,\Delta(J\boldsymbol\sigma)}{\partial\,\Delta\boldsymbol\epsilon}
+$$
+
+This adapter convention includes Abaqus component, engineering-shear, rotating-basis and objective-update semantics and is not relabeled as a total-Lagrangian tangent.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| MaterialPointInput | old/new deformation gradients, time, properties, typed old state and optional thermal/field data | provider-declared consistent units | Both deformation gradients must be finite with positive determinant. |
+| UserMaterial declarations | name, MaterialStateSchema and MaterialTangentConvention | metadata and state units | The declarations are stable properties of the provider rather than values inferred from returned array shapes; tensor states may declare a full physical initial value such as an identity tensor. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| MaterialPointOutput | Cauchy stress, declared consistent tangent, typed new state, optional energy and suggested time scale | stress, tangent, state and energy density | Global-Newton eligibility is explicit and false for undeclared legacy outputs. |
+
+#### Assumptions
+
+- One adapter is responsible for mapping its source convention into the declared neutral contract.
+- The global finite-element consumer uses the same declared tangent convention or performs a separately verified transformation.
+
+#### Conventions
+
+- State schema identity combines a stable name and version.
+- First-Piola/deformation-gradient and second-Piola/Green--Lagrange tangents are reference-configuration conventions.
+- Cauchy or Kirchhoff rate tangents are current-configuration conventions and must declare an objective rate.
+
+#### Applicability
+
+- Native or adapted three-dimensional finite-strain material-point providers entering a future quadrature/global-Newton driver.
+
+#### Limitations
+
+- The contract does not itself compile or execute arbitrary UMAT or UHYPER source.
+- No finite-strain inelastic material is promoted until material paths, tangent checks, global cutback/restart, MPI identity and an external benchmark pass.
+
+### Minimal example
+
+```python
+response = constitutive.validated_material_update(material, point)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_user_material.py`
+- `tests/test_user_material_inspection.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Reject invalid deformation gradients, nonfinite state and mismatched state size.
+- Reject tensor initial values whose shape differs from the declared state variable shape.
+- Reject spatial rate tangents without an objective-rate declaration.
+- Reject array shapes inconsistent with the declared tangent storage.
+- Reject state-schema or tangent-convention drift across one material update.
+- Keep undeclared legacy outputs ineligible for global Newton consumption.
+
+### References
+
+- Abaqus 2025 UMAT reference: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAESUBRefMap/simasub-c-umat.htm`
+- Numerical computation of algorithmic consistent tangent moduli in large-strain computational inelasticity: `https://doi.org/10.1016/0045-7825(96)01019-5`
 
 <a id="agentfem-operator-biharmonic_split"></a>
 

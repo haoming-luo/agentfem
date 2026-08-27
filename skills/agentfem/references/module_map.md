@@ -34,8 +34,10 @@ Repository package paths below are relative to `src/agentfem/`.
   interaction diagrams, and structured result attachment
 - `constitutive/quadrature.py`: committed/trial integration-point state
 - `mechanics/`: global stateful solid-mechanics procedures
-- `constitutive/user_material.py`: solver-neutral material-point contract and
-  non-executable UMAT/UHYPER bridge specifications
+- `constitutive/user_material.py`: solver-neutral material-point input/output,
+  versioned scalar/tensor state schemas, explicit tangent conventions,
+  fail-closed validated updates, and non-executable UMAT/UHYPER bridge
+  specifications
 - `materials/`: material-property records and loaders
 - `boundary_models/`: weak boundary models
 - `forms.py`: UFL weak-form blocks

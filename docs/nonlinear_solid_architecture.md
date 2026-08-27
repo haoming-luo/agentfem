@@ -141,6 +141,19 @@ consumer. The transaction intentionally does not own a constitutive formula:
 creep, damage, and restricted UMAT-style adapters must supply their own local
 update, algorithmic tangent, error estimate, and state schema.
 
+The material-point side of that boundary is now explicit through
+`MaterialStateVariable`, `MaterialStateSchema`, and
+`MaterialTangentConvention`. Scalar and tensor internal variables have a
+versioned layout and physically meaningful initial values; a tangent declares
+its stress measure, kinematic perturbation, configuration, storage, component
+order, shear convention, and objective rate. `validated_material_update()`
+fails closed if a provider changes either declaration. An undeclared legacy
+6-by-6 array remains inspectable, but it is not eligible for a global Newton
+consumer merely because it resembles a stiffness matrix. This is protocol
+foundation only: finite-strain J2 promotion still requires material paths,
+numerical tangent comparison, a consuming global solve, cutback/restart
+equivalence, MPI-stable state identity, and an external structural benchmark.
+
 ## Nonlinear control layers
 
 Three control levels remain distinct:

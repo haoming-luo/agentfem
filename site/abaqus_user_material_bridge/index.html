@@ -780,6 +780,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-neutral-contract-is-explicit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The neutral contract is explicit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#inspect-before-adapting" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -817,6 +828,17 @@
     <span class="md-ellipsis">
       
         Progressive implementation route
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
       
     </span>
   </a>
@@ -1053,6 +1075,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-neutral-contract-is-explicit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The neutral contract is explicit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#inspect-before-adapting" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1090,6 +1123,17 @@
     <span class="md-ellipsis">
       
         Progressive implementation route
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
       
     </span>
   </a>
@@ -1180,10 +1224,47 @@ bridge must preserve the material-point contract:</p>
 </ul>
 <p><code>constitutive.user_material</code> now records this solver-neutral boundary. It is an
 interface contract, not an executable Abaqus runtime.</p>
+<h2 id="the-neutral-contract-is-explicit">The neutral contract is explicit<a class="headerlink" href="#the-neutral-contract-is-explicit" title="Permanent link">&para;</a></h2>
+<p>A finite-strain tangent cannot be identified by its array shape alone.
+AgentFEM therefore separates three public assets:</p>
+<ul>
+<li><code>MaterialStateVariable</code> names one scalar or tensor internal variable and
+  declares its shape, scalar-broadcast or explicit tensor initial value, unit,
+  description and optional output field name; this permits, for example, an
+  identity initial plastic deformation gradient rather than silently filling
+  every tensor state with zero;</li>
+<li><code>MaterialStateSchema</code> gives the complete state vector a stable versioned
+  identity and owns initialization, validation and unpacking;</li>
+<li><code>MaterialTangentConvention</code> declares the stress measure, conjugate
+  kinematic perturbation, reference/current configuration, storage layout,
+  component order, shear convention and objective-rate convention.</li>
+</ul>
+<p>For example, a native total-Lagrangian provider may declare</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">tangent</span> <span class="o">=</span> <span class="n">constitutive</span><span class="o">.</span><span class="n">MaterialTangentConvention</span><span class="o">.</span><span class="n">first_piola_deformation_gradient</span><span class="p">()</span>
+</code></pre></div>
+<p>which represents</p>
+<div class="arithmatex">\[
+\mathbb A = \frac{\partial\mathbf P}{\partial\mathbf F}.
+\]</div>
+<p>The restricted Abaqus UMAT route instead declares the Abaqus spatial Jacobian
+and engineering-shear ordering:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">tangent</span> <span class="o">=</span> <span class="n">constitutive</span><span class="o">.</span><span class="n">MaterialTangentConvention</span><span class="o">.</span><span class="n">abaqus_umat</span><span class="p">()</span>
+</code></pre></div>
+<p>These declarations are not interchangeable conversions. A provider or adapter
+must implement and verify the transformation required by the global residual
+it serves.</p>
+<p>An update becomes eligible for a future global Newton consumer only through</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">response</span> <span class="o">=</span> <span class="n">constitutive</span><span class="o">.</span><span class="n">validated_material_update</span><span class="p">(</span><span class="n">material</span><span class="p">,</span> <span class="n">point</span><span class="p">)</span>
+</code></pre></div>
+<p>This call checks the input state against the material schema, runs the update,
+requires a complete tangent and state declaration, and rejects any schema or
+convention drift in the returned response. Legacy <code>MaterialPointOutput</code>
+objects without those declarations remain inspectable but fail closed when
+<code>require_global_newton_contract()</code> is called.</p>
 <h2 id="inspect-before-adapting">Inspect before adapting<a class="headerlink" href="#inspect-before-adapting" title="Permanent link">&para;</a></h2>
 <p>An existing Fortran asset can now enter a deterministic inspection gate:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>agentfem<span class="w"> </span>inspect-user-material<span class="w"> </span>legacy.for<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>--write<span class="w"> </span>legacy.inspection.json<span class="w"> </span>--json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>agentfem<span class="w"> </span>inspect-user-material<span class="w"> </span>legacy.for<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--write<span class="w"> </span>legacy.inspection.json<span class="w"> </span>--json
 </code></pre></div>
 <p>The command retains a SHA-256 source identity, detects a single UMAT or UHYPER
 entry point, inventories include files, distinguishes known Abaqus utility
@@ -1227,6 +1308,13 @@ therefore requires more than a Python wrapper:</p>
 reasonable first migration target. Routines that call Abaqus utilities or
 depend on solver internals need source-level adaptation and cannot be promised
 as drop-in compatible.</p>
+<p>Abaqus defines <code>DDSDDE</code> for finite-strain UMAT as a Jacobian associated with
+the increment of Kirchhoff stress and the strain increment, with direct
+components followed by engineering shear components. It also notes that local
+orientations rotate the stored basis and that some first-order elements pass a
+modified deformation gradient. AgentFEM records these facts as adapter
+metadata; it does not relabel <code>DDSDDE</code> as
+<span class="arithmatex">\(\partial\mathbf P/\partial\mathbf F\)</span>.</p>
 <h2 id="progressive-implementation-route">Progressive implementation route<a class="headerlink" href="#progressive-implementation-route" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1279,6 +1367,16 @@ the neutral material-point protocol. Native Python/C++ materials and Abaqus
 adapters become alternative providers behind the same boundary. This avoids
 making the public model language depend on Abaqus, while preserving a realistic
 route for valuable user-material libraries.</p>
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://docs.software.vt.edu/abaqusv2025/English/SIMACAESUBRefMap/simasub-c-umat.htm">Abaqus 2025 UMAT reference</a>,
+  including <code>DDSDDE</code>, component storage, deformation-gradient and orientation
+  conventions.</li>
+<li>C. Miehe, “Numerical computation of algorithmic (consistent) tangent moduli
+  in large-strain computational inelasticity,” <em>Computer Methods in Applied
+  Mechanics and Engineering</em> 134 (1996), 223--240.
+  <a href="https://doi.org/10.1016/0045-7825(96)01019-5">doi:10.1016/0045-7825(96)01019-5</a>.</li>
+</ul>
 
 
 
