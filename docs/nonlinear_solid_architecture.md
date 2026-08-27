@@ -154,6 +154,14 @@ foundation only: finite-strain J2 promotion still requires material paths,
 numerical tangent comparison, a consuming global solve, cutback/restart
 equivalence, MPI-stable state identity, and an external structural benchmark.
 
+`MaterialQuadratureState.create(domain, schema, ...)` is the first lowering of
+that declaration. It creates one committed/trial quadrature pair for every
+named scalar or tensor state, preserves output aliases, and embeds the full
+schema in portable checkpoint identity. Existing verified J2, Chaboche and
+creep containers remain supported while their eventual convergence onto this
+neutral storage path is validated incrementally; the presence of shared
+storage does not imply that their constitutive algorithms are interchangeable.
+
 ## Nonlinear control layers
 
 Three control levels remain distinct:

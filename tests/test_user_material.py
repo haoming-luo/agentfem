@@ -96,6 +96,14 @@ def test_named_material_state_schema_initializes_validates_and_unpacks():
             shape=(3, 3),
             initial_value=np.zeros((2, 2)),
         )
+    with pytest.raises(ValueError, match="output names must be unique"):
+        MaterialStateSchema(
+            "duplicate_outputs",
+            (
+                MaterialStateVariable("damage", output_name="SDV"),
+                MaterialStateVariable("porosity", output_name="SDV"),
+            ),
+        )
 
 
 def test_tangent_convention_declares_measure_storage_and_objective_rate():

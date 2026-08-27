@@ -540,6 +540,7 @@
       "public_api": [
         "agentfem.constitutive.MaterialPointInput",
         "agentfem.constitutive.MaterialPointOutput",
+        "agentfem.constitutive.MaterialQuadratureState",
         "agentfem.constitutive.MaterialStateVariable",
         "agentfem.constitutive.MaterialStateSchema",
         "agentfem.constitutive.MaterialTangentConvention",

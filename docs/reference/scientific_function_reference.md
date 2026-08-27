@@ -1425,6 +1425,7 @@ Defines versioned named internal variables and explicit stress/kinematic tangent
 
 - `agentfem.constitutive.MaterialPointInput`
 - `agentfem.constitutive.MaterialPointOutput`
+- `agentfem.constitutive.MaterialQuadratureState`
 - `agentfem.constitutive.MaterialStateVariable`
 - `agentfem.constitutive.MaterialStateSchema`
 - `agentfem.constitutive.MaterialTangentConvention`
@@ -1463,6 +1464,7 @@ This adapter convention includes Abaqus component, engineering-shear, rotating-b
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | MaterialPointOutput | Cauchy stress, declared consistent tangent, typed new state, optional energy and suggested time scale | stress, tangent, state and energy density | Global-Newton eligibility is explicit and false for undeclared legacy outputs. |
+| MaterialQuadratureState | schema-lowered committed/trial integration-point fields | per-variable declared units | Scalar and tensor state initialization, aliases and full schema identity remain attached to portable checkpoint storage. |
 
 #### Assumptions
 
@@ -1482,6 +1484,7 @@ This adapter convention includes Abaqus component, engineering-shear, rotating-b
 #### Limitations
 
 - The contract does not itself compile or execute arbitrary UMAT or UHYPER source.
+- MaterialQuadratureState owns storage and atomic lifecycle, not a constitutive integration algorithm or global residual.
 - No finite-strain inelastic material is promoted until material paths, tangent checks, global cutback/restart, MPI identity and an external benchmark pass.
 
 ### Minimal example
@@ -1508,6 +1511,8 @@ response = constitutive.validated_material_update(material, point)
 - Reject spatial rate tangents without an objective-rate declaration.
 - Reject array shapes inconsistent with the declared tangent storage.
 - Reject state-schema or tangent-convention drift across one material update.
+- Reject incompatible material schemas during portable checkpoint restore.
+- Exercise schema-driven state in the existing two-rank-write to one-rank-read acceptance driver.
 - Keep undeclared legacy outputs ineligible for global Newton consumption.
 
 ### References

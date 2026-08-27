@@ -68,6 +68,24 @@ convention drift in the returned response. Legacy `MaterialPointOutput`
 objects without those declarations remain inspectable but fail closed when
 `require_global_newton_contract()` is called.
 
+State storage lowers through the same public schema rather than through an
+adapter-specific `STATEV` array:
+
+```python
+state = constitutive.MaterialQuadratureState.create(
+    domain,
+    material.state_schema,
+    degree=2,
+)
+```
+
+Each declared scalar or tensor becomes a committed/trial quadrature-field
+pair initialized from the schema. The complete schema summary is part of the
+portable checkpoint identity, so changing a tensor shape, initial value,
+output alias, unit, or schema version cannot silently reuse an incompatible
+archive. This container provides storage and atomic lifecycle only; the
+material update and global residual remain separate consumers.
+
 ## Inspect before adapting
 
 An existing Fortran asset can now enter a deterministic inspection gate:

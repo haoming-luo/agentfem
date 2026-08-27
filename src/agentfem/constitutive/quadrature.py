@@ -244,12 +244,14 @@ def _portable_state_identity(state, material=None) -> dict[str, object]:
 
     transaction = state.transaction
     fields = transaction.committed
-    return {
+    identity = {
         "schema": transaction.schema,
         "schema_version": transaction.schema_version,
         "mesh": mesh_portable_identity(state.domain),
         "quadrature": _quadrature_rule_identity(
-            next(iter(fields.values())), degree=state.degree, scheme=state.scheme
+            _quadrature_reference_field(state),
+            degree=state.degree,
+            scheme=state.scheme,
         ),
         "state": {
             name: {
@@ -262,6 +264,22 @@ def _portable_state_identity(state, material=None) -> dict[str, object]:
             None if material is None else _material_record(material)
         ),
     }
+    material_schema = transaction.metadata.get("material_state_schema")
+    if material_schema is not None:
+        identity["material_state_schema"] = material_schema
+    return identity
+
+
+def _quadrature_reference_field(state):
+    selected = getattr(state, "reference_field", None)
+    if selected is not None:
+        return selected
+    selected = getattr(state, "stress", None)
+    if selected is not None:
+        return selected
+    raise TypeError(
+        "Portable quadrature state requires reference_field or stress metadata."
+    )
 
 
 def save_portable_quadrature_state(path, state, *, material=None) -> Path:
@@ -275,7 +293,7 @@ def save_portable_quadrature_state(path, state, *, material=None) -> Path:
     cell_map = state.domain.topology.index_map(state.domain.topology.dim)
     owned = int(cell_map.size_local)
     keys = _original_cell_keys(state.domain)[:owned]
-    points_per_cell = len(state.stress.points)
+    points_per_cell = len(_quadrature_reference_field(state).points)
     snapshot = state.snapshot()
     local = {
         name: np.asarray(values).reshape((
@@ -709,6 +727,167 @@ class QuadratureField:
         domain = self.function.function_space.mesh
         index_map = domain.topology.index_map(domain.topology.dim)
         return int(index_map.size_local + index_map.num_ghosts)
+
+
+@dataclass
+class MaterialQuadratureState:
+    """Schema-lowered committed/trial state for one material provider.
+
+    This container owns storage and atomic lifecycle only. It deliberately
+    does not implement a constitutive update or assume an Abaqus interface.
+    """
+
+    state_schema: object
+    committed: Mapping[str, QuadratureField]
+    trial: Mapping[str, QuadratureField]
+    degree: int
+    scheme: str = "default"
+    transaction: QuadratureTransaction = field(init=False)
+
+    def __post_init__(self) -> None:
+        from .user_material import MaterialStateSchema
+
+        if not isinstance(self.state_schema, MaterialStateSchema):
+            raise TypeError("state_schema must be a MaterialStateSchema.")
+        committed = dict(self.committed)
+        trial = dict(self.trial)
+        expected = tuple(item.name for item in self.state_schema.variables)
+        if not expected:
+            raise ValueError(
+                "MaterialQuadratureState requires at least one state variable."
+            )
+        if tuple(committed) != expected or tuple(trial) != expected:
+            raise ValueError(
+                "Material quadrature fields must follow the declared schema order."
+            )
+        if int(self.degree) <= 0 or not str(self.scheme).strip():
+            raise ValueError("Material quadrature degree and scheme must be valid.")
+        reference_domain = None
+        for variable in self.state_schema.variables:
+            selected = committed[variable.name]
+            candidate = trial[variable.name]
+            if tuple(selected.value_shape) != variable.shape:
+                raise ValueError(
+                    f"Committed field {variable.name!r} does not match its "
+                    f"declared state shape {variable.shape}."
+                )
+            if tuple(candidate.value_shape) != variable.shape:
+                raise ValueError(
+                    f"Trial field {variable.name!r} does not match its "
+                    f"declared state shape {variable.shape}."
+                )
+            for field_value in (selected, candidate):
+                domain = field_value.function.function_space.mesh
+                if reference_domain is None:
+                    reference_domain = domain
+                elif domain is not reference_domain:
+                    raise ValueError(
+                        "Every material quadrature field must use the same mesh."
+                    )
+        self.committed = committed
+        self.trial = trial
+        self.degree = int(self.degree)
+        self.transaction = QuadratureTransaction(
+            committed=committed,
+            trial=trial,
+            schema=self.state_schema.name,
+            schema_version=self.state_schema.version,
+            metadata={"material_state_schema": self.state_schema.summary()},
+        )
+
+    @classmethod
+    def create(
+        cls,
+        domain,
+        state_schema,
+        *,
+        degree: int = 2,
+        scheme: str = "default",
+    ) -> "MaterialQuadratureState":
+        """Lower a named material schema to initialized quadrature fields."""
+
+        from .user_material import MaterialStateSchema
+
+        if not isinstance(state_schema, MaterialStateSchema):
+            raise TypeError("state_schema must be a MaterialStateSchema.")
+        if not state_schema.variables:
+            raise ValueError(
+                "MaterialQuadratureState requires at least one state variable."
+            )
+        committed = {}
+        trial = {}
+        common = {"degree": int(degree), "scheme": str(scheme)}
+        for variable in state_schema.variables:
+            public_name = variable.output_name or variable.name
+            committed_field = QuadratureField.create(
+                domain,
+                name=public_name,
+                value_shape=variable.shape,
+                **common,
+            )
+            trial_field = QuadratureField.create(
+                domain,
+                name=f"{public_name}_trial",
+                value_shape=variable.shape,
+                **common,
+            )
+            point_count = len(committed_field.values)
+            initial = variable.initial_values().reshape(
+                (1, *variable.shape) if variable.shape else (1,)
+            )
+            values = np.broadcast_to(
+                initial,
+                (point_count, *variable.shape) if variable.shape else (point_count,),
+            ).copy()
+            committed_field.assign(values)
+            trial_field.assign(values)
+            committed[variable.name] = committed_field
+            trial[variable.name] = trial_field
+        return cls(
+            state_schema=state_schema,
+            committed=committed,
+            trial=trial,
+            degree=int(degree),
+            scheme=str(scheme),
+        )
+
+    @property
+    def reference_field(self) -> QuadratureField:
+        return next(iter(self.committed.values()))
+
+    @property
+    def domain(self):
+        return self.reference_field.function.function_space.mesh
+
+    def begin(self) -> None:
+        self.transaction.begin()
+
+    def commit(self) -> None:
+        self.transaction.commit()
+
+    def rollback(self) -> None:
+        self.transaction.rollback()
+
+    def snapshot(self) -> dict[str, np.ndarray]:
+        return self.transaction.snapshot()
+
+    def restore(self, snapshot: Mapping[str, object]) -> None:
+        self.transaction.restore(snapshot)
+
+    def save(self, path, *, material=None) -> Path:
+        return save_portable_quadrature_state(path, self, material=material)
+
+    def load(self, path, *, material=None) -> None:
+        load_portable_quadrature_state(path, self, material=material)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "material_quadrature_state",
+            "degree": self.degree,
+            "scheme": self.scheme,
+            "state_schema": self.state_schema.summary(),
+            "transaction": self.transaction.summary(),
+        }
 
 
 @dataclass

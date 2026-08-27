@@ -239,6 +239,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ChabocheQuadratureState` | Committed/trial integration-point state for combined-hardening J2. |
 | class | `CreepQuadratureState` | Committed/trial integration-point state for implicit 3D creep. |
 | class | `J2QuadratureState` | Committed/trial integration-point state for 3D small-strain J2. |
+| class | `MaterialQuadratureState` | Schema-lowered committed/trial state for one material provider. |
 | class | `QuadratureField` | A DOLFINx quadrature function with an explicit NumPy point view. |
 | class | `QuadratureMaterialMap` | Cell-region material dispatch shared by stateful solid procedures. |
 | class | `QuadratureTransaction` | Shared trial/commit/rollback contract for integration-point state. |

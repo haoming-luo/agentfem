@@ -14752,6 +14752,7 @@ G_c(\beta)=G_{\mathrm{I}c}+(G_{\mathrm{II}c}-G_{\mathrm{I}c})\beta^{\eta},\qquad
 <ul>
 <li><code>agentfem.constitutive.MaterialPointInput</code></li>
 <li><code>agentfem.constitutive.MaterialPointOutput</code></li>
+<li><code>agentfem.constitutive.MaterialQuadratureState</code></li>
 <li><code>agentfem.constitutive.MaterialStateVariable</code></li>
 <li><code>agentfem.constitutive.MaterialStateSchema</code></li>
 <li><code>agentfem.constitutive.MaterialTangentConvention</code></li>
@@ -14812,6 +14813,12 @@ G_c(\beta)=G_{\mathrm{I}c}+(G_{\mathrm{II}c}-G_{\mathrm{I}c})\beta^{\eta},\qquad
 <td>stress, tangent, state and energy density</td>
 <td>Global-Newton eligibility is explicit and false for undeclared legacy outputs.</td>
 </tr>
+<tr>
+<td>MaterialQuadratureState</td>
+<td>schema-lowered committed/trial integration-point fields</td>
+<td>per-variable declared units</td>
+<td>Scalar and tensor state initialization, aliases and full schema identity remain attached to portable checkpoint storage.</td>
+</tr>
 </tbody>
 </table>
 <h4 id="assumptions_11">Assumptions<a class="headerlink" href="#assumptions_11" title="Permanent link">&para;</a></h4>
@@ -14832,6 +14839,7 @@ G_c(\beta)=G_{\mathrm{I}c}+(G_{\mathrm{II}c}-G_{\mathrm{I}c})\beta^{\eta},\qquad
 <h4 id="limitations_11">Limitations<a class="headerlink" href="#limitations_11" title="Permanent link">&para;</a></h4>
 <ul>
 <li>The contract does not itself compile or execute arbitrary UMAT or UHYPER source.</li>
+<li>MaterialQuadratureState owns storage and atomic lifecycle, not a constitutive integration algorithm or global residual.</li>
 <li>No finite-strain inelastic material is promoted until material paths, tangent checks, global cutback/restart, MPI identity and an external benchmark pass.</li>
 </ul>
 <h3 id="minimal-example_11">Minimal example<a class="headerlink" href="#minimal-example_11" title="Permanent link">&para;</a></h3>
@@ -14854,6 +14862,8 @@ G_c(\beta)=G_{\mathrm{I}c}+(G_{\mathrm{II}c}-G_{\mathrm{I}c})\beta^{\eta},\qquad
 <li>Reject spatial rate tangents without an objective-rate declaration.</li>
 <li>Reject array shapes inconsistent with the declared tangent storage.</li>
 <li>Reject state-schema or tangent-convention drift across one material update.</li>
+<li>Reject incompatible material schemas during portable checkpoint restore.</li>
+<li>Exercise schema-driven state in the existing two-rank-write to one-rank-read acceptance driver.</li>
 <li>Keep undeclared legacy outputs ineligible for global Newton consumption.</li>
 </ul>
 <h3 id="references_11">References<a class="headerlink" href="#references_11" title="Permanent link">&para;</a></h3>

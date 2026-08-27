@@ -1261,10 +1261,24 @@ requires a complete tangent and state declaration, and rejects any schema or
 convention drift in the returned response. Legacy <code>MaterialPointOutput</code>
 objects without those declarations remain inspectable but fail closed when
 <code>require_global_newton_contract()</code> is called.</p>
+<p>State storage lowers through the same public schema rather than through an
+adapter-specific <code>STATEV</code> array:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">state</span> <span class="o">=</span> <span class="n">constitutive</span><span class="o">.</span><span class="n">MaterialQuadratureState</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">domain</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">material</span><span class="o">.</span><span class="n">state_schema</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">degree</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">)</span>
+</code></pre></div>
+<p>Each declared scalar or tensor becomes a committed/trial quadrature-field
+pair initialized from the schema. The complete schema summary is part of the
+portable checkpoint identity, so changing a tensor shape, initial value,
+output alias, unit, or schema version cannot silently reuse an incompatible
+archive. This container provides storage and atomic lifecycle only; the
+material update and global residual remain separate consumers.</p>
 <h2 id="inspect-before-adapting">Inspect before adapting<a class="headerlink" href="#inspect-before-adapting" title="Permanent link">&para;</a></h2>
 <p>An existing Fortran asset can now enter a deterministic inspection gate:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>agentfem<span class="w"> </span>inspect-user-material<span class="w"> </span>legacy.for<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--write<span class="w"> </span>legacy.inspection.json<span class="w"> </span>--json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>agentfem<span class="w"> </span>inspect-user-material<span class="w"> </span>legacy.for<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>--write<span class="w"> </span>legacy.inspection.json<span class="w"> </span>--json
 </code></pre></div>
 <p>The command retains a SHA-256 source identity, detects a single UMAT or UHYPER
 entry point, inventories include files, distinguishes known Abaqus utility

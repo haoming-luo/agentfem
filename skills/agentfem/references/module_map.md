@@ -32,7 +32,9 @@ Repository package paths below are relative to `src/agentfem/`.
 - `constitutive/`: local response relations and queryable maturity catalog
 - `assessments.py`: standard-neutral engineering damage consumers, explicit
   interaction diagrams, and structured result attachment
-- `constitutive/quadrature.py`: committed/trial integration-point state
+- `constitutive/quadrature.py`: committed/trial integration-point state,
+  schema-driven material state lowering, and partition-portable checkpoint
+  identity
 - `mechanics/`: global stateful solid-mechanics procedures
 - `constitutive/user_material.py`: solver-neutral material-point input/output,
   versioned scalar/tensor state schemas, explicit tangent conventions,

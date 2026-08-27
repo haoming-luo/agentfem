@@ -70,6 +70,9 @@ the correct scalar or tensor initial values, and an explicit
 `MaterialTangentConvention`; reject schema/convention drift through
 `validated_material_update(...)`. A callable shared library or an undeclared
 6-by-6 array alone is not FEM compatibility.
+When a material schema is lowered to `MaterialQuadratureState`, verify scalar
+and tensor initial values, public output aliases, atomic commit/rollback,
+schema-drift rejection, and two-rank-write/changed-partition-read equivalence.
 For campaigns, verify `SimulationResult -> declared QoIs -> ScientificDataset`
 without serializing live fields. Use `quality="engineering"` for ordinary
 simulation-to-learning admission and `quality="release"` only when every

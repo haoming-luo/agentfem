@@ -306,6 +306,11 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   deformation gradient). Never infer global-Newton compatibility from a 6-by-6
   array or relabel Abaqus `DDSDDE` as a first-Piola/deformation-gradient
   tangent.
+  Lower native/adapted internal variables through
+  `MaterialQuadratureState.create(domain, material.state_schema, ...)`; do not
+  create a second adapter-specific `STATEV` store. Preserve the schema in
+  checkpoint identity and require a distributed-write/changed-partition-read
+  test before claiming portable restart.
 - Read an Abaqus `C3D10H` source directly with `mesh.read_abaqus_mesh(...)`,
   inspect `cell.element_definitions`, and consume it only through the verified
   P2-displacement/DG0-pressure mixed route. Do not derive another mesh when the

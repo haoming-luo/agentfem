@@ -74,6 +74,90 @@ def test_shared_quadrature_transaction_commits_and_rolls_back_atomically():
     np.testing.assert_allclose(trial_a.values, [5.0, 6.0])
 
 
+def test_material_state_schema_lowers_to_restartable_quadrature_transaction(
+    tmp_path,
+):
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    schema = constitutive.MaterialStateSchema(
+        "finite_strain_test",
+        (
+            constitutive.MaterialStateVariable(
+                "equivalent_plastic_strain",
+                initial_value=0.0,
+                output_name="PEEQ",
+                unit="1",
+            ),
+            constitutive.MaterialStateVariable(
+                "plastic_deformation_gradient",
+                shape=(3, 3),
+                initial_value=np.eye(3),
+                output_name="FP",
+                unit="1",
+            ),
+        ),
+        version="1.0.0",
+    )
+    state = constitutive.MaterialQuadratureState.create(
+        domain,
+        schema,
+        degree=2,
+    )
+
+    assert state.transaction.schema == "finite_strain_test"
+    assert state.transaction.schema_version == "1.0.0"
+    assert state.committed["equivalent_plastic_strain"].function.name == "PEEQ"
+    expected_identity = np.broadcast_to(
+        np.eye(3),
+        state.committed["plastic_deformation_gradient"].values.shape,
+    )
+    np.testing.assert_allclose(
+        state.committed["plastic_deformation_gradient"].values,
+        expected_identity,
+    )
+
+    trial = np.full_like(
+        state.trial["equivalent_plastic_strain"].values,
+        0.25,
+    )
+    state.trial["equivalent_plastic_strain"].assign(trial)
+    state.commit()
+    archive = state.save(tmp_path / "material_state")
+
+    restored = constitutive.MaterialQuadratureState.create(domain, schema, degree=2)
+    restored.load(archive)
+    np.testing.assert_allclose(
+        restored.committed["equivalent_plastic_strain"].values,
+        0.25,
+    )
+
+    changed_initial = constitutive.MaterialStateSchema(
+        "finite_strain_test",
+        (
+            constitutive.MaterialStateVariable(
+                "equivalent_plastic_strain",
+                initial_value=0.1,
+                output_name="PEEQ",
+                unit="1",
+            ),
+            schema.variables[1],
+        ),
+        version="1.0.0",
+    )
+    incompatible = constitutive.MaterialQuadratureState.create(
+        domain,
+        changed_initial,
+        degree=2,
+    )
+    with pytest.raises(ValueError, match="state schema"):
+        incompatible.load(archive)
+
+
 def test_integration_point_recovery_is_weighted_and_traceable():
     domain = mesh.rectangle(
         (0.0, 0.0),

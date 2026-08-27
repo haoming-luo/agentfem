@@ -118,6 +118,11 @@ class MaterialStateSchema:
         names = tuple(item.name for item in variables)
         if len(set(names)) != len(names):
             raise ValueError("Material state schema names must be unique.")
+        output_names = tuple(item.output_name or item.name for item in variables)
+        if len(set(output_names)) != len(output_names):
+            raise ValueError(
+                "Material state output names must be unique within one schema."
+            )
         object.__setattr__(self, "variables", variables)
 
     @property
