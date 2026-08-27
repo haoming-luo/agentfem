@@ -51,13 +51,18 @@ from .recovery import (
 from .execution import add_execution_trace, execution_records
 from .lifecycle import complete_result, execution_context
 from .finite_strain import (
+    HillMandelIncrement,
     HomogenizedFrame,
     LiveFiniteStrainCellFields,
+    StressStateInvariants,
+    cauchy_stress_invariants,
     finite_strain_dynamic_cell_fields,
     finite_strain_diagnostics,
     finite_strain_cell_fields,
     homogenize_periodic_cell,
     homogenize_periodic_path,
+    hill_mandel_increment,
+    hill_mandel_periodic_path,
     write_homogenized_csv,
     write_homogenized_history,
 )
@@ -67,6 +72,7 @@ from .field_catalog import (
     preselected_fields,
     resolve_field_variables,
 )
+from .statistics import WeightedFieldStatistics, weighted_field_statistics
 
 _LAZY_EXPORTS = {
     "FiniteStrainDiagnosticRequest": "plan",
@@ -124,6 +130,7 @@ __all__ = [
     "FiniteStrainDiagnosticRequest",
     "HistoryRequest",
     "HistoryResult",
+    "HillMandelIncrement",
     "HomogenizedFrame",
     "LiveFiniteStrainCellFields",
     "OutputPlan",
@@ -131,6 +138,8 @@ __all__ = [
     "RectilinearGridSample",
     "StaticForceBalance",
     "StaticWorkBalance",
+    "StressStateInvariants",
+    "WeightedFieldStatistics",
     "PeriodicCellHistoryRequest",
     "ProbeHistoryRequest",
     "PresentationOutput",
@@ -145,6 +154,7 @@ __all__ = [
     "execution_context",
     "from_solution",
     "average",
+    "cauchy_stress_invariants",
     "boundary_resultant",
     "cell_average_recovery",
     "field_extrema",
@@ -160,6 +170,8 @@ __all__ = [
     "field_variable",
     "homogenize_periodic_cell",
     "homogenize_periodic_path",
+    "hill_mandel_increment",
+    "hill_mandel_periodic_path",
     "l2_norm",
     "probe",
     "quadrature_extrema",
@@ -198,4 +210,5 @@ __all__ = [
     "write_parallel_vtk_series",
     "write_result_fields",
     "write_unified_xdmf_series",
+    "weighted_field_statistics",
 ]

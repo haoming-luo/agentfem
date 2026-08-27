@@ -49,8 +49,11 @@ Repository package paths below are relative to `src/agentfem/`.
 - `results/`: simulation results, assembled QoIs, histories, artifacts, and
   campaign/dataset bridge
 - `events.py`: first-passage localization and censoring records
-- `results/finite_strain.py`: named finite-strain visualization fields and
-  complete-RVE homogenized histories
+- `results/finite_strain.py`: named finite-strain visualization fields,
+  stress-state invariants, accepted-increment RVE histories, and Hill--Mandel
+  work and convergence evidence
+- `results/statistics.py`: physical-measure scalar statistics and exact
+  weighted quantiles for owned integration-point values
 - `results/field_catalog.py`: standard field keys, aliases, and context rules
 - `results/output.py`: declarative field requests plus compact unified
   XDMF/HDF5 and optional PVD/VTU writers

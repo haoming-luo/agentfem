@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -44,6 +44,118 @@ class HomogenizedFrame:
             "solid_reference_fraction": self.solid_reference_fraction,
             "solid_current_fraction": self.solid_current_fraction,
             "stress_consistency_error": self.stress_consistency_error,
+        }
+
+
+@dataclass(frozen=True)
+class StressStateInvariants:
+    """Three-dimensional Cauchy-stress invariants with explicit validity.
+
+    Triaxiality and normalized Lode parameter are undefined for a vanishing
+    deviatoric stress.  They are represented by ``None`` rather than silently
+    inserting a numerical value into a scientific history.
+    """
+
+    mean_stress: float
+    von_mises_stress: float
+    third_deviatoric_invariant: float
+    triaxiality: float | None
+    normalized_lode_parameter: float | None
+    deviatoric_state_defined: bool
+    symmetry_error: float
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "mean_stress": self.mean_stress,
+            "von_mises_stress": self.von_mises_stress,
+            "third_deviatoric_invariant": self.third_deviatoric_invariant,
+            "triaxiality": self.triaxiality,
+            "normalized_lode_parameter": self.normalized_lode_parameter,
+            "deviatoric_state_defined": self.deviatoric_state_defined,
+            "symmetry_error": self.symmetry_error,
+            "triaxiality_convention": "mean_cauchy_stress / von_mises_stress",
+            "lode_convention": "1 - 2/pi * acos(27*J3/(2*q^3))",
+        }
+
+
+@dataclass(frozen=True)
+class HillMandelIncrement:
+    """Finite-strain macrohomogeneity evidence over one accepted increment."""
+
+    start_load_factor: float
+    load_factor: float
+    microscopic_work_density: float
+    macroscopic_work_density: float
+    residual: float
+    relative_error: float
+
+    def as_dict(self) -> dict[str, float]:
+        return {
+            "start_load_factor": self.start_load_factor,
+            "load_factor": self.load_factor,
+            "microscopic_work_density": self.microscopic_work_density,
+            "macroscopic_work_density": self.macroscopic_work_density,
+            "residual": self.residual,
+            "relative_error": self.relative_error,
+        }
+
+
+@dataclass
+class PeriodicCellHistoryRecorder:
+    """Collect lightweight RVE evidence at every accepted increment.
+
+    Only macroscopic tensors and one preceding microscopic state are retained.
+    Spatial field output may therefore remain sparse without losing the load
+    history or macrohomogeneity audit.
+    """
+
+    properties: object
+    constraint: object
+    frames: list[HomogenizedFrame] = field(default_factory=list)
+    hill_mandel: list[HillMandelIncrement] = field(default_factory=list)
+    increment_info: list[object | None] = field(default_factory=list)
+    _previous_snapshot: object | None = None
+
+    def reset(self, snapshot) -> None:
+        self.frames.clear()
+        self.hill_mandel.clear()
+        self.increment_info.clear()
+        frame = _homogenize_snapshot(snapshot, self.properties, self.constraint)
+        self.frames.append(frame)
+        self.increment_info.append(None)
+        self._previous_snapshot = snapshot
+
+    def accept(self, snapshot) -> None:
+        if self._previous_snapshot is None:
+            self.reset(snapshot)
+            return
+        current = _homogenize_snapshot(snapshot, self.properties, self.constraint)
+        self.hill_mandel.append(
+            hill_mandel_increment(
+                self._previous_snapshot,
+                snapshot,
+                self.properties,
+                constraint=self.constraint,
+                start_frame=self.frames[-1],
+                frame=current,
+            )
+        )
+        self.frames.append(current)
+        self.increment_info.append(getattr(snapshot, "solve_info", None))
+        self._previous_snapshot = snapshot
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "periodic_cell_accepted_increment_history",
+            "frame_count": len(self.frames),
+            "increment_count": len(self.hill_mandel),
+            "convergence_record_count": sum(
+                item is not None for item in self.increment_info
+            ),
+            "spatial_output_independent": True,
+            "hill_mandel_measure": (
+                "trapezoidal first-Piola work over accepted compatible states"
+            ),
         }
 
 
@@ -342,20 +454,187 @@ def homogenize_periodic_path(
     if not selected:
         raise ValueError("homogenize_periodic_path requires saved snapshots.")
     return tuple(
-        homogenize_periodic_cell(
-            snapshot.solution,
-            properties,
-            pressure=getattr(snapshot, "fields", {}).get("PRESSURE"),
-            macro_deformation_gradient=(
-                constraint.measured_deformation_gradient(snapshot.solution)
-                if hasattr(constraint, "measured_deformation_gradient")
-                else constraint.deformation_gradient_at(snapshot.load_factor)
-            ),
-            cell_reference_volume=constraint.reference_cell_volume,
-            load_factor=snapshot.load_factor,
-        )
+        _homogenize_snapshot(snapshot, properties, constraint)
         for snapshot in selected
     )
+
+
+def cauchy_stress_invariants(
+    stress,
+    *,
+    relative_tolerance: float = 1.0e-12,
+) -> StressStateInvariants:
+    """Return triaxiality and normalized Lode state from a 3D Cauchy tensor.
+
+    The normalized Lode convention is ``+1`` in axisymmetric tension, ``0``
+    in pure shear, and ``-1`` in axisymmetric compression.  Hydrostatic and
+    zero states have no defined Lode angle or triaxiality.
+    """
+
+    selected = np.asarray(stress, dtype=float)
+    if selected.shape != (3, 3) or not np.all(np.isfinite(selected)):
+        raise ValueError("stress must be one finite 3x3 Cauchy tensor.")
+    tolerance = float(relative_tolerance)
+    if not np.isfinite(tolerance) or tolerance <= 0.0:
+        raise ValueError("relative_tolerance must be finite and positive.")
+    symmetry_error = float(np.max(np.abs(selected - selected.T)))
+    scale = max(float(np.linalg.norm(selected)), np.finfo(float).tiny)
+    if symmetry_error > tolerance * scale:
+        raise ValueError(
+            "Cauchy stress is not symmetric within relative_tolerance; "
+            f"relative skew={symmetry_error / scale:.3e}."
+        )
+    symmetric = 0.5 * (selected + selected.T)
+    mean = float(np.trace(symmetric) / 3.0)
+    deviator = symmetric - mean * np.eye(3)
+    q = float(np.sqrt(max(0.0, 1.5 * np.sum(deviator * deviator))))
+    j3 = float(np.linalg.det(deviator))
+    stress_scale = max(float(np.linalg.norm(symmetric)), np.finfo(float).tiny)
+    if q <= tolerance * stress_scale:
+        return StressStateInvariants(
+            mean,
+            q,
+            j3,
+            None,
+            None,
+            False,
+            symmetry_error,
+        )
+    argument = float(np.clip(13.5 * j3 / q**3, -1.0, 1.0))
+    lode = float(1.0 - 2.0 / np.pi * np.arccos(argument))
+    return StressStateInvariants(
+        mean,
+        q,
+        j3,
+        mean / q,
+        lode,
+        True,
+        symmetry_error,
+    )
+
+
+def hill_mandel_increment(
+    start_snapshot,
+    snapshot,
+    properties,
+    *,
+    constraint,
+    start_frame: HomogenizedFrame | None = None,
+    frame: HomogenizedFrame | None = None,
+) -> HillMandelIncrement:
+    """Compare microscopic and macroscopic first-Piola work increments.
+
+    This finite-strain evidence uses the same trapezoidal stress rule at both
+    scales.  It is the discrete compatible-state form of the Hill--Mandel
+    condition for a quasistatic periodic/affine cell without body-force or
+    inertia power terms.
+    """
+
+    if float(snapshot.load_factor) <= float(start_snapshot.load_factor):
+        raise ValueError("Hill-Mandel increments require increasing load factors.")
+    first = (
+        _homogenize_snapshot(start_snapshot, properties, constraint)
+        if start_frame is None
+        else start_frame
+    )
+    second = (
+        _homogenize_snapshot(snapshot, properties, constraint)
+        if frame is None
+        else frame
+    )
+    start_u = getattr(start_snapshot.solution, "value", start_snapshot.solution)
+    end_u = getattr(snapshot.solution, "value", snapshot.solution)
+    domain = start_u.function_space.mesh
+    if end_u.function_space.mesh is not domain:
+        raise ValueError("Hill-Mandel snapshots must share one mesh.")
+    start_pressure = getattr(start_snapshot, "fields", {}).get("PRESSURE")
+    end_pressure = getattr(snapshot, "fields", {}).get("PRESSURE")
+    P0 = _first_piola_expression(start_u, properties, pressure=start_pressure)
+    P1 = _first_piola_expression(end_u, properties, pressure=end_pressure)
+    F0 = hyperelasticity.deformation_gradient(start_u)
+    F1 = hyperelasticity.deformation_gradient(end_u)
+    microscopic = float(
+        integral(
+            0.5 * ufl.inner(P0 + P1, F1 - F0),
+            measure=ufl.dx(domain=domain),
+        )
+    ) / float(constraint.reference_cell_volume)
+    macroscopic = float(
+        0.5
+        * np.sum(
+            (first.first_piola_stress + second.first_piola_stress)
+            * (second.deformation_gradient - first.deformation_gradient)
+        )
+    )
+    residual = microscopic - macroscopic
+    scale = max(abs(microscopic), abs(macroscopic), np.finfo(float).tiny)
+    return HillMandelIncrement(
+        float(start_snapshot.load_factor),
+        float(snapshot.load_factor),
+        microscopic,
+        macroscopic,
+        residual,
+        abs(residual) / scale,
+    )
+
+
+def hill_mandel_periodic_path(
+    snapshots,
+    properties,
+    *,
+    constraint,
+    frames=None,
+) -> tuple[HillMandelIncrement, ...]:
+    """Evaluate Hill--Mandel evidence between consecutive saved states."""
+
+    selected = tuple(snapshots)
+    selected_frames = (
+        homogenize_periodic_path(selected, properties, constraint=constraint)
+        if frames is None
+        else tuple(frames)
+    )
+    if len(selected) != len(selected_frames):
+        raise ValueError("snapshots and frames must have the same length.")
+    return tuple(
+        hill_mandel_increment(
+            selected[index - 1],
+            selected[index],
+            properties,
+            constraint=constraint,
+            start_frame=selected_frames[index - 1],
+            frame=selected_frames[index],
+        )
+        for index in range(1, len(selected))
+    )
+
+
+def _homogenize_snapshot(snapshot, properties, constraint) -> HomogenizedFrame:
+    return homogenize_periodic_cell(
+        snapshot.solution,
+        properties,
+        pressure=getattr(snapshot, "fields", {}).get("PRESSURE"),
+        macro_deformation_gradient=(
+            constraint.measured_deformation_gradient(snapshot.solution)
+            if hasattr(constraint, "measured_deformation_gradient")
+            else constraint.deformation_gradient_at(snapshot.load_factor)
+        ),
+        cell_reference_volume=constraint.reference_cell_volume,
+        load_factor=snapshot.load_factor,
+    )
+
+
+def _first_piola_expression(displacement, properties, *, pressure=None):
+    function = getattr(displacement, "value", displacement)
+    if isinstance(properties, hyperelasticity.MixedNeoHookeanProperties):
+        if pressure is None:
+            raise ValueError("Mixed Hill-Mandel evidence requires pressure fields.")
+        pressure_function = getattr(pressure, "value", pressure)
+        return hyperelasticity.mixed_first_piola(
+            function,
+            pressure_function,
+            properties,
+        )
+    return hyperelasticity.first_piola(function, properties)
 
 
 def finite_strain_diagnostics(
@@ -428,6 +707,9 @@ def finite_strain_diagnostics(
 def write_homogenized_history(
     path: str | Path,
     frames,
+    *,
+    hill_mandel=(),
+    increment_info=(),
 ) -> Path:
     """Write an exact, compact NumPy history for plotting and ML reuse."""
 
@@ -436,6 +718,11 @@ def write_homogenized_history(
         raise ValueError("write_homogenized_history requires at least one frame.")
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
+    stress_states = tuple(
+        cauchy_stress_invariants(frame.cauchy_stress) for frame in selected
+    )
+    hill = _aligned_hill_mandel(selected, hill_mandel)
+    convergence = _aligned_increment_evidence(selected, increment_info)
     np.savez_compressed(
         output,
         load_factor=np.asarray([frame.load_factor for frame in selected]),
@@ -467,11 +754,56 @@ def write_homogenized_history(
         stress_consistency_error=np.asarray(
             [frame.stress_consistency_error for frame in selected]
         ),
+        mean_cauchy_stress=np.asarray(
+            [state.mean_stress for state in stress_states]
+        ),
+        von_mises_cauchy_stress=np.asarray(
+            [state.von_mises_stress for state in stress_states]
+        ),
+        stress_triaxiality=np.asarray(
+            [np.nan if state.triaxiality is None else state.triaxiality for state in stress_states]
+        ),
+        normalized_lode_parameter=np.asarray(
+            [
+                np.nan
+                if state.normalized_lode_parameter is None
+                else state.normalized_lode_parameter
+                for state in stress_states
+            ]
+        ),
+        stress_state_defined=np.asarray(
+            [state.deviatoric_state_defined for state in stress_states],
+            dtype=bool,
+        ),
+        hill_mandel_microscopic_work_density=np.asarray(
+            [item[0] for item in hill]
+        ),
+        hill_mandel_macroscopic_work_density=np.asarray(
+            [item[1] for item in hill]
+        ),
+        hill_mandel_residual=np.asarray([item[2] for item in hill]),
+        hill_mandel_relative_error=np.asarray([item[3] for item in hill]),
+        accepted_increment_defined=np.asarray(
+            [item[0] for item in convergence], dtype=bool
+        ),
+        accepted_increment_size=np.asarray([item[1] for item in convergence]),
+        accepted_newton_iterations=np.asarray([item[2] for item in convergence]),
+        accepted_residual_norm=np.asarray([item[3] for item in convergence]),
+        accepted_periodic_equation_mismatch=np.asarray(
+            [item[4] for item in convergence]
+        ),
+        accepted_attempt=np.asarray([item[5] for item in convergence]),
     )
     return output
 
 
-def write_homogenized_csv(path: str | Path, frames) -> Path:
+def write_homogenized_csv(
+    path: str | Path,
+    frames,
+    *,
+    hill_mandel=(),
+    increment_info=(),
+) -> Path:
     """Write flattened macro tensors in a human-readable table."""
 
     selected = tuple(frames)
@@ -479,6 +811,11 @@ def write_homogenized_csv(path: str | Path, frames) -> Path:
         raise ValueError("write_homogenized_csv requires at least one frame.")
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
+    stress_states = tuple(
+        cauchy_stress_invariants(frame.cauchy_stress) for frame in selected
+    )
+    hill = _aligned_hill_mandel(selected, hill_mandel)
+    convergence = _aligned_increment_evidence(selected, increment_info)
     tensor_names = (
         "deformation_gradient",
         "green_lagrange_strain",
@@ -497,10 +834,26 @@ def write_homogenized_csv(path: str | Path, frames) -> Path:
             "solid_reference_fraction",
             "solid_current_fraction",
             "stress_consistency_error",
+            "mean_cauchy_stress",
+            "von_mises_cauchy_stress",
+            "stress_triaxiality",
+            "normalized_lode_parameter",
+            "stress_state_defined",
+            "hill_mandel_microscopic_work_density",
+            "hill_mandel_macroscopic_work_density",
+            "hill_mandel_residual",
+            "hill_mandel_relative_error",
+            "accepted_increment_defined",
+            "accepted_increment_size",
+            "accepted_newton_iterations",
+            "accepted_residual_norm",
+            "accepted_periodic_equation_mismatch",
+            "accepted_attempt",
         )
     )
     rows = []
-    for frame in selected:
+    for index, frame in enumerate(selected):
+        state = stress_states[index]
         row = [frame.load_factor]
         for tensor in tensor_names:
             row.extend(np.asarray(getattr(frame, tensor)).reshape(-1))
@@ -511,6 +864,17 @@ def write_homogenized_csv(path: str | Path, frames) -> Path:
                 frame.solid_reference_fraction,
                 frame.solid_current_fraction,
                 frame.stress_consistency_error,
+                state.mean_stress,
+                state.von_mises_stress,
+                np.nan if state.triaxiality is None else state.triaxiality,
+                (
+                    np.nan
+                    if state.normalized_lode_parameter is None
+                    else state.normalized_lode_parameter
+                ),
+                float(state.deviatoric_state_defined),
+                *hill[index],
+                *convergence[index],
             )
         )
         rows.append(row)
@@ -522,6 +886,75 @@ def write_homogenized_csv(path: str | Path, frames) -> Path:
         comments="",
     )
     return output
+
+
+def _aligned_hill_mandel(frames, increments):
+    selected = tuple(increments)
+    if selected and len(selected) != len(frames) - 1:
+        raise ValueError("Hill-Mandel increments must connect consecutive frames.")
+    if not selected:
+        return tuple((np.nan, np.nan, np.nan, np.nan) for _ in frames)
+    return (
+        (0.0, 0.0, 0.0, 0.0),
+        *tuple(
+            (
+                item.microscopic_work_density,
+                item.macroscopic_work_density,
+                item.residual,
+                item.relative_error,
+            )
+            for item in selected
+        ),
+    )
+
+
+def _aligned_increment_evidence(frames, increment_info):
+    """Align accepted-solve evidence with macro frames.
+
+    The initial state has no nonlinear increment.  Missing evidence remains
+    explicit through the leading boolean and NaN numerical values in files;
+    result histories use a zero placeholder plus the same validity channel.
+    """
+
+    selected = tuple(increment_info)
+    if selected and len(selected) == len(frames) - 1:
+        selected = (None, *selected)
+    if selected and len(selected) != len(frames):
+        raise ValueError(
+            "Accepted-increment evidence must align with frames or connect "
+            "consecutive frames."
+        )
+    if not selected:
+        selected = (None,) * len(frames)
+
+    aligned = []
+    for item in selected:
+        if item is None:
+            aligned.append((False, np.nan, np.nan, np.nan, np.nan, np.nan))
+            continue
+        start = _evidence_value(item, "start_load_factor")
+        end = _evidence_value(item, "load_factor")
+        aligned.append(
+            (
+                True,
+                float(end) - float(start),
+                float(_evidence_value(item, "iterations")),
+                float(_evidence_value(item, "residual_norm")),
+                float(_evidence_value(item, "equation_mismatch")),
+                float(_evidence_value(item, "attempt", default=1)),
+            )
+        )
+    return tuple(aligned)
+
+
+def _evidence_value(item, name: str, *, default=None):
+    if isinstance(item, dict):
+        value = item.get(name, default)
+    else:
+        value = getattr(item, name, default)
+    if value is None:
+        raise ValueError(f"Accepted-increment evidence is missing {name!r}.")
+    return value
 
 
 def _cell_sample(expression, domain, name: str):

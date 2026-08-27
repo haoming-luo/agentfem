@@ -499,6 +499,8 @@
       
         
       
+        
+      
     
     
     
@@ -565,6 +567,34 @@
     
   
     Theory and Conventions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/rve_homogenization_and_statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RVE Homogenization and Statistics
   
 
     
@@ -1420,10 +1450,20 @@ flags:</p>
 <p>Passing <code>status_file="job.sta"</code> adds a flushed, line-oriented status record.
 <code>progress=False</code> remains available for managed campaigns, but silence is not
 the interactive default.</p>
-<p>The same event is delivered to a complete in-memory trace before display
-filtering. Consequently <code>print_every=50</code> reduces terminal traffic but does not
-erase the other 49 accepted increments from the result manifest. Heat,
-explicit dynamics, implicit dynamics, and J2 use this same evidence contract.</p>
+<p>Transient reporters also provide a wall-clock heartbeat when a nominal
+<code>print_every</code> interval takes unusually long. The default is deliberately
+coarse (30 seconds): it reports accepted increment/time, completion, rate,
+approximate ETA, stability information when available, and the latest energy
+error without emitting one line per internal operation.</p>
+<p>The event recorder is bounded rather than proportional to an arbitrarily long
+run. It retains up to 4096 execution events, preferentially preserving visible
+increments, cutbacks, failures, and completion events; hidden repetitive
+increments are discarded after that capacity. Scientific time histories are
+controlled separately by <code>history_every</code>, visualization by <code>save_every</code>, and
+restart durability by the checkpoint policy. Thus lowering console traffic
+does not change the requested scientific histories, while progress telemetry
+cannot exhaust memory during a long explicit analysis. Heat, explicit
+dynamics, implicit dynamics, and J2 use this same evidence contract.</p>
 <h2 id="one-logical-field-dataset">One logical field dataset<a class="headerlink" href="#one-logical-field-dataset" title="Permanent link">&para;</a></h2>
 <p>The default finite-strain result consists of:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>results.xdmf   small temporal/field description
@@ -1494,10 +1534,12 @@ re-averaging a visualization field.</p>
 <a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="p">)</span>
 </code></pre></div>
 <p>The plan is passed into <code>model.step(...)</code> so exact output marks constrain only
-where the nonlinear path must land. After the solve, <code>finalize(...)</code> writes
-fields, evaluates histories and diagnostics, attaches artifacts, and writes
-the model record and result manifest. A case-specific response plot remains in
-the case directory rather than becoming a misleading general result function.</p>
+where the nonlinear path must land. Requests that require every accepted state
+bind a lightweight online observer before the solve; field snapshots retain
+their independent cadence. After the solve, <code>finalize(...)</code> writes fields,
+materializes histories and diagnostics, attaches artifacts, and writes the
+model record and result manifest. A case-specific response plot remains in the
+case directory rather than becoming a misleading general result function.</p>
 <h2 id="implemented-adjacent-foundations">Implemented adjacent foundations<a class="headerlink" href="#implemented-adjacent-foundations" title="Permanent link">&para;</a></h2>
 <ul>
 <li>automatic affine finite-strain increments with convergence-based growth,

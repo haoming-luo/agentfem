@@ -103,29 +103,44 @@ def print_on_root(obj, *args, root: int = 0, flush: bool = True, **kwargs) -> No
 class StandardRunReporter:
     """Immediate rank-zero progress for long-running analysis steps.
 
-    The console is deliberately human-facing.  When ``status_file`` is given,
-    a compact line-oriented record is flushed after every accepted increment
-    or cutback so terminals, schedulers, and agents can monitor the same run.
+    The console is deliberately human-facing.  Transient output is throttled
+    both by the solver's step cadence and a wall-clock heartbeat, so a slow
+    increment loop remains observable without retaining or printing one record
+    per increment.  When ``status_file`` is given, every visible event is
+    flushed immediately for terminals, schedulers, and agents.
     """
 
     comm: object
     status_file: str | Path | None = None
     show_iterations: bool = True
+    heartbeat_seconds: float = 30.0
 
     def __post_init__(self) -> None:
+        self.heartbeat_seconds = float(self.heartbeat_seconds)
+        if self.heartbeat_seconds < 0.0:
+            raise ValueError("heartbeat_seconds must be nonnegative.")
         self.status_file = (
             None if self.status_file is None else Path(self.status_file)
         )
         self._started = monotonic()
+        self._last_heartbeat = self._started
         self._status_initialized = False
 
     def emit(self, event) -> None:
         """Report one solver event; non-root ranks remain silent."""
 
-        if self.comm.rank != 0 or not getattr(event, "display", True):
+        if self.comm.rank != 0:
             return
         elapsed = monotonic() - self._started
         kind = event.kind
+        visible = bool(getattr(event, "display", True))
+        if kind == "time_increment" and not visible:
+            now = monotonic()
+            visible = now - self._last_heartbeat >= float(self.heartbeat_seconds)
+        if not visible:
+            return
+        if kind == "time_increment":
+            self._last_heartbeat = monotonic()
         if kind == "step_started":
             self._print(
                 f"[STEP {event.step_number}] {event.step_name} "
@@ -213,18 +228,30 @@ class StandardRunReporter:
                 f"{event.target_factor:.16g} 0 {event.iteration} "
                 f"{_number(event.residual_norm)} FAILED {elapsed:.6f}"
             )
-        elif kind == "transient_started":
+        elif kind in {"transient_started", "transient_resumed"}:
+            detail = "" if not event.message else f" | {event.message}"
+            state = "RESUMED" if kind == "transient_resumed" else "STARTED"
             self._print(
-                f"[STEP {event.step_number}] {event.step_name} "
-                f"| {event.incrementation} | increments={event.total_increments}"
+                f"[STEP {event.step_number}] {state} {event.step_name} "
+                f"| {event.incrementation} | increments={event.total_increments}{detail}"
             )
             self._write_status(
                 "STEP INC TIME STATUS ELAPSED_S"
             )
         elif kind == "time_increment":
+            rate = event.increment / elapsed if elapsed > 0.0 else 0.0
+            remaining = max(0, event.total_increments - event.increment)
+            eta = remaining / rate if rate > 0.0 else 0.0
+            percent = (
+                100.0 * event.increment / event.total_increments
+                if event.total_increments
+                else 0.0
+            )
+            detail = "" if not event.message else f" | {event.message}"
             self._print(
                 f"  [INC {event.increment}/{event.total_increments}] "
-                f"t={event.time:.6g} | elapsed={elapsed:.1f}s"
+                f"t={event.time:.6g} | {percent:.1f}% | elapsed={elapsed:.1f}s "
+                f"| rate={rate:.3g}/s | ETA~{eta:.0f}s{detail}"
             )
             self._write_status(
                 f"{event.step_number} {event.increment} {event.time:.16g} "
@@ -259,18 +286,48 @@ class StandardRunReporter:
 class SolveEventRecorder:
     """In-memory structured execution trace shared by every procedure.
 
-    Unlike a progress printer, the recorder retains events whose ``display``
-    flag is false.  This distinction lets long jobs print sparsely without
-    discarding accepted increments or failure evidence.
+    Unlike a progress printer, the recorder can retain hidden events, but its
+    capacity is bounded. Repetitive hidden increments yield first to visible
+    milestones, cutbacks, failures, and completion evidence.
     """
 
     events: list[object] = field(default_factory=list)
+    max_events: int = 4096
+    dropped_events: int = field(default=0, init=False)
+
+    def __post_init__(self) -> None:
+        self.max_events = int(self.max_events)
+        if self.max_events < 16:
+            raise ValueError("SolveEventRecorder.max_events must be at least 16.")
+        if len(self.events) > self.max_events:
+            original = len(self.events)
+            retained = [self.events[0], *self.events[-(self.max_events - 1) :]]
+            self.events[:] = retained
+            self.dropped_events = original - len(retained)
 
     def emit(self, event) -> None:
-        self.events.append(event)
+        if len(self.events) < self.max_events:
+            self.events.append(event)
+            return
+        important = bool(getattr(event, "display", True)) or getattr(
+            event, "kind", ""
+        ) != "time_increment"
+        if important:
+            for index, existing in enumerate(self.events):
+                if (
+                    getattr(existing, "kind", "") == "time_increment"
+                    and not bool(getattr(existing, "display", True))
+                ):
+                    del self.events[index]
+                    break
+            else:
+                del self.events[0]
+            self.events.append(event)
+        self.dropped_events += 1
 
     def clear(self) -> None:
         self.events.clear()
+        self.dropped_events = 0
 
     def records(self) -> tuple[dict[str, object], ...]:
         return tuple(

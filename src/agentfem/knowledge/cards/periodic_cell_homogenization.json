@@ -1,0 +1,122 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.periodic_cell_homogenization",
+  "title": "Finite-strain periodic-cell homogenization evidence",
+  "kind": "workflow",
+  "status": "experimental",
+  "summary": "Records macroscopic finite-strain tensors, stress-state invariants, Hill--Mandel work consistency and nonlinear convergence evidence at every accepted affine-periodic increment independently of sparse spatial-field output.",
+  "public_api": [
+    "agentfem.results.periodic_cell_history",
+    "agentfem.results.homogenize_periodic_cell",
+    "agentfem.results.cauchy_stress_invariants",
+    "agentfem.results.hill_mandel_increment",
+    "agentfem.results.write_homogenized_history",
+    "agentfem.results.write_homogenized_csv"
+  ],
+  "implementation": [
+    "results/finite_strain.py",
+    "results/plan.py",
+    "problems.py"
+  ],
+  "science": {
+    "statement": "An RVE result is a path of accepted compatible states with macroscopic averages, energetic consistency and solve evidence attached to the same increment coordinate, not only a final stress tensor or a sparse collection of visualization frames.",
+    "equations": [
+      {
+        "label": "macroscopic first-Piola stress",
+        "expression": "\\bar{\\mathbf P}=\\frac{1}{V_0}\\int_{\\Omega_0}\\mathbf P\\,\\mathrm dV",
+        "description": "For a porous solid-only mesh, void stress is zero and the integral remains normalized by complete reference-cell volume V_0."
+      },
+      {
+        "label": "finite-strain Hill--Mandel relation",
+        "expression": "\\langle\\mathbf P:\\dot{\\mathbf F}\\rangle=\\langle\\mathbf P\\rangle:\\langle\\dot{\\mathbf F}\\rangle",
+        "description": "AgentFEM evaluates a trapezoidal accepted-increment counterpart using identical stress rules at both scales."
+      },
+      {
+        "label": "stress-state coordinates",
+        "expression": "\\eta=\\sigma_m/q,\\qquad\\bar\\theta=1-\\frac{2}{\\pi}\\arccos\\left(\\frac{27J_3}{2q^3}\\right)",
+        "description": "Undefined hydrostatic or zero-deviator states carry an explicit validity channel."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "accepted affine-periodic states",
+        "type": "displacement, optional pressure, load factor and nonlinear solve evidence",
+        "unit_role": "kinematics, stress and dimensionless load coordinate",
+        "description": "The recorder observes every accepted increment even when spatial XDMF fields are saved less frequently."
+      },
+      {
+        "name": "complete reference-cell volume",
+        "type": "positive scalar declared by the periodic constraint",
+        "unit_role": "volume",
+        "description": "Separates effective porous-cell averages from solid-phase averages."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "accepted macro history",
+        "type": "SimulationResult histories plus NPZ and CSV artifacts",
+        "unit_role": "tensor, energy-density and dimensionless evidence",
+        "description": "Aligns macro tensors, Hill--Mandel evidence, increment size, Newton iterations, residual, periodic mismatch and accepted attempt."
+      }
+    ],
+    "assumptions": [
+      "Current Hill--Mandel lowering is quasistatic and excludes body-force, natural-load and inertia power.",
+      "The finite-strain constitutive response supplies first-Piola and Cauchy stresses for the same accepted state."
+    ],
+    "conventions": [
+      "Macroscopic stress is normalized by the complete cell volume.",
+      "The initial frame has no accepted nonlinear increment and carries an explicit validity flag.",
+      "NPZ represents undefined stress-state coordinates with NaN; structured histories use a zero placeholder plus a validity channel."
+    ],
+    "applicability": [
+      "Quasistatic affine-periodic finite-strain cells using the supported hyperelastic step and output plan."
+    ],
+    "limitations": [
+      "Finite-strain inelastic state evolution and target stress-triaxiality/Lode control are separate, pending capabilities.",
+      "A software-level Hill--Mandel check does not replace mesh, path and external-reference evidence for a material claim."
+    ]
+  },
+  "usage": {
+    "minimal_example": "output = results.output_plan('outputs/cell', requests=(results.periodic_cell_history(periodicity),)); step = model.step(target=displacement, material=material, constraints=periodicity, output=output)",
+    "examples": [
+      "examples/abaqus_c3d10h_periodic_cell/case.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_results.py",
+      "tests/test_engineering_workflows.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Recover identical micro and macro work for a homogeneous finite-strain path.",
+      "Preserve every accepted macro state while spatial output remains sparse.",
+      "Recover uniaxial-tension, pure-shear and undefined hydrostatic stress-state conventions.",
+      "Fail before solving when undeclared external power lies outside the current energy ledger."
+    ]
+  },
+  "references": [
+    {
+      "title": "Elastic properties of reinforced solids: Some theoretical principles",
+      "locator": "https://doi.org/10.1016/0022-5096(63)90036-X"
+    },
+    {
+      "title": "Discrete averaging relations for micro to macro transition",
+      "locator": "https://doi.org/10.1115/1.4033552"
+    },
+    {
+      "title": "Open manuscript: Discrete averaging relations for micro to macro transition",
+      "locator": "https://arxiv.org/abs/1509.06621"
+    },
+    {
+      "title": "Flow curves up to high strains considering load reversal and damage",
+      "locator": "https://doi.org/10.1007/s12289-018-01466-z"
+    }
+  ],
+  "related_cards": [
+    "agentfem.material.mixed_hybrid_hyperelasticity",
+    "agentfem.workflow.scientific_verification",
+    "agentfem.workflow.physical_field_statistics"
+  ]
+}

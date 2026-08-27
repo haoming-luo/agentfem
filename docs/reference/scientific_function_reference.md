@@ -42,6 +42,8 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.workflow.integration_point_recovery`](#agentfem-workflow-integration_point_recovery) | Traceable integration-point field recovery | workflow | supported |
 | [`agentfem.workflow.lefm_interaction_integral`](#agentfem-workflow-lefm_interaction_integral) | Solver-neutral LEFM stress-intensity extraction | workflow | experimental |
 | [`agentfem.workflow.observation_grid_learning`](#agentfem-workflow-observation_grid_learning) | Mesh-independent structured observation grids | workflow | supported |
+| [`agentfem.workflow.periodic_cell_homogenization`](#agentfem-workflow-periodic_cell_homogenization) | Finite-strain periodic-cell homogenization evidence | workflow | experimental |
+| [`agentfem.workflow.physical_field_statistics`](#agentfem-workflow-physical_field_statistics) | Physical-measure statistics for quadrature fields | workflow | supported |
 | [`agentfem.workflow.result_field_sampling`](#agentfem-workflow-result_field_sampling) | MPI-safe point and path field sampling | workflow | supported |
 | [`agentfem.workflow.scalable_campaign_evidence`](#agentfem-workflow-scalable_campaign_evidence) | Spawned campaign ensembles and convergence certificates | workflow | supported |
 | [`agentfem.workflow.scientific_response_experiments`](#agentfem-workflow-scientific_response_experiments) | Campaign-backed scientific response experiments | workflow | supported |
@@ -3149,6 +3151,216 @@ grid = surrogates.regular_grid(bounds=((0,L),(0,H)), shape=(128,64)); registrati
 - NeuralOperator 2.0 API reference: `https://neuraloperator.github.io/dev/modules/api.html`
 - Fourier Neural Operator for Parametric Partial Differential Equations: `https://openreview.net/forum?id=c8P9NQVtmnO`
 - NIST human-centered framework to update digital twins: `https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=936651`
+
+<a id="agentfem-workflow-periodic_cell_homogenization"></a>
+
+## Finite-strain periodic-cell homogenization evidence
+
+**Stable ID:** `agentfem.workflow.periodic_cell_homogenization`<br>
+**Kind:** `workflow`<br>
+**Status:** `experimental`<br>
+**Source card:** `src/agentfem/knowledge/cards/periodic_cell_homogenization.json`
+
+Records macroscopic finite-strain tensors, stress-state invariants, Hill--Mandel work consistency and nonlinear convergence evidence at every accepted affine-periodic increment independently of sparse spatial-field output.
+
+### Public API
+
+- `agentfem.results.periodic_cell_history`
+- `agentfem.results.homogenize_periodic_cell`
+- `agentfem.results.cauchy_stress_invariants`
+- `agentfem.results.hill_mandel_increment`
+- `agentfem.results.write_homogenized_history`
+- `agentfem.results.write_homogenized_csv`
+
+### Scientific contract
+
+An RVE result is a path of accepted compatible states with macroscopic averages, energetic consistency and solve evidence attached to the same increment coordinate, not only a final stress tensor or a sparse collection of visualization frames.
+
+**macroscopic first-Piola stress**
+
+$$
+\bar{\mathbf P}=\frac{1}{V_0}\int_{\Omega_0}\mathbf P\,\mathrm dV
+$$
+
+For a porous solid-only mesh, void stress is zero and the integral remains normalized by complete reference-cell volume V_0.
+
+**finite-strain Hill--Mandel relation**
+
+$$
+\langle\mathbf P:\dot{\mathbf F}\rangle=\langle\mathbf P\rangle:\langle\dot{\mathbf F}\rangle
+$$
+
+AgentFEM evaluates a trapezoidal accepted-increment counterpart using identical stress rules at both scales.
+
+**stress-state coordinates**
+
+$$
+\eta=\sigma_m/q,\qquad\bar\theta=1-\frac{2}{\pi}\arccos\left(\frac{27J_3}{2q^3}\right)
+$$
+
+Undefined hydrostatic or zero-deviator states carry an explicit validity channel.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| accepted affine-periodic states | displacement, optional pressure, load factor and nonlinear solve evidence | kinematics, stress and dimensionless load coordinate | The recorder observes every accepted increment even when spatial XDMF fields are saved less frequently. |
+| complete reference-cell volume | positive scalar declared by the periodic constraint | volume | Separates effective porous-cell averages from solid-phase averages. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| accepted macro history | SimulationResult histories plus NPZ and CSV artifacts | tensor, energy-density and dimensionless evidence | Aligns macro tensors, Hill--Mandel evidence, increment size, Newton iterations, residual, periodic mismatch and accepted attempt. |
+
+#### Assumptions
+
+- Current Hill--Mandel lowering is quasistatic and excludes body-force, natural-load and inertia power.
+- The finite-strain constitutive response supplies first-Piola and Cauchy stresses for the same accepted state.
+
+#### Conventions
+
+- Macroscopic stress is normalized by the complete cell volume.
+- The initial frame has no accepted nonlinear increment and carries an explicit validity flag.
+- NPZ represents undefined stress-state coordinates with NaN; structured histories use a zero placeholder plus a validity channel.
+
+#### Applicability
+
+- Quasistatic affine-periodic finite-strain cells using the supported hyperelastic step and output plan.
+
+#### Limitations
+
+- Finite-strain inelastic state evolution and target stress-triaxiality/Lode control are separate, pending capabilities.
+- A software-level Hill--Mandel check does not replace mesh, path and external-reference evidence for a material claim.
+
+### Minimal example
+
+```python
+output = results.output_plan('outputs/cell', requests=(results.periodic_cell_history(periodicity),)); step = model.step(target=displacement, material=material, constraints=periodicity, output=output)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_results.py`
+- `tests/test_engineering_workflows.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Recover identical micro and macro work for a homogeneous finite-strain path.
+- Preserve every accepted macro state while spatial output remains sparse.
+- Recover uniaxial-tension, pure-shear and undefined hydrostatic stress-state conventions.
+- Fail before solving when undeclared external power lies outside the current energy ledger.
+
+### References
+
+- Elastic properties of reinforced solids: Some theoretical principles: `https://doi.org/10.1016/0022-5096(63)90036-X`
+- Discrete averaging relations for micro to macro transition: `https://doi.org/10.1115/1.4033552`
+- Open manuscript: Discrete averaging relations for micro to macro transition: `https://arxiv.org/abs/1509.06621`
+- Flow curves up to high strains considering load reversal and damage: `https://doi.org/10.1007/s12289-018-01466-z`
+
+<a id="agentfem-workflow-physical_field_statistics"></a>
+
+## Physical-measure statistics for quadrature fields
+
+**Stable ID:** `agentfem.workflow.physical_field_statistics`<br>
+**Kind:** `workflow`<br>
+**Status:** `supported`<br>
+**Source card:** `src/agentfem/knowledge/cards/physical_field_statistics.json`
+
+Reduces scalar integration-point fields with reference quadrature weights, geometric Jacobians, explicit measure multipliers, owned-cell MPI semantics and exact weighted quantiles instead of treating stored samples as equal-volume observations.
+
+### Public API
+
+- `agentfem.results.weighted_field_statistics`
+- `agentfem.constitutive.QuadratureField.owned_physical_weights`
+- `agentfem.constitutive.QuadratureField.weighted_statistics`
+
+### Scientific contract
+
+A field statistic is a declared integral reduction over physical measure; distorted cells, unequal cell sizes and nonuniform quadrature must therefore contribute through their physical weights.
+
+**physical quadrature weight**
+
+$$
+w_q=w_q^{\mathrm{ref}}|\det\mathbf{J}_q|m_q
+$$
+
+The optional multiplier m_q is explicit and can represent an axisymmetric or other declared measure factor.
+
+**weighted mean**
+
+$$
+\bar a=\frac{\sum_q w_q a_q}{\sum_q w_q}
+$$
+
+The same physical weights define the standard deviation, threshold fractions and cumulative measure used for weighted quantiles.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| scalar quadrature values | owned scalar integration-point values | field-dependent | Tensor fields require an explicitly selected component or invariant before reduction. |
+| physical weights | positive reference weights times absolute geometric Jacobian and optional multiplier | physical measure | Ghost-cell values are excluded from MPI reductions. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| WeightedFieldStatistics | measure, mean, standard deviation, quantiles and threshold fractions | field units plus measure units | Carries the declared field name, location, representation and MPI reduction mode. |
+
+#### Assumptions
+
+- Weights are finite and non-negative and their global sum is positive.
+- Values and weights refer to the same owned quadrature points in the same order.
+
+#### Conventions
+
+- Weighted quantiles use the first sorted value whose cumulative physical measure reaches the requested probability.
+- Exact MPI quantiles gather scalar value and weight arrays to one rank and broadcast only the compact result.
+
+#### Applicability
+
+- Scalar quadrature fields from plasticity, creep, damage and other integration-point state models.
+
+#### Limitations
+
+- Exact global quantiles are not intended as a distributed full-field storage format.
+- Axisymmetric and custom weighted measures require an explicit multiplier.
+
+### Minimal example
+
+```python
+summary = state.equivalent_plastic_strain.weighted_statistics(quantiles=(0.5, 0.95), thresholds=(0.02,))
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_constitutive_models.py`
+- `tests/test_parallel_results.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Recover exact physical means and threshold fractions on unequal or distorted cells.
+- Reject tensor-valued fields without an explicit scalar reduction.
+- Use owned quadrature points exactly once in two-rank MPI reductions.
+- Broadcast validation failures so no rank waits in a collective after another rank has failed.
+
+### References
+
+- AgentFEM RVE homogenization and physical field statistics reference: `docs/reference/rve_homogenization_and_statistics.md`
+- DOLFINx finite-element functionality: `https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.html`
 
 <a id="agentfem-workflow-result_field_sampling"></a>
 

@@ -401,19 +401,26 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `execution_records(events: Iterable[object]) -> tuple[dict[str, object], ...]` | Normalize solver events without depending on a particular procedure. |
 | function | `complete_result(step, result, *, output = None, fields = (), strict_output: bool = False, deformation_scale: float = 0.0, metadata: Mapping[str, object] \| None = None)` | Complete output and metadata through one compatibility-safe path. |
 | function | `execution_context(step)` | Return the context bound by :meth:`Model.step`, when available. |
+| class | `HillMandelIncrement` | Finite-strain macrohomogeneity evidence over one accepted increment. |
 | class | `HomogenizedFrame` | Macroscopic response reconstructed from one periodic-cell state. |
 | class | `LiveFiniteStrainCellFields` | Derived cell fields refreshed from active Explicit state at output time. |
+| class | `StressStateInvariants` | Three-dimensional Cauchy-stress invariants with explicit validity. |
+| function | `cauchy_stress_invariants(stress, *, relative_tolerance: float = 1e-12) -> StressStateInvariants` | Return triaxiality and normalized Lode state from a 3D Cauchy tensor. |
 | function | `finite_strain_dynamic_cell_fields(displacement, velocity, properties, *, variables = ('SENER', 'KED', 'J'), pressure = None, density = None) -> LiveFiniteStrainCellFields` | Create reusable SED/KED/stress fields for Explicit saved frames. |
 | function | `finite_strain_diagnostics(displacement, *, constraint = None, quadrature_degree: int = 4) -> dict[str, object]` | Evaluate reusable physical checks for a finite-deformation solution. |
 | function | `finite_strain_cell_fields(displacement, properties, *, variables = ('F', 'E', 'GREEN', 'P', 'S', 'MISES', 'J', 'SENER', 'EVOL'), pressure = None, velocity = None, density = None) -> tuple[object, ...]` | Create requested standard P0 finite-strain cell fields. |
 | function | `homogenize_periodic_cell(displacement, properties, *, pressure = None, macro_deformation_gradient, cell_reference_volume: float, load_factor: float) -> HomogenizedFrame` | Return volume-normalized macroscopic finite-strain response. |
 | function | `homogenize_periodic_path(snapshots, properties, *, constraint) -> tuple[HomogenizedFrame, ...]` | Homogenize every saved state of an affine periodic-cell analysis. |
-| function | `write_homogenized_csv(path: str \| Path, frames) -> Path` | Write flattened macro tensors in a human-readable table. |
-| function | `write_homogenized_history(path: str \| Path, frames) -> Path` | Write an exact, compact NumPy history for plotting and ML reuse. |
+| function | `hill_mandel_increment(start_snapshot, snapshot, properties, *, constraint, start_frame: HomogenizedFrame \| None = None, frame: HomogenizedFrame \| None = None) -> HillMandelIncrement` | Compare microscopic and macroscopic first-Piola work increments. |
+| function | `hill_mandel_periodic_path(snapshots, properties, *, constraint, frames = None) -> tuple[HillMandelIncrement, ...]` | Evaluate Hill--Mandel evidence between consecutive saved states. |
+| function | `write_homogenized_csv(path: str \| Path, frames, *, hill_mandel = (), increment_info = ()) -> Path` | Write flattened macro tensors in a human-readable table. |
+| function | `write_homogenized_history(path: str \| Path, frames, *, hill_mandel = (), increment_info = ()) -> Path` | Write an exact, compact NumPy history for plotting and ML reuse. |
 | class | `FieldVariable` | Stable public meaning of one result variable. |
 | function | `field_variable(name: str, *, finite_strain: bool = False) -> FieldVariable` | Resolve a standard variable, including the context-dependent ``E`` alias. |
 | function | `preselected_fields(*, physics: str, finite_strain: bool = False) -> tuple[str, ...]` | Return the engineering-default field set for one physics context. |
 | function | `resolve_field_variables(names, *, finite_strain: bool = False) -> tuple[FieldVariable, ...]` | Resolve aliases, preserve request order, and remove duplicates. |
+| class | `WeightedFieldStatistics` | Global weighted distribution with explicit field semantics. |
+| function | `weighted_field_statistics(values, weights, *, quantiles: Sequence[float] = (0.05, 0.5, 0.95), thresholds: Sequence[float] = (), location: str, representation: str, comm = None) -> WeightedFieldStatistics` | Return exact global statistics from physical sample weights. |
 | class | `FiniteStrainDiagnosticRequest` | Record physical admissibility and constraint checks. |
 | class | `HistoryRequest` | Evaluate one scientific quantity on every accepted output frame. |
 | class | `OutputPlan` | One declarative output contract for a completed finite-strain step. |

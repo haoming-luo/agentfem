@@ -51,7 +51,14 @@ equation backend must reject MPI execution explicitly.
 For periodic-cell output, distinguish one analysis step from its load
 increments, verify every requested XDMF field at every saved factor, normalize
 effective stresses by the complete cell volume, and compare direct
-first-Piola integration with the transformed Cauchy-stress integral.
+first-Piola integration with the transformed Cauchy-stress integral. Verify
+that the homogenized history contains every accepted increment even when XDMF
+is sparse. Check the stress-state validity channel before consuming
+triaxiality or normalized Lode values, and audit microscopic versus
+macroscopic first-Piola work through the Hill--Mandel residual.
+Keep accepted increment size, Newton iterations, final residual, periodic
+equation mismatch and accepted attempt aligned with the same macro frame; do
+not reconstruct this evidence from output-frame indices.
 For finite-strain output, resolve the conventional `E` request to `LE` and
 require `GREEN` explicitly. Verify the unified XDMF/HDF5 series: frame count,
 time values, shared topology, retained reference coordinates,

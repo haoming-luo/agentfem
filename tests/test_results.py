@@ -13,7 +13,18 @@ import h5py
 from mpi4py import MPI
 import pytest
 
-from agentfem import campaigns, datasets, fields, mesh, models, problems, results, studies, verification
+from agentfem import (
+    campaigns,
+    constitutive,
+    datasets,
+    fields,
+    mesh,
+    models,
+    problems,
+    results,
+    studies,
+    verification,
+)
 from agentfem.constitutive import elasticity
 from agentfem.kernel import dofs as dof_api
 from agentfem.solvers import SolveEvent
@@ -448,6 +459,48 @@ def test_dof_statistics_excludes_ghost_values():
     }
 
 
+def test_weighted_field_statistics_preserves_physical_source_semantics():
+    statistics = results.weighted_field_statistics(
+        [0.0, 10.0, 20.0],
+        [1.0, 2.0, 1.0],
+        quantiles=(0.25, 0.5, 0.75),
+        thresholds=(9.0, 10.0),
+        location="quadrature_points",
+        representation="raw_constitutive_values",
+        comm=MPI.COMM_SELF,
+    )
+
+    assert statistics.mean == pytest.approx(10.0)
+    assert statistics.standard_deviation == pytest.approx(np.sqrt(50.0))
+    assert statistics.quantiles == {0.25: 0.0, 0.5: 10.0, 0.75: 10.0}
+    assert statistics.threshold_fractions == {9.0: 0.75, 10.0: 0.25}
+    assert statistics.total_weight == pytest.approx(4.0)
+    assert statistics.sample_count == 3
+    summary = statistics.summary()
+    assert summary["location"] == "quadrature_points"
+    assert summary["representation"] == "raw_constitutive_values"
+    assert summary["threshold_definition"] == (
+        "physical fraction with value > threshold"
+    )
+
+
+def test_weighted_field_statistics_rejects_ambiguous_or_invalid_data():
+    with pytest.raises(ValueError, match="same number"):
+        results.weighted_field_statistics(
+            [1.0],
+            [1.0, 2.0],
+            location="cells",
+            representation="cell_average",
+        )
+    with pytest.raises(ValueError, match="positive total weight"):
+        results.weighted_field_statistics(
+            [1.0],
+            [0.0],
+            location="cells",
+            representation="cell_average",
+        )
+
+
 def test_integral_average_l2_and_dataset_ready_field_statistics():
     domain = mesh.rectangle(
         (0.0, 0.0),
@@ -597,14 +650,115 @@ def test_homogenized_history_writes_exact_npz_and_human_csv(tmp_path):
         stress_consistency_error=1.0e-12,
     )
 
-    npz = results.write_homogenized_history(tmp_path / "history.npz", [frame])
-    csv = results.write_homogenized_csv(tmp_path / "history.csv", [frame])
+    increment = SimpleNamespace(
+        start_load_factor=0.5,
+        load_factor=1.0,
+        iterations=4,
+        residual_norm=2.0e-9,
+        equation_mismatch=3.0e-12,
+        attempt=2,
+    )
+    npz = results.write_homogenized_history(
+        tmp_path / "history.npz",
+        [frame],
+        increment_info=[increment],
+    )
+    csv = results.write_homogenized_csv(
+        tmp_path / "history.csv",
+        [frame],
+        increment_info=[increment],
+    )
     saved = np.load(npz)
 
     assert Path(npz).exists()
     assert Path(csv).exists()
     np.testing.assert_allclose(saved["first_piola_stress"][0], frame.first_piola_stress)
+    assert saved["stress_triaxiality"][0] == pytest.approx(1.0 / 3.0)
+    assert saved["normalized_lode_parameter"][0] == pytest.approx(1.0)
+    assert bool(saved["stress_state_defined"][0])
+    assert bool(saved["accepted_increment_defined"][0])
+    assert saved["accepted_increment_size"][0] == pytest.approx(0.5)
+    assert saved["accepted_newton_iterations"][0] == pytest.approx(4.0)
+    assert saved["accepted_residual_norm"][0] == pytest.approx(2.0e-9)
+    assert saved["accepted_periodic_equation_mismatch"][0] == pytest.approx(
+        3.0e-12
+    )
+    assert saved["accepted_attempt"][0] == pytest.approx(2.0)
     assert "first_piola_stress_11" in csv.read_text(encoding="utf-8").splitlines()[0]
+    assert "hill_mandel_relative_error" in csv.read_text(encoding="utf-8").splitlines()[0]
+    assert "accepted_newton_iterations" in csv.read_text(encoding="utf-8").splitlines()[0]
+
+
+def test_cauchy_stress_invariants_use_explicit_triaxiality_and_lode_conventions():
+    tension = results.cauchy_stress_invariants(np.diag((12.0, 0.0, 0.0)))
+    shear = results.cauchy_stress_invariants(
+        np.asarray(((0.0, 2.0, 0.0), (2.0, 0.0, 0.0), (0.0, 0.0, 0.0)))
+    )
+    hydrostatic = results.cauchy_stress_invariants(5.0 * np.eye(3))
+
+    assert tension.mean_stress == pytest.approx(4.0)
+    assert tension.von_mises_stress == pytest.approx(12.0)
+    assert tension.triaxiality == pytest.approx(1.0 / 3.0)
+    assert tension.normalized_lode_parameter == pytest.approx(1.0)
+    assert shear.triaxiality == pytest.approx(0.0)
+    assert shear.normalized_lode_parameter == pytest.approx(0.0)
+    assert not hydrostatic.deviatoric_state_defined
+    assert hydrostatic.triaxiality is None
+    assert hydrostatic.normalized_lode_parameter is None
+
+    with pytest.raises(ValueError, match="not symmetric"):
+        results.cauchy_stress_invariants(
+            np.asarray(((0.0, 1.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)))
+        )
+
+
+def test_hill_mandel_evidence_matches_homogeneous_finite_strain_work():
+    domain = mesh.cuboid(
+        (0.0, 0.0, 0.0),
+        (1.0, 1.0, 1.0),
+        (1, 1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="tetrahedron",
+    )
+    space = fields.displacement(domain).space
+    initial = fem.Function(space, name="U0")
+    deformed = fem.Function(space, name="U1")
+    stretch = np.diag((1.1, 0.97, 1.02))
+    gradient = stretch - np.eye(3)
+    deformed.interpolate(lambda x: gradient @ x)
+    material = constitutive.neo_hookean(young=1000.0, poisson=0.3)
+    constraint = SimpleNamespace(
+        reference_cell_volume=1.0,
+        deformation_gradient_at=lambda factor: (
+            np.eye(3) + float(factor) * gradient
+        ),
+    )
+    snapshots = (
+        SimpleNamespace(load_factor=0.0, solution=initial, fields={}),
+        SimpleNamespace(load_factor=1.0, solution=deformed, fields={}),
+    )
+
+    evidence = results.hill_mandel_periodic_path(
+        snapshots,
+        material,
+        constraint=constraint,
+    )
+
+    assert len(evidence) == 1
+    assert evidence[0].microscopic_work_density == pytest.approx(
+        evidence[0].macroscopic_work_density,
+        rel=1.0e-12,
+        abs=1.0e-12,
+    )
+    assert evidence[0].relative_error < 1.0e-12
+
+
+def test_periodic_history_fails_closed_outside_current_hill_mandel_scope():
+    request = results.periodic_cell_history(SimpleNamespace())
+    step = SimpleNamespace(accepted_observers=(), accepted_history_recorders={})
+
+    with pytest.raises(NotImplementedError, match="body-force or natural-load"):
+        request.bind(step, SimpleNamespace(), has_external_power=True)
 
 
 def test_standard_field_catalog_resolves_finite_strain_e_to_le():

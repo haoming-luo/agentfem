@@ -501,6 +501,8 @@
       
         
       
+        
+      
     
     
     
@@ -567,6 +569,34 @@
     
   
     Theory and Conventions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rve_homogenization_and_statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RVE Homogenization and Statistics
   
 
     
@@ -4037,6 +4067,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>HillMandelIncrement</code></td>
+<td>Finite-strain macrohomogeneity evidence over one accepted increment.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>HomogenizedFrame</code></td>
 <td>Macroscopic response reconstructed from one periodic-cell state.</td>
 </tr>
@@ -4044,6 +4079,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>class</td>
 <td><code>LiveFiniteStrainCellFields</code></td>
 <td>Derived cell fields refreshed from active Explicit state at output time.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>StressStateInvariants</code></td>
+<td>Three-dimensional Cauchy-stress invariants with explicit validity.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>cauchy_stress_invariants(stress, *, relative_tolerance: float = 1e-12) -&gt; StressStateInvariants</code></td>
+<td>Return triaxiality and normalized Lode state from a 3D Cauchy tensor.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -4072,12 +4117,22 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>write_homogenized_csv(path: str \| Path, frames) -&gt; Path</code></td>
+<td><code>hill_mandel_increment(start_snapshot, snapshot, properties, *, constraint, start_frame: HomogenizedFrame \| None = None, frame: HomogenizedFrame \| None = None) -&gt; HillMandelIncrement</code></td>
+<td>Compare microscopic and macroscopic first-Piola work increments.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>hill_mandel_periodic_path(snapshots, properties, *, constraint, frames = None) -&gt; tuple[HillMandelIncrement, ...]</code></td>
+<td>Evaluate Hill--Mandel evidence between consecutive saved states.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>write_homogenized_csv(path: str \| Path, frames, *, hill_mandel = (), increment_info = ()) -&gt; Path</code></td>
 <td>Write flattened macro tensors in a human-readable table.</td>
 </tr>
 <tr>
 <td>function</td>
-<td><code>write_homogenized_history(path: str \| Path, frames) -&gt; Path</code></td>
+<td><code>write_homogenized_history(path: str \| Path, frames, *, hill_mandel = (), increment_info = ()) -&gt; Path</code></td>
 <td>Write an exact, compact NumPy history for plotting and ML reuse.</td>
 </tr>
 <tr>
@@ -4099,6 +4154,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>resolve_field_variables(names, *, finite_strain: bool = False) -&gt; tuple[FieldVariable, ...]</code></td>
 <td>Resolve aliases, preserve request order, and remove duplicates.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>WeightedFieldStatistics</code></td>
+<td>Global weighted distribution with explicit field semantics.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>weighted_field_statistics(values, weights, *, quantiles: Sequence[float] = (0.05, 0.5, 0.95), thresholds: Sequence[float] = (), location: str, representation: str, comm = None) -&gt; WeightedFieldStatistics</code></td>
+<td>Return exact global statistics from physical sample weights.</td>
 </tr>
 <tr>
 <td>class</td>

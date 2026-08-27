@@ -178,10 +178,21 @@ Passing `status_file="job.sta"` adds a flushed, line-oriented status record.
 `progress=False` remains available for managed campaigns, but silence is not
 the interactive default.
 
-The same event is delivered to a complete in-memory trace before display
-filtering. Consequently `print_every=50` reduces terminal traffic but does not
-erase the other 49 accepted increments from the result manifest. Heat,
-explicit dynamics, implicit dynamics, and J2 use this same evidence contract.
+Transient reporters also provide a wall-clock heartbeat when a nominal
+`print_every` interval takes unusually long. The default is deliberately
+coarse (30 seconds): it reports accepted increment/time, completion, rate,
+approximate ETA, stability information when available, and the latest energy
+error without emitting one line per internal operation.
+
+The event recorder is bounded rather than proportional to an arbitrarily long
+run. It retains up to 4096 execution events, preferentially preserving visible
+increments, cutbacks, failures, and completion events; hidden repetitive
+increments are discarded after that capacity. Scientific time histories are
+controlled separately by `history_every`, visualization by `save_every`, and
+restart durability by the checkpoint policy. Thus lowering console traffic
+does not change the requested scientific histories, while progress telemetry
+cannot exhaust memory during a long explicit analysis. Heat, explicit
+dynamics, implicit dynamics, and J2 use this same evidence contract.
 
 ## One logical field dataset
 
@@ -265,10 +276,12 @@ output = results.output_plan(
 ```
 
 The plan is passed into `model.step(...)` so exact output marks constrain only
-where the nonlinear path must land. After the solve, `finalize(...)` writes
-fields, evaluates histories and diagnostics, attaches artifacts, and writes
-the model record and result manifest. A case-specific response plot remains in
-the case directory rather than becoming a misleading general result function.
+where the nonlinear path must land. Requests that require every accepted state
+bind a lightweight online observer before the solve; field snapshots retain
+their independent cadence. After the solve, `finalize(...)` writes fields,
+materializes histories and diagnostics, attaches artifacts, and writes the
+model record and result manifest. A case-specific response plot remains in the
+case directory rather than becoming a misleading general result function.
 
 ## Implemented adjacent foundations
 

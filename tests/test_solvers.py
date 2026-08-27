@@ -182,3 +182,50 @@ def test_hidden_progress_event_is_recorded_but_not_printed(capsys):
         "nonlinear",
         residual_norm=float("inf"),
     ).as_dict()["residual_norm"] is None
+
+
+def test_transient_reporter_heartbeat_and_event_retention_are_bounded(capsys):
+    comm = type("Comm", (), {"rank": 0})()
+    reporter = StandardRunReporter(comm, heartbeat_seconds=0.0)
+    reporter.emit(
+        SolveEvent(
+            "time_increment",
+            "explicit",
+            increment=4,
+            time=0.4,
+            total_increments=10,
+            display=False,
+            message="energy_err=1.0e-06",
+        )
+    )
+    console = capsys.readouterr().out
+    assert "4/10" in console
+    assert "ETA~" in console
+    assert "energy_err=1.0e-06" in console
+
+    recorder = SolveEventRecorder(max_events=16)
+    for index in range(100):
+        recorder.emit(
+            SolveEvent(
+                "time_increment",
+                "explicit",
+                increment=index + 1,
+                time=float(index + 1),
+                total_increments=100,
+                display=False,
+            )
+        )
+    recorder.emit(SolveEvent("transient_completed", "explicit", increment=100))
+    assert len(recorder.events) == 16
+    assert recorder.events[-1].kind == "transient_completed"
+    assert recorder.dropped_events > 0
+
+    restored = [
+        SolveEvent("time_increment", "explicit", increment=index)
+        for index in range(40)
+    ]
+    restored_recorder = SolveEventRecorder(restored, max_events=16)
+    assert len(restored) == 16
+    assert restored[0].increment == 0
+    assert restored[-1].increment == 39
+    assert restored_recorder.dropped_events == 24

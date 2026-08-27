@@ -738,6 +738,8 @@ def hyperelastic(
             name=name,
             petsc_options_prefix=petsc_options_prefix,
         )
+    if output is not None and hasattr(output, "bind"):
+        output.bind(problem, properties, has_external_power=bool(model.loads))
     return model.add_step(problem)
 
 
@@ -924,6 +926,8 @@ def mixed_hyperelastic(
         target.collapsed_displacement(name="U"),
         {"PRESSURE": target.collapsed_pressure(name="PRESSURE")},
     )
+    if output is not None and hasattr(output, "bind"):
+        output.bind(problem, properties, has_external_power=bool(model.loads))
     return model.add_step(problem)
 
 

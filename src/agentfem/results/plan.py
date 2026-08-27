@@ -9,7 +9,11 @@ from typing import Mapping
 import numpy as np
 
 from .finite_strain import (
+    PeriodicCellHistoryRecorder,
+    _aligned_increment_evidence,
+    cauchy_stress_invariants,
     finite_strain_diagnostics,
+    hill_mandel_periodic_path,
     homogenize_periodic_path,
     write_homogenized_csv,
     write_homogenized_history,
@@ -231,11 +235,82 @@ class PeriodicCellHistoryRequest:
     constraint: object
     basename: str = "homogenized_history"
 
+    def bind(self, step, material, *, has_external_power: bool = False) -> None:
+        """Attach an accepted-increment recorder before the solve begins."""
+
+        if has_external_power:
+            raise NotImplementedError(
+                "periodic_cell_history Hill-Mandel evidence currently requires "
+                "a quasistatic affine cell without body-force or natural-load "
+                "power terms."
+            )
+        if not hasattr(step, "accepted_observers"):
+            raise TypeError(
+                "periodic_cell_history requires an affine nonlinear step; "
+                "it cannot be attached to an ordinary boundary-condition path."
+            )
+        recorders = getattr(step, "accepted_history_recorders", None)
+        if recorders is None:
+            recorders = {}
+            step.accepted_history_recorders = recorders
+        if self.basename in recorders:
+            raise ValueError(
+                f"Periodic history basename {self.basename!r} is already bound."
+            )
+        recorder = PeriodicCellHistoryRecorder(material, self.constraint)
+        recorders[self.basename] = recorder
+        step.accepted_observers = (*tuple(step.accepted_observers), recorder)
+
     def apply(self, context: OutputContext) -> None:
-        frames = homogenize_periodic_path(
-            context.step.snapshots,
-            context.material,
-            constraint=self.constraint,
+        recorder = getattr(context.step, "accepted_history_recorders", {}).get(
+            self.basename
+        )
+        if recorder is None:
+            snapshots = tuple(context.step.snapshots)
+            frames = homogenize_periodic_path(
+                snapshots,
+                context.material,
+                constraint=self.constraint,
+            )
+            hill_mandel = hill_mandel_periodic_path(
+                snapshots,
+                context.material,
+                constraint=self.constraint,
+                frames=frames,
+            )
+            increment_info = tuple(
+                getattr(snapshot, "solve_info", None) for snapshot in snapshots
+            )
+            history_source = "saved_spatial_frames"
+        else:
+            frames = tuple(recorder.frames)
+            hill_mandel = tuple(recorder.hill_mandel)
+            increment_info = tuple(recorder.increment_info)
+            history_source = "every_accepted_increment"
+        if not frames:
+            raise RuntimeError("Periodic-cell accepted history is empty after solve.")
+        stress_states = tuple(
+            cauchy_stress_invariants(frame.cauchy_stress) for frame in frames
+        )
+        aligned_hill = (
+            ((0.0, 0.0, 0.0, 0.0),)
+            if len(frames) == 1
+            else (
+                (0.0, 0.0, 0.0, 0.0),
+                *tuple(
+                    (
+                        item.microscopic_work_density,
+                        item.macroscopic_work_density,
+                        item.residual,
+                        item.relative_error,
+                    )
+                    for item in hill_mandel
+                ),
+            )
+        )
+        aligned_convergence = _aligned_increment_evidence(
+            frames,
+            increment_info,
         )
         factors = [frame.load_factor for frame in frames]
         context.result.add_histories(
@@ -262,9 +337,114 @@ class PeriodicCellHistoryRequest:
                 "homogenized_strain_energy_density": [
                     frame.strain_energy_density for frame in frames
                 ],
+                "homogenized_mean_cauchy_stress": [
+                    state.mean_stress for state in stress_states
+                ],
+                "homogenized_von_mises_cauchy_stress": [
+                    state.von_mises_stress for state in stress_states
+                ],
+                "homogenized_stress_triaxiality": [
+                    0.0 if state.triaxiality is None else state.triaxiality
+                    for state in stress_states
+                ],
+                "homogenized_normalized_lode_parameter": [
+                    (
+                        0.0
+                        if state.normalized_lode_parameter is None
+                        else state.normalized_lode_parameter
+                    )
+                    for state in stress_states
+                ],
+                "homogenized_stress_state_defined": [
+                    float(state.deviatoric_state_defined)
+                    for state in stress_states
+                ],
+                "hill_mandel_microscopic_work_density": [
+                    item[0] for item in aligned_hill
+                ],
+                "hill_mandel_macroscopic_work_density": [
+                    item[1] for item in aligned_hill
+                ],
+                "hill_mandel_residual": [item[2] for item in aligned_hill],
+                "hill_mandel_relative_error": [
+                    item[3] for item in aligned_hill
+                ],
+                "accepted_increment_defined": [
+                    float(item[0]) for item in aligned_convergence
+                ],
+                "accepted_increment_size": [
+                    0.0 if not item[0] else item[1]
+                    for item in aligned_convergence
+                ],
+                "accepted_newton_iterations": [
+                    0.0 if not item[0] else item[2]
+                    for item in aligned_convergence
+                ],
+                "accepted_residual_norm": [
+                    0.0 if not item[0] else item[3]
+                    for item in aligned_convergence
+                ],
+                "accepted_periodic_equation_mismatch": [
+                    0.0 if not item[0] else item[4]
+                    for item in aligned_convergence
+                ],
+                "accepted_attempt": [
+                    0.0 if not item[0] else item[5]
+                    for item in aligned_convergence
+                ],
             },
             abscissa_name="load_factor",
             abscissa_unit=None,
+            descriptions={
+                "homogenized_stress_triaxiality": (
+                    "Mean Cauchy stress divided by macroscopic von Mises stress; "
+                    "consult homogenized_stress_state_defined."
+                ),
+                "homogenized_normalized_lode_parameter": (
+                    "Normalized Lode parameter in [-1, 1]; consult "
+                    "homogenized_stress_state_defined."
+                ),
+                "homogenized_stress_state_defined": (
+                    "One when deviatoric macro stress defines triaxiality and "
+                    "Lode state, zero otherwise."
+                ),
+                "hill_mandel_microscopic_work_density": (
+                    "Trapezoidal microscopic first-Piola work over the accepted "
+                    "increment, normalized by complete reference-cell volume."
+                ),
+                "hill_mandel_macroscopic_work_density": (
+                    "Trapezoidal macroscopic first-Piola work over the accepted "
+                    "increment."
+                ),
+                "hill_mandel_residual": (
+                    "Microscopic minus macroscopic accepted-increment work density."
+                ),
+                "hill_mandel_relative_error": (
+                    "Absolute Hill-Mandel residual normalized by the larger work "
+                    "magnitude."
+                ),
+                "accepted_increment_defined": (
+                    "One for an accepted nonlinear increment and zero for the "
+                    "initial state or unavailable saved-frame evidence."
+                ),
+                "accepted_increment_size": (
+                    "Accepted macroscopic load-factor increment; consult "
+                    "accepted_increment_defined."
+                ),
+                "accepted_newton_iterations": (
+                    "Newton iterations used by the accepted increment."
+                ),
+                "accepted_residual_norm": (
+                    "Final nonlinear residual norm of the accepted increment."
+                ),
+                "accepted_periodic_equation_mismatch": (
+                    "Maximum periodic affine equation mismatch after acceptance."
+                ),
+                "accepted_attempt": (
+                    "Attempt number on which the increment was accepted; values "
+                    "above one expose cutback or retry."
+                ),
+            },
         )
         final = frames[-1]
         context.result.add_quantities(
@@ -276,13 +456,53 @@ class PeriodicCellHistoryRequest:
                 ),
                 "solid_reference_fraction": final.solid_reference_fraction,
                 "solid_current_fraction": final.solid_current_fraction,
+                "homogenized_history_frame_count": len(frames),
+                "maximum_hill_mandel_relative_error": max(
+                    (item.relative_error for item in hill_mandel),
+                    default=0.0,
+                ),
             }
         )
+        context.result.metadata["homogenized_history"] = {
+            "source": history_source,
+            "frame_count": len(frames),
+            "spatial_output_frame_count": len(context.step.snapshots),
+            "undefined_stress_state_encoding": (
+                "zero placeholder with homogenized_stress_state_defined=0"
+            ),
+            "hill_mandel_scope": (
+                "quasistatic finite strain; no body-force or inertia power"
+            ),
+            "accepted_increment_evidence": (
+                "increment size, Newton iterations, residual, periodic mismatch, "
+                "and accepted attempt aligned with every macro frame"
+            ),
+        }
+        final_state = stress_states[-1]
+        if final_state.deviatoric_state_defined:
+            context.result.add_quantities(
+                {
+                    "homogenized_stress_triaxiality": final_state.triaxiality,
+                    "homogenized_normalized_lode_parameter": (
+                        final_state.normalized_lode_parameter
+                    ),
+                }
+            )
         npz = context.directory / f"{self.basename}.npz"
         csv = context.directory / f"{self.basename}.csv"
         if context.comm.rank == 0:
-            write_homogenized_history(npz, frames)
-            write_homogenized_csv(csv, frames)
+            write_homogenized_history(
+                npz,
+                frames,
+                hill_mandel=hill_mandel,
+                increment_info=increment_info,
+            )
+            write_homogenized_csv(
+                csv,
+                frames,
+                hill_mandel=hill_mandel,
+                increment_info=increment_info,
+            )
         context.comm.barrier()
         context.result.add_artifact("homogenized_history_npz", npz)
         context.result.add_artifact("homogenized_history_csv", csv)
@@ -465,6 +685,18 @@ class OutputPlan:
 
     def required_factors(self) -> tuple[float, ...]:
         return self.field.required_factors()
+
+    def bind(self, step, material, *, has_external_power: bool = False) -> None:
+        """Bind requests that need accepted states before the solve."""
+
+        for request in self.requests:
+            binder = getattr(request, "bind", None)
+            if binder is not None:
+                binder(
+                    step,
+                    material,
+                    has_external_power=bool(has_external_power),
+                )
 
     def finalize(
         self,

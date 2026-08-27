@@ -571,6 +571,68 @@ class QuadratureField:
         count = int(cell_map.size_local) * len(self.points)
         return self.values[:count]
 
+    def owned_physical_weights(self, *, multipliers=None) -> np.ndarray:
+        """Return physical weights for owned integration points.
+
+        Reference-rule weights are multiplied by the absolute geometric
+        Jacobian.  Optional explicit ``multipliers`` support measures such as
+        an axisymmetric ``2*pi*r`` factor without silently changing the
+        meaning of ordinary two-dimensional statistics.
+        """
+
+        domain = self.function.function_space.mesh
+        cell_map = domain.topology.index_map(domain.topology.dim)
+        owned = int(cell_map.size_local)
+        cells = np.arange(owned, dtype=np.int32)
+        determinants = np.abs(
+            np.asarray(
+                fem.Expression(ufl.JacobianDeterminant(domain), self.points).eval(
+                    domain, cells
+                ),
+                dtype=float,
+            ).reshape(-1)
+        )
+        weights = determinants * np.tile(np.asarray(self.weights, dtype=float), owned)
+        if multipliers is not None:
+            selected = np.asarray(multipliers, dtype=float).reshape(-1)
+            if selected.size != weights.size:
+                raise ValueError(
+                    "physical weight multipliers must match owned quadrature points."
+                )
+            if np.any(~np.isfinite(selected)) or np.any(selected < 0.0):
+                raise ValueError(
+                    "physical weight multipliers must be finite and nonnegative."
+                )
+            weights = weights * selected
+        return weights
+
+    def weighted_statistics(
+        self,
+        *,
+        quantiles=(0.05, 0.5, 0.95),
+        thresholds=(),
+        multipliers=None,
+    ):
+        """Summarize one scalar quadrature field using physical measure."""
+
+        if self.value_shape:
+            raise ValueError(
+                "QuadratureField.weighted_statistics requires a scalar field; "
+                "derive an invariant or component explicitly for tensor fields."
+            )
+        from ..results.statistics import weighted_field_statistics
+
+        domain = self.function.function_space.mesh
+        return weighted_field_statistics(
+            self.owned_values.reshape(-1),
+            self.owned_physical_weights(multipliers=multipliers),
+            quantiles=quantiles,
+            thresholds=thresholds,
+            location="quadrature_points",
+            representation="raw_quadrature_values",
+            comm=domain.comm,
+        )
+
     def global_max(self) -> float:
         """Return the MPI-global maximum without double-counting ghost cells."""
 

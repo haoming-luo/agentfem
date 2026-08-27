@@ -9,6 +9,10 @@ variables, supported combinations, and public interfaces. Start with the
 - [Theory and conventions](theory_and_conventions.md) gives the common balance
   laws, kinematics, constitutive equations, procedure distinctions, and result
   locations used by the current platform.
+- [RVE homogenization and physical field statistics](rve_homogenization_and_statistics.md)
+  defines physical quadrature weights, finite-strain macro averages,
+  stress-state conventions, Hill--Mandel evidence and accepted-increment
+  convergence records.
 - [Scientific function reference](scientific_function_reference.md) is
   generated from reviewed knowledge cards. Each entry records formulas,
   assumptions, inputs, outputs, tests, benchmarks, consumers, and limitations.

@@ -211,6 +211,100 @@ solved.add_quantities({"mean_temperature": mean_T, "heat_flux": total_flux})
 solved.write_manifest("result.json")
 ```
 
+For cell or constitutive data, coefficient extrema are not enough. Pass the
+resolved scalar values together with their physical cell or quadrature weights
+to obtain an exact volume-weighted distribution:
+
+```python
+statistics = results.weighted_field_statistics(
+    mises,
+    integration_weights,
+    quantiles=(0.05, 0.5, 0.95),
+    thresholds=(yield_stress,),
+    location="quadrature_points",
+    representation="raw_constitutive_values",
+    comm=domain.comm,
+)
+```
+
+The returned record distinguishes raw integration-point values from cell
+averages or recovered nodal fields and states the quantile and threshold
+definitions. MPI ranks receive the same summary. The weights are explicit:
+AgentFEM does not infer a physical volume distribution from arbitrary field
+coefficients.
+
+`QuadratureField.weighted_statistics(...)` supplies those weights from the
+reference quadrature rule and absolute geometric Jacobian. Only owned cells
+contribute under MPI; ghost cells are excluded. Tensor fields require an
+explicitly selected component or invariant, so the API never invents a scalar
+meaning.
+
+The full definitions, measure convention and references are collected in
+[RVE homogenization and physical field statistics](reference/rve_homogenization_and_statistics.md).
+
+## Periodic-cell evidence at every accepted increment
+
+`results.periodic_cell_history(periodicity)` is an online scientific request,
+not merely a postprocessor over saved XDMF frames. It records a lightweight
+macroscopic state after every accepted affine increment while spatial fields
+may be saved less often:
+
+```python
+output = results.output_plan(
+    "output/rve",
+    field=results.field_output("U", "S", "E", every=5),
+    requests=(results.periodic_cell_history(periodicity),),
+)
+```
+
+If twenty increments are accepted, the CSV and NPZ contain the initial state
+plus all twenty accepted states even though the spatial result contains only
+the requested sparse frames. The recorder retains macroscopic tensors and one
+preceding microscopic state, rather than accumulating all finite-element
+fields in memory.
+
+Each accepted macro row also carries its actual increment size, Newton
+iteration count, final residual, periodic-equation mismatch and accepted
+attempt number. This places cutback and convergence evidence beside the state
+it qualifies instead of requiring a later join against terminal logs.
+
+For Cauchy stress \(\boldsymbol\sigma\), AgentFEM uses
+
+\[
+\eta = \frac{\sigma_m}{\sigma_{\mathrm{vM}}},\qquad
+\bar\theta = 1-\frac{2}{\pi}
+\cos^{-1}\!\left(\frac{27J_3}{2\sigma_{\mathrm{vM}}^3}\right).
+\]
+
+The normalized Lode parameter is `+1` in axisymmetric tension, `0` in pure
+shear and `-1` in axisymmetric compression. Both quantities are undefined
+when the deviatoric stress vanishes. Structured results therefore carry
+`homogenized_stress_state_defined`; a numerical placeholder is never evidence
+that a hydrostatic state's triaxiality or Lode angle exists.
+
+For two consecutive accepted compatible states, the finite-strain
+macrohomogeneity audit compares the same trapezoidal first-Piola work at both
+scales:
+
+\[
+\Delta w_\mu = \frac{1}{|\Omega_0|}
+\int_{\Omega_0}\frac{\mathbf P_n+\mathbf P_{n+1}}{2}:
+(\mathbf F_{n+1}-\mathbf F_n)\,\mathrm dV,
+\]
+
+\[
+\Delta w_M = \frac{\overline{\mathbf P}_n+
+\overline{\mathbf P}_{n+1}}{2}:
+(\overline{\mathbf F}_{n+1}-\overline{\mathbf F}_n).
+\]
+
+The result records both work densities, their signed residual and relative
+error. This is a quasistatic periodic/affine Hill--Mandel contract; it does not
+silently omit body-force or inertia power from a problem where those terms are
+present. The macro stress remains normalized by the complete reference-cell
+volume, so void volume carries zero stress rather than changing the result to
+a matrix-phase average.
+
 ## Point and path probes
 
 Field values at physical coordinates use the same MPI-safe interface in serial

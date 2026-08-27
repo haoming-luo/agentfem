@@ -95,6 +95,81 @@ def test_point_and_path_sampling_are_partition_independent():
     assert grid.inside.all()
 
 
+def test_weighted_field_statistics_are_global_and_identical_on_every_rank():
+    if MPI.COMM_WORLD.size != 2:
+        pytest.skip("weighted-statistics fixture requires exactly two MPI ranks")
+
+    values = np.asarray((0.0, 10.0)) + 10.0 * MPI.COMM_WORLD.rank
+    weights = np.asarray((1.0, 2.0))
+    statistics = results.weighted_field_statistics(
+        values,
+        weights,
+        quantiles=(0.5, 0.9),
+        thresholds=(10.0,),
+        location="quadrature_points",
+        representation="raw_constitutive_values",
+        comm=MPI.COMM_WORLD,
+    )
+
+    assert statistics.mean == pytest.approx(70.0 / 6.0)
+    assert statistics.quantiles == {0.5: 10.0, 0.9: 20.0}
+    assert statistics.threshold_fractions == {10.0: pytest.approx(2.0 / 6.0)}
+    assert statistics.total_weight == pytest.approx(6.0)
+    assert statistics.sample_count == 4
+    summaries = MPI.COMM_WORLD.allgather(statistics.summary())
+    assert all(item == summaries[0] for item in summaries)
+
+
+def test_weighted_field_statistics_broadcasts_global_validation_failure():
+    if MPI.COMM_WORLD.size != 2:
+        pytest.skip("weighted-statistics fixture requires exactly two MPI ranks")
+
+    with pytest.raises(ValueError, match="positive total weight"):
+        results.weighted_field_statistics(
+            [float(MPI.COMM_WORLD.rank)],
+            [0.0],
+            location="quadrature_points",
+            representation="raw_constitutive_values",
+            comm=MPI.COMM_WORLD,
+        )
+
+
+def test_quadrature_field_statistics_exclude_ghost_cells_and_preserve_volume():
+    if MPI.COMM_WORLD.size != 2:
+        pytest.skip("quadrature-statistics fixture requires exactly two MPI ranks")
+
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (4, 3),
+        comm=MPI.COMM_WORLD,
+        cell_type="triangle",
+    )
+    field = constitutive.QuadratureField.create(
+        domain,
+        name="X_COORDINATE",
+        degree=2,
+    )
+    cell_map = domain.topology.index_map(domain.topology.dim)
+    cells = np.arange(
+        int(cell_map.size_local + cell_map.num_ghosts), dtype=np.int32
+    )
+    coordinates = np.asarray(
+        fem.Expression(ufl.SpatialCoordinate(domain)[0], field.points).eval(
+            domain, cells
+        ),
+        dtype=float,
+    ).reshape(-1)
+    field.assign(coordinates)
+
+    statistics = field.weighted_statistics(quantiles=(0.5,))
+
+    assert statistics.total_weight == pytest.approx(1.0)
+    assert statistics.mean == pytest.approx(0.5)
+    summaries = MPI.COMM_WORLD.allgather(statistics.summary())
+    assert all(item == summaries[0] for item in summaries)
+
+
 def test_point_sampling_rejects_rank_inconsistent_requests():
     if MPI.COMM_WORLD.size < 2:
         pytest.skip("distributed point sampling requires at least two MPI ranks")

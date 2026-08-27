@@ -1,0 +1,103 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.physical_field_statistics",
+  "title": "Physical-measure statistics for quadrature fields",
+  "kind": "workflow",
+  "status": "supported",
+  "summary": "Reduces scalar integration-point fields with reference quadrature weights, geometric Jacobians, explicit measure multipliers, owned-cell MPI semantics and exact weighted quantiles instead of treating stored samples as equal-volume observations.",
+  "public_api": [
+    "agentfem.results.weighted_field_statistics",
+    "agentfem.constitutive.QuadratureField.owned_physical_weights",
+    "agentfem.constitutive.QuadratureField.weighted_statistics"
+  ],
+  "implementation": [
+    "results/statistics.py",
+    "constitutive/quadrature.py"
+  ],
+  "science": {
+    "statement": "A field statistic is a declared integral reduction over physical measure; distorted cells, unequal cell sizes and nonuniform quadrature must therefore contribute through their physical weights.",
+    "equations": [
+      {
+        "label": "physical quadrature weight",
+        "expression": "w_q=w_q^{\\mathrm{ref}}|\\det\\mathbf{J}_q|m_q",
+        "description": "The optional multiplier m_q is explicit and can represent an axisymmetric or other declared measure factor."
+      },
+      {
+        "label": "weighted mean",
+        "expression": "\\bar a=\\frac{\\sum_q w_q a_q}{\\sum_q w_q}",
+        "description": "The same physical weights define the standard deviation, threshold fractions and cumulative measure used for weighted quantiles."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "scalar quadrature values",
+        "type": "owned scalar integration-point values",
+        "unit_role": "field-dependent",
+        "description": "Tensor fields require an explicitly selected component or invariant before reduction."
+      },
+      {
+        "name": "physical weights",
+        "type": "positive reference weights times absolute geometric Jacobian and optional multiplier",
+        "unit_role": "physical measure",
+        "description": "Ghost-cell values are excluded from MPI reductions."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "WeightedFieldStatistics",
+        "type": "measure, mean, standard deviation, quantiles and threshold fractions",
+        "unit_role": "field units plus measure units",
+        "description": "Carries the declared field name, location, representation and MPI reduction mode."
+      }
+    ],
+    "assumptions": [
+      "Weights are finite and non-negative and their global sum is positive.",
+      "Values and weights refer to the same owned quadrature points in the same order."
+    ],
+    "conventions": [
+      "Weighted quantiles use the first sorted value whose cumulative physical measure reaches the requested probability.",
+      "Exact MPI quantiles gather scalar value and weight arrays to one rank and broadcast only the compact result."
+    ],
+    "applicability": [
+      "Scalar quadrature fields from plasticity, creep, damage and other integration-point state models."
+    ],
+    "limitations": [
+      "Exact global quantiles are not intended as a distributed full-field storage format.",
+      "Axisymmetric and custom weighted measures require an explicit multiplier."
+    ]
+  },
+  "usage": {
+    "minimal_example": "summary = state.equivalent_plastic_strain.weighted_statistics(quantiles=(0.5, 0.95), thresholds=(0.02,))",
+    "examples": [
+      "examples/j2_plasticity_3d.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_constitutive_models.py",
+      "tests/test_parallel_results.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Recover exact physical means and threshold fractions on unequal or distorted cells.",
+      "Reject tensor-valued fields without an explicit scalar reduction.",
+      "Use owned quadrature points exactly once in two-rank MPI reductions.",
+      "Broadcast validation failures so no rank waits in a collective after another rank has failed."
+    ]
+  },
+  "references": [
+    {
+      "title": "AgentFEM RVE homogenization and physical field statistics reference",
+      "locator": "docs/reference/rve_homogenization_and_statistics.md"
+    },
+    {
+      "title": "DOLFINx finite-element functionality",
+      "locator": "https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.html"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.result_field_sampling",
+    "agentfem.workflow.integration_point_recovery"
+  ]
+}

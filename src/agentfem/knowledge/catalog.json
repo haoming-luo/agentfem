@@ -864,6 +864,44 @@
       "title": "Mesh-independent structured observation grids"
     },
     {
+      "id": "agentfem.workflow.periodic_cell_homogenization",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.results.periodic_cell_history",
+        "agentfem.results.homogenize_periodic_cell",
+        "agentfem.results.cauchy_stress_invariants",
+        "agentfem.results.hill_mandel_increment",
+        "agentfem.results.write_homogenized_history",
+        "agentfem.results.write_homogenized_csv"
+      ],
+      "related_cards": [
+        "agentfem.material.mixed_hybrid_hyperelasticity",
+        "agentfem.workflow.scientific_verification",
+        "agentfem.workflow.physical_field_statistics"
+      ],
+      "source": "src/agentfem/knowledge/cards/periodic_cell_homogenization.json",
+      "status": "experimental",
+      "summary": "Records macroscopic finite-strain tensors, stress-state invariants, Hill--Mandel work consistency and nonlinear convergence evidence at every accepted affine-periodic increment independently of sparse spatial-field output.",
+      "title": "Finite-strain periodic-cell homogenization evidence"
+    },
+    {
+      "id": "agentfem.workflow.physical_field_statistics",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.results.weighted_field_statistics",
+        "agentfem.constitutive.QuadratureField.owned_physical_weights",
+        "agentfem.constitutive.QuadratureField.weighted_statistics"
+      ],
+      "related_cards": [
+        "agentfem.workflow.result_field_sampling",
+        "agentfem.workflow.integration_point_recovery"
+      ],
+      "source": "src/agentfem/knowledge/cards/physical_field_statistics.json",
+      "status": "supported",
+      "summary": "Reduces scalar integration-point fields with reference quadrature weights, geometric Jacobians, explicit measure multipliers, owned-cell MPI semantics and exact weighted quantiles instead of treating stored samples as equal-volume observations.",
+      "title": "Physical-measure statistics for quadrature fields"
+    },
+    {
       "id": "agentfem.workflow.result_field_sampling",
       "kind": "workflow",
       "public_api": [

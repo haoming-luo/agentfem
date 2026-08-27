@@ -157,6 +157,7 @@ nav:
   - Theory and Reference:
       - reference/index.md
       - Theory and Conventions: reference/theory_and_conventions.md
+      - RVE Homogenization and Statistics: reference/rve_homogenization_and_statistics.md
       - Scientific Functions: reference/scientific_function_reference.md
       - Output Variables: result_field_semantics.md
       - Operator Contracts: operator_contracts.md

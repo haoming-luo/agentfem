@@ -141,6 +141,7 @@ def test_mixed_hybrid_affine_periodic_reduction_keeps_pressure_independent(tmp_p
         tmp_path,
         field=results.field_output(
             "U", "P", "PRESSURE", "S", "J",
+            every=2,
             configuration="reference",
             backend="xdmf",
         ),
@@ -162,7 +163,7 @@ def test_mixed_hybrid_affine_periodic_reduction_keeps_pressure_independent(tmp_p
         target=unknown,
         material=material,
         constraints=periodicity,
-        increments=1,
+        increments=2,
         output=output,
         progress=False,
     )
@@ -177,6 +178,42 @@ def test_mixed_hybrid_affine_periodic_reduction_keeps_pressure_independent(tmp_p
     assert np.max(np.abs(unknown.value.x.array)) == pytest.approx(0.0)
     assert (tmp_path / "mixed_periodic.xdmf").exists()
     assert "homogenized_first_piola_stress" in result.histories
+    assert "homogenized_stress_triaxiality" in result.histories
+    assert "homogenized_normalized_lode_parameter" in result.histories
+    assert "hill_mandel_relative_error" in result.histories
+    assert "accepted_newton_iterations" in result.histories
+    assert "accepted_residual_norm" in result.histories
+    assert "accepted_periodic_equation_mismatch" in result.histories
+    np.testing.assert_allclose(
+        result.histories["accepted_increment_defined"].values,
+        [0.0, 1.0, 1.0],
+    )
+    np.testing.assert_allclose(
+        result.histories["accepted_newton_iterations"].values[1:],
+        [item.iterations for item in problem.last_solve_info.increments],
+    )
+    np.testing.assert_allclose(
+        result.histories["accepted_residual_norm"].values[1:],
+        [item.residual_norm for item in problem.last_solve_info.increments],
+    )
+    assert result.quantities["maximum_hill_mandel_relative_error"].value == pytest.approx(
+        0.0
+    )
+    assert result.metadata["homogenized_history"] == {
+        "source": "every_accepted_increment",
+        "frame_count": 3,
+        "spatial_output_frame_count": 2,
+        "undefined_stress_state_encoding": (
+            "zero placeholder with homogenized_stress_state_defined=0"
+        ),
+        "hill_mandel_scope": (
+            "quasistatic finite strain; no body-force or inertia power"
+        ),
+        "accepted_increment_evidence": (
+            "increment size, Newton iterations, residual, periodic mismatch, "
+            "and accepted attempt aligned with every macro frame"
+        ),
+    }
     assert result.metadata["output_plan"]["status"] == "completed"
     assert output.finalize(
         model=model,

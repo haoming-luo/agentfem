@@ -310,12 +310,21 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   parallel ownership rather than silently weakening periodicity.
 - For finite-deformation periodic cells, report the macro deformation
   gradient, every load increment's convergence, equation mismatch, sampled
-  `det(F)` bounds, complete homogenized tensor histories, and deformed geometry
-  at scale one. Read the actual macro gradient from solved reference-point
-  motion when any macro component is free; do not replace it with the nominal
-  loading predictor. A three-dimensional uniaxial-stress periodic cell leaves
-  both transverse normal macro components free and suppresses macro shear;
-  do not fix one transverse stretch to unity.
+  `det(F)` bounds, complete accepted-increment homogenized tensor histories,
+  stress-state validity, and deformed geometry at scale one. Spatial field
+  cadence may be sparse; do not infer that the macro CSV has the same cadence.
+  Read the actual macro gradient from solved reference-point motion when any
+  macro component is free; do not replace it with the nominal loading
+  predictor. Read triaxiality and normalized Lode values only where
+  `homogenized_stress_state_defined` is one. Treat Hill--Mandel evidence as a
+  quasistatic affine/periodic contract without body-force or inertia power. A
+  macro history row must keep its accepted increment size, Newton iterations,
+  residual, periodic mismatch, and accepted attempt beside the physical state.
+  See `docs/reference/rve_homogenization_and_statistics.md` for formulas and
+  validity conventions. A
+  three-dimensional uniaxial-stress periodic cell leaves both transverse
+  normal macro components free and suppresses macro shear; do not fix one
+  transverse stretch to unity.
 - Prefer `solve_result(output=...)` for serial multi-field static output and
   the unified XDMF/HDF5 backend for finite-strain time series. Verify
   shared topology, retained reference coordinates, deformed geometry, time

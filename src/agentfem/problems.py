@@ -773,22 +773,28 @@ class AffineNonlinearVariationalProblem:
     result_field_factory: object | None = None
     snapshot_field_factory: object | None = None
     acceptance_check: object | None = None
+    accepted_observers: tuple[object, ...] = ()
     last_solve_info: object | None = field(default=None, init=False)
     snapshots: list = field(default_factory=list, init=False)
+    accepted_history_recorders: dict[str, object] = field(
+        default_factory=dict,
+        init=False,
+    )
 
     def solve(self):
         if self.output_every is not None and self.output_every <= 0:
             raise ValueError("Affine nonlinear output_every must be positive.")
         self.snapshots.clear()
-        self.snapshots.append(
-            _load_snapshot(
-                0,
-                0.0,
-                self.solution,
-                zero=True,
-                field_factory=self.snapshot_field_factory,
-            )
+        initial_snapshot = _load_snapshot(
+            0,
+            0.0,
+            self.solution,
+            zero=True,
+            field_factory=self.snapshot_field_factory,
         )
+        self.snapshots.append(initial_snapshot)
+        for observer in self.accepted_observers:
+            observer.reset(initial_snapshot)
 
         def capture(index, factor, solution, solve_info):
             save_by_increment = (
@@ -799,16 +805,24 @@ class AffineNonlinearVariationalProblem:
                 abs(factor - value) <= 1.0e-12
                 for value in self.output_factors
             )
-            if save_by_increment or save_by_factor or abs(factor - 1.0) <= 1.0e-12:
-                self.snapshots.append(
-                    _load_snapshot(
-                        index,
-                        factor,
-                        solution,
-                        solve_info=solve_info,
-                        field_factory=self.snapshot_field_factory,
-                    )
+            should_save = (
+                save_by_increment
+                or save_by_factor
+                or abs(factor - 1.0) <= 1.0e-12
+            )
+            accepted_snapshot = None
+            if self.accepted_observers or should_save:
+                accepted_snapshot = _load_snapshot(
+                    index,
+                    factor,
+                    solution,
+                    solve_info=solve_info,
+                    field_factory=self.snapshot_field_factory,
                 )
+            for observer in self.accepted_observers:
+                observer.accept(accepted_snapshot)
+            if should_save:
+                self.snapshots.append(accepted_snapshot)
 
         from .diagnostics import StandardRunReporter, comm_of
 
@@ -906,6 +920,9 @@ class AffineNonlinearVariationalProblem:
             "output_every": self.output_every,
             "output_factors": self.output_factors,
             "snapshot_count": len(self.snapshots),
+            "accepted_observers": tuple(
+                observer.summary() for observer in self.accepted_observers
+            ),
             "step_number": self.step_number,
             "solver": (
                 self.solver_options.summary()
@@ -2185,12 +2202,24 @@ def _emit_transient_started(reporter, step) -> None:
         return
     procedure = getattr(step, "procedure", None)
     algorithm = getattr(procedure, "algorithm", "time_integration")
+    stability = getattr(step, "stability", None)
+    stability_message = ""
+    if stability is not None:
+        selected = getattr(stability, "selected", None)
+        controller = getattr(stability, "controller", None)
+        if selected is not None:
+            ratio = float(step.dt) / float(selected)
+            stability_message = (
+                f"dt={float(step.dt):.6g}, dt/dt_limit={ratio:.3g}"
+                + ("" if controller is None else f", controller={controller}")
+            )
     reporter.emit(
         SolveEvent(
             "transient_started" if step.completed_steps == 0 else "transient_resumed",
             step.name,
             incrementation=algorithm,
             total_increments=step.steps,
+            message=stability_message,
         )
     )
 
@@ -2204,6 +2233,21 @@ def _report_transient_increment(
     comm,
 ) -> None:
     if reporter is not None:
+        message = ""
+        records = getattr(step, "history_records", ())
+        if records:
+            latest = records[-1]
+            channels = []
+            if "relative_energy_balance_error" in latest:
+                channels.append(
+                    "energy_err="
+                    f"{float(latest['relative_energy_balance_error']):.3e}"
+                )
+            elif "energy_balance_error" in latest:
+                channels.append(
+                    f"energy_err={float(latest['energy_balance_error']):.3e}"
+                )
+            message = " | ".join(channels)
         reporter.emit(
             SolveEvent(
                 "time_increment",
@@ -2212,6 +2256,7 @@ def _report_transient_increment(
                 time=float(info.time),
                 total_increments=step.steps,
                 display=bool(info.should_print),
+                message=message,
             )
         )
     if info.should_print and callable(selected_progress):

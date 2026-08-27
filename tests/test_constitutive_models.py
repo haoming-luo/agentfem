@@ -107,6 +107,44 @@ def test_integration_point_recovery_is_weighted_and_traceable():
     assert recovered.processing["material_boundary_averaging"] is False
 
 
+def test_quadrature_field_statistics_use_physical_cell_measure():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    source = constitutive.QuadratureField.create(
+        domain,
+        name="PEEQ",
+        degree=2,
+    )
+    values = np.repeat((0.0, 10.0), len(source.points))
+    source.assign(values)
+
+    statistics = source.weighted_statistics(
+        quantiles=(0.5,),
+        thresholds=(5.0,),
+    )
+
+    assert statistics.total_weight == pytest.approx(1.0)
+    assert statistics.mean == pytest.approx(5.0)
+    assert statistics.quantiles == {0.5: 0.0}
+    assert statistics.threshold_fractions == {5.0: pytest.approx(0.5)}
+    assert statistics.location == "quadrature_points"
+    assert statistics.representation == "raw_quadrature_values"
+
+    tensor = constitutive.QuadratureField.create(
+        domain,
+        name="S",
+        degree=2,
+        value_shape=(3, 3),
+    )
+    with pytest.raises(ValueError, match="derive an invariant"):
+        tensor.weighted_statistics()
+
+
 def test_linear_materials_reject_nonphysical_parameters():
     with pytest.raises(ValueError, match="young"):
         ElasticIsotropicProperties("bad", 0.0, 1.0, 0.3)

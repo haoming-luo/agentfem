@@ -1030,6 +1030,8 @@
       
         
       
+        
+      
     
     
     
@@ -1504,7 +1506,9 @@ result requests.</p>
 <li><code>results.output_plan(...)</code> separates field frames, histories, diagnostics,
   presentation, model IR, and the result manifest.</li>
 <li>periodic-cell history requests integrate complete macro stress and strain
-  tensors over every saved state; they are not hard-coded to one component.</li>
+  tensors, stress triaxiality, normalized Lode state and Hill--Mandel work
+  evidence over every accepted affine increment. Spatial field cadence is
+  independent and may remain sparse.</li>
 <li>finite-strain checks report average <code>F</code>, average and quadrature bounds of
   <code>J</code>, maximum displacement, and optional periodic-equation mismatch.</li>
 <li><code>SolutionProcedure</code> separates physical analysis from Standard/Explicit and
