@@ -9,6 +9,8 @@ dependencies:
   - mpi4py
   - petsc4py
   - h5py
+  # CI exercises optional CAD/true-void fixtures; AgentFEM runtime stays optional.
+  - gmsh
   - numpy
   - pytest
   - pip

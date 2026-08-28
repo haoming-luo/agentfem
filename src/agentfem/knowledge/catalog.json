@@ -134,6 +134,13 @@
       "title": "Finite-strain logarithmic J2 material and global paths"
     },
     {
+      "id": "agentfem.benchmark.finite_strain_j2_periodic_void",
+      "physics": "Three-dimensional finite-strain logarithmic J2 plasticity in a unit periodic cube containing a geometric spherical void under isochoric macroscopic tension.",
+      "source": "src/agentfem/knowledge/benchmarks/finite_strain_j2_periodic_void.json",
+      "status": "automated_fixed_stack_regression_experimental_science",
+      "title": "Finite-strain J2 periodic cell with a true spherical void"
+    },
+    {
       "id": "agentfem.benchmark.finite_strain_j2_zhang_2021_table5",
       "physics": "Plane-strain periodic composite with two stiff circular inclusions, one circular void, logarithmic finite-strain J2 matrix plasticity, elastic inclusions, and macroscopic simple shear.",
       "source": "src/agentfem/knowledge/benchmarks/finite_strain_j2_zhang_2021_table5.json",

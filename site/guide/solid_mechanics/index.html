@@ -1482,9 +1482,16 @@ storage, not accumulated plastic dissipation. The same accepted boundary can
 be checkpointed and restored across a compatible MPI repartition. This route
 remains experimental. The true spherical-void RVE has geometric pairing,
 positive-J, Hill--Mandel, public-lifecycle, and two-rank execution evidence,
-while the independent Zhang et al.
-periodic-composite gate currently fails rather than being promoted. A mixed
-displacement--pressure route for near-incompressible plasticity and a
+and now has a versioned fixed-stack Golden. That Golden freezes one
+<code>h/L=0.25</code> first-order mesh, two accepted increments, the runtime stack, and
+the portable mesh identity. It detects software drift in the macroscopic
+first-Piola stress, physical-weighted PEEQ distribution, and solid fraction;
+it is not a mesh-converged RVE reference solution. A separate opt-in check
+compares two and four increments and two successive mesh levels. Passing that
+check establishes only the declared successive-refinement stability, not
+formal asymptotic convergence or a GCI uncertainty estimate. The independent
+Zhang et al. periodic-composite gate still fails rather than being promoted. A
+mixed displacement--pressure route for near-incompressible plasticity and a
 production analytical tangent are not yet complete.</p>
 <h2 id="go-deeper">Go deeper<a class="headerlink" href="#go-deeper" title="Permanent link">&para;</a></h2>
 <ul>

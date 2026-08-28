@@ -222,9 +222,14 @@ The present public scope is deliberately narrow: prescribed macroscopic
 deformation, compatible regional materials, one periodic constraint, and no
 body-force or natural-load power. The true spherical-void RVE now exercises
 geometric pairing, positive-J, public result lifecycle, two-rank execution,
-and Hill--Mandel evidence. Its mesh/increment refinement certificate and
-fixed-stack Golden remain separate promotion evidence rather than inferred
-from this smoke test.
+and Hill--Mandel evidence. Its versioned fixed-stack Golden additionally
+freezes one `h/L=0.25` first-order mesh, two-increment loading path, runtime
+stack, and portable mesh identity. It is a software-regression contract for
+macroscopic first-Piola stress, physical-weighted PEEQ statistics, and solid
+fraction, not a mesh-converged RVE reference value. An opt-in certificate
+separately compares two against four increments and successive `h/L=0.18` and
+`0.14` meshes. Its thresholds establish only successive-refinement stability;
+they do not establish an asymptotic range, GCI, or numerical uncertainty.
 The Zhang--Feng--Khandelwal external fixture remains fail-closed because the
 current low-order displacement-only tetrahedral route has not matched the
 published mixed displacement--pressure result. A locking-resistant mixed

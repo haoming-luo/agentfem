@@ -131,6 +131,11 @@ jobs:
       - name: Verify finite-strain J2 global path with two MPI ranks
         run: mpirun -n 2 python tests/finite_strain_j2_mpi_driver.py
 
+      - name: Verify true-void finite-strain J2 MPI invariants
+        run: >-
+          mpirun -n 2 python tests/parallel_periodic_void_j2_driver.py
+          --invariants-only
+
       - name: Verify external J2 structure across MPI rank counts
         run: |
           python tests/external_inelastic_benchmark_driver.py write /tmp/agentfem-j2-cylinder.json

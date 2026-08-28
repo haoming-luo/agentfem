@@ -1,0 +1,226 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.finite_strain_j2_periodic_void",
+  "title": "Finite-strain J2 periodic cell with a true spherical void",
+  "status": "automated_fixed_stack_regression_experimental_science",
+  "purpose": "Freeze one reproducible software-regression contract for the public finite-strain J2 affine-periodic lifecycle without presenting a coarse mesh as an RVE reference solution.",
+  "physics": "Three-dimensional finite-strain logarithmic J2 plasticity in a unit periodic cube containing a geometric spherical void under isochoric macroscopic tension.",
+  "execution": {
+    "command": "AGENTFEM_REQUIRE_RVE_GOLDEN=1 python -m pytest -q tests/test_periodic_void_fixture.py && agentfem mpi-run -n 2 -- python tests/parallel_periodic_void_j2_driver.py",
+    "example": "docs/reference/rve_homogenization_and_statistics.md",
+    "evidence": "The serial test and two-rank driver use the public model.step provider, exact source-node periodic equations, provider-owned quadrature state, physical-weighted statistics, complete-cell homogenization, Hill--Mandel work evidence and the ordinary SimulationResult lifecycle. Linux CI runs the two-rank cross-platform invariant mode; the declared Darwin/arm64 reference stack additionally runs the fixed-stack Golden mode."
+  },
+  "observables": [
+    "Full row-major homogenized first-Piola stress normalized by the complete periodic-cell reference volume.",
+    "Physical-weighted mean, 95th percentile and 99th percentile of accepted integration-point PEEQ.",
+    "Meshed solid reference fraction, complete-cell normalization and portable mesh identity.",
+    "Periodic pairing/equation mismatch, positive deformation Jacobian, Hill--Mandel residual and SENER component closure as invariant gates.",
+    "Maximum PEEQ is retained as a localization diagnostic and is not a Golden acceptance quantity."
+  ],
+  "acceptance": [
+    "The fixed-stack numerical quantities satisfy their versioned Golden tolerances only after the portable mesh identity matches; reference-stack required mode fails rather than skips when the declared stack or Gmsh is unavailable.",
+    "The accepted load factors are exactly 0, 0.5 and 1, and the public result contains provider-owned F/P/S/MISES/SENER/ELENER/HARDENER/FP/PEEQ fields.",
+    "Periodic pairing remains below 1e-12 L, solved equation mismatch below 1e-10 L, minimum quadrature J above 0.99, and maximum Hill--Mandel relative residual below 1e-8.",
+    "SENER equals ELENER plus HARDENER at accepted integration points to an absolute tolerance of 1e-12.",
+    "The two-rank driver reproduces the same Golden quantities and mesh identity."
+  ],
+  "regression_identity": {
+    "reference_source": {
+      "commit": "ef3268c325e58b7ef8474248a11bab8487de680e",
+      "clean_tree": true,
+      "package_tree_sha256": "ff71aaf1f75819921a359f37fe0ab0ca6471852fd9c0b6ed5957cecabc3c449b",
+      "runtime_fingerprint": "sha256:8501199d767c93731b8b934d986bc19a5b569ff931e870259f0932521d35a6e9"
+    },
+    "fixed_stack": {
+      "platform": {
+        "system": "Darwin",
+        "release": "25.5.0",
+        "machine": "arm64"
+      },
+      "python": "3.11.15",
+      "packages": {
+        "agentfem": "0.2.5",
+        "fenics-basix": "0.11.0",
+        "fenics-dolfinx": "0.11.0",
+        "fenics-ffcx": "0.11.0",
+        "fenics-ufl": "2026.1.0",
+        "mpi4py": "4.1.2",
+        "numpy": "2.4.6",
+        "petsc4py": "3.25.2"
+      },
+      "mpi": {
+        "vendor": "MPICH 5.0.1",
+        "rank_count": 1
+      },
+      "numerics": {
+        "numpy_default_float": "float64",
+        "petsc_complex": false,
+        "petsc_real_type": "float64",
+        "petsc_scalar_type": "float64",
+        "python_float_mantissa_bits": 53
+      },
+      "gmsh": {
+        "version": "4.15.2",
+        "options": {
+          "General.NumThreads": 1.0,
+          "Mesh.Algorithm3D": 1.0,
+          "Mesh.RandomFactor": 1e-9,
+          "Mesh.RandomFactor3D": 1e-12,
+          "Mesh.RandomSeed": 1.0
+        }
+      }
+    },
+    "mesh_identity": {
+      "topology_dimension": 3,
+      "geometry_dimension": 3,
+      "cell_type": "tetrahedron",
+      "global_cells": 493,
+      "geometry_connectivity_hash": "f202c0239e46361d15b3e9f3d10df01b22f3eeae0fae4bf8d15e87131fc054aa",
+      "coordinate_key": "relative_bounds_scaled_int64"
+    },
+    "scientific_input_fingerprint": "sha256:61755320e2b473318c040395f8744a3cef4464abccd715b9bc02b04406fe8725",
+    "scientific_input": {
+      "geometry": {
+        "side_length": 1.0,
+        "void_radius": 0.2,
+        "mesh_size": 0.25,
+        "exact_solid_volume": 0.9664896783617088
+      },
+      "material": {
+        "young": 200000.0,
+        "poisson": 0.3,
+        "yield_stress": 200.0,
+        "hardening_modulus": 2000.0,
+        "tangent_relative_step": 2e-6
+      },
+      "macroscopic_deformation_gradient": [
+        [1.004, 0.0, 0.0],
+        [0.0, 0.998005980069749, 0.0],
+        [0.0, 0.0, 0.998005980069749]
+      ],
+      "constraint_fingerprint": "1f24a594ec6c7a44253d1c3220d51ec9078992b104dc62a2d6127fc0d74e0a8f",
+      "equation_count": 225,
+      "increments": 2,
+      "accepted_load_factors": [0.0, 0.5, 1.0],
+      "quadrature_degree": 1,
+      "newton": {
+        "relative_tolerance": 2e-7,
+        "absolute_tolerance": 1e-8,
+        "maximum_iterations": 25,
+        "line_search": "backtracking",
+        "linear_solver": "preonly_lu"
+      }
+    },
+    "weighted_statistics": {
+      "location": "quadrature_points",
+      "representation": "raw_quadrature_values",
+      "operation": "physical_weighted_distribution",
+      "quantile_definition": "left-continuous weighted empirical CDF",
+      "sample_count": 493,
+      "total_weight": 0.9768718427396985
+    },
+    "reference_diagnostics": {
+      "minimum_quadrature_j": 0.9996096200539003,
+      "peeq_maximum_report_only": 0.003798984818670941,
+      "periodic_pairing_error": 0.0,
+      "periodic_equation_mismatch": 0.0,
+      "maximum_hill_mandel_relative_error": 5.0464089888206825e-14,
+      "maximum_sener_component_closure_error": 1.3877787807814457e-17
+    }
+  },
+  "golden": {
+    "reference_version": "periodic-void-j2-ef3268c-f202c023-v1",
+    "quantities": [
+      {
+        "name": "homogenized_first_piola_stress",
+        "expected": [133.65733027572315, -0.008096945688397599, 0.008817999354260465, -0.00804860579414577, -67.14366866706999, -0.017160098390628077, 0.008765354669126658, -0.017160098390627154, -67.26372602933107],
+        "relative_tolerance": 5e-5,
+        "absolute_tolerance": 2e-5,
+        "unit": "consistent stress unit",
+        "description": "Row-major complete-cell-volume average of the accepted first-Piola field."
+      },
+      {
+        "name": "peeq_mean",
+        "expected": 0.003087572838327632,
+        "relative_tolerance": 5e-4,
+        "absolute_tolerance": 2e-8,
+        "unit": null,
+        "description": "Physical-weighted mean accepted integration-point equivalent plastic strain."
+      },
+      {
+        "name": "peeq_p95",
+        "expected": 0.0033089301671040414,
+        "relative_tolerance": 5e-4,
+        "absolute_tolerance": 2e-8,
+        "unit": null,
+        "description": "Left-continuous physical-weighted empirical 95th percentile of accepted PEEQ."
+      },
+      {
+        "name": "peeq_p99",
+        "expected": 0.0034862085953299435,
+        "relative_tolerance": 5e-4,
+        "absolute_tolerance": 2e-8,
+        "unit": null,
+        "description": "Left-continuous physical-weighted empirical 99th percentile of accepted PEEQ."
+      },
+      {
+        "name": "solid_reference_fraction",
+        "expected": 0.9768718427396985,
+        "relative_tolerance": 1e-10,
+        "absolute_tolerance": 1e-12,
+        "unit": null,
+        "description": "Meshed solid reference volume divided by the complete unit-cell reference volume."
+      }
+    ]
+  },
+  "refinement_certificate": {
+    "status": "opt_in_successive_refinement_stability",
+    "command": "AGENTFEM_RUN_RVE_CONVERGENCE=1 python -m pytest -q tests/test_periodic_void_fixture.py -k successive_refinement",
+    "increment_thresholds": {
+      "macro_first_piola_relative_change": 0.002,
+      "peeq_mean_relative_change": 0.002,
+      "peeq_p95_relative_change": 0.01
+    },
+    "mesh_thresholds": {
+      "macro_first_piola_relative_change": 0.02,
+      "peeq_mean_relative_change": 0.01,
+      "peeq_p95_relative_change": 0.05,
+      "finest_geometry_relative_error": 0.007
+    },
+    "observed": {
+      "global_cells": [493, 1158, 2596],
+      "increment_relative_changes": {
+        "macro_first_piola": 5.502835282321754e-5,
+        "peeq_mean": 4.0746382775001846e-5,
+        "peeq_p95": 0.0011322547149639414
+      },
+      "mesh_relative_changes": {
+        "macro_first_piola": 0.008472361872327402,
+        "peeq_mean": 0.002402915542601083,
+        "peeq_p95": 0.02363497314099999
+      },
+      "geometry_relative_errors": [
+        0.01074213683853139,
+        0.005961187298629997,
+        0.004637147913917104
+      ],
+      "all_level_invariant_gates": "passed"
+    },
+    "wording": "Successive-refinement stability, not formal asymptotic convergence or a GCI claim."
+  },
+  "scope": [
+    "Public serial exact-affine and distributed dolfinx_mpc finite-strain J2 periodic-cell routes.",
+    "Geometric spherical cavity with matching periodic first-order tetrahedral boundary meshes.",
+    "Fixed two-increment isochoric macroscopic deformation and physical-weighted quadrature statistics."
+  ],
+  "limitations": [
+    "AgentFEM 0.2.5 identifies the clean source used to create the reference; the candidate AgentFEM version is intentionally not an applicability gate, so future releases are compared against this Golden rather than skipped.",
+    "The recorded Darwin kernel release is provenance, not an applicability gate; system family, architecture, numerical dependencies, scalar/MPI contract, explicit Gmsh generation policy and portable mesh identity determine applicability.",
+    "Linux CI requires the two-rank invariant mode but does not claim that a Linux result is the Darwin/arm64 fixed-stack Golden; the strict numerical Golden remains a declared-reference-stack maintainer check.",
+    "The h/L=0.25 Golden is a fixed-stack software regression, not a mesh-converged RVE reference solution; its meshed solid-volume error is about 1.074 percent.",
+    "Maximum PEEQ is localization-sensitive and remains diagnostic rather than an acceptance quantity.",
+    "Hill--Mandel work consistency is not a complete energy balance; plastic dissipation and an independent generalized macro reaction remain open.",
+    "The Zhang--Feng--Khandelwal external gate remains failed, so this card does not promote finite-strain J2 to externally verified maturity."
+  ]
+}

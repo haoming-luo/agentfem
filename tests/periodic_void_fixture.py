@@ -16,6 +16,15 @@ from agentfem import constraints, mesh
 from agentfem.mesh import abaqus
 
 
+PERIODIC_VOID_GMSH_OPTIONS = {
+    "General.NumThreads": 1.0,
+    "Mesh.Algorithm3D": 1.0,
+    "Mesh.RandomFactor": 1.0e-9,
+    "Mesh.RandomFactor3D": 1.0e-12,
+    "Mesh.RandomSeed": 1.0,
+}
+
+
 @dataclass(frozen=True)
 class PeriodicVoidFixture:
     """Gmsh void cell plus exact source-coordinate periodic semantics."""
@@ -88,10 +97,22 @@ def periodic_spherical_void_cell(
     if initialized_here:
         gmsh.initialize()
     semantics = None
+    previous_options = {}
     try:
         if comm.rank == model_rank:
             gmsh.clear()
-            gmsh.option.setNumber("General.Verbosity", 0)
+            selected_options = {
+                "General.Verbosity": 0.0,
+                "Mesh.MeshSizeMin": mesh_size,
+                "Mesh.MeshSizeMax": mesh_size,
+                **PERIODIC_VOID_GMSH_OPTIONS,
+            }
+            previous_options = {
+                name: float(gmsh.option.getNumber(name))
+                for name in selected_options
+            }
+            for name, value in selected_options.items():
+                gmsh.option.setNumber(name, float(value))
             gmsh.model.add("agentfem_periodic_spherical_void")
             box = gmsh.model.occ.addBox(
                 0.0,
@@ -135,8 +156,6 @@ def periodic_spherical_void_cell(
             gmsh.model.setPhysicalName(2, 10, "periodic_boundary")
             gmsh.model.addPhysicalGroup(2, void_faces, 20)
             gmsh.model.setPhysicalName(2, 20, "void_surface")
-            gmsh.option.setNumber("Mesh.MeshSizeMin", mesh_size)
-            gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_size)
             gmsh.model.mesh.generate(3)
             semantics = _periodic_semantics(
                 gmsh,
@@ -153,6 +172,9 @@ def periodic_spherical_void_cell(
             gdim=3,
         )
     finally:
+        if comm.rank == model_rank and gmsh.isInitialized():
+            for name, value in previous_options.items():
+                gmsh.option.setNumber(name, value)
         if initialized_here:
             gmsh.finalize()
 

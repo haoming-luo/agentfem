@@ -80,6 +80,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.elasticity_foundation` | Foundational small-strain elasticity verification | two- and three-dimensional small-strain linear elasticity | automated |
 | `agentfem.benchmark.finite_strain_incremental_waves_v1` | Neo-Hookean small-on-large wave oracle | compressible Neo-Hookean small-on-large elastodynamics | experimental_v1_automated |
 | `agentfem.benchmark.finite_strain_j2_material_paths` | Finite-strain logarithmic J2 material and global paths | three-dimensional rate-independent finite-strain J2 plasticity with quadratic Hencky elasticity and linear isotropic hardening | experimental_automated_global_mpi_restart |
+| `agentfem.benchmark.finite_strain_j2_periodic_void` | Finite-strain J2 periodic cell with a true spherical void | Three-dimensional finite-strain logarithmic J2 plasticity in a unit periodic cube containing a geometric spherical void under isochoric macroscopic tension. | automated_fixed_stack_regression_experimental_science |
 | `agentfem.benchmark.finite_strain_j2_zhang_2021_table5` | Zhang--Feng--Khandelwal finite-strain periodic composite, Table 5 | Plane-strain periodic composite with two stiff circular inclusions, one circular void, logarithmic finite-strain J2 matrix plasticity, elastic inclusions, and macroscopic simple shear. | experimental_external_fixture_not_promoted |
 | `agentfem.benchmark.implicit_creep_relaxation` | Three-dimensional implicit power-law creep relaxation and restart | three-dimensional small-strain isotropic Mises power-law creep | automated_regression |
 | `agentfem.benchmark.j2_abaqus_rate_independent` | Published Abaqus rate-independent Mises plasticity uniaxial state | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_external_verification |
@@ -824,6 +825,7 @@ material = constitutive.finite_strain_j2_logarithmic(young=210e3, poisson=0.3, y
 **Benchmarks**
 
 - `agentfem.benchmark.finite_strain_j2_material_paths`
+- `agentfem.benchmark.finite_strain_j2_periodic_void`
 - `agentfem.benchmark.finite_strain_j2_zhang_2021_table5`
 
 **Validation rules**
@@ -842,7 +844,7 @@ material = constitutive.finite_strain_j2_logarithmic(young=210e3, poisson=0.3, y
 - An accepted public affine checkpoint restores displacement, quadrature state, accepted and attempted increment histories, the next adaptive increment, and execution evidence before continuing.
 - A mutated periodic-equation identity is rejected before any restored state is accepted.
 - Regional material dispatch shares one atomic trial/commit/rollback transaction and preserves scientific identity across one-to-two and two-to-one-rank portable restart.
-- A true spherical-void periodic RVE satisfies geometric pairing, positive-J, Hill--Mandel, public-lifecycle and two-rank execution contracts; its refinement certificate and fixed-stack Golden remain separate promotion evidence.
+- A true spherical-void periodic RVE satisfies geometric pairing, positive-J, Hill--Mandel, public-lifecycle and two-rank execution contracts; its fixed-stack Golden and opt-in successive-refinement stability certificate remain separate evidence and do not constitute formal mesh convergence or GCI.
 - The Zhang--Feng--Khandelwal Table 5 fixture remains fail-closed because the current displacement-only P1 tetrahedral route has not matched the published mixed displacement--pressure result.
 
 ### References

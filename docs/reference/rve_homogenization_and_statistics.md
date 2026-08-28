@@ -186,6 +186,50 @@ summary = quadrature_state.equivalent_plastic_strain.weighted_statistics(
 )
 ```
 
+## True-void regression and refinement boundary
+
+The finite-strain J2 true-void benchmark now has two deliberately separate
+evidence layers. The ordinary automated layer is a **fixed-stack software
+regression**. It freezes a geometric spherical cavity, an `h/L=0.25`
+first-order tetrahedral mesh, a two-increment isochoric loading path, the
+runtime stack, and a portable mesh identity. Only when those identities match
+does the Golden compare the complete-cell-volume macroscopic first-Piola
+stress, physical-weighted PEEQ mean and upper quantiles, and meshed solid
+fraction. Maximum PEEQ remains a localization diagnostic rather than a Golden
+quantity. This contract detects implementation or dependency drift; it is not
+a cross-platform reference solution and does not establish mesh convergence.
+The AgentFEM version stored in the card identifies the clean reference source;
+it does not exempt a newer candidate release from comparison. On the declared
+Darwin/arm64 reference stack, maintainers use a fail-closed mode:
+
+```bash
+AGENTFEM_REQUIRE_RVE_GOLDEN=1 python -m pytest -q \
+  tests/test_periodic_void_fixture.py
+```
+
+If the declared numerical stack or optional Gmsh dependency is unavailable,
+this command fails instead of reporting an ordinary skip. The portable mesh
+identity must still match before the numerical quantities are compared. Linux
+CI separately runs the two-rank driver with `--invariants-only`; that mode
+enforces periodicity, admissibility, Hill--Mandel, energy-component and result
+contracts without mislabeling a different platform as the Darwin/arm64 Golden.
+
+The more expensive refinement layer is opt-in:
+
+```bash
+AGENTFEM_RUN_RVE_CONVERGENCE=1 python -m pytest -q \
+  tests/test_periodic_void_fixture.py -k successive_refinement
+```
+
+It compares two against four increments on the fixed coarse mesh, then
+compares successive `h/L=0.18` and `0.14` meshes using macroscopic stress,
+physical-weighted PEEQ statistics, and improving geometric-volume error. A
+passing result means only that these successive changes satisfy the declared
+stability thresholds. The certificate does not identify an asymptotic regime,
+compute an observed-order/GCI uncertainty estimate, or replace an independent
+external benchmark. The Zhang--Feng--Khandelwal comparison below therefore
+remains the fail-closed promotion gate.
+
 ## External finite-strain composite benchmark
 
 The Zhang--Feng--Khandelwal (2021) nonlinear periodic-material benchmark is

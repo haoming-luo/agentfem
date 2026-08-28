@@ -138,6 +138,7 @@
     ],
     "benchmarks": [
       "agentfem.benchmark.finite_strain_j2_material_paths",
+      "agentfem.benchmark.finite_strain_j2_periodic_void",
       "agentfem.benchmark.finite_strain_j2_zhang_2021_table5"
     ],
     "validation_rules": [
@@ -155,7 +156,7 @@
       "An accepted public affine checkpoint restores displacement, quadrature state, accepted and attempted increment histories, the next adaptive increment, and execution evidence before continuing.",
       "A mutated periodic-equation identity is rejected before any restored state is accepted.",
       "Regional material dispatch shares one atomic trial/commit/rollback transaction and preserves scientific identity across one-to-two and two-to-one-rank portable restart.",
-      "A true spherical-void periodic RVE satisfies geometric pairing, positive-J, Hill--Mandel, public-lifecycle and two-rank execution contracts; its refinement certificate and fixed-stack Golden remain separate promotion evidence.",
+      "A true spherical-void periodic RVE satisfies geometric pairing, positive-J, Hill--Mandel, public-lifecycle and two-rank execution contracts; its fixed-stack Golden and opt-in successive-refinement stability certificate remain separate evidence and do not constitute formal mesh convergence or GCI.",
       "The Zhang--Feng--Khandelwal Table 5 fixture remains fail-closed because the current displacement-only P1 tetrahedral route has not matched the published mixed displacement--pressure result."
     ]
   },

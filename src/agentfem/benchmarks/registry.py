@@ -292,6 +292,37 @@ _BENCHMARKS = (
         ),
     ),
     BenchmarkSpec(
+        identifier="finite_strain_j2_periodic_void",
+        capability="finite_strain_j2_plasticity",
+        level="finite_element_fixed_stack_regression_and_opt_in_refinement",
+        reference=(
+            "knowledge/benchmarks/finite_strain_j2_periodic_void.json"
+        ),
+        criterion=(
+            "after the declared runtime stack and portable mesh identity match, "
+            "a fixed h/L=0.25 two-increment spherical-void cell reproduces its "
+            "versioned macroscopic first-Piola stress, physical-weighted PEEQ "
+            "distribution, and solid fraction; a separate opt-in two-to-four "
+            "increment and successive-mesh check tests numerical stability "
+            "without claiming asymptotic mesh convergence, GCI, or external "
+            "validation"
+        ),
+        automated_test=(
+            "tests/test_periodic_void_fixture.py; "
+            "tests/parallel_periodic_void_j2_driver.py"
+        ),
+        status="automated_fixed_stack_regression_experimental_science",
+        evidence=(
+            "finite_element",
+            "fixed_stack_regression",
+            "portable_mesh_identity",
+            "quadrature_statistics",
+            "hill_mandel",
+            "mpi",
+            "successive_refinement_opt_in",
+        ),
+    ),
+    BenchmarkSpec(
         identifier="finite_strain_j2_zhang_2021_table5",
         capability="finite_strain_j2_plasticity",
         level="external_periodic_composite_promotion_gate",

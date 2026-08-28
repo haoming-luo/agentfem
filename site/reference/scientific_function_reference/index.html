@@ -13361,6 +13361,12 @@ the compact machine-readable <code>agentfem/knowledge/catalog.json</code>.</p>
 <td>experimental_automated_global_mpi_restart</td>
 </tr>
 <tr>
+<td><code>agentfem.benchmark.finite_strain_j2_periodic_void</code></td>
+<td>Finite-strain J2 periodic cell with a true spherical void</td>
+<td>Three-dimensional finite-strain logarithmic J2 plasticity in a unit periodic cube containing a geometric spherical void under isochoric macroscopic tension.</td>
+<td>automated_fixed_stack_regression_experimental_science</td>
+</tr>
+<tr>
 <td><code>agentfem.benchmark.finite_strain_j2_zhang_2021_table5</code></td>
 <td>Zhang--Feng--Khandelwal finite-strain periodic composite, Table 5</td>
 <td>Plane-strain periodic composite with two stiff circular inclusions, one circular void, logarithmic finite-strain J2 matrix plasticity, elastic inclusions, and macroscopic simple shear.</td>
@@ -14357,6 +14363,7 @@ f=q-(\sigma_{y0}+H\bar\varepsilon_p),\qquad q=\sqrt{\frac{3}{2}\,\operatorname{d
 <p><strong>Benchmarks</strong></p>
 <ul>
 <li><code>agentfem.benchmark.finite_strain_j2_material_paths</code></li>
+<li><code>agentfem.benchmark.finite_strain_j2_periodic_void</code></li>
 <li><code>agentfem.benchmark.finite_strain_j2_zhang_2021_table5</code></li>
 </ul>
 <p><strong>Validation rules</strong></p>
@@ -14375,7 +14382,7 @@ f=q-(\sigma_{y0}+H\bar\varepsilon_p),\qquad q=\sqrt{\frac{3}{2}\,\operatorname{d
 <li>An accepted public affine checkpoint restores displacement, quadrature state, accepted and attempted increment histories, the next adaptive increment, and execution evidence before continuing.</li>
 <li>A mutated periodic-equation identity is rejected before any restored state is accepted.</li>
 <li>Regional material dispatch shares one atomic trial/commit/rollback transaction and preserves scientific identity across one-to-two and two-to-one-rank portable restart.</li>
-<li>A true spherical-void periodic RVE satisfies geometric pairing, positive-J, Hill--Mandel, public-lifecycle and two-rank execution contracts; its refinement certificate and fixed-stack Golden remain separate promotion evidence.</li>
+<li>A true spherical-void periodic RVE satisfies geometric pairing, positive-J, Hill--Mandel, public-lifecycle and two-rank execution contracts; its fixed-stack Golden and opt-in successive-refinement stability certificate remain separate evidence and do not constitute formal mesh convergence or GCI.</li>
 <li>The Zhang--Feng--Khandelwal Table 5 fixture remains fail-closed because the current displacement-only P1 tetrahedral route has not matched the published mixed displacement--pressure result.</li>
 </ul>
 <h3 id="references_5">References<a class="headerlink" href="#references_5" title="Permanent link">&para;</a></h3>
