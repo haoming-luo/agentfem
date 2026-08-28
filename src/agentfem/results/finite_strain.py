@@ -9,11 +9,8 @@ import numpy as np
 import ufl
 import basix.ufl
 from dolfinx import fem
-try:  # Optional on the native Windows runtime.
-    import dolfinx.fem.petsc as fem_petsc
-except ImportError:  # pragma: no cover - exercised by Windows CI
-    fem_petsc = None
 
+from .. import assembly
 from ..constitutive import hyperelasticity
 from .field_catalog import resolve_field_variables
 from .quantities import integral
@@ -1461,20 +1458,22 @@ def _current_element_volume(J, domain, *, name="EVOL"):
     space = fem.functionspace(domain, ("DG", 0))
     output = fem.Function(space, name=name)
     test = ufl.TestFunction(space)
-    vector = fem_petsc.assemble_vector(
+    vector = assembly.assemble_vector(
         fem.form(test * J * ufl.dx(domain=domain))
     )
     owned_size = int(
         space.dofmap.index_map.size_local
         * space.dofmap.index_map_bs
     )
-    if vector.array_r.size != owned_size:
+    values = vector.array_r if hasattr(vector, "array_r") else vector.array
+    if values.size != owned_size:
         raise RuntimeError(
             "Element-volume vector does not match the owned DG0 dof count."
         )
-    output.x.array[:owned_size] = vector.array_r
+    output.x.array[:owned_size] = values
     output.x.scatter_forward()
-    vector.destroy()
+    if hasattr(vector, "destroy"):
+        vector.destroy()
     return output
 
 

@@ -146,6 +146,14 @@ def test_native_runtime_rejects_nonlinear_provider_before_lowering(monkeypatch):
     )
     displacement = model.field(fields.displacement(domain))
     model.material(constitutive.neo_hookean(young=1.0e6, poisson=0.3))
+    capability = models.step_capability(model, target=displacement)
+    report = model.validate(target=displacement)
+
+    assert capability["supported"] is False
+    assert capability["runtime"]["name"] == "fenicsx-native-serial"
+    assert capability["runtime_compatible"] is False
+    assert capability["missing_capabilities"] == ("petsc_nonlinear_solve",)
+    assert any(item.code == "AFM-STUDY-002" for item in report.errors)
     try:
         model.step(target=displacement)
     except runtime.RuntimeCapabilityError as error:

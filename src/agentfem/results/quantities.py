@@ -15,6 +15,7 @@ from mpi4py import MPI
 
 from .. import fields as field_api
 from .. import _axisymmetric
+from .. import assembly
 from ..kernel import dofs
 
 
@@ -559,22 +560,16 @@ def external_force_resultant(problem):
         raise TypeError(
             "external_force_resultant requires a linear system problem with rhs_form()."
         )
-    import dolfinx.fem.petsc as fem_petsc
-    from petsc4py import PETSc
-
     solution = problem._solution()
-    vector = fem_petsc.assemble_vector(fem.form(problem.system.rhs_form()))
+    vector = assembly.assemble_vector(fem.form(problem.system.rhs_form()))
     try:
-        vector.ghostUpdate(
-            addv=PETSc.InsertMode.ADD,
-            mode=PETSc.ScatterMode.REVERSE,
-        )
         shape = tuple(getattr(solution, "ufl_shape", ()))
         space = solution.function_space
         owned = int(space.dofmap.index_map.size_local) * int(
             space.dofmap.index_map_bs
         )
-        values = np.asarray(vector.array_r[:owned])
+        vector_values = vector.array_r if hasattr(vector, "array_r") else vector.array
+        values = np.asarray(vector_values[:owned])
         comm = space.mesh.comm
         if not shape:
             return float(comm.allreduce(float(np.sum(values)), op=MPI.SUM))
@@ -592,7 +587,8 @@ def external_force_resultant(problem):
         comm.Allreduce(local, global_values, op=MPI.SUM)
         return global_values.reshape(shape)
     finally:
-        vector.destroy()
+        if hasattr(vector, "destroy"):
+            vector.destroy()
 
 
 def static_force_balance(problem, *, constraints=()) -> StaticForceBalance:

@@ -445,6 +445,9 @@ def step_capability(
     advertise a Study/provider combination that the solver will later reject.
     """
 
+    from .backends.runtime import current_runtime
+
+    runtime = current_runtime()
     selected_analysis = _normalize(
         analysis or getattr(getattr(model, "study", None), "analysis", "")
     )
@@ -467,6 +470,7 @@ def step_capability(
     )
     provider = None
     option_issues = ()
+    missing_capabilities = ()
     selected_target = targets[0]
     for candidate_target in targets:
         request = StepRequest(
@@ -479,8 +483,17 @@ def step_capability(
             item for item in candidates if item.accepts(model, request)
         )
         if accepted:
-            rejected = []
+            option_rejections = []
+            capability_rejections = []
             for candidate in accepted:
+                missing = tuple(
+                    item
+                    for item in candidate.requires
+                    if not runtime.supports(item)
+                )
+                if missing:
+                    capability_rejections.append((candidate, missing))
+                    continue
                 issues = (
                     ()
                     if candidate.option_contract is None
@@ -496,18 +509,26 @@ def step_capability(
                 if not issues:
                     provider = candidate
                     option_issues = ()
+                    missing_capabilities = ()
                     break
-                rejected.append((candidate, issues))
-            if provider is None and rejected:
-                provider, option_issues = rejected[0]
+                option_rejections.append((candidate, issues))
+            if provider is None and option_rejections:
+                provider, option_issues = option_rejections[0]
+            elif provider is None and capability_rejections:
+                provider, missing_capabilities = capability_rejections[0]
             selected_target = candidate_target
             break
+    runtime_compatible = not missing_capabilities
     return {
         "analysis": selected_analysis,
         "physics": getattr(getattr(model, "study", None), "physics", None),
         "dimension": getattr(getattr(model, "study", None), "dimension", None),
         "assumption": getattr(getattr(model, "study", None), "assumption", None),
-        "supported": provider is not None and not option_issues,
+        "supported": (
+            provider is not None
+            and not option_issues
+            and runtime_compatible
+        ),
         "target": _target_summary(selected_target),
         "procedure": (
             None
@@ -517,6 +538,9 @@ def step_capability(
         "provider": None if provider is None else provider.summary(),
         "candidate_providers": tuple(item.name for item in candidates),
         "option_issues": option_issues,
+        "runtime": runtime.as_dict(),
+        "runtime_compatible": runtime_compatible,
+        "missing_capabilities": missing_capabilities,
     }
 
 

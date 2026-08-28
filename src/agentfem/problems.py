@@ -200,29 +200,30 @@ class LinearSystemProblem:
         and contact reactions require their own verified definitions.
         """
 
-        import dolfinx.fem.petsc as fem_petsc
-        from petsc4py import PETSc
-
         solution = self._solution()
         lhs = fem.form(self.system.lhs_form())
         rhs = fem.form(self.system.rhs_form())
-        matrix = fem_petsc.assemble_matrix(lhs)
-        matrix.assemble()
-        external = fem_petsc.assemble_vector(rhs)
-        external.ghostUpdate(
-            addv=PETSc.InsertMode.ADD,
-            mode=PETSc.ScatterMode.REVERSE,
-        )
-        residual = matrix.createVecLeft()
-        matrix.mult(solution.x.petsc_vec, residual)
-        residual.axpy(-1.0, external)
+        matrix = assembly.assemble_matrix(lhs)
+        external = assembly.assemble_vector(rhs)
         reaction = fem.Function(solution.function_space, name=name)
-        values = residual.array_r
+        if hasattr(matrix, "to_scipy"):
+            serial_matrix = matrix.to_scipy().tocsr()
+            external_values = np.asarray(external.array)
+            values = (
+                serial_matrix @ solution.x.array[: serial_matrix.shape[1]]
+                - external_values[: serial_matrix.shape[0]]
+            )
+            residual = None
+        else:
+            residual = matrix.createVecLeft()
+            matrix.mult(solution.x.petsc_vec, residual)
+            residual.axpy(-1.0, external)
+            values = residual.array_r
         reaction.x.array[: len(values)] = values
         reaction.x.scatter_forward()
-        residual.destroy()
-        external.destroy()
-        matrix.destroy()
+        for item in (residual, external, matrix):
+            if item is not None and hasattr(item, "destroy"):
+                item.destroy()
         return reaction
 
     def _solution(self):
@@ -4103,19 +4104,13 @@ def _collect_bcs(*, constraints=None, bcs=None) -> list:
 
 
 def _reaction_field(residual_form, solution, *, name: str):
-    import dolfinx.fem.petsc as fem_petsc
-    from petsc4py import PETSc
-
-    residual = fem_petsc.assemble_vector(fem.form(residual_form))
-    residual.ghostUpdate(
-        addv=PETSc.InsertMode.ADD,
-        mode=PETSc.ScatterMode.REVERSE,
-    )
+    residual = assembly.assemble_vector(fem.form(residual_form))
     reaction = fem.Function(solution.function_space, name=name)
-    values = residual.array_r
+    values = residual.array_r if hasattr(residual, "array_r") else residual.array
     reaction.x.array[: len(values)] = values
     reaction.x.scatter_forward()
-    residual.destroy()
+    if hasattr(residual, "destroy"):
+        residual.destroy()
     return reaction
 
 
