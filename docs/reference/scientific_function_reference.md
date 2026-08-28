@@ -20,6 +20,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.material.chaboche_global_plasticity`](#agentfem-material-chaboche_global_plasticity) | Global Chaboche combined-hardening plasticity | material | experimental |
 | [`agentfem.material.creep_damage_assessment`](#agentfem-material-creep_damage_assessment) | Creep damage and modified-theta assessment | material | supported |
 | [`agentfem.material.cyclic_cohesive_fatigue`](#agentfem-material-cyclic_cohesive_fatigue) | Cyclic cohesive damage with an independent cycle coordinate | material | experimental |
+| [`agentfem.material.finite_strain_j2_logarithmic`](#agentfem-material-finite_strain_j2_logarithmic) | Finite-strain logarithmic J2 material point | material | experimental |
 | [`agentfem.material.finite_strain_plane_stress`](#agentfem-material-finite_strain_plane_stress) | Locally condensed finite-strain plane-stress Neo-Hookean membrane | material | experimental |
 | [`agentfem.material.global_implicit_creep`](#agentfem-material-global_implicit_creep) | Global implicit power-law creep | material | supported |
 | [`agentfem.material.j2_global_plasticity`](#agentfem-material-j2_global_plasticity) | Global small-strain J2 plasticity | material | supported |
@@ -78,6 +79,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.dynamic_fracture_energy_v2` | Finite-strain and cohesive dynamic energy closure | Total-Lagrangian Neo-Hookean dynamics with optional Mode-I cohesive separation | experimental_v2_automated |
 | `agentfem.benchmark.elasticity_foundation` | Foundational small-strain elasticity verification | two- and three-dimensional small-strain linear elasticity | automated |
 | `agentfem.benchmark.finite_strain_incremental_waves_v1` | Neo-Hookean small-on-large wave oracle | compressible Neo-Hookean small-on-large elastodynamics | experimental_v1_automated |
+| `agentfem.benchmark.finite_strain_j2_material_paths` | Finite-strain logarithmic J2 material and global paths | three-dimensional rate-independent finite-strain J2 plasticity with quadratic Hencky elasticity and linear isotropic hardening | experimental_automated_global_mpi_restart |
 | `agentfem.benchmark.implicit_creep_relaxation` | Three-dimensional implicit power-law creep relaxation and restart | three-dimensional small-strain isotropic Mises power-law creep | automated_regression |
 | `agentfem.benchmark.j2_abaqus_rate_independent` | Published Abaqus rate-independent Mises plasticity uniaxial state | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_external_verification |
 | `agentfem.benchmark.j2_global_restart` | Three-dimensional J2 path, physical cutback, cyclic amplitude, energy, and restart equivalence | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_regression |
@@ -690,6 +692,135 @@ cycle = fatigue_fracture.force_cycle(fmin=226, fmax=2262); law = fatigue_fractur
 - Roe and Siegmund, An irreversible cohesive zone model for interface fatigue crack growth simulation: `https://doi.org/10.1016/S0013-7944(02)00034-6`
 - Bak et al., A Simulation Method for High-Cycle Fatigue-Driven Delamination using a Cohesive Zone Model: `https://doi.org/10.1002/nme.5117`
 - AgentFEM cyclic cohesive fatigue architecture: `docs/cyclic_cohesive_fatigue_architecture.md`
+
+<a id="agentfem-material-finite_strain_j2_logarithmic"></a>
+
+## Finite-strain logarithmic J2 material point
+
+**Stable ID:** `agentfem.material.finite_strain_j2_logarithmic`<br>
+**Kind:** `material`<br>
+**Status:** `experimental`<br>
+**Source card:** `src/agentfem/knowledge/cards/finite_strain_j2_logarithmic.json`
+
+Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, typed Fp/PEEQ state, a rollback-safe generic quadrature batch, and a numerically verified discrete first-Piola tangent.
+
+### Public API
+
+- `agentfem.constitutive.FiniteStrainJ2Logarithmic`
+- `agentfem.constitutive.MaterialPointBatchResult`
+- `agentfem.constitutive.finite_strain_j2_logarithmic`
+- `agentfem.constitutive.update_material_points`
+- `agentfem.mechanics.experimental_finite_strain_j2_step`
+
+### Scientific contract
+
+The total deformation gradient is split multiplicatively; a quadratic Hencky elastic potential supplies Kirchhoff stress, and an associative pressure-insensitive radial return updates an isochoric plastic deformation gradient and accumulated equivalent plastic strain.
+
+**multiplicative kinematics**
+
+$$
+\mathbf F=\mathbf F_e\mathbf F_p,\qquad \det\mathbf F_p=1
+$$
+
+The identity initial plastic state and pressure-insensitive flow preserve plastic volume in the discrete update.
+
+**elastic potential**
+
+$$
+\psi_e=\mu\lVert\operatorname{dev}(\log\mathbf V_e)\rVert^2+\frac{K}{2}[\operatorname{tr}(\log\mathbf V_e)]^2
+$$
+
+A quadratic logarithmic elastic potential is part of the model identity and is not interchangeable with a Neo-Hookean potential.
+
+**yield function**
+
+$$
+f=q-(\sigma_{y0}+H\bar\varepsilon_p),\qquad q=\sqrt{\frac{3}{2}\,\operatorname{dev}\boldsymbol\tau:\operatorname{dev}\boldsymbol\tau}
+$$
+
+The current isotropic yield radius grows linearly with accumulated equivalent plastic strain.
+
+**radial return**
+
+$$
+\Delta\gamma=\frac{f_{\mathrm{trial}}}{3\mu+H}
+$$
+
+A positive trial yield value produces the associated principal logarithmic-strain corrector.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| deformation gradients | old and new finite 3x3 tensors with positive determinant | dimensionless | The local update consumes the new gradient and a committed multiplicative state; the old gradient remains in the neutral provider contract. |
+| material parameters | E, nu, initial yield stress, linear hardening modulus | consistent stress system | The public factory owns these reviewed values; duplicated point properties may not silently override them. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| Cauchy stress | symmetric 3x3 tensor per integration point | stress | The current-configuration stress is returned by the neutral material contract. |
+| FP and PEEQ | committed/trial quadrature state | dimensionless | The full plastic deformation gradient and accumulated equivalent plastic strain have a versioned portable schema. |
+| consistent tangent | 9 by 9 derivative of first Piola stress with respect to deformation gradient | stress | The initial implementation differentiates the complete discrete return with fixed old state and is independently checked with a different perturbation. |
+
+#### Assumptions
+
+- Three-dimensional isothermal rate-independent isotropic material response.
+- Quadratic Hencky elasticity, associated J2 flow and linear isotropic hardening.
+- Plastic spin follows the elastic polar update used by the discrete logarithmic formulation.
+
+#### Conventions
+
+- State order and output aliases are declared by MaterialStateSchema rather than inferred from arrays.
+- Global iterations read committed state and write trial state; only an accepted increment may commit.
+- The tangent is the row-major first-Piola/deformation-gradient reference derivative.
+
+#### Applicability
+
+- Material-point studies and development of a future total-Lagrangian finite-strain plasticity provider.
+
+#### Limitations
+
+- The public model.step workflow does not yet lower this material; the current distributed global consumer remains a gated development path.
+- The numerical tangent prioritizes a verifiable discrete derivative over production quadrature performance.
+- No independent external finite-strain plasticity structure benchmark has yet passed.
+- Plane stress, kinematic hardening, thermal coupling, damage and deletion are outside this first provider.
+
+### Minimal example
+
+```python
+material = constitutive.finite_strain_j2_logarithmic(young=210e3, poisson=0.3, yield_stress=250.0, hardening_modulus=1e3)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_finite_strain_plasticity.py`
+- `tests/finite_strain_j2_mpi_driver.py`
+- `tests/portable_finite_strain_j2_driver.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.finite_strain_j2_material_paths`
+
+**Validation rules**
+
+- Reject inverted total or plastic deformation gradients and non-isochoric committed plastic state.
+- Rigid rotation produces zero stress and a superposed rotation preserves the scalar history while rotating stress objectively.
+- Plastic paths preserve det(Fp)=1 and satisfy the updated yield surface.
+- Elastic unloading preserves history while a sufficiently large reverse path accumulates additional equivalent plastic strain.
+- Independent fixed-old-state perturbations accept the discrete tangent in elastic and plastic regimes.
+- Batch failure restores every trial quadrature field and accepted batches commit atomically.
+- Serial one- and multi-element total-Lagrangian patches assemble P and dP/dF, reach a prescribed finite deformation, and reject/cut back an excessive PEEQ increment.
+- A two-rank global patch preserves shared assembly and uniform quadrature state.
+- Portable full-Step checkpoints resume equivalently after changing from two ranks to one and from one rank to two.
+
+### References
+
+- A model for finite strain elasto-plasticity based on logarithmic strains: Computational issues: `https://doi.org/10.1016/0045-7825(92)90156-E`
+- Algorithms for static and dynamic multiplicative plasticity that preserve the classical return mapping schemes of the infinitesimal theory: `https://doi.org/10.1016/0045-7825(92)90123-2`
+- MOOSE ComputeSimoHughesJ2PlasticityStress reference: `https://mooseframework.inl.gov/source/materials/lagrangian/ComputeSimoHughesJ2PlasticityStress.html`
 
 <a id="agentfem-material-finite_strain_plane_stress"></a>
 

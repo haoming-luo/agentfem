@@ -119,7 +119,7 @@ _BENCHMARKS = (
     BenchmarkSpec(
         identifier="neo_hookean_energy_gradient",
         capability="neo_hookean",
-        level="material_point",
+        level="material_point_and_finite_element",
         reference="DOLFINx hyperelasticity demo; compressible Neo-Hookean energy",
         criterion="analytical first Piola stress matches a centered energy derivative",
         automated_test="tests/test_constitutive_models.py::test_neo_hookean_nominal_stress_is_energy_derivative",
@@ -261,6 +261,35 @@ _BENCHMARKS = (
             "tests/external_inelastic_benchmark_driver.py"
         ),
         status="automated_external_structural_mpi",
+    ),
+    BenchmarkSpec(
+        identifier="finite_strain_j2_material_paths",
+        capability="finite_strain_j2_plasticity",
+        level="finite_element_mpi_restart",
+        reference="knowledge/benchmarks/finite_strain_j2_material_paths.json",
+        criterion=(
+            "multiplicative logarithmic J2 preserves objectivity and plastic "
+            "volume, satisfies the updated yield surface, retains irreversible "
+            "history, matches an independent dP/dF check, and rolls quadrature "
+            "state back atomically after a local failure; multi-element serial "
+            "and two-rank total-Lagrangian patches consume P and dP/dF, enforce "
+            "physical cutback, and resume from portable checkpoints after a "
+            "change in MPI partition count"
+        ),
+        automated_test=(
+            "tests/test_finite_strain_plasticity.py; "
+            "tests/finite_strain_j2_mpi_driver.py; "
+            "tests/portable_finite_strain_j2_driver.py"
+        ),
+        status="experimental_automated_global_mpi_restart",
+        evidence=(
+            "material_point",
+            "finite_element",
+            "mpi",
+            "restart",
+            "failure_behavior",
+            "portable_state_identity",
+        ),
     ),
     BenchmarkSpec(
         identifier="creep_nafems_r0027_test7",

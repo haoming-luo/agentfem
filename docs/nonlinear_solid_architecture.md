@@ -150,9 +150,11 @@ order, shear convention, and objective rate. `validated_material_update()`
 fails closed if a provider changes either declaration. An undeclared legacy
 6-by-6 array remains inspectable, but it is not eligible for a global Newton
 consumer merely because it resembles a stiffness matrix. This is protocol
-foundation only: finite-strain J2 promotion still requires material paths,
-numerical tangent comparison, a consuming global solve, cutback/restart
-equivalence, MPI-stable state identity, and an external structural benchmark.
+foundation only: those declarations do not by themselves promote a material.
+Finite-strain J2 now has material paths, numerical tangent comparison, a
+consuming global solve, cutback/restart equivalence and MPI-stable state
+identity; an independent external structural benchmark still gates its public
+`model.step(...)` route.
 
 `MaterialQuadratureState.create(domain, schema, ...)` is the first lowering of
 that declaration. It creates one committed/trial quadrature pair for every
@@ -168,6 +170,31 @@ perturbed call begins from the same old state, so the comparison differentiates
 the discrete material update seen by Newton rather than following nine
 different histories. Spatial rate tangents such as Abaqus `DDSDDE` are rejected
 until an adapter provides and verifies the required convention transform.
+
+The first native consumer of the complete neutral boundary is
+`constitutive.finite_strain_j2_logarithmic(...)`. It declares the
+multiplicative state `(FP, PEEQ)`, quadratic Hencky elasticity, associated
+isochoric J2 flow, linear isotropic hardening, and a row-major `dP/dF`
+contract. `constitutive.update_material_points(...)` reads committed
+quadrature state, evaluates every local point, writes trial state, and rolls
+the whole batch back if one point fails. Inside global Newton it is called with
+`commit=False`; only the accepted structural increment may commit.
+
+This is currently an **experimental material-point, quadrature, distributed
+global-patch, and portable-restart capability**.
+Rigid rotation, superposed rotation, plastic incompressibility, yield
+consistency, unloading/reversal, tangent comparison, atomic rollback and
+commit are executable tests. The gated
+`mechanics.experimental_finite_strain_j2_step(...)` now assembles a
+total-Lagrangian residual from `P` and `dP/dF`, passes a prescribed-deformation
+one-element path, a uniform multi-element path, and forces a real
+rollback/cutback when an otherwise converged PEEQ increment is excessive. A
+two-rank patch closes the distributed assembly and state transaction; portable
+full-Step checkpoints have been resumed in both directions between one and two
+MPI ranks. The public `model.step(...)` route remains closed until an external
+structural benchmark passes. The initial numerical `dP/dF` is intentionally a
+correctness-first tangent; an analytically linearized production tangent is a
+performance promotion gate, not a change to the public material language.
 
 ## Nonlinear control layers
 
@@ -246,8 +273,8 @@ store.
 
 ## Explicit non-goals for P1
 
-- no claim of general contact, arbitrary multi-physics, or finite-strain
-  plasticity;
+- no claim of general contact, arbitrary multi-physics, or globally integrated
+  finite-strain plasticity beyond the gated serial patch;
 - no generic Abaqus deck execution;
 - no UMAT compatibility before state, tangent, tensor-convention, and ABI
   gates exist;

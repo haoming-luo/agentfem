@@ -4,7 +4,9 @@ from . import catalog
 from . import creep
 from . import elasticity
 from . import fatigue
+from . import finite_strain_plasticity
 from . import hyperelasticity
+from . import material_driver
 from . import plasticity
 from . import quadrature
 from . import user_material
@@ -61,6 +63,10 @@ from .fatigue import (
     rainflow_cycles,
     turning_points,
 )
+from .finite_strain_plasticity import (
+    FiniteStrainJ2Logarithmic,
+    finite_strain_j2_logarithmic,
+)
 from .hyperelasticity import (
     FiniteStrainKinematics,
     MixedNeoHookeanProperties,
@@ -79,6 +85,11 @@ from .hyperelasticity import (
     plane_stress_thickness_stretch_value,
     plane_stress_uniaxial_deformation_gradient,
     supports_hyperelastic_study,
+)
+from .material_driver import (
+    MaterialPointBatchResult,
+    MaterialQuadratureResponse,
+    update_material_points,
 )
 from .plasticity import (
     ChabocheCombinedHardening,
@@ -121,7 +132,9 @@ __all__ = [
     "creep",
     "elasticity",
     "fatigue",
+    "finite_strain_plasticity",
     "hyperelasticity",
+    "material_driver",
     "plasticity",
     "quadrature",
     "user_material",
@@ -155,13 +168,16 @@ __all__ = [
     "J2Update",
     "J2QuadratureState",
     "FiniteStrainKinematics",
+    "FiniteStrainJ2Logarithmic",
     "MixedNeoHookeanProperties",
     "MooneyRivlinProperties",
     "NeoHookeanProperties",
     "PlaneStressNeoHookeanProperties",
     "MaterialPointInput",
+    "MaterialPointBatchResult",
     "MaterialPointOutput",
     "MaterialQuadratureState",
+    "MaterialQuadratureResponse",
     "MaterialStateSchema",
     "MaterialStateVariable",
     "MaterialTangentCheck",
@@ -180,6 +196,7 @@ __all__ = [
     "UniaxialPlasticState",
     "UserMaterial",
     "validated_material_update",
+    "update_material_points",
     "check_material_tangent",
     "anisotropic_stress_2d",
     "anisotropic_elastic_2d",
@@ -201,6 +218,7 @@ __all__ = [
     "life_scale_factor",
     "damage_from_history",
     "goodman_amplitude",
+    "finite_strain_j2_logarithmic",
     "miner_damage",
     "rainflow_cycles",
     "neo_hookean",

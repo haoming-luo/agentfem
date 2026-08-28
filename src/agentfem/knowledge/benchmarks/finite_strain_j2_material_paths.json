@@ -1,0 +1,39 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.finite_strain_j2_material_paths",
+  "title": "Finite-strain logarithmic J2 material and global paths",
+  "status": "experimental_automated_global_mpi_restart",
+  "purpose": "Verify the local multiplicative update, generic quadrature transaction, gated total-Lagrangian consumer, distributed assembly, and cross-partition restart before the public finite-element workflow is promoted.",
+  "physics": "three-dimensional rate-independent finite-strain J2 plasticity with quadratic Hencky elasticity and linear isotropic hardening",
+  "execution": {
+    "command": "python -m pytest -q tests/test_finite_strain_plasticity.py; mpirun -n 2 python tests/finite_strain_j2_mpi_driver.py; run tests/portable_finite_strain_j2_driver.py in 2-to-1 and 1-to-2 rank workflows",
+    "example": "docs/nonlinear_solid_architecture.md",
+    "evidence": "Independent material paths exercise rigid and superposed rotations, isochoric plastic flow, yield consistency, unloading and reversal, fixed-old-state tangent comparison, atomic quadrature commit or rollback, serial and two-rank 3D displacement-controlled global patches, forced physical cutback, and portable restart after changing MPI rank count."
+  },
+  "observables": [
+    "Cauchy stress under rigid and superposed rotations.",
+    "Equivalent plastic strain and determinant of the plastic deformation gradient.",
+    "Updated Kirchhoff equivalent stress relative to the isotropically hardened yield radius.",
+    "Relative error between the returned dP/dF and an independent centered derivative.",
+    "Committed and trial state vectors before and after success or intentional local failure.",
+    "Accepted and rejected global load increments, Newton residuals, and maximum PEEQ increment.",
+    "Serial/distributed terminal displacement and owned-point PEEQ extrema.",
+    "Restored nodal fields, quadrature state, load coordinate, and increment ledger across changed MPI partitions."
+  ],
+  "acceptance": [
+    "Rigid rotation is stress free and superposed rotation covariantly rotates stress without changing scalar history.",
+    "A plastic path keeps det(Fp) equal to one and returns to the current yield surface.",
+    "An elastic unloading leaves state unchanged while a sufficiently large reverse path cannot reduce accumulated plastic strain.",
+    "Elastic and plastic discrete tangents satisfy the declared numerical relative-error tolerance.",
+    "A failed local batch restores all trial fields and a successful accepted batch commits every state variable atomically.",
+    "The total-Lagrangian patch reaches its prescribed displacement, consumes the neutral tangent, and cuts back an otherwise converged increment whose PEEQ change exceeds the declared limit.",
+    "Two-rank assembly preserves the prescribed deformation and uniform material state.",
+    "Two-to-one and one-to-two rank restart workflows recover and complete the same accepted loading path."
+  ],
+  "limitations": [
+    "The global evidence consists of controlled patch paths; it is not an independent external structural validation.",
+    "The returned tangent is a correctness-first numerical derivative rather than the final analytical production tangent.",
+    "An external finite-strain plasticity structure comparison and production-performance tangent remain promotion gates."
+  ]
+}

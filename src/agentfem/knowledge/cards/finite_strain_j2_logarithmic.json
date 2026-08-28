@@ -1,0 +1,145 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.material.finite_strain_j2_logarithmic",
+  "title": "Finite-strain logarithmic J2 material point",
+  "kind": "material",
+  "status": "experimental",
+  "summary": "Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, typed Fp/PEEQ state, a rollback-safe generic quadrature batch, and a numerically verified discrete first-Piola tangent.",
+  "public_api": [
+    "agentfem.constitutive.FiniteStrainJ2Logarithmic",
+    "agentfem.constitutive.MaterialPointBatchResult",
+    "agentfem.constitutive.finite_strain_j2_logarithmic",
+    "agentfem.constitutive.update_material_points",
+    "agentfem.mechanics.experimental_finite_strain_j2_step"
+  ],
+  "implementation": [
+    "constitutive/finite_strain_plasticity.py",
+    "constitutive/material_driver.py",
+    "constitutive/quadrature.py",
+    "mechanics/finite_strain_plasticity.py"
+  ],
+  "science": {
+    "statement": "The total deformation gradient is split multiplicatively; a quadratic Hencky elastic potential supplies Kirchhoff stress, and an associative pressure-insensitive radial return updates an isochoric plastic deformation gradient and accumulated equivalent plastic strain.",
+    "equations": [
+      {
+        "label": "multiplicative kinematics",
+        "expression": "\\mathbf F=\\mathbf F_e\\mathbf F_p,\\qquad \\det\\mathbf F_p=1",
+        "description": "The identity initial plastic state and pressure-insensitive flow preserve plastic volume in the discrete update."
+      },
+      {
+        "label": "elastic potential",
+        "expression": "\\psi_e=\\mu\\lVert\\operatorname{dev}(\\log\\mathbf V_e)\\rVert^2+\\frac{K}{2}[\\operatorname{tr}(\\log\\mathbf V_e)]^2",
+        "description": "A quadratic logarithmic elastic potential is part of the model identity and is not interchangeable with a Neo-Hookean potential."
+      },
+      {
+        "label": "yield function",
+        "expression": "f=q-(\\sigma_{y0}+H\\bar\\varepsilon_p),\\qquad q=\\sqrt{\\frac{3}{2}\\,\\operatorname{dev}\\boldsymbol\\tau:\\operatorname{dev}\\boldsymbol\\tau}",
+        "description": "The current isotropic yield radius grows linearly with accumulated equivalent plastic strain."
+      },
+      {
+        "label": "radial return",
+        "expression": "\\Delta\\gamma=\\frac{f_{\\mathrm{trial}}}{3\\mu+H}",
+        "description": "A positive trial yield value produces the associated principal logarithmic-strain corrector."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "deformation gradients",
+        "type": "old and new finite 3x3 tensors with positive determinant",
+        "unit_role": "dimensionless",
+        "description": "The local update consumes the new gradient and a committed multiplicative state; the old gradient remains in the neutral provider contract."
+      },
+      {
+        "name": "material parameters",
+        "type": "E, nu, initial yield stress, linear hardening modulus",
+        "unit_role": "consistent stress system",
+        "description": "The public factory owns these reviewed values; duplicated point properties may not silently override them."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "Cauchy stress",
+        "type": "symmetric 3x3 tensor per integration point",
+        "unit_role": "stress",
+        "description": "The current-configuration stress is returned by the neutral material contract."
+      },
+      {
+        "name": "FP and PEEQ",
+        "type": "committed/trial quadrature state",
+        "unit_role": "dimensionless",
+        "description": "The full plastic deformation gradient and accumulated equivalent plastic strain have a versioned portable schema."
+      },
+      {
+        "name": "consistent tangent",
+        "type": "9 by 9 derivative of first Piola stress with respect to deformation gradient",
+        "unit_role": "stress",
+        "description": "The initial implementation differentiates the complete discrete return with fixed old state and is independently checked with a different perturbation."
+      }
+    ],
+    "assumptions": [
+      "Three-dimensional isothermal rate-independent isotropic material response.",
+      "Quadratic Hencky elasticity, associated J2 flow and linear isotropic hardening.",
+      "Plastic spin follows the elastic polar update used by the discrete logarithmic formulation."
+    ],
+    "conventions": [
+      "State order and output aliases are declared by MaterialStateSchema rather than inferred from arrays.",
+      "Global iterations read committed state and write trial state; only an accepted increment may commit.",
+      "The tangent is the row-major first-Piola/deformation-gradient reference derivative."
+    ],
+    "applicability": [
+      "Material-point studies and development of a future total-Lagrangian finite-strain plasticity provider."
+    ],
+    "limitations": [
+      "The public model.step workflow does not yet lower this material; the current distributed global consumer remains a gated development path.",
+      "The numerical tangent prioritizes a verifiable discrete derivative over production quadrature performance.",
+      "No independent external finite-strain plasticity structure benchmark has yet passed.",
+      "Plane stress, kinematic hardening, thermal coupling, damage and deletion are outside this first provider."
+    ]
+  },
+  "usage": {
+    "minimal_example": "material = constitutive.finite_strain_j2_logarithmic(young=210e3, poisson=0.3, yield_stress=250.0, hardening_modulus=1e3)",
+    "examples": [
+      "docs/nonlinear_solid_architecture.md"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_finite_strain_plasticity.py",
+      "tests/finite_strain_j2_mpi_driver.py",
+      "tests/portable_finite_strain_j2_driver.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.finite_strain_j2_material_paths"
+    ],
+    "validation_rules": [
+      "Reject inverted total or plastic deformation gradients and non-isochoric committed plastic state.",
+      "Rigid rotation produces zero stress and a superposed rotation preserves the scalar history while rotating stress objectively.",
+      "Plastic paths preserve det(Fp)=1 and satisfy the updated yield surface.",
+      "Elastic unloading preserves history while a sufficiently large reverse path accumulates additional equivalent plastic strain.",
+      "Independent fixed-old-state perturbations accept the discrete tangent in elastic and plastic regimes.",
+      "Batch failure restores every trial quadrature field and accepted batches commit atomically.",
+      "Serial one- and multi-element total-Lagrangian patches assemble P and dP/dF, reach a prescribed finite deformation, and reject/cut back an excessive PEEQ increment.",
+      "A two-rank global patch preserves shared assembly and uniform quadrature state.",
+      "Portable full-Step checkpoints resume equivalently after changing from two ranks to one and from one rank to two."
+    ]
+  },
+  "references": [
+    {
+      "title": "A model for finite strain elasto-plasticity based on logarithmic strains: Computational issues",
+      "locator": "https://doi.org/10.1016/0045-7825(92)90156-E"
+    },
+    {
+      "title": "Algorithms for static and dynamic multiplicative plasticity that preserve the classical return mapping schemes of the infinitesimal theory",
+      "locator": "https://doi.org/10.1016/0045-7825(92)90123-2"
+    },
+    {
+      "title": "MOOSE ComputeSimoHughesJ2PlasticityStress reference",
+      "locator": "https://mooseframework.inl.gov/source/materials/lagrangian/ComputeSimoHughesJ2PlasticityStress.html"
+    }
+  ],
+  "related_cards": [
+    "agentfem.material.j2_global_plasticity",
+    "agentfem.material.solver_neutral_user_material_contract"
+  ]
+}

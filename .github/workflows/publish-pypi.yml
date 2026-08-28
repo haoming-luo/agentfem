@@ -125,12 +125,19 @@ jobs:
           python tests/portable_inelastic_step_driver.py read /tmp/agentfem-portable-inelastic-step
           python tests/portable_inelastic_step_driver.py write /tmp/agentfem-portable-inelastic-step-reverse
           mpirun -n 2 python tests/portable_inelastic_step_driver.py read /tmp/agentfem-portable-inelastic-step-reverse
+          mpirun -n 2 python tests/portable_finite_strain_j2_driver.py write /tmp/agentfem-portable-finite-strain-j2
+          python tests/portable_finite_strain_j2_driver.py read /tmp/agentfem-portable-finite-strain-j2
+          python tests/portable_finite_strain_j2_driver.py write /tmp/agentfem-portable-finite-strain-j2-reverse
+          mpirun -n 2 python tests/portable_finite_strain_j2_driver.py read /tmp/agentfem-portable-finite-strain-j2-reverse
 
       - name: Verify distributed inelastic equilibrium and transactions
         run: mpirun -n 2 python -m pytest tests/test_parallel_inelastic.py -k distributed
 
       - name: Verify native axisymmetric J2 path with two MPI ranks
         run: mpirun -n 2 python tests/axisymmetric_mpi_driver.py
+
+      - name: Verify finite-strain J2 global path with two MPI ranks
+        run: mpirun -n 2 python tests/finite_strain_j2_mpi_driver.py
 
       - name: Verify external J2 structure across MPI rank counts
         run: |

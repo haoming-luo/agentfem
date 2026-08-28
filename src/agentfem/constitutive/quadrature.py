@@ -859,6 +859,38 @@ class MaterialQuadratureState:
     def domain(self):
         return self.reference_field.function.function_space.mesh
 
+    @property
+    def measure(self):
+        """Return the integration measure matching this quadrature identity."""
+
+        return ufl.Measure(
+            "dx",
+            domain=self.domain,
+            metadata={
+                "quadrature_degree": self.degree,
+                "quadrature_scheme": self.scheme,
+            },
+        )
+
+    def compile_expression(self, expression, *, value_shape):
+        """Compile a live UFL expression on this state's quadrature rule."""
+
+        return _QuadratureExpressionEvaluator.create(
+            expression,
+            self.reference_field,
+            value_shape=tuple(value_shape),
+        )
+
+    def evaluate_expression(self, expression, *, value_shape) -> np.ndarray:
+        """Evaluate a compiled or raw UFL expression on visible cells."""
+
+        evaluator = (
+            expression
+            if isinstance(expression, _QuadratureExpressionEvaluator)
+            else self.compile_expression(expression, value_shape=value_shape)
+        )
+        return evaluator.evaluate()
+
     def begin(self) -> None:
         self.transaction.begin()
 
@@ -870,6 +902,48 @@ class MaterialQuadratureState:
 
     def snapshot(self) -> dict[str, np.ndarray]:
         return self.transaction.snapshot()
+
+    def _state_vectors(self, fields: Mapping[str, QuadratureField]) -> np.ndarray:
+        columns = []
+        point_count = None
+        for variable in self.state_schema.variables:
+            values = np.asarray(fields[variable.name].values, dtype=float)
+            flattened = values.reshape((len(values), variable.size))
+            if point_count is None:
+                point_count = len(flattened)
+            elif len(flattened) != point_count:
+                raise RuntimeError("Material state fields have inconsistent point counts.")
+            columns.append(flattened)
+        return np.concatenate(columns, axis=1)
+
+    def committed_state_vectors(self) -> np.ndarray:
+        """Pack named committed fields in schema order, one row per point."""
+
+        return self._state_vectors(self.committed)
+
+    def trial_state_vectors(self) -> np.ndarray:
+        """Pack named trial fields in schema order, one row per point."""
+
+        return self._state_vectors(self.trial)
+
+    def assign_trial_state_vectors(self, values) -> None:
+        """Unpack point-state rows into the named trial quadrature fields."""
+
+        selected = np.asarray(values, dtype=float)
+        point_count = len(self.reference_field.values)
+        if selected.shape != (point_count, self.state_schema.size):
+            raise ValueError(
+                "Trial state vectors require shape "
+                f"({point_count}, {self.state_schema.size})."
+            )
+        if not np.all(np.isfinite(selected)):
+            raise ValueError("Trial state vectors must be finite.")
+        offset = 0
+        for variable in self.state_schema.variables:
+            block = selected[:, offset : offset + variable.size]
+            shape = (point_count, *variable.shape) if variable.shape else (point_count,)
+            self.trial[variable.name].assign(block.reshape(shape))
+            offset += variable.size
 
     def restore(self, snapshot: Mapping[str, object]) -> None:
         self.transaction.restore(snapshot)

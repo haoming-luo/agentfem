@@ -64,7 +64,29 @@ _CAPABILITIES = {
         limitations=(
             "3D only; plane stress needs a constrained local return map",
             "combined hardening is reported separately at experimental maturity",
-            "finite-strain plasticity is not implemented",
+            "the separate finite-strain J2 provider is not yet a public model.step route",
+        ),
+    ),
+    "finite_strain_j2_plasticity": ConstitutiveCapability(
+        name="finite_strain_j2_plasticity",
+        model=(
+            "multiplicative finite-strain J2 plasticity with quadratic Hencky "
+            "elasticity and linear isotropic hardening"
+        ),
+        maturity="experimental_global_mpi_restart",
+        available_scope=(
+            "three-dimensional material-point paths with F=Fe Fp, associated "
+            "isochoric flow, radial return in elastic logarithmic-strain space, "
+            "typed Fp/PEEQ state, first-Piola/deformation-gradient discrete "
+            "tangent verification, rollback-safe generic quadrature batches, "
+            "and a gated total-Lagrangian multi-element Newton path with "
+            "physical-increment cutback, two-rank distributed assembly, and "
+            "portable full-Step restart across MPI partition counts"
+        ),
+        limitations=(
+            "the global consumer is experimental and not registered under model.step",
+            "the correctness-first tangent uses numerical differentiation and is not a production-performance tangent",
+            "no finite-strain kinematic hardening, plane-stress constraint, damage, or external structural benchmark",
         ),
     ),
     "chaboche_plasticity": ConstitutiveCapability(
@@ -83,7 +105,7 @@ _CAPABILITIES = {
         ),
         limitations=(
             "the published external source currently verifies model definition and parameters rather than a structure-level hysteresis curve",
-            "plane stress, finite-strain plasticity, and cyclic temperature coupling are not implemented",
+            "plane stress, finite-strain Chaboche plasticity, and cyclic temperature coupling are not implemented",
             "complete Armstrong-Frederick recovery dissipation and cyclic energy closure remain a promotion gate",
         ),
     ),

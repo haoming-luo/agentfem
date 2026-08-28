@@ -127,6 +127,13 @@
       "title": "Neo-Hookean small-on-large wave oracle"
     },
     {
+      "id": "agentfem.benchmark.finite_strain_j2_material_paths",
+      "physics": "three-dimensional rate-independent finite-strain J2 plasticity with quadratic Hencky elasticity and linear isotropic hardening",
+      "source": "src/agentfem/knowledge/benchmarks/finite_strain_j2_material_paths.json",
+      "status": "experimental_automated_global_mpi_restart",
+      "title": "Finite-strain logarithmic J2 material and global paths"
+    },
+    {
       "id": "agentfem.benchmark.implicit_creep_relaxation",
       "physics": "three-dimensional small-strain isotropic Mises power-law creep",
       "source": "src/agentfem/knowledge/benchmarks/implicit_creep_relaxation.json",
@@ -407,6 +414,25 @@
       "status": "experimental",
       "summary": "Layers a thresholded, irreversible opening-range fatigue state on the exact bilinear Mode-I monotonic limit and advances accepted integer cycle blocks through explicit begin, commit, rollback and restart semantics.",
       "title": "Cyclic cohesive damage with an independent cycle coordinate"
+    },
+    {
+      "id": "agentfem.material.finite_strain_j2_logarithmic",
+      "kind": "material",
+      "public_api": [
+        "agentfem.constitutive.FiniteStrainJ2Logarithmic",
+        "agentfem.constitutive.MaterialPointBatchResult",
+        "agentfem.constitutive.finite_strain_j2_logarithmic",
+        "agentfem.constitutive.update_material_points",
+        "agentfem.mechanics.experimental_finite_strain_j2_step"
+      ],
+      "related_cards": [
+        "agentfem.material.j2_global_plasticity",
+        "agentfem.material.solver_neutral_user_material_contract"
+      ],
+      "source": "src/agentfem/knowledge/cards/finite_strain_j2_logarithmic.json",
+      "status": "experimental",
+      "summary": "Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, typed Fp/PEEQ state, a rollback-safe generic quadrature batch, and a numerically verified discrete first-Piola tangent.",
+      "title": "Finite-strain logarithmic J2 material point"
     },
     {
       "id": "agentfem.material.finite_strain_plane_stress",

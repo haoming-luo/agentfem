@@ -19,6 +19,14 @@ _MATURITY_REQUIREMENTS = {
     "curve_projection_verified": ("curve_projection",),
     "postprocessor": ("postprocess",),
     "material_point_verified": ("material_point",),
+    "material_point_experimental": ("material_point",),
+    "experimental_global_patch": ("material_point", "finite_element"),
+    "experimental_global_mpi_restart": (
+        "material_point",
+        "finite_element",
+        "mpi",
+        "restart",
+    ),
     "fem_integrated_foundation": ("material_point", "finite_element"),
     "fem_integrated": ("finite_element",),
     "experimental_mixed_mode_global_lifecycle": ("finite_element",),
@@ -114,4 +122,3 @@ def audit_capability_evidence() -> tuple[CapabilityEvidence, ...]:
     """Return a stable, machine-readable audit for the whole catalog."""
 
     return tuple(capability_evidence(item) for item in capabilities())
-
