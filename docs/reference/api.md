@@ -210,6 +210,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `miner_damage(blocks: Iterable[FatigueBlock], curve) -> float` | Return Palmgren-Miner cumulative damage ``sum(n_i / N_i)``. |
 | function | `rainflow_cycles(history) -> tuple[StressCycle, ...]` | Count full and residual half-cycles from a scalar stress history. |
 | function | `turning_points(history) -> np.ndarray` | Return endpoints and local reversals from a scalar stress history. |
+| class | `FiniteStrainJ2Logarithmic` | Multiplicative finite-strain J2 plasticity with Hencky elasticity. |
+| function | `finite_strain_j2_logarithmic(*, young: float, poisson: float, yield_stress: float, hardening_modulus: float = 0.0, tangent_relative_step: float = 2e-06) -> FiniteStrainJ2Logarithmic` | Create the explicit logarithmic finite-strain J2 provider. |
 | class | `FiniteStrainKinematics` | Standard total-Lagrangian kinematics derived from one displacement. |
 | class | `MixedNeoHookeanProperties` | Isochoric Neo-Hookean solid with an independent pressure field. |
 | class | `MooneyRivlinProperties` | Two-parameter isotropic Mooney-Rivlin finite-strain solid. |
@@ -227,6 +229,9 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `plane_stress_thickness_stretch_value(deformation_gradient, properties: PlaneStressNeoHookeanProperties, *, tolerance: float = 1e-12, maximum_iterations: int = 30) -> float` | Solve the local ``P33=0`` condition for one numerical 2x2 ``F``. |
 | function | `plane_stress_uniaxial_deformation_gradient(axial_stretch: float, properties: PlaneStressNeoHookeanProperties \| MooneyRivlinProperties, *, tolerance: float = 1e-12, maximum_iterations: int = 30) -> np.ndarray` | Return homogeneous uniaxial ``F2`` with traction-free lateral faces. |
 | function | `supports_hyperelastic_study(properties, *, dimension: int, assumption) -> bool` | Return whether one material has a formulation for the declared Study. |
+| class | `MaterialPointBatchResult` | Responses from one atomic integration-point constitutive update. |
+| class | `MaterialQuadratureResponse` | Quadrature stress/tangent fields sharing one typed state transaction. |
+| function | `update_material_points(material: UserMaterial, state: MaterialQuadratureState, *, deformation_gradient_old, deformation_gradient_new, time: float, time_increment: float, properties = (), temperature = None, temperature_increment = None, field_variables = None, commit: bool = False) -> MaterialPointBatchResult` | Update every local quadrature point as one rollback-safe transaction. |
 | class | `ChabocheCombinedHardening` | Small-strain J2 plasticity with nonlinear combined hardening. |
 | class | `ChabocheState` | History for small-strain combined isotropic/kinematic hardening. |
 | class | `J2LinearIsotropicHardening` | Rate-independent von Mises plasticity with linear isotropic hardening. |
@@ -805,6 +810,9 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `CreepPathInfo` | Public AgentFEM object. |
 | class | `ImplicitCreepStep` | Adaptive backward-Euler creep step with global Newton equilibrium. |
 | function | `implicit_creep_step(*, displacement, material, duration: float, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, creep_strain_error_tolerance: float \| None = None, time_unit: str \| None = None, progress = True, status_file = None, amplitude = None, temperature = None, name: str = 'implicit_creep', _experimental_distributed: bool = False) -> ImplicitCreepStep` | Build global 3D or axisymmetric implicit power-law creep. |
+| class | `ExperimentalFiniteStrainPlasticityStep` | Total-Lagrangian Newton path consuming a neutral material provider. |
+| class | `FiniteStrainPlasticityIncrementInfo` | Public AgentFEM object. |
+| function | `experimental_finite_strain_j2_step(*, displacement, material: FiniteStrainJ2Logarithmic, external_force = None, constraints = (), incrementation = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, name: str = 'finite_strain_j2_experimental') -> ExperimentalFiniteStrainPlasticityStep` | Build the gated 3D global patch for logarithmic finite-strain J2. |
 | class | `J2IncrementInfo` | Public AgentFEM object. |
 | class | `J2LoadPathInfo` | Public AgentFEM object. |
 | class | `J2PlasticityStep` | Incremental global equilibrium for 3D small-strain J2 plasticity. |

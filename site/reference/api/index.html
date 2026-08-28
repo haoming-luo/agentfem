@@ -3177,6 +3177,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>FiniteStrainJ2Logarithmic</code></td>
+<td>Multiplicative finite-strain J2 plasticity with Hencky elasticity.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>finite_strain_j2_logarithmic(*, young: float, poisson: float, yield_stress: float, hardening_modulus: float = 0.0, tangent_relative_step: float = 2e-06) -&gt; FiniteStrainJ2Logarithmic</code></td>
+<td>Create the explicit logarithmic finite-strain J2 provider.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>FiniteStrainKinematics</code></td>
 <td>Standard total-Lagrangian kinematics derived from one displacement.</td>
 </tr>
@@ -3259,6 +3269,21 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>supports_hyperelastic_study(properties, *, dimension: int, assumption) -&gt; bool</code></td>
 <td>Return whether one material has a formulation for the declared Study.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>MaterialPointBatchResult</code></td>
+<td>Responses from one atomic integration-point constitutive update.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>MaterialQuadratureResponse</code></td>
+<td>Quadrature stress/tangent fields sharing one typed state transaction.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>update_material_points(material: UserMaterial, state: MaterialQuadratureState, *, deformation_gradient_old, deformation_gradient_new, time: float, time_increment: float, properties = (), temperature = None, temperature_increment = None, field_variables = None, commit: bool = False) -&gt; MaterialPointBatchResult</code></td>
+<td>Update every local quadrature point as one rollback-safe transaction.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -5850,6 +5875,21 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>implicit_creep_step(*, displacement, material, duration: float, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, creep_strain_error_tolerance: float \| None = None, time_unit: str \| None = None, progress = True, status_file = None, amplitude = None, temperature = None, name: str = 'implicit_creep', _experimental_distributed: bool = False) -&gt; ImplicitCreepStep</code></td>
 <td>Build global 3D or axisymmetric implicit power-law creep.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ExperimentalFiniteStrainPlasticityStep</code></td>
+<td>Total-Lagrangian Newton path consuming a neutral material provider.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>FiniteStrainPlasticityIncrementInfo</code></td>
+<td>Public AgentFEM object.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>experimental_finite_strain_j2_step(*, displacement, material: FiniteStrainJ2Logarithmic, external_force = None, constraints = (), incrementation = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, name: str = 'finite_strain_j2_experimental') -&gt; ExperimentalFiniteStrainPlasticityStep</code></td>
+<td>Build the gated 3D global patch for logarithmic finite-strain J2.</td>
 </tr>
 <tr>
 <td>class</td>
