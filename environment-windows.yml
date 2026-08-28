@@ -10,6 +10,8 @@ dependencies:
   - scipy
   - pyamg
   - pip
+  - setuptools>=77
+  - wheel
   - pip:
       - build
       - pytest

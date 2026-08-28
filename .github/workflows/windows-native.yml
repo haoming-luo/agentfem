@@ -31,32 +31,42 @@ jobs:
 
       - name: Build and install candidate wheel
         run: |
-          python -m build --wheel
+          conda run --no-capture-output -n agentfem-windows python -m build --wheel --no-isolation
           $wheel = Get-ChildItem dist\*.whl | Select-Object -First 1
-          python -m pip install --no-deps --force-reinstall $wheel.FullName
+          conda run --no-capture-output -n agentfem-windows python -m pip install --no-deps --force-reinstall $wheel.FullName
 
       - name: Prove native runtime and imports
         env:
           AGENTFEM_RUNTIME: fenicsx-native-serial
         run: |
-          python -c "from agentfem.backends import current_runtime; r=current_runtime(); print(r.as_dict()); assert r.name == 'fenicsx-native-serial'; assert not r.packages['petsc4py']"
-          agentfem doctor --json | Out-File -Encoding utf8 windows-runtime.json
+          conda run --no-capture-output -n agentfem-windows python -c "from agentfem.backends import current_runtime; r=current_runtime(); print(r.as_dict()); assert r.name == 'fenicsx-native-serial'; assert not r.packages['petsc4py']"
+          conda run --no-capture-output -n agentfem-windows python -m agentfem.cli doctor --json | Out-File -Encoding utf8 windows-runtime.json
 
       - name: Run native serial FEM acceptance
         env:
           AGENTFEM_RUNTIME: fenicsx-native-serial
         run: |
-          python -m pytest -q tests/test_windows_native_runtime.py tests/test_prepared_linear_problem.py tests/test_common_workflows.py tests/test_results.py
+          conda run --no-capture-output -n agentfem-windows python -m pytest -q tests/test_windows_native_runtime.py tests/test_prepared_linear_problem.py tests/test_common_workflows.py tests/test_results.py
 
-      - name: Run installed static example
+      - name: Prove installed-wheel project workflow outside source tree
         env:
           AGENTFEM_RUNTIME: fenicsx-native-serial
-        run: python examples/static_elasticity_2d.py
+        run: |
+          $project = Join-Path $env:RUNNER_TEMP "agentfem-native-wheel-smoke"
+          Push-Location $env:RUNNER_TEMP
+          conda run --no-capture-output -n agentfem-windows python -c "import agentfem, pathlib; p=pathlib.Path(agentfem.__file__).resolve(); print(p); assert 'site-packages' in str(p)"
+          conda run --no-capture-output -n agentfem-windows python -m agentfem.cli init $project --template static-solid --name native-windows-smoke
+          conda run --no-capture-output -n agentfem-windows python -m agentfem.cli check --project $project
+          conda run --no-capture-output -n agentfem-windows python -m agentfem.cli run --project $project --run-id native-windows-wheel
+          conda run --no-capture-output -n agentfem-windows python -m agentfem.cli verify --project $project --json | Out-File -Encoding utf8 (Join-Path $env:GITHUB_WORKSPACE "windows-wheel-verification.json")
+          Pop-Location
 
       - name: Upload Windows runtime evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: native-windows-core-evidence
-          path: windows-runtime.json
+          path: |
+            windows-runtime.json
+            windows-wheel-verification.json
           if-no-files-found: warn

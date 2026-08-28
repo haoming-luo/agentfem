@@ -7,14 +7,23 @@ machine-readable run evidence.
 
 ## Prepare the numerical environment
 
-AgentFEM currently uses a compatible FEniCSx/PETSc/MPI environment. On Linux,
-macOS, and Windows through WSL2, create that stack with conda-forge and install
-the AgentFEM wheel into it. Then check the actual runtime:
+AgentFEM uses a compatible FEniCSx environment. On Linux, macOS, and Windows
+through WSL2, the full route adds PETSc and MPI. Native Windows uses the same
+public AgentFEM workflow with DOLFINx native assembly and SciPy/PyAMG for the
+supported serial linear core. Create the appropriate conda-forge environment,
+install the AgentFEM wheel, and check the actual runtime:
 
 ```bash
 agentfem doctor
 agentfem doctor --json
 ```
+
+The exact commands and the native-Windows capability boundary are documented
+in the repository installation guide and the
+[platform support policy](platform_support.md). A procedure whose provider
+requires PETSc nonlinear solve, exact MPC, or distributed execution is rejected
+before lowering on the native-Windows runtime; use WSL2 or the full Linux/macOS
+route for those procedures.
 
 The JSON form is intended for issue reports, IDE integrations, and agents. It
 records the platform route, exact interpreter and imported package, core

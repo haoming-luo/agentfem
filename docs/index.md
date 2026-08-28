@@ -37,8 +37,8 @@ Study → Model → Mesh/Regions → Fields → Materials → Loads/Constraints
 
 ## Quick installation
 
-AgentFEM currently expects a compatible FEniCSx/PETSc/MPI environment. The
-recommended installation is:
+For the complete nonlinear and distributed route, install a compatible
+FEniCSx/PETSc/MPI environment:
 
 ```bash
 mamba create -n agentfem-env -c conda-forge \
@@ -48,9 +48,13 @@ python -m pip install agentfem
 agentfem doctor
 ```
 
-Windows users should currently use WSL2. Optional mesh, visualization, and
-machine-learning integrations are described in the
-[installation and platform guide](getting_started.md).
+Native Windows also has a hosted-CI-verified serial core for linear statics,
+heat transfer, linear dynamics, and explicit dynamics using DOLFINx native
+assembly with SciPy/PyAMG. Use WSL2 for PETSc nonlinear, exact-MPC, or
+distributed procedures. Commands, capability boundaries, and optional mesh,
+visualization, and machine-learning integrations are described in the
+[installation guide](getting_started.md) and
+[platform support policy](platform_support.md).
 
 ## First finite-element model
 
