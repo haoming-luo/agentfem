@@ -1419,15 +1419,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#finite-strain-logarithmic-j2-material-point" class="md-nav__link">
+  <a href="#finite-strain-logarithmic-j2-plasticity" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Finite-strain logarithmic J2 material point
+        Finite-strain logarithmic J2 plasticity
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Finite-strain logarithmic J2 material point">
+    <nav class="md-nav" aria-label="Finite-strain logarithmic J2 plasticity">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -7715,15 +7715,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#finite-strain-logarithmic-j2-material-point" class="md-nav__link">
+  <a href="#finite-strain-logarithmic-j2-plasticity" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Finite-strain logarithmic J2 material point
+        Finite-strain logarithmic J2 plasticity
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Finite-strain logarithmic J2 material point">
+    <nav class="md-nav" aria-label="Finite-strain logarithmic J2 plasticity">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -13019,7 +13019,7 @@ the compact machine-readable <code>agentfem/knowledge/catalog.json</code>.</p>
 </tr>
 <tr>
 <td><a href="#agentfem-material-finite_strain_j2_logarithmic"><code>agentfem.material.finite_strain_j2_logarithmic</code></a></td>
-<td>Finite-strain logarithmic J2 material point</td>
+<td>Finite-strain logarithmic J2 plasticity</td>
 <td>material</td>
 <td>experimental</td>
 </tr>
@@ -13359,6 +13359,12 @@ the compact machine-readable <code>agentfem/knowledge/catalog.json</code>.</p>
 <td>Finite-strain logarithmic J2 material and global paths</td>
 <td>three-dimensional rate-independent finite-strain J2 plasticity with quadratic Hencky elasticity and linear isotropic hardening</td>
 <td>experimental_automated_global_mpi_restart</td>
+</tr>
+<tr>
+<td><code>agentfem.benchmark.finite_strain_j2_zhang_2021_table5</code></td>
+<td>Zhang--Feng--Khandelwal finite-strain periodic composite, Table 5</td>
+<td>Plane-strain periodic composite with two stiff circular inclusions, one circular void, logarithmic finite-strain J2 matrix plasticity, elastic inclusions, and macroscopic simple shear.</td>
+<td>experimental_external_fixture_not_promoted</td>
 </tr>
 <tr>
 <td><code>agentfem.benchmark.implicit_creep_relaxation</code></td>
@@ -14201,18 +14207,19 @@ D=1-(1-D_m)(1-D_f)
 <li>AgentFEM cyclic cohesive fatigue architecture: <code>docs/cyclic_cohesive_fatigue_architecture.md</code></li>
 </ul>
 <p><a id="agentfem-material-finite_strain_j2_logarithmic"></a></p>
-<h2 id="finite-strain-logarithmic-j2-material-point">Finite-strain logarithmic J2 material point<a class="headerlink" href="#finite-strain-logarithmic-j2-material-point" title="Permanent link">&para;</a></h2>
+<h2 id="finite-strain-logarithmic-j2-plasticity">Finite-strain logarithmic J2 plasticity<a class="headerlink" href="#finite-strain-logarithmic-j2-plasticity" title="Permanent link">&para;</a></h2>
 <p><strong>Stable ID:</strong> <code>agentfem.material.finite_strain_j2_logarithmic</code><br>
 <strong>Kind:</strong> <code>material</code><br>
 <strong>Status:</strong> <code>experimental</code><br>
 <strong>Source card:</strong> <code>src/agentfem/knowledge/cards/finite_strain_j2_logarithmic.json</code></p>
-<p>Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, typed Fp/PEEQ state, a rollback-safe generic quadrature batch, and a numerically verified discrete first-Piola tangent.</p>
+<p>Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, and a public three-dimensional affine-periodic model.step route with provider-owned quadrature evidence and portable accepted-state restart.</p>
 <h3 id="public-api_5">Public API<a class="headerlink" href="#public-api_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>agentfem.constitutive.FiniteStrainJ2Logarithmic</code></li>
 <li><code>agentfem.constitutive.MaterialPointBatchResult</code></li>
 <li><code>agentfem.constitutive.finite_strain_j2_logarithmic</code></li>
 <li><code>agentfem.constitutive.update_material_points</code></li>
+<li><code>agentfem.models.Model.step</code></li>
 <li><code>agentfem.mechanics.experimental_finite_strain_j2_step</code></li>
 </ul>
 <h3 id="scientific-contract_5">Scientific contract<a class="headerlink" href="#scientific-contract_5" title="Permanent link">&para;</a></h3>
@@ -14237,6 +14244,11 @@ f=q-(\sigma_{y0}+H\bar\varepsilon_p),\qquad q=\sqrt{\frac{3}{2}\,\operatorname{d
 \Delta\gamma=\frac{f_{\mathrm{trial}}}{3\mu+H}
 \]</div>
 <p>A positive trial yield value produces the associated principal logarithmic-strain corrector.</p>
+<p><strong>recoverable stored energy</strong></p>
+<div class="arithmatex">\[
+\mathrm{SENER}=\mathrm{ELENER}+\mathrm{HARDENER}=\psi_e+\frac{1}{2}H\bar\varepsilon_p^2
+\]</div>
+<p>The two provider-owned components separate Hencky elastic free energy from isotropic-hardening storage; plastic dissipation is a distinct incremental-work quantity and is not reported by this field.</p>
 <h4 id="inputs_5">Inputs<a class="headerlink" href="#inputs_5" title="Permanent link">&para;</a></h4>
 <table>
 <thead>
@@ -14286,6 +14298,12 @@ f=q-(\sigma_{y0}+H\bar\varepsilon_p),\qquad q=\sqrt{\frac{3}{2}\,\operatorname{d
 <td>The full plastic deformation gradient and accumulated equivalent plastic strain have a versioned portable schema.</td>
 </tr>
 <tr>
+<td>F, P, S, MISES, SENER, ELENER and HARDENER</td>
+<td>accepted provider-owned quadrature response</td>
+<td>kinematics, stress and stored energy density</td>
+<td>The public affine-periodic route retains accepted constitutive fields without reconstructing them from a history-free material law; explicitly named DG0 cell averages are separate visualization products.</td>
+</tr>
+<tr>
 <td>consistent tangent</td>
 <td>9 by 9 derivative of first Piola stress with respect to deformation gradient</td>
 <td>stress</td>
@@ -14304,17 +14322,20 @@ f=q-(\sigma_{y0}+H\bar\varepsilon_p),\qquad q=\sqrt{\frac{3}{2}\,\operatorname{d
 <li>State order and output aliases are declared by MaterialStateSchema rather than inferred from arrays.</li>
 <li>Global iterations read committed state and write trial state; only an accepted increment may commit.</li>
 <li>The tangent is the row-major first-Piola/deformation-gradient reference derivative.</li>
+<li>The public affine route saves checkpoint state only at an accepted load factor and validates nodal, quadrature, mesh, material, increment-control, and periodic-equation identity before restore.</li>
 </ul>
 <h4 id="applicability_5">Applicability<a class="headerlink" href="#applicability_5" title="Permanent link">&para;</a></h4>
 <ul>
-<li>Material-point studies and development of a future total-Lagrangian finite-strain plasticity provider.</li>
+<li>Material-point studies and three-dimensional affine-periodic cells with one or more explicitly partitioned compatible material regions under prescribed macroscopic deformation through model.step.</li>
 </ul>
 <h4 id="limitations_5">Limitations<a class="headerlink" href="#limitations_5" title="Permanent link">&para;</a></h4>
 <ul>
-<li>The public model.step workflow does not yet lower this material; the current distributed global consumer remains a gated development path.</li>
-<li>The numerical tangent prioritizes a verifiable discrete derivative over production quadrature performance.</li>
+<li>The public model.step route currently requires exactly one AbaqusPeriodicConstraint and no body-force or natural-load power; all regional materials must share one declared state schema, tangent convention, and stored-energy component contract.</li>
+<li>The numerical tangent prioritizes a verifiable discrete derivative; a production analytical tangent is not implemented.</li>
 <li>No independent external finite-strain plasticity structure benchmark has yet passed.</li>
+<li>The current low-order displacement-only tetrahedral route is not a substitute for a mixed displacement--pressure discretization in near-incompressible plasticity.</li>
 <li>Plane stress, kinematic hardening, thermal coupling, damage and deletion are outside this first provider.</li>
+<li>SENER separates into recoverable ELENER and HARDENER fields; accumulated plastic dissipation and a complete incremental work ledger are not yet implemented.</li>
 </ul>
 <h3 id="minimal-example_5">Minimal example<a class="headerlink" href="#minimal-example_5" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">material</span> <span class="o">=</span> <span class="n">constitutive</span><span class="o">.</span><span class="n">finite_strain_j2_logarithmic</span><span class="p">(</span><span class="n">young</span><span class="o">=</span><span class="mf">210e3</span><span class="p">,</span> <span class="n">poisson</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">yield_stress</span><span class="o">=</span><span class="mf">250.0</span><span class="p">,</span> <span class="n">hardening_modulus</span><span class="o">=</span><span class="mf">1e3</span><span class="p">)</span>
@@ -14325,10 +14346,18 @@ f=q-(\sigma_{y0}+H\bar\varepsilon_p),\qquad q=\sqrt{\frac{3}{2}\,\operatorname{d
 <li><code>tests/test_finite_strain_plasticity.py</code></li>
 <li><code>tests/finite_strain_j2_mpi_driver.py</code></li>
 <li><code>tests/portable_finite_strain_j2_driver.py</code></li>
+<li><code>tests/test_finite_strain_j2_periodic.py</code></li>
+<li><code>tests/test_finite_strain_j2_material_map.py</code></li>
+<li><code>tests/test_affine_j2_automatic_restart.py</code></li>
+<li><code>tests/portable_affine_j2_periodic_driver.py</code></li>
+<li><code>tests/test_periodic_void_fixture.py</code></li>
+<li><code>tests/parallel_periodic_void_j2_driver.py</code></li>
+<li><code>tests/test_zhang_2021_periodic_composite.py</code></li>
 </ul>
 <p><strong>Benchmarks</strong></p>
 <ul>
 <li><code>agentfem.benchmark.finite_strain_j2_material_paths</code></li>
+<li><code>agentfem.benchmark.finite_strain_j2_zhang_2021_table5</code></li>
 </ul>
 <p><strong>Validation rules</strong></p>
 <ul>
@@ -14341,12 +14370,21 @@ f=q-(\sigma_{y0}+H\bar\varepsilon_p),\qquad q=\sqrt{\frac{3}{2}\,\operatorname{d
 <li>Serial one- and multi-element total-Lagrangian patches assemble P and dP/dF, reach a prescribed finite deformation, and reject/cut back an excessive PEEQ increment.</li>
 <li>A two-rank global patch preserves shared assembly and uniform quadrature state.</li>
 <li>Portable full-Step checkpoints resume equivalently after changing from two ranks to one and from one rank to two.</li>
+<li>The public model.step affine-periodic cube matches the same accepted material-point path and records provider-owned F/P/S/MISES/SENER/ELENER/HARDENER/FP/PEEQ fields plus Hill--Mandel evidence.</li>
+<li>Material-point and public output tests verify SENER = ELENER + HARDENER while retaining plastic dissipation as an explicit unimplemented ledger channel.</li>
+<li>An accepted public affine checkpoint restores displacement, quadrature state, accepted and attempted increment histories, the next adaptive increment, and execution evidence before continuing.</li>
+<li>A mutated periodic-equation identity is rejected before any restored state is accepted.</li>
+<li>Regional material dispatch shares one atomic trial/commit/rollback transaction and preserves scientific identity across one-to-two and two-to-one-rank portable restart.</li>
+<li>A true spherical-void periodic RVE satisfies geometric pairing, positive-J, Hill--Mandel, public-lifecycle and two-rank execution contracts; its refinement certificate and fixed-stack Golden remain separate promotion evidence.</li>
+<li>The Zhang--Feng--Khandelwal Table 5 fixture remains fail-closed because the current displacement-only P1 tetrahedral route has not matched the published mixed displacement--pressure result.</li>
 </ul>
 <h3 id="references_5">References<a class="headerlink" href="#references_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li>A model for finite strain elasto-plasticity based on logarithmic strains: Computational issues: <code>https://doi.org/10.1016/0045-7825(92)90156-E</code></li>
 <li>Algorithms for static and dynamic multiplicative plasticity that preserve the classical return mapping schemes of the infinitesimal theory: <code>https://doi.org/10.1016/0045-7825(92)90123-2</code></li>
 <li>MOOSE ComputeSimoHughesJ2PlasticityStress reference: <code>https://mooseframework.inl.gov/source/materials/lagrangian/ComputeSimoHughesJ2PlasticityStress.html</code></li>
+<li>Elastic properties of reinforced solids: Some theoretical principles: <code>https://doi.org/10.1016/0022-5096(63)90036-X</code></li>
+<li>Discrete averaging relations for micro to macro transition: <code>https://doi.org/10.1115/1.4033552</code></li>
 </ul>
 <p><a id="agentfem-material-finite_strain_plane_stress"></a></p>
 <h2 id="locally-condensed-finite-strain-plane-stress-neo-hookean-membrane">Locally condensed finite-strain plane-stress Neo-Hookean membrane<a class="headerlink" href="#locally-condensed-finite-strain-plane-stress-neo-hookean-membrane" title="Permanent link">&para;</a></h2>

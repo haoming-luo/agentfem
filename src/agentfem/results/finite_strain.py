@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import ufl
+import basix.ufl
 from dolfinx import fem
 import dolfinx.fem.petsc as fem_petsc
 
@@ -30,6 +31,8 @@ class HomogenizedFrame:
     solid_reference_fraction: float
     solid_current_fraction: float
     stress_consistency_error: float
+    elastic_energy_density: float | None = None
+    hardening_energy_density: float | None = None
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -44,7 +47,45 @@ class HomogenizedFrame:
             "solid_reference_fraction": self.solid_reference_fraction,
             "solid_current_fraction": self.solid_current_fraction,
             "stress_consistency_error": self.stress_consistency_error,
+            "elastic_energy_density": self.elastic_energy_density,
+            "hardening_energy_density": self.hardening_energy_density,
         }
+
+    @classmethod
+    def from_dict(cls, record) -> "HomogenizedFrame":
+        """Restore one lightweight macroscopic frame from checkpoint JSON."""
+
+        return cls(
+            load_factor=float(record["load_factor"]),
+            deformation_gradient=np.asarray(
+                record["deformation_gradient"], dtype=float
+            ),
+            green_lagrange_strain=np.asarray(
+                record["green_lagrange_strain"], dtype=float
+            ),
+            logarithmic_strain=np.asarray(
+                record["logarithmic_strain"], dtype=float
+            ),
+            first_piola_stress=np.asarray(
+                record["first_piola_stress"], dtype=float
+            ),
+            cauchy_stress=np.asarray(record["cauchy_stress"], dtype=float),
+            deformation_jacobian=float(record["deformation_jacobian"]),
+            strain_energy_density=float(record["strain_energy_density"]),
+            solid_reference_fraction=float(record["solid_reference_fraction"]),
+            solid_current_fraction=float(record["solid_current_fraction"]),
+            stress_consistency_error=float(record["stress_consistency_error"]),
+            elastic_energy_density=(
+                None
+                if record.get("elastic_energy_density") is None
+                else float(record["elastic_energy_density"])
+            ),
+            hardening_energy_density=(
+                None
+                if record.get("hardening_energy_density") is None
+                else float(record["hardening_energy_density"])
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -99,6 +140,12 @@ class HillMandelIncrement:
             "relative_error": self.relative_error,
         }
 
+    @classmethod
+    def from_dict(cls, record) -> "HillMandelIncrement":
+        """Restore one accepted-increment macrohomogeneity record."""
+
+        return cls(**{name: float(record[name]) for name in cls.__dataclass_fields__})
+
 
 @dataclass
 class PeriodicCellHistoryRecorder:
@@ -125,6 +172,19 @@ class PeriodicCellHistoryRecorder:
         self.increment_info.append(None)
         self._previous_snapshot = snapshot
 
+    def prepare_resume(self, snapshot) -> None:
+        """Continue an existing accepted history from its last boundary."""
+
+        if not self.frames:
+            self.reset(snapshot)
+            return
+        if abs(self.frames[-1].load_factor - float(snapshot.load_factor)) > 1.0e-12:
+            raise ValueError(
+                "Periodic-cell recorder does not end at the accepted restart "
+                "boundary. Restore its checkpoint state before continuing."
+            )
+        self._previous_snapshot = snapshot
+
     def accept(self, snapshot) -> None:
         if self._previous_snapshot is None:
             self.reset(snapshot)
@@ -143,6 +203,74 @@ class PeriodicCellHistoryRecorder:
         self.frames.append(current)
         self.increment_info.append(getattr(snapshot, "solve_info", None))
         self._previous_snapshot = snapshot
+
+    def checkpoint_state(self) -> dict[str, object]:
+        """Return restartable lightweight RVE history.
+
+        Spatial fields are intentionally excluded.  The accepted constitutive
+        checkpoint reconstructs the one current microscopic snapshot needed to
+        continue the next Hill--Mandel increment.
+        """
+
+        return {
+            "schema": "agentfem.periodic-cell-history.v1",
+            "frames": [item.as_dict() for item in self.frames],
+            "hill_mandel": [item.as_dict() for item in self.hill_mandel],
+            "increment_info": [
+                None if item is None else item.as_dict()
+                for item in self.increment_info
+            ],
+        }
+
+    def snapshot_runtime_state(self) -> dict[str, object]:
+        """Capture in-memory recorder state for failure-atomic restoration."""
+
+        return {
+            "frames": list(self.frames),
+            "hill_mandel": list(self.hill_mandel),
+            "increment_info": list(self.increment_info),
+            "previous_snapshot": self._previous_snapshot,
+        }
+
+    def restore_runtime_state(self, state) -> None:
+        """Restore an in-memory state captured before a failed restart."""
+
+        self.frames[:] = state["frames"]
+        self.hill_mandel[:] = state["hill_mandel"]
+        self.increment_info[:] = state["increment_info"]
+        self._previous_snapshot = state["previous_snapshot"]
+
+    def restore_checkpoint_state(self, record, *, current_snapshot) -> None:
+        """Restore history and attach it to the reconstructed accepted state."""
+
+        if record.get("schema") != "agentfem.periodic-cell-history.v1":
+            raise ValueError("Unsupported periodic-cell history checkpoint schema.")
+        from ..solvers import AffineLoadIncrementInfo
+
+        frames = [HomogenizedFrame.from_dict(item) for item in record["frames"]]
+        hill = [HillMandelIncrement.from_dict(item) for item in record["hill_mandel"]]
+        increment_info = [
+            None if item is None else AffineLoadIncrementInfo.from_dict(item)
+            for item in record["increment_info"]
+        ]
+        if not frames or len(hill) != len(frames) - 1:
+            raise ValueError(
+                "Periodic-cell checkpoint requires one frame per accepted "
+                "boundary and one fewer Hill-Mandel increment."
+            )
+        if len(increment_info) != len(frames):
+            raise ValueError(
+                "Periodic-cell checkpoint increment evidence is not frame-aligned."
+            )
+        if abs(frames[-1].load_factor - float(current_snapshot.load_factor)) > 1.0e-12:
+            raise ValueError(
+                "Periodic-cell checkpoint history does not end at the restored "
+                "accepted load factor."
+            )
+        self.frames[:] = frames
+        self.hill_mandel[:] = hill
+        self.increment_info[:] = increment_info
+        self._previous_snapshot = current_snapshot
 
     def summary(self) -> dict[str, object]:
         return {
@@ -286,6 +414,126 @@ def finite_strain_cell_fields(
     return tuple(fields)
 
 
+def accepted_finite_strain_cell_fields(
+    snapshot,
+    *,
+    variables=("F", "E", "GREEN", "P", "S", "MISES", "J", "SENER", "EVOL"),
+) -> tuple[object, ...] | None:
+    """Recover fields owned by an accepted stateful constitutive snapshot.
+
+    Returning ``None`` means that the snapshot does not advertise a
+    provider-owned quadrature response and the caller may use the ordinary
+    displacement/material expression route. Once ``F`` is present, missing
+    requested constitutive fields fail explicitly rather than being silently
+    recomputed from a history-free material law.
+    """
+
+    stored = dict(getattr(snapshot, "fields", {}))
+    deformation_gradient = stored.get("F")
+    if deformation_gradient is None or not hasattr(
+        deformation_gradient, "owned_physical_weights"
+    ):
+        return None
+    requested = resolve_field_variables(variables, finite_strain=True)
+    F_values = np.asarray(deformation_gradient.values, dtype=float)
+    if F_values.ndim != 3 or F_values.shape[1:] != (3, 3):
+        raise ValueError(
+            "Accepted finite-strain deformation gradients require shape "
+            "(integration_points, 3, 3)."
+        )
+
+    derived: dict[str, object] = {}
+
+    def quadrature_from_values(name: str, values, *, value_shape=()):
+        reference = deformation_gradient
+        domain = reference.function.function_space.mesh
+        element = basix.ufl.quadrature_element(
+            domain.basix_cell(),
+            value_shape=tuple(value_shape),
+            points=reference.points,
+            weights=reference.weights,
+        )
+        from ..constitutive.quadrature import QuadratureField
+
+        selected = QuadratureField(
+            function=fem.Function(fem.functionspace(domain, element), name=name),
+            points=np.asarray(reference.points, dtype=float).copy(),
+            weights=np.asarray(reference.weights, dtype=float).copy(),
+            value_shape=tuple(value_shape),
+        )
+        selected.assign(values)
+        return selected
+
+    def derived_field(key: str):
+        if key in derived:
+            return derived[key]
+        if key == "GREEN":
+            values = 0.5 * (
+                np.einsum("...ji,...jk->...ik", F_values, F_values)
+                - np.eye(3)
+            )
+            result = quadrature_from_values(key, values, value_shape=(3, 3))
+        elif key == "LE":
+            values = np.empty_like(F_values)
+            for index, gradient in enumerate(F_values):
+                eigenvalues, eigenvectors = np.linalg.eigh(gradient @ gradient.T)
+                if np.any(eigenvalues <= 0.0):
+                    raise ValueError(
+                        "Accepted logarithmic strain requires positive principal "
+                        "stretches at every integration point."
+                    )
+                values[index] = (
+                    eigenvectors
+                    @ np.diag(0.5 * np.log(eigenvalues))
+                    @ eigenvectors.T
+                )
+            result = quadrature_from_values(key, values, value_shape=(3, 3))
+        elif key == "J":
+            values = np.linalg.det(F_values)
+            if np.any(values <= 0.0):
+                raise ValueError(
+                    "Accepted deformation Jacobian requires J > 0 at every "
+                    "integration point."
+                )
+            result = quadrature_from_values(key, values)
+        elif key == "MISES" and "S" in stored:
+            stress = np.asarray(stored["S"].values, dtype=float)
+            mean = np.trace(stress, axis1=1, axis2=2) / 3.0
+            deviator = stress - mean[:, None, None] * np.eye(3)
+            values = np.sqrt(
+                np.maximum(0.0, 1.5 * np.sum(deviator * deviator, axis=(1, 2)))
+            )
+            result = quadrature_from_values(key, values)
+        else:
+            raise KeyError(key)
+        derived[key] = result
+        return result
+
+    output = []
+    for variable in requested:
+        key = variable.key
+        if key in {"U", "V", "A"}:
+            continue
+        if key == "EVOL":
+            function = getattr(snapshot.solution, "value", snapshot.solution)
+            J = ufl.det(ufl.Identity(3) + ufl.grad(function))
+            output.append(
+                _current_element_volume(J, function.function_space.mesh, name=key)
+            )
+            continue
+        source = stored.get(key)
+        if source is None and key in {"LE", "GREEN", "J", "MISES"}:
+            source = derived_field(key)
+        if source is None or not hasattr(source, "cell_average"):
+            raise NotImplementedError(
+                f"Accepted constitutive snapshot does not provide {key!r}; "
+                "stateful output will not reconstruct it from a different "
+                "material law."
+            )
+        output.append(source.cell_average(name=key))
+    return tuple(output)
+
+
 def finite_strain_dynamic_cell_fields(
     displacement,
     velocity,
@@ -374,6 +622,7 @@ def homogenize_periodic_cell(
     properties,
     *,
     pressure=None,
+    accepted_fields=None,
     macro_deformation_gradient,
     cell_reference_volume: float,
     load_factor: float,
@@ -396,7 +645,150 @@ def homogenize_periodic_cell(
 
     F = hyperelasticity.deformation_gradient(function)
     J = ufl.det(F)
-    if isinstance(properties, hyperelasticity.MixedNeoHookeanProperties):
+    selected_fields = {} if accepted_fields is None else dict(accepted_fields)
+    local_provider_owned = all(
+        name in selected_fields for name in ("F", "P", "S", "SENER")
+    )
+    provider_flags = tuple(domain.comm.allgather(local_provider_owned))
+    if len(set(provider_flags)) != 1:
+        raise RuntimeError(
+            "Accepted constitutive response availability differs across MPI ranks."
+        )
+    provider_owned = bool(provider_flags[0])
+    elastic_energy_integral = None
+    hardening_energy_integral = None
+    if provider_owned:
+        Fq = selected_fields["F"]
+        Pq = selected_fields["P"]
+        Sq = selected_fields["S"]
+        energy_q = selected_fields["SENER"]
+        component_presence = tuple(
+            name in selected_fields for name in ("ELENER", "HARDENER")
+        )
+        if any(component_presence) and not all(component_presence):
+            raise ValueError(
+                "Accepted stored-energy decomposition requires both ELENER "
+                "and HARDENER."
+            )
+        component_fields = (
+            {
+                "ELENER": selected_fields["ELENER"],
+                "HARDENER": selected_fields["HARDENER"],
+            }
+            if all(component_presence)
+            else {}
+        )
+        local_problem = None
+        try:
+            for name, value in (
+                ("F", Fq),
+                ("P", Pq),
+                ("S", Sq),
+                ("SENER", energy_q),
+                *component_fields.items(),
+            ):
+                if not hasattr(value, "owned_values") or not hasattr(
+                    value, "owned_physical_weights"
+                ):
+                    raise TypeError(
+                        f"accepted_fields[{name!r}] must preserve "
+                        "QuadratureField metadata."
+                    )
+                if value.function.function_space.mesh is not domain:
+                    raise ValueError(
+                        f"accepted_fields[{name!r}] belongs to another mesh."
+                    )
+                if not np.array_equal(value.points, Fq.points) or not np.array_equal(
+                    value.weights,
+                    Fq.weights,
+                ):
+                    raise ValueError(
+                        "Accepted quadrature response fields do not share one "
+                        "integration rule."
+                    )
+            weights = Fq.owned_physical_weights()
+            F_values = np.asarray(Fq.owned_values, dtype=float)
+            P_values = np.asarray(Pq.owned_values, dtype=float)
+            S_values = np.asarray(Sq.owned_values, dtype=float)
+            energy_values = np.asarray(
+                energy_q.owned_values,
+                dtype=float,
+            ).reshape(-1)
+            component_values = {
+                name: np.asarray(value.owned_values, dtype=float).reshape(-1)
+                for name, value in component_fields.items()
+            }
+            if not (
+                len(F_values)
+                == len(P_values)
+                == len(S_values)
+                == len(energy_values)
+                == len(weights)
+                and all(
+                    len(values) == len(weights)
+                    for values in component_values.values()
+                )
+            ):
+                raise ValueError(
+                    "Accepted quadrature response fields are not point-aligned."
+                )
+            if component_values and not np.allclose(
+                component_values["ELENER"] + component_values["HARDENER"],
+                energy_values,
+                rtol=2.0e-12,
+                atol=2.0e-14
+                * max(1.0, float(np.max(np.abs(energy_values), initial=0.0))),
+            ):
+                raise ValueError(
+                    "Accepted ELENER and HARDENER fields do not sum to SENER."
+                )
+            determinants = np.linalg.det(F_values)
+            if np.any(determinants <= 0.0):
+                raise ValueError(
+                    "Accepted quadrature deformation gradients require J > 0."
+                )
+        except Exception as exc:
+            local_problem = f"{type(exc).__name__}: {exc}"
+        problems = domain.comm.allgather(local_problem)
+        if any(problem is not None for problem in problems):
+            rank = next(
+                index for index, problem in enumerate(problems) if problem is not None
+            )
+            raise RuntimeError(
+                f"Rank {rank}: invalid accepted quadrature response: "
+                f"{problems[rank]}"
+            )
+        reference_solid_volume = float(domain.comm.allreduce(float(np.sum(weights))))
+        current_solid_volume = float(
+            domain.comm.allreduce(float(np.sum(weights * determinants)))
+        )
+        P_integral = np.asarray(
+            domain.comm.allreduce(
+                np.tensordot(weights, P_values, axes=(0, 0))
+            ),
+            dtype=float,
+        )
+        sigma_integral = np.asarray(
+            domain.comm.allreduce(
+                np.tensordot(weights * determinants, S_values, axes=(0, 0))
+            ),
+            dtype=float,
+        )
+        energy_integral = float(
+            domain.comm.allreduce(float(np.dot(weights, energy_values)))
+        )
+        if component_fields:
+            elastic_energy_integral = float(
+                domain.comm.allreduce(
+                    float(np.dot(weights, component_values["ELENER"]))
+                )
+            )
+            hardening_energy_integral = float(
+                domain.comm.allreduce(
+                    float(np.dot(weights, component_values["HARDENER"]))
+                )
+            )
+    elif isinstance(properties, hyperelasticity.MixedNeoHookeanProperties):
         if pressure is None:
             raise ValueError(
                 "Mixed periodic homogenization requires the independent pressure field."
@@ -411,18 +803,21 @@ def homogenize_periodic_cell(
         psi = hyperelasticity.mixed_strain_energy_density(
             function, pressure_function, properties
         )
-    else:
+    elif not provider_owned:
         P = hyperelasticity.first_piola(function, properties)
         sigma = hyperelasticity.cauchy_stress(function, properties)
         psi = hyperelasticity.strain_energy_density(function, properties)
-    reference_solid_volume = float(integral(ufl.as_ufl(1.0), measure=dx))
-    current_solid_volume = float(integral(J, measure=dx))
-    Pbar = np.asarray(integral(P, measure=dx), dtype=float) / cell_reference_volume
+    if not provider_owned:
+        reference_solid_volume = float(integral(ufl.as_ufl(1.0), measure=dx))
+        current_solid_volume = float(integral(J, measure=dx))
+        P_integral = np.asarray(integral(P, measure=dx), dtype=float)
+        sigma_integral = np.asarray(integral(J * sigma, measure=dx), dtype=float)
+        energy_integral = float(integral(psi, measure=dx))
+        elastic_energy_integral = energy_integral
+        hardening_energy_integral = 0.0
+    Pbar = P_integral / cell_reference_volume
     Jbar = float(np.linalg.det(Fbar))
-    sigma_bar = (
-        np.asarray(integral(J * sigma, measure=dx), dtype=float)
-        / (Jbar * cell_reference_volume)
-    )
+    sigma_bar = sigma_integral / (Jbar * cell_reference_volume)
     P_from_sigma = Jbar * sigma_bar @ np.linalg.inv(Fbar).T
     green = 0.5 * (Fbar.T @ Fbar - np.eye(3))
     logarithmic = _logarithmic_strain(Fbar)
@@ -434,11 +829,20 @@ def homogenize_periodic_cell(
         first_piola_stress=Pbar,
         cauchy_stress=sigma_bar,
         deformation_jacobian=Jbar,
-        strain_energy_density=float(integral(psi, measure=dx))
-        / cell_reference_volume,
+        strain_energy_density=energy_integral / cell_reference_volume,
         solid_reference_fraction=reference_solid_volume / cell_reference_volume,
         solid_current_fraction=current_solid_volume / (Jbar * cell_reference_volume),
         stress_consistency_error=float(np.max(np.abs(Pbar - P_from_sigma))),
+        elastic_energy_density=(
+            None
+            if elastic_energy_integral is None
+            else elastic_energy_integral / cell_reference_volume
+        ),
+        hardening_energy_density=(
+            None
+            if hardening_energy_integral is None
+            else hardening_energy_integral / cell_reference_volume
+        ),
     )
 
 
@@ -547,18 +951,72 @@ def hill_mandel_increment(
     domain = start_u.function_space.mesh
     if end_u.function_space.mesh is not domain:
         raise ValueError("Hill-Mandel snapshots must share one mesh.")
-    start_pressure = getattr(start_snapshot, "fields", {}).get("PRESSURE")
-    end_pressure = getattr(snapshot, "fields", {}).get("PRESSURE")
-    P0 = _first_piola_expression(start_u, properties, pressure=start_pressure)
-    P1 = _first_piola_expression(end_u, properties, pressure=end_pressure)
-    F0 = hyperelasticity.deformation_gradient(start_u)
-    F1 = hyperelasticity.deformation_gradient(end_u)
-    microscopic = float(
-        integral(
-            0.5 * ufl.inner(P0 + P1, F1 - F0),
-            measure=ufl.dx(domain=domain),
+    start_fields = getattr(start_snapshot, "fields", {})
+    end_fields = getattr(snapshot, "fields", {})
+    local_provider_owned = all(
+        name in start_fields and name in end_fields for name in ("F", "P")
+    )
+    provider_flags = tuple(domain.comm.allgather(local_provider_owned))
+    if len(set(provider_flags)) != 1:
+        raise RuntimeError(
+            "Hill-Mandel snapshot field availability differs across MPI ranks."
         )
-    ) / float(constraint.reference_cell_volume)
+    provider_owned = bool(provider_flags[0])
+    if provider_owned:
+        local_problem = None
+        try:
+            F0q, F1q = start_fields["F"], end_fields["F"]
+            P0q, P1q = start_fields["P"], end_fields["P"]
+            selected = (F0q, F1q, P0q, P1q)
+            if any(
+                item.function.function_space.mesh is not domain for item in selected
+            ):
+                raise ValueError("Hill-Mandel quadrature fields use another mesh.")
+            if any(
+                not np.array_equal(item.points, F0q.points)
+                or not np.array_equal(item.weights, F0q.weights)
+                for item in selected[1:]
+            ):
+                raise ValueError(
+                    "Hill-Mandel quadrature snapshots do not share one "
+                    "integration rule."
+                )
+            weights = F0q.owned_physical_weights()
+            values = 0.5 * (P0q.owned_values + P1q.owned_values) * (
+                F1q.owned_values - F0q.owned_values
+            )
+            if len(values) != len(weights):
+                raise ValueError(
+                    "Hill-Mandel quadrature snapshots are not point-aligned."
+                )
+        except Exception as exc:
+            local_problem = f"{type(exc).__name__}: {exc}"
+        problems = domain.comm.allgather(local_problem)
+        if any(problem is not None for problem in problems):
+            rank = next(
+                index for index, problem in enumerate(problems) if problem is not None
+            )
+            raise RuntimeError(
+                f"Rank {rank}: invalid Hill-Mandel quadrature snapshots: "
+                f"{problems[rank]}"
+            )
+        local_work = float(np.dot(weights, np.sum(values, axis=(1, 2))))
+        microscopic = float(domain.comm.allreduce(local_work)) / float(
+            constraint.reference_cell_volume
+        )
+    else:
+        start_pressure = start_fields.get("PRESSURE")
+        end_pressure = end_fields.get("PRESSURE")
+        P0 = _first_piola_expression(start_u, properties, pressure=start_pressure)
+        P1 = _first_piola_expression(end_u, properties, pressure=end_pressure)
+        F0 = hyperelasticity.deformation_gradient(start_u)
+        F1 = hyperelasticity.deformation_gradient(end_u)
+        microscopic = float(
+            integral(
+                0.5 * ufl.inner(P0 + P1, F1 - F0),
+                measure=ufl.dx(domain=domain),
+            )
+        ) / float(constraint.reference_cell_volume)
     macroscopic = float(
         0.5
         * np.sum(
@@ -613,6 +1071,7 @@ def _homogenize_snapshot(snapshot, properties, constraint) -> HomogenizedFrame:
         snapshot.solution,
         properties,
         pressure=getattr(snapshot, "fields", {}).get("PRESSURE"),
+        accepted_fields=getattr(snapshot, "fields", {}),
         macro_deformation_gradient=(
             constraint.measured_deformation_gradient(snapshot.solution)
             if hasattr(constraint, "measured_deformation_gradient")
@@ -745,6 +1204,22 @@ def write_homogenized_history(
         strain_energy_density=np.asarray(
             [frame.strain_energy_density for frame in selected]
         ),
+        elastic_energy_density=np.asarray(
+            [
+                np.nan
+                if frame.elastic_energy_density is None
+                else frame.elastic_energy_density
+                for frame in selected
+            ]
+        ),
+        hardening_energy_density=np.asarray(
+            [
+                np.nan
+                if frame.hardening_energy_density is None
+                else frame.hardening_energy_density
+                for frame in selected
+            ]
+        ),
         solid_reference_fraction=np.asarray(
             [frame.solid_reference_fraction for frame in selected]
         ),
@@ -831,6 +1306,8 @@ def write_homogenized_csv(
         (
             "deformation_jacobian",
             "strain_energy_density",
+            "elastic_energy_density",
+            "hardening_energy_density",
             "solid_reference_fraction",
             "solid_current_fraction",
             "stress_consistency_error",
@@ -861,6 +1338,16 @@ def write_homogenized_csv(
             (
                 frame.deformation_jacobian,
                 frame.strain_energy_density,
+                (
+                    np.nan
+                    if frame.elastic_energy_density is None
+                    else frame.elastic_energy_density
+                ),
+                (
+                    np.nan
+                    if frame.hardening_energy_density is None
+                    else frame.hardening_energy_density
+                ),
                 frame.solid_reference_fraction,
                 frame.solid_current_fraction,
                 frame.stress_consistency_error,

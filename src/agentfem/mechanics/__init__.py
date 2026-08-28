@@ -9,8 +9,10 @@ from .creep import (
 )
 from .finite_strain_plasticity import (
     ExperimentalFiniteStrainPlasticityStep,
+    FiniteStrainJ2AffineTransaction,
     FiniteStrainPlasticityIncrementInfo,
     experimental_finite_strain_j2_step,
+    finite_strain_j2_affine_problem,
 )
 from .plasticity import (
     J2IncrementInfo,
@@ -25,11 +27,13 @@ __all__ = [
     "CreepPathInfo",
     "ImplicitCreepStep",
     "ExperimentalFiniteStrainPlasticityStep",
+    "FiniteStrainJ2AffineTransaction",
     "FiniteStrainPlasticityIncrementInfo",
     "J2IncrementInfo",
     "J2LoadPathInfo",
     "J2PlasticityStep",
     "implicit_creep_step",
     "experimental_finite_strain_j2_step",
+    "finite_strain_j2_affine_problem",
     "j2_plasticity_step",
 ]

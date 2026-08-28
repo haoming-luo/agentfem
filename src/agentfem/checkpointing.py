@@ -796,6 +796,32 @@ def _remove_transient_checkpoint(path, *, comm) -> None:
     comm.barrier()
 
 
+def remove_stateful_checkpoint(path, *, comm) -> None:
+    """Collectively remove one manifest and only its declared state payloads."""
+
+    manifest = _manifest_path(path)
+    error = None
+    if comm.rank == 0:
+        try:
+            metadata = json.loads(manifest.read_text(encoding="utf-8"))
+            if metadata.get("schema") != "agentfem.affine-stateful-checkpoint.v1":
+                raise ValueError("Refusing to remove an unrelated checkpoint schema.")
+            for key in ("nodal_state", "quadrature_state"):
+                record = metadata.get(key)
+                if not record:
+                    continue
+                payload = manifest.parent / str(record["path"])
+                if payload.exists():
+                    payload.unlink()
+            manifest.unlink()
+        except Exception as exc:  # pragma: no cover - filesystem failure
+            error = f"{type(exc).__name__}: {exc}"
+    error = comm.bcast(error, root=0)
+    if error is not None:
+        raise RuntimeError(f"Stateful checkpoint removal failed: {error}")
+    comm.barrier()
+
+
 def _manifest_path(path) -> Path:
     selected = Path(path)
     text = selected.name

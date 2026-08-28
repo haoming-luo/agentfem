@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import isfinite
+from typing import ClassVar
 
 import numpy as np
 
@@ -33,6 +34,8 @@ class _FiniteStrainJ2Integration:
     first_piola_stress: np.ndarray
     state: np.ndarray
     strain_energy_density: float
+    elastic_energy_density: float
+    hardening_energy_density: float
     trial_yield_function: float
     plastic_multiplier_increment: float
 
@@ -56,6 +59,12 @@ class FiniteStrainJ2Logarithmic:
     global integration.  An analytically linearized production tangent is a
     separate performance milestone.
     """
+
+    stateful_constitutive: ClassVar[bool] = True
+    stored_energy_component_names: ClassVar[tuple[str, ...]] = (
+        "ELENER",
+        "HARDENER",
+    )
 
     young: float
     poisson: float
@@ -289,6 +298,8 @@ class FiniteStrainJ2Logarithmic:
             first_piola_stress=first_piola_stress,
             state=state_new,
             strain_energy_density=elastic_energy + hardening_energy,
+            elastic_energy_density=elastic_energy,
+            hardening_energy_density=hardening_energy,
             trial_yield_function=trial_yield,
             plastic_multiplier_increment=plastic_increment,
         )
@@ -331,6 +342,10 @@ class FiniteStrainJ2Logarithmic:
             ),
             state_new=integrated.state,
             strain_energy_density=integrated.strain_energy_density,
+            stored_energy_density_components={
+                "ELENER": integrated.elastic_energy_density,
+                "HARDENER": integrated.hardening_energy_density,
+            },
             tangent_convention=self.tangent_convention,
             state_schema=self.state_schema,
         )
@@ -346,10 +361,19 @@ class FiniteStrainJ2Logarithmic:
                 "yield_stress": self.yield_stress,
                 "hardening_modulus": self.hardening_modulus,
             },
+            "numerical_parameters": {
+                "tangent_relative_step": self.tangent_relative_step,
+            },
             "kinematics": "multiplicative_F_equals_Fe_Fp",
             "elastic_potential": "quadratic_Hencky",
             "plastic_flow": "associated_isochoric_J2",
             "hardening": "linear_isotropic",
+            "stored_energy_density": {
+                "SENER": "ELENER + HARDENER",
+                "ELENER": "quadratic_Hencky_elastic_free_energy",
+                "HARDENER": "linear_isotropic_hardening_free_energy",
+                "plastic_dissipation": "not_implemented",
+            },
             "tangent": self.tangent_convention.summary(),
             "tangent_evaluation": "central_difference_of_discrete_return",
             "state_schema": self.state_schema.summary(),
@@ -367,7 +391,7 @@ def finite_strain_j2_logarithmic(
     hardening_modulus: float = 0.0,
     tangent_relative_step: float = 2.0e-6,
 ) -> FiniteStrainJ2Logarithmic:
-    """Create the explicit logarithmic finite-strain J2 provider."""
+    """Create the logarithmic finite-strain J2 material provider."""
 
     return FiniteStrainJ2Logarithmic(
         young=young,

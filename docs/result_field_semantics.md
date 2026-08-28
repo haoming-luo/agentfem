@@ -46,7 +46,9 @@ set `U/S/E/MISES`:
 | `S` | Cauchy stress | discontinuous cell-average L2 projection |
 | `E` | infinitesimal strain | discontinuous cell-average L2 projection |
 | `MISES` | immediately useful invariant of stress | invariant evaluated from the constitutive stress, then discontinuously projected |
-| `SENER` | strain-energy density | available but opt-in diagnostic field |
+| `SENER` | strain-energy density | available but opt-in diagnostic field; for finite-strain J2, `ELENER + HARDENER` |
+| `ELENER` | elastic stored-energy density | provider-owned finite-strain J2 quadrature field |
+| `HARDENER` | isotropic-hardening stored-energy density | provider-owned finite-strain J2 quadrature field |
 | `V`, `A` | velocity and acceleration | nodal transient state fields |
 | `KED` | kinetic-energy density per reference volume | cell field computed as $\tfrac12\rho_0\mathbf{v}\cdot\mathbf{v}$ when velocity and density are supplied |
 
@@ -54,6 +56,11 @@ set `U/S/E/MISES`:
 it gives users an immediate deformed stress contour in ordinary visualization
 tools. `SENER` is not preselected because a full energy-density field is less
 universally useful than total strain energy and energy-balance histories.
+For finite-strain J2, `SENER` remains backward compatible and has the precise
+meaning `ELENER + HARDENER`: recoverable Hencky elastic free energy plus the
+stored linear-isotropic-hardening free energy. It is not plastic dissipation.
+That dissipative channel requires accepted-increment stress power and a
+separate work ledger and is not currently reported.
 
 The default `DG0` result is a cell average. It is discontinuous, performs no
 nodal extrapolation, and does not average across elements or material
@@ -88,15 +95,20 @@ AgentFEM should ultimately expose three related but distinct products:
    smoothing for readable contours, always labeled and never overwriting the
    scientific field.
 
-The current release implements the second layer for elasticity. J2 results
-retain committed `S/PE/PEEQ` and pointwise `MISES` on the constitutive
-quadrature. J2 and implicit creep also expose separately named `*_CELL` fields
-through `results.recover_integration_point_field(...)`. These fields use the
-actual quadrature weights to form a DG0 cell average and record the source
-position, point count, target space, and explicit absence of extrapolation,
-smoothing, or material-boundary averaging. This is material-aware in the
-strict sense that values never cross an element or material interface; it is
-not yet a smooth nodal contour recovery.
+The current release implements the second layer for elasticity. Small-strain
+J2 results retain committed `S/PE/PEEQ` and pointwise `MISES` on the
+constitutive quadrature. The experimental public affine-periodic finite-strain
+J2 route retains provider-owned accepted
+`F/P/S/MISES/SENER/ELENER/HARDENER/FP/PEEQ` at the
+same quadrature identity; the output layer does not recompute them from a
+history-free constitutive expression. J2 and implicit creep also expose
+separately named `*_CELL` fields through
+`results.recover_integration_point_field(...)`. These fields use the actual
+quadrature weights to form a DG0 cell average and record the source position,
+point count, target space, and explicit absence of extrapolation, smoothing,
+or material-boundary averaging. This is material-aware in the strict sense
+that values never cross an element or material interface; it is not yet a
+smooth nodal contour recovery.
 
 ```python
 cell_peeq = results.recover_integration_point_field(

@@ -313,6 +313,28 @@ class PeriodicCellHistoryRequest:
             increment_info,
         )
         factors = [frame.load_factor for frame in frames]
+        energy_components: dict[str, list[float]] = {}
+        component_availability = tuple(
+            (
+                frame.elastic_energy_density is not None,
+                frame.hardening_energy_density is not None,
+            )
+            for frame in frames
+        )
+        if any(any(item) for item in component_availability):
+            if not all(all(item) for item in component_availability):
+                raise RuntimeError(
+                    "Homogenized stored-energy components must be available "
+                    "together on every accepted frame."
+                )
+            energy_components = {
+                "homogenized_elastic_energy_density": [
+                    float(frame.elastic_energy_density) for frame in frames
+                ],
+                "homogenized_hardening_energy_density": [
+                    float(frame.hardening_energy_density) for frame in frames
+                ],
+            }
         context.result.add_histories(
             factors,
             {
@@ -337,6 +359,7 @@ class PeriodicCellHistoryRequest:
                 "homogenized_strain_energy_density": [
                     frame.strain_energy_density for frame in frames
                 ],
+                **energy_components,
                 "homogenized_mean_cauchy_stress": [
                     state.mean_stress for state in stress_states
                 ],
@@ -444,6 +467,12 @@ class PeriodicCellHistoryRequest:
                     "Attempt number on which the increment was accepted; values "
                     "above one expose cutback or retry."
                 ),
+                "homogenized_elastic_energy_density": (
+                    "Volume-averaged recoverable elastic stored-energy density."
+                ),
+                "homogenized_hardening_energy_density": (
+                    "Volume-averaged isotropic-hardening stored-energy density."
+                ),
             },
         )
         final = frames[-1]
@@ -451,6 +480,9 @@ class PeriodicCellHistoryRequest:
             {
                 "homogenized_first_piola_stress": final.first_piola_stress,
                 "homogenized_cauchy_stress": final.cauchy_stress,
+                "homogenized_strain_energy_density": (
+                    final.strain_energy_density
+                ),
                 "homogenized_stress_consistency_error": (
                     final.stress_consistency_error
                 ),
@@ -460,6 +492,18 @@ class PeriodicCellHistoryRequest:
                 "maximum_hill_mandel_relative_error": max(
                     (item.relative_error for item in hill_mandel),
                     default=0.0,
+                ),
+                **(
+                    {
+                        "homogenized_elastic_energy_density": (
+                            final.elastic_energy_density
+                        ),
+                        "homogenized_hardening_energy_density": (
+                            final.hardening_energy_density
+                        ),
+                    }
+                    if energy_components
+                    else {}
                 ),
             }
         )

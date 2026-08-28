@@ -713,6 +713,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#external-finite-strain-composite-benchmark" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        External finite-strain composite benchmark
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#verification-and-present-boundary" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1197,6 +1208,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#external-finite-strain-composite-benchmark" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        External finite-strain composite benchmark
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#verification-and-present-boundary" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1388,9 +1410,9 @@ J_3=\det\mathbf s,
 =1-\frac{2}{\pi}
 \arccos\left(\frac{27J_3}{2q^3}\right).
 \]</div>
-<p>This normalized Lode convention gives (+1) for axisymmetric tension, (0)
-for pure shear and (-1) for axisymmetric compression.  When (q) vanishes,
-(eta) and (ar\theta) are undefined.  NPZ output uses <code>NaN</code>; structured
+<p>This normalized Lode convention gives <span class="arithmatex">\(+1\)</span> for axisymmetric tension, <span class="arithmatex">\(0\)</span>
+for pure shear and <span class="arithmatex">\(-1\)</span> for axisymmetric compression. When <span class="arithmatex">\(q\)</span> vanishes,
+<span class="arithmatex">\(\eta\)</span> and <span class="arithmatex">\(\bar\theta\)</span> are undefined. NPZ output uses <code>NaN</code>; structured
 result histories use a zero placeholder together with
 <code>homogenized_stress_state_defined=0</code>.</p>
 <h2 id="one-scientific-history-two-output-cadences">One scientific history, two output cadences<a class="headerlink" href="#one-scientific-history-two-output-cadences" title="Permanent link">&para;</a></h2>
@@ -1433,17 +1455,88 @@ scope, spatial-frame count and undefined-value convention.</p>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">thresholds</span><span class="o">=</span><span class="p">(</span><span class="mf">0.02</span><span class="p">,),</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="p">)</span>
 </code></pre></div>
+<h2 id="external-finite-strain-composite-benchmark">External finite-strain composite benchmark<a class="headerlink" href="#external-finite-strain-composite-benchmark" title="Permanent link">&para;</a></h2>
+<p>The Zhang--Feng--Khandelwal (2021) nonlinear periodic-material benchmark is
+the promotion target for the regional finite-strain J2 route. Its unit square
+contains two stiff circular inclusions of diameter <span class="arithmatex">\(0.3\)</span>, centred at
+<span class="arithmatex">\((-0.2,0.2)\)</span> and <span class="arithmatex">\((-0.2,-0.2)\)</span>, and one circular void of the same diameter
+centred at <span class="arithmatex">\((0.2,0)\)</span>. The matrix parameters are
+<span class="arithmatex">\(\kappa=17.5\)</span>, <span class="arithmatex">\(\mu=8\)</span>, <span class="arithmatex">\(\sigma_y=0.45\)</span>, and <span class="arithmatex">\(H=0.1\)</span>; the inclusions are
+100 times stiffer and remain elastic. Table 5 applies macroscopic simple shear
+<span class="arithmatex">\(\bar F_{12}=0.1\)</span> and reports, in column-major order
+<span class="arithmatex">\((11,21,12,22)\)</span>,</p>
+<div class="arithmatex">\[
+\bar{\mathbf P}=
+(0.0128,\ 0.1893,\ 0.1953,\ 0.0598)^T,
+\qquad
+\bar\psi_e=2.423\times10^{-3}.
+\]</div>
+<p>In the same component order, the published effective tangent is</p>
+<div class="arithmatex">\[
+\bar{\mathbb A}=
+\begin{bmatrix}
+26.1954 &amp; -0.6689 &amp; 0.3549 &amp; 8.3450 \\
+-0.6689 &amp; 0.1601 &amp; 0.0503 &amp; -0.9698 \\
+0.3549 &amp; 0.0503 &amp; 0.2038 &amp; 0.9365 \\
+8.3450 &amp; -0.9698 &amp; 0.9365 &amp; 21.0161
+\end{bmatrix}.
+\]</div>
+<p>The AgentFEM fixture retains these values as an external oracle with an
+explicit component convention; none of them enters the solver logic.</p>
+<p>The material equations have also been compared directly. Both routes use the
+multiplicative split <span class="arithmatex">\(\mathbf F=\mathbf F_e\mathbf F_p\)</span>, a quadratic Hencky
+elastic energy, a Kirchhoff-stress <span class="arithmatex">\(J_2\)</span> surface and linear isotropic
+hardening. The differing yield-function normalizations are algebraically
+equivalent. The leading diagnosis is therefore the discretization:
+the publication uses a two-dimensional mixed displacement--pressure high-order
+element, while the current public AgentFEM route uses displacement-only P1
+tetrahedra in a thin three-dimensional extrusion. Exact periodic pairing and a
+small Hill--Mandel residual do not remove volumetric locking or geometric
+approximation error. This diagnosis remains to be confirmed by a direct
+locking-resistant plane-strain A/B comparison.</p>
+<p>The current public finite-strain J2 provider is three-dimensional. The
+published plane-strain cell is therefore lowered as a thin periodic extrusion
+with <span class="arithmatex">\(F_{33}=1\)</span>, using the ordinary Gmsh import, physical material regions,
+<code>model.step(...)</code>, accepted quadrature transaction, and periodic-cell history.
+This is an <strong>experimental benchmark fixture, not a passed benchmark</strong>. The
+paper used a mixed displacement--pressure high-order element, whereas the
+current fixture uses the public low-order displacement route. Promotion
+requires all of the following:</p>
+<ul>
+<li>mesh and numerical plane-strain-formulation convergence (for the current
+  thin extrusion, this includes thickness convergence);</li>
+<li>periodic-cell-size invariance;</li>
+<li>agreement of first-Piola stress and published elastic energy;</li>
+<li>a homogenized algorithmic tangent compared in the published component order;</li>
+<li>serial/MPI and checkpoint/restart equivalence.</li>
+</ul>
+<p><code>tests/zhang_2021_periodic_composite_fixture.py</code> defines the geometry, material
+translation, oracle and fail-closed assessment. A missing tangent or missing
+convergence axis produces <code>incomplete</code>, even if one stress vector happens to
+be close. The 3 percent oracle may be tightened but cannot be relaxed, and
+acceptance requires explicit Boolean evidence for mesh, plane-strain
+formulation, cell-size, serial/MPI, and restart equivalence.
+<code>tests/test_zhang_2021_periodic_composite.py</code> verifies the fixture
+semantics without claiming the external result has passed.</p>
 <h2 id="verification-and-present-boundary">Verification and present boundary<a class="headerlink" href="#verification-and-present-boundary" title="Permanent link">&para;</a></h2>
 <p>Current tests cover homogeneous finite-strain work equivalence, stress
 invariant conventions, sparse spatial output with complete accepted history,
 physical quadrature weights on distorted cells, validation failures and
-two-rank MPI reductions.  These tests establish the software contract; an RVE
-used for a material claim still requires its own mesh, loading-path and
-reference-result evidence.</p>
-<p>Finite-strain inelastic state evolution and stress-state-controlled macro
-loading are separate promotion gates.  The presence of this post-processing
-contract must not be read as a claim that finite-strain J2 plasticity is already
-validated.</p>
+two-rank MPI reductions. The experimental finite-strain J2 route now enters
+this contract through public <code>model.step(...)</code> for single- or regional-material 3D
+affine-periodic cell. Macro averages and Hill--Mandel work are integrated from
+the provider-owned accepted quadrature <code>F</code>, <code>P</code>, <code>S</code>, <code>SENER</code>, <code>ELENER</code>, and
+<code>HARDENER</code> fields rather than reconstructed from a history-free material
+expression. Accepted-state
+checkpoint/restart preserves that state across compatible MPI rank-count
+changes.</p>
+<p>These tests establish the software contract; an RVE used for a material claim
+still requires its own mesh, loading-path, convergence, and reference-result
+evidence. Multi-material finite-strain J2 dispatch is now part of the
+experimental public affine route. The Zhang fixture makes the independent
+external comparison executable, but it has not yet passed its convergence and
+effective-tangent gates. Stress-state-controlled macro loading and a production
+analytical tangent remain separate promotion gates.</p>
 <h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
 <ol>
 <li>R. Hill, “Elastic properties of reinforced solids: Some theoretical
@@ -1457,6 +1550,12 @@ validated.</p>
    reversal and damage,” <em>International Journal of Material Forming</em> 12
    (2019), 339--353.
    <a href="https://doi.org/10.1007/s12289-018-01466-z">doi:10.1007/s12289-018-01466-z</a>.</li>
+<li>J. Zhang, X. Feng and K. Khandelwal, “A computational framework for
+   homogenization and multiscale stability analyses of nonlinear periodic
+   materials,” <em>International Journal for Numerical Methods in Engineering</em>
+   122 (2021), 6527--6575.
+   <a href="https://doi.org/10.1002/nme.6802">doi:10.1002/nme.6802</a>,
+   <a href="https://arxiv.org/abs/2010.02371">open manuscript</a>.</li>
 </ol>
 
 

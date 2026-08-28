@@ -3183,7 +3183,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tr>
 <td>function</td>
 <td><code>finite_strain_j2_logarithmic(*, young: float, poisson: float, yield_stress: float, hardening_modulus: float = 0.0, tangent_relative_step: float = 2e-06) -&gt; FiniteStrainJ2Logarithmic</code></td>
-<td>Create the explicit logarithmic finite-strain J2 provider.</td>
+<td>Create the logarithmic finite-strain J2 material provider.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -3282,7 +3282,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>update_material_points(material: UserMaterial, state: MaterialQuadratureState, *, deformation_gradient_old, deformation_gradient_new, time: float, time_increment: float, properties = (), temperature = None, temperature_increment = None, field_variables = None, commit: bool = False) -&gt; MaterialPointBatchResult</code></td>
+<td><code>update_material_points(material: UserMaterial \| QuadratureMaterialMap, state: MaterialQuadratureState, *, deformation_gradient_old, deformation_gradient_new, time: float, time_increment: float, properties = (), temperature = None, temperature_increment = None, field_variables = None, commit: bool = False) -&gt; MaterialPointBatchResult</code></td>
 <td>Update every local quadrature point as one rollback-safe transaction.</td>
 </tr>
 <tr>
@@ -4167,7 +4167,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>homogenize_periodic_cell(displacement, properties, *, pressure = None, macro_deformation_gradient, cell_reference_volume: float, load_factor: float) -&gt; HomogenizedFrame</code></td>
+<td><code>homogenize_periodic_cell(displacement, properties, *, pressure = None, accepted_fields = None, macro_deformation_gradient, cell_reference_volume: float, load_factor: float) -&gt; HomogenizedFrame</code></td>
 <td>Return volume-normalized macroscopic finite-strain response.</td>
 </tr>
 <tr>
@@ -4865,6 +4865,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>mesh_portable_identity(domain) -&gt; dict[str, object]</code></td>
 <td>Hash cell geometry independently of local numbering and partition.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>remove_stateful_checkpoint(path, *, comm) -&gt; None</code></td>
+<td>Collectively remove one manifest and only its declared state payloads.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -5883,6 +5888,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>FiniteStrainJ2AffineTransaction</code></td>
+<td>Provider-owned trial/commit state for affine and distributed MPC Newton.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>FiniteStrainPlasticityIncrementInfo</code></td>
 <td>Public AgentFEM object.</td>
 </tr>
@@ -5890,6 +5900,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>experimental_finite_strain_j2_step(*, displacement, material: FiniteStrainJ2Logarithmic, external_force = None, constraints = (), incrementation = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, name: str = 'finite_strain_j2_experimental') -&gt; ExperimentalFiniteStrainPlasticityStep</code></td>
 <td>Build the gated 3D global patch for logarithmic finite-strain J2.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>finite_strain_j2_affine_problem(*, displacement, material: FiniteStrainJ2Logarithmic \| QuadratureMaterialMap, constraint, external_force = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, output_every: int \| None = 1, output_factors = (), progress = True, status_file = None, checkpoint_policy = None, name: str = 'finite_strain_j2')</code></td>
+<td>Build stateful finite-strain J2 under exact affine/MPC kinematics.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -6426,7 +6441,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>solve_affine_nonlinear_path(residual_form, jacobian_form, solution, constraint, *, load_factors = None, incrementation = None, output_factors = (), options: AffineNewtonOptions \| NewtonSolverOptions \| None = None, on_increment = None, acceptance_check = None, reporter = None, step_name: str = 'affine_nonlinear', step_number: int = 1) -&gt; tuple[object, AffineLoadPathInfo]</code></td>
+<td><code>solve_affine_nonlinear_path(residual_form, jacobian_form, solution, constraint, *, load_factors = None, incrementation = None, output_factors = (), options: AffineNewtonOptions \| NewtonSolverOptions \| None = None, on_increment = None, on_accepted_boundary = None, on_acceptance_failure = None, acceptance_check = None, state_transaction = None, stop_factor: float = 1.0, accepted_history = (), attempted_history = (), next_increment_size: float \| None = None, reporter = None, step_name: str = 'affine_nonlinear', step_number: int = 1) -&gt; tuple[object, AffineLoadPathInfo]</code></td>
 <td>Solve a nonlinear path under <code>u = T q + u_bar</code> constraints.</td>
 </tr>
 </tbody>
@@ -7459,7 +7474,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>affine_nonlinear(residual, solution, *, jacobian, constraint, load_factors = None, incrementation = None, solver_options: AffineNewtonOptions \| NewtonSolverOptions \| None = None, output_every: int \| None = 1, output_factors = (), acceptance_check = None, progress = True, status_file = None, name: str = 'affine_nonlinear') -&gt; AffineNonlinearVariationalProblem</code></td>
+<td><code>affine_nonlinear(residual, solution, *, jacobian, constraint, load_factors = None, incrementation = None, solver_options: AffineNewtonOptions \| NewtonSolverOptions \| None = None, output_every: int \| None = 1, output_factors = (), state_transaction = None, checkpoint_policy = None, acceptance_check = None, progress = True, status_file = None, name: str = 'affine_nonlinear', procedure = None) -&gt; AffineNonlinearVariationalProblem</code></td>
 <td>Create a nonlinear problem reduced by an affine constraint map.</td>
 </tr>
 <tr>

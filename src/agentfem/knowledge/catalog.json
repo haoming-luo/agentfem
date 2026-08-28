@@ -134,6 +134,13 @@
       "title": "Finite-strain logarithmic J2 material and global paths"
     },
     {
+      "id": "agentfem.benchmark.finite_strain_j2_zhang_2021_table5",
+      "physics": "Plane-strain periodic composite with two stiff circular inclusions, one circular void, logarithmic finite-strain J2 matrix plasticity, elastic inclusions, and macroscopic simple shear.",
+      "source": "src/agentfem/knowledge/benchmarks/finite_strain_j2_zhang_2021_table5.json",
+      "status": "experimental_external_fixture_not_promoted",
+      "title": "Zhang--Feng--Khandelwal finite-strain periodic composite, Table 5"
+    },
+    {
       "id": "agentfem.benchmark.implicit_creep_relaxation",
       "physics": "three-dimensional small-strain isotropic Mises power-law creep",
       "source": "src/agentfem/knowledge/benchmarks/implicit_creep_relaxation.json",
@@ -423,6 +430,7 @@
         "agentfem.constitutive.MaterialPointBatchResult",
         "agentfem.constitutive.finite_strain_j2_logarithmic",
         "agentfem.constitutive.update_material_points",
+        "agentfem.models.Model.step",
         "agentfem.mechanics.experimental_finite_strain_j2_step"
       ],
       "related_cards": [
@@ -431,8 +439,8 @@
       ],
       "source": "src/agentfem/knowledge/cards/finite_strain_j2_logarithmic.json",
       "status": "experimental",
-      "summary": "Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, typed Fp/PEEQ state, a rollback-safe generic quadrature batch, and a numerically verified discrete first-Piola tangent.",
-      "title": "Finite-strain logarithmic J2 material point"
+      "summary": "Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, and a public three-dimensional affine-periodic model.step route with provider-owned quadrature evidence and portable accepted-state restart.",
+      "title": "Finite-strain logarithmic J2 plasticity"
     },
     {
       "id": "agentfem.material.finite_strain_plane_stress",

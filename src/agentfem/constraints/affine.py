@@ -13,7 +13,9 @@ constraint graph and delegate ownership-aware assembly to ``dolfinx_mpc``.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha256
 from itertools import product
+import json
 from typing import Mapping
 
 import numpy as np
@@ -331,6 +333,78 @@ class AbaqusPeriodicConstraint:
                     values[(int(label), component)] = float(load_factor) * float(value)
         return values
 
+    def scientific_identity(self) -> dict[str, object]:
+        """Return a backend- and partition-independent constraint fingerprint."""
+
+        equations = []
+        labels = set(self.control_nodes)
+        for equation in self.equations.equations:
+            first, *dependencies = equation.terms
+            labels.update(int(term.node) for term in equation.terms)
+            equations.append(
+                {
+                    "slave": {
+                        "node": int(first.node),
+                        "dof": int(first.dof),
+                        "coefficient": float(first.coefficient),
+                    },
+                    "dependencies": sorted(
+                        (
+                            {
+                                "node": int(term.node),
+                                "dof": int(term.dof),
+                                "coefficient": float(term.coefficient),
+                            }
+                            for term in dependencies
+                        ),
+                        key=lambda item: (
+                            item["node"], item["dof"], item["coefficient"]
+                        ),
+                    ),
+                }
+            )
+        equations.sort(
+            key=lambda item: (
+                item["slave"]["node"],
+                item["slave"]["dof"],
+                item["slave"]["coefficient"],
+            )
+        )
+        payload = {
+            "kind": "abaqus_periodic_constraint",
+            "equations": equations,
+            "nodes": [
+                {
+                    "label": int(label),
+                    "coordinate": self.nodes.coordinate(int(label)).tolist(),
+                }
+                for label in sorted(labels)
+            ],
+            "anchor_node": int(self.anchor_node),
+            "reference_nodes": [int(value) for value in self.reference_nodes],
+            "control_displacements": [
+                [None if value is None else float(value) for value in row]
+                for row in self.control_displacements
+            ],
+            "nominal_deformation_gradient": self.deformation_gradient.tolist(),
+            "tolerance": float(self.tolerance),
+            "reference_cell_volume": float(self.reference_cell_volume),
+        }
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return {
+            "kind": payload["kind"],
+            "fingerprint": sha256(canonical.encode("utf-8")).hexdigest(),
+            "equation_count": len(equations),
+            "referenced_node_count": len(labels),
+            "anchor_node": payload["anchor_node"],
+            "reference_nodes": payload["reference_nodes"],
+            "control_displacements": payload["control_displacements"],
+            "nominal_deformation_gradient": payload[
+                "nominal_deformation_gradient"
+            ],
+            "reference_cell_volume": payload["reference_cell_volume"],
+        }
+
     @property
     def reference_cell_volume(self) -> float:
         """Return the lattice-cell volume implied by the control nodes."""
@@ -564,14 +638,18 @@ class AbaqusPeriodicConstraint:
             dtype=np.int64,
         )
         control_local = index_map.global_to_local(control_globals)
-        control_blocks = [
-            int(block)
-            for block in control_local
-            if int(block) >= 0
-        ]
+        # DOLFINx records the owned/ghost split of a Dirichlet dof array as a
+        # single prefix position.  Preserve that contract explicitly: local
+        # owned blocks are numbered before ghosts, whereas control-node order
+        # is unrelated to partition ownership.  Passing an unsorted sequence
+        # such as ``[ghost, ghost, owned]`` makes the owned prefix appear empty
+        # and leaves the corresponding global matrix rows unconstrained.
+        control_blocks = np.unique(
+            control_local[control_local >= 0]
+        ).astype(np.int32, copy=False)
         control_bc = fem.dirichletbc(
             np.zeros(block_size, dtype=PETSc.ScalarType),
-            np.asarray(control_blocks, dtype=np.int32),
+            control_blocks,
             space,
         )
         full_size = int(index_map.size_global * block_size)

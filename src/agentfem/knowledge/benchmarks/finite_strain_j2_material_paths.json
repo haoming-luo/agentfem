@@ -4,12 +4,12 @@
   "id": "agentfem.benchmark.finite_strain_j2_material_paths",
   "title": "Finite-strain logarithmic J2 material and global paths",
   "status": "experimental_automated_global_mpi_restart",
-  "purpose": "Verify the local multiplicative update, generic quadrature transaction, gated total-Lagrangian consumer, distributed assembly, and cross-partition restart before the public finite-element workflow is promoted.",
+  "purpose": "Verify the local multiplicative update, generic quadrature transaction, public affine-periodic total-Lagrangian consumer, regional distributed assembly, and cross-partition restart.",
   "physics": "three-dimensional rate-independent finite-strain J2 plasticity with quadratic Hencky elasticity and linear isotropic hardening",
   "execution": {
-    "command": "python -m pytest -q tests/test_finite_strain_plasticity.py; mpirun -n 2 python tests/finite_strain_j2_mpi_driver.py; run tests/portable_finite_strain_j2_driver.py in 2-to-1 and 1-to-2 rank workflows",
+    "command": "python -m pytest -q tests/test_finite_strain_plasticity.py tests/test_finite_strain_j2_periodic.py tests/test_finite_strain_j2_material_map.py tests/test_affine_j2_automatic_restart.py tests/test_periodic_void_fixture.py && agentfem mpi-run -n 2 -- python -m pytest -q tests/test_parallel_affine.py && agentfem mpi-run -n 2 -- python tests/parallel_periodic_void_j2_driver.py",
     "example": "docs/nonlinear_solid_architecture.md",
-    "evidence": "Independent material paths exercise rigid and superposed rotations, isochoric plastic flow, yield consistency, unloading and reversal, fixed-old-state tangent comparison, atomic quadrature commit or rollback, serial and two-rank 3D displacement-controlled global patches, forced physical cutback, and portable restart after changing MPI rank count."
+    "evidence": "Independent material paths exercise rigid and superposed rotations, isochoric plastic flow, yield consistency, unloading and reversal, fixed-old-state tangent comparison, atomic quadrature commit or rollback, public serial and two-rank affine-periodic cells, compatible regional materials, forced physical cutback, true-void execution, and portable restart after changing MPI rank count. Cross-rank restart drivers are retained as explicit workflow evidence outside the fast command list."
   },
   "observables": [
     "Cauchy stress under rigid and superposed rotations.",

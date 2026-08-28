@@ -292,6 +292,32 @@ _BENCHMARKS = (
         ),
     ),
     BenchmarkSpec(
+        identifier="finite_strain_j2_zhang_2021_table5",
+        capability="finite_strain_j2_plasticity",
+        level="external_periodic_composite_promotion_gate",
+        reference=(
+            "knowledge/benchmarks/finite_strain_j2_zhang_2021_table5.json"
+        ),
+        criterion=(
+            "the published two-inclusion/one-void periodic composite must "
+            "reproduce Table 5 first-Piola stress, recoverable elastic "
+            "energy, and effective tangent within 3 percent after mesh, "
+            "plane-strain formulation, cell-size, and serial/MPI convergence"
+        ),
+        automated_test=(
+            "tests/test_zhang_2021_periodic_composite.py; "
+            "tests/zhang_2021_periodic_composite_driver.py"
+        ),
+        status="experimental_external_fixture_not_promoted",
+        evidence=(
+            "external_reference",
+            "geometry",
+            "regional_materials",
+            "periodic_constraint",
+            "failure_behavior",
+        ),
+    ),
+    BenchmarkSpec(
         identifier="creep_nafems_r0027_test7",
         capability="power_law_creep",
         level="external_structural_verification",

@@ -14,7 +14,7 @@ from dolfinx.io import XDMFFile
 import h5py
 
 from .field_catalog import resolve_field_variables
-from .finite_strain import finite_strain_cell_fields
+from .finite_strain import accepted_finite_strain_cell_fields, finite_strain_cell_fields
 
 
 @dataclass(frozen=True)
@@ -169,12 +169,17 @@ class FieldOutput:
         )
         per_frame_fields = []
         for snapshot in selected:
-            fields = finite_strain_cell_fields(
-                snapshot.solution,
-                material,
+            fields = accepted_finite_strain_cell_fields(
+                snapshot,
                 variables=cell_variables,
-                pressure=getattr(snapshot, "fields", {}).get("PRESSURE"),
             )
+            if fields is None:
+                fields = finite_strain_cell_fields(
+                    snapshot.solution,
+                    material,
+                    variables=cell_variables,
+                    pressure=getattr(snapshot, "fields", {}).get("PRESSURE"),
+                )
             per_frame_fields.append(fields)
 
         reference_xdmf = None

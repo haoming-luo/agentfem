@@ -486,6 +486,99 @@ def j2_plasticity(
     return model.add_step(step)
 
 
+def finite_strain_j2(
+    model,
+    *,
+    target,
+    material=None,
+    constraints=None,
+    incrementation=None,
+    solver_options=None,
+    quadrature_degree: int = 2,
+    output=None,
+    output_every: int | None = None,
+    checkpoint=None,
+    progress=True,
+    status_file=None,
+    name: str = "finite_strain_j2",
+):
+    """Build stateful finite-strain J2 with exact affine/MPC kinematics."""
+
+    from . import mechanics
+    from .constitutive import FiniteStrainJ2Logarithmic
+    from .constitutive import QuadratureMaterialMap
+
+    model.check(target=target, step_options={"material": material})
+    if hasattr(model.study, "require"):
+        model.study.require(analysis="nonlinear_static", physics="solid_mechanics")
+    if getattr(model.study, "dimension", None) != 3:
+        raise NotImplementedError("Finite-strain J2 currently requires a 3D Study.")
+    properties = _quadrature_material(
+        model,
+        target,
+        material,
+        material_type=FiniteStrainJ2Logarithmic,
+        label="model.step with finite-strain J2",
+    )
+    if not isinstance(
+        properties,
+        (FiniteStrainJ2Logarithmic, QuadratureMaterialMap),
+    ):
+        raise TypeError(
+            "model.step finite-strain J2 requires one or more regional "
+            "FiniteStrainJ2Logarithmic materials."
+        )
+    selected_constraints = _as_tuple(
+        model.constraints if constraints is None else constraints
+    )
+    affine = tuple(
+        item
+        for item in selected_constraints
+        if isinstance(item, constraint_api.AbaqusPeriodicConstraint)
+    )
+    if len(affine) != 1 or len(selected_constraints) != 1:
+        raise NotImplementedError(
+            "The first public finite-strain J2 lowering requires exactly one "
+            "AbaqusPeriodicConstraint. Ordinary strong-boundary loading remains "
+            "available through the compatibility experimental factory until its "
+            "result lifecycle is promoted."
+        )
+    if model.loads:
+        raise NotImplementedError(
+            "Affine finite-strain J2 currently accepts prescribed macroscopic "
+            "deformation without body-force or natural-load power."
+        )
+    if output is not None and output_every is not None:
+        raise ValueError("Pass output=... or output_every=..., not both.")
+    selected_output_every = (
+        getattr(output, "every", None)
+        if output is not None
+        else (None if output_every is None else int(output_every))
+    )
+    output_factors = (
+        output.required_factors()
+        if output is not None and hasattr(output, "required_factors")
+        else ()
+    )
+    problem = mechanics.finite_strain_j2_affine_problem(
+        displacement=target,
+        material=properties,
+        constraint=affine[0],
+        incrementation=incrementation,
+        solver_options=solver_options,
+        quadrature_degree=quadrature_degree,
+        output_every=selected_output_every,
+        output_factors=output_factors,
+        progress=progress,
+        status_file=status_file,
+        checkpoint_policy=checkpoint,
+        name=name,
+    )
+    if output is not None and hasattr(output, "bind"):
+        output.bind(problem, properties, has_external_power=False)
+    return model.add_step(problem)
+
+
 def creep(
     model,
     *,

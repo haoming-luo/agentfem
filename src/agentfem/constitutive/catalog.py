@@ -64,7 +64,7 @@ _CAPABILITIES = {
         limitations=(
             "3D only; plane stress needs a constrained local return map",
             "combined hardening is reported separately at experimental maturity",
-            "the separate finite-strain J2 provider is not yet a public model.step route",
+            "finite-strain J2 is a separate experimental affine-periodic capability and is not implied by this maturity",
         ),
     ),
     "finite_strain_j2_plasticity": ConstitutiveCapability(
@@ -78,15 +78,19 @@ _CAPABILITIES = {
             "three-dimensional material-point paths with F=Fe Fp, associated "
             "isochoric flow, radial return in elastic logarithmic-strain space, "
             "typed Fp/PEEQ state, first-Piola/deformation-gradient discrete "
-            "tangent verification, rollback-safe generic quadrature batches, "
-            "and a gated total-Lagrangian multi-element Newton path with "
-            "physical-increment cutback, two-rank distributed assembly, and "
-            "portable full-Step restart across MPI partition counts"
+            "tangent verification, and a public model.step route for one or "
+            "more explicitly partitioned compatible material regions in a "
+            "three-dimensional affine-periodic cell. The route uses "
+            "exact serial affine reduction or distributed dolfinx_mpc Newton, "
+            "rollback-safe provider-owned quadrature response/state, physical-"
+            "increment cutback, accepted-state output, and portable checkpoint/"
+            "restart across compatible MPI partition counts"
         ),
         limitations=(
-            "the global consumer is experimental and not registered under model.step",
-            "the correctness-first tangent uses numerical differentiation and is not a production-performance tangent",
-            "no finite-strain kinematic hardening, plane-stress constraint, damage, or external structural benchmark",
+            "the public route currently requires exactly one AbaqusPeriodicConstraint, prescribed macroscopic deformation, compatible regional materials sharing one state/tangent/energy contract, and no body or natural loads",
+            "the correctness-first tangent uses numerical differentiation; a production analytical tangent is not implemented",
+            "regional and two-phase execution/restart tests pass, but no independent external finite-strain plasticity structural or multi-material RVE benchmark has passed",
+            "finite-strain kinematic hardening, plane stress, thermal coupling, damage, and deletion are not implemented",
         ),
     ),
     "chaboche_plasticity": ConstitutiveCapability(

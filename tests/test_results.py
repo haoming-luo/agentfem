@@ -773,7 +773,10 @@ def test_standard_field_catalog_resolves_finite_strain_e_to_le():
         finite_strain=True,
     ) == ("U", "S", "LE", "MISES")
     assert results.field_variable("MISES").derived_from == ("S",)
-    assert results.field_variable("SENER").derived_from == ("S", "E")
+    # SENER is provider-owned: its derivation differs by constitutive model
+    # (for finite-strain J2 it is ELENER + HARDENER), so the generic catalog
+    # must not advertise one small-strain-only dependency.
+    assert results.field_variable("SENER").derived_from == ()
     assert results.field_output().variables == ("U", "S", "E", "MISES")
 
 

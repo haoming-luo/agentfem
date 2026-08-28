@@ -1,0 +1,70 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.finite_strain_j2_zhang_2021_table5",
+  "title": "Zhang--Feng--Khandelwal finite-strain periodic composite, Table 5",
+  "status": "experimental_external_fixture_not_promoted",
+  "purpose": "Provide an independent, fail-closed structure-level promotion gate for regional finite-strain J2 periodic-cell analysis without embedding external answers in solver logic.",
+  "physics": "Plane-strain periodic composite with two stiff circular inclusions, one circular void, logarithmic finite-strain J2 matrix plasticity, elastic inclusions, and macroscopic simple shear.",
+  "source": {
+    "authors": "J. Zhang, X. Feng and K. Khandelwal",
+    "title": "A computational framework for homogenization and multiscale stability analyses of nonlinear periodic materials",
+    "journal": "International Journal for Numerical Methods in Engineering 122 (2021), 6527--6575",
+    "doi": "https://doi.org/10.1002/nme.6802",
+    "open_manuscript": "https://arxiv.org/abs/2010.02371",
+    "reference": "Section 3.2.1, Figure 9, Table 5 and Appendix B",
+    "retrieved": "2026-08-28"
+  },
+  "parameters": {
+    "unit_cell": "unit square, plane strain, unit reference thickness",
+    "inclusion_centres": [[-0.2, 0.2], [-0.2, -0.2]],
+    "void_centre": [0.2, 0.0],
+    "diameter": 0.3,
+    "matrix_bulk_modulus": 17.5,
+    "matrix_shear_modulus": 8.0,
+    "matrix_initial_yield_stress": 0.45,
+    "matrix_linear_isotropic_hardening_modulus": 0.1,
+    "inclusion_stiffness_ratio": 100.0,
+    "inclusion_yield_stress": 1000000.0,
+    "macroscopic_deformation_gradient_order": ["11", "21", "12", "22"],
+    "macroscopic_deformation_gradient": [1.0, 0.0, 0.1, 1.0]
+  },
+  "oracle": {
+    "component_order": ["11", "21", "12", "22"],
+    "first_piola_stress": [0.0128, 0.1893, 0.1953, 0.0598],
+    "recoverable_elastic_energy_density": 0.002423,
+    "effective_tangent": [
+      [26.1954, -0.6689, 0.3549, 8.3450],
+      [-0.6689, 0.1601, 0.0503, -0.9698],
+      [0.3549, 0.0503, 0.2038, 0.9365],
+      [8.3450, -0.9698, 0.9365, 21.0161]
+    ]
+  },
+  "execution": {
+    "command": "python tests/zhang_2021_periodic_composite_driver.py --mesh-size 0.12 --thickness 0.10 --increments 4 --output outputs/zhang-2021",
+    "example": "docs/reference/rve_homogenization_and_statistics.md",
+    "fixture": "tests/zhang_2021_periodic_composite_fixture.py",
+    "evidence": "The fixture creates the published geometry with Gmsh physical regions, exact opposite-face periodic node pairing, the public affine-periodic constraint, regional finite-strain J2 materials, model.step, accepted quadrature state, and periodic-cell history. The assessment refuses promotion when any required observable or convergence axis is absent."
+  },
+  "observables": [
+    "Homogenized first-Piola stress in the published column-major order.",
+    "Recoverable Hencky elastic energy ELENER, excluding hardening storage and plastic dissipation.",
+    "Homogenized algorithmic tangent in the published component order.",
+    "Periodic equation mismatch and opposite-face pairing error.",
+    "Accepted-increment Hill--Mandel work residual.",
+    "Mesh, plane-strain formulation, cell-size, serial/MPI, and restart convergence evidence."
+  ],
+  "acceptance": [
+    "First-Piola stress, recoverable elastic energy, and effective tangent must each satisfy the declared 3 percent relative-error contract.",
+    "The result must be converged with respect to mesh and the numerical plane-strain representation; the current thin-extrusion route must include thickness convergence.",
+    "The 1x1, 1x2, 2x1, and 2x2 cells must preserve the published cell-size invariance.",
+    "Serial and MPI execution and checkpoint/restart must preserve the accepted response.",
+    "Missing evidence produces incomplete; any available observable outside tolerance produces failed."
+  ],
+  "limitations": [
+    "The publication uses a mixed displacement--pressure 9/3 element to avoid locking from incompressible plastic flow. The current fixture lowers the problem through displacement-only P1 tetrahedra in a thin three-dimensional extrusion; this is the leading diagnosis and still requires a locking-resistant A/B confirmation.",
+    "The published elastic inclusions are represented in the shared regional transaction by the same J2 provider with an intentionally unreachable yield stress; they remain elastic over the declared path but are not a distinct elastic constitutive implementation.",
+    "Coarse diagnostic runs preserve exact periodic kinematics and small Hill--Mandel residuals but do not reproduce Table 5 within tolerance; the benchmark is therefore not promoted.",
+    "A production mixed finite-strain J2 plane-strain route and a homogenized consistent tangent remain required before this external gate can pass."
+  ]
+}

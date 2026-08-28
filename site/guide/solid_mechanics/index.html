@@ -583,6 +583,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#finite-strain-periodic-plasticity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finite-strain periodic plasticity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#go-deeper" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1258,6 +1269,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#finite-strain-periodic-plasticity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finite-strain periodic plasticity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#go-deeper" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1404,6 +1426,11 @@ layer.</p>
 <td>Stateful elastoplastic loading with consistent tangent</td>
 </tr>
 <tr>
+<td>Finite-strain logarithmic J2</td>
+<td>Experimental public path</td>
+<td>Regional-material 3D affine-periodic cells with MPI state, output, and restart</td>
+</tr>
+<tr>
 <td>Small-strain power-law creep</td>
 <td>Engineering path</td>
 <td>3D or axisymmetric stateful creep with adaptive physical time</td>
@@ -1439,6 +1466,26 @@ directly, pass <code>study=study</code> to request the same physical measure. Se
 If the meridian reaches <code>r=0</code>, register
 <code>constraints.axisymmetric_axis(u, on=axis)</code>; model validation warns when that
 regularity declaration is absent.</p>
+<h2 id="finite-strain-periodic-plasticity">Finite-strain periodic plasticity<a class="headerlink" href="#finite-strain-periodic-plasticity" title="Permanent link">&para;</a></h2>
+<p><code>constitutive.finite_strain_j2_logarithmic(...)</code> is lowered by the ordinary
+<code>model.step(...)</code> interface when a three-dimensional nonlinear-static model
+contains compatible explicitly partitioned material regions and exactly one
+<code>AbaqusPeriodicConstraint</code>. The current
+route prescribes the macroscopic deformation gradient; it does not yet accept
+body or natural loads. Serial execution uses exact affine reduction and MPI
+execution uses the reviewed <code>dolfinx_mpc</code> reduction.</p>
+<p>Accepted increments retain provider-owned quadrature fields <code>F</code>, <code>P</code>, <code>S</code>,
+<code>MISES</code>, <code>SENER</code>, <code>ELENER</code>, <code>HARDENER</code>, <code>FP</code>, and <code>PEEQ</code>, with separately
+named cell averages for visualization. For this material,
+<code>SENER = ELENER + HARDENER</code>; it records recoverable elastic and hardening
+storage, not accumulated plastic dissipation. The same accepted boundary can
+be checkpointed and restored across a compatible MPI repartition. This route
+remains experimental. The true spherical-void RVE has geometric pairing,
+positive-J, Hill--Mandel, public-lifecycle, and two-rank execution evidence,
+while the independent Zhang et al.
+periodic-composite gate currently fails rather than being promoted. A mixed
+displacement--pressure route for near-incompressible plasticity and a
+production analytical tangent are not yet complete.</p>
 <h2 id="go-deeper">Go deeper<a class="headerlink" href="#go-deeper" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../nonlinear_solid_architecture/">Nonlinear solid architecture</a></li>

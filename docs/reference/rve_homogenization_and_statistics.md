@@ -131,9 +131,9 @@ AgentFEM reports
 \arccos\left(\frac{27J_3}{2q^3}\right).
 \]
 
-This normalized Lode convention gives (+1) for axisymmetric tension, (0)
-for pure shear and (-1) for axisymmetric compression.  When (q) vanishes,
-(eta) and (ar\theta) are undefined.  NPZ output uses `NaN`; structured
+This normalized Lode convention gives \(+1\) for axisymmetric tension, \(0\)
+for pure shear and \(-1\) for axisymmetric compression. When \(q\) vanishes,
+\(\eta\) and \(\bar\theta\) are undefined. NPZ output uses `NaN`; structured
 result histories use a zero placeholder together with
 `homogenized_stress_state_defined=0`.
 
@@ -186,19 +186,98 @@ summary = quadrature_state.equivalent_plastic_strain.weighted_statistics(
 )
 ```
 
+## External finite-strain composite benchmark
+
+The Zhang--Feng--Khandelwal (2021) nonlinear periodic-material benchmark is
+the promotion target for the regional finite-strain J2 route. Its unit square
+contains two stiff circular inclusions of diameter \(0.3\), centred at
+\((-0.2,0.2)\) and \((-0.2,-0.2)\), and one circular void of the same diameter
+centred at \((0.2,0)\). The matrix parameters are
+\(\kappa=17.5\), \(\mu=8\), \(\sigma_y=0.45\), and \(H=0.1\); the inclusions are
+100 times stiffer and remain elastic. Table 5 applies macroscopic simple shear
+\(\bar F_{12}=0.1\) and reports, in column-major order
+\((11,21,12,22)\),
+
+\[
+\bar{\mathbf P}=
+(0.0128,\ 0.1893,\ 0.1953,\ 0.0598)^T,
+\qquad
+\bar\psi_e=2.423\times10^{-3}.
+\]
+
+In the same component order, the published effective tangent is
+
+\[
+\bar{\mathbb A}=
+\begin{bmatrix}
+26.1954 & -0.6689 & 0.3549 & 8.3450 \\
+-0.6689 & 0.1601 & 0.0503 & -0.9698 \\
+0.3549 & 0.0503 & 0.2038 & 0.9365 \\
+8.3450 & -0.9698 & 0.9365 & 21.0161
+\end{bmatrix}.
+\]
+
+The AgentFEM fixture retains these values as an external oracle with an
+explicit component convention; none of them enters the solver logic.
+
+The material equations have also been compared directly. Both routes use the
+multiplicative split \(\mathbf F=\mathbf F_e\mathbf F_p\), a quadratic Hencky
+elastic energy, a Kirchhoff-stress \(J_2\) surface and linear isotropic
+hardening. The differing yield-function normalizations are algebraically
+equivalent. The leading diagnosis is therefore the discretization:
+the publication uses a two-dimensional mixed displacement--pressure high-order
+element, while the current public AgentFEM route uses displacement-only P1
+tetrahedra in a thin three-dimensional extrusion. Exact periodic pairing and a
+small Hill--Mandel residual do not remove volumetric locking or geometric
+approximation error. This diagnosis remains to be confirmed by a direct
+locking-resistant plane-strain A/B comparison.
+
+The current public finite-strain J2 provider is three-dimensional. The
+published plane-strain cell is therefore lowered as a thin periodic extrusion
+with \(F_{33}=1\), using the ordinary Gmsh import, physical material regions,
+`model.step(...)`, accepted quadrature transaction, and periodic-cell history.
+This is an **experimental benchmark fixture, not a passed benchmark**. The
+paper used a mixed displacement--pressure high-order element, whereas the
+current fixture uses the public low-order displacement route. Promotion
+requires all of the following:
+
+- mesh and numerical plane-strain-formulation convergence (for the current
+  thin extrusion, this includes thickness convergence);
+- periodic-cell-size invariance;
+- agreement of first-Piola stress and published elastic energy;
+- a homogenized algorithmic tangent compared in the published component order;
+- serial/MPI and checkpoint/restart equivalence.
+
+`tests/zhang_2021_periodic_composite_fixture.py` defines the geometry, material
+translation, oracle and fail-closed assessment. A missing tangent or missing
+convergence axis produces `incomplete`, even if one stress vector happens to
+be close. The 3 percent oracle may be tightened but cannot be relaxed, and
+acceptance requires explicit Boolean evidence for mesh, plane-strain
+formulation, cell-size, serial/MPI, and restart equivalence.
+`tests/test_zhang_2021_periodic_composite.py` verifies the fixture
+semantics without claiming the external result has passed.
+
 ## Verification and present boundary
 
 Current tests cover homogeneous finite-strain work equivalence, stress
 invariant conventions, sparse spatial output with complete accepted history,
 physical quadrature weights on distorted cells, validation failures and
-two-rank MPI reductions.  These tests establish the software contract; an RVE
-used for a material claim still requires its own mesh, loading-path and
-reference-result evidence.
+two-rank MPI reductions. The experimental finite-strain J2 route now enters
+this contract through public `model.step(...)` for single- or regional-material 3D
+affine-periodic cell. Macro averages and Hill--Mandel work are integrated from
+the provider-owned accepted quadrature `F`, `P`, `S`, `SENER`, `ELENER`, and
+`HARDENER` fields rather than reconstructed from a history-free material
+expression. Accepted-state
+checkpoint/restart preserves that state across compatible MPI rank-count
+changes.
 
-Finite-strain inelastic state evolution and stress-state-controlled macro
-loading are separate promotion gates.  The presence of this post-processing
-contract must not be read as a claim that finite-strain J2 plasticity is already
-validated.
+These tests establish the software contract; an RVE used for a material claim
+still requires its own mesh, loading-path, convergence, and reference-result
+evidence. Multi-material finite-strain J2 dispatch is now part of the
+experimental public affine route. The Zhang fixture makes the independent
+external comparison executable, but it has not yet passed its convergence and
+effective-tangent gates. Stress-state-controlled macro loading and a production
+analytical tangent remain separate promotion gates.
 
 ## References
 
@@ -213,3 +292,9 @@ validated.
    reversal and damage,” *International Journal of Material Forming* 12
    (2019), 339--353.
    [doi:10.1007/s12289-018-01466-z](https://doi.org/10.1007/s12289-018-01466-z).
+4. J. Zhang, X. Feng and K. Khandelwal, “A computational framework for
+   homogenization and multiscale stability analyses of nonlinear periodic
+   materials,” *International Journal for Numerical Methods in Engineering*
+   122 (2021), 6527--6575.
+   [doi:10.1002/nme.6802](https://doi.org/10.1002/nme.6802),
+   [open manuscript](https://arxiv.org/abs/2010.02371).

@@ -63,9 +63,13 @@ record.
     this same call; they are sampled after every accepted increment.
     A paused/restarted step may use the same call; the result identifies the
     artifact as a continuation segment and records its physical start time.
-    Stateful J2 and creep steps use the same `solve_result(output=...)` call:
-    raw quadrature state stays inspectable in the result, while explicitly
-    recovered `*_CELL` fields enter the visualization dataset. For implicit
+    Stateful small-strain J2, finite-strain affine-periodic J2, and creep steps
+    use the same `solve_result(output=...)` call: raw quadrature state stays
+    inspectable in the result, while explicitly recovered `*_CELL` fields enter
+    the visualization dataset. The finite-strain J2 route additionally writes
+    accepted provider-owned
+    `F/P/S/MISES/SENER/ELENER/HARDENER/FP/PEEQ` rather than rebuilding them
+    from a stateless material expression. For implicit
     creep, keep Newton convergence, maximum accepted CEEQ increment, and the
     optional endpoint creep-rate time-error tolerance as separate acceptance
     decisions. Declare a model unit system when time histories require a

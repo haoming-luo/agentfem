@@ -376,10 +376,13 @@ class StepProviderRegistry:
                     f"procedure {request.procedure.summary()!r}."
                 )
             created.procedure = request.procedure
+        context_material = _selected_material(model, request)
+        if context_material is None:
+            context_material = getattr(created, "material", None)
         context = StepExecutionContext(
             model=model,
             target=request.target,
-            material=_selected_material(model, request),
+            material=context_material,
             policy=request.execution_policy,
         )
         try:
@@ -878,6 +881,53 @@ def _accept_j2(model, request: StepRequest) -> bool:
     )
 
 
+def _accept_finite_strain_j2(model, request: StepRequest) -> bool:
+    from .constitutive import FiniteStrainJ2Logarithmic
+    from .constraints import AbaqusPeriodicConstraint
+
+    study = getattr(model, "study", None)
+    selected_constraints = request.option("constraints")
+    if selected_constraints is None:
+        selected_constraints = tuple(getattr(model, "constraints", ()))
+    if not isinstance(selected_constraints, (tuple, list)):
+        selected_constraints = (selected_constraints,)
+    return (
+        getattr(study, "physics", None) == "solid_mechanics"
+        and getattr(study, "dimension", None) == 3
+        and _is_vector_target(request.target)
+        and _all_materials_support(
+            model,
+            request,
+            lambda item: isinstance(item, FiniteStrainJ2Logarithmic),
+        )
+        and len(selected_constraints) == 1
+        and isinstance(selected_constraints[0], AbaqusPeriodicConstraint)
+    )
+
+
+def _lower_finite_strain_j2(model, request: StepRequest):
+    from . import _step_builders
+
+    options = dict(request.options)
+    material = _selected_material(model, request)
+    options.pop("material", None)
+    for legacy_name in ("K", "F"):
+        legacy_value = options.pop(legacy_name, None)
+        if legacy_value is not None:
+            raise ValueError(
+                f"Finite-strain J2 does not consume legacy {legacy_name}=; "
+                "declare material, constraints and solver options explicitly."
+            )
+    name = options.pop("name", None) or "finite_strain_j2"
+    return _step_builders.finite_strain_j2(
+        model,
+        target=request.target,
+        material=material,
+        name=name,
+        **options,
+    )
+
+
 def _lower_j2(model, request: StepRequest):
     from . import _step_builders
 
@@ -1327,6 +1377,28 @@ register_step_provider(
         description="Lower K/F engineering operators to a linear static solve.",
         procedure="standard/linear",
         option_contract=_option_contract(),
+    )
+)
+register_step_provider(
+    StepProvider(
+        name="finite_strain_j2_affine_static",
+        analyses=("nonlinear_static",),
+        accepts=_accept_finite_strain_j2,
+        lower=_lower_finite_strain_j2,
+        priority=130,
+        description=(
+            "Lower logarithmic finite-strain J2 to provider-owned quadrature "
+            "state and exact affine/MPC Newton equilibrium."
+        ),
+        procedure="standard/newton/stateful/affine_mpc",
+        option_contract=_option_contract(
+            "incrementation",
+            "quadrature_degree",
+            "output_every",
+            "progress",
+            "status_file",
+            "checkpoint",
+        ),
     )
 )
 register_step_provider(

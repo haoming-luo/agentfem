@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+import json
 from pathlib import Path
 from time import perf_counter
 
 import numpy as np
 import ufl
 from dolfinx import fem
+from mpi4py import MPI
 from petsc4py import PETSc
 
 from . import assembly
@@ -772,6 +774,8 @@ class AffineNonlinearVariationalProblem:
     procedure: object | None = None
     result_field_factory: object | None = None
     snapshot_field_factory: object | None = None
+    state_transaction: object | None = None
+    checkpoint_policy: object | None = None
     acceptance_check: object | None = None
     accepted_observers: tuple[object, ...] = ()
     last_solve_info: object | None = field(default=None, init=False)
@@ -780,23 +784,124 @@ class AffineNonlinearVariationalProblem:
         default_factory=dict,
         init=False,
     )
+    execution_events: list[object] = field(default_factory=list, init=False)
+    checkpoints: list[object] = field(default_factory=list, init=False)
+    accepted_load_factor: float = field(default=0.0, init=False)
+    accepted_increments: list[object] = field(default_factory=list, init=False)
+    attempted_increments: list[object] = field(default_factory=list, init=False)
+    next_increment_size: float | None = field(default=None, init=False)
 
-    def solve(self):
+    def solve(self, *, until: float = 1.0):
+        """Advance to an accepted load factor without discarding prior history."""
+
+        selected_until = float(until)
+        if not np.isfinite(selected_until) or not 0.0 < selected_until <= 1.0:
+            raise ValueError("Affine solve until must be finite and in (0, 1].")
+        if selected_until <= self.accepted_load_factor + 1.0e-12:
+            raise ValueError(
+                "Affine solve until must exceed the currently accepted load factor."
+            )
         if self.output_every is not None and self.output_every <= 0:
             raise ValueError("Affine nonlinear output_every must be positive.")
-        self.snapshots.clear()
-        initial_snapshot = _load_snapshot(
-            0,
-            0.0,
-            self.solution,
-            zero=True,
-            field_factory=self.snapshot_field_factory,
+        # Validate rollback support before initialization or any accepted
+        # observer is allowed to mutate its history.
+        initial_observer_state = _snapshot_accepted_observers(
+            self.accepted_observers,
+            comm=self.solution.function_space.mesh.comm,
         )
-        self.snapshots.append(initial_snapshot)
-        for observer in self.accepted_observers:
-            observer.reset(initial_snapshot)
+        initial_snapshots = list(self.snapshots)
+        initial_events = list(self.execution_events)
+        initial_solution = self.solution.x.array.copy()
+        initial_transaction_state = (
+            None
+            if self.state_transaction is None
+            else self.state_transaction.snapshot_accepted_boundary()
+        )
+        self.snapshots.clear()
+        fresh = self.accepted_load_factor <= 1.0e-12
+        try:
+            if fresh:
+                self.execution_events.clear()
+                if self.state_transaction is not None and hasattr(
+                    self.state_transaction, "initialize"
+                ):
+                    self.state_transaction.initialize()
+            elif self.state_transaction is not None:
+                transaction_factor = float(
+                    getattr(self.state_transaction, "accepted_factor", -1.0)
+                )
+                if abs(transaction_factor - self.accepted_load_factor) > 1.0e-12:
+                    raise RuntimeError(
+                        "Affine problem and material transaction disagree on the "
+                        "accepted load factor."
+                    )
+                if hasattr(self.state_transaction, "prepare_resume"):
+                    self.state_transaction.prepare_resume()
+            initial_snapshot = _load_snapshot(
+                len(self.accepted_increments),
+                self.accepted_load_factor,
+                self.solution,
+                zero=fresh,
+                zero_fields=self.state_transaction is None,
+                field_factory=self.snapshot_field_factory,
+            )
+            self.snapshots.append(initial_snapshot)
+            for observer in self.accepted_observers:
+                if not fresh and hasattr(observer, "prepare_resume"):
+                    observer.prepare_resume(initial_snapshot)
+                else:
+                    observer.reset(initial_snapshot)
+        except BaseException:
+            self.solution.x.array[:] = initial_solution
+            self.solution.x.scatter_forward()
+            if self.state_transaction is not None:
+                self.state_transaction.restore_accepted_boundary(
+                    initial_transaction_state
+                )
+            self.snapshots[:] = initial_snapshots
+            self.execution_events[:] = initial_events
+            _restore_accepted_observers(initial_observer_state)
+            raise
+
+        pending_acceptance = None
+
+        def acceptance_backup():
+            return {
+                "snapshots": list(self.snapshots),
+                "observers": _snapshot_accepted_observers(
+                    self.accepted_observers,
+                    comm=self.solution.function_space.mesh.comm,
+                ),
+                "accepted_load_factor": self.accepted_load_factor,
+                "accepted_increments": list(self.accepted_increments),
+                "attempted_increments": list(self.attempted_increments),
+                "next_increment_size": self.next_increment_size,
+                "execution_events": list(self.execution_events),
+                "checkpoints": list(self.checkpoints),
+            }
+
+        def restore_pending_acceptance():
+            nonlocal pending_acceptance
+            if pending_acceptance is None:
+                return
+            state = pending_acceptance
+            self.snapshots[:] = state["snapshots"]
+            _restore_accepted_observers(state["observers"])
+            self.accepted_load_factor = state["accepted_load_factor"]
+            self.accepted_increments[:] = state["accepted_increments"]
+            self.attempted_increments[:] = state["attempted_increments"]
+            self.next_increment_size = state["next_increment_size"]
+            self.execution_events[:] = state["execution_events"]
+            self.checkpoints[:] = state["checkpoints"]
+            pending_acceptance = None
 
         def capture(index, factor, solution, solve_info):
+            nonlocal pending_acceptance
+            if pending_acceptance is not None:
+                raise RuntimeError(
+                    "An accepted-boundary callback transaction is already active."
+                )
+            pending_acceptance = acceptance_backup()
             save_by_increment = (
                 self.output_every is not None
                 and index % self.output_every == 0
@@ -810,31 +915,82 @@ class AffineNonlinearVariationalProblem:
                 or save_by_factor
                 or abs(factor - 1.0) <= 1.0e-12
             )
-            accepted_snapshot = None
-            if self.accepted_observers or should_save:
-                accepted_snapshot = _load_snapshot(
-                    index,
-                    factor,
-                    solution,
-                    solve_info=solve_info,
-                    field_factory=self.snapshot_field_factory,
+            try:
+                accepted_snapshot = None
+                if self.accepted_observers or should_save:
+                    accepted_snapshot = _load_snapshot(
+                        index,
+                        factor,
+                        solution,
+                        solve_info=solve_info,
+                        field_factory=self.snapshot_field_factory,
+                    )
+                for observer in self.accepted_observers:
+                    observer.accept(accepted_snapshot)
+                if should_save:
+                    self.snapshots.append(accepted_snapshot)
+            except BaseException:
+                restore_pending_acceptance()
+                raise
+
+        def accept_boundary(
+            _solution,
+            accepted_history,
+            attempted_history,
+            next_increment_size,
+        ):
+            """Synchronize and checkpoint one fully committed boundary."""
+
+            nonlocal pending_acceptance
+            if pending_acceptance is None:
+                pending_acceptance = acceptance_backup()
+            try:
+                self.accepted_increments[:] = list(accepted_history)
+                self.attempted_increments[:] = list(attempted_history)
+                self.accepted_load_factor = float(
+                    accepted_history[-1].load_factor
                 )
-            for observer in self.accepted_observers:
-                observer.accept(accepted_snapshot)
-            if should_save:
-                self.snapshots.append(accepted_snapshot)
+                self.next_increment_size = next_increment_size
+                policy = self.checkpoint_policy
+                if policy is not None:
+                    increment = len(self.accepted_increments)
+                    due = increment % int(policy.every) == 0
+                    due = due or (
+                        bool(policy.final)
+                        and self.accepted_load_factor >= 1.0 - 1.0e-12
+                    )
+                    if due:
+                        self.save_checkpoint(
+                            policy.path(
+                                step_name=self.name,
+                                increment=increment,
+                            ),
+                            portable=bool(policy.portable),
+                        )
+                        _prune_affine_checkpoints(self)
+            except BaseException:
+                restore_pending_acceptance()
+                raise
+            pending_acceptance = None
 
-        from .diagnostics import StandardRunReporter, comm_of
+        from .diagnostics import (
+            SolveEventRecorder,
+            StandardRunReporter,
+            comm_of,
+            compose_reporters,
+        )
 
+        recorder = SolveEventRecorder(self.execution_events)
         if self.progress is True:
-            reporter = StandardRunReporter(
+            visible_reporter = StandardRunReporter(
                 comm_of(self.solution),
                 status_file=self.status_file,
             )
         elif self.progress in (False, None):
-            reporter = None
+            visible_reporter = None
         else:
-            reporter = self.progress
+            visible_reporter = self.progress
+        reporter = compose_reporters(recorder, visible_reporter)
         solution, info = solve_affine_nonlinear_path(
             self.residual_form,
             self.jacobian_form,
@@ -845,13 +1001,414 @@ class AffineNonlinearVariationalProblem:
             output_factors=self.output_factors,
             options=self.solver_options,
             on_increment=capture,
+            on_accepted_boundary=accept_boundary,
+            on_acceptance_failure=restore_pending_acceptance,
             acceptance_check=self.acceptance_check,
+            state_transaction=self.state_transaction,
+            stop_factor=selected_until,
+            accepted_history=self.accepted_increments,
+            attempted_history=self.attempted_increments,
+            next_increment_size=self.next_increment_size,
             reporter=reporter,
             step_name=self.name,
             step_number=self.step_number,
         )
         self.last_solve_info = info
+        self.accepted_increments[:] = list(info.increments)
+        self.attempted_increments[:] = list(info.attempts)
+        self.accepted_load_factor = (
+            self.accepted_load_factor
+            if not info.increments
+            else float(info.increments[-1].load_factor)
+        )
+        self.next_increment_size = info.next_increment_size
         return solution
+
+    def _checkpoint_identity(self) -> dict[str, object]:
+        """Return the partition-independent scientific identity of this path."""
+
+        from .checkpointing import function_portable_identity
+
+        transaction = self.state_transaction
+        material = getattr(transaction, "material", getattr(self, "material", None))
+        response = getattr(transaction, "response", getattr(self, "response", None))
+        constraint_identity = (
+            self.constraint.scientific_identity()
+            if hasattr(self.constraint, "scientific_identity")
+            else self.constraint.summary()
+        )
+        return {
+            "step_name": self.name,
+            "procedure": (
+                self.procedure.summary()
+                if hasattr(self.procedure, "summary")
+                else self.procedure
+            ),
+            "material": (
+                material.summary() if hasattr(material, "summary") else material
+            ),
+            "state_schema": (
+                response.state.state_schema.summary()
+                if response is not None
+                else None
+            ),
+            "quadrature_degree": (
+                None if response is None else int(response.state.degree)
+            ),
+            "incrementation": (
+                self.incrementation.summary()
+                if hasattr(self.incrementation, "summary")
+                else self.incrementation
+            ),
+            "solver_options": (
+                self.solver_options.summary()
+                if hasattr(self.solver_options, "summary")
+                else self.solver_options
+            ),
+            "solution": function_portable_identity(self.solution),
+            "constraint": constraint_identity,
+            "accepted_history_recorders": {
+                name: {"kind": type(recorder).__name__}
+                for name, recorder in sorted(
+                    self.accepted_history_recorders.items()
+                )
+            },
+        }
+
+    @staticmethod
+    def _checkpoint_manifest_path(path) -> Path:
+        selected = Path(path)
+        if selected.name.endswith(".checkpoint.json"):
+            return selected
+        if selected.suffix:
+            selected = selected.with_suffix("")
+        return selected.with_name(selected.name + ".checkpoint.json")
+
+    def save_checkpoint(self, path, *, portable: bool | None = None) -> Path:
+        """Save one accepted affine state and its complete path evidence.
+
+        The stable stateful route always writes coordinate/cell-keyed state.
+        This is deliberately stronger than a rank-local default: the same
+        checkpoint can be resumed with a different compatible MPI partition.
+        """
+
+        if self.state_transaction is None:
+            raise TypeError("Affine checkpointing requires a state transaction.")
+        comm = self.solution.function_space.mesh.comm
+        local_problem = None
+        if abs(
+            float(self.state_transaction.accepted_factor)
+            - self.accepted_load_factor
+        ) > 1.0e-12:
+            local_problem = (
+                "Checkpointing is permitted only at a fully accepted "
+                "material state."
+            )
+        elif not np.allclose(
+            self.solution.x.array,
+            self.state_transaction.accepted_solution.x.array,
+            rtol=0.0,
+            atol=1.0e-12,
+        ):
+            local_problem = (
+                "Checkpointing is permitted only when U equals U_ACCEPTED."
+            )
+        problems = comm.allgather(local_problem)
+        if any(problem is not None for problem in problems):
+            rank = next(
+                index for index, problem in enumerate(problems)
+                if problem is not None
+            )
+            raise RuntimeError(f"Rank {rank}: {problems[rank]}")
+        # ``portable=False`` is retained for compatibility with the common
+        # policy API; the public affine format is intentionally always portable.
+        del portable
+        from .checkpointing import (
+            atomic_write_text,
+            checkpoint_file_record,
+            save_portable_state_bundle,
+        )
+        from .results import CheckpointRecord
+
+        manifest = self._checkpoint_manifest_path(path)
+        bundle = save_portable_state_bundle(
+            manifest,
+            state={
+                "U": self.solution,
+                "U_ACCEPTED": self.state_transaction.accepted_solution,
+            },
+        )
+        quadrature = self.state_transaction.response.state.save(
+            manifest.with_name(
+                f"{manifest.name.removesuffix('.checkpoint.json')}."
+                f"{bundle['generation']}.quadrature"
+            ),
+            material=self.state_transaction.material,
+        )
+        payload = {
+            "schema": "agentfem.affine-stateful-checkpoint.v1",
+            "identity": self._checkpoint_identity(),
+            "coordinate_name": "load_factor",
+            "coordinate": self.accepted_load_factor,
+            "writer_rank_count": int(self.solution.function_space.mesh.comm.size),
+            "portable": True,
+            "nodal_state": bundle["record"],
+            "nodal_identity": bundle["identities"],
+            "quadrature_state": checkpoint_file_record(quadrature),
+            "accepted_increments": [
+                item.as_dict() for item in self.accepted_increments
+            ],
+            "attempted_increments": [
+                item.as_dict() for item in self.attempted_increments
+            ],
+            "next_increment_size": self.next_increment_size,
+            "execution_events": [
+                item.as_dict() if hasattr(item, "as_dict") else dict(item)
+                for item in self.execution_events
+            ],
+            "accepted_observer_state": {
+                name: recorder.checkpoint_state()
+                for name, recorder in sorted(
+                    self.accepted_history_recorders.items()
+                )
+                if hasattr(recorder, "checkpoint_state")
+            },
+        }
+        error = None
+        if comm.rank == 0:
+            try:
+                atomic_write_text(
+                    manifest,
+                    json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                )
+            except Exception as exc:  # pragma: no cover - filesystem failure
+                error = f"{type(exc).__name__}: {exc}"
+        error = comm.bcast(error, root=0)
+        if error is not None:
+            raise RuntimeError(f"Affine checkpoint manifest write failed: {error}")
+        comm.barrier()
+        record = CheckpointRecord(
+            name=f"{self.name}_increment_{len(self.accepted_increments)}",
+            path=manifest,
+            schema=payload["schema"],
+            step_name=self.name,
+            coordinate_name="load_factor",
+            coordinate_value=self.accepted_load_factor,
+            portable=True,
+            metadata={
+                "accepted_increment_count": len(self.accepted_increments),
+                "writer_rank_count": int(comm.size),
+                "role": "accepted_state",
+            },
+        )
+        self.checkpoints[:] = [
+            item for item in self.checkpoints if item.path != manifest
+        ]
+        self.checkpoints.append(record)
+        return manifest
+
+    def load_checkpoint(self, path) -> None:
+        """Atomically restore an accepted affine state and resume metadata."""
+
+        if self.state_transaction is None:
+            raise TypeError("Affine checkpointing requires a state transaction.")
+        from .checkpointing import (
+            load_portable_state_bundle,
+            validate_checkpoint_record,
+        )
+        from .results import CheckpointRecord
+        from .solvers import AffineLoadIncrementInfo
+
+        manifest = self._checkpoint_manifest_path(path)
+        comm = self.solution.function_space.mesh.comm
+        envelope = None
+        if comm.rank == 0:
+            try:
+                envelope = {
+                    "payload": json.loads(manifest.read_text(encoding="utf-8")),
+                    "error": None,
+                }
+            except Exception as exc:
+                envelope = {
+                    "payload": None,
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+        envelope = comm.bcast(envelope, root=0)
+        if envelope["error"] is not None:
+            raise RuntimeError(
+                f"Affine checkpoint manifest read failed: {envelope['error']}"
+            )
+        payload = envelope["payload"]
+        if payload.get("schema") != "agentfem.affine-stateful-checkpoint.v1":
+            raise ValueError("Unsupported affine stateful checkpoint schema.")
+        current_identity = json.loads(
+            json.dumps(self._checkpoint_identity(), sort_keys=True)
+        )
+        if payload.get("identity") != current_identity:
+            raise ValueError(
+                "Affine checkpoint material, state, mesh, increment/solver "
+                "control, or constraint equations differ from the current "
+                "analysis."
+            )
+        validation = None
+        if comm.rank == 0:
+            try:
+                validate_checkpoint_record(
+                    manifest.parent,
+                    payload["nodal_state"],
+                )
+                quadrature_path = validate_checkpoint_record(
+                    manifest.parent,
+                    payload["quadrature_state"],
+                )
+                validation = {
+                    "quadrature_path": str(quadrature_path),
+                    "error": None,
+                }
+            except Exception as exc:
+                validation = {
+                    "quadrature_path": None,
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+        validation = comm.bcast(validation, root=0)
+        if validation["error"] is not None:
+            raise RuntimeError(
+                "Affine checkpoint payload validation failed: "
+                f"{validation['error']}"
+            )
+        quadrature_path = Path(validation["quadrature_path"])
+        solution_backup = self.solution.x.array.copy()
+        accepted_backup = self.state_transaction.accepted_solution.x.array.copy()
+        transaction_backup = self.state_transaction.snapshot_runtime_state()
+        lifecycle_backup = {
+            "accepted_load_factor": self.accepted_load_factor,
+            "accepted_increments": list(self.accepted_increments),
+            "attempted_increments": list(self.attempted_increments),
+            "next_increment_size": self.next_increment_size,
+            "execution_events": list(self.execution_events),
+            "last_solve_info": self.last_solve_info,
+            "snapshots": list(self.snapshots),
+            "checkpoints": list(self.checkpoints),
+        }
+        observer_backup = {
+            name: recorder.snapshot_runtime_state()
+            for name, recorder in self.accepted_history_recorders.items()
+            if hasattr(recorder, "snapshot_runtime_state")
+        }
+        try:
+            load_portable_state_bundle(
+                manifest,
+                state={
+                    "U": self.solution,
+                    "U_ACCEPTED": self.state_transaction.accepted_solution,
+                },
+                record=payload["nodal_state"],
+                identities=payload["nodal_identity"],
+            )
+            self.state_transaction.response.state.load(
+                quadrature_path,
+                material=self.state_transaction.material,
+            )
+            local_equal = np.allclose(
+                self.solution.x.array,
+                self.state_transaction.accepted_solution.x.array,
+                rtol=0.0,
+                atol=1.0e-12,
+            )
+            if not comm.allreduce(bool(local_equal), op=MPI.LAND):
+                raise ValueError("Affine checkpoint U and U_ACCEPTED differ.")
+            accepted = [
+                AffineLoadIncrementInfo.from_dict(item)
+                for item in payload["accepted_increments"]
+            ]
+            attempted = [
+                AffineLoadIncrementInfo.from_dict(item)
+                for item in payload["attempted_increments"]
+            ]
+            coordinate = float(payload["coordinate"])
+            if not accepted or abs(accepted[-1].load_factor - coordinate) > 1.0e-12:
+                raise ValueError(
+                    "Affine checkpoint coordinate and accepted history disagree."
+                )
+            self.accepted_increments[:] = accepted
+            self.attempted_increments[:] = attempted
+            self.accepted_load_factor = coordinate
+            self.next_increment_size = payload.get("next_increment_size")
+            self.execution_events[:] = [
+                SolveEvent.from_dict(item)
+                for item in payload.get("execution_events", ())
+            ]
+            self.state_transaction.accepted_factor = coordinate
+            self.state_transaction.prepare_resume()
+            observer_state = payload.get("accepted_observer_state", {})
+            if set(observer_state) != set(self.accepted_history_recorders):
+                raise ValueError(
+                    "Affine checkpoint observer history differs from the "
+                    "current output lifecycle."
+                )
+            current_snapshot = _load_snapshot(
+                len(accepted),
+                coordinate,
+                self.solution,
+                solve_info=accepted[-1],
+                field_factory=self.snapshot_field_factory,
+            )
+            for name, record in observer_state.items():
+                recorder = self.accepted_history_recorders[name]
+                if not hasattr(recorder, "restore_checkpoint_state"):
+                    raise TypeError(
+                        f"Accepted observer {name!r} is not restartable."
+                    )
+                recorder.restore_checkpoint_state(
+                    record,
+                    current_snapshot=current_snapshot,
+                )
+        except Exception:
+            self.solution.x.array[:] = solution_backup
+            self.solution.x.scatter_forward()
+            self.state_transaction.accepted_solution.x.array[:] = accepted_backup
+            self.state_transaction.accepted_solution.x.scatter_forward()
+            self.state_transaction.restore_runtime_state(transaction_backup)
+            self.accepted_load_factor = lifecycle_backup[
+                "accepted_load_factor"
+            ]
+            self.accepted_increments[:] = lifecycle_backup[
+                "accepted_increments"
+            ]
+            self.attempted_increments[:] = lifecycle_backup[
+                "attempted_increments"
+            ]
+            self.next_increment_size = lifecycle_backup[
+                "next_increment_size"
+            ]
+            self.execution_events[:] = lifecycle_backup["execution_events"]
+            self.last_solve_info = lifecycle_backup["last_solve_info"]
+            self.snapshots[:] = lifecycle_backup["snapshots"]
+            self.checkpoints[:] = lifecycle_backup["checkpoints"]
+            for name, state in observer_backup.items():
+                recorder = self.accepted_history_recorders.get(name)
+                if recorder is not None and hasattr(
+                    recorder,
+                    "restore_runtime_state",
+                ):
+                    recorder.restore_runtime_state(state)
+            raise
+        record = CheckpointRecord(
+            name=f"{self.name}_restart_{len(self.accepted_increments)}",
+            path=manifest,
+            schema=payload["schema"],
+            step_name=self.name,
+            coordinate_name="load_factor",
+            coordinate_value=self.accepted_load_factor,
+            portable=True,
+            metadata={
+                "writer_rank_count": payload.get("writer_rank_count"),
+                "reader_rank_count": int(comm.size),
+                "restart_mode": "portable_coordinate_and_cell_keyed_state",
+                "role": "restart_source",
+            },
+        )
+        self.checkpoints.append(record)
 
     def solve_result(
         self,
@@ -863,7 +1420,7 @@ class AffineNonlinearVariationalProblem:
     ):
         """Solve and complete one affine nonlinear result lifecycle."""
 
-        from .results import complete_result, from_solution
+        from .results import add_execution_trace, complete_result, from_solution
 
         solution = self.solve()
         generated = (
@@ -877,6 +1434,15 @@ class AffineNonlinearVariationalProblem:
             metadata={
                 "problem": self.summary(),
                 "solve": self.last_solve_info.as_dict(),
+                "state": (
+                    None
+                    if self.state_transaction is None
+                    else (
+                        self.state_transaction.summary()
+                        if hasattr(self.state_transaction, "summary")
+                        else {"kind": type(self.state_transaction).__name__}
+                    )
+                ),
             },
         )
         for field in generated[1:]:
@@ -896,11 +1462,22 @@ class AffineNonlinearVariationalProblem:
                 function,
                 location=_field_location(function),
             )
+        transaction_fields = ()
+        if self.state_transaction is not None and hasattr(
+            self.state_transaction, "populate_result"
+        ):
+            transaction_fields = tuple(
+                self.state_transaction.populate_result(result) or ()
+            )
+        for checkpoint in self.checkpoints:
+            result.add_checkpoint(checkpoint)
+        add_execution_trace(result, self.execution_events)
+        selected_completion_fields = (*transaction_fields, *tuple(fields))
         return complete_result(
             self,
             result,
             output=output,
-            fields=fields,
+            fields=selected_completion_fields,
             strict_output=strict_output,
             metadata=metadata,
         )
@@ -922,6 +1499,26 @@ class AffineNonlinearVariationalProblem:
             "snapshot_count": len(self.snapshots),
             "accepted_observers": tuple(
                 observer.summary() for observer in self.accepted_observers
+            ),
+            "execution_event_count": len(self.execution_events),
+            "accepted_load_factor": self.accepted_load_factor,
+            "accepted_increment_count": len(self.accepted_increments),
+            "attempted_increment_count": len(self.attempted_increments),
+            "next_increment_size": self.next_increment_size,
+            "checkpoint_policy": (
+                None
+                if self.checkpoint_policy is None
+                else self.checkpoint_policy.summary()
+            ),
+            "checkpoint_count": len(self.checkpoints),
+            "state_transaction": (
+                None
+                if self.state_transaction is None
+                else (
+                    self.state_transaction.summary()
+                    if hasattr(self.state_transaction, "summary")
+                    else {"kind": type(self.state_transaction).__name__}
+                )
             ),
             "step_number": self.step_number,
             "solver": (
@@ -2495,6 +3092,75 @@ def _apply_checkpoint_retention(step, policy) -> None:
     ]
 
 
+def _prune_affine_checkpoints(step) -> None:
+    """Apply the common retention policy to portable affine checkpoints."""
+
+    policy = getattr(step, "checkpoint_policy", None)
+    keep_last = None if policy is None else getattr(policy, "keep_last", None)
+    scheduled = [
+        record
+        for record in step.checkpoints
+        if record.metadata.get("role") != "restart_source"
+    ]
+    if keep_last is None or len(scheduled) <= int(keep_last):
+        return
+    from .checkpointing import remove_stateful_checkpoint
+
+    obsolete = scheduled[: -int(keep_last)]
+    comm = step.solution.function_space.mesh.comm
+    for record in obsolete:
+        remove_stateful_checkpoint(record.path, comm=comm)
+    removed = {id(record) for record in obsolete}
+    step.checkpoints[:] = [
+        record for record in step.checkpoints if id(record) not in removed
+    ]
+
+
+def _snapshot_accepted_observers(
+    observers,
+    *,
+    comm=None,
+) -> tuple[tuple[object, object], ...]:
+    """Capture every accepted-history observer before a boundary mutation."""
+
+    snapshots = []
+    local_problem = None
+    try:
+        for observer in observers:
+            capture = getattr(observer, "snapshot_runtime_state", None)
+            restore = getattr(observer, "restore_runtime_state", None)
+            if not callable(capture) or not callable(restore):
+                raise TypeError(
+                    "Accepted-increment observers must provide "
+                    "snapshot_runtime_state() and restore_runtime_state() so "
+                    "output/checkpoint failures cannot split the solve lifecycle; "
+                    f"got {type(observer).__name__}."
+                )
+            snapshots.append((observer, capture()))
+    except Exception as exc:
+        if comm is None or comm.size == 1:
+            raise
+        local_problem = f"{type(exc).__name__}: {exc}"
+    if comm is not None and comm.size > 1:
+        problems = comm.allgather(local_problem)
+        if any(problem is not None for problem in problems):
+            rank = next(
+                index for index, problem in enumerate(problems) if problem is not None
+            )
+            raise RuntimeError(
+                f"Rank {rank}: accepted-observer state snapshot failed: "
+                f"{problems[rank]}"
+            )
+    return tuple(snapshots)
+
+
+def _restore_accepted_observers(snapshots) -> None:
+    """Restore observers captured by ``_snapshot_accepted_observers``."""
+
+    for observer, state in snapshots:
+        observer.restore_runtime_state(state)
+
+
 def _save_transient_checkpoint(step, path, state, *, portable: bool = False) -> Path:
     from . import checkpointing
     from .results import CheckpointRecord
@@ -2899,10 +3565,13 @@ def affine_nonlinear(
     solver_options: AffineNewtonOptions | NewtonSolverOptions | None = None,
     output_every: int | None = 1,
     output_factors=(),
+    state_transaction=None,
+    checkpoint_policy=None,
     acceptance_check=None,
     progress=True,
     status_file=None,
     name: str = "affine_nonlinear",
+    procedure=None,
 ) -> AffineNonlinearVariationalProblem:
     """Create a nonlinear problem reduced by an affine constraint map."""
 
@@ -2924,11 +3593,17 @@ def affine_nonlinear(
             None if output_every is None else int(output_every)
         ),
         output_factors=tuple(float(value) for value in output_factors),
+        state_transaction=state_transaction,
+        checkpoint_policy=checkpoint_policy,
         acceptance_check=acceptance_check,
         progress=progress,
         status_file=status_file,
         name=name,
-        procedure=procedures.nonlinear_static(),
+        procedure=(
+            procedures.nonlinear_static(stateful=state_transaction is not None)
+            if procedure is None
+            else procedure
+        ),
     )
 
 
@@ -2963,6 +3638,7 @@ def _load_snapshot(
     *,
     solve_info=None,
     zero: bool = False,
+    zero_fields: bool | None = None,
     field_factory=None,
 ) -> LoadIncrementSnapshot:
     auxiliary = {}
@@ -2977,16 +3653,28 @@ def _load_snapshot(
     if not zero:
         copied.x.array[:] = selected.x.array
         copied.x.scatter_forward()
+    selected_zero_fields = bool(zero) if zero_fields is None else bool(zero_fields)
     copied_fields = {}
     for name, value in dict(auxiliary).items():
+        source = getattr(value, "function", value)
         field_copy = fem.Function(
-            value.function_space,
-            name=getattr(value, "name", str(name)),
+            source.function_space,
+            name=getattr(source, "name", str(name)),
         )
-        if not zero:
-            field_copy.x.array[:] = value.x.array
+        if not selected_zero_fields:
+            field_copy.x.array[:] = source.x.array
             field_copy.x.scatter_forward()
-        copied_fields[str(name)] = field_copy
+        if all(hasattr(value, item) for item in ("points", "weights", "value_shape")):
+            from .constitutive.quadrature import QuadratureField
+
+            copied_fields[str(name)] = QuadratureField(
+                function=field_copy,
+                points=np.asarray(value.points, dtype=float).copy(),
+                weights=np.asarray(value.weights, dtype=float).copy(),
+                value_shape=tuple(value.value_shape),
+            )
+        else:
+            copied_fields[str(name)] = field_copy
     return LoadIncrementSnapshot(
         index=int(index),
         load_factor=float(load_factor),

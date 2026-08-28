@@ -193,6 +193,102 @@ class QuadratureMaterialMap:
         cell = int(point) // int(points_per_cell)
         return self.materials[int(self.cell_regions[cell])]
 
+    def require_common_state_schema(self):
+        """Return the one state schema shared by every regional material.
+
+        One quadrature transaction has one named storage layout.  Regional
+        providers may carry different parameter values, but they cannot share
+        that transaction if their state variables differ.  Compare the full
+        schema record rather than trusting a reused name/version pair.
+        """
+
+        schemas = []
+        for region in sorted(self.materials):
+            selected = getattr(self.materials[region], "state_schema", None)
+            if selected is None or not hasattr(selected, "summary"):
+                raise TypeError(
+                    "Every regional material in a stateful quadrature map must "
+                    "declare state_schema."
+                )
+            schemas.append((region, selected))
+        reference = schemas[0][1]
+        expected = json.dumps(reference.summary(), sort_keys=True)
+        incompatible = [
+            region
+            for region, schema in schemas[1:]
+            if json.dumps(schema.summary(), sort_keys=True) != expected
+        ]
+        if incompatible:
+            raise ValueError(
+                "Regional stateful materials must share one complete state "
+                f"schema; incompatible regions={incompatible}."
+            )
+        return reference
+
+    def require_common_tangent_convention(self):
+        """Return the one global-Newton tangent convention used by the map."""
+
+        conventions = []
+        for region in sorted(self.materials):
+            selected = getattr(
+                self.materials[region],
+                "tangent_convention",
+                None,
+            )
+            if selected is None or not hasattr(selected, "summary"):
+                raise TypeError(
+                    "Every regional material in a stateful quadrature map must "
+                    "declare tangent_convention."
+                )
+            conventions.append((region, selected))
+        reference = conventions[0][1]
+        expected = json.dumps(reference.summary(), sort_keys=True)
+        incompatible = [
+            region
+            for region, convention in conventions[1:]
+            if json.dumps(convention.summary(), sort_keys=True) != expected
+        ]
+        if incompatible:
+            raise ValueError(
+                "Regional stateful materials must share one complete tangent "
+                f"convention; incompatible regions={incompatible}."
+            )
+        return reference
+
+    def require_common_stored_energy_component_names(self) -> tuple[str, ...]:
+        """Return the common optional stored-energy decomposition.
+
+        Regional materials may use different parameters, but a shared
+        quadrature response needs one stable set of named energy fields.  An
+        empty tuple is a valid declaration for providers that expose only the
+        legacy total strain-energy density.
+        """
+
+        records = [
+            (
+                region,
+                tuple(
+                    str(name).strip().upper()
+                    for name in getattr(
+                        self.materials[region],
+                        "stored_energy_component_names",
+                        (),
+                    )
+                ),
+            )
+            for region in sorted(self.materials)
+        ]
+        reference = records[0][1]
+        incompatible = [
+            region for region, names in records[1:] if names != reference
+        ]
+        if incompatible:
+            raise ValueError(
+                "Regional stateful materials must share one stored-energy "
+                f"component contract; incompatible regions={incompatible}."
+            )
+        return reference
+
     def as_dict(self) -> dict[str, object]:
         return {
             "kind": "quadrature_material_map",
@@ -205,6 +301,11 @@ class QuadratureMaterialMap:
                 for region in sorted(self.materials)
             ],
         }
+
+    def summary(self) -> dict[str, object]:
+        """Return the same stable record used by provenance and checkpoints."""
+
+        return self.as_dict()
 
 
 def _original_cell_keys(domain) -> np.ndarray:

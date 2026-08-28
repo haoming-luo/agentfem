@@ -86,6 +86,13 @@ finite-element simulation with AgentFEM.
   combined-hardening route with quadrature rollback/restart and `ALPHA`
   output. Keep its external-definition evidence distinct from a calibrated
   structure-level stabilized-hysteresis validation.
+  `constitutive.finite_strain_j2_logarithmic(...)` has an experimental public
+  `model.step(...)` route for 3D affine-periodic cells with exactly one
+  `AbaqusPeriodicConstraint`, prescribed macroscopic deformation, and one or
+  more explicitly partitioned material regions sharing the provider state and
+  tangent contract. Use its provider-owned quadrature fields and accepted-state
+  portable checkpoint; do not infer mixed displacement--pressure locking
+  control, external structural validation, or a production analytical tangent.
 - Named materials: use `materials.define(...)` when material identity, source,
   reuse, or separate mechanical/thermal roles matter. The Study selects the
   required physics role at `model.material(...)`; it does not choose or rewrite

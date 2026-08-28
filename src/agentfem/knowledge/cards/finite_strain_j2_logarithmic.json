@@ -2,22 +2,28 @@
   "schema": "agentfem.scientific-function-card",
   "schema_version": "0.1.0",
   "id": "agentfem.material.finite_strain_j2_logarithmic",
-  "title": "Finite-strain logarithmic J2 material point",
+  "title": "Finite-strain logarithmic J2 plasticity",
   "kind": "material",
   "status": "experimental",
-  "summary": "Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, typed Fp/PEEQ state, a rollback-safe generic quadrature batch, and a numerically verified discrete first-Piola tangent.",
+  "summary": "Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, and a public three-dimensional affine-periodic model.step route with provider-owned quadrature evidence and portable accepted-state restart.",
   "public_api": [
     "agentfem.constitutive.FiniteStrainJ2Logarithmic",
     "agentfem.constitutive.MaterialPointBatchResult",
     "agentfem.constitutive.finite_strain_j2_logarithmic",
     "agentfem.constitutive.update_material_points",
+    "agentfem.models.Model.step",
     "agentfem.mechanics.experimental_finite_strain_j2_step"
   ],
   "implementation": [
     "constitutive/finite_strain_plasticity.py",
     "constitutive/material_driver.py",
     "constitutive/quadrature.py",
-    "mechanics/finite_strain_plasticity.py"
+    "mechanics/finite_strain_plasticity.py",
+    "_step_builders.py",
+    "step_providers.py",
+    "problems.py",
+    "results/finite_strain.py",
+    "results/output.py"
   ],
   "science": {
     "statement": "The total deformation gradient is split multiplicatively; a quadratic Hencky elastic potential supplies Kirchhoff stress, and an associative pressure-insensitive radial return updates an isochoric plastic deformation gradient and accumulated equivalent plastic strain.",
@@ -41,6 +47,11 @@
         "label": "radial return",
         "expression": "\\Delta\\gamma=\\frac{f_{\\mathrm{trial}}}{3\\mu+H}",
         "description": "A positive trial yield value produces the associated principal logarithmic-strain corrector."
+      },
+      {
+        "label": "recoverable stored energy",
+        "expression": "\\mathrm{SENER}=\\mathrm{ELENER}+\\mathrm{HARDENER}=\\psi_e+\\frac{1}{2}H\\bar\\varepsilon_p^2",
+        "description": "The two provider-owned components separate Hencky elastic free energy from isotropic-hardening storage; plastic dissipation is a distinct incremental-work quantity and is not reported by this field."
       }
     ],
     "inputs": [
@@ -71,6 +82,12 @@
         "description": "The full plastic deformation gradient and accumulated equivalent plastic strain have a versioned portable schema."
       },
       {
+        "name": "F, P, S, MISES, SENER, ELENER and HARDENER",
+        "type": "accepted provider-owned quadrature response",
+        "unit_role": "kinematics, stress and stored energy density",
+        "description": "The public affine-periodic route retains accepted constitutive fields without reconstructing them from a history-free material law; explicitly named DG0 cell averages are separate visualization products."
+      },
+      {
         "name": "consistent tangent",
         "type": "9 by 9 derivative of first Piola stress with respect to deformation gradient",
         "unit_role": "stress",
@@ -85,16 +102,19 @@
     "conventions": [
       "State order and output aliases are declared by MaterialStateSchema rather than inferred from arrays.",
       "Global iterations read committed state and write trial state; only an accepted increment may commit.",
-      "The tangent is the row-major first-Piola/deformation-gradient reference derivative."
+      "The tangent is the row-major first-Piola/deformation-gradient reference derivative.",
+      "The public affine route saves checkpoint state only at an accepted load factor and validates nodal, quadrature, mesh, material, increment-control, and periodic-equation identity before restore."
     ],
     "applicability": [
-      "Material-point studies and development of a future total-Lagrangian finite-strain plasticity provider."
+      "Material-point studies and three-dimensional affine-periodic cells with one or more explicitly partitioned compatible material regions under prescribed macroscopic deformation through model.step."
     ],
     "limitations": [
-      "The public model.step workflow does not yet lower this material; the current distributed global consumer remains a gated development path.",
-      "The numerical tangent prioritizes a verifiable discrete derivative over production quadrature performance.",
+      "The public model.step route currently requires exactly one AbaqusPeriodicConstraint and no body-force or natural-load power; all regional materials must share one declared state schema, tangent convention, and stored-energy component contract.",
+      "The numerical tangent prioritizes a verifiable discrete derivative; a production analytical tangent is not implemented.",
       "No independent external finite-strain plasticity structure benchmark has yet passed.",
-      "Plane stress, kinematic hardening, thermal coupling, damage and deletion are outside this first provider."
+      "The current low-order displacement-only tetrahedral route is not a substitute for a mixed displacement--pressure discretization in near-incompressible plasticity.",
+      "Plane stress, kinematic hardening, thermal coupling, damage and deletion are outside this first provider.",
+      "SENER separates into recoverable ELENER and HARDENER fields; accumulated plastic dissipation and a complete incremental work ledger are not yet implemented."
     ]
   },
   "usage": {
@@ -107,10 +127,18 @@
     "tests": [
       "tests/test_finite_strain_plasticity.py",
       "tests/finite_strain_j2_mpi_driver.py",
-      "tests/portable_finite_strain_j2_driver.py"
+      "tests/portable_finite_strain_j2_driver.py",
+      "tests/test_finite_strain_j2_periodic.py",
+      "tests/test_finite_strain_j2_material_map.py",
+      "tests/test_affine_j2_automatic_restart.py",
+      "tests/portable_affine_j2_periodic_driver.py",
+      "tests/test_periodic_void_fixture.py",
+      "tests/parallel_periodic_void_j2_driver.py",
+      "tests/test_zhang_2021_periodic_composite.py"
     ],
     "benchmarks": [
-      "agentfem.benchmark.finite_strain_j2_material_paths"
+      "agentfem.benchmark.finite_strain_j2_material_paths",
+      "agentfem.benchmark.finite_strain_j2_zhang_2021_table5"
     ],
     "validation_rules": [
       "Reject inverted total or plastic deformation gradients and non-isochoric committed plastic state.",
@@ -121,7 +149,14 @@
       "Batch failure restores every trial quadrature field and accepted batches commit atomically.",
       "Serial one- and multi-element total-Lagrangian patches assemble P and dP/dF, reach a prescribed finite deformation, and reject/cut back an excessive PEEQ increment.",
       "A two-rank global patch preserves shared assembly and uniform quadrature state.",
-      "Portable full-Step checkpoints resume equivalently after changing from two ranks to one and from one rank to two."
+      "Portable full-Step checkpoints resume equivalently after changing from two ranks to one and from one rank to two.",
+      "The public model.step affine-periodic cube matches the same accepted material-point path and records provider-owned F/P/S/MISES/SENER/ELENER/HARDENER/FP/PEEQ fields plus Hill--Mandel evidence.",
+      "Material-point and public output tests verify SENER = ELENER + HARDENER while retaining plastic dissipation as an explicit unimplemented ledger channel.",
+      "An accepted public affine checkpoint restores displacement, quadrature state, accepted and attempted increment histories, the next adaptive increment, and execution evidence before continuing.",
+      "A mutated periodic-equation identity is rejected before any restored state is accepted.",
+      "Regional material dispatch shares one atomic trial/commit/rollback transaction and preserves scientific identity across one-to-two and two-to-one-rank portable restart.",
+      "A true spherical-void periodic RVE satisfies geometric pairing, positive-J, Hill--Mandel, public-lifecycle and two-rank execution contracts; its refinement certificate and fixed-stack Golden remain separate promotion evidence.",
+      "The Zhang--Feng--Khandelwal Table 5 fixture remains fail-closed because the current displacement-only P1 tetrahedral route has not matched the published mixed displacement--pressure result."
     ]
   },
   "references": [
@@ -136,6 +171,14 @@
     {
       "title": "MOOSE ComputeSimoHughesJ2PlasticityStress reference",
       "locator": "https://mooseframework.inl.gov/source/materials/lagrangian/ComputeSimoHughesJ2PlasticityStress.html"
+    },
+    {
+      "title": "Elastic properties of reinforced solids: Some theoretical principles",
+      "locator": "https://doi.org/10.1016/0022-5096(63)90036-X"
+    },
+    {
+      "title": "Discrete averaging relations for micro to macro transition",
+      "locator": "https://doi.org/10.1115/1.4033552"
     }
   ],
   "related_cards": [

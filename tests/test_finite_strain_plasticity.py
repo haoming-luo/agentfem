@@ -124,6 +124,43 @@ def test_finite_strain_j2_plastic_return_is_isochoric_and_yield_consistent():
     )
 
 
+def test_finite_strain_j2_separates_recoverable_energy_components():
+    material = constitutive.finite_strain_j2_logarithmic(
+        young=210_000.0,
+        poisson=0.3,
+        yield_stress=250.0,
+        hardening_modulus=1_200.0,
+    )
+    elastic = material.update(_point(material, _isochoric_extension(1.0002)))
+    plastic = material.update(_point(material, _isochoric_extension(1.15)))
+    plastic_state = material.state_schema.unpack(plastic.state_new)
+
+    assert tuple(elastic.stored_energy_density_components) == (
+        "ELENER",
+        "HARDENER",
+    )
+    assert elastic.stored_energy_density_components["HARDENER"] == pytest.approx(
+        0.0
+    )
+    assert elastic.strain_energy_density == pytest.approx(
+        elastic.stored_energy_density_components["ELENER"]
+    )
+    assert plastic.stored_energy_density_components["HARDENER"] == pytest.approx(
+        0.5
+        * material.hardening_modulus
+        * plastic_state["equivalent_plastic_strain"] ** 2,
+        rel=2.0e-12,
+    )
+    assert plastic.strain_energy_density == pytest.approx(
+        sum(plastic.stored_energy_density_components.values()),
+        rel=2.0e-12,
+    )
+    assert (
+        material.summary()["stored_energy_density"]["plastic_dissipation"]
+        == "not_implemented"
+    )
+
+
 def test_finite_strain_j2_unloading_does_not_erase_plastic_history():
     material = constitutive.finite_strain_j2_logarithmic(
         young=210_000.0,
@@ -269,6 +306,62 @@ def test_finite_strain_j2_quadrature_batch_respects_trial_commit_and_rollback():
         committed_result.state_new,
     )
     assert committed_result.summary()["point_count"] == point_count
+    assert tuple(committed_result.stored_energy_density_components) == (
+        "ELENER",
+        "HARDENER",
+    )
+    np.testing.assert_allclose(
+        committed_result.strain_energy_density,
+        committed_result.stored_energy_density_components["ELENER"]
+        + committed_result.stored_energy_density_components["HARDENER"],
+        rtol=2.0e-12,
+        atol=2.0e-12,
+    )
+
+
+def test_quadrature_response_postprocessing_failure_does_not_commit(monkeypatch):
+    material = constitutive.finite_strain_j2_logarithmic(
+        young=210_000.0,
+        poisson=0.3,
+        yield_stress=250.0,
+        hardening_modulus=1_000.0,
+    )
+    domain = mesh.create_unit_square(MPI.COMM_SELF, 1, 1)
+    response = constitutive.MaterialQuadratureResponse.create(
+        domain,
+        material.state_schema,
+        degree=2,
+        stored_energy_component_names=material.stored_energy_component_names,
+    )
+    point_count = len(response.state.reference_field.values)
+    gradients = np.asarray(
+        [
+            _isochoric_extension(value)
+            for value in np.linspace(1.06, 1.12, point_count)
+        ]
+    )
+    committed_before = response.state.committed_state_vectors().copy()
+
+    def fail_assignment(_values):
+        raise OSError("injected response-field failure")
+
+    monkeypatch.setattr(response.first_piola_stress, "assign", fail_assignment)
+    with pytest.raises(RuntimeError, match="response assignment failed"):
+        response.update(
+            material,
+            deformation_gradient_old=np.eye(3),
+            deformation_gradient_new=gradients,
+            time=0.1,
+            time_increment=0.1,
+            commit=True,
+        )
+
+    np.testing.assert_array_equal(
+        response.state.committed_state_vectors(), committed_before
+    )
+    np.testing.assert_array_equal(
+        response.state.trial_state_vectors(), committed_before
+    )
 
 
 def test_material_batch_failure_restores_trial_state_atomically():

@@ -25,7 +25,9 @@ AgentFEM currently provides executable foundations for:
 
 - linear static solids and steady/transient heat transfer;
 - central-difference, Newmark, and generalized-alpha structural dynamics;
-- finite-strain Neo-Hookean and Mooney--Rivlin workflows;
+- finite-strain Neo-Hookean and Mooney--Rivlin workflows, plus an experimental
+  public 3D affine-periodic logarithmic J2 route with provider-owned
+  quadrature output and accepted-state portable restart;
 - small-strain J2 plasticity, an experimental global Chaboche combined-
   hardening route, and implicit power-law creep, including regional MPI state,
   cross-rank-count portable restart, and bounded external Abaqus/NAFEMS
@@ -63,6 +65,10 @@ Deepen the finite-element core before broadening the catalog:
 
 - external and convergence evidence for nonlinear materials and cohesive
   fracture;
+- promote finite-strain J2 beyond its present regional affine-periodic scope
+  through a locking-resistant mixed displacement--pressure formulation, a
+  passed independent structural benchmark, and a production analytical
+  tangent;
 - richer thermal--mechanical and high-temperature histories;
 - provider-owned reactions, work, and energy for MPC/weak/contact constraints;
   unsupported dual channels already fail closed rather than publishing a

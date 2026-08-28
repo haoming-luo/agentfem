@@ -152,9 +152,10 @@ fails closed if a provider changes either declaration. An undeclared legacy
 consumer merely because it resembles a stiffness matrix. This is protocol
 foundation only: those declarations do not by themselves promote a material.
 Finite-strain J2 now has material paths, numerical tangent comparison, a
-consuming global solve, cutback/restart equivalence and MPI-stable state
-identity; an independent external structural benchmark still gates its public
-`model.step(...)` route.
+public three-dimensional affine-periodic `model.step(...)` route,
+cutback/restart equivalence, and MPI-stable state identity. That public route
+is experimental: an independent external structural benchmark still gates a
+broader engineering maturity claim.
 
 `MaterialQuadratureState.create(domain, schema, ...)` is the first lowering of
 that declaration. It creates one committed/trial quadrature pair for every
@@ -180,21 +181,56 @@ quadrature state, evaluates every local point, writes trial state, and rolls
 the whole batch back if one point fails. Inside global Newton it is called with
 `commit=False`; only the accepted structural increment may commit.
 
-This is currently an **experimental material-point, quadrature, distributed
-global-patch, and portable-restart capability**.
+This is currently an **experimental public affine-periodic finite-element
+capability**, as well as a material-point and neutral quadrature provider.
 Rigid rotation, superposed rotation, plastic incompressibility, yield
 consistency, unloading/reversal, tangent comparison, atomic rollback and
-commit are executable tests. The gated
-`mechanics.experimental_finite_strain_j2_step(...)` now assembles a
-total-Lagrangian residual from `P` and `dP/dF`, passes a prescribed-deformation
-one-element path, a uniform multi-element path, and forces a real
-rollback/cutback when an otherwise converged PEEQ increment is excessive. A
-two-rank patch closes the distributed assembly and state transaction; portable
-full-Step checkpoints have been resumed in both directions between one and two
-MPI ranks. The public `model.step(...)` route remains closed until an external
-structural benchmark passes. The initial numerical `dP/dF` is intentionally a
-correctness-first tangent; an analytically linearized production tangent is a
-performance promotion gate, not a change to the public material language.
+commit are executable tests. `model.step(...)` lowers one or more explicitly
+partitioned compatible 3D `FiniteStrainJ2Logarithmic` materials and exactly one
+`AbaqusPeriodicConstraint` to a total-Lagrangian residual assembled from `P`
+and `dP/dF`. It uses exact affine elimination in serial or the distributed
+`dolfinx_mpc` reduction, accepts fixed or automatic increments, and performs a
+real rollback/cutback when an otherwise converged PEEQ increment is excessive.
+The older `mechanics.experimental_finite_strain_j2_step(...)` remains a
+compatibility/development entry point rather than the recommended application
+language.
+
+The state transaction owns accepted quadrature `F`, `P`, `S`, `MISES`,
+`SENER`, `ELENER`, `HARDENER`, `FP`, and `PEEQ`. Scientific output uses those
+provider-owned fields;
+it does not reconstruct an inelastic response from a stateless hyperelastic
+formula. Explicitly named `*_CELL` fields are physical quadrature-weighted DG0
+averages for visualization and do not replace the integration-point evidence.
+
+For this J2 provider, `ELENER` is the quadratic Hencky elastic free-energy
+density and `HARDENER` is
+\(\tfrac12 H\bar\varepsilon_p^2\). The backward-compatible `SENER` field is
+their sum. None of these names denotes plastic dissipation. A complete
+dissipation balance still requires accepted-increment stress power and an
+explicit cumulative ledger; it is intentionally not inferred from the final
+state alone.
+
+Portable checkpoints are accepted-state boundaries. They store `U`,
+`U_ACCEPTED`, committed quadrature state, accepted and attempted increment
+histories, the next adaptive increment, and execution events. Restore validates
+the mesh/function identity, material and state schema, quadrature rule,
+increment control, and periodic equations before changing the analysis. The
+same checkpoint has been resumed between one and two MPI ranks in both
+directions.
+
+The present public scope is deliberately narrow: prescribed macroscopic
+deformation, compatible regional materials, one periodic constraint, and no
+body-force or natural-load power. The true spherical-void RVE now exercises
+geometric pairing, positive-J, public result lifecycle, two-rank execution,
+and Hill--Mandel evidence. Its mesh/increment refinement certificate and
+fixed-stack Golden remain separate promotion evidence rather than inferred
+from this smoke test.
+The Zhang--Feng--Khandelwal external fixture remains fail-closed because the
+current low-order displacement-only tetrahedral route has not matched the
+published mixed displacement--pressure result. A locking-resistant mixed
+formulation and an analytically linearized production tangent remain promotion
+gates. The current numerical `dP/dF` is a correctness-first discrete
+derivative, not a production-performance claim.
 
 ## Nonlinear control layers
 

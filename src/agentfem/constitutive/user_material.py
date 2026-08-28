@@ -9,13 +9,13 @@ comparisons against Abaqus.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from hashlib import sha256
 import json
 import os
 from pathlib import Path
 import re
-from typing import Protocol, runtime_checkable
+from typing import Mapping, Protocol, runtime_checkable
 
 import numpy as np
 
@@ -355,6 +355,9 @@ class MaterialPointOutput:
     suggested_time_scale: float = 1.0
     tangent_convention: MaterialTangentConvention | None = None
     state_schema: MaterialStateSchema | None = None
+    stored_energy_density_components: Mapping[str, float] = field(
+        default_factory=dict
+    )
 
     def __post_init__(self) -> None:
         stress = np.asarray(self.cauchy_stress, dtype=float)
@@ -388,6 +391,34 @@ class MaterialPointOutput:
             and not np.isfinite(self.strain_energy_density)
         ):
             raise ValueError("strain_energy_density must be finite when provided.")
+        components = {}
+        for name, value in self.stored_energy_density_components.items():
+            key = str(name).strip().upper()
+            if not key or not _STATE_NAME.fullmatch(key):
+                raise ValueError(
+                    "Stored-energy component names must use result-variable syntax."
+                )
+            selected = float(value)
+            if not np.isfinite(selected):
+                raise ValueError(
+                    f"Stored-energy component {key!r} must be finite."
+                )
+            if key in components:
+                raise ValueError(f"Duplicate stored-energy component {key!r}.")
+            components[key] = selected
+        if components and self.strain_energy_density is None:
+            raise ValueError(
+                "Stored-energy components require strain_energy_density."
+            )
+        if components and not np.isclose(
+            sum(components.values()),
+            float(self.strain_energy_density),
+            rtol=2.0e-12,
+            atol=2.0e-14 * max(1.0, abs(float(self.strain_energy_density))),
+        ):
+            raise ValueError(
+                "Stored-energy components must sum to strain_energy_density."
+            )
         if (
             not np.isfinite(self.suggested_time_scale)
             or self.suggested_time_scale <= 0.0
@@ -396,6 +427,11 @@ class MaterialPointOutput:
         object.__setattr__(self, "cauchy_stress", stress.copy())
         object.__setattr__(self, "consistent_tangent", tangent.copy())
         object.__setattr__(self, "state_new", state.copy())
+        object.__setattr__(
+            self,
+            "stored_energy_density_components",
+            components.copy(),
+        )
 
     @property
     def global_newton_contract_complete(self) -> bool:
@@ -429,6 +465,9 @@ class MaterialPointOutput:
                 None if self.state_schema is None else self.state_schema.summary()
             ),
             "strain_energy_density_defined": self.strain_energy_density is not None,
+            "stored_energy_density_components": tuple(
+                self.stored_energy_density_components
+            ),
             "suggested_time_scale": self.suggested_time_scale,
         }
 

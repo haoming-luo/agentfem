@@ -345,6 +345,28 @@ class AffineLoadIncrementInfo:
             "checks": dict(self.checks),
         }
 
+    @classmethod
+    def from_dict(cls, record: dict[str, object]) -> "AffineLoadIncrementInfo":
+        """Restore one accepted or attempted increment from checkpoint evidence."""
+
+        return cls(
+            load_factor=float(record["load_factor"]),
+            converged=bool(record["converged"]),
+            iterations=int(record["iterations"]),
+            initial_residual_norm=_none_as_nan(record.get("initial_residual_norm")),
+            residual_norm=_none_as_nan(record.get("residual_norm")),
+            accepted_step_lengths=tuple(
+                float(value) for value in record.get("accepted_step_lengths", ())
+            ),
+            reduced_dofs=int(record["reduced_dofs"]),
+            equation_mismatch=float(record["equation_mismatch"]),
+            increment=int(record.get("increment", 0)),
+            attempt=int(record.get("attempt", 1)),
+            start_load_factor=float(record.get("start_load_factor", 0.0)),
+            message=str(record.get("message", "")),
+            checks=dict(record.get("checks", {})),
+        )
+
 
 @dataclass(frozen=True)
 class AffineLoadPathInfo:
@@ -353,19 +375,33 @@ class AffineLoadPathInfo:
     increments: tuple[AffineLoadIncrementInfo, ...]
     attempts: tuple[AffineLoadIncrementInfo, ...] = ()
     incrementation: object | None = None
+    target_factor: float = 1.0
+    next_increment_size: float | None = None
 
     @property
     def converged(self) -> bool:
         return (
             bool(self.increments)
             and all(step.converged for step in self.increments)
-            and abs(self.increments[-1].load_factor - 1.0) <= 1.0e-12
+            and abs(self.increments[-1].load_factor - self.target_factor) <= 1.0e-12
         )
+
+    @property
+    def completed_step(self) -> bool:
+        """Whether the complete normalized path, rather than a pause, finished."""
+
+        return self.converged and abs(self.target_factor - 1.0) <= 1.0e-12
 
     def as_dict(self) -> dict[str, object]:
         return {
             "kind": "affine_nonlinear_load_path",
             "converged": self.converged,
+            "completed_step": self.completed_step,
+            "target_factor": self.target_factor,
+            "accepted_factor": (
+                0.0 if not self.increments else self.increments[-1].load_factor
+            ),
+            "next_increment_size": self.next_increment_size,
             "accepted_increment_count": len(self.increments),
             "attempt_count": len(self.attempts),
             "incrementation": (
@@ -730,6 +766,166 @@ def solve_nonlinear_problem(
     return solved, info
 
 
+def _validate_affine_state_transaction(transaction) -> None:
+    if transaction is None:
+        return
+    required = (
+        "refresh_trial",
+        "commit_increment",
+        "rollback_increment",
+        "snapshot_accepted_boundary",
+        "restore_accepted_boundary",
+    )
+    missing = [name for name in required if not callable(getattr(transaction, name, None))]
+    if missing:
+        raise TypeError(
+            "Affine state_transaction must provide callable "
+            + ", ".join(f"{name}()" for name in required)
+            + f"; missing {', '.join(missing)}."
+        )
+
+
+def _refresh_affine_trial_state(
+    transaction,
+    *,
+    start_factor: float,
+    target_factor: float,
+):
+    if transaction is None:
+        return None
+    return transaction.refresh_trial(
+        start_factor=float(start_factor),
+        target_factor=float(target_factor),
+    )
+
+
+def _try_refresh_affine_trial_state(
+    transaction,
+    *,
+    start_factor: float,
+    target_factor: float,
+) -> tuple[bool, str]:
+    """Refresh one constitutive trial without bypassing cutback semantics."""
+
+    if transaction is None:
+        return True, ""
+    try:
+        _refresh_affine_trial_state(
+            transaction,
+            start_factor=start_factor,
+            target_factor=target_factor,
+        )
+    except Exception as exc:
+        return (
+            False,
+            "constitutive update failed: "
+            f"{type(exc).__name__}: {exc}",
+        )
+    return True, ""
+
+
+def _commit_affine_trial_state(
+    transaction,
+    *,
+    start_factor: float,
+    target_factor: float,
+) -> None:
+    if transaction is None:
+        return
+    transaction.commit_increment(
+        start_factor=float(start_factor),
+        target_factor=float(target_factor),
+    )
+
+
+def _rollback_affine_trial_state(
+    transaction,
+    *,
+    accepted_factor: float,
+) -> None:
+    if transaction is None:
+        return
+    transaction.rollback_increment(accepted_factor=float(accepted_factor))
+
+
+def _snapshot_affine_accepted_state(transaction):
+    """Capture the last committed boundary before a provisional commit."""
+
+    if transaction is None:
+        return None
+    return transaction.snapshot_accepted_boundary()
+
+
+def _restore_affine_accepted_state(transaction, snapshot) -> None:
+    """Restore a committed boundary after post-commit lifecycle failure."""
+
+    if transaction is None:
+        return
+    transaction.restore_accepted_boundary(snapshot)
+
+
+def _rollback_post_commit_failure(
+    *,
+    function,
+    nodal_state,
+    transaction,
+    transaction_state,
+    accepted_history,
+    accepted_history_state,
+    attempted_history,
+    attempted_history_state,
+    on_acceptance_failure,
+) -> None:
+    """Undo every mutation made after one nonlinear increment converged."""
+
+    function.x.array[:] = nodal_state
+    function.x.scatter_forward()
+    _restore_affine_accepted_state(transaction, transaction_state)
+    accepted_history[:] = accepted_history_state
+    attempted_history[:] = attempted_history_state
+    if on_acceptance_failure is not None:
+        on_acceptance_failure()
+
+
+def _run_affine_acceptance_stage(
+    function,
+    *,
+    stage: str,
+    callback,
+    args=(),
+    kwargs=None,
+) -> None:
+    """Run one post-convergence stage with rank-consistent failure semantics.
+
+    Accepted-boundary callbacks may write output, update histories, or create a
+    checkpoint.  A filesystem or observer failure can therefore occur on only
+    one MPI rank.  Letting the remaining ranks continue would split the
+    accepted lifecycle and can deadlock the next constitutive collective.  The
+    callback itself is executed on every rank, then its outcome is gathered
+    before any later acceptance stage begins.
+
+    Callback implementations must keep their own internal collective ordering
+    deterministic.  This guard covers the common and otherwise dangerous case
+    in which a local operation fails after the shared snapshot/assembly work.
+    """
+
+    comm = function.function_space.mesh.comm
+    local_error = None
+    try:
+        callback(*args, **({} if kwargs is None else kwargs))
+    except BaseException as exc:
+        if comm.size == 1:
+            raise
+        local_error = f"{type(exc).__name__}: {exc}"
+    errors = comm.allgather(local_error)
+    if any(error is not None for error in errors):
+        rank = next(index for index, error in enumerate(errors) if error is not None)
+        raise RuntimeError(
+            f"Rank {rank}: affine accepted-boundary {stage} failed: "
+            f"{errors[rank]}"
+        )
+
+
 def solve_affine_nonlinear_path(
     residual_form,
     jacobian_form,
@@ -741,7 +937,14 @@ def solve_affine_nonlinear_path(
     output_factors=(),
     options: AffineNewtonOptions | NewtonSolverOptions | None = None,
     on_increment=None,
+    on_accepted_boundary=None,
+    on_acceptance_failure=None,
     acceptance_check=None,
+    state_transaction=None,
+    stop_factor: float = 1.0,
+    accepted_history=(),
+    attempted_history=(),
+    next_increment_size: float | None = None,
     reporter=None,
     step_name: str = "affine_nonlinear",
     step_number: int = 1,
@@ -750,16 +953,39 @@ def solve_affine_nonlinear_path(
 
     The implementation assembles the ordinary full-space DOLFINx residual and
     tangent, then applies exact variational reduction.  This keeps constitutive
-    forms independent of the constraint backend.
+    forms independent of the constraint backend.  A stateful constitutive
+    provider may supply ``state_transaction`` with ``refresh_trial()``,
+    ``commit_increment()`` and ``rollback_increment()`` methods. Trial fields
+    are refreshed after every reconstructed displacement, including line-search
+    probes, before residual or tangent assembly.
     """
 
     selected = options or AffineNewtonOptions()
     if isinstance(selected, NewtonSolverOptions):
         selected = selected.for_affine_reduction()
+    _validate_affine_state_transaction(state_transaction)
     control = step_controls.normalize(
         incrementation,
         load_factors=load_factors,
     )
+    selected_stop = float(stop_factor)
+    if not np.isfinite(selected_stop) or not 0.0 < selected_stop <= 1.0:
+        raise ValueError("Affine stop_factor must be finite and in (0, 1].")
+    history = list(accepted_history)
+    attempt_history = list(attempted_history)
+    accepted_factor = (
+        float(history[-1].load_factor)
+        if history
+        else float(getattr(state_transaction, "accepted_factor", 0.0))
+    )
+    if accepted_factor >= selected_stop - 1.0e-12:
+        raise ValueError(
+            "Affine stop_factor must exceed the currently accepted load factor."
+        )
+    if history and any(not item.converged for item in history):
+        raise ValueError("Affine accepted_history contains a rejected increment.")
+    if isinstance(control, step_controls.FixedIncrementation):
+        _validate_fixed_affine_resume(control, accepted_factor, selected_stop)
     required_factors = _normalized_output_factors(output_factors)
 
     residual = fem.form(residual_form)
@@ -782,34 +1008,63 @@ def solve_affine_nonlinear_path(
             required_factors=required_factors,
             options=selected,
             on_increment=on_increment,
+            on_accepted_boundary=on_accepted_boundary,
+            on_acceptance_failure=on_acceptance_failure,
             acceptance_check=acceptance_check,
+            state_transaction=state_transaction,
+            stop_factor=selected_stop,
+            accepted_history=history,
+            attempted_history=attempt_history,
+            next_increment_size=next_increment_size,
             reporter=reporter,
             step_name=step_name,
             step_number=step_number,
         )
     previous_reduced: np.ndarray | None = None
     previous_affine: np.ndarray | None = None
-    history: list[AffineLoadIncrementInfo] = []
-    attempt_history: list[AffineLoadIncrementInfo] = []
-    accepted_factor = 0.0
-    total_attempts = 0
+    total_attempts = len(attempt_history)
     cutbacks = 0
     proposed_size = (
-        control.initial
+        (
+            control.initial
+            if next_increment_size is None
+            else float(next_increment_size)
+        )
         if isinstance(control, step_controls.AutomaticIncrementation)
-        else control.load_factors[0]
+        else _next_fixed_affine_factor(control, accepted_factor)
     )
+    if accepted_factor > 1.0e-12:
+        start_reduction = constraint.reduction(accepted_factor)
+        start_F = constraint.deformation_gradient_at(accepted_factor)
+        previous_affine = constraint.initial_reduced_values(
+            start_reduction,
+            start_F,
+        )
+        previous_reduced = function.x.array[
+            start_reduction.independent_full_dofs
+        ].copy()
+        reconstructed = start_reduction.reconstruct(previous_reduced)
+        if reconstructed.shape != function.x.array.shape or not np.allclose(
+            reconstructed,
+            function.x.array,
+            rtol=0.0,
+            atol=max(1.0e-11, 10.0 * float(getattr(constraint, "tolerance", 1.0e-12))),
+        ):
+            raise ValueError(
+                "Restored affine displacement does not satisfy the checkpointed "
+                "constraint and prescribed-control state."
+            )
     _emit(
         reporter,
         SolveEvent(
-            "step_started",
+            "step_resumed" if accepted_factor > 1.0e-12 else "step_started",
             step_name,
             step_number=step_number,
             incrementation=control.summary()["kind"],
         ),
     )
 
-    while accepted_factor < 1.0 - 1.0e-12:
+    while accepted_factor < selected_stop - 1.0e-12:
         increment_number = len(history) + 1
         if isinstance(control, step_controls.AutomaticIncrementation):
             if len(history) >= control.max_increments:
@@ -831,12 +1086,12 @@ def solve_affine_nonlinear_path(
                     accepted_factor,
                     message,
                 )
-            factor = min(1.0, accepted_factor + proposed_size)
+            factor = min(selected_stop, accepted_factor + proposed_size)
             next_output = _next_output_factor(required_factors, accepted_factor)
             if next_output is not None:
                 factor = min(factor, next_output)
         else:
-            factor = control.load_factors[len(history)]
+            factor = _next_fixed_affine_factor(control, accepted_factor)
         attempt_number = cutbacks + 1
         total_attempts += 1
         _emit(
@@ -852,6 +1107,11 @@ def solve_affine_nonlinear_path(
             ),
         )
         rollback = function.x.array.copy()
+        accepted_transaction_state = _snapshot_affine_accepted_state(
+            state_transaction
+        )
+        accepted_history_state = list(history)
+        attempted_history_state = list(attempt_history)
         reduction = constraint.reduction(factor)
         T = reduction.matrix(function.function_space.mesh.comm)
         current_F = constraint.deformation_gradient_at(factor)
@@ -873,9 +1133,16 @@ def solve_affine_nonlinear_path(
                 raise RuntimeError("Affine reduction topology changed between load increments.")
             reduced_values = previous_reduced + current_affine - previous_affine
         _assign_reconstructed(function, reduction, reduced_values)
+        trial_valid, constitutive_message = _try_refresh_affine_trial_state(
+            state_transaction,
+            start_factor=accepted_factor,
+            target_factor=factor,
+        )
 
         accepted_steps: list[float] = []
-        initial_norm = _reduced_residual_norm(residual, T)
+        initial_norm = (
+            _reduced_residual_norm(residual, T) if trial_valid else float("inf")
+        )
         current_norm = initial_norm
         threshold = (
             selected.atol + selected.rtol * initial_norm
@@ -942,10 +1209,20 @@ def solve_affine_nonlinear_path(
 
             alpha = 1.0
             accepted = False
+            trial_failure_message = ""
             while alpha + 1.0e-15 >= selected.line_search_minimum:
                 trial = reduced_values + alpha * direction
                 _assign_reconstructed(function, reduction, trial)
-                trial_norm = _reduced_residual_norm(residual, T)
+                trial_valid, trial_message = _try_refresh_affine_trial_state(
+                    state_transaction,
+                    start_factor=accepted_factor,
+                    target_factor=factor,
+                )
+                if trial_valid:
+                    trial_norm = _reduced_residual_norm(residual, T)
+                else:
+                    trial_norm = float("inf")
+                    trial_failure_message = trial_message
                 if np.isfinite(trial_norm) and (
                     trial_norm < current_norm
                     or trial_norm <= current_norm * (1.0 - 1.0e-4 * alpha)
@@ -958,6 +1235,15 @@ def solve_affine_nonlinear_path(
                 alpha *= selected.line_search_reduction
             if not accepted:
                 _assign_reconstructed(function, reduction, reduced_values)
+                restored, restore_message = _try_refresh_affine_trial_state(
+                    state_transaction,
+                    start_factor=accepted_factor,
+                    target_factor=factor,
+                )
+                if not restored:
+                    trial_failure_message = restore_message
+                if trial_failure_message:
+                    constitutive_message = trial_failure_message
                 _emit(
                     reporter,
                     SolveEvent(
@@ -971,6 +1257,7 @@ def solve_affine_nonlinear_path(
                         iteration=iteration,
                         residual_norm=current_norm,
                         step_length=0.0,
+                        message=trial_failure_message,
                     ),
                 )
                 break
@@ -992,7 +1279,7 @@ def solve_affine_nonlinear_path(
             converged = current_norm <= threshold
 
         checks = {}
-        acceptance_message = ""
+        acceptance_message = constitutive_message
         if converged and acceptance_check is not None:
             checks = dict(acceptance_check())
             if not bool(checks.get("accepted", True)):
@@ -1024,17 +1311,33 @@ def solve_affine_nonlinear_path(
         attempt_history.append(increment_info)
         T.destroy()
         if converged:
-            previous_reduced = reduced_values.copy()
-            previous_affine = current_affine.copy()
-            history.append(increment_info)
-            accepted_size = factor - accepted_factor
-            accepted_factor = factor
-            cutbacks = 0
-            if on_increment is not None:
-                on_increment(len(history), factor, function, increment_info)
-            _emit(
-                reporter,
-                SolveEvent(
+            try:
+                _commit_affine_trial_state(
+                    state_transaction,
+                    start_factor=accepted_factor,
+                    target_factor=factor,
+                )
+                previous_reduced = reduced_values.copy()
+                previous_affine = current_affine.copy()
+                history.append(increment_info)
+                accepted_size = factor - accepted_factor
+                accepted_factor = factor
+                cutbacks = 0
+                if isinstance(control, step_controls.AutomaticIncrementation):
+                    proposed_size = control.after_convergence(
+                        accepted_size,
+                        iteration,
+                    )
+                if on_increment is not None:
+                    _run_affine_acceptance_stage(
+                        function,
+                        stage="output/observer callback",
+                        callback=on_increment,
+                        args=(
+                            len(history), factor, function, increment_info
+                        ),
+                    )
+                converged_event = SolveEvent(
                     "increment_converged",
                     step_name,
                     step_number=step_number,
@@ -1044,22 +1347,55 @@ def solve_affine_nonlinear_path(
                     target_factor=factor,
                     iteration=iteration,
                     residual_norm=current_norm,
-                ),
-            )
-            if isinstance(control, step_controls.AutomaticIncrementation):
-                proposed_size = control.after_convergence(
-                    accepted_size,
-                    iteration,
                 )
+                _run_affine_acceptance_stage(
+                    function,
+                    stage="progress callback",
+                    callback=_emit,
+                    args=(reporter, converged_event),
+                )
+                if on_accepted_boundary is not None:
+                    _run_affine_acceptance_stage(
+                        function,
+                        stage="lifecycle/checkpoint callback",
+                        callback=_notify_affine_accepted_boundary,
+                        args=(
+                            on_accepted_boundary,
+                            function,
+                            history,
+                            attempt_history,
+                            control,
+                            proposed_size,
+                            factor,
+                        ),
+                    )
+            except BaseException:
+                _rollback_post_commit_failure(
+                    function=function,
+                    nodal_state=rollback,
+                    transaction=state_transaction,
+                    transaction_state=accepted_transaction_state,
+                    accepted_history=history,
+                    accepted_history_state=accepted_history_state,
+                    attempted_history=attempt_history,
+                    attempted_history_state=attempted_history_state,
+                    on_acceptance_failure=on_acceptance_failure,
+                )
+                raise
             continue
 
         function.x.array[:] = rollback
         function.x.scatter_forward()
+        _rollback_affine_trial_state(
+            state_transaction,
+            accepted_factor=accepted_factor,
+        )
         if isinstance(control, step_controls.FixedIncrementation):
             message = (
                 f"fixed increment failed at load factor {factor:.6g}: "
                 f"residual={_residual_text(current_norm)}, "
                 f"threshold={threshold:.6e}"
+                + ("; " + acceptance_message if acceptance_message else "")
             )
             return _failed_affine_path(
                 function,
@@ -1120,6 +1456,7 @@ def solve_affine_nonlinear_path(
                 iteration=iteration,
                 residual_norm=current_norm,
                 next_increment=proposed_size,
+                message=acceptance_message,
             ),
         )
 
@@ -1127,18 +1464,58 @@ def solve_affine_nonlinear_path(
     _emit(
         reporter,
         SolveEvent(
-            "step_completed",
+            "step_completed" if selected_stop >= 1.0 - 1.0e-12 else "step_paused",
             step_name,
             step_number=step_number,
             increment=len(history),
             attempt=total_attempts,
-            target_factor=1.0,
+            target_factor=selected_stop,
         ),
     )
     return function, AffineLoadPathInfo(
         tuple(history),
         tuple(attempt_history),
         control,
+        selected_stop,
+        (
+            proposed_size
+            if isinstance(control, step_controls.AutomaticIncrementation)
+            and selected_stop < 1.0 - 1.0e-12
+            else None
+        ),
+    )
+
+
+def _notify_affine_accepted_boundary(
+    callback,
+    function,
+    accepted_history,
+    attempted_history,
+    control,
+    proposed_size,
+    accepted_factor,
+) -> None:
+    """Publish one fully committed boundary to the owning lifecycle.
+
+    Checkpoint writers need the complete accepted and attempted path after the
+    constitutive transaction has committed.  Keeping this callback distinct
+    from spatial output avoids making checkpoint cadence depend on field-output
+    cadence.
+    """
+
+    if callback is None:
+        return
+    next_size = (
+        float(proposed_size)
+        if isinstance(control, step_controls.AutomaticIncrementation)
+        and float(accepted_factor) < 1.0 - 1.0e-12
+        else None
+    )
+    callback(
+        function,
+        tuple(accepted_history),
+        tuple(attempted_history),
+        next_size,
     )
 
 
@@ -1152,7 +1529,14 @@ def _solve_distributed_affine_nonlinear_path(
     required_factors,
     options,
     on_increment,
+    on_accepted_boundary,
+    on_acceptance_failure,
     acceptance_check,
+    state_transaction,
+    stop_factor,
+    accepted_history,
+    attempted_history,
+    next_increment_size,
     reporter,
     step_name,
     step_number,
@@ -1164,22 +1548,38 @@ def _solve_distributed_affine_nonlinear_path(
     reduction = constraint.distributed_reduction()
     correction = reduction.correction()
     reduction.validate_prefix_layout(correction)
-    history: list[AffineLoadIncrementInfo] = []
-    attempt_history: list[AffineLoadIncrementInfo] = []
-    accepted_factor = 0.0
-    total_attempts = 0
+    history = list(accepted_history)
+    attempt_history = list(attempted_history)
+    accepted_factor = (
+        float(history[-1].load_factor)
+        if history
+        else float(getattr(state_transaction, "accepted_factor", 0.0))
+    )
+    total_attempts = len(attempt_history)
     cutbacks = 0
     proposed_size = (
-        control.initial
+        (
+            control.initial
+            if next_increment_size is None
+            else float(next_increment_size)
+        )
         if isinstance(control, step_controls.AutomaticIncrementation)
-        else control.load_factors[0]
+        else _next_fixed_affine_factor(control, accepted_factor)
     )
-    function.x.array[:] = 0.0
-    function.x.scatter_forward()
+    if accepted_factor <= 1.0e-12:
+        function.x.array[:] = 0.0
+        function.x.scatter_forward()
+    elif float(constraint.mismatch(accepted_factor)) > max(
+        1.0e-10,
+        10.0 * float(getattr(constraint, "tolerance", 1.0e-12)),
+    ):
+        raise ValueError(
+            "Restored distributed affine displacement violates its equation state."
+        )
     _emit(
         reporter,
         SolveEvent(
-            "step_started",
+            "step_resumed" if accepted_factor > 1.0e-12 else "step_started",
             step_name,
             step_number=step_number,
             incrementation=control.summary()["kind"],
@@ -1187,7 +1587,7 @@ def _solve_distributed_affine_nonlinear_path(
         ),
     )
 
-    while accepted_factor < 1.0 - 1.0e-12:
+    while accepted_factor < stop_factor - 1.0e-12:
         increment_number = len(history) + 1
         if isinstance(control, step_controls.AutomaticIncrementation):
             if len(history) >= control.max_increments:
@@ -1209,12 +1609,12 @@ def _solve_distributed_affine_nonlinear_path(
                     accepted_factor,
                     message,
                 )
-            factor = min(1.0, accepted_factor + proposed_size)
+            factor = min(stop_factor, accepted_factor + proposed_size)
             next_output = _next_output_factor(required_factors, accepted_factor)
             if next_output is not None:
                 factor = min(factor, next_output)
         else:
-            factor = control.load_factors[len(history)]
+            factor = _next_fixed_affine_factor(control, accepted_factor)
 
         attempt_number = cutbacks + 1
         total_attempts += 1
@@ -1231,13 +1631,27 @@ def _solve_distributed_affine_nonlinear_path(
             ),
         )
         rollback = function.x.array.copy()
+        accepted_transaction_state = _snapshot_affine_accepted_state(
+            state_transaction
+        )
+        accepted_history_state = list(history)
+        attempted_history_state = list(attempt_history)
         constraint.apply_affine_increment(accepted_factor, factor)
+        trial_valid, constitutive_message = _try_refresh_affine_trial_state(
+            state_transaction,
+            start_factor=accepted_factor,
+            target_factor=factor,
+        )
 
         accepted_steps: list[float] = []
-        initial_norm = _distributed_reduced_residual_norm(
-            residual,
-            reduction,
-            dolfinx_mpc,
+        initial_norm = (
+            _distributed_reduced_residual_norm(
+                residual,
+                reduction,
+                dolfinx_mpc,
+            )
+            if trial_valid
+            else float("inf")
         )
         current_norm = initial_norm
         threshold = (
@@ -1283,14 +1697,24 @@ def _solve_distributed_affine_nonlinear_path(
             base = function.x.array.copy()
             alpha = 1.0
             accepted = False
+            trial_failure_message = ""
             while alpha + 1.0e-15 >= options.line_search_minimum:
                 function.x.array[:] = base + alpha * direction
                 function.x.scatter_forward()
-                trial_norm = _distributed_reduced_residual_norm(
-                    residual,
-                    reduction,
-                    dolfinx_mpc,
+                trial_valid, trial_message = _try_refresh_affine_trial_state(
+                    state_transaction,
+                    start_factor=accepted_factor,
+                    target_factor=factor,
                 )
+                if trial_valid:
+                    trial_norm = _distributed_reduced_residual_norm(
+                        residual,
+                        reduction,
+                        dolfinx_mpc,
+                    )
+                else:
+                    trial_norm = float("inf")
+                    trial_failure_message = trial_message
                 if np.isfinite(trial_norm) and (
                     trial_norm < current_norm
                     or trial_norm <= current_norm * (1.0 - 1.0e-4 * alpha)
@@ -1303,6 +1727,15 @@ def _solve_distributed_affine_nonlinear_path(
             if not accepted:
                 function.x.array[:] = base
                 function.x.scatter_forward()
+                restored, restore_message = _try_refresh_affine_trial_state(
+                    state_transaction,
+                    start_factor=accepted_factor,
+                    target_factor=factor,
+                )
+                if not restored:
+                    trial_failure_message = restore_message
+                if trial_failure_message:
+                    constitutive_message = trial_failure_message
                 _emit(
                     reporter,
                     SolveEvent(
@@ -1316,6 +1749,7 @@ def _solve_distributed_affine_nonlinear_path(
                         iteration=iteration,
                         residual_norm=current_norm,
                         step_length=0.0,
+                        message=trial_failure_message,
                     ),
                 )
                 break
@@ -1337,7 +1771,7 @@ def _solve_distributed_affine_nonlinear_path(
             converged = current_norm <= threshold
 
         checks = {}
-        acceptance_message = ""
+        acceptance_message = constitutive_message
         if converged and acceptance_check is not None:
             checks = dict(acceptance_check())
             if not bool(checks.get("accepted", True)):
@@ -1366,15 +1800,31 @@ def _solve_distributed_affine_nonlinear_path(
         )
         attempt_history.append(increment_info)
         if converged:
-            history.append(increment_info)
-            accepted_size = factor - accepted_factor
-            accepted_factor = factor
-            cutbacks = 0
-            if on_increment is not None:
-                on_increment(len(history), factor, function, increment_info)
-            _emit(
-                reporter,
-                SolveEvent(
+            try:
+                _commit_affine_trial_state(
+                    state_transaction,
+                    start_factor=accepted_factor,
+                    target_factor=factor,
+                )
+                history.append(increment_info)
+                accepted_size = factor - accepted_factor
+                accepted_factor = factor
+                cutbacks = 0
+                if isinstance(control, step_controls.AutomaticIncrementation):
+                    proposed_size = control.after_convergence(
+                        accepted_size,
+                        iteration,
+                    )
+                if on_increment is not None:
+                    _run_affine_acceptance_stage(
+                        function,
+                        stage="output/observer callback",
+                        callback=on_increment,
+                        args=(
+                            len(history), factor, function, increment_info
+                        ),
+                    )
+                converged_event = SolveEvent(
                     "increment_converged",
                     step_name,
                     step_number=step_number,
@@ -1384,22 +1834,55 @@ def _solve_distributed_affine_nonlinear_path(
                     target_factor=factor,
                     iteration=iteration,
                     residual_norm=current_norm,
-                ),
-            )
-            if isinstance(control, step_controls.AutomaticIncrementation):
-                proposed_size = control.after_convergence(
-                    accepted_size,
-                    iteration,
                 )
+                _run_affine_acceptance_stage(
+                    function,
+                    stage="progress callback",
+                    callback=_emit,
+                    args=(reporter, converged_event),
+                )
+                if on_accepted_boundary is not None:
+                    _run_affine_acceptance_stage(
+                        function,
+                        stage="lifecycle/checkpoint callback",
+                        callback=_notify_affine_accepted_boundary,
+                        args=(
+                            on_accepted_boundary,
+                            function,
+                            history,
+                            attempt_history,
+                            control,
+                            proposed_size,
+                            factor,
+                        ),
+                    )
+            except BaseException:
+                _rollback_post_commit_failure(
+                    function=function,
+                    nodal_state=rollback,
+                    transaction=state_transaction,
+                    transaction_state=accepted_transaction_state,
+                    accepted_history=history,
+                    accepted_history_state=accepted_history_state,
+                    attempted_history=attempt_history,
+                    attempted_history_state=attempted_history_state,
+                    on_acceptance_failure=on_acceptance_failure,
+                )
+                raise
             continue
 
         function.x.array[:] = rollback
         function.x.scatter_forward()
+        _rollback_affine_trial_state(
+            state_transaction,
+            accepted_factor=accepted_factor,
+        )
         if isinstance(control, step_controls.FixedIncrementation):
             message = (
                 f"fixed increment failed at load factor {factor:.6g}: "
                 f"residual={_residual_text(current_norm)}, "
                 f"threshold={threshold:.6e}"
+                + ("; " + acceptance_message if acceptance_message else "")
             )
             return _failed_affine_path(
                 function,
@@ -1460,6 +1943,7 @@ def _solve_distributed_affine_nonlinear_path(
                 iteration=iteration,
                 residual_norm=current_norm,
                 next_increment=proposed_size,
+                message=acceptance_message,
             ),
         )
 
@@ -1467,18 +1951,25 @@ def _solve_distributed_affine_nonlinear_path(
     _emit(
         reporter,
         SolveEvent(
-            "step_completed",
+            "step_completed" if stop_factor >= 1.0 - 1.0e-12 else "step_paused",
             step_name,
             step_number=step_number,
             increment=len(history),
             attempt=total_attempts,
-            target_factor=1.0,
+            target_factor=stop_factor,
         ),
     )
     return function, AffineLoadPathInfo(
         tuple(history),
         tuple(attempt_history),
         control,
+        stop_factor,
+        (
+            proposed_size
+            if isinstance(control, step_controls.AutomaticIncrementation)
+            and stop_factor < 1.0 - 1.0e-12
+            else None
+        ),
     )
 
 
@@ -1604,6 +2095,27 @@ def _normalized_output_factors(values) -> tuple[float, ...]:
     return selected
 
 
+def _validate_fixed_affine_resume(control, accepted_factor: float, stop_factor: float) -> None:
+    nodes = (0.0, *tuple(float(value) for value in control.load_factors))
+    tolerance = 1.0e-12
+    if not any(abs(accepted_factor - value) <= tolerance for value in nodes):
+        raise ValueError(
+            "A fixed affine restart must begin at one of the declared load factors."
+        )
+    if not any(abs(stop_factor - value) <= tolerance for value in nodes[1:]):
+        raise ValueError(
+            "Affine solve(until=...) with fixed incrementation must stop at a "
+            "declared load factor."
+        )
+
+
+def _next_fixed_affine_factor(control, accepted_factor: float) -> float:
+    for value in control.load_factors:
+        if float(value) > float(accepted_factor) + 1.0e-12:
+            return float(value)
+    raise RuntimeError("Fixed affine load path has no remaining increment.")
+
+
 def _next_output_factor(values, current: float) -> float | None:
     for value in values:
         if value > current + 1.0e-12:
@@ -1623,6 +2135,10 @@ def _emit(reporter, event: SolveEvent) -> None:
 def _finite_or_none(value):
     selected = float(value)
     return selected if np.isfinite(selected) else None
+
+
+def _none_as_nan(value) -> float:
+    return float("nan") if value is None else float(value)
 
 
 def _residual_text(value) -> str:

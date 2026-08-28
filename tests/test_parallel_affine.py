@@ -8,6 +8,7 @@ from mpi4py import MPI
 
 from agentfem import constitutive, constraints, results
 from agentfem.mesh import abaqus
+from portable_affine_j2_periodic_driver import _step as _finite_strain_j2_step
 
 
 pytest.importorskip("dolfinx_mpc")
@@ -85,6 +86,14 @@ def test_distributed_abaqus_equation_mapping_and_source_order():
     reduction = periodicity.distributed_reduction()
     correction = reduction.correction()
     reduction.validate_prefix_layout(correction)
+    owned_scalars = int(
+        space.dofmap.index_map.size_local * space.dofmap.index_map_bs
+    )
+    for bc in reduction.bcs:
+        dofs, owned_position = bc.dof_indices()
+        assert np.all(dofs[:-1] <= dofs[1:])
+        assert np.all(dofs[:owned_position] < owned_scalars)
+        assert np.all(dofs[owned_position:] >= owned_scalars)
     periodicity.apply_affine_increment(0.0, 1.0)
 
     global_slaves = domain.comm.allreduce(
@@ -104,6 +113,20 @@ def test_distributed_abaqus_equation_mapping_and_source_order():
         nodes.coordinates @ (target_f - np.eye(2)).T,
         atol=1.0e-13,
     )
+
+
+def test_distributed_two_phase_affine_j2_requires_and_solves_fluctuation():
+    step, _, periodicity = _finite_strain_j2_step(
+        MPI.COMM_WORLD,
+        two_phase=True,
+    )
+
+    step.solve()
+
+    assert step.accepted_load_factor == pytest.approx(1.0)
+    assert periodicity.mismatch() < 1.0e-10
+    assert all(item.iterations > 0 for item in step.accepted_increments)
+    assert all(item.residual_norm < 1.0e-8 for item in step.accepted_increments)
 
 
 def test_parallel_element_volume_writes_owned_then_ghost_values():
