@@ -15,6 +15,12 @@ from .registry import (
     register_backend,
     set_default_backend,
 )
+from .runtime import (
+    RuntimeCapabilityError,
+    RuntimeProfile,
+    current_runtime,
+    require_capabilities,
+)
 
 
 register_backend("fenicsx", FEniCSxBackend)
@@ -31,4 +37,8 @@ __all__ = [
     "get_backend",
     "register_backend",
     "set_default_backend",
+    "RuntimeCapabilityError",
+    "RuntimeProfile",
+    "current_runtime",
+    "require_capabilities",
 ]

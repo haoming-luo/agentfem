@@ -277,6 +277,7 @@ class StepProvider:
     description: str = ""
     procedure: str | None = None
     option_contract: StepOptionContract | None = None
+    requires: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         normalized = tuple(_normalize(item) for item in self.analyses)
@@ -285,6 +286,7 @@ class StepProvider:
         if not normalized:
             raise ValueError("StepProvider.analyses must be non-empty.")
         object.__setattr__(self, "analyses", normalized)
+        object.__setattr__(self, "requires", tuple(dict.fromkeys(self.requires)))
 
     def summary(self) -> dict[str, object]:
         return {
@@ -293,6 +295,7 @@ class StepProvider:
             "priority": self.priority,
             "description": self.description,
             "procedure": self.procedure,
+            "requires": self.requires,
             "options": (
                 None
                 if self.option_contract is None
@@ -335,14 +338,25 @@ class StepProviderRegistry:
         )
 
     def resolve(self, model, request: StepRequest) -> StepProvider:
+        from .backends.runtime import RuntimeCapabilityError, current_runtime
+
+        runtime = current_runtime()
         analysis_candidates = [
             provider
             for provider in self.providers()
             if request.analysis in provider.analyses
         ]
         option_rejections = []
+        capability_rejections = []
         for provider in analysis_candidates:
             if provider.accepts(model, request):
+                missing = tuple(
+                    item for item in provider.requires
+                    if not runtime.supports(item)
+                )
+                if missing:
+                    capability_rejections.append((provider, missing))
+                    continue
                 issues = provider.option_issues(request)
                 if not issues:
                     return provider
@@ -352,6 +366,12 @@ class StepProviderRegistry:
             # vocabulary for the same analysis. Only fail after every
             # scientifically compatible candidate has rejected the request.
             option_rejections[0].validate_options(request)
+        if capability_rejections:
+            provider, missing = capability_rejections[0]
+            raise RuntimeCapabilityError(
+                missing,
+                operation=f"step provider {provider.name}",
+            )
         registered_materials = [
             type(record.item).__name__
             for record in getattr(model, "materials", ())
@@ -1314,6 +1334,7 @@ register_step_provider(
             "mass_damping",
             required=("steps",),
         ),
+        requires=("matrix_assembly", "vector_assembly"),
     )
 )
 register_step_provider(
@@ -1340,6 +1361,7 @@ register_step_provider(
             "temperature",
             required=("duration",),
         ),
+        requires=("petsc_nonlinear_solve",),
     )
 )
 register_step_provider(
@@ -1365,6 +1387,7 @@ register_step_provider(
             "history",
             required=("dt", "steps"),
         ),
+        requires=("linear_solve",),
     )
 )
 register_step_provider(
@@ -1377,6 +1400,7 @@ register_step_provider(
         description="Lower K/F engineering operators to a linear static solve.",
         procedure="standard/linear",
         option_contract=_option_contract(),
+        requires=("linear_solve",),
     )
 )
 register_step_provider(
@@ -1399,6 +1423,7 @@ register_step_provider(
             "status_file",
             "checkpoint",
         ),
+        requires=("petsc_nonlinear_solve",),
     )
 )
 register_step_provider(
@@ -1420,6 +1445,7 @@ register_step_provider(
             "status_file",
             "amplitude",
         ),
+        requires=("petsc_nonlinear_solve",),
     )
 )
 register_step_provider(
@@ -1444,6 +1470,7 @@ register_step_provider(
             "progress",
             "status_file",
         ),
+        requires=("petsc_nonlinear_solve",),
     )
 )
 register_step_provider(
@@ -1468,6 +1495,7 @@ register_step_provider(
             "progress",
             "status_file",
         ),
+        requires=("petsc_nonlinear_solve",),
     )
 )
 register_step_provider(
@@ -1496,6 +1524,7 @@ register_step_provider(
             "print_every",
             required=("dt", "steps"),
         ),
+        requires=("linear_solve",),
     )
 )
 register_step_provider(
@@ -1525,5 +1554,6 @@ register_step_provider(
             "history",
             required=("dt", "steps"),
         ),
+        requires=("matrix_assembly", "vector_assembly"),
     )
 )

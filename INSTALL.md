@@ -1,8 +1,8 @@
 # Install AgentFEM
 
-AgentFEM supports Linux, macOS, and Windows through WSL2. It depends on the
-compiled FEniCSx/DOLFINx stack, so use conda-forge unless you already maintain
-a compatible MPI/PETSc/DOLFINx build.
+AgentFEM supports Linux, macOS, and a native Windows serial core. It depends on
+the compiled FEniCSx/DOLFINx stack, so use conda-forge unless you already
+maintain a compatible build.
 
 ## Recommended Environment
 
@@ -31,16 +31,27 @@ installed in one conda environment command.
 
 ## Windows
 
-The recommended first-release route is WSL2 with Ubuntu, Miniforge/Mambaforge,
-and the Linux environment above. This uses the same package family exercised
-by AgentFEM's Linux CI.
+For native Windows, use Miniforge Prompt or PowerShell with conda initialized:
 
-Native Windows is experimental, not a release-supported route. FEniCSx 0.11
-has `win-64` packages, but AgentFEM currently uses PETSc-based solver APIs and
-the distributed Abaqus-equation example uses `dolfinx_mpc`; the corresponding
-complete conda-forge Windows stack is not available and AgentFEM has no native
-Windows CI gate. A hand-built expert environment may work for a subset, but it
-is not an installation promise.
+```powershell
+mamba create -n agentfem-env -c conda-forge `
+  python=3.11 fenics-dolfinx=0.11 mpi4py h5py scipy pyamg
+mamba activate agentfem-env
+python -m pip install agentfem
+agentfem doctor
+```
+
+This route keeps the same AgentFEM public workflow and uses DOLFINx native
+matrix/vector assembly with SciPy/PyAMG. It supports serial linear statics,
+steady and transient heat transfer, linear implicit dynamics, explicit
+dynamics, standard results, campaigns, and project/agent tooling.
+
+PETSc, petsc4py, and dolfinx_mpc are not currently available as a complete
+conda-forge win-64 stack. Native Windows therefore rejects PETSc nonlinear,
+exact MPC, and distributed procedures before lowering with
+`AFM-BACKEND-CAPABILITY-001`. Use WSL2, Linux, macOS, or a supported cluster for
+those capabilities. This is one package and one scientific API, not a reduced
+Windows fork.
 
 ## Smoke Test
 

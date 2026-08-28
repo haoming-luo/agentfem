@@ -9,7 +9,10 @@ import numpy as np
 import ufl
 import basix.ufl
 from dolfinx import fem
-import dolfinx.fem.petsc as fem_petsc
+try:  # Optional on the native Windows runtime.
+    import dolfinx.fem.petsc as fem_petsc
+except ImportError:  # pragma: no cover - exercised by Windows CI
+    fem_petsc = None
 
 from ..constitutive import hyperelasticity
 from .field_catalog import resolve_field_variables

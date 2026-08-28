@@ -6,9 +6,9 @@ from dataclasses import dataclass
 
 import numpy as np
 import ufl
+import dolfinx
 from dolfinx import fem
 from mpi4py import MPI
-from petsc4py import PETSc
 
 from . import amplitudes
 from . import _axisymmetric
@@ -309,7 +309,7 @@ class AmplitudeLoad:
 
     def update(self, time: float) -> float:
         value = self.amplitude(time)
-        self.scale.value = PETSc.ScalarType(value)
+        self.scale.value = dolfinx.default_scalar_type(value)
         return value
 
     def form(self, test_function):
@@ -525,7 +525,7 @@ def with_amplitude(load, amplitude, *, domain=None, name: str | None = None) -> 
         selected_domain = getattr(value, "ufl_domain", lambda: None)()
     if selected_domain is None:
         raise ValueError("with_amplitude requires a load domain.")
-    scale = fem.Constant(selected_domain, PETSc.ScalarType(history(0.0)))
+    scale = fem.Constant(selected_domain, dolfinx.default_scalar_type(history(0.0)))
     return AmplitudeLoad(
         load=load,
         scale=scale,

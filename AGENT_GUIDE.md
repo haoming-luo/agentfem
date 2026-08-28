@@ -62,6 +62,12 @@ finite-element simulation with AgentFEM.
   `model.step(...)`, including target-field shape and the material protocol
   needed by the default lowering; never work around `AFM-STUDY-002` by
   silently changing the Study.
+- Numerical runtime: inspect `agentfem doctor --json` and the selected
+  provider's `requires` contract. Never branch scientific APIs, examples, or
+  materials on the operating system. New procedures declare capabilities and
+  share the same Study/Model/Step/Result language; a missing PETSc, nonlinear,
+  MPI, or exact-MPC capability must fail before lowering rather than selecting
+  different physics silently.
 - API discovery: begin with `agentfem.public_api("core")` or the
   `public_api.core` section of `agentfem capabilities --json`. Escalate to the
   advanced or expert layer only when the task requires it; the flat

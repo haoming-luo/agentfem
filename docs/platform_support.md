@@ -10,7 +10,7 @@ theoretically import one package.
 | Native Linux | CI verified | Full tests, two-rank MPI, wheel and release Demo gates run on Ubuntu. |
 | Native macOS | Developer verified | Maintainer development and release verification run on Apple Silicon; AgentFEM verifies the MPI launcher against `mpi4py`. |
 | Windows through WSL2 | Recommended Windows route | Uses the Linux FEniCSx/PETSc/MPI stack exercised by CI. Host GUI and filesystem integration remain local setup concerns. |
-| Native Windows | Experimental | FEniCSx 0.11 has `win-64` builds, but AgentFEM's PETSc route and `dolfinx_mpc` 0.11 do not form a complete conda-forge native-Windows stack, and AgentFEM has no native-Windows CI gate. |
+| Native Windows | Supported serial core | Hosted Windows CI exercises the installed wheel through DOLFINx native assembly and SciPy/PyAMG. Linear statics, heat, linear/explicit dynamics, results, campaigns, and agent tooling share the public API; PETSc nonlinear, exact MPC, and distributed routes are excluded. |
 
 The current machine can produce a compact issue-report record:
 
@@ -102,21 +102,28 @@ python promotion_gate.py \
   --report promotion.json --require-complete
 ```
 
-## Windows recommendation
+## Windows execution profiles
 
-Install WSL2 with Ubuntu, install Miniforge inside WSL, and follow
-`INSTALL.md`. Keep the project inside the WSL Linux filesystem for compilation
-and I/O performance. ParaView may run either inside WSLg or on Windows while
-opening output copied or exposed from the WSL filesystem.
+AgentFEM detects one of two FEniCSx execution profiles:
 
-Native Windows should become supported only after all of the following exist:
+- `fenicsx-petsc`: full nonlinear, exact-MPC (when installed), and MPI route;
+- `fenicsx-native-serial`: PETSc-free DOLFINx native assembly plus SciPy/PyAMG.
 
-1. a supported linear/nonlinear algebra provider for AgentFEM's public steps;
-2. serial solve, XDMF/HDF5, JIT-form, and result tests on `windows-latest`;
-3. a documented MPI story;
-4. an explicit limitation or replacement for workflows requiring
-   `dolfinx_mpc`;
-5. an installed-wheel Demo gate.
+Both consume the same Study, Model, operators, constraints, Step, result, and
+verification objects. Provider capabilities decide whether a procedure can be
+lowered; application code does not branch on the operating system.
+
+Use native Windows for the supported serial core described in `INSTALL.md`.
+Use WSL2 when a Windows workstation needs the complete Linux
+FEniCSx/PETSc/MPI stack. Keep WSL projects in the Linux filesystem for compile
+and I/O performance. ParaView may run in WSLg or on Windows.
+
+Native Windows promotion beyond the serial core requires:
+
+1. a conda-forge PETSc/petsc4py or equivalent nonlinear provider;
+2. a distributed Windows MPI contract exercised by AgentFEM;
+3. exact MPC support or a verified alternative;
+4. nonlinear and distributed benchmark evidence equal to the full runtime.
 
 ## Gmsh is an optional adapter
 
@@ -144,5 +151,7 @@ Primary references:
 
 - [FEniCSx download and installation](https://fenicsproject.org/download/)
 - [DOLFINx installation dependencies](https://docs.fenicsproject.org/dolfinx/main/python/installation.html)
+- [DOLFINx native assembly API](https://docs.fenicsproject.org/dolfinx/v0.11.0.post0/python/generated/dolfinx.fem.html)
+- [DOLFINx PyAMG demo](https://docs.fenicsproject.org/dolfinx/main/python/demos/demo_pyamg.html)
 - [Gmsh licensing](https://gmsh.info/#Licensing)
 - [Gmsh license text](https://gmsh.info/LICENSE.txt)

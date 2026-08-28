@@ -13,7 +13,23 @@ import numpy as np
 import ufl
 from dolfinx import fem
 from mpi4py import MPI
-from petsc4py import PETSc
+
+try:  # PETSc is required only by assembled cohesive solver paths.
+    from petsc4py import PETSc
+except ImportError:  # pragma: no cover - exercised by Windows CI
+    PETSc = None
+
+
+def _petsc_event(name):
+    """Return PETSc profiling when available, otherwise a no-op decorator."""
+
+    if PETSc is not None:
+        return PETSc.Log.EventDecorator(name)
+
+    def decorate(function):
+        return function
+
+    return decorate
 
 from . import fields as field_api
 from . import interfaces as interface_api
@@ -1284,12 +1300,12 @@ class DistributedDofMappedCohesiveForce:
             mode_mixity=local.mode_mixity,
         )
 
-    @PETSc.Log.EventDecorator(_COHESIVE_PETSC_EVENTS["constitutive"])
+    @_petsc_event(_COHESIVE_PETSC_EVENTS["constitutive"])
     def begin(self):
         local = self.assembler.begin(self._required_displacement())
         return self._globalize_energy(local)
 
-    @PETSc.Log.EventDecorator(_COHESIVE_PETSC_EVENTS["vector"])
+    @_petsc_event(_COHESIVE_PETSC_EVENTS["vector"])
     def add_to_vector(self, vector) -> None:
         response = self.begin()
         array = vector.array.reshape((-1, self.block_size))
@@ -1297,7 +1313,7 @@ class DistributedDofMappedCohesiveForce:
             response.internal_force
         )
 
-    @PETSc.Log.EventDecorator(_COHESIVE_PETSC_EVENTS["matrix"])
+    @_petsc_event(_COHESIVE_PETSC_EVENTS["matrix"])
     def add_to_matrix(self, matrix) -> None:
         """Add locally owned facets using global PETSc dof identities."""
 

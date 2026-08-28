@@ -9,9 +9,14 @@ from time import perf_counter
 
 import numpy as np
 import ufl
+import dolfinx
 from dolfinx import fem
 from mpi4py import MPI
-from petsc4py import PETSc
+
+try:  # Optional on native Windows; PETSc-only procedures fail by capability.
+    from petsc4py import PETSc
+except ImportError:  # pragma: no cover - exercised by Windows CI
+    PETSc = None
 
 from . import assembly
 from . import fields
@@ -637,7 +642,7 @@ class IncrementalNonlinearVariationalProblem:
         return self.solution
 
     def _update_factor(self, factor: float) -> None:
-        self.factor.value = PETSc.ScalarType(factor)
+        self.factor.value = dolfinx.default_scalar_type(factor)
         self.value_path.update(factor)
         if self.update_load is not None:
             self.update_load(float(factor))
@@ -3718,7 +3723,7 @@ def first_order_transient(
         target_function = fields.unwrap(target)
         inverse_dt = fem.Constant(
             target_function.function_space.mesh,
-            PETSc.ScalarType(1.0 / dt),
+            dolfinx.default_scalar_type(1.0 / dt),
         )
     except (AttributeError, TypeError):
         # Preserve compatibility for symbolic construction without a concrete
@@ -4066,9 +4071,9 @@ def _zero_kinematic_bcs(source_bcs, V) -> list:
     result = []
     shape = V.element.value_shape
     value = (
-        PETSc.ScalarType(0.0)
+        dolfinx.default_scalar_type(0.0)
         if len(shape) == 0
-        else np.zeros(shape, dtype=PETSc.ScalarType)
+        else np.zeros(shape, dtype=dolfinx.default_scalar_type)
     )
     for bc in source_bcs:
         dof_indices = bc.dof_indices()

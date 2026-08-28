@@ -970,10 +970,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#windows-recommendation" class="md-nav__link">
+  <a href="#windows-execution-profiles" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Windows recommendation
+        Windows execution profiles
       
     </span>
   </a>
@@ -1273,10 +1273,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#windows-recommendation" class="md-nav__link">
+  <a href="#windows-execution-profiles" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Windows recommendation
+        Windows execution profiles
       
     </span>
   </a>
@@ -1410,8 +1410,8 @@ theoretically import one package.</p>
 </tr>
 <tr>
 <td>Native Windows</td>
-<td>Experimental</td>
-<td>FEniCSx 0.11 has <code>win-64</code> builds, but AgentFEM's PETSc route and <code>dolfinx_mpc</code> 0.11 do not form a complete conda-forge native-Windows stack, and AgentFEM has no native-Windows CI gate.</td>
+<td>Supported serial core</td>
+<td>Hosted Windows CI exercises the installed wheel through DOLFINx native assembly and SciPy/PyAMG. Linear statics, heat, linear/explicit dynamics, results, campaigns, and agent tooling share the public API; PETSc nonlinear, exact MPC, and distributed routes are excluded.</td>
 </tr>
 </tbody>
 </table>
@@ -1480,19 +1480,25 @@ together without hand-maintaining a long argument list:</p>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>--evidence-directory<span class="w"> </span>promotion-evidence<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>--report<span class="w"> </span>promotion.json<span class="w"> </span>--require-complete
 </code></pre></div>
-<h2 id="windows-recommendation">Windows recommendation<a class="headerlink" href="#windows-recommendation" title="Permanent link">&para;</a></h2>
-<p>Install WSL2 with Ubuntu, install Miniforge inside WSL, and follow
-<code>INSTALL.md</code>. Keep the project inside the WSL Linux filesystem for compilation
-and I/O performance. ParaView may run either inside WSLg or on Windows while
-opening output copied or exposed from the WSL filesystem.</p>
-<p>Native Windows should become supported only after all of the following exist:</p>
+<h2 id="windows-execution-profiles">Windows execution profiles<a class="headerlink" href="#windows-execution-profiles" title="Permanent link">&para;</a></h2>
+<p>AgentFEM detects one of two FEniCSx execution profiles:</p>
+<ul>
+<li><code>fenicsx-petsc</code>: full nonlinear, exact-MPC (when installed), and MPI route;</li>
+<li><code>fenicsx-native-serial</code>: PETSc-free DOLFINx native assembly plus SciPy/PyAMG.</li>
+</ul>
+<p>Both consume the same Study, Model, operators, constraints, Step, result, and
+verification objects. Provider capabilities decide whether a procedure can be
+lowered; application code does not branch on the operating system.</p>
+<p>Use native Windows for the supported serial core described in <code>INSTALL.md</code>.
+Use WSL2 when a Windows workstation needs the complete Linux
+FEniCSx/PETSc/MPI stack. Keep WSL projects in the Linux filesystem for compile
+and I/O performance. ParaView may run in WSLg or on Windows.</p>
+<p>Native Windows promotion beyond the serial core requires:</p>
 <ol>
-<li>a supported linear/nonlinear algebra provider for AgentFEM's public steps;</li>
-<li>serial solve, XDMF/HDF5, JIT-form, and result tests on <code>windows-latest</code>;</li>
-<li>a documented MPI story;</li>
-<li>an explicit limitation or replacement for workflows requiring
-   <code>dolfinx_mpc</code>;</li>
-<li>an installed-wheel Demo gate.</li>
+<li>a conda-forge PETSc/petsc4py or equivalent nonlinear provider;</li>
+<li>a distributed Windows MPI contract exercised by AgentFEM;</li>
+<li>exact MPC support or a verified alternative;</li>
+<li>nonlinear and distributed benchmark evidence equal to the full runtime.</li>
 </ol>
 <h2 id="gmsh-is-an-optional-adapter">Gmsh is an optional adapter<a class="headerlink" href="#gmsh-is-an-optional-adapter" title="Permanent link">&para;</a></h2>
 <p>AgentFEM has three independent mesh routes:</p>
@@ -1515,6 +1521,8 @@ reviewing the licenses of every component they distribute.</p>
 <ul>
 <li><a href="https://fenicsproject.org/download/">FEniCSx download and installation</a></li>
 <li><a href="https://docs.fenicsproject.org/dolfinx/main/python/installation.html">DOLFINx installation dependencies</a></li>
+<li><a href="https://docs.fenicsproject.org/dolfinx/v0.11.0.post0/python/generated/dolfinx.fem.html">DOLFINx native assembly API</a></li>
+<li><a href="https://docs.fenicsproject.org/dolfinx/main/python/demos/demo_pyamg.html">DOLFINx PyAMG demo</a></li>
 <li><a href="https://gmsh.info/#Licensing">Gmsh licensing</a></li>
 <li><a href="https://gmsh.info/LICENSE.txt">Gmsh license text</a></li>
 </ul>

@@ -12,6 +12,7 @@ import subprocess
 import sys
 
 from . import dependencies
+from .backends.runtime import current_runtime
 from .mpi_runtime import audit_mpi_runtime
 
 
@@ -27,7 +28,12 @@ class PlatformSupport:
 
     @property
     def recommended(self) -> bool:
-        return self.level in {"ci_verified", "developer_verified", "recommended"}
+        return self.level in {
+            "ci_verified",
+            "developer_verified",
+            "recommended",
+            "supported_core",
+        }
 
     def summary(self) -> dict[str, object]:
         return {
@@ -62,6 +68,7 @@ class RuntimeReport:
     numerics: dict[str, object]
     optional: tuple[dependencies.DependencyStatus, ...]
     execution: dict[str, object]
+    solver_runtime: dict[str, object]
 
     def summary(self) -> dict[str, object]:
         return {
@@ -76,6 +83,7 @@ class RuntimeReport:
             "numerics": dict(self.numerics),
             "optional": tuple(item.summary() for item in self.optional),
             "execution": dict(self.execution),
+            "solver_runtime": dict(self.solver_runtime),
         }
 
     def format(self) -> str:
@@ -100,6 +108,7 @@ class RuntimeReport:
             f"{self.execution['installed_distribution'] or 'not installed'}"
         )
         lines.append(f"  runtime mode: {self.execution['mode']}")
+        lines.append(f"  numerical runtime: {self.solver_runtime['name']}")
         if self.execution["distribution_mismatch"]:
             runtime = self.execution.get("runtime_version")
             installed = self.execution.get("distribution_version")
@@ -182,12 +191,15 @@ def support_for(
         return PlatformSupport(
             system="Windows",
             route="native Windows",
-            level="experimental",
-            evidence=("FEniCSx 0.11 has conda-forge win-64 builds",),
+            level="supported_core",
+            evidence=(
+                "FEniCSx 0.11 has conda-forge win-64 builds",
+                "AgentFEM has a native DOLFINx/SciPy serial linear runtime and hosted Windows core gate",
+            ),
             limitations=(
-                "AgentFEM has no native-Windows CI gate",
-                "the current PETSc-based solver path is not available as a standard conda-forge win-64 stack",
-                "dolfinx_mpc 0.11 is unavailable on conda-forge win-64, so the distributed Abaqus equation workflow is excluded",
+                "native Windows is serial and excludes PETSc nonlinear/distributed procedures",
+                "dolfinx_mpc is unavailable on conda-forge win-64, so exact MPC workflows are excluded",
+                "use Linux, macOS, WSL2, or a cluster for full nonlinear and MPI capability",
             ),
         )
     return PlatformSupport(
@@ -225,6 +237,8 @@ def runtime_report() -> RuntimeReport:
         "fenics-basix",
         "fenics-ffcx",
         "numpy",
+        "scipy",
+        "pyamg",
         "mpi4py",
         "petsc4py",
         "h5py",
@@ -272,6 +286,7 @@ def runtime_report() -> RuntimeReport:
             ),
         ),
         execution=_execution_identity(runtime_version=runtime_version),
+        solver_runtime=current_runtime().as_dict(),
     )
 
 

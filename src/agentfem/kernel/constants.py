@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import numpy as np
+import dolfinx
 from dolfinx import fem
-from petsc4py import PETSc
 
 
 def constant(domain_or_field, value):
@@ -17,21 +17,21 @@ def constant(domain_or_field, value):
 
 
 def scalar_constant(domain_or_field, value=0.0):
-    """Create a scalar constant using the active PETSc scalar type."""
+    """Create a scalar constant using the active DOLFINx scalar type."""
 
-    return fem.Constant(domain_of(domain_or_field), PETSc.ScalarType(value))
+    return fem.Constant(domain_of(domain_or_field), dolfinx.default_scalar_type(value))
 
 
 def scalar_value(value):
-    """Convert a scalar to the active PETSc scalar type."""
+    """Convert a scalar to the active DOLFINx scalar type."""
 
-    return PETSc.ScalarType(value)
+    return dolfinx.default_scalar_type(value)
 
 
 def vector_constant(domain_or_field, values):
-    """Create a vector constant using the active PETSc scalar type."""
+    """Create a vector constant using the active DOLFINx scalar type."""
 
-    data = np.asarray(values, dtype=PETSc.ScalarType)
+    data = np.asarray(values, dtype=dolfinx.default_scalar_type)
     return fem.Constant(domain_of(domain_or_field), data)
 
 

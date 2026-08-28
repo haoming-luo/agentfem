@@ -19,9 +19,17 @@ import json
 from typing import Mapping
 
 import numpy as np
+import dolfinx
 from dolfinx import fem
 from mpi4py import MPI
-from petsc4py import PETSc
+
+try:  # PETSc construction is requested only by the full runtime.
+    from petsc4py import PETSc
+except ImportError:  # pragma: no cover - exercised by Windows CI
+    PETSc = None
+
+_SCALAR_DTYPE = dolfinx.default_scalar_type
+_INDEX_DTYPE = np.int32
 
 from .. import fields as field_api
 from ..mesh.abaqus import AbaqusEquationSet, AbaqusNodeTable
@@ -38,11 +46,11 @@ class AffineReduction:
     independent_full_dofs: np.ndarray
 
     def __post_init__(self) -> None:
-        row_offsets = np.asarray(self.row_offsets, dtype=PETSc.IntType)
-        columns = np.asarray(self.column_indices, dtype=PETSc.IntType)
-        coefficients = np.asarray(self.coefficients, dtype=PETSc.ScalarType)
-        offset = np.asarray(self.offset, dtype=PETSc.ScalarType)
-        independent = np.asarray(self.independent_full_dofs, dtype=PETSc.IntType)
+        row_offsets = np.asarray(self.row_offsets, dtype=_INDEX_DTYPE)
+        columns = np.asarray(self.column_indices, dtype=_INDEX_DTYPE)
+        coefficients = np.asarray(self.coefficients, dtype=_SCALAR_DTYPE)
+        offset = np.asarray(self.offset, dtype=_SCALAR_DTYPE)
+        independent = np.asarray(self.independent_full_dofs, dtype=_INDEX_DTYPE)
         if row_offsets.ndim != 1 or row_offsets.size != offset.size + 1:
             raise ValueError("AffineReduction row_offsets must have n_full + 1 entries.")
         if row_offsets[-1] != columns.size or columns.size != coefficients.size:
@@ -65,8 +73,15 @@ class AffineReduction:
     def eliminated_count(self) -> int:
         return self.full_size - self.reduced_size
 
-    def matrix(self, comm=PETSc.COMM_SELF):
+    def matrix(self, comm=None):
         """Create the PETSc sparse transformation matrix ``T``."""
+
+        if PETSc is None:
+            raise RuntimeError(
+                "AFM-BACKEND-CAPABILITY-001: affine PETSc matrix construction "
+                "requires the full FEniCSx/PETSc runtime."
+            )
+        comm = PETSc.COMM_SELF if comm is None else comm
 
         return PETSc.Mat().createAIJ(
             size=(self.full_size, self.reduced_size),
@@ -77,7 +92,7 @@ class AffineReduction:
     def reconstruct(self, reduced_values) -> np.ndarray:
         """Return full values from a NumPy reduced vector."""
 
-        reduced = np.asarray(reduced_values, dtype=PETSc.ScalarType).reshape(-1)
+        reduced = np.asarray(reduced_values, dtype=_SCALAR_DTYPE).reshape(-1)
         if reduced.size != self.reduced_size:
             raise ValueError(
                 f"Expected {self.reduced_size} reduced values, got {reduced.size}."
@@ -102,7 +117,7 @@ class AffineReduction:
 
         F = _deformation_gradient(deformation_gradient, block_size)
         coordinates = np.asarray(dof_coordinates, dtype=float)
-        values = np.empty(self.reduced_size, dtype=PETSc.ScalarType)
+        values = np.empty(self.reduced_size, dtype=_SCALAR_DTYPE)
         for index, full_dof in enumerate(self.independent_full_dofs):
             block, component = divmod(int(full_dof), int(block_size))
             values[index] = ((F - np.eye(block_size)) @ coordinates[block])[component]
@@ -263,7 +278,7 @@ class AbaqusPeriodicConstraint:
             collapsed, maps = self.target.space.sub(0).collapse()
             parent_map = np.asarray(
                 maps[0] if isinstance(maps, (list, tuple)) else maps,
-                dtype=PETSc.IntType,
+                dtype=_INDEX_DTYPE,
             )
             block_size = int(collapsed.dofmap.index_map_bs)
             return function, collapsed, parent_map, block_size
@@ -275,7 +290,7 @@ class AbaqusPeriodicConstraint:
         # only index_map.size_local breaks the coordinate/value alignment in
         # distributed displacement spaces.
         local_size = int(function.x.array.size)
-        parent_map = np.arange(local_size, dtype=PETSc.IntType)
+        parent_map = np.arange(local_size, dtype=_INDEX_DTYPE)
         return function, space, parent_map, block_size
 
     @property
@@ -525,7 +540,7 @@ class AbaqusPeriodicConstraint:
         parent_to_displacement = {
             int(parent): local for local, parent in enumerate(parent_map)
         }
-        values = np.zeros(reduction.reduced_size, dtype=PETSc.ScalarType)
+        values = np.zeros(reduction.reduced_size, dtype=_SCALAR_DTYPE)
         for index, full_dof in enumerate(reduction.independent_full_dofs):
             local = parent_to_displacement.get(int(full_dof))
             if local is None:
@@ -627,7 +642,7 @@ class AbaqusPeriodicConstraint:
             space,
             np.asarray(slaves, dtype=np.int32),
             np.asarray(masters, dtype=np.int64),
-            np.asarray(coefficients, dtype=PETSc.ScalarType),
+            np.asarray(coefficients, dtype=_SCALAR_DTYPE),
             np.asarray(owners, dtype=np.int32),
             np.asarray(offsets, dtype=np.int32),
         )
@@ -648,7 +663,7 @@ class AbaqusPeriodicConstraint:
             control_local[control_local >= 0]
         ).astype(np.int32, copy=False)
         control_bc = fem.dirichletbc(
-            np.zeros(block_size, dtype=PETSc.ScalarType),
+            np.zeros(block_size, dtype=_SCALAR_DTYPE),
             control_blocks,
             space,
         )
@@ -814,7 +829,7 @@ def _build_reduction(
         raise ValueError(f"Affine constraints reference invalid full dofs: {sorted(invalid)[:8]}.")
     independent = np.asarray(
         sorted(set(range(full_size)) - slaves - fixed),
-        dtype=PETSc.IntType,
+        dtype=_INDEX_DTYPE,
     )
     reduced_index = {int(dof): index for index, dof in enumerate(independent)}
     cache: dict[int, tuple[dict[int, float], float]] = {}
@@ -856,7 +871,7 @@ def _build_reduction(
     row_offsets = [0]
     columns: list[int] = []
     coefficients: list[float] = []
-    offsets = np.empty(full_size, dtype=PETSc.ScalarType)
+    offsets = np.empty(full_size, dtype=_SCALAR_DTYPE)
     for dof in range(full_size):
         row, offsets[dof] = expand(dof)
         for column in sorted(row):

@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
+import dolfinx
 from dolfinx import fem
-from petsc4py import PETSc
-
-import dolfinx.fem.petsc as fem_petsc
 
 from ..kernel import dofs
 
 
 def scalar_constant(domain, value=0.0):
-    """Create a scalar PETSc-backed DOLFINx constant."""
+    """Create a scalar DOLFINx constant."""
 
-    return fem.Constant(domain, PETSc.ScalarType(value))
+    return fem.Constant(domain, dolfinx.default_scalar_type(value))
 
 
 def component_dirichlet_bc(V, component: int, marker=None, value=0.0, *, location=None):
@@ -49,7 +47,7 @@ def scalar_dirichlet_bc(V, marker=None, value=0.0, *, location=None):
 def apply_dirichlet_bcs(function, bcs) -> None:
     """Apply strong Dirichlet boundary conditions to a function vector."""
 
-    fem_petsc.set_bc(function.x.petsc_vec, bcs)
+    fem.set_bc(function.x.array, bcs)
     function.x.scatter_forward()
 
 

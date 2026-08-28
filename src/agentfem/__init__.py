@@ -1,4 +1,4 @@
-"""Reusable finite-element workflow tools built on DOLFINx/PETSc."""
+"""Reusable finite-element workflows with capability-aware numerical runtimes."""
 
 from importlib import import_module as _import_module
 

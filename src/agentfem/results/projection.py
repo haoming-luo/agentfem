@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import ufl
 from dolfinx import fem
-import dolfinx.fem.petsc as fem_petsc
 
 from .. import _axisymmetric
 from .. import fields as field_api
@@ -112,20 +111,20 @@ def _project_terms(terms, *, domain, family, degree, name, weight=1.0):
         rhs_term = term_weight * ufl.inner(expression, test) * measure
         lhs = lhs_term if lhs is None else lhs + lhs_term
         rhs = rhs_term if rhs is None else rhs + rhs_term
-    problem = fem_petsc.LinearProblem(
-        lhs,
-        rhs,
-        u=output,
-        petsc_options_prefix="agentfem_result_projection_",
-        petsc_options={
-            "ksp_type": "cg",
-            "pc_type": "jacobi",
-            "ksp_rtol": 1.0e-12,
-            "ksp_atol": 1.0e-14,
-            "ksp_error_if_not_converged": True,
-        },
+    from ..solvers import LinearSolverOptions, solve_linear_problem
+
+    projected = solve_linear_problem(
+        fem.form(lhs),
+        fem.form(rhs),
+        output,
+        options=LinearSolverOptions(
+            ksp_type="cg",
+            pc_type="jacobi",
+            rtol=1.0e-12,
+            atol=1.0e-14,
+            error_if_not_converged=True,
+        ),
     )
-    projected = problem.solve()
     projected.x.scatter_forward()
     return projected
 

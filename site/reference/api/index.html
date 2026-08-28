@@ -6357,7 +6357,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tr>
 <td>class</td>
 <td><code>LinearSolverOptions</code></td>
-<td>PETSc KSP options for a linear solve.</td>
+<td>Linear-solver policy mapped by the active numerical runtime.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -6412,7 +6412,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tr>
 <td>class</td>
 <td><code>LinearSolveInfo</code></td>
-<td>PETSc KSP convergence evidence for one linear system solve.</td>
+<td>Backend-neutral convergence evidence for one linear system solve.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -6679,6 +6679,26 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>set_default_backend(name: str) -&gt; None</code></td>
 <td>Select the process-local default backend by registered name.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>RuntimeCapabilityError(required, *, operation: str \| None = None)</code></td>
+<td>Raised before lowering when the active runtime cannot execute a step.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>RuntimeProfile</code></td>
+<td>Detected numerical runtime and its explicitly supported capabilities.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>current_runtime() -&gt; RuntimeProfile</code></td>
+<td>Return the active FEniCSx runtime without importing optional solvers.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>require_capabilities(*capabilities: str, operation: str \| None = None) -&gt; None</code></td>
+<td>Fail closed with a stable error when capabilities are unavailable.</td>
 </tr>
 </tbody>
 </table>

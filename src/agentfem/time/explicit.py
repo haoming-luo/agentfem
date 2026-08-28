@@ -183,7 +183,8 @@ class ExplicitDynamicsIntegrator:
         try:
             self.solve_acceleration(residual)
         finally:
-            residual.destroy()
+            if hasattr(residual, "destroy"):
+                residual.destroy()
         _assign_prescribed_component(
             self.state.a_next,
             prescribed_kinematics,

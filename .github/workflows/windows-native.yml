@@ -1,0 +1,62 @@
+name: Native Windows core
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: ["main", "feat/native-windows-runtime"]
+    tags: ["v*"]
+
+jobs:
+  native-windows-core:
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Create PETSc-free FEniCSx environment
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          activate-environment: agentfem-windows
+          environment-file: environment-windows.yml
+          miniforge-version: latest
+          use-mamba: true
+          channels: conda-forge
+          channel-priority: strict
+
+      - name: Build and install candidate wheel
+        run: |
+          python -m build --wheel
+          $wheel = Get-ChildItem dist\*.whl | Select-Object -First 1
+          python -m pip install --no-deps --force-reinstall $wheel.FullName
+
+      - name: Prove native runtime and imports
+        env:
+          AGENTFEM_RUNTIME: fenicsx-native-serial
+        run: |
+          python -c "from agentfem.backends import current_runtime; r=current_runtime(); print(r.as_dict()); assert r.name == 'fenicsx-native-serial'; assert not r.packages['petsc4py']"
+          agentfem doctor --json | Out-File -Encoding utf8 windows-runtime.json
+
+      - name: Run native serial FEM acceptance
+        env:
+          AGENTFEM_RUNTIME: fenicsx-native-serial
+        run: |
+          python -m pytest -q tests/test_windows_native_runtime.py tests/test_prepared_linear_problem.py tests/test_common_workflows.py tests/test_results.py
+
+      - name: Run installed static example
+        env:
+          AGENTFEM_RUNTIME: fenicsx-native-serial
+        run: python examples/static_elasticity_2d.py
+
+      - name: Upload Windows runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-windows-core-evidence
+          path: windows-runtime.json
+          if-no-files-found: warn

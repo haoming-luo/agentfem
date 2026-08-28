@@ -1,0 +1,15 @@
+name: agentfem-windows
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - fenics-dolfinx=0.11
+  - h5py
+  - mpi4py
+  - numpy
+  - scipy
+  - pyamg
+  - pip
+  - pip:
+      - build
+      - pytest

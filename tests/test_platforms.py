@@ -8,13 +8,13 @@ import pytest
 from agentfem import __version__, dependencies, mesh, platforms
 
 
-def test_platform_support_does_not_overclaim_native_windows():
+def test_platform_support_states_native_windows_core_boundary():
     native = platforms.support_for("Windows")
     wsl = platforms.support_for("Linux", wsl=True)
     wsl1 = platforms.support_for("Linux", wsl=True, wsl_version=1)
 
-    assert native.level == "experimental"
-    assert native.recommended is False
+    assert native.level == "supported_core"
+    assert native.recommended is True
     assert any("PETSc" in item for item in native.limitations)
     assert any("dolfinx_mpc" in item for item in native.limitations)
     assert wsl.route == "Windows via WSL2/Linux"
@@ -81,6 +81,12 @@ def test_runtime_report_is_serializable_and_names_optional_integrations():
     assert report["mpi"]["rank_count"] >= 1
     assert report["numerics"]["numpy_default_float"] == "float64"
     assert report["numerics"]["petsc_scalar_type"]
+    assert report["solver_runtime"]["name"] in {
+        "fenicsx-petsc",
+        "fenicsx-native-serial",
+        "fenicsx-assembly-only",
+    }
+    assert "capabilities" in report["solver_runtime"]
     assert "path_mismatch" in report["mpi"]
     assert report["mpi"]["code"].startswith("AFM-MPI-LAUNCHER-")
     assert isinstance(report["mpi"]["compatible"], bool)

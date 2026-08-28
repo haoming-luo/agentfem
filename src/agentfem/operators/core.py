@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 
 import numpy as np
 import ufl
-from petsc4py import PETSc
 
 from agentfem import assembly
 from agentfem import fields
@@ -428,6 +427,13 @@ def bilinear_form(operator, left, right) -> float:
 
     left_function = fields.unwrap(left)
     right_function = fields.unwrap(right)
+    if hasattr(matrix_or_diagonal, "to_scipy"):
+        matrix = matrix_or_diagonal.to_scipy()
+        value = np.vdot(
+            left_function.x.array[: matrix.shape[0]],
+            matrix @ right_function.x.array[: matrix.shape[1]],
+        )
+        return float(np.real(value))
     result = matrix_or_diagonal.createVecLeft()
     matrix_or_diagonal.mult(right_function.x.petsc_vec, result)
     value = left_function.x.petsc_vec.dot(result)
@@ -447,9 +453,12 @@ def dual_product(vector_operator, field) -> float:
     vector = assemble_vector(vector_operator)
     function = fields.unwrap(field)
     try:
+        if hasattr(vector, "array") and not hasattr(vector, "dot"):
+            return float(np.real(np.vdot(function.x.array, vector.array)))
         return float(np.real(function.x.petsc_vec.dot(vector)))
     finally:
-        vector.destroy()
+        if hasattr(vector, "destroy"):
+            vector.destroy()
 
 
 def xtmy(left, operator, right) -> float:
@@ -921,10 +930,16 @@ def _matrix_or_diagonal(operator):
         return operator.mass
     if isinstance(operator, np.ndarray):
         return operator
-    if isinstance(operator, PETSc.Mat):
+    if hasattr(operator, "to_scipy"):
+        return operator
+    try:
+        from petsc4py import PETSc
+    except ImportError:
+        PETSc = None
+    if PETSc is not None and isinstance(operator, PETSc.Mat):
         return operator
     raise TypeError(
-        "Expected an OperatorForm, PETSc.Mat, lumped diagonal ndarray, "
+        "Expected an OperatorForm, PETSc/native CSR matrix, lumped diagonal ndarray, "
         "or object with a mass ndarray."
     )
 

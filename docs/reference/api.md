@@ -916,7 +916,7 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
-| class | `LinearSolverOptions` | PETSc KSP options for a linear solve. |
+| class | `LinearSolverOptions` | Linear-solver policy mapped by the active numerical runtime. |
 | function | `direct_solver(*, package: str \| None = None) -> LinearSolverOptions` | Create a direct linear-solver policy without PETSc option names. |
 | class | `NonlinearSolverOptions` | PETSc SNES/KSP policy for nonlinear finite-element solves. |
 | class | `NewtonSolverOptions` | Backend-neutral Newton policy for nonlinear equilibrium. |
@@ -927,7 +927,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `AffineLoadPathInfo` | Convergence evidence for an incrementally applied affine constraint. |
 | class | `SolveEvent` | One structured event emitted by an analysis procedure. |
 | function | `create_ksp(comm, options: LinearSolverOptions \| None = None)` | Create and configure a PETSc KSP object. |
-| class | `LinearSolveInfo` | PETSc KSP convergence evidence for one linear system solve. |
+| class | `LinearSolveInfo` | Backend-neutral convergence evidence for one linear system solve. |
 | class | `PreparedLinearProblem(bilinear_form, linear_form, solution, *, bcs = None, options: LinearSolverOptions \| None = None)` | A linear problem whose constant matrix and KSP are assembled once. |
 | function | `prepare_linear_problem(bilinear_form, linear_form, solution, *, bcs = None, options: LinearSolverOptions \| None = None) -> PreparedLinearProblem` | Prepare one constant linear operator for repeated right-hand sides. |
 | function | `solve_matrix_system(A, b, x, options: LinearSolverOptions \| None = None, *, raise_on_failure: bool \| None = None) -> LinearSolveInfo` | Solve ``A x = b`` and return explicit PETSc convergence evidence. |
@@ -989,6 +989,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `get_backend(name: str \| None = None) -> BackendAdapter` | Return a lazily constructed backend adapter. |
 | function | `register_backend(name: str, factory: BackendFactory, *, overwrite: bool = False) -> None` | Register a lazy backend factory. |
 | function | `set_default_backend(name: str) -> None` | Select the process-local default backend by registered name. |
+| class | `RuntimeCapabilityError(required, *, operation: str \| None = None)` | Raised before lowering when the active runtime cannot execute a step. |
+| class | `RuntimeProfile` | Detected numerical runtime and its explicitly supported capabilities. |
+| function | `current_runtime() -> RuntimeProfile` | Return the active FEniCSx runtime without importing optional solvers. |
+| function | `require_capabilities(*capabilities: str, operation: str \| None = None) -> None` | Fail closed with a stable error when capabilities are unavailable. |
 
 ## `agentfem.benchmarks`
 

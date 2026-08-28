@@ -8,7 +8,7 @@
 [![Test](https://github.com/haoming-luo/agentfem/actions/workflows/test.yml/badge.svg)](https://github.com/haoming-luo/agentfem/actions/workflows/test.yml)
 [![PyPI](https://img.shields.io/pypi/v/agentfem.svg)](https://pypi.org/project/agentfem/)
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
-[![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows%20%28WSL2%29-informational.svg)](INSTALL.md)
+[![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-informational.svg)](INSTALL.md)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 **AI-native finite-element computing for humans and agents.**
@@ -77,8 +77,9 @@ Prefer manual setup? Continue to [Install](#install).
 
 ## Install
 
-AgentFEM supports **Linux**, **macOS**, and **Windows through WSL2**. Conda-forge
-provides the compiled FEniCSx/PETSc/MPI stack and PyPI provides AgentFEM:
+AgentFEM supports **Linux**, **macOS**, and a **native Windows serial core**.
+The full nonlinear/MPI route uses FEniCSx/PETSc on Linux, macOS, WSL2, or a
+cluster:
 
 ```bash
 mamba create -n agentfem-env -c conda-forge \
@@ -93,11 +94,10 @@ Then confirm that the numerical environment is coherent:
 agentfem doctor
 ```
 
-The conda-forge AgentFEM recipe is in review; once published, the numerical
-stack and AgentFEM can be installed together. Until then, the commands above
-are the shortest supported installation path. On Windows, run them inside an
-Ubuntu WSL2 terminal. See [`INSTALL.md`](INSTALL.md) for platform details,
-MPI notes, and source installation.
+Native Windows uses DOLFINx assembly with SciPy/PyAMG for serial linear
+statics, heat transfer, linear dynamics, and explicit dynamics; use the
+Windows command in [`INSTALL.md`](INSTALL.md). Advanced nonlinear, exact MPC,
+and distributed workflows remain on the full PETSc route.
 
 Optional capabilities stay separate from the Apache-2.0 core:
 

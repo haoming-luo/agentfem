@@ -6,17 +6,28 @@ from dataclasses import dataclass, field
 from math import isfinite
 
 import numpy as np
-from petsc4py import PETSc
+from dolfinx import fem, la
 
-from dolfinx import fem
-import dolfinx.fem.petsc as fem_petsc
+from .backends.runtime import current_runtime, require_capabilities
+
+try:  # Optional on the native Windows runtime.
+    from petsc4py import PETSc
+    import dolfinx.fem.petsc as fem_petsc
+except ImportError:  # pragma: no cover - exercised by Windows CI
+    PETSc = None
+    fem_petsc = None
 
 from . import steps as step_controls
 
 
 @dataclass(frozen=True)
 class LinearSolverOptions:
-    """PETSc KSP options for a linear solve."""
+    """Linear-solver policy mapped by the active numerical runtime.
+
+    ``ksp_type`` and ``pc_type`` retain 0.2 compatibility. The full runtime
+    maps them to PETSc; the native serial runtime maps direct, CG, GMRES, and
+    BiCGStab policies to SciPy and optional PyAMG.
+    """
 
     ksp_type: str = "preonly"
     pc_type: str = "lu"
@@ -495,6 +506,8 @@ class SolveEvent:
 def create_ksp(comm, options: LinearSolverOptions | None = None):
     """Create and configure a PETSc KSP object."""
 
+    require_capabilities("petsc_linear_solve", operation="create_ksp")
+
     options = options or LinearSolverOptions()
     ksp = PETSc.KSP().create(comm)
     ksp.setType(options.ksp_type)
@@ -513,11 +526,12 @@ def create_ksp(comm, options: LinearSolverOptions | None = None):
 
 @dataclass(frozen=True)
 class LinearSolveInfo:
-    """PETSc KSP convergence evidence for one linear system solve."""
+    """Backend-neutral convergence evidence for one linear system solve."""
 
     converged_reason: int
     iterations: int
     residual_norm: float
+    backend: str = "petsc"
 
     @property
     def converged(self) -> bool:
@@ -530,6 +544,7 @@ class LinearSolveInfo:
             "converged_reason": self.converged_reason,
             "iterations": self.iterations,
             "residual_norm": self.residual_norm,
+            "backend": self.backend,
         }
 
 
@@ -562,10 +577,19 @@ class PreparedLinearProblem:
         self.solution = solution
         self.bcs = [] if bcs is None else list(bcs)
         self.options = options or LinearSolverOptions()
-        self.matrix = fem_petsc.assemble_matrix(self.bilinear_form, bcs=self.bcs)
-        self.matrix.assemble()
-        self.ksp = create_ksp(self.matrix.comm, self.options)
-        self.ksp.setOperators(self.matrix)
+        self.runtime = current_runtime()
+        require_capabilities("linear_solve", operation="prepare_linear_problem")
+        self.ksp = None
+        if self.runtime.supports("petsc_linear_solve"):
+            self.matrix = fem_petsc.assemble_matrix(self.bilinear_form, bcs=self.bcs)
+            self.matrix.assemble()
+            self.ksp = create_ksp(self.matrix.comm, self.options)
+            self.ksp.setOperators(self.matrix)
+        else:
+            _require_serial(self.solution.function_space.mesh.comm)
+            matrix = fem.assemble_matrix(self.bilinear_form, bcs=self.bcs)
+            matrix.scatter_reverse()
+            self.matrix = matrix.to_scipy().tocsr()
         self.last_solve_info: LinearSolveInfo | None = None
         self.solve_count = 0
         self._closed = False
@@ -575,21 +599,28 @@ class PreparedLinearProblem:
 
         if self._closed:
             raise RuntimeError("PreparedLinearProblem is closed.")
-        vector = fem_petsc.assemble_vector(self.linear_form)
-        fem_petsc.apply_lifting(vector, [self.bilinear_form], [self.bcs])
-        vector.ghostUpdate(
-            addv=PETSc.InsertMode.ADD,
-            mode=PETSc.ScatterMode.REVERSE,
-        )
-        fem_petsc.set_bc(vector, self.bcs)
-        self.ksp.solve(vector, self.solution.x.petsc_vec)
-        self.solution.x.scatter_forward()
-        info = LinearSolveInfo(
-            converged_reason=int(self.ksp.getConvergedReason()),
-            iterations=int(self.ksp.getIterationNumber()),
-            residual_norm=float(self.ksp.getResidualNorm()),
-        )
-        vector.destroy()
+        if self.runtime.supports("petsc_linear_solve"):
+            vector = fem_petsc.assemble_vector(self.linear_form)
+            fem_petsc.apply_lifting(vector, [self.bilinear_form], [self.bcs])
+            vector.ghostUpdate(
+                addv=PETSc.InsertMode.ADD,
+                mode=PETSc.ScatterMode.REVERSE,
+            )
+            fem_petsc.set_bc(vector, self.bcs)
+            self.ksp.solve(vector, self.solution.x.petsc_vec)
+            self.solution.x.scatter_forward()
+            info = LinearSolveInfo(
+                converged_reason=int(self.ksp.getConvergedReason()),
+                iterations=int(self.ksp.getIterationNumber()),
+                residual_norm=float(self.ksp.getResidualNorm()),
+                backend="petsc",
+            )
+            vector.destroy()
+        else:
+            rhs = _assemble_native_rhs(self.linear_form, self.bilinear_form, self.bcs)
+            values, info = _solve_native_matrix(self.matrix, rhs, self.options)
+            self.solution.x.array[: values.size] = values
+            self.solution.x.scatter_forward()
         self.last_solve_info = info
         self.solve_count += 1
         if not info.converged and self.options.error_if_not_converged:
@@ -600,6 +631,7 @@ class PreparedLinearProblem:
         return {
             "kind": "prepared_linear_problem",
             "matrix_reused": True,
+            "runtime": self.runtime.name,
             "solve_count": int(self.solve_count),
             "solver": self.options.summary(),
             "last_solve": (
@@ -612,8 +644,10 @@ class PreparedLinearProblem:
 
         if self._closed:
             return
-        self.ksp.destroy()
-        self.matrix.destroy()
+        if self.ksp is not None:
+            self.ksp.destroy()
+        if hasattr(self.matrix, "destroy"):
+            self.matrix.destroy()
         self._closed = True
 
     def __enter__(self):
@@ -698,7 +732,18 @@ def solve_linear_problem(
         PETSc KSP configuration.
     """
 
+    require_capabilities("linear_solve", operation="solve_linear_problem")
     bcs = [] if bcs is None else list(bcs)
+    runtime = current_runtime()
+    if not runtime.supports("petsc_linear_solve"):
+        return _solve_native_linear_problem(
+            bilinear_form,
+            linear_form,
+            solution,
+            bcs=bcs,
+            options=options,
+            return_info=return_info,
+        )
     A = fem_petsc.assemble_matrix(bilinear_form, bcs=bcs)
     A.assemble()
     b = fem_petsc.assemble_vector(linear_form)
@@ -723,9 +768,125 @@ def solve_linear_problem(
     return (solution, info) if return_info else solution
 
 
+def _require_serial(comm) -> None:
+    if int(comm.size) != 1:
+        raise RuntimeError(
+            "AFM-BACKEND-NATIVE-MPI-001: fenicsx-native-serial supports one "
+            "MPI rank. Install PETSc/petsc4py for distributed solves."
+        )
+
+
+def _assemble_native_rhs(linear_form, bilinear_form, bcs):
+    vector = fem.assemble_vector(linear_form)
+    fem.apply_lifting(vector.array, [bilinear_form], bcs=[bcs])
+    vector.scatter_reverse(la.InsertMode.add)
+    fem.set_bc(vector.array, bcs)
+    return vector.array.copy()
+
+
+def _solve_native_matrix(matrix, rhs, options):
+    """Solve one serial native CSR system with SciPy or optional PyAMG."""
+
+    from scipy.sparse.linalg import bicgstab, cg, gmres, spsolve
+
+    selected = options or LinearSolverOptions()
+    requested_package = selected.factor_solver_type
+    if requested_package is not None and requested_package.lower() not in {
+        "scipy",
+        "superlu",
+    }:
+        raise ValueError(
+            "fenicsx-native-serial cannot honor the requested direct solver "
+            f"package {requested_package!r}. Omit package=... or select "
+            "package='scipy'."
+        )
+    method = selected.ksp_type.lower()
+    tolerance = 1.0e-8 if selected.rtol is None else selected.rtol
+    absolute = 0.0 if selected.atol is None else selected.atol
+    maximum = selected.max_it
+    iterations = 0
+
+    if method in {"preonly", "lu", "cholesky"}:
+        values = np.asarray(spsolve(matrix, rhs))
+        reason = 1
+        iterations = 1
+        backend = "scipy_spsolve"
+    else:
+        preconditioner = None
+        if selected.pc_type.lower() in {"hypre", "gamg", "amg", "pyamg"}:
+            try:
+                import pyamg
+            except ImportError as exc:
+                raise ImportError(
+                    "The native AMG policy requires optional `pyamg`."
+                ) from exc
+            preconditioner = pyamg.smoothed_aggregation_solver(matrix).aspreconditioner()
+        callback_count = [0]
+
+        def callback(_value):
+            callback_count[0] += 1
+
+        if method == "cg":
+            values, flag = cg(
+                matrix, rhs, rtol=tolerance, atol=absolute,
+                maxiter=maximum, M=preconditioner, callback=callback,
+            )
+        elif method in {"bcgs", "bicgstab"}:
+            values, flag = bicgstab(
+                matrix, rhs, rtol=tolerance, atol=absolute,
+                maxiter=maximum, M=preconditioner, callback=callback,
+            )
+        elif method == "gmres":
+            values, flag = gmres(
+                matrix, rhs, rtol=tolerance, atol=absolute,
+                maxiter=maximum, M=preconditioner, callback=callback,
+                callback_type="pr_norm",
+            )
+        else:
+            raise ValueError(
+                "fenicsx-native-serial supports direct/preonly, cg, gmres, "
+                f"and bicgstab; received ksp_type={selected.ksp_type!r}."
+            )
+        reason = 1 if flag == 0 else -1
+        iterations = callback_count[0]
+        backend = f"scipy_{method}"
+    residual = float(np.linalg.norm(matrix @ values - rhs))
+    info = LinearSolveInfo(reason, iterations, residual, backend=backend)
+    if not info.converged and selected.error_if_not_converged:
+        _raise_linear_failure(info)
+    return values, info
+
+
+def _solve_native_linear_problem(
+    bilinear_form,
+    linear_form,
+    solution,
+    *,
+    bcs,
+    options,
+    return_info,
+):
+    _require_serial(solution.function_space.mesh.comm)
+    a_form = (
+        bilinear_form
+        if hasattr(bilinear_form, "_cpp_object")
+        else fem.form(bilinear_form)
+    )
+    L_form = (
+        linear_form if hasattr(linear_form, "_cpp_object") else fem.form(linear_form)
+    )
+    matrix = fem.assemble_matrix(a_form, bcs=bcs)
+    matrix.scatter_reverse()
+    rhs = _assemble_native_rhs(L_form, a_form, bcs)
+    values, info = _solve_native_matrix(matrix.to_scipy().tocsr(), rhs, options)
+    solution.x.array[: values.size] = values
+    solution.x.scatter_forward()
+    return (solution, info) if return_info else solution
+
+
 def _raise_linear_failure(info: LinearSolveInfo) -> None:
     raise RuntimeError(
-        "PETSc KSP did not converge: "
+        f"Linear solver {info.backend!r} did not converge: "
         f"reason={info.converged_reason}, iterations={info.iterations}, "
         f"residual_norm={info.residual_norm:.6g}."
     )
@@ -742,6 +903,7 @@ def solve_nonlinear_problem(
 ) -> tuple[object, NonlinearSolveInfo]:
     """Solve ``R(u; v) = 0`` with the current DOLFINx PETSc/SNES interface."""
 
+    require_capabilities("petsc_nonlinear_solve", operation="solve_nonlinear_problem")
     from dolfinx.fem.petsc import NonlinearProblem
 
     selected = options or NonlinearSolverOptions()

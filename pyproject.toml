@@ -36,6 +36,7 @@ dependencies = [
   "h5py",
   "numpy",
   "mpi4py",
+  "scipy",
 ]
 
 [project.urls]
@@ -68,6 +69,7 @@ docs = [
 ]
 notebooks = ["jupyterlab", "ipykernel", "nbformat", "nbclient"]
 ml = ["torch"]
+native-linear = ["pyamg>=5.3"]
 dev = ["build", "pytest", "ruff>=0.16,<0.17", "twine"]
 
 [tool.setuptools]

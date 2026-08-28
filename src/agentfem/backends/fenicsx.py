@@ -12,6 +12,9 @@ class FEniCSxBackend(BackendAdapter):
 
     @cached_property
     def descriptor(self) -> BackendDescriptor:
+        from .runtime import current_runtime
+
+        runtime = current_runtime()
         try:
             import dolfinx
 
@@ -21,18 +24,11 @@ class FEniCSxBackend(BackendAdapter):
         return BackendDescriptor(
             name="fenicsx",
             version=str(version),
-            capabilities=(
-                "ufl_form_compilation",
-                "matrix_assembly",
-                "vector_assembly",
-                "petsc_linear_solve",
-                "mpi_distributed_mesh",
-                "xdmf_output",
-            ),
+            capabilities=runtime.capabilities,
             status="available" if version != "unavailable" else "unavailable",
             notes=(
-                "Primary AgentFEM execution backend. The adapter boundary is "
-                "experimental; full backend-neutral lowering is not claimed."
+                f"Primary AgentFEM execution backend through {runtime.name}. "
+                f"{runtime.notes}"
             ),
         )
 

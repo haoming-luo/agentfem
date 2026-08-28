@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 import ufl
-from dolfinx import fem
-from petsc4py import PETSc
+from dolfinx import fem, la
 
-import dolfinx.fem.petsc as fem_petsc
+from .backends.runtime import current_runtime
 
 
 def make_form(ufl_form):
@@ -19,16 +18,29 @@ def make_form(ufl_form):
 def assemble_vector(form):
     """Assemble a vector and accumulate ghost contributions to owned entries."""
 
-    vector = fem_petsc.assemble_vector(form)
-    vector.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
+    if current_runtime().supports("petsc_linear_solve"):
+        from petsc4py import PETSc
+        import dolfinx.fem.petsc as fem_petsc
+
+        vector = fem_petsc.assemble_vector(form)
+        vector.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
+        return vector
+    vector = fem.assemble_vector(form)
+    vector.scatter_reverse(la.InsertMode.add)
     return vector
 
 
 def assemble_matrix(form, bcs=None):
     """Assemble a matrix and apply optional strong Dirichlet BC structure."""
 
-    matrix = fem_petsc.assemble_matrix(form, bcs=[] if bcs is None else bcs)
-    matrix.assemble()
+    if current_runtime().supports("petsc_linear_solve"):
+        import dolfinx.fem.petsc as fem_petsc
+
+        matrix = fem_petsc.assemble_matrix(form, bcs=[] if bcs is None else bcs)
+        matrix.assemble()
+        return matrix
+    matrix = fem.assemble_matrix(form, bcs=[] if bcs is None else bcs)
+    matrix.scatter_reverse()
     return matrix
 
 
@@ -46,7 +58,8 @@ def assemble_lumped_operator(V, coefficient=1.0, measure=ufl.dx) -> np.ndarray:
     lumped_form = fem.form(ufl.inner(coefficient * ones, test_function) * measure)
     lumped_vec = assemble_vector(lumped_form)
     lumped = lumped_vec.array.copy()
-    lumped_vec.destroy()
+    if hasattr(lumped_vec, "destroy"):
+        lumped_vec.destroy()
     return lumped
 
 

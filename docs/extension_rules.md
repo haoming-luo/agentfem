@@ -63,6 +63,10 @@ Use these rules before adding new public functions or modules.
 - The code describes backend capability or lowers a supported semantic object.
 - Unsupported behavior is rejected explicitly.
 - The adapter has numerical evidence for every advertised capability.
+- Runtime selection depends on declared capabilities, never on operating-system
+  names inside scientific modules.
+- A second numerical implementation reuses the same Study, Model, Step, and
+  SimulationResult contracts; do not create a reduced platform-specific API.
 
 ## Keep in the Application When
 

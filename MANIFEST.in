@@ -10,6 +10,7 @@ include CONCEPTS.md
 include AGENT_GUIDE.md
 include pyproject.toml
 include environment.yml
+include environment-windows.yml
 include release_gate.py
 include promotion_gate.py
 include build_docs.py
