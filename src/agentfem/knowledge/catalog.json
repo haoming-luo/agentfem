@@ -127,11 +127,25 @@
       "title": "Neo-Hookean small-on-large wave oracle"
     },
     {
+      "id": "agentfem.benchmark.finite_strain_j2_lewandowski_2023_beam",
+      "physics": "Three-dimensional slender beam under a ramped gravity-like body force, with a left clamp, right-end axial symmetry constraint, finite rotations, isotropic J2 plasticity and linear isotropic hardening.",
+      "source": "src/agentfem/knowledge/benchmarks/finite_strain_j2_lewandowski_2023_beam.json",
+      "status": "experimental_external_promotion_gate_not_run",
+      "title": "Lewandowski et al. finite-strain J2 self-weight beam"
+    },
+    {
       "id": "agentfem.benchmark.finite_strain_j2_material_paths",
       "physics": "three-dimensional rate-independent finite-strain J2 plasticity with quadratic Hencky elasticity and linear isotropic hardening",
       "source": "src/agentfem/knowledge/benchmarks/finite_strain_j2_material_paths.json",
       "status": "experimental_automated_global_mpi_restart",
       "title": "Finite-strain logarithmic J2 material and global paths"
+    },
+    {
+      "id": "agentfem.benchmark.finite_strain_j2_periodic_multi_void",
+      "physics": "Three-dimensional finite-strain logarithmic J2 plasticity in a unit periodic cube containing four non-overlapping geometric spherical voids under isochoric macroscopic tension.",
+      "source": "src/agentfem/knowledge/benchmarks/finite_strain_j2_periodic_multi_void.json",
+      "status": "automated_fixed_stack_regression_with_refinement_mpi_restart",
+      "title": "Finite-strain J2 periodic cell with a deterministic multi-void realization"
     },
     {
       "id": "agentfem.benchmark.finite_strain_j2_periodic_void",

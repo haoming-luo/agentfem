@@ -1,0 +1,317 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.finite_strain_j2_periodic_multi_void",
+  "title": "Finite-strain J2 periodic cell with a deterministic multi-void realization",
+  "status": "automated_fixed_stack_regression_with_refinement_mpi_restart",
+  "purpose": "Freeze one deterministic four-void software-regression contract for the public finite-strain J2 affine-periodic workflow while keeping refinement, distributed execution, restart and external scientific validation as distinct evidence layers.",
+  "physics": "Three-dimensional finite-strain logarithmic J2 plasticity in a unit periodic cube containing four non-overlapping geometric spherical voids under isochoric macroscopic tension.",
+  "execution": {
+    "command": "python tests/multi_void_rve_golden_driver.py --mesh-size 0.16 --increments 2 --output /tmp/agentfem-multi-void.json && AGENTFEM_RUN_MULTI_VOID_RVE_REFINEMENT=1 python -m pytest -q tests/test_multi_void_rve_golden.py -k successive_refinement",
+    "example": "docs/reference/rve_homogenization_and_statistics.md",
+    "evidence": "The public model.step provider consumes one deterministic hard-core periodic realization, exact affine-periodic equations, provider-owned quadrature state, complete-cell homogenization and the ordinary SimulationResult lifecycle. A fixed h/L=0.16 reference is separated from the opt-in h/L=0.20, 0.16 and 0.12 successive-refinement certificate. Canonical two-rank and same-rank restart checks pass on the same realization and portable identities.",
+    "fixed_stack": "python tests/multi_void_rve_golden_driver.py --mesh-size 0.16 --increments 2 --output /tmp/agentfem-multi-void.json",
+    "refinement": "AGENTFEM_RUN_MULTI_VOID_RVE_REFINEMENT=1 python -m pytest -q tests/test_multi_void_rve_golden.py -k successive_refinement",
+    "mpi": "agentfem mpi-run -n 2 -- python tests/multi_void_rve_golden_driver.py --mesh-size 0.16 --increments 2 --output /tmp/agentfem-multi-void-mpi2.json",
+    "rank_comparison": "python tests/multi_void_rve_golden_driver.py --compare-ranks /tmp/agentfem-multi-void.json /tmp/agentfem-multi-void-mpi2.json --output /tmp/agentfem-multi-void-rank-certificate.json",
+    "refinement_comparison": "python tests/multi_void_rve_golden_driver.py --compare-refinement /tmp/agentfem-multi-void-h020.json /tmp/agentfem-multi-void-h016.json /tmp/agentfem-multi-void-h012.json --output /tmp/agentfem-multi-void-refinement-certificate.json",
+    "restart": "python tests/multi_void_rve_restart_driver.py /tmp/agentfem-multi-void-restart --mesh-size 0.16 --increments 2 --output /tmp/agentfem-multi-void-restart.json"
+  },
+  "observables": [
+    "Full row-major homogenized first-Piola stress normalized by the complete periodic-cell reference volume.",
+    "Physical-weighted mean and 95th percentile of accepted integration-point PEEQ.",
+    "Meshed solid reference fraction, deterministic realization identity, portable mesh identity and periodic-equation identity.",
+    "Periodic pairing, positive deformation Jacobian, Hill--Mandel residual, stored-energy component closure and provider-field availability as invariant gates.",
+    "PEEQ 99th percentile and maximum and minimum quadrature J remain mesh-sensitive diagnostics rather than Golden targets."
+  ],
+  "acceptance": [
+    "The deterministic realization fingerprint, portable h/L=0.16 mesh identity, scientific-input fingerprint and declared reference stack match before the fixed-stack Golden quantities are compared.",
+    "The accepted load factors are exactly 0, 0.5 and 1, all global Newton solves converge, and provider-owned F/P/S/MISES/SENER/ELENER/HARDENER/FP/PEEQ fields reach the SimulationResult.",
+    "Periodic pairing remains below 1e-12 L, solved equation mismatch below 1e-10 L, minimum quadrature J above 0.99, maximum Hill--Mandel relative residual below 1e-8 and maximum SENER component-closure error below 1e-12.",
+    "The h/L=0.20, 0.16 and 0.12 levels all pass invariant gates; the medium-to-fine relative changes remain below 0.5 percent for macroscopic first-Piola stress, 0.2 percent for PEEQ mean, 1.5 percent for PEEQ P95 and 0.2 percent for meshed solid fraction; finest geometry error remains below 1 percent.",
+    "A two-rank rerun preserves the realization, mesh and constraint identities and agrees with serial global and weighted observables within floating-point tolerance.",
+    "A midpoint checkpoint followed by restart reproduces the uninterrupted nodal, quadrature, constitutive, macroscopic and increment-history state within the declared restart tolerances."
+  ],
+  "regression_identity": {
+    "reference_source": {
+      "commit": "17a2c6604990d17853b7b2d4e613a3d77fcc8d51",
+      "tracked_dirty": false,
+      "package_tree_sha256": "45a07e43ee136d8722ecbfa330f18bda74a45bb0416705493c8b80a5279f3181",
+      "runtime_fingerprint": "sha256:2314ef9e33ebf7e770e5bd491d553f3d1dbbabbba241d5d292eaddfbe6579845"
+    },
+    "fixed_stack": {
+      "platform": {
+        "system": "Darwin",
+        "release": "25.5.0",
+        "machine": "arm64"
+      },
+      "python": "3.11.15",
+      "packages": {
+        "agentfem": "0.2.5",
+        "fenics-basix": "0.11.0",
+        "fenics-dolfinx": "0.11.0",
+        "fenics-ffcx": "0.11.0",
+        "fenics-ufl": "2026.1.0",
+        "mpi4py": "4.1.2",
+        "numpy": "2.4.6",
+        "petsc4py": "3.25.2"
+      },
+      "mpi": {
+        "vendor": "MPICH 5.0.1",
+        "rank_count": 1
+      },
+      "numerics": {
+        "numpy_default_float": "float64",
+        "petsc_complex": false,
+        "petsc_real_type": "float64",
+        "petsc_scalar_type": "float64",
+        "python_float_mantissa_bits": 53
+      },
+      "gmsh": {
+        "version": "4.15.2",
+        "options": {
+          "General.NumThreads": 1.0,
+          "Mesh.Algorithm3D": 1.0,
+          "Mesh.RandomFactor": 1e-9,
+          "Mesh.RandomFactor3D": 1e-12,
+          "Mesh.RandomSeed": 1.0
+        }
+      }
+    },
+    "realization_identity": {
+      "schema": "agentfem.test-spherical-void-realization.v2",
+      "sampler": "hard-core-periodic-cubic-pcg64-v2",
+      "seed": 1729,
+      "void_count": 4,
+      "void_radius": 0.09,
+      "minimum_inter_void_clearance": 0.04,
+      "minimum_boundary_clearance": 0.03,
+      "periodic_boundary_crossing": false,
+      "fingerprint": "d3f0879a06d1092926544b465109cdff4b979cf384b7db55bb0a67fd1291e49d"
+    },
+    "mesh_identity": {
+      "topology_dimension": 3,
+      "geometry_dimension": 3,
+      "cell_type": "tetrahedron",
+      "global_cells": 2368,
+      "geometry_connectivity_hash": "bf6ae719814885a336592446626d1905038a7f1437bff64e39cf03cf849185bc",
+      "coordinate_key": "relative_bounds_scaled_int64"
+    },
+    "scientific_input_fingerprint": "sha256:786e20d64efa1e2a00586cb09b611626f4616c8620b4200d13d96bbb30be20bb",
+    "scientific_input": {
+      "constraint_equation_count": 588,
+      "constraint_fingerprint": "0ad24e0bdbbefead4e227e03e374391ce8eae62c8754ca157d0d485812f615a7",
+      "increments": 2,
+      "macroscopic_deformation_gradient": [
+        [1.004, 0.0, 0.0],
+        [0.0, 0.998005980069749, 0.0],
+        [0.0, 0.0, 0.998005980069749]
+      ],
+      "material": {
+        "hardening_modulus": 2000.0,
+        "poisson": 0.3,
+        "tangent_relative_step": 2e-6,
+        "yield_stress": 200.0,
+        "young": 200000.0
+      },
+      "mesh": {
+        "exact_solid_fraction": 0.9877854877628429,
+        "generation_options": {
+          "General.NumThreads": 1.0,
+          "Mesh.Algorithm3D": 1.0,
+          "Mesh.RandomFactor": 1e-9,
+          "Mesh.RandomFactor3D": 1e-12,
+          "Mesh.RandomSeed": 1.0
+        },
+        "generator": "gmsh-periodic-first-order-tetrahedra",
+        "nominal_size": 0.16
+      },
+      "quadrature_degree": 1,
+      "realization": {
+        "actual_void_fraction": 0.012214512237157115,
+        "attempts": 4,
+        "cell": {
+          "origin": [0.0, 0.0, 0.0],
+          "side_length": 1.0
+        },
+        "constraints": {
+          "minimum_boundary_clearance": 0.03,
+          "minimum_inter_void_clearance": 0.04,
+          "periodic_boundary_crossing": false
+        },
+        "fingerprint": "d3f0879a06d1092926544b465109cdff4b979cf384b7db55bb0a67fd1291e49d",
+        "observed_boundary_clearance": 0.04796920089893106,
+        "observed_periodic_inter_void_clearance": 0.10361255181641105,
+        "sampler": "hard-core-periodic-cubic-pcg64-v2",
+        "schema": "agentfem.test-spherical-void-realization.v2",
+        "seed": 1729,
+        "voids": [
+          {
+            "center": [0.1433639424999277, 0.24802768462135927, 0.3434023397544025],
+            "id": "void-0001",
+            "radius": 0.09
+          },
+          {
+            "center": [0.39363285611978455, 0.16045576862210384, 0.24274097700000483],
+            "id": "void-0002",
+            "radius": 0.09
+          },
+          {
+            "center": [0.4734011207025083, 0.22949260035463306, 0.8160777034970221],
+            "id": "void-0003",
+            "radius": 0.09
+          },
+          {
+            "center": [0.5579514514873746, 0.7374026260979596, 0.862030799101069],
+            "id": "void-0004",
+            "radius": 0.09
+          }
+        ]
+      },
+      "solver": {
+        "absolute_tolerance": 1e-8,
+        "error_if_not_converged": true,
+        "kind": "newton_solver",
+        "line_search": "backtracking",
+        "line_search_reduction": 0.5,
+        "linear_solver": {
+          "atol": null,
+          "error_if_not_converged": true,
+          "factor_solver_type": null,
+          "kind": "linear_solver_options",
+          "ksp_type": "preonly",
+          "max_it": null,
+          "pc_type": "lu",
+          "rtol": null
+        },
+        "maximum_iterations": 25,
+        "minimum_step_length": 0.0078125,
+        "relative_tolerance": 2e-7
+      }
+    },
+    "weighted_statistics": {
+      "location": "quadrature_points",
+      "representation": "raw_quadrature_values",
+      "operation": "physical_weighted_distribution",
+      "quantile_definition": "left-continuous weighted empirical CDF",
+      "sample_count": 2368,
+      "total_weight": 0.9922397791723693
+    },
+    "reference_diagnostics": {
+      "minimum_quadrature_j": 0.9993125668800454,
+      "peeq_p99_report_only": 0.003508768985873296,
+      "peeq_maximum_report_only": 0.004065719313927613,
+      "periodic_pairing_error": 0.0,
+      "periodic_equation_mismatch": 0.0,
+      "maximum_hill_mandel_relative_error": 6.739036068158032e-14,
+      "maximum_sener_component_closure_error": 1.3877787807814457e-17
+    }
+  },
+  "golden": {
+    "reference_version": "periodic-multi-void-j2-d3f0879a-bf6ae719-v1",
+    "quantities": [
+      {
+        "name": "homogenized_first_piola_stress",
+        "expected": [135.74034903282387, -0.012553608974509599, -0.010031011229537146, -0.012478662179300815, -68.3979305240349, 0.01523995551681876, -0.009971124694447357, 0.015239955516818888, -68.37076529113641],
+        "relative_tolerance": 5e-5,
+        "absolute_tolerance": 2e-5,
+        "unit": "consistent stress unit",
+        "description": "Row-major complete-cell-volume average of the accepted first-Piola field on the fixed h/L=0.16 reference mesh."
+      },
+      {
+        "name": "peeq_mean",
+        "expected": 0.003094287498920874,
+        "relative_tolerance": 5e-4,
+        "absolute_tolerance": 2e-8,
+        "unit": null,
+        "description": "Physical-weighted mean accepted integration-point equivalent plastic strain."
+      },
+      {
+        "name": "peeq_p95",
+        "expected": 0.0032313230882779565,
+        "relative_tolerance": 5e-4,
+        "absolute_tolerance": 2e-8,
+        "unit": null,
+        "description": "Left-continuous physical-weighted empirical 95th percentile of accepted PEEQ."
+      },
+      {
+        "name": "solid_reference_fraction",
+        "expected": 0.9922397791723693,
+        "relative_tolerance": 1e-10,
+        "absolute_tolerance": 1e-12,
+        "unit": null,
+        "description": "Meshed solid reference volume divided by the complete unit-cell reference volume."
+      }
+    ]
+  },
+  "refinement_certificate": {
+    "status": "accepted_successive_refinement_stability",
+    "command": "AGENTFEM_RUN_MULTI_VOID_RVE_REFINEMENT=1 python -m pytest -q tests/test_multi_void_rve_golden.py -k successive_refinement",
+    "realization_fingerprint": "d3f0879a06d1092926544b465109cdff4b979cf384b7db55bb0a67fd1291e49d",
+    "mesh_independent_case_fingerprint": "sha256:dc7f80ec1b86ca7689a5a01ca0e8c765916d19d23e132e12c4fabd42b25c58a0",
+    "mesh_sizes": [0.2, 0.16, 0.12],
+    "global_cells": [1453, 2368, 3946],
+    "thresholds": {
+      "macro_first_piola": 0.005,
+      "peeq_mean": 0.002,
+      "peeq_p95": 0.015,
+      "solid_reference_fraction": 0.002,
+      "finest_geometry_relative_error": 0.01
+    },
+    "medium_to_fine_relative_changes": {
+      "macro_first_piola": 0.0019499420612122968,
+      "peeq_mean": 0.0004415743246613468,
+      "peeq_p95": 0.005720679649751929,
+      "peeq_p99_diagnostic": 0.017789265632305692,
+      "peeq_maximum_diagnostic": 0.03585013801660874,
+      "solid_reference_fraction": 0.000522999467082776
+    },
+    "geometry_relative_errors": [0.003936154868435117, 0.004509371178973816, 0.0039842879314262],
+    "all_level_invariant_gates": "passed",
+    "wording": "Successive-refinement stability under provisional software-promotion limits, not formal asymptotic convergence or a GCI claim."
+  },
+  "distributed_and_restart_evidence": {
+    "status": "accepted",
+    "mpi": {
+      "schema": "agentfem.multi-void-rve-rank-equivalence.v1",
+      "rank_counts": [1, 2],
+      "two_rank_runtime_fingerprint": "sha256:c25bae00a1c6c7eafa4902d66adfd8abf0aa7ff5654efb1a4c29d4980fc5a13a",
+      "maximum_macro_first_piola_absolute_difference": 1.0629719326971099e-11,
+      "maximum_macro_first_piola_relative_difference": 9.852249372301304e-14,
+      "tolerances": {
+        "macro_absolute": 5e-10,
+        "macro_relative": 5e-12,
+        "scalar_absolute": 5e-12,
+        "scalar_relative": 5e-10
+      },
+      "scalar_absolute_differences": {
+        "peeq_mean": 2.47198095326695e-17,
+        "peeq_p95": 5.299580219109146e-16,
+        "peeq_p99_diagnostic": 3.937822290467352e-16,
+        "solid_reference_fraction": 2.220446049250313e-16
+      },
+      "realization_mesh_constraint_and_scientific_input_identities": "equal",
+      "all_invariant_gates": "passed"
+    },
+    "restart": {
+      "scope": "same-rank midpoint checkpoint and restart on h/L=0.16",
+      "checks": 101,
+      "maximum_absolute_difference": 0.0,
+      "maximum_relative_difference": 0.0,
+      "realization_fingerprint": "d3f0879a06d1092926544b465109cdff4b979cf384b7db55bb0a67fd1291e49d"
+    }
+  },
+  "scope": [
+    "One deterministic four-void hard-core periodic realization with stable void identities and no boundary-crossing voids.",
+    "Public three-dimensional finite-strain J2 affine-periodic model.step route with provider-owned quadrature state.",
+    "Fixed two-increment isochoric macroscopic deformation, physical-weighted integration-point statistics, three-level spatial refinement, two-rank execution and midpoint restart evidence."
+  ],
+  "limitations": [
+    "One deterministic realization is a software-regression asset, not a statistically representative porous material or a stochastic RVE-size study.",
+    "The fixed h/L=0.16 Golden is a reference-stack regression; the three-level certificate shows successive stability only and does not establish an asymptotic range, an observed-order/GCI uncertainty or an external reference solution.",
+    "The fixed-stack, refinement, two-rank and restart evidence was regenerated from clean detached commit 17a2c66; a future release that changes the numerical package tree must rerun the complete evidence set before replacing this provenance.",
+    "PEEQ P99 and maximum and minimum local J remain mesh-sensitive diagnostics and are not Golden acceptance quantities.",
+    "Hill--Mandel work consistency and recoverable-energy component closure are invariant audits, not a complete plastic-dissipation energy ledger.",
+    "The low-order displacement-only tetrahedral route and this internal deterministic regression do not replace an independent externally published finite-strain plasticity benchmark."
+  ]
+}

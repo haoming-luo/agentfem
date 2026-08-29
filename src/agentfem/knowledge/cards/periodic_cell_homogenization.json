@@ -89,14 +89,24 @@
       "tests/test_results.py",
       "tests/test_engineering_workflows.py",
       "tests/test_finite_strain_j2_periodic.py",
-      "tests/finite_strain_j2_path_mpi_driver.py"
+      "tests/finite_strain_j2_path_mpi_driver.py",
+      "tests/test_periodic_void_fixture.py",
+      "tests/parallel_periodic_void_j2_driver.py",
+      "tests/test_periodic_multi_void_fixture.py",
+      "tests/test_multi_void_rve_golden.py",
+      "tests/multi_void_rve_golden_driver.py",
+      "tests/multi_void_rve_restart_driver.py"
     ],
-    "benchmarks": [],
+    "benchmarks": [
+      "agentfem.benchmark.finite_strain_j2_periodic_void",
+      "agentfem.benchmark.finite_strain_j2_periodic_multi_void"
+    ],
     "validation_rules": [
       "Recover identical micro and macro work for a homogeneous finite-strain path.",
       "Preserve every accepted macro state while spatial output remains sparse.",
       "Preserve unload and non-proportional deformation-gradient knots in serial and distributed stateful J2 paths.",
       "Recover uniaxial-tension, pure-shear and undefined hydrostatic stress-state conventions.",
+      "Keep complete-cell macroscopic stress, physical-weighted quadrature statistics, Hill--Mandel evidence and restart identity consistent for deterministic single- and multi-void periodic cells in serial and distributed execution.",
       "Fail before solving when undeclared external power lies outside the current energy ledger."
     ]
   },

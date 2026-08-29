@@ -134,12 +134,20 @@
       "tests/portable_affine_j2_periodic_driver.py",
       "tests/test_periodic_void_fixture.py",
       "tests/parallel_periodic_void_j2_driver.py",
-      "tests/test_zhang_2021_periodic_composite.py"
+      "tests/test_periodic_multi_void_fixture.py",
+      "tests/test_multi_void_rve_golden.py",
+      "tests/multi_void_rve_golden_driver.py",
+      "tests/multi_void_rve_restart_driver.py",
+      "tests/test_zhang_2021_periodic_composite.py",
+      "tests/test_lewandowski_2023_self_weight_beam.py",
+      "tests/lewandowski_2023_self_weight_beam_driver.py"
     ],
     "benchmarks": [
       "agentfem.benchmark.finite_strain_j2_material_paths",
       "agentfem.benchmark.finite_strain_j2_periodic_void",
-      "agentfem.benchmark.finite_strain_j2_zhang_2021_table5"
+      "agentfem.benchmark.finite_strain_j2_periodic_multi_void",
+      "agentfem.benchmark.finite_strain_j2_zhang_2021_table5",
+      "agentfem.benchmark.finite_strain_j2_lewandowski_2023_beam"
     ],
     "validation_rules": [
       "Reject inverted total or plastic deformation gradients and non-isochoric committed plastic state.",
@@ -157,7 +165,9 @@
       "A mutated periodic-equation identity is rejected before any restored state is accepted.",
       "Regional material dispatch shares one atomic trial/commit/rollback transaction and preserves scientific identity across one-to-two and two-to-one-rank portable restart.",
       "A true spherical-void periodic RVE satisfies geometric pairing, positive-J, Hill--Mandel, public-lifecycle and two-rank execution contracts; its fixed-stack Golden and opt-in successive-refinement stability certificate remain separate evidence and do not constitute formal mesh convergence or GCI.",
-      "The Zhang--Feng--Khandelwal Table 5 fixture remains fail-closed because the current displacement-only P1 tetrahedral route has not matched the published mixed displacement--pressure result."
+      "A deterministic four-void periodic RVE preserves realization, portable mesh and constraint identities; separates its h/L=0.16 Golden from three-level refinement evidence; and passes serial/two-rank and midpoint-restart equivalence without representing a stochastic porous-material ensemble.",
+      "The Zhang--Feng--Khandelwal Table 5 fixture remains fail-closed because the current displacement-only P1 tetrahedral route has not matched the published mixed displacement--pressure result.",
+      "The Lewandowski et al. self-weight beam gate remains fail-closed until an independently reexecuted, content-bound upstream curve passes observer reconciliation, mesh and increment convergence, serial/MPI equivalence and restart equivalence."
     ]
   },
   "references": [

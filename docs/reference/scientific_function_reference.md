@@ -79,7 +79,9 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.dynamic_fracture_energy_v2` | Finite-strain and cohesive dynamic energy closure | Total-Lagrangian Neo-Hookean dynamics with optional Mode-I cohesive separation | experimental_v2_automated |
 | `agentfem.benchmark.elasticity_foundation` | Foundational small-strain elasticity verification | two- and three-dimensional small-strain linear elasticity | automated |
 | `agentfem.benchmark.finite_strain_incremental_waves_v1` | Neo-Hookean small-on-large wave oracle | compressible Neo-Hookean small-on-large elastodynamics | experimental_v1_automated |
+| `agentfem.benchmark.finite_strain_j2_lewandowski_2023_beam` | Lewandowski et al. finite-strain J2 self-weight beam | Three-dimensional slender beam under a ramped gravity-like body force, with a left clamp, right-end axial symmetry constraint, finite rotations, isotropic J2 plasticity and linear isotropic hardening. | experimental_external_promotion_gate_not_run |
 | `agentfem.benchmark.finite_strain_j2_material_paths` | Finite-strain logarithmic J2 material and global paths | three-dimensional rate-independent finite-strain J2 plasticity with quadratic Hencky elasticity and linear isotropic hardening | experimental_automated_global_mpi_restart |
+| `agentfem.benchmark.finite_strain_j2_periodic_multi_void` | Finite-strain J2 periodic cell with a deterministic multi-void realization | Three-dimensional finite-strain logarithmic J2 plasticity in a unit periodic cube containing four non-overlapping geometric spherical voids under isochoric macroscopic tension. | automated_fixed_stack_regression_with_refinement_mpi_restart |
 | `agentfem.benchmark.finite_strain_j2_periodic_void` | Finite-strain J2 periodic cell with a true spherical void | Three-dimensional finite-strain logarithmic J2 plasticity in a unit periodic cube containing a geometric spherical void under isochoric macroscopic tension. | automated_fixed_stack_regression_experimental_science |
 | `agentfem.benchmark.finite_strain_j2_zhang_2021_table5` | Zhang--Feng--Khandelwal finite-strain periodic composite, Table 5 | Plane-strain periodic composite with two stiff circular inclusions, one circular void, logarithmic finite-strain J2 matrix plasticity, elastic inclusions, and macroscopic simple shear. | experimental_external_fixture_not_promoted |
 | `agentfem.benchmark.implicit_creep_relaxation` | Three-dimensional implicit power-law creep relaxation and restart | three-dimensional small-strain isotropic Mises power-law creep | automated_regression |
@@ -820,13 +822,21 @@ material = constitutive.finite_strain_j2_logarithmic(young=210e3, poisson=0.3, y
 - `tests/portable_affine_j2_periodic_driver.py`
 - `tests/test_periodic_void_fixture.py`
 - `tests/parallel_periodic_void_j2_driver.py`
+- `tests/test_periodic_multi_void_fixture.py`
+- `tests/test_multi_void_rve_golden.py`
+- `tests/multi_void_rve_golden_driver.py`
+- `tests/multi_void_rve_restart_driver.py`
 - `tests/test_zhang_2021_periodic_composite.py`
+- `tests/test_lewandowski_2023_self_weight_beam.py`
+- `tests/lewandowski_2023_self_weight_beam_driver.py`
 
 **Benchmarks**
 
 - `agentfem.benchmark.finite_strain_j2_material_paths`
 - `agentfem.benchmark.finite_strain_j2_periodic_void`
+- `agentfem.benchmark.finite_strain_j2_periodic_multi_void`
 - `agentfem.benchmark.finite_strain_j2_zhang_2021_table5`
+- `agentfem.benchmark.finite_strain_j2_lewandowski_2023_beam`
 
 **Validation rules**
 
@@ -845,7 +855,9 @@ material = constitutive.finite_strain_j2_logarithmic(young=210e3, poisson=0.3, y
 - A mutated periodic-equation identity is rejected before any restored state is accepted.
 - Regional material dispatch shares one atomic trial/commit/rollback transaction and preserves scientific identity across one-to-two and two-to-one-rank portable restart.
 - A true spherical-void periodic RVE satisfies geometric pairing, positive-J, Hill--Mandel, public-lifecycle and two-rank execution contracts; its fixed-stack Golden and opt-in successive-refinement stability certificate remain separate evidence and do not constitute formal mesh convergence or GCI.
+- A deterministic four-void periodic RVE preserves realization, portable mesh and constraint identities; separates its h/L=0.16 Golden from three-level refinement evidence; and passes serial/two-rank and midpoint-restart equivalence without representing a stochastic porous-material ensemble.
 - The Zhang--Feng--Khandelwal Table 5 fixture remains fail-closed because the current displacement-only P1 tetrahedral route has not matched the published mixed displacement--pressure result.
+- The Lewandowski et al. self-weight beam gate remains fail-closed until an independently reexecuted, content-bound upstream curve passes observer reconciliation, mesh and increment convergence, serial/MPI equivalence and restart equivalence.
 
 ### References
 
@@ -3528,10 +3540,17 @@ output = results.output_plan('outputs/cell', requests=(results.periodic_cell_his
 - `tests/test_engineering_workflows.py`
 - `tests/test_finite_strain_j2_periodic.py`
 - `tests/finite_strain_j2_path_mpi_driver.py`
+- `tests/test_periodic_void_fixture.py`
+- `tests/parallel_periodic_void_j2_driver.py`
+- `tests/test_periodic_multi_void_fixture.py`
+- `tests/test_multi_void_rve_golden.py`
+- `tests/multi_void_rve_golden_driver.py`
+- `tests/multi_void_rve_restart_driver.py`
 
 **Benchmarks**
 
-- None declared.
+- `agentfem.benchmark.finite_strain_j2_periodic_void`
+- `agentfem.benchmark.finite_strain_j2_periodic_multi_void`
 
 **Validation rules**
 
@@ -3539,6 +3558,7 @@ output = results.output_plan('outputs/cell', requests=(results.periodic_cell_his
 - Preserve every accepted macro state while spatial output remains sparse.
 - Preserve unload and non-proportional deformation-gradient knots in serial and distributed stateful J2 paths.
 - Recover uniaxial-tension, pure-shear and undefined hydrostatic stress-state conventions.
+- Keep complete-cell macroscopic stress, physical-weighted quadrature statistics, Hill--Mandel evidence and restart identity consistent for deterministic single- and multi-void periodic cells in serial and distributed execution.
 - Fail before solving when undeclared external power lies outside the current energy ledger.
 
 ### References

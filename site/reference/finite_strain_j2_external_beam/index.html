@@ -10,31 +10,27 @@
       
       
       
-        <link rel="canonical" href="https://haoming-luo.github.io/agentfem/reference/">
+        <link rel="canonical" href="https://haoming-luo.github.io/agentfem/reference/finite_strain_j2_external_beam/">
       
       
-        <link rel="prev" href="../research/science_supershear_v5/">
-      
-      
-        <link rel="next" href="theory_and_conventions/">
       
       
         
       
       
-      <link rel="icon" href="../assets/images/AgentFEM_logo_transparent.png">
+      <link rel="icon" href="../../assets/images/AgentFEM_logo_transparent.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
-        <title>Theory and reference - AgentFEM</title>
+        <title>Finite-strain J2 external beam gate - AgentFEM</title>
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -47,9 +43,9 @@
       
     
     
-      <link rel="stylesheet" href="../stylesheets/extra.css">
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -77,7 +73,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#theory-and-reference" class="md-skip">
+        <a href="#finite-strain-j2-external-beam-gate" class="md-skip">
           Skip to content
         </a>
       
@@ -97,9 +93,9 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href=".." title="AgentFEM" class="md-header__button md-logo" aria-label="AgentFEM" data-md-component="logo">
+    <a href="../.." title="AgentFEM" class="md-header__button md-logo" aria-label="AgentFEM" data-md-component="logo">
       
-  <img src="../assets/images/AgentFEM_logo_transparent.png" alt="logo">
+  <img src="../../assets/images/AgentFEM_logo_transparent.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -116,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Theory and reference
+              Finite-strain J2 external beam gate
             
           </span>
         </div>
@@ -239,9 +235,9 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href=".." title="AgentFEM" class="md-nav__button md-logo" aria-label="AgentFEM" data-md-component="logo">
+    <a href="../.." title="AgentFEM" class="md-nav__button md-logo" aria-label="AgentFEM" data-md-component="logo">
       
-  <img src="../assets/images/AgentFEM_logo_transparent.png" alt="logo">
+  <img src="../../assets/images/AgentFEM_logo_transparent.png" alt="logo">
 
     </a>
     AgentFEM
@@ -268,7 +264,7 @@
   
   
     <li class="md-nav__item">
-      <a href=".." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -322,7 +318,7 @@
   
   
   
-    <a href="../get_started/" class="md-nav__link">
+    <a href="../../get_started/" class="md-nav__link">
       
   
   
@@ -384,7 +380,7 @@
   
   
   
-    <a href="../guide/" class="md-nav__link">
+    <a href="../../guide/" class="md-nav__link">
       
   
   
@@ -444,7 +440,7 @@
   
   
   
-    <a href="../examples/" class="md-nav__link">
+    <a href="../../examples/" class="md-nav__link">
       
   
   
@@ -474,8 +470,6 @@
       
   
   
-    
-  
   
   
     
@@ -506,17 +500,18 @@
     
     
       
+        
+        
+      
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="./" class="md-nav__link md-nav__link--active">
-              
+  
+  
+  
+    <a href="../" class="md-nav__link">
+      
   
   
   <span class="md-ellipsis">
@@ -530,254 +525,12 @@
   
   
 
-            </a>
-            
-              
-              <label class="md-nav__link md-nav__link--active" for="__nav_5" id="__nav_5_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Theory and Reference
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
   
 
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="theory_and_conventions/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Theory and Conventions
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="rve_homogenization_and_statistics/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    RVE Homogenization and Statistics
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="scientific_function_reference/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Scientific Functions
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../result_field_semantics/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Output Variables
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../operator_contracts/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Operator Contracts
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../step_and_output_architecture/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Steps, Progress and Output
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="api/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Python API
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../module_map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Module Map
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
       
     </li>
   
@@ -823,7 +576,7 @@
   
   
   
-    <a href="../extend/" class="md-nav__link">
+    <a href="../../extend/" class="md-nav__link">
       
   
   
@@ -891,7 +644,7 @@
   
   
   
-    <a href="../project/" class="md-nav__link">
+    <a href="../../project/" class="md-nav__link">
       
   
   
@@ -943,7 +696,7 @@
   
   
   
-    <a href="../publications/agentfem-platform/" class="md-nav__link">
+    <a href="../../publications/agentfem-platform/" class="md-nav__link">
       
   
   
@@ -996,10 +749,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#mathematical-and-scientific-reference" class="md-nav__link">
+  <a href="#frozen-problem" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Mathematical and scientific reference
+        Frozen problem
       
     </span>
   </a>
@@ -1007,10 +760,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#workflow-and-interoperability-reference" class="md-nav__link">
+  <a href="#what-is-and-is-not-equivalent" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Workflow and interoperability reference
+        What is and is not equivalent
       
     </span>
   </a>
@@ -1018,21 +771,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#python-api" class="md-nav__link">
+  <a href="#fail-closed-promotion" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Python API
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#reference-page-standard" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reference-page standard
+        Fail-closed promotion
       
     </span>
   </a>
@@ -1057,46 +799,6 @@
   
 
 
-  <nav class="md-path" aria-label="Navigation" >
-    <ol class="md-path__list">
-      
-        
-  
-  
-    <li class="md-path__item">
-      <a href=".." class="md-path__link">
-        
-  <span class="md-ellipsis">
-    Introduction
-  </span>
-
-      </a>
-    </li>
-  
-
-      
-      
-        
-  
-  
-    
-    
-      <li class="md-path__item">
-        <a href="./" class="md-path__link">
-          
-  <span class="md-ellipsis">
-    Theory and Reference
-  </span>
-
-        </a>
-      </li>
-    
-  
-
-      
-    </ol>
-  </nav>
-
               
               <article class="md-content__inner md-typeset">
                 
@@ -1107,60 +809,75 @@
   
 
 
-<h1 id="theory-and-reference">Theory and reference<a class="headerlink" href="#theory-and-reference" title="Permanent link">&para;</a></h1>
-<p>Reference pages answer precise questions about equations, conventions, output
-variables, supported combinations, and public interfaces. Start with the
-<a href="../guide/">user guide</a> when constructing your first model.</p>
-<h2 id="mathematical-and-scientific-reference">Mathematical and scientific reference<a class="headerlink" href="#mathematical-and-scientific-reference" title="Permanent link">&para;</a></h2>
+<h1 id="finite-strain-j2-external-beam-gate">Finite-strain J2 external beam gate<a class="headerlink" href="#finite-strain-j2-external-beam-gate" title="Permanent link">&para;</a></h1>
+<p>AgentFEM keeps the self-weight beam of Lewandowski et al. (2023) as an
+external, structure-level promotion gate for the finite-strain J2 route.  The
+problem is a three-dimensional beam with finite rotations, plasticity and
+membrane stiffening; it is materially stronger evidence than another uniform
+material-point or affine-cell test.</p>
+<p>The machine-readable benchmark contract is
+<code>agentfem.benchmark.finite_strain_j2_lewandowski_2023_beam</code>.</p>
+<h2 id="frozen-problem">Frozen problem<a class="headerlink" href="#frozen-problem" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="theory_and_conventions/">Theory and conventions</a> gives the common balance
-  laws, kinematics, constitutive equations, procedure distinctions, and result
-  locations used by the current platform.</li>
-<li><a href="rve_homogenization_and_statistics/">RVE homogenization and physical field statistics</a>
-  defines physical quadrature weights, finite-strain macro averages,
-  stress-state conventions, Hill--Mandel evidence and accepted-increment
-  convergence records.</li>
-<li><a href="finite_strain_j2_external_beam/">Finite-strain J2 external beam gate</a>
-  records the independent source identity, comparison protocol and evidence
-  still required before structure-level promotion.</li>
-<li><a href="scientific_function_reference/">Scientific function reference</a> is
-  generated from reviewed knowledge cards. Each entry records formulas,
-  assumptions, inputs, outputs, tests, benchmarks, consumers, and limitations.</li>
-<li><a href="../operator_contracts/">Scientific operator contracts</a> defines the roles
-  and composition of <span class="arithmatex">\(K\)</span>, <span class="arithmatex">\(M\)</span>, <span class="arithmatex">\(C\)</span>, <span class="arithmatex">\(F\)</span>, residuals, tangents, and
-  functionals.</li>
-<li><a href="../result_field_semantics/">Output variables and field semantics</a> defines
-  names, tensor meanings, field locations, projection/recovery, and scientific
-  versus presentation output.</li>
+<li>geometry: <code>1.0 m x 0.04 m x 0.10 m</code>;</li>
+<li>elastic constants: <code>E = 210 GPa</code>, <code>nu = 0.3</code>;</li>
+<li>yield stress: <code>250 MPa</code>;</li>
+<li>linear isotropic hardening modulus: <code>1 MPa</code>;</li>
+<li>body-force path: <code>b(t) = -t 50 MN/m^3 e3</code>, <code>0 &lt;= t &lt;= 1</code>;</li>
+<li>left face: fully fixed;</li>
+<li>right face: <code>u_x = 0</code> symmetry condition;</li>
+<li>public-demo discretization: <code>30 x 5 x 8</code> box subdivisions, tetrahedra,
+  quadratic displacement and 30 increments;</li>
+<li>public-demo observer: downward displacement at <code>(1, 0, 0)</code>.</li>
 </ul>
-<h2 id="workflow-and-interoperability-reference">Workflow and interoperability reference<a class="headerlink" href="#workflow-and-interoperability-reference" title="Permanent link">&para;</a></h2>
+<p>The upstream driver and MFront behaviour are pinned to commit
+<code>cb43561d5e36a9ef691ad2c308261448cef44e29</code>.  Their SHA-256 digests are stored
+in <code>tests/lewandowski_2023_self_weight_beam_fixture.py</code>, so a mutable <code>master</code>
+download cannot silently become the reference.</p>
+<h2 id="what-is-and-is-not-equivalent">What is and is not equivalent<a class="headerlink" href="#what-is-and-is-not-equivalent" title="Permanent link">&para;</a></h2>
+<p>The public MFront behaviour declares total Hencky strain, Hooke elasticity,
+von Mises plasticity and linear isotropic hardening.  AgentFEM's current
+experimental material uses a multiplicative decomposition, quadratic Hencky
+elasticity, a Kirchhoff-stress J2 return and linear isotropic hardening.  The
+paper reports essentially coincident responses for multiplicative and
+logarithmic implementations, with a small post-yield hardening difference,
+but the algorithms are not identical.  This is therefore a
+<strong>cross-formulation structural comparison</strong>, not a bitwise reproduction.</p>
+<p>The paper text describes point A as being at the top of the right edge, while
+the executable public demo evaluates <code>(1, 0, 0)</code>, the middle of the right
+extremity.  Promotion requires the observer choice to be reconciled and
+recorded rather than silently mixing these two descriptions.</p>
+<h2 id="fail-closed-promotion">Fail-closed promotion<a class="headerlink" href="#fail-closed-promotion" title="Permanent link">&para;</a></h2>
+<p>The publication contains a plotted curve but no tabulated numerical oracle,
+and the current AgentFEM development environment does not contain legacy
+FEniCS, MGIS or MFront.  The repository therefore does not embed digitised
+values and does not mark the benchmark as passed.</p>
+<p>Promotion requires an independently executed curve from the pinned upstream
+sources, archived runtime provenance, observer reconciliation, mesh and
+increment convergence, serial/MPI equivalence, and checkpoint/restart
+equivalence.  The promotion manifest must also bind the reference CSV by its
+SHA-256 digest; the candidate driver never fills source identity from its own
+constants merely because a CSV was supplied.  The fixture then applies fixed
+AgentFEM comparison contracts of
+3% normalized RMS error and 5% normalized maximum error.  These are project
+promotion thresholds, not tolerances stated by the paper authors.</p>
+<p>The AgentFEM side can be executed without weakening this gate:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>tests/lewandowski_2023_self_weight_beam_driver.py<span class="w"> </span>evidence/lewandowski-beam
+</code></pre></div>
+<p>This writes <code>candidate_curve.csv</code> and an <code>assessment.json</code> whose status remains
+<code>incomplete</code>.  Supplying <code>--reference-csv</code> is meaningful only when that CSV was
+generated by an independent execution of the pinned sources; the evidence JSON
+must separately attest convergence, observer reconciliation, MPI equivalence
+and restart equivalence.  Candidate output must never be recycled as its own
+reference.</p>
+<p>Primary sources:</p>
 <ul>
-<li><a href="../step_and_output_architecture/">Stable steps and compact output</a> defines
-  increment, iteration, frame, progress, checkpoint, and visualization
-  contracts.</li>
-<li><a href="../mesh_interoperability/">Mesh interoperability</a> documents native and
-  imported meshes, source semantics, element mapping, and optional tools.</li>
-<li><a href="../module_map/">Module map</a> identifies the responsible extension point for
-  each modeling concept.</li>
+<li>Lewandowski et al., <em>Multifield finite strain plasticity: Theory and
+  numerics</em>, Computer Methods in Applied Mechanics and Engineering 414 (2023)
+  116101, <a href="https://doi.org/10.1016/j.cma.2023.116101">https://doi.org/10.1016/j.cma.2023.116101</a>.</li>
+<li>Official MGIS/FEniCS finite-strain elastoplasticity demo,
+  <a href="https://thelfer.github.io/mgis/web/mgis_fenics_finite_strain_elastoplasticity.html">https://thelfer.github.io/mgis/web/mgis_fenics_finite_strain_elastoplasticity.html</a>.</li>
 </ul>
-<h2 id="python-api">Python API<a class="headerlink" href="#python-api" title="Permanent link">&para;</a></h2>
-<p>The <a href="api/">Python API</a> provides generated public signatures and concise
-call-level summaries. It is a lookup reference; it does not replace the theory,
-workflow, or example pages that define when a call is scientifically
-appropriate.</p>
-<h2 id="reference-page-standard">Reference-page standard<a class="headerlink" href="#reference-page-standard" title="Permanent link">&para;</a></h2>
-<p>A mature material, procedure, element, or output page should state:</p>
-<ol>
-<li>purpose and applicability;</li>
-<li>governing equation or definition;</li>
-<li>required inputs and units;</li>
-<li>algorithm and state update;</li>
-<li>available output and result locations;</li>
-<li>incompatible combinations and known limitations;</li>
-<li>executable tests, benchmarks, and primary references.</li>
-</ol>
-<p>This keeps the documentation useful both for learning a workflow and for
-checking one technical definition during an engineering analysis.</p>
 
 
 
@@ -1193,44 +910,6 @@ checking one technical definition during an engineering analysis.</p>
       
         <footer class="md-footer">
   
-    
-      
-      <nav class="md-footer__inner md-grid" aria-label="Footer" >
-        
-          
-          <a href="../research/science_supershear_v5/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Supershear Research Protocol">
-            <div class="md-footer__button md-icon">
-              
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
-            </div>
-            <div class="md-footer__title">
-              <span class="md-footer__direction">
-                Previous
-              </span>
-              <div class="md-ellipsis">
-                Supershear Research Protocol
-              </div>
-            </div>
-          </a>
-        
-        
-          
-          <a href="theory_and_conventions/" class="md-footer__link md-footer__link--next" aria-label="Next: Theory and Conventions">
-            <div class="md-footer__title">
-              <span class="md-footer__direction">
-                Next
-              </span>
-              <div class="md-ellipsis">
-                Theory and Conventions
-              </div>
-            </div>
-            <div class="md-footer__button md-icon">
-              
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
-            </div>
-          </a>
-        
-      </nav>
     
   
   <div class="md-footer-meta md-typeset">
@@ -1280,18 +959,18 @@ checking one technical definition during an engineering analysis.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.indexes", "navigation.prune", "navigation.path", "navigation.footer", "navigation.top", "navigation.tracking", "toc.follow", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.indexes", "navigation.prune", "navigation.path", "navigation.footer", "navigation.top", "navigation.tracking", "toc.follow", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
-        <script src="../javascripts/navigation-state.js"></script>
+        <script src="../../javascripts/navigation-state.js"></script>
       
-        <script src="../javascripts/toc-current.js"></script>
+        <script src="../../javascripts/toc-current.js"></script>
       
-        <script src="../javascripts/mathjax.js"></script>
+        <script src="../../javascripts/mathjax.js"></script>
       
-        <script src="../vendor/mathjax/3.2.2/tex-chtml-full.js"></script>
+        <script src="../../vendor/mathjax/3.2.2/tex-chtml-full.js"></script>
       
     
   </body>

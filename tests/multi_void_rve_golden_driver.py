@@ -16,6 +16,7 @@ only be promoted after successive-mesh and two-rank evidence have been stored.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import time
 from dataclasses import dataclass
@@ -117,7 +118,9 @@ def evidence_policy() -> dict[str, object]:
             "plastic_flow_reached",
             "hill_mandel_work",
             "stored_energy_components",
-            "physical_weighted_statistics",
+            "weighted_sample_count",
+            "weighted_measure_matches_homogenization",
+            "weighted_statistics_semantics",
             "provider_fields",
         ],
         "invariant_limits": {
@@ -463,6 +466,12 @@ def compare_refinement_evidence(
     ]
     if len(set(realization_fingerprints)) != 1:
         raise ValueError("Refinement evidence uses different void realizations.")
+    case_fingerprints = [_refinement_case_fingerprint(item) for item in levels]
+    if len(set(case_fingerprints)) != 1:
+        raise ValueError(
+            "Refinement evidence changes mesh-independent material, loading, "
+            "quadrature, solver, realization, or geometry inputs."
+        )
     mesh_sizes = [
         float(item["identities"]["scientific_input"]["mesh"]["nominal_size"])
         for item in levels
@@ -543,6 +552,7 @@ def compare_refinement_evidence(
         "schema": "agentfem.multi-void-rve-refinement-certificate.v1",
         "accepted": bool(all(gates.values())),
         "realization_fingerprint": realization_fingerprints[0],
+        "mesh_independent_case_fingerprint": case_fingerprints[0],
         "mesh_sizes": mesh_sizes,
         "global_cells": global_cells,
         "thresholds": limits,
@@ -559,8 +569,158 @@ def compare_refinement_evidence(
     }
 
 
+def _refinement_case_fingerprint(evidence: dict[str, object]) -> str:
+    """Bind refinement levels to one physical problem, excluding mesh identity."""
+
+    scientific_input = copy.deepcopy(evidence["identities"]["scientific_input"])
+    scientific_input.pop("constraint_fingerprint", None)
+    scientific_input.pop("constraint_equation_count", None)
+    mesh = scientific_input.get("mesh")
+    if not isinstance(mesh, dict):
+        raise ValueError("Refinement evidence has no declared mesh input.")
+    mesh.pop("nominal_size", None)
+    return provenance.content_fingerprint(scientific_input)
+
+
+def compare_rank_evidence(
+    serial: dict[str, object],
+    parallel: dict[str, object],
+    *,
+    macro_absolute_tolerance: float = 5.0e-10,
+    macro_relative_tolerance: float = 5.0e-12,
+    scalar_absolute_tolerance: float = 5.0e-12,
+    scalar_relative_tolerance: float = 5.0e-10,
+) -> dict[str, object]:
+    """Return a fail-closed serial/distributed equivalence certificate."""
+
+    records = (serial, parallel)
+    required_sections = {
+        "schema",
+        "accepted_invariant_gates",
+        "execution",
+        "identities",
+        "quantities",
+    }
+    for index, evidence in enumerate(records):
+        if not isinstance(evidence, dict) or not required_sections <= set(evidence):
+            raise ValueError(f"Rank evidence {index} is incomplete.")
+        if evidence["schema"] != SCHEMA:
+            raise ValueError(f"Rank evidence {index} has an incompatible schema.")
+    tolerances = {
+        "macro_absolute": float(macro_absolute_tolerance),
+        "macro_relative": float(macro_relative_tolerance),
+        "scalar_absolute": float(scalar_absolute_tolerance),
+        "scalar_relative": float(scalar_relative_tolerance),
+    }
+    if any(
+        not np.isfinite(value) or value < 0.0 for value in tolerances.values()
+    ):
+        raise ValueError("Rank-equivalence tolerances must be finite and nonnegative.")
+
+    serial_ranks = int(serial["execution"]["rank_count"])
+    parallel_ranks = int(parallel["execution"]["rank_count"])
+    serial_stress = np.asarray(
+        serial["quantities"]["homogenized_first_piola_stress"], dtype=float
+    )
+    parallel_stress = np.asarray(
+        parallel["quantities"]["homogenized_first_piola_stress"], dtype=float
+    )
+    if serial_stress.shape != parallel_stress.shape:
+        raise ValueError("Rank evidence uses different macroscopic stress shapes.")
+    stress_difference = serial_stress - parallel_stress
+    maximum_stress_difference = float(np.max(np.abs(stress_difference), initial=0.0))
+    relative_stress_difference = float(
+        np.linalg.norm(stress_difference)
+        / max(np.linalg.norm(serial_stress), np.finfo(float).tiny)
+    )
+    macro_limit = (
+        tolerances["macro_absolute"]
+        + tolerances["macro_relative"] * float(np.linalg.norm(serial_stress))
+    )
+
+    scalar_names = (
+        "peeq_mean",
+        "peeq_p95",
+        "peeq_p99",
+        "solid_reference_fraction",
+    )
+    scalar_differences = {}
+    scalar_limits = {}
+    scalar_gates = {}
+    for name in scalar_names:
+        reference = float(serial["quantities"][name])
+        candidate = float(parallel["quantities"][name])
+        difference = abs(reference - candidate)
+        limit = (
+            tolerances["scalar_absolute"]
+            + tolerances["scalar_relative"] * abs(reference)
+        )
+        scalar_differences[name] = difference
+        scalar_limits[name] = limit
+        scalar_gates[name] = difference <= limit
+
+    identities = {
+        "realization": (
+            serial["identities"]["realization"]
+            == parallel["identities"]["realization"]
+        ),
+        "portable_mesh": (
+            serial["identities"]["portable_mesh"]
+            == parallel["identities"]["portable_mesh"]
+        ),
+        "constraint": (
+            serial["identities"]["constraint"]
+            == parallel["identities"]["constraint"]
+        ),
+        "scientific_input": (
+            serial["identities"]["scientific_input_fingerprint"]
+            == parallel["identities"]["scientific_input_fingerprint"]
+        ),
+    }
+    gates = {
+        "serial_is_one_rank": serial_ranks == 1,
+        "parallel_has_multiple_ranks": parallel_ranks > 1,
+        "all_invariant_gates": bool(
+            serial["accepted_invariant_gates"]
+            and parallel["accepted_invariant_gates"]
+        ),
+        "identities": all(identities.values()),
+        "macroscopic_first_piola": maximum_stress_difference <= macro_limit,
+        "weighted_and_geometric_scalars": all(scalar_gates.values()),
+    }
+    return {
+        "schema": "agentfem.multi-void-rve-rank-equivalence.v1",
+        "accepted": bool(all(gates.values())),
+        "rank_counts": [serial_ranks, parallel_ranks],
+        "tolerances": tolerances,
+        "identities": identities,
+        "macroscopic_first_piola": {
+            "maximum_absolute_difference": maximum_stress_difference,
+            "relative_norm_difference": relative_stress_difference,
+            "acceptance_limit": macro_limit,
+        },
+        "scalar_absolute_differences": scalar_differences,
+        "scalar_acceptance_limits": scalar_limits,
+        "scalar_gates": scalar_gates,
+        "gates": gates,
+    }
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+    comparison = parser.add_mutually_exclusive_group()
+    comparison.add_argument(
+        "--compare-refinement",
+        nargs=3,
+        type=Path,
+        metavar=("COARSE", "MEDIUM", "FINE"),
+    )
+    comparison.add_argument(
+        "--compare-ranks",
+        nargs=2,
+        type=Path,
+        metavar=("SERIAL", "PARALLEL"),
+    )
     parser.add_argument("--mesh-size", type=float, default=DEFAULT_MESH_SIZE)
     parser.add_argument("--increments", type=int, default=DEFAULT_INCREMENTS)
     parser.add_argument("--progress", action="store_true")
@@ -570,19 +730,31 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     options = _parse_args()
-    evidence = run_candidate(
-        mesh_size=options.mesh_size,
-        increments=options.increments,
-        progress=options.progress,
-    )
     comm = MPI.COMM_WORLD
+    if options.compare_refinement is not None or options.compare_ranks is not None:
+        if comm.size != 1:
+            raise RuntimeError("Evidence comparison must run on one coordinator rank.")
+        paths = options.compare_refinement or options.compare_ranks
+        records = [json.loads(path.read_text(encoding="utf-8")) for path in paths]
+        evidence = (
+            compare_refinement_evidence(*records)
+            if options.compare_refinement is not None
+            else compare_rank_evidence(*records)
+        )
+    else:
+        evidence = run_candidate(
+            mesh_size=options.mesh_size,
+            increments=options.increments,
+            progress=options.progress,
+        )
     if comm.rank == 0:
         payload = json.dumps(evidence, indent=2, sort_keys=True)
         if options.output is not None:
             options.output.parent.mkdir(parents=True, exist_ok=True)
             options.output.write_text(payload + "\n", encoding="utf-8")
         print(payload)
-    if not evidence["accepted_invariant_gates"]:
+    accepted = evidence.get("accepted", evidence.get("accepted_invariant_gates"))
+    if not accepted:
         raise SystemExit(1)
 
 

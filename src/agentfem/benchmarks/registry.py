@@ -323,6 +323,42 @@ _BENCHMARKS = (
         ),
     ),
     BenchmarkSpec(
+        identifier="finite_strain_j2_periodic_multi_void",
+        capability="finite_strain_j2_plasticity",
+        level="finite_element_fixed_stack_refinement_mpi_restart",
+        reference=(
+            "knowledge/benchmarks/finite_strain_j2_periodic_multi_void.json"
+        ),
+        criterion=(
+            "one deterministic four-void periodic realization preserves its "
+            "scientific, mesh and constraint identities; reproduces the "
+            "versioned h/L=0.16 macroscopic stress, physical-weighted PEEQ "
+            "distribution and solid fraction; passes three-level successive-"
+            "refinement stability, one-rank/two-rank equivalence and midpoint "
+            "checkpoint/restart without claiming stochastic representativeness, "
+            "formal GCI or external validation"
+        ),
+        automated_test=(
+            "tests/test_periodic_multi_void_fixture.py; "
+            "tests/test_multi_void_rve_golden.py; "
+            "tests/multi_void_rve_golden_driver.py; "
+            "tests/multi_void_rve_restart_driver.py"
+        ),
+        status="automated_fixed_stack_refinement_mpi_restart_experimental_science",
+        evidence=(
+            "finite_element",
+            "deterministic_realization",
+            "fixed_stack_regression",
+            "portable_mesh_identity",
+            "quadrature_statistics",
+            "hill_mandel",
+            "successive_refinement",
+            "mpi",
+            "restart",
+            "failure_behavior",
+        ),
+    ),
+    BenchmarkSpec(
         identifier="finite_strain_j2_zhang_2021_table5",
         capability="finite_strain_j2_plasticity",
         level="external_periodic_composite_promotion_gate",

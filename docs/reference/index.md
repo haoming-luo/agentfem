@@ -13,6 +13,9 @@ variables, supported combinations, and public interfaces. Start with the
   defines physical quadrature weights, finite-strain macro averages,
   stress-state conventions, Hill--Mandel evidence and accepted-increment
   convergence records.
+- [Finite-strain J2 external beam gate](finite_strain_j2_external_beam.md)
+  records the independent source identity, comparison protocol and evidence
+  still required before structure-level promotion.
 - [Scientific function reference](scientific_function_reference.md) is
   generated from reviewed knowledge cards. Each entry records formulas,
   assumptions, inputs, outputs, tests, benchmarks, consumers, and limitations.

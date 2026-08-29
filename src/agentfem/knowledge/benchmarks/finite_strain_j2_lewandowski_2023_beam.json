@@ -1,0 +1,72 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.finite_strain_j2_lewandowski_2023_beam",
+  "title": "Lewandowski et al. finite-strain J2 self-weight beam",
+  "status": "experimental_external_promotion_gate_not_run",
+  "purpose": "Provide an independent, fail-closed structure-level promotion gate for finite-strain J2 plasticity with finite rotation, distributed loading, membrane stiffening, MPI and restart evidence.",
+  "physics": "Three-dimensional slender beam under a ramped gravity-like body force, with a left clamp, right-end axial symmetry constraint, finite rotations, isotropic J2 plasticity and linear isotropic hardening.",
+  "source": {
+    "authors": "M. Lewandowski et al.",
+    "title": "Multifield finite strain plasticity: Theory and numerics",
+    "journal": "Computer Methods in Applied Mechanics and Engineering 414 (2023), 116101",
+    "doi": "https://doi.org/10.1016/j.cma.2023.116101",
+    "official_demo": "https://thelfer.github.io/mgis/web/mgis_fenics_finite_strain_elastoplasticity.html",
+    "upstream_commit": "cb43561d5e36a9ef691ad2c308261448cef44e29",
+    "solver_sha256": "b2fdebe7edf9e10617f9cd4f350bfab119db9ca9441242959e5bf366a105e0d5",
+    "behaviour_sha256": "17456bf1b593eec205f7cc7fb06483fdaf67ec7415713aeb27f33db57bef1393",
+    "retrieved": "2026-08-29"
+  },
+  "parameters": {
+    "geometry_m": [1.0, 0.04, 0.1],
+    "young_pa": 210000000000.0,
+    "poisson": 0.3,
+    "initial_yield_stress_pa": 250000000.0,
+    "linear_isotropic_hardening_pa": 1000000.0,
+    "maximum_body_force_n_per_m3": 50000000.0,
+    "public_demo_subdivisions": [30, 5, 8],
+    "public_demo_displacement_degree": 2,
+    "public_demo_increments": 30,
+    "public_demo_observer_m": [1.0, 0.0, 0.0]
+  },
+  "oracle": {
+    "kind": "independently_reexecuted_curve_required",
+    "bundled": false,
+    "required_columns": [
+      "load_factor",
+      "downward_displacement_m"
+    ],
+    "identity": "The promotion manifest must bind the exact CSV bytes by SHA-256 and attest the pinned upstream commit and both source-artifact digests."
+  },
+  "execution": {
+    "command": "python tests/lewandowski_2023_self_weight_beam_driver.py evidence/lewandowski-beam",
+    "example": "docs/reference/finite_strain_j2_external_beam.md",
+    "fixture": "tests/lewandowski_2023_self_weight_beam_fixture.py",
+    "driver": "tests/lewandowski_2023_self_weight_beam_driver.py",
+    "evidence": "The candidate driver records an AgentFEM curve but returns incomplete unless a separately executed curve is content-bound to the pinned public MGIS/FEniCS/MFront sources and every observer, convergence, MPI and restart gate is supplied."
+  },
+  "observables": [
+    "Downward displacement versus load factor at the reconciled right-end observer.",
+    "Normalized RMS and maximum curve errors against an independently executed reference curve.",
+    "Mesh and load-increment convergence evidence.",
+    "Serial/MPI and uninterrupted/checkpoint-restart equivalence."
+  ],
+  "acceptance": [
+    "The reference source commit, solver digest, behaviour digest and CSV content digest must all match their independently archived declarations.",
+    "The paper's top-edge point-A wording and the public script's (1, 0, 0) observer must be reconciled explicitly.",
+    "Normalized RMS curve error must not exceed 3 percent and normalized maximum error must not exceed 5 percent; these are AgentFEM project contracts, not author-published tolerances.",
+    "Candidate mesh and increment convergence, serial/MPI equivalence and checkpoint/restart equivalence are mandatory.",
+    "Missing provenance or verification evidence produces incomplete; an available curve outside tolerance produces failed."
+  ],
+  "limitations": [
+    "The publication provides a plotted response but no tabulated numerical oracle, and no independently reexecuted curve is bundled; the benchmark is not promoted.",
+    "The current environment lacks the legacy FEniCS, MGIS and MFront stack needed to execute the upstream implementation.",
+    "AgentFEM uses multiplicative plastic kinematics with quadratic Hencky elasticity and a Kirchhoff-stress J2 return, whereas the public MFront demo uses a total-Hencky formulation; this is a cross-formulation structural comparison rather than bitwise reproduction.",
+    "The paper and public script identify different right-end observation locations, so observer reconciliation is a required gate.",
+    "The candidate currently uses the expert body-force step because the public affine-periodic model.step route does not accept natural-load power."
+  ],
+  "references": [
+    "Lewandowski et al., Multifield finite strain plasticity: Theory and numerics, CMAME 414 (2023) 116101, https://doi.org/10.1016/j.cma.2023.116101",
+    "Official MGIS/FEniCS finite-strain elastoplasticity demo, https://thelfer.github.io/mgis/web/mgis_fenics_finite_strain_elastoplasticity.html"
+  ]
+}

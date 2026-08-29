@@ -3,18 +3,73 @@
 from __future__ import annotations
 
 import copy
+import json
 import os
+from pathlib import Path
 
+import numpy as np
 import pytest
 from mpi4py import MPI
 
+from agentfem import benchmarks, provenance
+
 from multi_void_rve_golden_driver import (
     SCHEMA,
+    compare_rank_evidence,
     compare_refinement_evidence,
     deterministic_realization,
     evidence_policy,
     run_candidate,
 )
+from periodic_void_fixture import PERIODIC_VOID_GMSH_OPTIONS
+
+
+BENCHMARK_ID = "agentfem.benchmark.finite_strain_j2_periodic_multi_void"
+
+
+def _benchmark_card() -> dict[str, object]:
+    path = (
+        Path(benchmarks.__file__).resolve().parents[1]
+        / "knowledge"
+        / "benchmarks"
+        / "finite_strain_j2_periodic_multi_void.json"
+    )
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _fixed_stack_mismatches(card) -> tuple[str, ...]:
+    expected = card["regression_identity"]["fixed_stack"]
+    current = provenance.runtime_manifest()["identity"]
+    mismatches = []
+    platform = expected["platform"]
+    if current["operating_system"]["system"] != platform["system"]:
+        mismatches.append("operating system")
+    if current["machine"] != platform["machine"]:
+        mismatches.append("machine architecture")
+    if current["python"] != expected["python"]:
+        mismatches.append("Python")
+    for name, version in expected["packages"].items():
+        if name == "agentfem":
+            continue
+        if current["packages"].get(name) != version:
+            mismatches.append(name)
+    if current["mpi"] != expected["mpi"]:
+        mismatches.append("MPI")
+    if current["numerics"] != expected["numerics"]:
+        mismatches.append("scalar/numeric contract")
+
+    try:
+        import gmsh
+    except ImportError:
+        mismatches.append("Gmsh is unavailable")
+        return tuple(mismatches)
+    current_gmsh = {
+        "version": gmsh.__version__,
+        "options": PERIODIC_VOID_GMSH_OPTIONS,
+    }
+    if current_gmsh != expected["gmsh"]:
+        mismatches.append("Gmsh version/generation policy")
+    return tuple(mismatches)
 
 
 def _synthetic_level(*, mesh_size, cells, macro, mean, p95, p99, maximum, geometry):
@@ -24,7 +79,21 @@ def _synthetic_level(*, mesh_size, cells, macro, mean, p95, p99, maximum, geomet
         "execution": {"global_cells": cells},
         "identities": {
             "realization": {"fingerprint": "fixed-realization"},
-            "scientific_input": {"mesh": {"nominal_size": mesh_size}},
+            "scientific_input": {
+                "mesh": {
+                    "nominal_size": mesh_size,
+                    "generator": "synthetic-tetrahedra",
+                },
+                "material": {"young": 200000.0, "yield_stress": 200.0},
+                "macroscopic_deformation_gradient": [
+                    [1.004, 0.0, 0.0],
+                    [0.0, 0.998, 0.0],
+                    [0.0, 0.0, 0.998],
+                ],
+                "increments": 2,
+                "quadrature_degree": 1,
+                "solver": {"maximum_iterations": 25},
+            },
         },
         "quantities": {
             "homogenized_first_piola_stress": [[macro, 0.0], [0.0, -0.5 * macro]],
@@ -55,6 +124,12 @@ def test_multi_void_policy_separates_golden_quantities_from_local_diagnostics():
     assert "checkpoint/restart equivalence on the realized mesh" in policy[
         "promotion_requires"
     ]
+    assert {
+        "weighted_sample_count",
+        "weighted_measure_matches_homogenization",
+        "weighted_statistics_semantics",
+    } <= set(policy["threshold_invariants"])
+    assert "physical_weighted_statistics" not in policy["threshold_invariants"]
 
 
 def test_multi_void_realization_has_stable_periodic_scientific_identity():
@@ -69,6 +144,71 @@ def test_multi_void_realization_has_stable_periodic_scientific_identity():
     assert identity["actual_void_fraction"] == pytest.approx(
         4.0 * (4.0 * 3.141592653589793 * 0.09**3 / 3.0)
     )
+
+
+def test_multi_void_golden_contract_is_machine_readable_and_self_consistent():
+    card = _benchmark_card()
+    golden = benchmarks.golden_benchmark(BENCHMARK_ID)
+    regression = card["regression_identity"]
+
+    assert card["status"] == (
+        "automated_fixed_stack_regression_with_refinement_mpi_restart"
+    )
+    assert not regression["reference_source"]["tracked_dirty"]
+    assert regression["scientific_input_fingerprint"] == (
+        provenance.content_fingerprint(regression["scientific_input"])
+    )
+    assert regression["scientific_input"]["mesh"]["generation_options"] == (
+        PERIODIC_VOID_GMSH_OPTIONS
+    )
+    assert golden.reference_version == (
+        "periodic-multi-void-j2-d3f0879a-bf6ae719-v1"
+    )
+    assert {item.name for item in golden.quantities} == {
+        "homogenized_first_piola_stress",
+        "peeq_mean",
+        "peeq_p95",
+        "solid_reference_fraction",
+    }
+
+
+def test_multi_void_fixed_stack_matches_versioned_golden():
+    card = _benchmark_card()
+    mismatches = _fixed_stack_mismatches(card)
+    if mismatches:
+        message = "Multi-void fixed-stack Golden is inapplicable: " + "; ".join(
+            mismatches
+        )
+        if os.environ.get("AGENTFEM_REQUIRE_MULTI_VOID_RVE_GOLDEN") == "1":
+            pytest.fail(message)
+        pytest.skip(message)
+
+    evidence = run_candidate(comm=MPI.COMM_SELF)
+    assert evidence["accepted_invariant_gates"]
+    regression = card["regression_identity"]
+    assert evidence["identities"]["realization"] == regression[
+        "scientific_input"
+    ]["realization"]
+    assert evidence["identities"]["portable_mesh"] == regression["mesh_identity"]
+    assert evidence["identities"]["scientific_input"] == regression[
+        "scientific_input"
+    ]
+    assert evidence["identities"]["scientific_input_fingerprint"] == regression[
+        "scientific_input_fingerprint"
+    ]
+
+    actual = {
+        "homogenized_first_piola_stress": np.asarray(
+            evidence["quantities"]["homogenized_first_piola_stress"], dtype=float
+        ).reshape(-1),
+        "peeq_mean": evidence["quantities"]["peeq_mean"],
+        "peeq_p95": evidence["quantities"]["peeq_p95"],
+        "solid_reference_fraction": evidence["quantities"][
+            "solid_reference_fraction"
+        ],
+    }
+    for quantity in benchmarks.golden_benchmark(BENCHMARK_ID).quantities:
+        quantity.assert_accepts(actual[quantity.name])
 
 
 def test_refinement_comparison_accepts_stable_global_and_weighted_quantities():
@@ -143,6 +283,86 @@ def test_refinement_comparison_fails_closed_on_drift_or_identity_change():
     incompatible["identities"]["realization"]["fingerprint"] = "different"
     with pytest.raises(ValueError, match="different void realizations"):
         compare_refinement_evidence(levels[0], levels[1], incompatible)
+
+
+def test_refinement_comparison_rejects_changed_physics_or_numerics():
+    levels = [
+        _synthetic_level(
+            mesh_size=size,
+            cells=cells,
+            macro=100.0,
+            mean=0.003,
+            p95=0.0032,
+            p99=0.0035,
+            maximum=0.004,
+            geometry=0.004,
+        )
+        for size, cells in ((0.20, 100), (0.16, 200), (0.12, 400))
+    ]
+    mutations = (
+        ("material", lambda record: record["material"].update(young=210000.0)),
+        (
+            "loading",
+            lambda record: record["macroscopic_deformation_gradient"][0].__setitem__(
+                0, 1.01
+            ),
+        ),
+        ("increments", lambda record: record.update(increments=4)),
+        ("quadrature", lambda record: record.update(quadrature_degree=2)),
+        (
+            "solver",
+            lambda record: record["solver"].update(maximum_iterations=40),
+        ),
+    )
+    for _name, mutate in mutations:
+        incompatible = copy.deepcopy(levels[-1])
+        mutate(incompatible["identities"]["scientific_input"])
+        with pytest.raises(ValueError, match="mesh-independent"):
+            compare_refinement_evidence(levels[0], levels[1], incompatible)
+
+
+def test_rank_comparison_is_machine_readable_and_fails_closed():
+    serial = _synthetic_level(
+        mesh_size=0.16,
+        cells=200,
+        macro=100.0,
+        mean=0.003,
+        p95=0.0032,
+        p99=0.0035,
+        maximum=0.004,
+        geometry=0.004,
+    )
+    serial["execution"]["rank_count"] = 1
+    serial["identities"].update(
+        {
+            "portable_mesh": {"hash": "mesh"},
+            "constraint": {"fingerprint": "constraint"},
+            "scientific_input_fingerprint": "sha256:input",
+        }
+    )
+    parallel = copy.deepcopy(serial)
+    parallel["execution"]["rank_count"] = 2
+    parallel["quantities"]["homogenized_first_piola_stress"][0][0] += 1.0e-11
+    parallel["quantities"]["peeq_mean"] += 1.0e-13
+
+    certificate = compare_rank_evidence(serial, parallel)
+    assert certificate["accepted"]
+    assert certificate["gates"] == {
+        "serial_is_one_rank": True,
+        "parallel_has_multiple_ranks": True,
+        "all_invariant_gates": True,
+        "identities": True,
+        "macroscopic_first_piola": True,
+        "weighted_and_geometric_scalars": True,
+    }
+
+    wrong_mesh = copy.deepcopy(parallel)
+    wrong_mesh["identities"]["portable_mesh"]["hash"] = "different"
+    assert not compare_rank_evidence(serial, wrong_mesh)["accepted"]
+
+    drifting = copy.deepcopy(parallel)
+    drifting["quantities"]["peeq_p95"] += 1.0e-3
+    assert not compare_rank_evidence(serial, drifting)["accepted"]
 
 
 @pytest.mark.skipif(

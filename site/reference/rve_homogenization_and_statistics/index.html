@@ -735,6 +735,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#deterministic-multi-void-regression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deterministic multi-void regression
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#external-finite-strain-composite-benchmark" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1252,6 +1263,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#deterministic-multi-void-regression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deterministic multi-void regression
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#external-finite-strain-composite-benchmark" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1561,6 +1583,49 @@ stability thresholds. The certificate does not identify an asymptotic regime,
 compute an observed-order/GCI uncertainty estimate, or replace an independent
 external benchmark. The Zhang--Feng--Khandelwal comparison below therefore
 remains the fail-closed promotion gate.</p>
+<h2 id="deterministic-multi-void-regression">Deterministic multi-void regression<a class="headerlink" href="#deterministic-multi-void-regression" title="Permanent link">&para;</a></h2>
+<p>The multi-void contract extends the same public workflow to one versioned
+four-sphere realization. The sampler, seed, clearance rules and complete void
+list form a stable scientific identity; changing any of them creates a new
+realization rather than silently reusing prior evidence. This is deliberately
+a deterministic regression asset, not a claim that one cell statistically
+represents a porous material.</p>
+<p>The fixed <code>h/L=0.16</code> reference contains 2,368 first-order tetrahedra. Its
+Golden quantities are the complete-cell-volume first-Piola tensor, the
+physical-weighted PEEQ mean and 95th percentile, and the meshed solid fraction.
+PEEQ P99 and maximum and minimum local <span class="arithmatex">\(J\)</span> stay diagnostic because they are
+more sensitive to local refinement. The independent <code>h/L=0.20</code>, <code>0.16</code> and
+<code>0.12</code> certificate passes all invariant gates; from the medium to fine mesh,
+the relative changes are approximately 0.195 percent for macroscopic stress,
+0.044 percent for mean PEEQ and 0.572 percent for PEEQ P95. This is
+successive-refinement stability, not formal asymptotic convergence or GCI.
+The comparator removes only the realized mesh size and mesh-dependent equation
+identity before hashing the case; it rejects a comparison if the material,
+macroscopic path, increments, quadrature, solver, realization or geometry
+changes between levels.</p>
+<p>The same realization also passes a one-rank/two-rank comparison: the relative
+first-Piola norm difference is about <span class="arithmatex">\(9.9\times10^{-14}\)</span>, all scalar
+differences are below <span class="arithmatex">\(5.3\times10^{-16}\)</span>, and realization, scientific-input,
+mesh and constraint identities agree. A midpoint checkpoint/restart performs
+101 state and history comparisons with zero observed difference. The
+environment-aware launcher avoids mixing OpenMPI and MPICH:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>agentfem<span class="w"> </span>mpi-run<span class="w"> </span>-n<span class="w"> </span><span class="m">2</span><span class="w"> </span>--<span class="w"> </span>python<span class="w"> </span>tests/multi_void_rve_golden_driver.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>--mesh-size<span class="w"> </span><span class="m">0</span>.16<span class="w"> </span>--increments<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>--output<span class="w"> </span>/tmp/agentfem-multi-void-mpi2.json
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>python<span class="w"> </span>tests/multi_void_rve_golden_driver.py<span class="w"> </span>--compare-ranks<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span>/tmp/agentfem-multi-void.json<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span>/tmp/agentfem-multi-void-mpi2.json<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span>--output<span class="w"> </span>/tmp/agentfem-multi-void-rank-certificate.json
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>python<span class="w"> </span>tests/multi_void_rve_restart_driver.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">  </span>/tmp/agentfem-multi-void-restart<span class="w"> </span>--mesh-size<span class="w"> </span><span class="m">0</span>.16<span class="w"> </span>--increments<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">  </span>--output<span class="w"> </span>/tmp/agentfem-multi-void-restart.json
+</code></pre></div>
+<p>These layers establish deterministic regression, spatial stability,
+distributed equivalence and restart equivalence. They do not replace the
+independent external promotion gate below or a multi-realization RVE-size and
+statistical-convergence study.</p>
 <h2 id="external-finite-strain-composite-benchmark">External finite-strain composite benchmark<a class="headerlink" href="#external-finite-strain-composite-benchmark" title="Permanent link">&para;</a></h2>
 <p>The Zhang--Feng--Khandelwal (2021) nonlinear periodic-material benchmark is
 the promotion target for the regional finite-strain J2 route. Its unit square
@@ -1624,6 +1689,10 @@ acceptance requires explicit Boolean evidence for mesh, plane-strain
 formulation, cell-size, serial/MPI, and restart equivalence.
 <code>tests/test_zhang_2021_periodic_composite.py</code> verifies the fixture
 semantics without claiming the external result has passed.</p>
+<p>A separate <a href="../finite_strain_j2_external_beam/">finite-strain J2 self-weight beam gate</a>
+tests finite rotation and distributed body-force loading outside the periodic
+RVE setting. It likewise remains fail-closed until an independently executed,
+content-addressed reference curve and all declared convergence gates exist.</p>
 <h2 id="verification-and-present-boundary">Verification and present boundary<a class="headerlink" href="#verification-and-present-boundary" title="Permanent link">&para;</a></h2>
 <p>Current tests cover homogeneous finite-strain work equivalence, stress
 invariant conventions, sparse spatial output with complete accepted history,

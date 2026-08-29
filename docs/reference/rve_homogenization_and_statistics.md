@@ -262,6 +262,56 @@ compute an observed-order/GCI uncertainty estimate, or replace an independent
 external benchmark. The Zhang--Feng--Khandelwal comparison below therefore
 remains the fail-closed promotion gate.
 
+## Deterministic multi-void regression
+
+The multi-void contract extends the same public workflow to one versioned
+four-sphere realization. The sampler, seed, clearance rules and complete void
+list form a stable scientific identity; changing any of them creates a new
+realization rather than silently reusing prior evidence. This is deliberately
+a deterministic regression asset, not a claim that one cell statistically
+represents a porous material.
+
+The fixed `h/L=0.16` reference contains 2,368 first-order tetrahedra. Its
+Golden quantities are the complete-cell-volume first-Piola tensor, the
+physical-weighted PEEQ mean and 95th percentile, and the meshed solid fraction.
+PEEQ P99 and maximum and minimum local \(J\) stay diagnostic because they are
+more sensitive to local refinement. The independent `h/L=0.20`, `0.16` and
+`0.12` certificate passes all invariant gates; from the medium to fine mesh,
+the relative changes are approximately 0.195 percent for macroscopic stress,
+0.044 percent for mean PEEQ and 0.572 percent for PEEQ P95. This is
+successive-refinement stability, not formal asymptotic convergence or GCI.
+The comparator removes only the realized mesh size and mesh-dependent equation
+identity before hashing the case; it rejects a comparison if the material,
+macroscopic path, increments, quadrature, solver, realization or geometry
+changes between levels.
+
+The same realization also passes a one-rank/two-rank comparison: the relative
+first-Piola norm difference is about \(9.9\times10^{-14}\), all scalar
+differences are below \(5.3\times10^{-16}\), and realization, scientific-input,
+mesh and constraint identities agree. A midpoint checkpoint/restart performs
+101 state and history comparisons with zero observed difference. The
+environment-aware launcher avoids mixing OpenMPI and MPICH:
+
+```bash
+agentfem mpi-run -n 2 -- python tests/multi_void_rve_golden_driver.py \
+  --mesh-size 0.16 --increments 2 \
+  --output /tmp/agentfem-multi-void-mpi2.json
+
+python tests/multi_void_rve_golden_driver.py --compare-ranks \
+  /tmp/agentfem-multi-void.json \
+  /tmp/agentfem-multi-void-mpi2.json \
+  --output /tmp/agentfem-multi-void-rank-certificate.json
+
+python tests/multi_void_rve_restart_driver.py \
+  /tmp/agentfem-multi-void-restart --mesh-size 0.16 --increments 2 \
+  --output /tmp/agentfem-multi-void-restart.json
+```
+
+These layers establish deterministic regression, spatial stability,
+distributed equivalence and restart equivalence. They do not replace the
+independent external promotion gate below or a multi-realization RVE-size and
+statistical-convergence study.
+
 ## External finite-strain composite benchmark
 
 The Zhang--Feng--Khandelwal (2021) nonlinear periodic-material benchmark is
@@ -332,6 +382,11 @@ acceptance requires explicit Boolean evidence for mesh, plane-strain
 formulation, cell-size, serial/MPI, and restart equivalence.
 `tests/test_zhang_2021_periodic_composite.py` verifies the fixture
 semantics without claiming the external result has passed.
+
+A separate [finite-strain J2 self-weight beam gate](finite_strain_j2_external_beam.md)
+tests finite rotation and distributed body-force loading outside the periodic
+RVE setting. It likewise remains fail-closed until an independently executed,
+content-addressed reference curve and all declared convergence gates exist.
 
 ## Verification and present boundary
 

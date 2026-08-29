@@ -13355,10 +13355,22 @@ the compact machine-readable <code>agentfem/knowledge/catalog.json</code>.</p>
 <td>experimental_v1_automated</td>
 </tr>
 <tr>
+<td><code>agentfem.benchmark.finite_strain_j2_lewandowski_2023_beam</code></td>
+<td>Lewandowski et al. finite-strain J2 self-weight beam</td>
+<td>Three-dimensional slender beam under a ramped gravity-like body force, with a left clamp, right-end axial symmetry constraint, finite rotations, isotropic J2 plasticity and linear isotropic hardening.</td>
+<td>experimental_external_promotion_gate_not_run</td>
+</tr>
+<tr>
 <td><code>agentfem.benchmark.finite_strain_j2_material_paths</code></td>
 <td>Finite-strain logarithmic J2 material and global paths</td>
 <td>three-dimensional rate-independent finite-strain J2 plasticity with quadratic Hencky elasticity and linear isotropic hardening</td>
 <td>experimental_automated_global_mpi_restart</td>
+</tr>
+<tr>
+<td><code>agentfem.benchmark.finite_strain_j2_periodic_multi_void</code></td>
+<td>Finite-strain J2 periodic cell with a deterministic multi-void realization</td>
+<td>Three-dimensional finite-strain logarithmic J2 plasticity in a unit periodic cube containing four non-overlapping geometric spherical voids under isochoric macroscopic tension.</td>
+<td>automated_fixed_stack_regression_with_refinement_mpi_restart</td>
 </tr>
 <tr>
 <td><code>agentfem.benchmark.finite_strain_j2_periodic_void</code></td>
@@ -14358,13 +14370,21 @@ f=q-(\sigma_{y0}+H\bar\varepsilon_p),\qquad q=\sqrt{\frac{3}{2}\,\operatorname{d
 <li><code>tests/portable_affine_j2_periodic_driver.py</code></li>
 <li><code>tests/test_periodic_void_fixture.py</code></li>
 <li><code>tests/parallel_periodic_void_j2_driver.py</code></li>
+<li><code>tests/test_periodic_multi_void_fixture.py</code></li>
+<li><code>tests/test_multi_void_rve_golden.py</code></li>
+<li><code>tests/multi_void_rve_golden_driver.py</code></li>
+<li><code>tests/multi_void_rve_restart_driver.py</code></li>
 <li><code>tests/test_zhang_2021_periodic_composite.py</code></li>
+<li><code>tests/test_lewandowski_2023_self_weight_beam.py</code></li>
+<li><code>tests/lewandowski_2023_self_weight_beam_driver.py</code></li>
 </ul>
 <p><strong>Benchmarks</strong></p>
 <ul>
 <li><code>agentfem.benchmark.finite_strain_j2_material_paths</code></li>
 <li><code>agentfem.benchmark.finite_strain_j2_periodic_void</code></li>
+<li><code>agentfem.benchmark.finite_strain_j2_periodic_multi_void</code></li>
 <li><code>agentfem.benchmark.finite_strain_j2_zhang_2021_table5</code></li>
+<li><code>agentfem.benchmark.finite_strain_j2_lewandowski_2023_beam</code></li>
 </ul>
 <p><strong>Validation rules</strong></p>
 <ul>
@@ -14383,7 +14403,9 @@ f=q-(\sigma_{y0}+H\bar\varepsilon_p),\qquad q=\sqrt{\frac{3}{2}\,\operatorname{d
 <li>A mutated periodic-equation identity is rejected before any restored state is accepted.</li>
 <li>Regional material dispatch shares one atomic trial/commit/rollback transaction and preserves scientific identity across one-to-two and two-to-one-rank portable restart.</li>
 <li>A true spherical-void periodic RVE satisfies geometric pairing, positive-J, Hill--Mandel, public-lifecycle and two-rank execution contracts; its fixed-stack Golden and opt-in successive-refinement stability certificate remain separate evidence and do not constitute formal mesh convergence or GCI.</li>
+<li>A deterministic four-void periodic RVE preserves realization, portable mesh and constraint identities; separates its h/L=0.16 Golden from three-level refinement evidence; and passes serial/two-rank and midpoint-restart equivalence without representing a stochastic porous-material ensemble.</li>
 <li>The Zhang--Feng--Khandelwal Table 5 fixture remains fail-closed because the current displacement-only P1 tetrahedral route has not matched the published mixed displacement--pressure result.</li>
+<li>The Lewandowski et al. self-weight beam gate remains fail-closed until an independently reexecuted, content-bound upstream curve passes observer reconciliation, mesh and increment convergence, serial/MPI equivalence and restart equivalence.</li>
 </ul>
 <h3 id="references_5">References<a class="headerlink" href="#references_5" title="Permanent link">&para;</a></h3>
 <ul>
@@ -17527,10 +17549,17 @@ J=(K_I^2+K_{II}^2)/E'
 <li><code>tests/test_engineering_workflows.py</code></li>
 <li><code>tests/test_finite_strain_j2_periodic.py</code></li>
 <li><code>tests/finite_strain_j2_path_mpi_driver.py</code></li>
+<li><code>tests/test_periodic_void_fixture.py</code></li>
+<li><code>tests/parallel_periodic_void_j2_driver.py</code></li>
+<li><code>tests/test_periodic_multi_void_fixture.py</code></li>
+<li><code>tests/test_multi_void_rve_golden.py</code></li>
+<li><code>tests/multi_void_rve_golden_driver.py</code></li>
+<li><code>tests/multi_void_rve_restart_driver.py</code></li>
 </ul>
 <p><strong>Benchmarks</strong></p>
 <ul>
-<li>None declared.</li>
+<li><code>agentfem.benchmark.finite_strain_j2_periodic_void</code></li>
+<li><code>agentfem.benchmark.finite_strain_j2_periodic_multi_void</code></li>
 </ul>
 <p><strong>Validation rules</strong></p>
 <ul>
@@ -17538,6 +17567,7 @@ J=(K_I^2+K_{II}^2)/E'
 <li>Preserve every accepted macro state while spatial output remains sparse.</li>
 <li>Preserve unload and non-proportional deformation-gradient knots in serial and distributed stateful J2 paths.</li>
 <li>Recover uniaxial-tension, pure-shear and undefined hydrostatic stress-state conventions.</li>
+<li>Keep complete-cell macroscopic stress, physical-weighted quadrature statistics, Hill--Mandel evidence and restart identity consistent for deterministic single- and multi-void periodic cells in serial and distributed execution.</li>
 <li>Fail before solving when undeclared external power lies outside the current energy ledger.</li>
 </ul>
 <h3 id="references_29">References<a class="headerlink" href="#references_29" title="Permanent link">&para;</a></h3>
