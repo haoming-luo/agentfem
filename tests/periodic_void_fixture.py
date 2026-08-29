@@ -1,13 +1,20 @@
-"""Real-geometry periodic cube with a centred spherical void.
+"""Real-geometry periodic cubes with deterministic spherical void assets.
 
 This fixture deliberately keeps geometry generation outside AgentFEM's core.
 Gmsh creates a first-order tetrahedral mesh with exactly matching opposite
 faces; the returned source-node equations exercise the same public
 ``AbaqusPeriodicConstraint`` used for imported engineering meshes.
+
+The pure-Python realization objects below intentionally precede any public
+random-RVE API.  They freeze the scientific identity of a small, strictly
+interior, non-overlapping spherical-void population without making claims
+about statistical representativeness or periodic boundary-crossing pores.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 
 import numpy as np
@@ -23,6 +30,297 @@ PERIODIC_VOID_GMSH_OPTIONS = {
     "Mesh.RandomFactor3D": 1.0e-12,
     "Mesh.RandomSeed": 1.0,
 }
+
+SPHERICAL_VOID_REALIZATION_SCHEMA = "agentfem.test-spherical-void-realization.v1"
+SPHERICAL_VOID_SAMPLER = "hard-core-cubic-pcg64-v1"
+
+
+@dataclass(frozen=True)
+class SphericalVoid:
+    """One spherical pore in source coordinates."""
+
+    center: tuple[float, float, float]
+    radius: float
+
+    def __post_init__(self) -> None:
+        center = tuple(float(value) for value in self.center)
+        radius = float(self.radius)
+        if len(center) != 3 or not np.all(np.isfinite(center)):
+            raise ValueError(
+                "A spherical void center must contain three finite values."
+            )
+        if not np.isfinite(radius) or radius <= 0.0:
+            raise ValueError("A spherical void radius must be finite and positive.")
+        object.__setattr__(self, "center", center)
+        object.__setattr__(self, "radius", radius)
+
+    def canonical_key(self) -> tuple[float, float, float, float]:
+        return (*self.center, self.radius)
+
+
+@dataclass(frozen=True)
+class SphericalVoidRealization:
+    """Canonical identity for one fixed, non-overlapping pore population.
+
+    The first realization contract is deliberately conservative: every sphere
+    must remain strictly inside a cubic cell and every pair must retain a
+    positive surface-to-surface clearance.  Periodic-image pores are a
+    separate geometry capability and are rejected here rather than silently
+    producing a non-periodic microstructure.
+    """
+
+    side_length: float
+    spheres: tuple[SphericalVoid, ...]
+    seed: int
+    minimum_inter_void_clearance: float
+    minimum_boundary_clearance: float
+    attempts: int
+    sampler: str = SPHERICAL_VOID_SAMPLER
+
+    def __post_init__(self) -> None:
+        side_length = float(self.side_length)
+        spheres = tuple(
+            sphere if isinstance(sphere, SphericalVoid) else SphericalVoid(**sphere)
+            for sphere in self.spheres
+        )
+        spheres = tuple(sorted(spheres, key=SphericalVoid.canonical_key))
+        if (
+            isinstance(self.seed, (bool, np.bool_))
+            or int(self.seed) != self.seed
+            or int(self.seed) < 0
+        ):
+            raise ValueError("seed must be a non-negative integer.")
+        seed = int(self.seed)
+        inter_clearance = float(self.minimum_inter_void_clearance)
+        boundary_clearance = float(self.minimum_boundary_clearance)
+        if (
+            isinstance(self.attempts, (bool, np.bool_))
+            or int(self.attempts) != self.attempts
+        ):
+            raise ValueError("attempts must be an integer.")
+        attempts = int(self.attempts)
+        sampler = str(self.sampler).strip()
+
+        if not np.isfinite(side_length) or side_length <= 0.0:
+            raise ValueError("side_length must be finite and positive.")
+        if not spheres:
+            raise ValueError("A spherical-void realization requires at least one void.")
+        if not np.isfinite(inter_clearance) or inter_clearance <= 0.0:
+            raise ValueError(
+                "minimum_inter_void_clearance must be finite and positive."
+            )
+        if not np.isfinite(boundary_clearance) or boundary_clearance <= 0.0:
+            raise ValueError("minimum_boundary_clearance must be finite and positive.")
+        if attempts < len(spheres):
+            raise ValueError("attempts cannot be smaller than the accepted void count.")
+        if not sampler:
+            raise ValueError("sampler must be a non-empty versioned name.")
+
+        tolerance = 64.0 * np.finfo(float).eps * max(1.0, side_length)
+        for sphere in spheres:
+            observed = _sphere_boundary_clearance(sphere, side_length)
+            if observed + tolerance < boundary_clearance:
+                raise ValueError(
+                    "A spherical void violates the declared boundary clearance: "
+                    f"observed={observed:.16g}, required={boundary_clearance:.16g}."
+                )
+        for index, first in enumerate(spheres):
+            for second in spheres[index + 1 :]:
+                observed = _sphere_pair_clearance(first, second)
+                if observed + tolerance < inter_clearance:
+                    raise ValueError(
+                        "Spherical voids violate the declared inter-void clearance: "
+                        f"observed={observed:.16g}, required={inter_clearance:.16g}."
+                    )
+
+        object.__setattr__(self, "side_length", side_length)
+        object.__setattr__(self, "spheres", spheres)
+        object.__setattr__(self, "seed", seed)
+        object.__setattr__(self, "minimum_inter_void_clearance", inter_clearance)
+        object.__setattr__(self, "minimum_boundary_clearance", boundary_clearance)
+        object.__setattr__(self, "attempts", attempts)
+        object.__setattr__(self, "sampler", sampler)
+
+    @property
+    def cell_reference_volume(self) -> float:
+        return float(self.side_length**3)
+
+    @property
+    def exact_void_volume(self) -> float:
+        return float(
+            sum(4.0 * np.pi * sphere.radius**3 / 3.0 for sphere in self.spheres)
+        )
+
+    @property
+    def actual_void_fraction(self) -> float:
+        return float(self.exact_void_volume / self.cell_reference_volume)
+
+    @property
+    def observed_boundary_clearance(self) -> float:
+        return float(
+            min(
+                _sphere_boundary_clearance(sphere, self.side_length)
+                for sphere in self.spheres
+            )
+        )
+
+    @property
+    def observed_inter_void_clearance(self) -> float | None:
+        clearances = [
+            _sphere_pair_clearance(first, second)
+            for index, first in enumerate(self.spheres)
+            for second in self.spheres[index + 1 :]
+        ]
+        return None if not clearances else float(min(clearances))
+
+    def canonical_payload(self) -> dict[str, object]:
+        return {
+            "schema": SPHERICAL_VOID_REALIZATION_SCHEMA,
+            "sampler": self.sampler,
+            "seed": self.seed,
+            "cell": {
+                "origin": [0.0, 0.0, 0.0],
+                "side_length": self.side_length,
+            },
+            "constraints": {
+                "minimum_inter_void_clearance": self.minimum_inter_void_clearance,
+                "minimum_boundary_clearance": self.minimum_boundary_clearance,
+                "periodic_boundary_crossing": False,
+            },
+            "attempts": self.attempts,
+            "voids": [
+                {
+                    "id": f"void-{index:04d}",
+                    "center": list(sphere.center),
+                    "radius": sphere.radius,
+                }
+                for index, sphere in enumerate(self.spheres, start=1)
+            ],
+            "actual_void_fraction": self.actual_void_fraction,
+            "observed_inter_void_clearance": self.observed_inter_void_clearance,
+            "observed_boundary_clearance": self.observed_boundary_clearance,
+        }
+
+    def canonical_json(self) -> str:
+        return json.dumps(
+            self.canonical_payload(),
+            ensure_ascii=True,
+            allow_nan=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+
+    def scientific_identity(self) -> dict[str, object]:
+        payload = self.canonical_payload()
+        return {
+            **payload,
+            "fingerprint": hashlib.sha256(
+                self.canonical_json().encode("utf-8")
+            ).hexdigest(),
+        }
+
+
+def sample_hard_core_spherical_voids(
+    *,
+    side_length: float,
+    count: int,
+    radius: float,
+    seed: int,
+    minimum_inter_void_clearance: float,
+    minimum_boundary_clearance: float,
+    maximum_attempts: int = 10_000,
+) -> SphericalVoidRealization:
+    """Sample one bounded, reproducible hard-core sphere realization.
+
+    Sampling uses NumPy's explicitly named PCG64 generator.  A failed packing
+    raises instead of returning a smaller population.  Spheres intersecting a
+    periodic boundary are outside this first contract and cannot be sampled.
+    """
+
+    side_length = float(side_length)
+    radius = float(radius)
+    inter_clearance = float(minimum_inter_void_clearance)
+    boundary_clearance = float(minimum_boundary_clearance)
+    if isinstance(count, (bool, np.bool_)) or int(count) != count or int(count) <= 0:
+        raise ValueError("count must be a positive integer.")
+    count = int(count)
+    if isinstance(seed, (bool, np.bool_)) or int(seed) != seed or int(seed) < 0:
+        raise ValueError("seed must be a non-negative integer.")
+    seed = int(seed)
+    if (
+        isinstance(maximum_attempts, (bool, np.bool_))
+        or int(maximum_attempts) != maximum_attempts
+        or int(maximum_attempts) < count
+    ):
+        raise ValueError(
+            "maximum_attempts must be an integer at least as large as count."
+        )
+    maximum_attempts = int(maximum_attempts)
+    if not np.isfinite(side_length) or side_length <= 0.0:
+        raise ValueError("side_length must be finite and positive.")
+    if not np.isfinite(radius) or radius <= 0.0:
+        raise ValueError("radius must be finite and positive.")
+    if not np.isfinite(inter_clearance) or inter_clearance <= 0.0:
+        raise ValueError("minimum_inter_void_clearance must be finite and positive.")
+    if not np.isfinite(boundary_clearance) or boundary_clearance <= 0.0:
+        raise ValueError("minimum_boundary_clearance must be finite and positive.")
+
+    lower = radius + boundary_clearance
+    upper = side_length - lower
+    if lower > upper:
+        raise ValueError(
+            "Impossible spherical-void packing: radius plus boundary clearance "
+            "does not fit inside the cell."
+        )
+
+    generator = np.random.Generator(np.random.PCG64(seed))
+    accepted: list[SphericalVoid] = []
+    attempts = 0
+    required_distance = 2.0 * radius + inter_clearance
+    while len(accepted) < count and attempts < maximum_attempts:
+        attempts += 1
+        candidate = SphericalVoid(
+            center=tuple(float(value) for value in generator.uniform(lower, upper, 3)),
+            radius=radius,
+        )
+        if all(
+            np.linalg.norm(np.asarray(candidate.center) - np.asarray(other.center))
+            >= required_distance
+            for other in accepted
+        ):
+            accepted.append(candidate)
+
+    if len(accepted) != count:
+        raise ValueError(
+            "Impossible spherical-void packing under the bounded hard-core "
+            f"sampler: accepted {len(accepted)} of {count} voids after "
+            f"{attempts} attempts (seed={seed})."
+        )
+    return SphericalVoidRealization(
+        side_length=side_length,
+        spheres=tuple(accepted),
+        seed=seed,
+        minimum_inter_void_clearance=inter_clearance,
+        minimum_boundary_clearance=boundary_clearance,
+        attempts=attempts,
+    )
+
+
+def _sphere_pair_clearance(first: SphericalVoid, second: SphericalVoid) -> float:
+    distance = np.linalg.norm(
+        np.asarray(first.center, dtype=float) - np.asarray(second.center, dtype=float)
+    )
+    return float(distance - first.radius - second.radius)
+
+
+def _sphere_boundary_clearance(sphere: SphericalVoid, side_length: float) -> float:
+    center = np.asarray(sphere.center, dtype=float)
+    return float(
+        min(
+            np.min(center - sphere.radius),
+            np.min(float(side_length) - center - sphere.radius),
+        )
+    )
 
 
 @dataclass(frozen=True)
@@ -47,9 +345,7 @@ class PeriodicVoidFixture:
 
     @property
     def exact_solid_volume(self) -> float:
-        return float(
-            self.side_length**3 - 4.0 * np.pi * self.void_radius**3 / 3.0
-        )
+        return float(self.side_length**3 - 4.0 * np.pi * self.void_radius**3 / 3.0)
 
     def constraint(self, displacement):
         return constraints.abaqus_periodic_cell(
@@ -108,8 +404,7 @@ def periodic_spherical_void_cell(
                 **PERIODIC_VOID_GMSH_OPTIONS,
             }
             previous_options = {
-                name: float(gmsh.option.getNumber(name))
-                for name in selected_options
+                name: float(gmsh.option.getNumber(name)) for name in selected_options
             }
             for name, value in selected_options.items():
                 gmsh.option.setNumber(name, float(value))
@@ -273,7 +568,9 @@ def _periodic_semantics(
     for label, coordinate in zip(labels, coordinates):
         key = _coordinate_key(coordinate, tolerance)
         if key in coordinate_to_label:
-            raise RuntimeError("Gmsh produced duplicate coordinates for a first-order mesh.")
+            raise RuntimeError(
+                "Gmsh produced duplicate coordinates for a first-order mesh."
+            )
         coordinate_to_label[key] = int(label)
         coordinate_by_label[int(label)] = coordinate
 
@@ -295,9 +592,7 @@ def _periodic_semantics(
         int(label)
         for label, coordinate in zip(labels, coordinates)
         if np.any(np.isclose(coordinate, origin, rtol=0.0, atol=tolerance))
-        or np.any(
-            np.isclose(coordinate, origin + periods, rtol=0.0, atol=tolerance)
-        )
+        or np.any(np.isclose(coordinate, origin + periods, rtol=0.0, atol=tolerance))
     )
     equations = []
     for slave in boundary_labels:
@@ -314,9 +609,7 @@ def _periodic_semantics(
         base = label_at(wrapped)
         for component in (1, 2, 3):
             terms = [(slave, component, 1.0), (base, component, -1.0)]
-            terms.extend(
-                (references[axis], component, -1.0) for axis in active_axes
-            )
+            terms.extend((references[axis], component, -1.0) for axis in active_axes)
             terms.append((anchor, component, float(len(active_axes))))
             equations.append(terms)
 
@@ -352,7 +645,9 @@ def _periodic_semantics(
         if not found_pair:
             raise RuntimeError("Gmsh did not retain periodic surface-node pairs.")
 
-    selected_coordinates = [coordinate_by_label[label].tolist() for label in boundary_labels]
+    selected_coordinates = [
+        coordinate_by_label[label].tolist() for label in boundary_labels
+    ]
     return {
         "labels": boundary_labels,
         "coordinates": selected_coordinates,
