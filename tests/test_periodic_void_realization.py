@@ -46,17 +46,18 @@ def test_hard_core_realization_is_reproducible_and_scientifically_identified():
     assert first.sampler == SPHERICAL_VOID_SAMPLER
     assert first.attempts == 4
     assert first.scientific_identity()["fingerprint"] == (
-        "520dafb6a1b3a6789b072562d54ff0e9476e4461fe196f1e92557762ddd1b492"
+        "d3f0879a06d1092926544b465109cdff4b979cf384b7db55bb0a67fd1291e49d"
     )
     assert first.observed_boundary_clearance >= 0.03
-    assert first.observed_inter_void_clearance is not None
-    assert first.observed_inter_void_clearance >= 0.04
+    assert first.observed_periodic_inter_void_clearance is not None
+    assert first.observed_periodic_inter_void_clearance >= 0.04
 
     expected_fraction = 4.0 * (4.0 * np.pi * 0.09**3 / 3.0)
     assert first.actual_void_fraction == pytest.approx(expected_fraction)
     payload = json.loads(first.canonical_json())
     assert payload["schema"] == SPHERICAL_VOID_REALIZATION_SCHEMA
     assert payload["constraints"]["periodic_boundary_crossing"] is False
+    assert payload["observed_periodic_inter_void_clearance"] >= 0.04
     assert [item["id"] for item in payload["voids"]] == [
         "void-0001",
         "void-0002",
@@ -109,6 +110,21 @@ def test_explicit_realization_rejects_violated_clearances(spheres, message):
             minimum_inter_void_clearance=0.02,
             minimum_boundary_clearance=0.02,
             attempts=len(spheres),
+        )
+
+
+def test_explicit_realization_checks_periodic_minimum_image_clearance():
+    with pytest.raises(ValueError, match="periodic inter-void clearance"):
+        SphericalVoidRealization(
+            side_length=1.0,
+            spheres=(
+                SphericalVoid(center=(0.10, 0.5, 0.5), radius=0.04),
+                SphericalVoid(center=(0.90, 0.5, 0.5), radius=0.04),
+            ),
+            seed=0,
+            minimum_inter_void_clearance=0.13,
+            minimum_boundary_clearance=0.02,
+            attempts=2,
         )
 
 

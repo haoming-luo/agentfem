@@ -31,8 +31,8 @@ PERIODIC_VOID_GMSH_OPTIONS = {
     "Mesh.RandomSeed": 1.0,
 }
 
-SPHERICAL_VOID_REALIZATION_SCHEMA = "agentfem.test-spherical-void-realization.v1"
-SPHERICAL_VOID_SAMPLER = "hard-core-cubic-pcg64-v1"
+SPHERICAL_VOID_REALIZATION_SCHEMA = "agentfem.test-spherical-void-realization.v2"
+SPHERICAL_VOID_SAMPLER = "hard-core-periodic-cubic-pcg64-v2"
 
 
 @dataclass(frozen=True)
@@ -64,9 +64,9 @@ class SphericalVoidRealization:
 
     The first realization contract is deliberately conservative: every sphere
     must remain strictly inside a cubic cell and every pair must retain a
-    positive surface-to-surface clearance.  Periodic-image pores are a
-    separate geometry capability and are rejected here rather than silently
-    producing a non-periodic microstructure.
+    positive minimum-image surface-to-surface clearance.  Pores crossing the
+    cell boundary are a separate geometry capability and are rejected here;
+    interactions with periodic images are nevertheless enforced.
     """
 
     side_length: float
@@ -126,10 +126,15 @@ class SphericalVoidRealization:
                 )
         for index, first in enumerate(spheres):
             for second in spheres[index + 1 :]:
-                observed = _sphere_pair_clearance(first, second)
+                observed = _sphere_pair_clearance(
+                    first,
+                    second,
+                    side_length=side_length,
+                )
                 if observed + tolerance < inter_clearance:
                     raise ValueError(
-                        "Spherical voids violate the declared inter-void clearance: "
+                        "Spherical voids violate the declared periodic inter-void "
+                        "clearance: "
                         f"observed={observed:.16g}, required={inter_clearance:.16g}."
                     )
 
@@ -165,13 +170,19 @@ class SphericalVoidRealization:
         )
 
     @property
-    def observed_inter_void_clearance(self) -> float | None:
+    def observed_periodic_inter_void_clearance(self) -> float | None:
         clearances = [
-            _sphere_pair_clearance(first, second)
+            _sphere_pair_clearance(first, second, side_length=self.side_length)
             for index, first in enumerate(self.spheres)
             for second in self.spheres[index + 1 :]
         ]
         return None if not clearances else float(min(clearances))
+
+    @property
+    def observed_inter_void_clearance(self) -> float | None:
+        """Backward-readable alias for the periodic minimum-image clearance."""
+
+        return self.observed_periodic_inter_void_clearance
 
     def canonical_payload(self) -> dict[str, object]:
         return {
@@ -197,7 +208,9 @@ class SphericalVoidRealization:
                 for index, sphere in enumerate(self.spheres, start=1)
             ],
             "actual_void_fraction": self.actual_void_fraction,
-            "observed_inter_void_clearance": self.observed_inter_void_clearance,
+            "observed_periodic_inter_void_clearance": (
+                self.observed_periodic_inter_void_clearance
+            ),
             "observed_boundary_clearance": self.observed_boundary_clearance,
         }
 
@@ -232,8 +245,9 @@ def sample_hard_core_spherical_voids(
 ) -> SphericalVoidRealization:
     """Sample one bounded, reproducible hard-core sphere realization.
 
-    Sampling uses NumPy's explicitly named PCG64 generator.  A failed packing
-    raises instead of returning a smaller population.  Spheres intersecting a
+    Sampling uses NumPy's explicitly named PCG64 generator and tests every
+    pair with the cubic minimum-image convention.  A failed packing raises
+    instead of returning a smaller population.  Spheres intersecting a
     periodic boundary are outside this first contract and cannot be sampled.
     """
 
@@ -284,7 +298,7 @@ def sample_hard_core_spherical_voids(
             radius=radius,
         )
         if all(
-            np.linalg.norm(np.asarray(candidate.center) - np.asarray(other.center))
+            _periodic_center_distance(candidate, other, side_length=side_length)
             >= required_distance
             for other in accepted
         ):
@@ -306,9 +320,29 @@ def sample_hard_core_spherical_voids(
     )
 
 
-def _sphere_pair_clearance(first: SphericalVoid, second: SphericalVoid) -> float:
-    distance = np.linalg.norm(
+def _periodic_center_distance(
+    first: SphericalVoid,
+    second: SphericalVoid,
+    *,
+    side_length: float,
+) -> float:
+    difference = np.abs(
         np.asarray(first.center, dtype=float) - np.asarray(second.center, dtype=float)
+    )
+    minimum_image = np.minimum(difference, float(side_length) - difference)
+    return float(np.linalg.norm(minimum_image))
+
+
+def _sphere_pair_clearance(
+    first: SphericalVoid,
+    second: SphericalVoid,
+    *,
+    side_length: float,
+) -> float:
+    distance = _periodic_center_distance(
+        first,
+        second,
+        side_length=side_length,
     )
     return float(distance - first.radius - second.radius)
 
@@ -360,6 +394,57 @@ class PeriodicVoidFixture:
         )
 
 
+@dataclass(frozen=True)
+class PeriodicMultiVoidFixture:
+    """Periodic Gmsh cell carrying one canonical multi-void realization."""
+
+    domain: object
+    cell_tags: object
+    facet_tags: object
+    nodes: abaqus.AbaqusNodeTable
+    equations: abaqus.AbaqusEquationSet
+    deformation_gradient: np.ndarray
+    anchor_node: int
+    reference_nodes: tuple[int, int, int]
+    realization: SphericalVoidRealization
+    periodic_pairing_error: float
+    void_surface_count: int
+
+    @property
+    def side_length(self) -> float:
+        return self.realization.side_length
+
+    @property
+    def cell_reference_volume(self) -> float:
+        return self.realization.cell_reference_volume
+
+    @property
+    def exact_solid_volume(self) -> float:
+        return float(
+            self.realization.cell_reference_volume - self.realization.exact_void_volume
+        )
+
+    @property
+    def actual_void_fraction(self) -> float:
+        return self.realization.actual_void_fraction
+
+    @property
+    def realization_fingerprint(self) -> str:
+        return str(self.realization.scientific_identity()["fingerprint"])
+
+    def constraint(self, displacement):
+        return constraints.abaqus_periodic_cell(
+            displacement,
+            nodes=self.nodes,
+            equations=self.equations,
+            deformation_gradient=self.deformation_gradient,
+            anchor_node=self.anchor_node,
+            reference_nodes=self.reference_nodes,
+            tolerance=2.0e-9 * self.side_length,
+            name="gmsh_multi_spherical_void_periodic_cell",
+        )
+
+
 def periodic_spherical_void_cell(
     comm,
     *,
@@ -388,90 +473,19 @@ def periodic_spherical_void_cell(
     if not np.isfinite(stretch) or stretch <= 0.0:
         raise ValueError("stretch must be finite and positive.")
 
-    gmsh = mesh.require_gmsh()
-    initialized_here = not gmsh.isInitialized()
-    if initialized_here:
-        gmsh.initialize()
-    semantics = None
-    previous_options = {}
-    try:
-        if comm.rank == model_rank:
-            gmsh.clear()
-            selected_options = {
-                "General.Verbosity": 0.0,
-                "Mesh.MeshSizeMin": mesh_size,
-                "Mesh.MeshSizeMax": mesh_size,
-                **PERIODIC_VOID_GMSH_OPTIONS,
-            }
-            previous_options = {
-                name: float(gmsh.option.getNumber(name)) for name in selected_options
-            }
-            for name, value in selected_options.items():
-                gmsh.option.setNumber(name, float(value))
-            gmsh.model.add("agentfem_periodic_spherical_void")
-            box = gmsh.model.occ.addBox(
-                0.0,
-                0.0,
-                0.0,
-                side_length,
-                side_length,
-                side_length,
-            )
-            sphere = gmsh.model.occ.addSphere(
-                0.5 * side_length,
-                0.5 * side_length,
-                0.5 * side_length,
-                void_radius,
-            )
-            volumes, _ = gmsh.model.occ.cut(
-                [(3, box)],
-                [(3, sphere)],
-                removeObject=True,
-                removeTool=True,
-            )
-            gmsh.model.occ.synchronize()
-            if len(volumes) != 1:
-                raise RuntimeError("The spherical-void Boolean cut is not unique.")
-
-            outer_faces, void_faces = _classify_faces(gmsh, side_length)
-            for axis in range(3):
-                transform = np.eye(4)
-                transform[axis, 3] = side_length
-                gmsh.model.mesh.setPeriodic(
-                    2,
-                    [outer_faces[(axis, 1)]],
-                    [outer_faces[(axis, 0)]],
-                    transform.reshape(-1).tolist(),
-                )
-
-            volume_tag = int(volumes[0][1])
-            gmsh.model.addPhysicalGroup(3, [volume_tag], 1)
-            gmsh.model.setPhysicalName(3, 1, "matrix")
-            gmsh.model.addPhysicalGroup(2, list(outer_faces.values()), 10)
-            gmsh.model.setPhysicalName(2, 10, "periodic_boundary")
-            gmsh.model.addPhysicalGroup(2, void_faces, 20)
-            gmsh.model.setPhysicalName(2, 20, "void_surface")
-            gmsh.model.mesh.generate(3)
-            semantics = _periodic_semantics(
-                gmsh,
-                outer_faces,
-                side_length=side_length,
-                tolerance=1.0e-9 * side_length,
-            )
-
-        semantics = comm.bcast(semantics, root=model_rank)
-        imported = mesh.import_gmsh_model(
-            gmsh.model,
-            comm,
-            model_rank=model_rank,
-            gdim=3,
-        )
-    finally:
-        if comm.rank == model_rank and gmsh.isInitialized():
-            for name, value in previous_options.items():
-                gmsh.option.setNumber(name, value)
-        if initialized_here:
-            gmsh.finalize()
+    imported, semantics = _lower_periodic_spherical_void_mesh(
+        comm,
+        side_length=side_length,
+        spheres=(
+            SphericalVoid(
+                center=(0.5 * side_length,) * 3,
+                radius=void_radius,
+            ),
+        ),
+        mesh_size=mesh_size,
+        model_rank=model_rank,
+        model_name="agentfem_periodic_spherical_void",
+    )
 
     lateral = 1.0 / np.sqrt(stretch)
     return PeriodicVoidFixture(
@@ -504,6 +518,193 @@ def periodic_spherical_void_cell(
         void_radius=void_radius,
         periodic_pairing_error=float(semantics["periodic_pairing_error"]),
     )
+
+
+def periodic_multi_spherical_void_cell(
+    comm,
+    *,
+    realization: SphericalVoidRealization,
+    mesh_size: float = 0.18,
+    stretch: float = 1.01,
+    model_rank: int = 0,
+) -> PeriodicMultiVoidFixture:
+    """Lower one fixed multi-sphere realization to an exact periodic mesh.
+
+    All pore surfaces share physical tag 20.  Stable per-pore identity remains
+    in ``realization``; Gmsh entity numbers are deliberately not promoted to a
+    scientific identifier.  Periodic boundary-crossing pores remain outside
+    this fixture's supported geometry.
+    """
+
+    if not isinstance(realization, SphericalVoidRealization):
+        raise TypeError("realization must be a SphericalVoidRealization.")
+    mesh_size = float(mesh_size)
+    stretch = float(stretch)
+    if not np.isfinite(mesh_size) or mesh_size <= 0.0:
+        raise ValueError("mesh_size must be finite and positive.")
+    if not np.isfinite(stretch) or stretch <= 0.0:
+        raise ValueError("stretch must be finite and positive.")
+
+    imported, semantics = _lower_periodic_spherical_void_mesh(
+        comm,
+        side_length=realization.side_length,
+        spheres=realization.spheres,
+        mesh_size=mesh_size,
+        model_rank=model_rank,
+        model_name="agentfem_periodic_multi_spherical_void",
+    )
+    lateral = 1.0 / np.sqrt(stretch)
+    nodes, equations = _abaqus_source_semantics(semantics)
+    return PeriodicMultiVoidFixture(
+        domain=imported.domain,
+        cell_tags=imported.cell_tags,
+        facet_tags=imported.facet_tags,
+        nodes=nodes,
+        equations=equations,
+        deformation_gradient=np.diag((stretch, lateral, lateral)),
+        anchor_node=int(semantics["anchor_node"]),
+        reference_nodes=tuple(int(value) for value in semantics["reference_nodes"]),
+        realization=realization,
+        periodic_pairing_error=float(semantics["periodic_pairing_error"]),
+        void_surface_count=int(semantics["void_surface_count"]),
+    )
+
+
+def _lower_periodic_spherical_void_mesh(
+    comm,
+    *,
+    side_length: float,
+    spheres: tuple[SphericalVoid, ...],
+    mesh_size: float,
+    model_rank: int,
+    model_name: str,
+):
+    """Build and import one cube cut by strictly interior spheres."""
+
+    spheres = tuple(sorted(spheres, key=SphericalVoid.canonical_key))
+    if not spheres:
+        raise ValueError("At least one spherical void is required.")
+    gmsh = mesh.require_gmsh()
+    initialized_here = not gmsh.isInitialized()
+    if initialized_here:
+        gmsh.initialize()
+    semantics = None
+    previous_options = {}
+    try:
+        if comm.rank == model_rank:
+            gmsh.clear()
+            selected_options = {
+                "General.Verbosity": 0.0,
+                "Mesh.MeshSizeMin": mesh_size,
+                "Mesh.MeshSizeMax": mesh_size,
+                **PERIODIC_VOID_GMSH_OPTIONS,
+            }
+            previous_options = {
+                name: float(gmsh.option.getNumber(name)) for name in selected_options
+            }
+            for name, value in selected_options.items():
+                gmsh.option.setNumber(name, float(value))
+            gmsh.model.add(model_name)
+            box = gmsh.model.occ.addBox(
+                0.0,
+                0.0,
+                0.0,
+                side_length,
+                side_length,
+                side_length,
+            )
+            sphere_entities = [
+                (
+                    3,
+                    gmsh.model.occ.addSphere(
+                        sphere.center[0],
+                        sphere.center[1],
+                        sphere.center[2],
+                        sphere.radius,
+                    ),
+                )
+                for sphere in spheres
+            ]
+            volumes, _ = gmsh.model.occ.cut(
+                [(3, box)],
+                sphere_entities,
+                removeObject=True,
+                removeTool=True,
+            )
+            gmsh.model.occ.synchronize()
+            if len(volumes) != 1:
+                raise RuntimeError("The spherical-void Boolean cut is not unique.")
+
+            outer_faces, void_faces = _classify_faces(gmsh, side_length)
+            if len(void_faces) != len(spheres):
+                raise RuntimeError(
+                    "The spherical-void Boolean cut did not retain one distinct "
+                    f"surface per void: expected {len(spheres)}, observed "
+                    f"{len(void_faces)}."
+                )
+            for axis in range(3):
+                transform = np.eye(4)
+                transform[axis, 3] = side_length
+                gmsh.model.mesh.setPeriodic(
+                    2,
+                    [outer_faces[(axis, 1)]],
+                    [outer_faces[(axis, 0)]],
+                    transform.reshape(-1).tolist(),
+                )
+
+            volume_tag = int(volumes[0][1])
+            gmsh.model.addPhysicalGroup(3, [volume_tag], 1)
+            gmsh.model.setPhysicalName(3, 1, "matrix")
+            gmsh.model.addPhysicalGroup(2, list(outer_faces.values()), 10)
+            gmsh.model.setPhysicalName(2, 10, "periodic_boundary")
+            gmsh.model.addPhysicalGroup(2, void_faces, 20)
+            gmsh.model.setPhysicalName(2, 20, "void_surface")
+            gmsh.model.mesh.generate(3)
+            semantics = _periodic_semantics(
+                gmsh,
+                outer_faces,
+                side_length=side_length,
+                tolerance=1.0e-9 * side_length,
+            )
+            semantics["void_surface_count"] = len(void_faces)
+
+        semantics = comm.bcast(semantics, root=model_rank)
+        imported = mesh.import_gmsh_model(
+            gmsh.model,
+            comm,
+            model_rank=model_rank,
+            gdim=3,
+        )
+    finally:
+        if comm.rank == model_rank and gmsh.isInitialized():
+            for name, value in previous_options.items():
+                gmsh.option.setNumber(name, value)
+        if initialized_here:
+            gmsh.finalize()
+    return imported, semantics
+
+
+def _abaqus_source_semantics(semantics):
+    nodes = abaqus.AbaqusNodeTable(
+        labels=np.asarray(semantics["labels"], dtype=np.int64),
+        coordinates=np.asarray(semantics["coordinates"], dtype=float),
+    )
+    equations = abaqus.AbaqusEquationSet(
+        tuple(
+            abaqus.LinearEquation(
+                tuple(
+                    abaqus.EquationTerm(
+                        int(node),
+                        int(component),
+                        float(coefficient),
+                    )
+                    for node, component, coefficient in terms
+                )
+            )
+            for terms in semantics["equations"]
+        )
+    )
+    return nodes, equations
 
 
 def _classify_faces(gmsh, side_length: float):
