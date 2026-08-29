@@ -991,6 +991,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `set_default_backend(name: str) -> None` | Select the process-local default backend by registered name. |
 | class | `RuntimeCapabilityError(required, *, operation: str \| None = None)` | Raised before lowering when the active runtime cannot execute a step. |
 | class | `RuntimeProfile` | Detected numerical runtime and its explicitly supported capabilities. |
+| class | `RuntimeSelectionError` | Raised when an explicitly requested numerical runtime is unavailable. |
 | function | `current_runtime() -> RuntimeProfile` | Return the active FEniCSx runtime without importing optional solvers. |
 | function | `require_capabilities(*capabilities: str, operation: str \| None = None) -> None` | Fail closed with a stable error when capabilities are unavailable. |
 

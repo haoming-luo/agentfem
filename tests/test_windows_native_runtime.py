@@ -37,6 +37,26 @@ def test_native_runtime_capability_contract(monkeypatch):
     assert not selected.distributed
 
 
+def test_runtime_selection_rejects_unknown_name(monkeypatch):
+    monkeypatch.setenv("AGENTFEM_RUNTIME", "native-windowz")
+    with np.testing.assert_raises(runtime.RuntimeSelectionError):
+        runtime.current_runtime()
+
+
+def test_explicit_petsc_selection_does_not_silently_fall_back(monkeypatch):
+    monkeypatch.setenv("AGENTFEM_RUNTIME", "fenicsx-petsc")
+    availability = {
+        "dolfinx": True,
+        "petsc4py": False,
+        "scipy": True,
+        "pyamg": True,
+        "dolfinx_mpc": False,
+    }
+    monkeypatch.setattr(runtime, "_available", availability.__getitem__)
+    with np.testing.assert_raises(runtime.RuntimeSelectionError):
+        runtime.current_runtime()
+
+
 def test_native_public_namespaces_import_without_petsc(monkeypatch):
     selected = _force_native(monkeypatch)
     assert fracture.__name__ == "agentfem.fracture"

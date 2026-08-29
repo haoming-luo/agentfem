@@ -34,6 +34,12 @@ class RuntimeCapabilityError(RuntimeError):
         self.runtime = runtime
 
 
+class RuntimeSelectionError(RuntimeError):
+    """Raised when an explicitly requested numerical runtime is unavailable."""
+
+    code = "AFM-BACKEND-RUNTIME-001"
+
+
 @dataclass(frozen=True)
 class RuntimeProfile:
     """Detected numerical runtime and its explicitly supported capabilities."""
@@ -84,12 +90,33 @@ def current_runtime() -> RuntimeProfile:
         "vector_assembly",
         "xdmf_output",
     ]
-    requested = os.environ.get("AGENTFEM_RUNTIME", "").strip().lower()
-    force_native = requested in {"native", "fenicsx-native-serial"}
+    raw_request = os.environ.get("AGENTFEM_RUNTIME", "").strip().lower()
+    aliases = {
+        "": "auto",
+        "auto": "auto",
+        "native": "fenicsx-native-serial",
+        "fenicsx-native-serial": "fenicsx-native-serial",
+        "petsc": "fenicsx-petsc",
+        "fenicsx-petsc": "fenicsx-petsc",
+    }
+    if raw_request not in aliases:
+        raise RuntimeSelectionError(
+            f"{RuntimeSelectionError.code}: unknown AGENTFEM_RUNTIME "
+            f"value {raw_request!r}; choose 'auto', 'fenicsx-petsc', or "
+            "'fenicsx-native-serial'."
+        )
+    requested = aliases[raw_request]
+    force_native = requested == "fenicsx-native-serial"
+    force_petsc = requested == "fenicsx-petsc"
     if force_native and not packages["scipy"]:
-        raise RuntimeError(
-            "AGENTFEM_RUNTIME requests the native serial runtime, but SciPy "
-            "is unavailable."
+        raise RuntimeSelectionError(
+            f"{RuntimeSelectionError.code}: AGENTFEM_RUNTIME requests the "
+            "native serial runtime, but SciPy is unavailable."
+        )
+    if force_petsc and not packages["petsc4py"]:
+        raise RuntimeSelectionError(
+            f"{RuntimeSelectionError.code}: AGENTFEM_RUNTIME requests the "
+            "PETSc runtime, but petsc4py is unavailable."
         )
     if packages["petsc4py"] and not force_native:
         capabilities = common + [
@@ -138,6 +165,7 @@ def require_capabilities(*capabilities: str, operation: str | None = None) -> No
 __all__ = [
     "RuntimeCapabilityError",
     "RuntimeProfile",
+    "RuntimeSelectionError",
     "current_runtime",
     "require_capabilities",
 ]

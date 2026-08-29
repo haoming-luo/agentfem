@@ -38,9 +38,11 @@ jobs:
       - name: Prove native runtime and imports
         env:
           AGENTFEM_RUNTIME: fenicsx-native-serial
+          AGENTFEM_RUNTIME_EVIDENCE: ${{ github.workspace }}\windows-runtime.json
         run: |
           conda run --no-capture-output -n agentfem-windows python -c "from agentfem.backends import current_runtime; r=current_runtime(); print(r.as_dict()); assert r.name == 'fenicsx-native-serial'; assert not r.packages['petsc4py']"
-          conda run --no-capture-output -n agentfem-windows python -m agentfem.cli doctor --json | Out-File -Encoding utf8 windows-runtime.json
+          conda run --no-capture-output -n agentfem-windows python -m agentfem.cli doctor --json
+          conda run --no-capture-output -n agentfem-windows python -c "import json, os, pathlib; from agentfem import platforms; pathlib.Path(os.environ['AGENTFEM_RUNTIME_EVIDENCE']).write_text(json.dumps(platforms.runtime_report().summary(), indent=2), encoding='utf-8')"
 
       - name: Run native serial FEM acceptance
         env:
@@ -51,6 +53,7 @@ jobs:
       - name: Prove installed-wheel project workflow outside source tree
         env:
           AGENTFEM_RUNTIME: fenicsx-native-serial
+          AGENTFEM_WHEEL_EVIDENCE: ${{ github.workspace }}\windows-wheel-verification.json
         run: |
           $project = Join-Path $env:RUNNER_TEMP "agentfem-native-wheel-smoke"
           Push-Location $env:RUNNER_TEMP
@@ -58,7 +61,8 @@ jobs:
           conda run --no-capture-output -n agentfem-windows python -m agentfem.cli init $project --template static-solid --name native-windows-smoke
           conda run --no-capture-output -n agentfem-windows python -m agentfem.cli check --project $project
           conda run --no-capture-output -n agentfem-windows python -m agentfem.cli run --project $project --run-id native-windows-wheel
-          conda run --no-capture-output -n agentfem-windows python -m agentfem.cli verify --project $project --json | Out-File -Encoding utf8 (Join-Path $env:GITHUB_WORKSPACE "windows-wheel-verification.json")
+          conda run --no-capture-output -n agentfem-windows python -m agentfem.cli verify --project $project --json
+          conda run --no-capture-output -n agentfem-windows python -c "import json, os, pathlib; from agentfem import provenance; manifest=pathlib.Path(r'$project')/'outputs'/'native-windows-smoke'/'native-windows-wheel'/'result.json'; report=provenance.verify_manifest(manifest).summary(); assert report['verified']; pathlib.Path(os.environ['AGENTFEM_WHEEL_EVIDENCE']).write_text(json.dumps(report, indent=2), encoding='utf-8')"
           Pop-Location
 
       - name: Upload Windows runtime evidence

@@ -18,6 +18,7 @@ from .registry import (
 from .runtime import (
     RuntimeCapabilityError,
     RuntimeProfile,
+    RuntimeSelectionError,
     current_runtime,
     require_capabilities,
 )
@@ -39,6 +40,7 @@ __all__ = [
     "set_default_backend",
     "RuntimeCapabilityError",
     "RuntimeProfile",
+    "RuntimeSelectionError",
     "current_runtime",
     "require_capabilities",
 ]

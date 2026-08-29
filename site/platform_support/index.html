@@ -1489,6 +1489,11 @@ together without hand-maintaining a long argument list:</p>
 <p>Both consume the same Study, Model, operators, constraints, Step, result, and
 verification objects. Provider capabilities decide whether a procedure can be
 lowered; application code does not branch on the operating system.</p>
+<p>Runtime selection is normally automatic. CI or advanced diagnostics may set
+<code>AGENTFEM_RUNTIME=fenicsx-petsc</code> or
+<code>AGENTFEM_RUNTIME=fenicsx-native-serial</code>. An unknown name, or an explicitly
+requested runtime whose required package is unavailable, fails before model
+lowering instead of silently changing the numerical route.</p>
 <p>Use native Windows for the supported serial core described in <code>INSTALL.md</code>.
 Use WSL2 when a Windows workstation needs the complete Linux
 FEniCSx/PETSc/MPI stack. Keep WSL projects in the Linux filesystem for compile
