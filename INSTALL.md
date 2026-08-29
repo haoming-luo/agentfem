@@ -24,10 +24,11 @@ For source development, install from the repository root:
 python -m pip install -e .
 ```
 
-The AgentFEM conda-forge recipe is currently in review. Until it is published,
-conda supplies the compiled FEniCSx/PETSc/MPI runtime and PyPI or the source
-tree supplies AgentFEM. Once the recipe is available, both layers can be
-installed in one conda environment command.
+The AgentFEM conda-forge feedstock has been accepted and is awaiting public
+package-index synchronization. Until `conda search -c conda-forge agentfem`
+lists it, conda supplies the compiled FEniCSx/PETSc/MPI runtime and PyPI or the
+source tree supplies AgentFEM. Once the package is available, both layers can
+be installed in one conda environment command.
 
 ## Windows
 

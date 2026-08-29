@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="The AgentFEM platform paper: architecture, representative finite-element applications, and simulation-to-learning workflows for humans and AI agents.">
+        <meta name="description" content="The AgentFEM technical report: architecture, founding principles, representative workflows, and the author's vision for AI-native finite-element computing.">
       
       
       
@@ -762,7 +762,7 @@
   <span class="md-ellipsis">
     
   
-    AgentFEM Platform Paper
+    AgentFEM Technical Report
   
 
     
@@ -780,7 +780,7 @@
   <span class="md-ellipsis">
     
   
-    AgentFEM Platform Paper
+    AgentFEM Technical Report
   
 
     
@@ -817,10 +817,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-the-paper-covers" class="md-nav__link">
+  <a href="#what-the-report-presents" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What the paper covers
+        What the report presents
       
     </span>
   </a>
@@ -892,10 +892,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-the-paper-covers" class="md-nav__link">
+  <a href="#what-the-report-presents" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What the paper covers
+        What the report presents
       
     </span>
   </a>
@@ -984,15 +984,18 @@
 <h1 id="agentfem-an-ai-native-open-source-platform-for-finite-element-computing">AgentFEM: An AI-Native Open-Source Platform for Finite-Element Computing<a class="headerlink" href="#agentfem-an-ai-native-open-source-platform-for-finite-element-computing" title="Permanent link">&para;</a></h1>
 <p><strong>Haoming Luo</strong><br />
 Xi'an Thermal Power Research Institute, Xi'an 710032, China<br />
-Preprint / Technical Report · August 2026</p>
+Technical Report · August 2026</p>
 <div class="publication-actions">
-<p><a class="md-button md-button--primary" href="../../assets/papers/agentfem_platform.pdf">Download the paper (PDF)</a>
+<p><a class="md-button md-button--primary" href="../../assets/papers/agentfem_platform.pdf">Read the technical report (PDF)</a>
 <a class="md-button" href="https://github.com/haoming-luo/agentfem">View AgentFEM on GitHub</a></p>
 </div>
+<p>This technical report is AgentFEM's founding statement: why the platform
+exists, how its architecture embodies that purpose, and where AI-native
+finite-element computing should go.</p>
 <h2 id="abstract">Abstract<a class="headerlink" href="#abstract" title="Permanent link">&para;</a></h2>
 <p>AI agents can increasingly construct solver programs, but dependable
 finite-element simulation still requires explicit models, numerical
-procedures, and evidence. This paper presents AgentFEM, an open-source
+procedures, and evidence. This report presents AgentFEM, an open-source
 platform for finite-element workflows shared by people and agents. Its
 readable Python language expresses the engineering model, a reusable
 capability layer implements finite-element methods, and FEniCSx, UFL, PETSc,
@@ -1007,7 +1010,7 @@ guarded surrogate models. AgentFEM is the AI-native CAE platform; agents and
 development environments provide ways to work with it. Its broader purpose is
 to make dependable finite-element software freely available and to prepare
 CAE for a future in which people and AI advance science together.</p>
-<h2 id="what-the-paper-covers">What the paper covers<a class="headerlink" href="#what-the-paper-covers" title="Permanent link">&para;</a></h2>
+<h2 id="what-the-report-presents">What the report presents<a class="headerlink" href="#what-the-report-presents" title="Permanent link">&para;</a></h2>
 <ul>
 <li>a shared finite-element workflow for humans and AI agents;</li>
 <li>the engineering, finite-element capability, and numerical-kernel layers;</li>
@@ -1025,12 +1028,12 @@ CAE for a future in which people and AI advance science together.</p>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="na">institution</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{Xi&#39;an Thermal Power Research Institute}</span><span class="p">,</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="na">year</span><span class="w">        </span><span class="p">=</span><span class="w"> </span><span class="s">{2026}</span><span class="p">,</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="na">month</span><span class="w">       </span><span class="p">=</span><span class="w"> </span><span class="s">{August}</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="na">type</span><span class="w">        </span><span class="p">=</span><span class="w"> </span><span class="s">{Preprint / Technical Report}</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="na">type</span><span class="w">        </span><span class="p">=</span><span class="w"> </span><span class="s">{Technical Report}</span><span class="p">,</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="na">url</span><span class="w">         </span><span class="p">=</span><span class="w"> </span><span class="s">{https://haoming-luo.github.io/agentfem/publications/agentfem-platform/}</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">}</span>
 </code></pre></div>
-<p>The manuscript describes AgentFEM version 0.2.1. The project continues to
-evolve; consult the <a href="../../release_0.2.3/">release notes</a> for subsequent
+<p>The technical report describes AgentFEM version 0.2.1. The project continues
+to evolve; consult the <a href="../../release_0.2.5/">release notes</a> for subsequent
 capabilities.</p>
 <p><strong>Keywords:</strong> finite-element method; scientific software; AI agents;
 computational mechanics; simulation workflows; surrogate modelling; FEniCSx</p>

@@ -217,6 +217,48 @@
   max-width: 42rem;
 }
 
+.af-home-report {
+  background: color-mix(in srgb, var(--af-blue) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--af-blue) 28%, var(--af-rule));
+  border-left: 0.2rem solid var(--af-blue);
+  border-radius: 0.18rem;
+  margin: 0 0 1.25rem;
+  padding: 0.9rem 1rem 0.95rem;
+}
+
+.md-typeset .af-home-report > p {
+  margin: 0.35rem 0 0.7rem;
+  max-width: 43rem;
+}
+
+.md-typeset .af-home-report > p:first-child {
+  color: var(--af-blue-dark);
+  font-size: 1rem;
+  margin-top: 0;
+}
+
+.md-typeset .af-home-report .md-button {
+  background: transparent;
+  border-color: var(--af-blue);
+  color: var(--af-blue);
+  font-size: 0.75rem;
+  margin-right: 0.35rem;
+  margin-top: 0.1rem;
+}
+
+.md-typeset .af-home-report .md-button--primary {
+  background: var(--af-blue);
+  border-color: var(--af-blue);
+  color: #ffffff;
+}
+
+.md-typeset .af-home-report .md-button:hover,
+.md-typeset .af-home-report .md-button:focus {
+  background: var(--af-blue-dark);
+  border-color: var(--af-blue-dark);
+  color: #ffffff;
+}
+
 .md-typeset {
   color: var(--af-ink);
   font-size: 0.84rem;

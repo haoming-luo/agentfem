@@ -13,6 +13,12 @@
 
 **AI-native finite-element computing for humans and agents.**
 
+<p align="center">
+  <a href="https://haoming-luo.github.io/agentfem/assets/papers/agentfem_platform.pdf"><img src="https://img.shields.io/badge/READ-THE_AGENTFEM_TECHNICAL_REPORT-245B8F?style=for-the-badge" alt="Read the AgentFEM Technical Report"></a>
+  <br>
+  <em>The architecture, founding principles, representative workflows, and author's vision for AI-native finite-element computing.</em>
+</p>
+
 AgentFEM is an open-source finite-element platform that turns an engineering
 analysis into a readable Python workflow: define the study, model, materials,
 loads, solution procedure, outputs, and verification in one place. The same
@@ -93,11 +99,12 @@ Then confirm that the numerical environment is coherent:
 agentfem doctor
 ```
 
-The conda-forge AgentFEM recipe is in review; once published, the numerical
-stack and AgentFEM can be installed together. Until then, the commands above
-are the shortest supported installation path. On Windows, run them inside an
-Ubuntu WSL2 terminal. See [`INSTALL.md`](INSTALL.md) for platform details,
-MPI notes, and source installation.
+The AgentFEM conda-forge feedstock has been accepted and is awaiting public
+package-index synchronization. Until `conda search -c conda-forge agentfem`
+lists it, the commands above are the shortest supported installation path. On
+Windows, run them inside an Ubuntu WSL2 terminal. See
+[`INSTALL.md`](INSTALL.md) for platform details, MPI notes, and source
+installation.
 
 Optional capabilities stay separate from the Apache-2.0 core:
 
@@ -231,9 +238,11 @@ appropriate for exploration, research, or engineering use.
 ## Citation
 
 If AgentFEM helps your research or engineering work, please cite the project
-metadata in [`CITATION.cff`](CITATION.cff). The public platform paper,
-*AgentFEM: An AI-Native Open-Source Platform for Finite-Element Computing*, is
-available as a [preprint and technical report](https://haoming-luo.github.io/agentfem/publications/agentfem-platform/).
+metadata in [`CITATION.cff`](CITATION.cff). The
+[AgentFEM Technical Report](https://haoming-luo.github.io/agentfem/publications/agentfem-platform/),
+*AgentFEM: An AI-Native Open-Source Platform for Finite-Element Computing*,
+presents the platform's architecture, founding principles, representative
+workflows, and author's vision. [Read the PDF](https://haoming-luo.github.io/agentfem/assets/papers/agentfem_platform.pdf).
 
 ```yaml
 title: "AgentFEM: An AI-native open-source platform for finite-element computing"
