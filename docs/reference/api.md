@@ -300,8 +300,10 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ConstraintSet` | Collection of constraints used by assembly or field updates. |
 | class | `AbaqusPeriodicConstraint` | Periodic equations controlled by prescribed or free reference dofs. |
 | class | `AffineReduction` | Sparse serial representation of ``u = T q + offset``. |
+| class | `DeformationGradientPath` | Piecewise-linear macroscopic deformation-gradient history. |
 | class | `DistributedAffineReduction` | Homogeneous correction space for a distributed affine constraint. |
-| function | `abaqus_periodic_cell(target, *, nodes: AbaqusNodeTable, equations: AbaqusEquationSet, anchor_node: int, reference_nodes, deformation_gradient = None, control_displacements = None, tolerance: float = 1e-09, name: str = 'abaqus_periodic_cell') -> AbaqusPeriodicConstraint` | Create exact periodic equations and explicit macro-control semantics. |
+| function | `abaqus_periodic_cell(target, *, nodes: AbaqusNodeTable, equations: AbaqusEquationSet, anchor_node: int, reference_nodes, deformation_gradient = None, deformation_gradient_path: DeformationGradientPath \| None = None, control_displacements = None, tolerance: float = 1e-09, name: str = 'abaqus_periodic_cell') -> AbaqusPeriodicConstraint` | Create exact periodic equations and explicit macro-control semantics. |
+| function | `deformation_gradient_path(coordinates: Iterable[float], gradients: Iterable[Iterable[Iterable[float]]], *, name: str = 'deformation_gradient_path') -> DeformationGradientPath` | Create an inspectable unload/reload or non-proportional macro path. |
 | class | `RectangularPeriodicMPC` | Exact rectangular periodic relation and construction diagnostics. |
 | function | `rectangular_periodic_mpc(target, *, axes = None, bcs = (), tolerance: float \| None = None, name: str = 'rectangular_periodic_mpc') -> RectangularPeriodicMPC` | Constrain maximum faces of a rectangular mesh to minimum faces. |
 

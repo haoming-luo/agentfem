@@ -207,6 +207,126 @@ def test_finite_strain_j2_unloading_does_not_erase_plastic_history():
     ]
 
 
+def test_finite_strain_j2_reload_preserves_then_extends_history():
+    material = constitutive.finite_strain_j2_logarithmic(
+        young=210_000.0,
+        poisson=0.3,
+        yield_stress=250.0,
+        hardening_modulus=1_000.0,
+    )
+    gradients = tuple(
+        _isochoric_extension(stretch)
+        for stretch in (1.004, 1.0035, 1.004, 1.005)
+    )
+    state = material.state_schema.initial_state()
+    old = np.eye(3)
+    responses = []
+    states = []
+    for gradient in gradients:
+        response = material.update(
+            _point(material, gradient, state=state, old=old)
+        )
+        responses.append(response)
+        state = response.state_new.copy()
+        states.append(material.state_schema.unpack(state))
+        old = gradient
+
+    loaded, unloaded, reloaded, extended = states
+    assert loaded["equivalent_plastic_strain"] > 0.0
+    assert unloaded["equivalent_plastic_strain"] == pytest.approx(
+        loaded["equivalent_plastic_strain"], abs=2.0e-13
+    )
+    assert reloaded["equivalent_plastic_strain"] == pytest.approx(
+        loaded["equivalent_plastic_strain"], abs=2.0e-13
+    )
+    np.testing.assert_allclose(
+        reloaded["plastic_deformation_gradient"],
+        loaded["plastic_deformation_gradient"],
+        rtol=0.0,
+        atol=2.0e-13,
+    )
+    assert extended["equivalent_plastic_strain"] > reloaded[
+        "equivalent_plastic_strain"
+    ]
+    for selected in states:
+        assert np.linalg.det(
+            selected["plastic_deformation_gradient"]
+        ) == pytest.approx(1.0, abs=3.0e-10)
+
+
+def test_finite_strain_j2_nonproportional_order_changes_history():
+    material = constitutive.finite_strain_j2_logarithmic(
+        young=210_000.0,
+        poisson=0.3,
+        yield_stress=250.0,
+        hardening_modulus=1_000.0,
+    )
+    tension = _isochoric_extension(1.01)
+    final = tension.copy()
+    final[0, 1] = 0.015
+    shear = np.eye(3)
+    shear[0, 1] = 0.015
+
+    def integrate(history):
+        state = material.state_schema.initial_state()
+        old = np.eye(3)
+        response = None
+        for gradient in history:
+            response = material.update(
+                _point(material, gradient, state=state, old=old)
+            )
+            state = response.state_new.copy()
+            old = gradient
+        return response, material.state_schema.unpack(state)
+
+    tension_first, tension_state = integrate((tension, final))
+    shear_first, shear_state = integrate((shear, final))
+
+    assert abs(
+        tension_state["equivalent_plastic_strain"]
+        - shear_state["equivalent_plastic_strain"]
+    ) > 1.0e-7
+    assert np.linalg.norm(
+        tension_state["plastic_deformation_gradient"]
+        - shear_state["plastic_deformation_gradient"]
+    ) > 1.0e-5
+    assert np.linalg.norm(
+        tension_first.cauchy_stress - shear_first.cauchy_stress
+    ) > 1.0
+
+    unloaded = final.copy()
+    unloaded[0, 1] -= 1.0e-3
+    unloaded_response = material.update(
+        _point(
+            material,
+            unloaded,
+            state=tension_first.state_new,
+            old=final,
+        )
+    )
+    assert material.state_schema.unpack(unloaded_response.state_new)[
+        "equivalent_plastic_strain"
+    ] == pytest.approx(
+        tension_state["equivalent_plastic_strain"],
+        abs=2.0e-13,
+    )
+    evidence = constitutive.check_material_tangent(
+        material,
+        constitutive.MaterialPointInput(
+            deformation_gradient_old=unloaded,
+            deformation_gradient_new=unloaded + 1.0e-5 * np.eye(3),
+            time=1.0,
+            time_increment=0.1,
+            properties=[],
+            state_old=unloaded_response.state_new,
+            state_schema=material.state_schema,
+        ),
+        relative_step=2.5e-7,
+        tolerance=3.0e-5,
+    )
+    assert evidence.accepted
+
+
 @pytest.mark.parametrize("stretch", (1.0005, 1.12))
 def test_finite_strain_j2_discrete_tangent_matches_independent_check(stretch):
     material = constitutive.finite_strain_j2_logarithmic(

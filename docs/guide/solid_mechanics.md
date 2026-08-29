@@ -62,6 +62,41 @@ route prescribes the macroscopic deformation gradient; it does not yet accept
 body or natural loads. Serial execution uses exact affine reduction and MPI
 execution uses the reviewed `dolfinx_mpc` reduction.
 
+A proportional endpoint may be passed as `deformation_gradient=F_end`. For
+unloading, reloading, or a change of loading direction, declare the physical
+matrix history explicitly:
+
+```python
+macro_path = constraints.deformation_gradient_path(
+    (0.0, 0.35, 0.65, 1.0),
+    (F_identity, F_loaded, F_unloaded, F_shear),
+)
+periodicity = constraints.abaqus_periodic_cell(
+    displacement,
+    nodes=nodes,
+    equations=equations,
+    anchor_node=anchor,
+    reference_nodes=references,
+    deformation_gradient_path=macro_path,
+)
+step = model.step(
+    target=displacement,
+    material=material,
+    constraints=periodicity,
+    incrementation=steps.automatic(initial=0.2, maximum=0.2),
+)
+```
+
+The normalized step coordinate remains increasing while the physical
+deformation-gradient components may reverse. The path must start at the
+identity and preserve positive determinant throughout every linear segment.
+Every path knot is a mandatory accepted boundary: fixed incrementation that
+omits one fails before assembly, while automatic incrementation lands on it.
+The complete path enters the constraint fingerprint and checkpoint identity.
+Knots define the physical loading history; they are not, by themselves, a
+constitutive-integration convergence study. Refine the accepted increments
+between knots when plastic history accuracy matters.
+
 Accepted increments retain provider-owned quadrature fields `F`, `P`, `S`,
 `MISES`, `SENER`, `ELENER`, `HARDENER`, `FP`, and `PEEQ`, with separately
 named cell averages for visualization. For this material,

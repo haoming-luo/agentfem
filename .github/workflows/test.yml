@@ -121,6 +121,14 @@ jobs:
           python tests/portable_finite_strain_j2_driver.py read /tmp/agentfem-portable-finite-strain-j2
           python tests/portable_finite_strain_j2_driver.py write /tmp/agentfem-portable-finite-strain-j2-reverse
           mpirun -n 2 python tests/portable_finite_strain_j2_driver.py read /tmp/agentfem-portable-finite-strain-j2-reverse
+          mpirun -n 2 python tests/portable_affine_j2_periodic_driver.py write /tmp/agentfem-portable-affine-j2
+          python tests/portable_affine_j2_periodic_driver.py read /tmp/agentfem-portable-affine-j2
+          python tests/portable_affine_j2_periodic_driver.py write /tmp/agentfem-portable-affine-j2-reverse
+          mpirun -n 2 python tests/portable_affine_j2_periodic_driver.py read /tmp/agentfem-portable-affine-j2-reverse
+          mpirun -n 2 python tests/portable_affine_j2_periodic_driver.py write /tmp/agentfem-portable-affine-j2-regional --two-phase
+          python tests/portable_affine_j2_periodic_driver.py read /tmp/agentfem-portable-affine-j2-regional --two-phase
+          python tests/portable_affine_j2_periodic_driver.py write /tmp/agentfem-portable-affine-j2-regional-reverse --two-phase
+          mpirun -n 2 python tests/portable_affine_j2_periodic_driver.py read /tmp/agentfem-portable-affine-j2-regional-reverse --two-phase
 
       - name: Verify distributed inelastic equilibrium and transactions
         run: mpirun -n 2 python -m pytest tests/test_parallel_inelastic.py -k distributed
@@ -130,6 +138,9 @@ jobs:
 
       - name: Verify finite-strain J2 global path with two MPI ranks
         run: mpirun -n 2 python tests/finite_strain_j2_mpi_driver.py
+
+      - name: Verify finite-strain J2 non-proportional path with two MPI ranks
+        run: mpirun -n 2 python tests/finite_strain_j2_path_mpi_driver.py
 
       - name: Verify true-void finite-strain J2 MPI invariants
         run: >-

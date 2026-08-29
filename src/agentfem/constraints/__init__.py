@@ -21,8 +21,10 @@ from . import boundary, mpc
 from .affine import (
     AbaqusPeriodicConstraint,
     AffineReduction,
+    DeformationGradientPath,
     DistributedAffineReduction,
     abaqus_periodic_cell,
+    deformation_gradient_path,
 )
 from .mpc import RectangularPeriodicMPC, rectangular_periodic_mpc
 

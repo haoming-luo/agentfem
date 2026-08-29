@@ -3506,11 +3506,12 @@ Undefined hydrostatic or zero-deviator states carry an explicit validity channel
 
 #### Applicability
 
-- Quasistatic affine-periodic finite-strain cells using the supported hyperelastic step and output plan.
+- Quasistatic affine-periodic finite-strain cells using a supported hyperelastic or finite-strain J2 step and output plan.
+- Finite-strain J2 cells may use an identity-starting, positive-determinant piecewise-linear macroscopic deformation-gradient path for unload, reload and non-proportional histories.
 
 #### Limitations
 
-- Finite-strain inelastic state evolution and target stress-triaxiality/Lode control are separate, pending capabilities.
+- Stress-controlled target triaxiality/Lode paths and external-load power are separate, pending capabilities.
 - A software-level Hill--Mandel check does not replace mesh, path and external-reference evidence for a material claim.
 
 ### Minimal example
@@ -3525,6 +3526,8 @@ output = results.output_plan('outputs/cell', requests=(results.periodic_cell_his
 
 - `tests/test_results.py`
 - `tests/test_engineering_workflows.py`
+- `tests/test_finite_strain_j2_periodic.py`
+- `tests/finite_strain_j2_path_mpi_driver.py`
 
 **Benchmarks**
 
@@ -3534,6 +3537,7 @@ output = results.output_plan('outputs/cell', requests=(results.periodic_cell_his
 
 - Recover identical micro and macro work for a homogeneous finite-strain path.
 - Preserve every accepted macro state while spatial output remains sparse.
+- Preserve unload and non-proportional deformation-gradient knots in serial and distributed stateful J2 paths.
 - Recover uniaxial-tension, pure-shear and undefined hydrostatic stress-state conventions.
 - Fail before solving when undeclared external power lies outside the current energy ledger.
 

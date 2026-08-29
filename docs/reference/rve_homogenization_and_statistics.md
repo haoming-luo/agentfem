@@ -177,6 +177,38 @@ step = model.step(
 result = step.solve_result()
 ```
 
+## Unload, reload and non-proportional macro paths
+
+The step coordinate is an ordering coordinate, not a requirement that the
+physical macroscopic deformation increase proportionally. Use one typed
+piecewise-linear matrix path when an RVE must unload or change loading
+direction:
+
+```python
+macro_path = constraints.deformation_gradient_path(
+    coordinates=(0.0, 0.4, 0.7, 1.0),
+    gradients=(F0, F_tension, F_unloaded, F_tension_shear),
+    name="tension_unload_shear",
+)
+periodicity = constraints.abaqus_periodic_cell(
+    displacement,
+    nodes=nodes,
+    equations=equations,
+    anchor_node=anchor,
+    reference_nodes=references,
+    deformation_gradient_path=macro_path,
+)
+```
+
+`F0` must be the identity. AgentFEM checks the determinant over each complete
+linear segment, not only at its endpoints. Path knots cannot be skipped by the
+global constitutive transaction, and their full matrix history is part of the
+scientific and restart fingerprints. This separates a monotone execution
+coordinate from a potentially non-monotone material history without hiding
+the latter in a callback. These knots define the intended physical path, while
+accepted subincrements between them control numerical integration accuracy;
+constitutive path convergence must therefore be checked independently.
+
 For an integration-point scalar:
 
 ```python

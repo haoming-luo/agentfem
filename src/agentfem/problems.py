@@ -1247,8 +1247,8 @@ class AffineNonlinearVariationalProblem:
         if payload.get("identity") != current_identity:
             raise ValueError(
                 "Affine checkpoint material, state, mesh, increment/solver "
-                "control, or constraint equations differ from the current "
-                "analysis."
+                "control, constraint equations, or deformation history differ "
+                "from the current analysis."
             )
         validation = None
         if comm.rank == 0:

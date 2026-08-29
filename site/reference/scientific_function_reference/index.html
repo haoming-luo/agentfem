@@ -17509,11 +17509,12 @@ J=(K_I^2+K_{II}^2)/E'
 </ul>
 <h4 id="applicability_29">Applicability<a class="headerlink" href="#applicability_29" title="Permanent link">&para;</a></h4>
 <ul>
-<li>Quasistatic affine-periodic finite-strain cells using the supported hyperelastic step and output plan.</li>
+<li>Quasistatic affine-periodic finite-strain cells using a supported hyperelastic or finite-strain J2 step and output plan.</li>
+<li>Finite-strain J2 cells may use an identity-starting, positive-determinant piecewise-linear macroscopic deformation-gradient path for unload, reload and non-proportional histories.</li>
 </ul>
 <h4 id="limitations_29">Limitations<a class="headerlink" href="#limitations_29" title="Permanent link">&para;</a></h4>
 <ul>
-<li>Finite-strain inelastic state evolution and target stress-triaxiality/Lode control are separate, pending capabilities.</li>
+<li>Stress-controlled target triaxiality/Lode paths and external-load power are separate, pending capabilities.</li>
 <li>A software-level Hill--Mandel check does not replace mesh, path and external-reference evidence for a material claim.</li>
 </ul>
 <h3 id="minimal-example_29">Minimal example<a class="headerlink" href="#minimal-example_29" title="Permanent link">&para;</a></h3>
@@ -17524,6 +17525,8 @@ J=(K_I^2+K_{II}^2)/E'
 <ul>
 <li><code>tests/test_results.py</code></li>
 <li><code>tests/test_engineering_workflows.py</code></li>
+<li><code>tests/test_finite_strain_j2_periodic.py</code></li>
+<li><code>tests/finite_strain_j2_path_mpi_driver.py</code></li>
 </ul>
 <p><strong>Benchmarks</strong></p>
 <ul>
@@ -17533,6 +17536,7 @@ J=(K_I^2+K_{II}^2)/E'
 <ul>
 <li>Recover identical micro and macro work for a homogeneous finite-strain path.</li>
 <li>Preserve every accepted macro state while spatial output remains sparse.</li>
+<li>Preserve unload and non-proportional deformation-gradient knots in serial and distributed stateful J2 paths.</li>
 <li>Recover uniaxial-tension, pure-shear and undefined hydrostatic stress-state conventions.</li>
 <li>Fail before solving when undeclared external power lies outside the current energy ledger.</li>
 </ul>

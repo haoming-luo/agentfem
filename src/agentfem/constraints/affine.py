@@ -12,6 +12,7 @@ constraint graph and delegate ownership-aware assembly to ``dolfinx_mpc``.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from hashlib import sha256
 from itertools import product
@@ -25,6 +26,147 @@ from petsc4py import PETSc
 
 from .. import fields as field_api
 from ..mesh.abaqus import AbaqusEquationSet, AbaqusNodeTable
+
+
+@dataclass(frozen=True)
+class DeformationGradientPath:
+    """Piecewise-linear macroscopic deformation-gradient history.
+
+    The path coordinate remains monotone on ``[0, 1]`` while the physical
+    deformation is free to unload, reload, or change direction.  Keeping the
+    complete matrix history in one immutable object makes non-proportional RVE
+    loading inspectable, fingerprintable, and checkpoint-safe.
+    """
+
+    coordinates: tuple[float, ...]
+    gradients: tuple[tuple[tuple[float, ...], ...], ...]
+    name: str = "deformation_gradient_path"
+
+    def __post_init__(self) -> None:
+        coordinates = tuple(float(value) for value in self.coordinates)
+        gradients = np.asarray(self.gradients, dtype=float)
+        if len(coordinates) < 3:
+            raise ValueError(
+                "A deformation-gradient path requires identity, at least one "
+                "internal knot, and a final state. Use deformation_gradient "
+                "for a two-state proportional path."
+            )
+        if any(not np.isfinite(value) for value in coordinates):
+            raise ValueError("Path coordinates must be finite.")
+        if abs(coordinates[0]) > 1.0e-12 or abs(coordinates[-1] - 1.0) > 1.0e-12:
+            raise ValueError("Path coordinates must start at 0 and end at 1.")
+        coordinates = (0.0, *coordinates[1:-1], 1.0)
+        if any(
+            right <= left
+            for left, right in zip(coordinates, coordinates[1:])
+        ):
+            raise ValueError("Path coordinates must be strictly increasing.")
+        if (
+            gradients.ndim != 3
+            or gradients.shape[0] != len(coordinates)
+            or gradients.shape[1] != gradients.shape[2]
+            or gradients.shape[1] not in (2, 3)
+        ):
+            raise ValueError(
+                "Path gradients must have shape (states, dimension, dimension) "
+                "with dimension 2 or 3."
+            )
+        if not np.isfinite(gradients).all():
+            raise ValueError("Path gradients must contain only finite values.")
+        dimension = int(gradients.shape[1])
+        if not np.allclose(
+            gradients[0],
+            np.eye(dimension),
+            rtol=0.0,
+            atol=1.0e-12,
+        ):
+            raise ValueError(
+                "A deformation-gradient path must begin at the identity."
+            )
+        gradients = gradients.copy()
+        gradients[0] = np.eye(dimension)
+        for index, (left, right) in enumerate(
+            zip(gradients[:-1], gradients[1:])
+        ):
+            minimum = _minimum_linear_path_determinant(left, right)
+            if not np.isfinite(minimum) or minimum <= 0.0:
+                raise ValueError(
+                    "A deformation-gradient path must preserve positive "
+                    f"determinant throughout segment {index}; minimum J={minimum:.6g}."
+                )
+        object.__setattr__(self, "coordinates", coordinates)
+        object.__setattr__(
+            self,
+            "gradients",
+            tuple(
+                tuple(tuple(float(value) for value in row) for row in gradient)
+                for gradient in gradients
+            ),
+        )
+
+    @property
+    def dimension(self) -> int:
+        return len(self.gradients[0])
+
+    @property
+    def final(self) -> np.ndarray:
+        return np.asarray(self.gradients[-1], dtype=float)
+
+    def at(self, coordinate: float) -> np.ndarray:
+        """Interpolate the macroscopic deformation gradient at one coordinate."""
+
+        selected = float(coordinate)
+        if not np.isfinite(selected) or not -1.0e-12 <= selected <= 1.0 + 1.0e-12:
+            raise ValueError("Path coordinate must be finite and lie in [0, 1].")
+        selected = min(1.0, max(0.0, selected))
+        if selected <= self.coordinates[0]:
+            return np.asarray(self.gradients[0], dtype=float)
+        if selected >= self.coordinates[-1]:
+            return np.asarray(self.gradients[-1], dtype=float)
+        right = int(np.searchsorted(self.coordinates, selected, side="right"))
+        left = right - 1
+        interval = self.coordinates[right] - self.coordinates[left]
+        fraction = (selected - self.coordinates[left]) / interval
+        first = np.asarray(self.gradients[left], dtype=float)
+        second = np.asarray(self.gradients[right], dtype=float)
+        gradient = first + fraction * (second - first)
+        if float(np.linalg.det(gradient)) <= 0.0:
+            raise ValueError("Interpolated deformation gradient has non-positive J.")
+        return gradient
+
+    def summary(self) -> dict[str, object]:
+        payload = {
+            "schema": "agentfem.deformation-gradient-path",
+            "schema_version": 1,
+            "kind": "piecewise_linear_deformation_gradient_path",
+            "name": self.name,
+            "coordinate_name": "normalized_step_coordinate",
+            "coordinates": list(self.coordinates),
+            "gradients": [
+                [list(row) for row in gradient] for gradient in self.gradients
+            ],
+            "interpolation": "piecewise_linear",
+        }
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return {
+            **payload,
+            "fingerprint": sha256(canonical.encode("utf-8")).hexdigest(),
+        }
+
+
+def deformation_gradient_path(
+    coordinates: Iterable[float],
+    gradients: Iterable[Iterable[Iterable[float]]],
+    *,
+    name: str = "deformation_gradient_path",
+) -> DeformationGradientPath:
+    """Create an inspectable unload/reload or non-proportional macro path."""
+
+    return DeformationGradientPath(
+        coordinates=tuple(coordinates),
+        gradients=tuple(gradients),
+        name=str(name),
+    )
 
 
 @dataclass(frozen=True)
@@ -177,10 +319,13 @@ class AbaqusPeriodicConstraint:
     """Periodic equations controlled by prescribed or free reference dofs.
 
     A complete ``deformation_gradient`` preserves the original affine-control
-    API.  ``control_displacements`` instead mirrors Abaqus reference-node
-    boundary conditions: one row per ``reference_nodes`` entry and one value
-    per spatial component, with ``None`` marking a free macroscopic degree of
-    freedom whose conjugate global reaction is zero.
+    API for a proportional path.  ``deformation_gradient_path`` supplies an
+    identity-starting, piecewise-linear matrix history for unloading, reloading,
+    or non-proportional loading. ``control_displacements`` instead mirrors
+    Abaqus reference-node boundary conditions: one row per ``reference_nodes``
+    entry and one value per spatial component, with ``None`` marking a free
+    macroscopic degree of freedom whose conjugate global reaction is zero.
+    Exactly one of these three macro-control forms must be supplied.
     """
 
     target: object
@@ -192,6 +337,7 @@ class AbaqusPeriodicConstraint:
     control_displacements: tuple[tuple[float | None, ...], ...] | None = None
     tolerance: float = 1.0e-9
     name: str = "abaqus_periodic_cell"
+    deformation_gradient_path: DeformationGradientPath | None = None
 
     def __post_init__(self) -> None:
         _, space, _, block_size = self._displacement_layout()
@@ -206,15 +352,39 @@ class AbaqusPeriodicConstraint:
             raise ValueError("AbaqusPeriodicConstraint.tolerance must be positive.")
         references = tuple(int(node) for node in self.reference_nodes)
         object.__setattr__(self, "reference_nodes", references)
-        if (self.deformation_gradient is None) == (
-            self.control_displacements is None
-        ):
+        supplied = sum(
+            value is not None
+            for value in (
+                self.deformation_gradient,
+                self.control_displacements,
+                self.deformation_gradient_path,
+            )
+        )
+        if supplied != 1:
             raise ValueError(
-                "Pass exactly one of deformation_gradient or "
-                "control_displacements."
+                "Pass exactly one of deformation_gradient, "
+                "deformation_gradient_path, or control_displacements."
             )
         lattice = self._reference_lattice()
-        if self.deformation_gradient is not None:
+        if self.deformation_gradient_path is not None:
+            if not isinstance(
+                self.deformation_gradient_path, DeformationGradientPath
+            ):
+                raise TypeError(
+                    "deformation_gradient_path must be created by "
+                    "constraints.deformation_gradient_path(...)."
+                )
+            if self.deformation_gradient_path.dimension != block_size:
+                raise ValueError(
+                    "Deformation-gradient path dimension does not match the "
+                    "periodic displacement field."
+                )
+            F = self.deformation_gradient_path.final
+            prescribed = ((F - np.eye(block_size)) @ lattice).T
+            controls = tuple(
+                tuple(float(value) for value in row) for row in prescribed
+            )
+        elif self.deformation_gradient is not None:
             F = _deformation_gradient(self.deformation_gradient, block_size)
             prescribed = ((F - np.eye(block_size)) @ lattice).T
             controls = tuple(
@@ -327,6 +497,20 @@ class AbaqusPeriodicConstraint:
             (int(self.anchor_node), component): 0.0
             for component in range(len(self.reference_nodes))
         }
+        if self.deformation_gradient_path is not None:
+            dimension = len(self.reference_nodes)
+            prescribed = (
+                (self.deformation_gradient_at(load_factor) - np.eye(dimension))
+                @ self._reference_lattice()
+            ).T
+            for label, row in zip(self.reference_nodes, prescribed):
+                values.update(
+                    {
+                        (int(label), component): float(value)
+                        for component, value in enumerate(row)
+                    }
+                )
+            return values
         for label, row in zip(self.reference_nodes, self.control_displacements):
             for component, value in enumerate(row):
                 if value is not None:
@@ -390,8 +574,12 @@ class AbaqusPeriodicConstraint:
             "tolerance": float(self.tolerance),
             "reference_cell_volume": float(self.reference_cell_volume),
         }
+        if self.deformation_gradient_path is not None:
+            payload["deformation_gradient_path"] = (
+                self.deformation_gradient_path.summary()
+            )
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-        return {
+        identity = {
             "kind": payload["kind"],
             "fingerprint": sha256(canonical.encode("utf-8")).hexdigest(),
             "equation_count": len(equations),
@@ -404,6 +592,11 @@ class AbaqusPeriodicConstraint:
             ],
             "reference_cell_volume": payload["reference_cell_volume"],
         }
+        if self.deformation_gradient_path is not None:
+            identity["deformation_gradient_path"] = payload[
+                "deformation_gradient_path"
+            ]
+        return identity
 
     @property
     def reference_cell_volume(self) -> float:
@@ -425,9 +618,21 @@ class AbaqusPeriodicConstraint:
 
         if not np.isfinite(load_factor) or load_factor < 0.0:
             raise ValueError("load_factor must be finite and non-negative.")
+        if self.deformation_gradient_path is not None:
+            return self.deformation_gradient_path.at(load_factor)
         identity = np.eye(self.deformation_gradient.shape[0])
         return identity + float(load_factor) * (
             self.deformation_gradient - identity
+        )
+
+    def required_load_factors(self) -> tuple[float, ...]:
+        """Return physical path knots that no accepted solve may skip."""
+
+        if self.deformation_gradient_path is None:
+            return ()
+        return tuple(
+            float(value)
+            for value in self.deformation_gradient_path.coordinates[1:]
         )
 
     def measured_deformation_gradient(self, displacement) -> np.ndarray:
@@ -679,10 +884,11 @@ class AbaqusPeriodicConstraint:
             displacement_space.tabulate_dof_coordinates(), dtype=float
         )
         origin = self.nodes.coordinate(int(self.anchor_node))[:block_size]
-        delta = float(target_factor) - float(start_factor)
-        increment = delta * (
-            (coordinates[:, :block_size] - origin)
-            @ (self.deformation_gradient - np.eye(block_size)).T
+        delta_gradient = self.deformation_gradient_at(
+            target_factor
+        ) - self.deformation_gradient_at(start_factor)
+        increment = (
+            (coordinates[:, :block_size] - origin) @ delta_gradient.T
         )
         flattened = increment.reshape(-1)
         if flattened.size != parent_map.size:
@@ -768,6 +974,11 @@ class AbaqusPeriodicConstraint:
         }
         if not self.has_free_macro_dofs:
             values["target_deformation_gradient"] = self.deformation_gradient.tolist()
+        if self.deformation_gradient_path is not None:
+            values["macro_control_kind"] = "prescribed_deformation_gradient_path"
+            values["deformation_gradient_path"] = (
+                self.deformation_gradient_path.summary()
+            )
         return values
 
 
@@ -779,6 +990,7 @@ def abaqus_periodic_cell(
     anchor_node: int,
     reference_nodes,
     deformation_gradient=None,
+    deformation_gradient_path: DeformationGradientPath | None = None,
     control_displacements=None,
     tolerance: float = 1.0e-9,
     name: str = "abaqus_periodic_cell",
@@ -797,8 +1009,38 @@ def abaqus_periodic_cell(
             else np.asarray(deformation_gradient, dtype=float)
         ),
         control_displacements=control_displacements,
+        deformation_gradient_path=deformation_gradient_path,
         tolerance=float(tolerance),
         name=name,
+    )
+
+
+def _minimum_linear_path_determinant(left, right) -> float:
+    """Return the minimum determinant along ``left + s * (right-left)``."""
+
+    first = np.asarray(left, dtype=float)
+    second = np.asarray(right, dtype=float)
+    dimension = int(first.shape[0])
+    samples = np.linspace(0.0, 1.0, dimension + 1)
+    determinants = np.asarray(
+        [np.linalg.det(first + value * (second - first)) for value in samples],
+        dtype=float,
+    )
+    coefficients = np.polynomial.polynomial.polyfit(
+        samples,
+        determinants,
+        deg=dimension,
+    )
+    derivative = np.polynomial.polynomial.polyder(coefficients)
+    candidates = [0.0, 1.0]
+    for root in np.polynomial.polynomial.polyroots(derivative):
+        if abs(float(np.imag(root))) <= 1.0e-10:
+            value = float(np.real(root))
+            if 0.0 < value < 1.0:
+                candidates.append(value)
+    return min(
+        float(np.linalg.det(first + value * (second - first)))
+        for value in candidates
     )
 
 

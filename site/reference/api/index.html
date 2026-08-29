@@ -3614,13 +3614,23 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>DeformationGradientPath</code></td>
+<td>Piecewise-linear macroscopic deformation-gradient history.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>DistributedAffineReduction</code></td>
 <td>Homogeneous correction space for a distributed affine constraint.</td>
 </tr>
 <tr>
 <td>function</td>
-<td><code>abaqus_periodic_cell(target, *, nodes: AbaqusNodeTable, equations: AbaqusEquationSet, anchor_node: int, reference_nodes, deformation_gradient = None, control_displacements = None, tolerance: float = 1e-09, name: str = 'abaqus_periodic_cell') -&gt; AbaqusPeriodicConstraint</code></td>
+<td><code>abaqus_periodic_cell(target, *, nodes: AbaqusNodeTable, equations: AbaqusEquationSet, anchor_node: int, reference_nodes, deformation_gradient = None, deformation_gradient_path: DeformationGradientPath \| None = None, control_displacements = None, tolerance: float = 1e-09, name: str = 'abaqus_periodic_cell') -&gt; AbaqusPeriodicConstraint</code></td>
 <td>Create exact periodic equations and explicit macro-control semantics.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>deformation_gradient_path(coordinates: Iterable[float], gradients: Iterable[Iterable[Iterable[float]]], *, name: str = 'deformation_gradient_path') -&gt; DeformationGradientPath</code></td>
+<td>Create an inspectable unload/reload or non-proportional macro path.</td>
 </tr>
 <tr>
 <td>class</td>

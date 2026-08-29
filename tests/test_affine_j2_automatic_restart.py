@@ -11,7 +11,7 @@ from agentfem import constitutive, fields, models, solvers, steps, studies
 from periodic_cube_fixture import periodic_unit_cube
 
 
-def _automatic_periodic_j2_step():
+def _automatic_periodic_j2_step(*, incrementation=None):
     fixture = periodic_unit_cube(MPI.COMM_SELF)
     model = models.create(
         study=studies.nonlinear_static(
@@ -35,15 +35,19 @@ def _automatic_periodic_j2_step():
         target=displacement,
         material=material,
         constraints=periodicity,
-        incrementation=steps.automatic(
-            initial=0.25,
-            minimum=1.0e-4,
-            maximum=0.5,
-            max_increments=100,
-            max_cutbacks=12,
-            cutback_factor=0.5,
-            growth_factor=1.5,
-            maximum_inelastic_increment=0.0045,
+        incrementation=(
+            steps.automatic(
+                initial=0.25,
+                minimum=1.0e-4,
+                maximum=0.5,
+                max_increments=100,
+                max_cutbacks=12,
+                cutback_factor=0.5,
+                growth_factor=1.5,
+                maximum_inelastic_increment=0.0045,
+            )
+            if incrementation is None
+            else incrementation
         ),
         solver_options=solvers.newton(
             relative_tolerance=1.0e-8,
@@ -112,6 +116,32 @@ def test_affine_j2_automatic_checkpoint_restores_next_increment_and_cutback(
     assert any(
         "maximum equivalent plastic-strain increment" in item.message
         for item in rejected
+    )
+
+    accepted_factors = tuple(
+        item.load_factor for item in reference.accepted_increments
+    )
+    pristine = _automatic_periodic_j2_step(
+        incrementation=steps.at(*accepted_factors)
+    )
+    pristine.solve()
+    np.testing.assert_allclose(
+        reference.solution.x.array,
+        pristine.solution.x.array,
+        rtol=2.0e-8,
+        atol=2.0e-10,
+    )
+    np.testing.assert_allclose(
+        reference.response.state.committed_state_vectors(),
+        pristine.response.state.committed_state_vectors(),
+        rtol=2.0e-8,
+        atol=2.0e-10,
+    )
+    np.testing.assert_allclose(
+        reference.response.first_piola_stress.values,
+        pristine.response.first_piola_stress.values,
+        rtol=2.0e-8,
+        atol=2.0e-8,
     )
 
     partial = _automatic_periodic_j2_step()

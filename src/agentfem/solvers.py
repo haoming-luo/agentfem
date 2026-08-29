@@ -986,7 +986,29 @@ def solve_affine_nonlinear_path(
         raise ValueError("Affine accepted_history contains a rejected increment.")
     if isinstance(control, step_controls.FixedIncrementation):
         _validate_fixed_affine_resume(control, accepted_factor, selected_stop)
-    required_factors = _normalized_output_factors(output_factors)
+    constraint_factors = (
+        tuple(constraint.required_load_factors())
+        if hasattr(constraint, "required_load_factors")
+        else ()
+    )
+    required_factors = _normalized_output_factors(
+        tuple(sorted(set((*tuple(output_factors), *constraint_factors))))
+    )
+    if isinstance(control, step_controls.FixedIncrementation):
+        missing_path_factors = tuple(
+            factor
+            for factor in constraint_factors
+            if not any(
+                abs(float(factor) - float(declared)) <= 1.0e-12
+                for declared in control.load_factors
+            )
+        )
+        if missing_path_factors:
+            raise ValueError(
+                "Fixed affine incrementation must include every physical "
+                "deformation-path knot; missing "
+                f"{missing_path_factors}."
+            )
 
     residual = fem.form(residual_form)
     jacobian = fem.form(jacobian_form)

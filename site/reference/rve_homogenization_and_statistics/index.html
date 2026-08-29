@@ -713,6 +713,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#unload-reload-and-non-proportional-macro-paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unload, reload and non-proportional macro paths
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#true-void-regression-and-refinement-boundary" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1219,6 +1230,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#unload-reload-and-non-proportional-macro-paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unload, reload and non-proportional macro paths
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#true-void-regression-and-refinement-boundary" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1471,11 +1493,38 @@ scope, spatial-frame count and undefined-value convention.</p>
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
 <a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">result</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span>
 </code></pre></div>
+<h2 id="unload-reload-and-non-proportional-macro-paths">Unload, reload and non-proportional macro paths<a class="headerlink" href="#unload-reload-and-non-proportional-macro-paths" title="Permanent link">&para;</a></h2>
+<p>The step coordinate is an ordering coordinate, not a requirement that the
+physical macroscopic deformation increase proportionally. Use one typed
+piecewise-linear matrix path when an RVE must unload or change loading
+direction:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">macro_path</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">deformation_gradient_path</span><span class="p">(</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">coordinates</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">gradients</span><span class="o">=</span><span class="p">(</span><span class="n">F0</span><span class="p">,</span> <span class="n">F_tension</span><span class="p">,</span> <span class="n">F_unloaded</span><span class="p">,</span> <span class="n">F_tension_shear</span><span class="p">),</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;tension_unload_shear&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">)</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">periodicity</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">abaqus_periodic_cell</span><span class="p">(</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">displacement</span><span class="p">,</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">nodes</span><span class="o">=</span><span class="n">nodes</span><span class="p">,</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">equations</span><span class="o">=</span><span class="n">equations</span><span class="p">,</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">anchor_node</span><span class="o">=</span><span class="n">anchor</span><span class="p">,</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">reference_nodes</span><span class="o">=</span><span class="n">references</span><span class="p">,</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="n">deformation_gradient_path</span><span class="o">=</span><span class="n">macro_path</span><span class="p">,</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="p">)</span>
+</code></pre></div>
+<p><code>F0</code> must be the identity. AgentFEM checks the determinant over each complete
+linear segment, not only at its endpoints. Path knots cannot be skipped by the
+global constitutive transaction, and their full matrix history is part of the
+scientific and restart fingerprints. This separates a monotone execution
+coordinate from a potentially non-monotone material history without hiding
+the latter in a callback. These knots define the intended physical path, while
+accepted subincrements between them control numerical integration accuracy;
+constitutive path convergence must therefore be checked independently.</p>
 <p>For an integration-point scalar:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">summary</span> <span class="o">=</span> <span class="n">quadrature_state</span><span class="o">.</span><span class="n">equivalent_plastic_strain</span><span class="o">.</span><span class="n">weighted_statistics</span><span class="p">(</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">quantiles</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">,</span> <span class="mf">0.99</span><span class="p">),</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">thresholds</span><span class="o">=</span><span class="p">(</span><span class="mf">0.02</span><span class="p">,),</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">summary</span> <span class="o">=</span> <span class="n">quadrature_state</span><span class="o">.</span><span class="n">equivalent_plastic_strain</span><span class="o">.</span><span class="n">weighted_statistics</span><span class="p">(</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">quantiles</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">,</span> <span class="mf">0.99</span><span class="p">),</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">thresholds</span><span class="o">=</span><span class="p">(</span><span class="mf">0.02</span><span class="p">,),</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">)</span>
 </code></pre></div>
 <h2 id="true-void-regression-and-refinement-boundary">True-void regression and refinement boundary<a class="headerlink" href="#true-void-regression-and-refinement-boundary" title="Permanent link">&para;</a></h2>
 <p>The finite-strain J2 true-void benchmark now has two deliberately separate
@@ -1491,8 +1540,8 @@ a cross-platform reference solution and does not establish mesh convergence.
 The AgentFEM version stored in the card identifies the clean reference source;
 it does not exempt a newer candidate release from comparison. On the declared
 Darwin/arm64 reference stack, maintainers use a fail-closed mode:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">AGENTFEM_REQUIRE_RVE_GOLDEN</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>tests/test_periodic_void_fixture.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">AGENTFEM_REQUIRE_RVE_GOLDEN</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>tests/test_periodic_void_fixture.py
 </code></pre></div>
 <p>If the declared numerical stack or optional Gmsh dependency is unavailable,
 this command fails instead of reporting an ordinary skip. The portable mesh
@@ -1501,8 +1550,8 @@ CI separately runs the two-rank driver with <code>--invariants-only</code>; that
 enforces periodicity, admissibility, Hill--Mandel, energy-component and result
 contracts without mislabeling a different platform as the Darwin/arm64 Golden.</p>
 <p>The more expensive refinement layer is opt-in:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">AGENTFEM_RUN_RVE_CONVERGENCE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>tests/test_periodic_void_fixture.py<span class="w"> </span>-k<span class="w"> </span>successive_refinement
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">AGENTFEM_RUN_RVE_CONVERGENCE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>tests/test_periodic_void_fixture.py<span class="w"> </span>-k<span class="w"> </span>successive_refinement
 </code></pre></div>
 <p>It compares two against four increments on the fixed coarse mesh, then
 compares successive <code>h/L=0.18</code> and <code>0.14</code> meshes using macroscopic stress,
