@@ -503,6 +503,8 @@
       
         
       
+        
+      
     
     
     
@@ -597,6 +599,34 @@
     
   
     RVE Homogenization and Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finite_strain_j2_external_beam/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Finite-Strain J2 External Gate
   
 
     
@@ -3479,6 +3509,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
+<td><code>constraint_assets(constraints) -&gt; tuple[object, ...]</code></td>
+<td>Return every concrete asset from nested constraint containers.</td>
+</tr>
+<tr>
+<td>function</td>
 <td><code>scalar_dirichlet(V, marker = None, value = 0.0, *, location = None, on = None, name: str = 'dirichlet') -&gt; DirichletConstraint</code></td>
 <td>Semantic wrapper for scalar essential boundary data.</td>
 </tr>
@@ -3790,6 +3825,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>class</td>
 <td><code>LoadSet</code></td>
 <td>Ordered collection of weak-form load terms.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>load_assets(loads, *, unwrap_amplitudes: bool = False) -&gt; tuple[object, ...]</code></td>
+<td>Return concrete loads from nested public load containers.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -5894,12 +5934,22 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tr>
 <td>class</td>
 <td><code>ExperimentalFiniteStrainPlasticityStep</code></td>
-<td>Total-Lagrangian Newton path consuming a neutral material provider.</td>
+<td>Stateful Total-Lagrangian J2 equilibrium with ordinary strong BCs.</td>
 </tr>
 <tr>
 <td>class</td>
 <td><code>FiniteStrainJ2AffineTransaction</code></td>
-<td>Provider-owned trial/commit state for affine and distributed MPC Newton.</td>
+<td>Constraint-neutral trial/commit state for finite-strain J2 Newton.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>FiniteStrainJ2StateTransaction</code></td>
+<td>Constraint-neutral trial/commit state for finite-strain J2 Newton.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>FiniteStrainJ2StandardProblem</code></td>
+<td>Stateful Total-Lagrangian J2 equilibrium with ordinary strong BCs.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -5907,14 +5957,24 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>Public AgentFEM object.</td>
 </tr>
 <tr>
+<td>class</td>
+<td><code>FiniteStrainPlasticityPathInfo</code></td>
+<td>Accepted and attempted increments for a standard finite-strain J2 path.</td>
+</tr>
+<tr>
 <td>function</td>
 <td><code>experimental_finite_strain_j2_step(*, displacement, material: FiniteStrainJ2Logarithmic, external_force = None, constraints = (), incrementation = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, name: str = 'finite_strain_j2_experimental') -&gt; ExperimentalFiniteStrainPlasticityStep</code></td>
-<td>Build the gated 3D global patch for logarithmic finite-strain J2.</td>
+<td>Compatibility alias for :func:<code>finite_strain_j2_standard_problem</code>.</td>
 </tr>
 <tr>
 <td>function</td>
 <td><code>finite_strain_j2_affine_problem(*, displacement, material: FiniteStrainJ2Logarithmic \| QuadratureMaterialMap, constraint, external_force = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, output_every: int \| None = 1, output_factors = (), progress = True, status_file = None, checkpoint_policy = None, name: str = 'finite_strain_j2')</code></td>
 <td>Build stateful finite-strain J2 under exact affine/MPC kinematics.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>finite_strain_j2_standard_problem(*, displacement, material: FiniteStrainJ2Logarithmic \| QuadratureMaterialMap, external_force = None, load_identity = None, constraints = (), incrementation = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, output_every: int \| None = 1, output_factors = (), progress = True, status_file = None, checkpoint_policy = None, name: str = 'finite_strain_j2') -&gt; FiniteStrainJ2StandardProblem</code></td>
+<td>Build stateful finite-strain J2 under ordinary strong boundaries.</td>
 </tr>
 <tr>
 <td>class</td>

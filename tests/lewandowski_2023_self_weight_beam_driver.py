@@ -13,22 +13,18 @@ import json
 from pathlib import Path
 
 import numpy as np
-from dolfinx import fem
 from mpi4py import MPI
-from petsc4py import PETSc
 
 from agentfem import (
     constitutive,
     fields,
     mesh,
     models,
-    operators,
     results,
     solvers,
     steps,
     studies,
 )
-from agentfem.mechanics import experimental_finite_strain_j2_step
 
 from lewandowski_2023_self_weight_beam_fixture import (
     DEFINITION,
@@ -77,19 +73,15 @@ def _candidate_step(comm, *, subdivisions, increments):
         yield_stress=definition.yield_stress,
         hardening_modulus=definition.hardening_modulus,
     )
-    body_force = fem.Constant(
-        domain,
-        np.asarray(
-            (0.0, 0.0, -definition.maximum_body_force),
-            dtype=PETSc.ScalarType,
-        ),
+    model.material(material)
+    model.body_force(
+        (0.0, 0.0, -definition.maximum_body_force),
+        target=displacement,
+        name="self_weight_body_force",
     )
-    external = operators.body_force_vector(body_force, displacement)
-    step = experimental_finite_strain_j2_step(
-        displacement=displacement,
+    step = model.step(
+        target=displacement,
         material=material,
-        external_force=external,
-        constraints=model.constraints,
         incrementation=steps.fixed(increments),
         solver_options=solvers.newton(
             relative_tolerance=1.0e-7,
@@ -97,6 +89,7 @@ def _candidate_step(comm, *, subdivisions, increments):
             maximum_iterations=30,
             line_search="backtracking",
         ),
+        progress=False,
         name="lewandowski_2023_self_weight_beam_candidate",
     )
     return step, displacement

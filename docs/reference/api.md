@@ -273,6 +273,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `PrescribedValuePath` | Update ordinary strong boundary values along a normalized step path. |
 | function | `prescribed_value_path(constraints) -> PrescribedValuePath` | Create a normalized load-factor driver from registered constraints. |
 | function | `dirichlet_constraints(constraints) -> tuple[object, ...]` | Return concrete Dirichlet assets from nested model constraint sets. |
+| function | `constraint_assets(constraints) -> tuple[object, ...]` | Return every concrete asset from nested constraint containers. |
 | function | `scalar_dirichlet(V, marker = None, value = 0.0, *, location = None, on = None, name: str = 'dirichlet') -> DirichletConstraint` | Semantic wrapper for scalar essential boundary data. |
 | function | `component_dirichlet(V, component: int, marker = None, value = 0.0, *, location = None, on = None, name: str = 'dirichlet') -> DirichletConstraint` | Semantic wrapper for vector-component essential boundary data. |
 | function | `axisymmetric_plane_strain(displacement, *, value: float = 0.0, name: str = 'axisymmetric_plane_strain') -> DirichletConstraint` | Constrain ``u_z`` everywhere in an ``(r, z)`` meridian model. |
@@ -341,6 +342,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `NeumannLoad` | Natural boundary condition applied through the weak-form right hand side. |
 | class | `AmplitudeLoad` | A spatial load multiplied by one reusable scalar amplitude. |
 | class | `LoadSet` | Ordered collection of weak-form load terms. |
+| function | `load_assets(loads, *, unwrap_amplitudes: bool = False) -> tuple[object, ...]` | Return concrete loads from nested public load containers. |
 | function | `body_load(value, measure = ufl.dx, *, name: str = 'body_load', domain = None, target = None) -> BodyLoad` | Create a domain source/body-force load. |
 | function | `body_force(value, *, domain = None, target = None, measure = ufl.dx, system = None, name: str = 'body_force') -> BodyLoad` | Create a mechanical body-force load in global or local components. |
 | function | `gravity(acceleration, *, density, domain = None, target = None, region = None, measure = None, system = None, name: str = 'gravity') -> GravityLoad` | Create a gravity load from acceleration and material density. |
@@ -813,11 +815,15 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `CreepPathInfo` | Public AgentFEM object. |
 | class | `ImplicitCreepStep` | Adaptive backward-Euler creep step with global Newton equilibrium. |
 | function | `implicit_creep_step(*, displacement, material, duration: float, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, creep_strain_error_tolerance: float \| None = None, time_unit: str \| None = None, progress = True, status_file = None, amplitude = None, temperature = None, name: str = 'implicit_creep', _experimental_distributed: bool = False) -> ImplicitCreepStep` | Build global 3D or axisymmetric implicit power-law creep. |
-| class | `ExperimentalFiniteStrainPlasticityStep` | Total-Lagrangian Newton path consuming a neutral material provider. |
-| class | `FiniteStrainJ2AffineTransaction` | Provider-owned trial/commit state for affine and distributed MPC Newton. |
+| class | `ExperimentalFiniteStrainPlasticityStep` | Stateful Total-Lagrangian J2 equilibrium with ordinary strong BCs. |
+| class | `FiniteStrainJ2AffineTransaction` | Constraint-neutral trial/commit state for finite-strain J2 Newton. |
+| class | `FiniteStrainJ2StateTransaction` | Constraint-neutral trial/commit state for finite-strain J2 Newton. |
+| class | `FiniteStrainJ2StandardProblem` | Stateful Total-Lagrangian J2 equilibrium with ordinary strong BCs. |
 | class | `FiniteStrainPlasticityIncrementInfo` | Public AgentFEM object. |
-| function | `experimental_finite_strain_j2_step(*, displacement, material: FiniteStrainJ2Logarithmic, external_force = None, constraints = (), incrementation = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, name: str = 'finite_strain_j2_experimental') -> ExperimentalFiniteStrainPlasticityStep` | Build the gated 3D global patch for logarithmic finite-strain J2. |
+| class | `FiniteStrainPlasticityPathInfo` | Accepted and attempted increments for a standard finite-strain J2 path. |
+| function | `experimental_finite_strain_j2_step(*, displacement, material: FiniteStrainJ2Logarithmic, external_force = None, constraints = (), incrementation = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, name: str = 'finite_strain_j2_experimental') -> ExperimentalFiniteStrainPlasticityStep` | Compatibility alias for :func:`finite_strain_j2_standard_problem`. |
 | function | `finite_strain_j2_affine_problem(*, displacement, material: FiniteStrainJ2Logarithmic \| QuadratureMaterialMap, constraint, external_force = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, output_every: int \| None = 1, output_factors = (), progress = True, status_file = None, checkpoint_policy = None, name: str = 'finite_strain_j2')` | Build stateful finite-strain J2 under exact affine/MPC kinematics. |
+| function | `finite_strain_j2_standard_problem(*, displacement, material: FiniteStrainJ2Logarithmic \| QuadratureMaterialMap, external_force = None, load_identity = None, constraints = (), incrementation = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, output_every: int \| None = 1, output_factors = (), progress = True, status_file = None, checkpoint_policy = None, name: str = 'finite_strain_j2') -> FiniteStrainJ2StandardProblem` | Build stateful finite-strain J2 under ordinary strong boundaries. |
 | class | `J2IncrementInfo` | Public AgentFEM object. |
 | class | `J2LoadPathInfo` | Public AgentFEM object. |
 | class | `J2PlasticityStep` | Incremental global equilibrium for 3D small-strain J2 plasticity. |

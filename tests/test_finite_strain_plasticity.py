@@ -580,6 +580,7 @@ def test_global_finite_strain_j2_patch_consumes_neutral_tangent_and_state():
         assert np.linalg.det(plastic_gradient) == pytest.approx(1.0, abs=5.0e-10)
     assert np.max(solution.x.array) == pytest.approx(0.02)
     assert step.summary()["maturity"] == "experimental_global_mpi_restart"
+    assert step.summary()["evidence_level"] == "internal_serial_mpi_restart_verified"
 
 
 def test_global_finite_strain_j2_inelastic_limit_forces_real_cutback():

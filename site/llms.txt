@@ -17,7 +17,7 @@ operable through ordinary Python and a machine-readable CLI.
 ## Canonical sources
 
 - [Repository](https://github.com/haoming-luo/agentfem)
-- [Scientific knowledge catalog](https://raw.githubusercontent.com/haoming-luo/agentfem/main/knowledge/catalog.json)
+- [Scientific knowledge catalog](https://raw.githubusercontent.com/haoming-luo/agentfem/main/src/agentfem/knowledge/catalog.json)
 - [AgentFEM skill](agents/skill/)
 
 ## Safety and scientific contract

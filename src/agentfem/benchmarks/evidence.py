@@ -83,7 +83,18 @@ def _dimensions(spec: BenchmarkSpec) -> set[str]:
     if "mpi" in joined or "distributed" in joined or "two-rank" in joined:
         dimensions.add("mpi")
     if "external" in joined:
-        dimensions.add("external")
+        dimensions.add("external_gate_defined")
+        non_demonstrated = (
+            "incomplete",
+            "pending",
+            "not_run",
+            "not_promoted",
+            "failed",
+        )
+        if not any(marker in status for marker in non_demonstrated):
+            dimensions.add("external")
+        else:
+            dimensions.discard("external")
     if "restart" in joined or "checkpoint" in joined:
         dimensions.add("restart")
     if status == "release_regression":

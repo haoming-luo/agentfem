@@ -151,11 +151,12 @@ fails closed if a provider changes either declaration. An undeclared legacy
 6-by-6 array remains inspectable, but it is not eligible for a global Newton
 consumer merely because it resembles a stiffness matrix. This is protocol
 foundation only: those declarations do not by themselves promote a material.
-Finite-strain J2 now has material paths, numerical tangent comparison, a
-public three-dimensional affine-periodic `model.step(...)` route,
-cutback/restart equivalence, and MPI-stable state identity. That public route
-is experimental: an independent external structural benchmark still gates a
-broader engineering maturity claim.
+Finite-strain J2 now has material paths, numerical tangent comparison, and two
+public three-dimensional `model.step(...)` equilibrium providers: ordinary
+strong boundaries with reference dead loads, and exact affine/MPC periodic
+kinematics. Both have cutback/restart equivalence and MPI-stable state identity.
+The capability remains experimental: an independent external structural
+benchmark still gates a broader engineering maturity claim.
 
 `MaterialQuadratureState.create(domain, schema, ...)` is the first lowering of
 that declaration. It creates one committed/trial quadrature pair for every
@@ -181,16 +182,20 @@ quadrature state, evaluates every local point, writes trial state, and rolls
 the whole batch back if one point fails. Inside global Newton it is called with
 `commit=False`; only the accepted structural increment may commit.
 
-This is currently an **experimental public affine-periodic finite-element
-capability**, as well as a material-point and neutral quadrature provider.
+This is currently an **experimental public finite-element capability**, as
+well as a material-point and neutral quadrature provider.
 Rigid rotation, superposed rotation, plastic incompressibility, yield
 consistency, unloading/reversal, tangent comparison, atomic rollback and
-commit are executable tests. `model.step(...)` lowers one or more explicitly
-partitioned compatible 3D `FiniteStrainJ2Logarithmic` materials and exactly one
-`AbaqusPeriodicConstraint` to a total-Lagrangian residual assembled from `P`
-and `dP/dF`. It uses exact affine elimination in serial or the distributed
-`dolfinx_mpc` reduction, accepts fixed or automatic increments, and performs a
-real rollback/cutback when an otherwise converged PEEQ increment is excessive.
+commit are executable tests. One constraint-neutral
+`FiniteStrainJ2StateTransaction` owns trial/commit state and accepted fields.
+`FiniteStrainJ2StandardProblem` consumes it for ordinary strong Dirichlet or
+remote-displacement kinematics, a shared normalized amplitude, and reference-
+configuration dead loads. The separate affine provider consumes the same
+transaction with exactly one `AbaqusPeriodicConstraint`, using exact affine
+elimination in serial or distributed `dolfinx_mpc` Newton. Both assemble the
+total-Lagrangian residual from `P` and `dP/dF`, accept fixed or automatic
+increments, and perform real rollback/cutback when an otherwise converged PEEQ
+increment is excessive.
 The older `mechanics.experimental_finite_strain_j2_step(...)` remains a
 compatibility/development entry point rather than the recommended application
 language.
@@ -212,15 +217,22 @@ state alone.
 
 Portable checkpoints are accepted-state boundaries. They store `U`,
 `U_ACCEPTED`, committed quadrature state, accepted and attempted increment
-histories, the next adaptive increment, and execution events. Restore validates
-the mesh/function identity, material and state schema, quadrature rule,
-increment control, and periodic equations before changing the analysis. The
-same checkpoint has been resumed between one and two MPI ranks in both
-directions.
+histories, and the next adaptive increment. Restore validates
+mesh/function identity, material and state schema, quadrature rule, procedure,
+solver, increment control, amplitude, constraints, and natural-load identity
+before changing the analysis. The affine route also binds its periodic
+equations. The same checkpoint has been resumed between one and two MPI ranks
+in both directions. A resumed solve restores the previous execution trace,
+appends a new resumed segment, and starts a new field series from the accepted
+boundary; earlier visualization frames remain in the earlier result artifact
+and are not silently reconstructed or merged.
 
-The present public scope is deliberately narrow: prescribed macroscopic
-deformation, compatible regional materials, one periodic constraint, and no
-body-force or natural-load power. The true spherical-void RVE now exercises
+The present public scope is deliberately narrow. The ordinary route accepts
+proportional prescribed motion and reference dead loads but not follower-load
+tangents, absolute time histories, weak boundary models, contact, or MPC. The
+affine route accepts prescribed macroscopic deformation, compatible regional
+materials, one periodic constraint, and no body-force or natural-load power.
+The true spherical-void RVE now exercises
 geometric pairing, positive-J, public result lifecycle, two-rank execution,
 and Hill--Mandel evidence. Its versioned fixed-stack Golden additionally
 freezes one `h/L=0.25` first-order mesh, two-increment loading path, runtime
@@ -314,8 +326,10 @@ store.
 
 ## Explicit non-goals for P1
 
-- no claim of general contact, arbitrary multi-physics, or globally integrated
-  finite-strain plasticity beyond the gated serial patch;
+- no claim of general contact, arbitrary multi-physics, or finite-strain
+  plasticity beyond the two gated experimental J2 providers; locking-resistant
+  production formulations and independent external structural validation remain
+  promotion gates;
 - no generic Abaqus deck execution;
 - no UMAT compatibility before state, tangent, tensor-convention, and ABI
   gates exist;

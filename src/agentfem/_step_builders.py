@@ -498,11 +498,12 @@ def finite_strain_j2(
     output=None,
     output_every: int | None = None,
     checkpoint=None,
+    amplitude=None,
     progress=True,
     status_file=None,
     name: str = "finite_strain_j2",
 ):
-    """Build stateful finite-strain J2 with exact affine/MPC kinematics."""
+    """Build stateful finite-strain J2 for affine or ordinary strong kinematics."""
 
     from . import mechanics
     from .constitutive import FiniteStrainJ2Logarithmic
@@ -531,22 +532,16 @@ def finite_strain_j2(
     selected_constraints = _as_tuple(
         model.constraints if constraints is None else constraints
     )
+    constraint_assets = constraint_api.constraint_assets(selected_constraints)
     affine = tuple(
         item
-        for item in selected_constraints
+        for item in constraint_assets
         if isinstance(item, constraint_api.AbaqusPeriodicConstraint)
     )
-    if len(affine) != 1 or len(selected_constraints) != 1:
+    if affine and (len(affine) != 1 or len(constraint_assets) != 1):
         raise NotImplementedError(
-            "The first public finite-strain J2 lowering requires exactly one "
-            "AbaqusPeriodicConstraint. Ordinary strong-boundary loading remains "
-            "available through the compatibility experimental factory until its "
-            "result lifecycle is promoted."
-        )
-    if model.loads:
-        raise NotImplementedError(
-            "Affine finite-strain J2 currently accepts prescribed macroscopic "
-            "deformation without body-force or natural-load power."
+            "Finite-strain J2 cannot mix an affine/MPC constraint with ordinary "
+            "strong boundary constraints in one Step."
         )
     if output is not None and output_every is not None:
         raise ValueError("Pass output=... or output_every=..., not both.")
@@ -560,22 +555,132 @@ def finite_strain_j2(
         if output is not None and hasattr(output, "required_factors")
         else ()
     )
-    problem = mechanics.finite_strain_j2_affine_problem(
-        displacement=target,
-        material=properties,
-        constraint=affine[0],
-        incrementation=incrementation,
-        solver_options=solver_options,
-        quadrature_degree=quadrature_degree,
-        output_every=selected_output_every,
-        output_factors=output_factors,
-        progress=progress,
-        status_file=status_file,
-        checkpoint_policy=checkpoint,
-        name=name,
-    )
+    if affine:
+        physical_loads = load_api.load_assets(
+            model.loads,
+            unwrap_amplitudes=True,
+        )
+        if physical_loads:
+            raise NotImplementedError(
+                "Affine finite-strain J2 currently accepts prescribed "
+                "macroscopic deformation without body-force or natural-load "
+                "power."
+            )
+        if amplitude is not None:
+            raise NotImplementedError(
+                "Affine finite-strain J2 reads its macroscopic deformation "
+                "path from AbaqusPeriodicConstraint; do not also pass amplitude=."
+            )
+        problem = mechanics.finite_strain_j2_affine_problem(
+            displacement=target,
+            material=properties,
+            constraint=affine[0],
+            incrementation=incrementation,
+            solver_options=solver_options,
+            quadrature_degree=quadrature_degree,
+            output_every=selected_output_every,
+            output_factors=output_factors,
+            progress=progress,
+            status_file=status_file,
+            checkpoint_policy=checkpoint,
+            name=name,
+        )
+        has_external_power = False
+    else:
+        concrete = constraint_assets
+        if not concrete:
+            raise ValueError(
+                "Standard finite-strain J2 requires explicit strong boundary "
+                "constraints that remove rigid-body motion."
+            )
+        unsupported = tuple(
+            item
+            for item in concrete
+            if not isinstance(
+                item,
+                (
+                    constraint_api.DirichletConstraint,
+                    constraint_api.RemoteDisplacementConstraint,
+                    constraint_api.TimeDependentDirichlet,
+                ),
+            )
+        )
+        if unsupported:
+            names = tuple(type(item).__name__ for item in unsupported)
+            raise NotImplementedError(
+                "Standard finite-strain J2 currently requires ordinary strong "
+                f"Dirichlet constraints; unsupported={names}."
+            )
+        time_dependent = tuple(
+            item
+            for item in concrete
+            if isinstance(item, constraint_api.TimeDependentDirichlet)
+        )
+        if time_dependent:
+            raise NotImplementedError(
+                "Standard finite-strain J2 does not accept absolute "
+                "TimeDependentDirichlet histories. Prescribe the end-of-step "
+                "value and drive it with the shared step amplitude."
+            )
+        if model.boundary_models:
+            names = tuple(
+                getattr(item, "name", type(item).__name__)
+                for item in model.boundary_models
+            )
+            raise NotImplementedError(
+                "Standard finite-strain J2 does not yet consume weak boundary "
+                f"models; unsupported={names}. Their residual and consistent "
+                "tangent must be lowered together."
+            )
+        selected_loads, selected_amplitude = _single_shared_amplitude_loads(
+            model.loads,
+            amplitude,
+            label="finite-strain J2",
+            physical_time=False,
+        )
+        physical_loads = load_api.load_assets(
+            selected_loads,
+            unwrap_amplitudes=True,
+        )
+        follower = tuple(
+            item
+            for item in physical_loads
+            if getattr(item, "configuration", "reference") != "reference"
+        )
+        if follower:
+            raise NotImplementedError(
+                "Standard finite-strain J2 currently supports dead loads in the "
+                "reference configuration. Follower/current-configuration loads "
+                "require their external-work tangent."
+            )
+        problem = mechanics.finite_strain_j2_standard_problem(
+            displacement=target,
+            material=properties,
+            external_force=(
+                model.external_force(target, loads=selected_loads)
+                if selected_loads
+                else None
+            ),
+            load_identity=tuple(_describe(item) for item in selected_loads),
+            constraints=selected_constraints,
+            incrementation=incrementation,
+            solver_options=solver_options,
+            quadrature_degree=quadrature_degree,
+            amplitude=selected_amplitude,
+            output_every=selected_output_every,
+            output_factors=output_factors,
+            progress=progress,
+            status_file=status_file,
+            checkpoint_policy=checkpoint,
+            name=name,
+        )
+        has_external_power = bool(selected_loads)
     if output is not None and hasattr(output, "bind"):
-        output.bind(problem, properties, has_external_power=False)
+        output.bind(
+            problem,
+            properties,
+            has_external_power=has_external_power,
+        )
     return model.add_step(problem)
 
 
@@ -1455,7 +1560,7 @@ def _single_shared_amplitude_loads(
     label: str,
     physical_time: bool,
 ):
-    selected = tuple(loads)
+    selected = load_api.load_assets(loads)
     amplitude_loads = tuple(
         item for item in selected if isinstance(item, load_api.AmplitudeLoad)
     )
@@ -1476,7 +1581,13 @@ def _single_shared_amplitude_loads(
         raise ValueError(
             f"Pass a load amplitude or step amplitude to {label}, not both."
         )
-    return tuple(item.load for item in amplitude_loads), next(iter(histories.values()))
+    resolved = load_api.load_assets(tuple(item.load for item in amplitude_loads))
+    if any(isinstance(item, load_api.AmplitudeLoad) for item in resolved):
+        raise ValueError(
+            f"A {label} step does not accept nested amplitude load wrappers. "
+            "Declare one shared amplitude around the physical loads."
+        )
+    return resolved, next(iter(histories.values()))
 
 
 def _describe(item):

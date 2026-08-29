@@ -10,7 +10,6 @@ from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 
 from agentfem import constitutive, fields, mesh, models, solvers, steps, studies
-from agentfem.mechanics import experimental_finite_strain_j2_step
 
 
 def _step(comm):
@@ -40,10 +39,10 @@ def _step(comm):
         yield_stress=200.0,
         hardening_modulus=2_000.0,
     )
-    return experimental_finite_strain_j2_step(
-        displacement=displacement,
+    model.material(material)
+    return model.step(
+        target=displacement,
         material=material,
-        constraints=model.constraints,
         incrementation=steps.fixed(4),
         solver_options=solvers.newton(
             relative_tolerance=1.0e-8,
@@ -51,6 +50,7 @@ def _step(comm):
             maximum_iterations=20,
             line_search="backtracking",
         ),
+        progress=False,
         name="finite_strain_j2_portable",
     )
 

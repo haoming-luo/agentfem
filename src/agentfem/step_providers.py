@@ -881,16 +881,20 @@ def _accept_j2(model, request: StepRequest) -> bool:
     )
 
 
-def _accept_finite_strain_j2(model, request: StepRequest) -> bool:
+def _accept_finite_strain_j2_affine(model, request: StepRequest) -> bool:
+    from . import loads as load_api
     from .constitutive import FiniteStrainJ2Logarithmic
-    from .constraints import AbaqusPeriodicConstraint
+    from .constraints import AbaqusPeriodicConstraint, constraint_assets
 
     study = getattr(model, "study", None)
     selected_constraints = request.option("constraints")
     if selected_constraints is None:
         selected_constraints = tuple(getattr(model, "constraints", ()))
-    if not isinstance(selected_constraints, (tuple, list)):
-        selected_constraints = (selected_constraints,)
+    selected_constraints = constraint_assets(selected_constraints)
+    physical_loads = load_api.load_assets(
+        getattr(model, "loads", ()),
+        unwrap_amplitudes=True,
+    )
     return (
         getattr(study, "physics", None) == "solid_mechanics"
         and getattr(study, "dimension", None) == 3
@@ -902,6 +906,48 @@ def _accept_finite_strain_j2(model, request: StepRequest) -> bool:
         )
         and len(selected_constraints) == 1
         and isinstance(selected_constraints[0], AbaqusPeriodicConstraint)
+        and not physical_loads
+    )
+
+
+def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
+    from . import loads as load_api
+    from .constitutive import FiniteStrainJ2Logarithmic
+    from .constraints import (
+        DirichletConstraint,
+        RemoteDisplacementConstraint,
+        constraint_assets,
+    )
+
+    study = getattr(model, "study", None)
+    selected_constraints = request.option("constraints")
+    if selected_constraints is None:
+        selected_constraints = tuple(getattr(model, "constraints", ()))
+    selected_constraints = constraint_assets(selected_constraints)
+    ordinary_strong = bool(selected_constraints) and all(
+        isinstance(item, (DirichletConstraint, RemoteDisplacementConstraint))
+        for item in selected_constraints
+    )
+    physical_loads = load_api.load_assets(
+        getattr(model, "loads", ()),
+        unwrap_amplitudes=True,
+    )
+    reference_dead_loads = all(
+        getattr(item, "configuration", "reference") == "reference"
+        for item in physical_loads
+    )
+    return (
+        getattr(study, "physics", None) == "solid_mechanics"
+        and getattr(study, "dimension", None) == 3
+        and _is_vector_target(request.target)
+        and _all_materials_support(
+            model,
+            request,
+            lambda item: isinstance(item, FiniteStrainJ2Logarithmic),
+        )
+        and ordinary_strong
+        and reference_dead_loads
+        and not tuple(getattr(model, "boundary_models", ()))
     )
 
 
@@ -1383,7 +1429,7 @@ register_step_provider(
     StepProvider(
         name="finite_strain_j2_affine_static",
         analyses=("nonlinear_static",),
-        accepts=_accept_finite_strain_j2,
+        accepts=_accept_finite_strain_j2_affine,
         lower=_lower_finite_strain_j2,
         priority=130,
         description=(
@@ -1394,6 +1440,29 @@ register_step_provider(
         option_contract=_option_contract(
             "incrementation",
             "quadrature_degree",
+            "output_every",
+            "progress",
+            "status_file",
+            "checkpoint",
+        ),
+    )
+)
+register_step_provider(
+    StepProvider(
+        name="finite_strain_j2_strong_static",
+        analyses=("nonlinear_static",),
+        accepts=_accept_finite_strain_j2_strong,
+        lower=_lower_finite_strain_j2,
+        priority=125,
+        description=(
+            "Lower logarithmic finite-strain J2 to provider-owned quadrature "
+            "state and ordinary strong-boundary Newton equilibrium."
+        ),
+        procedure="standard/newton/stateful",
+        option_contract=_option_contract(
+            "incrementation",
+            "quadrature_degree",
+            "amplitude",
             "output_every",
             "progress",
             "status_file",

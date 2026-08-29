@@ -97,11 +97,12 @@ AgentFEM should ultimately expose three related but distinct products:
 
 The current release implements the second layer for elasticity. Small-strain
 J2 results retain committed `S/PE/PEEQ` and pointwise `MISES` on the
-constitutive quadrature. The experimental public affine-periodic finite-strain
-J2 route retains provider-owned accepted
+constitutive quadrature. The experimental public ordinary and affine/MPC
+finite-strain J2 providers retain the same provider-owned accepted
 `F/P/S/MISES/SENER/ELENER/HARDENER/FP/PEEQ` at the
 same quadrature identity; the output layer does not recompute them from a
-history-free constitutive expression. J2 and implicit creep also expose
+history-free constitutive expression. Explicit `*_CELL` products never
+overwrite a same-named raw quadrature field. J2 and implicit creep also expose
 separately named `*_CELL` fields through
 `results.recover_integration_point_field(...)`. These fields use the actual
 quadrature weights to form a DG0 cell average and record the source position,

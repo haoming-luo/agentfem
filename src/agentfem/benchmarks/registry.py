@@ -272,12 +272,14 @@ _BENCHMARKS = (
             "volume, satisfies the updated yield surface, retains irreversible "
             "history, matches an independent dP/dF check, and rolls quadrature "
             "state back atomically after a local failure; multi-element serial "
-            "and two-rank total-Lagrangian patches consume P and dP/dF, enforce "
-            "physical cutback, and resume from portable checkpoints after a "
-            "change in MPI partition count"
+            "ordinary strong-boundary and affine/MPC total-Lagrangian patches "
+            "consume P and dP/dF, enforce physical cutback, preserve reference-"
+            "load reaction evidence, and resume from portable checkpoints after "
+            "a change in MPI partition count"
         ),
         automated_test=(
             "tests/test_finite_strain_plasticity.py; "
+            "tests/test_finite_strain_j2_standard.py; "
             "tests/finite_strain_j2_mpi_driver.py; "
             "tests/portable_finite_strain_j2_driver.py"
         ),
@@ -289,6 +291,31 @@ _BENCHMARKS = (
             "restart",
             "failure_behavior",
             "portable_state_identity",
+        ),
+    ),
+    BenchmarkSpec(
+        identifier="finite_strain_j2_lewandowski_2023_beam",
+        capability="finite_strain_j2_plasticity",
+        level="external_structural_promotion_gate",
+        reference=(
+            "knowledge/benchmarks/finite_strain_j2_lewandowski_2023_beam.json"
+        ),
+        criterion=(
+            "the public ordinary strong-boundary provider reproduces an "
+            "independently reexecuted, content-bound Lewandowski et al. "
+            "self-weight beam curve after observer reconciliation, mesh and "
+            "increment convergence, MPI equivalence and restart equivalence"
+        ),
+        automated_test=(
+            "tests/test_lewandowski_2023_self_weight_beam.py; "
+            "tests/lewandowski_2023_self_weight_beam_driver.py"
+        ),
+        status="external_promotion_gate_incomplete",
+        evidence=(
+            "external_gate_defined",
+            "public_strong_provider",
+            "provenance",
+            "failure_behavior",
         ),
     ),
     BenchmarkSpec(

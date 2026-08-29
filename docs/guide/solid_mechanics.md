@@ -15,7 +15,7 @@ layer.
 | Mooney--Rivlin | Experimental FEM workflow | Compressible 3D solids and incompressible plane-stress sheets |
 | Mixed displacement-pressure Neo-Hookean | Experimental/engineering | Near-incompressible quadratic tetrahedral solids |
 | Small-strain J2 plasticity | Engineering path | Stateful elastoplastic loading with consistent tangent |
-| Finite-strain logarithmic J2 | Experimental public path | Regional-material 3D affine-periodic cells with MPI state, output, and restart |
+| Finite-strain logarithmic J2 | Experimental public path | Strong-boundary solids with reference dead loads, and regional 3D affine-periodic cells |
 | Small-strain power-law creep | Engineering path | 3D or axisymmetric stateful creep with adaptive physical time |
 
 ## Modeling sequence
@@ -52,13 +52,43 @@ If the meridian reaches `r=0`, register
 `constraints.axisymmetric_axis(u, on=axis)`; model validation warns when that
 regularity declaration is absent.
 
-## Finite-strain periodic plasticity
+## Finite-strain J2 plasticity
+
+The same material and `model.step(...)` vocabulary selects one of two
+non-overlapping equilibrium providers. Ordinary solids use strong Dirichlet or
+remote-displacement constraints and may include body forces or natural loads
+defined in the reference configuration:
+
+```python
+material = model.material(
+    constitutive.finite_strain_j2_logarithmic(
+        young=210e3,
+        poisson=0.3,
+        yield_stress=250.0,
+        hardening_modulus=1e3,
+    )
+)
+model.fix(u, on=clamp, value=(0.0, 0.0, 0.0))
+model.body_force((0.0, 0.0, -body_force), target=u)
+step = model.step(
+    target=u,
+    material=material,
+    incrementation=steps.automatic(initial=0.1, maximum=0.2),
+)
+result = step.solve_result()
+```
+
+Follower/current-configuration loads, absolute time-dependent Dirichlet
+histories, weak boundary models, contact, and MPC constraints fail closed until
+their residual and consistent tangent have a dedicated lowering.
+
+### Affine-periodic cells
 
 `constitutive.finite_strain_j2_logarithmic(...)` is lowered by the ordinary
 `model.step(...)` interface when a three-dimensional nonlinear-static model
 contains compatible explicitly partitioned material regions and exactly one
-`AbaqusPeriodicConstraint`. The current
-route prescribes the macroscopic deformation gradient; it does not yet accept
+`AbaqusPeriodicConstraint`. This provider prescribes the macroscopic
+deformation gradient; it does not accept
 body or natural loads. Serial execution uses exact affine reduction and MPI
 execution uses the reviewed `dolfinx_mpc` reduction.
 

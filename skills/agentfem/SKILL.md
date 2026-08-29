@@ -114,15 +114,16 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   3D/axisymmetric small-strain foundation with a stricter MPI maturity boundary. Other creep
   laws remain material-point or assessment consumers.
 - Treat `constitutive.finite_strain_j2_logarithmic(...)` as an experimental
-  material-point provider with a gated distributed global patch, not as a public
-  `model.step` provider. It owns multiplicative
-  `FP/PEEQ` state and a declared `dP/dF`; use
-  `constitutive.update_material_points(..., commit=False)` for trial
-  quadrature updates and commit only after global convergence. The direct
-  `mechanics.experimental_finite_strain_j2_step(...)` has one- and
-  multi-element, cutback, two-rank MPI, and cross-partition restart evidence.
-  Do not present it as a validated public finite-strain plasticity procedure
-  until an independent external structural benchmark passes.
+  public `model.step` capability with one constraint-neutral `FP/PEEQ` and
+  `dP/dF` transaction but two separate equilibrium providers. Use the ordinary
+  provider only with strong Dirichlet/remote-displacement kinematics,
+  proportional amplitudes, and reference dead loads; use the affine/MPC
+  provider only with exactly one reviewed `AbaqusPeriodicConstraint` and no
+  natural-load power. Both have cutback, two-rank MPI, accepted-state output,
+  and cross-partition restart evidence. Reject unsupported follower loads,
+  weak boundary physics, contact, or MPC rather than silently discarding them.
+  Do not present either route as externally validated finite-strain plasticity
+  until an independent structural benchmark passes.
 - Use `constitutive.chaboche(...)` for the experimental three-dimensional
   combined-hardening route. Supply every `(C_i, gamma_i)` pair from reviewed
   cyclic calibration data. It shares the ordinary `model.step(...)`,

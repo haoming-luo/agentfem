@@ -63,7 +63,7 @@
     "The current environment lacks the legacy FEniCS, MGIS and MFront stack needed to execute the upstream implementation.",
     "AgentFEM uses multiplicative plastic kinematics with quadratic Hencky elasticity and a Kirchhoff-stress J2 return, whereas the public MFront demo uses a total-Hencky formulation; this is a cross-formulation structural comparison rather than bitwise reproduction.",
     "The paper and public script identify different right-end observation locations, so observer reconciliation is a required gate.",
-    "The candidate currently uses the expert body-force step because the public affine-periodic model.step route does not accept natural-load power."
+    "The candidate now lowers model.body_force through the public ordinary strong-boundary model.step provider; independent upstream curve, convergence, MPI and restart gates remain incomplete."
   ],
   "references": [
     "Lewandowski et al., Multifield finite strain plasticity: Theory and numerics, CMAME 414 (2023) 116101, https://doi.org/10.1016/j.cma.2023.116101",

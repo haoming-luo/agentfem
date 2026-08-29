@@ -128,7 +128,7 @@ adds a Golden benchmark and explicit release-quality checks.
 
 | Area | Available workflow |
 | --- | --- |
-| Solid mechanics | Linear elasticity, thermoelasticity, Neo-Hookean and Mooney--Rivlin finite strain, mixed displacement-pressure hyperelasticity, and stateful small-strain J2 plasticity |
+| Solid mechanics | Linear elasticity, thermoelasticity, Neo-Hookean and Mooney--Rivlin finite strain, mixed displacement-pressure hyperelasticity, stateful small-strain J2, and experimental finite-strain J2 strong/affine-MPC providers |
 | Heat transfer | Steady conduction and implicit transient heat transfer |
 | Dynamics | Newmark/generalized-\(\alpha\) implicit dynamics and central-difference explicit wave propagation |
 | Time-dependent materials | Global isothermal/Arrhenius power-law creep plus reviewed material-point creep/damage tools |

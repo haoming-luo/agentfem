@@ -499,6 +499,8 @@
       
         
       
+        
+      
     
     
     
@@ -1397,9 +1399,10 @@ foundation.</p>
 <ul>
 <li>linear static solids and steady/transient heat transfer;</li>
 <li>central-difference, Newmark, and generalized-alpha structural dynamics;</li>
-<li>finite-strain Neo-Hookean and Mooney--Rivlin workflows, plus an experimental
-  public 3D affine-periodic logarithmic J2 route with provider-owned
-  quadrature output and accepted-state portable restart;</li>
+<li>finite-strain Neo-Hookean and Mooney--Rivlin workflows, plus experimental
+  public 3D logarithmic J2 providers for ordinary strong boundaries/reference
+  dead loads and affine/MPC cells, with shared provider-owned quadrature output
+  and accepted-state portable restart;</li>
 <li>small-strain J2 plasticity, an experimental global Chaboche combined-
   hardening route, and implicit power-law creep, including regional MPI state,
   cross-rank-count portable restart, and bounded external Abaqus/NAFEMS
@@ -1431,10 +1434,10 @@ the roadmap does not turn an experimental formula into a validated solver.</p>
 <ul>
 <li>external and convergence evidence for nonlinear materials and cohesive
   fracture;</li>
-<li>promote finite-strain J2 beyond its present regional affine-periodic scope
-  through a locking-resistant mixed displacement--pressure formulation, a
-  passed independent structural benchmark, and a production analytical
-  tangent;</li>
+<li>promote finite-strain J2 through a locking-resistant mixed displacement--
+  pressure formulation, a passed independent structural benchmark, a
+  production analytical tangent, follower-load tangent, and complete
+  prescribed-work/plastic-dissipation ledger;</li>
 <li>richer thermal--mechanical and high-temperature histories;</li>
 <li>provider-owned reactions, work, and energy for MPC/weak/contact constraints;
   unsupported dual channels already fail closed rather than publishing a

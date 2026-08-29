@@ -194,6 +194,54 @@ class PrescribedValuePath:
         for constraint in self.amplitudes:
             constraint.update(selected)
 
+    def snapshot_runtime_state(self) -> dict[str, tuple[np.ndarray, ...]]:
+        """Capture backing values so a failed nonlinear attempt is atomic."""
+
+        return {
+            "constants": tuple(
+                np.asarray(constant.value).copy()
+                for constant, _reference in self.constants
+            ),
+            "fields": tuple(
+                np.asarray(function.x.array).copy()
+                for function, _reference in self.fields
+            ),
+            "amplitudes": tuple(
+                np.asarray(constraint.constant.value).copy()
+                for constraint in self.amplitudes
+            ),
+        }
+
+    def restore_runtime_state(
+        self,
+        state: dict[str, tuple[np.ndarray, ...]],
+    ) -> None:
+        """Restore a snapshot without re-evaluating any user amplitude."""
+
+        expected = {
+            "constants": len(self.constants),
+            "fields": len(self.fields),
+            "amplitudes": len(self.amplitudes),
+        }
+        actual = {name: len(tuple(state.get(name, ()))) for name in expected}
+        if actual != expected:
+            raise ValueError(
+                "Prescribed-value runtime state differs from the declared path."
+            )
+        for (constant, _reference), value in zip(
+            self.constants,
+            state["constants"],
+        ):
+            constant.value = value
+        for (function, _reference), value in zip(
+            self.fields,
+            state["fields"],
+        ):
+            function.x.array[:] = value
+            function.x.scatter_forward()
+        for constraint, value in zip(self.amplitudes, state["amplitudes"]):
+            constraint.constant.value = value
+
     def summary(self) -> dict[str, object]:
         return {
             "kind": "prescribed_value_path",
@@ -228,6 +276,18 @@ def dirichlet_constraints(constraints) -> tuple[object, ...]:
     """Return concrete Dirichlet assets from nested model constraint sets."""
 
     return _flatten_dirichlet(constraints)
+
+
+def constraint_assets(constraints) -> tuple[object, ...]:
+    """Return every concrete asset from nested constraint containers.
+
+    Solver providers must inspect this complete view before lowering.  Using
+    :func:`dirichlet_constraints` for capability selection would intentionally
+    omit periodic/MPC assets and could therefore turn an unsupported mixed
+    constraint set into an apparently ordinary strong-boundary problem.
+    """
+
+    return _flatten_constraint_assets(constraints)
 
 
 def _flatten_dirichlet(items) -> tuple[object, ...]:
@@ -1214,7 +1274,7 @@ def _flatten_constraint_assets(items) -> tuple[object, ...]:
             for selected in _flatten_constraint_assets(item)
         )
     if isinstance(items, ConstraintSet):
-        return (*items.dirichlet, *items.periodic)
+        return _flatten_constraint_assets((*items.dirichlet, *items.periodic))
     return (items,)
 
 

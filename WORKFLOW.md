@@ -63,7 +63,7 @@ record.
     this same call; they are sampled after every accepted increment.
     A paused/restarted step may use the same call; the result identifies the
     artifact as a continuation segment and records its physical start time.
-    Stateful small-strain J2, finite-strain affine-periodic J2, and creep steps
+    Stateful small-strain J2, finite-strain J2 strong/affine-MPC, and creep steps
     use the same `solve_result(output=...)` call: raw quadrature state stays
     inspectable in the result, while explicitly recovered `*_CELL` fields enter
     the visualization dataset. The finite-strain J2 route additionally writes

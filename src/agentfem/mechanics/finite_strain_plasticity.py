@@ -1,4 +1,4 @@
-"""Experimental global total-Lagrangian finite-strain plasticity path."""
+"""Total-Lagrangian finite-strain plasticity equilibrium providers."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from .. import steps as step_controls
 from ..constitutive import FiniteStrainJ2Logarithmic
 from ..constitutive import MaterialQuadratureResponse
 from ..constitutive.quadrature import QuadratureField, QuadratureMaterialMap
-from ..solvers import NewtonSolverOptions, newton, solve_matrix_system
+from ..solvers import NewtonSolverOptions, SolveEvent, newton, solve_matrix_system
 
 
 def _raise_collective_transaction_problem(comm, local_problem, *, context: str) -> None:
@@ -67,14 +67,42 @@ class FiniteStrainPlasticityIncrementInfo:
         )
 
 
-@dataclass
-class FiniteStrainJ2AffineTransaction:
-    """Provider-owned trial/commit state for affine and distributed MPC Newton.
+@dataclass(frozen=True)
+class FiniteStrainPlasticityPathInfo:
+    """Accepted and attempted increments for a standard finite-strain J2 path."""
 
-    The affine solver owns kinematic reduction; this transaction owns only the
-    constitutive state and response fields.  Keeping those responsibilities
-    separate lets serial elimination and ``dolfinx_mpc`` consume exactly the
-    same finite-strain material update.
+    increments: tuple[FiniteStrainPlasticityIncrementInfo, ...]
+    attempts: tuple[FiniteStrainPlasticityIncrementInfo, ...]
+    incrementation: object
+
+    @property
+    def converged(self) -> bool:
+        return (
+            bool(self.increments)
+            and all(item.converged for item in self.increments)
+            and abs(self.increments[-1].load_factor - 1.0) <= 1.0e-12
+        )
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "finite_strain_j2_standard_load_path",
+            "converged": self.converged,
+            "accepted_increment_count": len(self.increments),
+            "attempt_count": len(self.attempts),
+            "incrementation": self.incrementation.summary(),
+            "increments": tuple(item.as_dict() for item in self.increments),
+            "attempts": tuple(item.as_dict() for item in self.attempts),
+        }
+
+
+@dataclass
+class FiniteStrainJ2StateTransaction:
+    """Constraint-neutral trial/commit state for finite-strain J2 Newton.
+
+    An equilibrium provider owns kinematic enforcement; this transaction owns
+    only constitutive state and response fields. Keeping those responsibilities
+    separate lets ordinary strong boundaries, serial affine elimination, and
+    distributed ``dolfinx_mpc`` consume exactly the same material update.
     """
 
     solution: object
@@ -391,7 +419,7 @@ class FiniteStrainJ2AffineTransaction:
 
     def summary(self) -> dict[str, object]:
         return {
-            "kind": "finite_strain_j2_affine_state_transaction",
+            "kind": "finite_strain_j2_state_transaction",
             "accepted_factor": self.accepted_factor,
             "material": self.material.summary(),
             "response": self.response.summary(),
@@ -407,18 +435,19 @@ class FiniteStrainJ2AffineTransaction:
 
 
 @dataclass
-class ExperimentalFiniteStrainPlasticityStep:
-    """Total-Lagrangian Newton path consuming a neutral material provider.
+class FiniteStrainJ2StandardProblem:
+    """Stateful Total-Lagrangian J2 equilibrium with ordinary strong BCs.
 
-    This class is intentionally not registered under ``model.step`` yet.  It
-    exists to prove the provider/transaction/global-residual interface before
-    the public lowering route is promoted.
+    The standard-boundary and affine/MPC routes deliberately remain separate
+    nonlinear lowerings: they eliminate constrained degrees of freedom in
+    different ways.  They nevertheless consume the same quadrature material
+    transaction, output fields, increment controls, and restart state.
     """
 
     name: str
     solution: object
     accepted_solution: object
-    material: FiniteStrainJ2Logarithmic
+    material: FiniteStrainJ2Logarithmic | QuadratureMaterialMap
     response: MaterialQuadratureResponse
     residual_form: object
     tangent_form: object
@@ -427,9 +456,20 @@ class ExperimentalFiniteStrainPlasticityStep:
     load_factor: object
     amplitude: amplitudes.Amplitude
     bcs: tuple[object, ...]
-    prescribed_values: tuple[tuple[object, np.ndarray, object], ...]
+    value_path: object
     incrementation: object
     solver_options: NewtonSolverOptions
+    state_transaction: FiniteStrainJ2StateTransaction
+    output_every: int | None = 1
+    output_factors: tuple[float, ...] = ()
+    progress: object = True
+    status_file: object | None = None
+    checkpoint_policy: object | None = None
+    procedure: object | None = None
+    step_number: int = 1
+    quadrature_degree: int = 2
+    constraint_identity: tuple[object, ...] = ()
+    load_identity: object | None = None
     accepted_load_factor: float = field(default=0.0, init=False)
     accepted_increments: list[FiniteStrainPlasticityIncrementInfo] = field(
         default_factory=list, init=False
@@ -438,17 +478,28 @@ class ExperimentalFiniteStrainPlasticityStep:
         default_factory=list, init=False
     )
     next_increment_size: float | None = field(default=None, init=False)
+    snapshots: list[object] = field(default_factory=list, init=False)
+    execution_events: list[object] = field(default_factory=list, init=False)
+    checkpoints: list[object] = field(default_factory=list, init=False)
+    last_solve_info: FiniteStrainPlasticityPathInfo | None = field(
+        default=None,
+        init=False,
+    )
 
     def _apply_loading(self, coordinate: float) -> None:
         factor = self.amplitude(coordinate)
         self.load_factor.value = PETSc.ScalarType(factor)
-        for constant, target, _bc in self.prescribed_values:
-            selected = factor * target
-            constant.value = (
-                PETSc.ScalarType(selected.item())
-                if selected.ndim == 0 or selected.size == 1
-                else np.asarray(selected, dtype=PETSc.ScalarType)
-            )
+        self.value_path.update(factor)
+
+    def _snapshot_loading_state(self) -> dict[str, object]:
+        return {
+            "load_factor": np.asarray(self.load_factor.value).copy(),
+            "prescribed_values": self.value_path.snapshot_runtime_state(),
+        }
+
+    def _restore_loading_state(self, state: dict[str, object]) -> None:
+        self.load_factor.value = state["load_factor"]
+        self.value_path.restore_runtime_state(state["prescribed_values"])
 
     def _evaluate_gradients(self) -> tuple[np.ndarray, np.ndarray]:
         return (
@@ -468,18 +519,11 @@ class ExperimentalFiniteStrainPlasticityStep:
         start_factor: float,
         target_factor: float,
     ):
-        old_gradient, new_gradient = self._evaluate_gradients()
-        committed = self.response.state.committed_state_vectors()
-        result = self.response.update(
-            self.material,
-            deformation_gradient_old=old_gradient,
-            deformation_gradient_new=new_gradient,
-            time=target_factor,
-            time_increment=max(target_factor - start_factor, np.finfo(float).eps),
-            commit=False,
+        result = self.state_transaction.refresh_trial(
+            start_factor=start_factor,
+            target_factor=target_factor,
         )
-        increments = result.state_new[:, -1] - committed[:, -1]
-        return result, float(np.max(increments, initial=0.0))
+        return result, self.state_transaction.last_maximum_plastic_increment
 
     def _correction_rhs(self):
         residual = fem_petsc.assemble_vector(self.residual_form)
@@ -557,23 +601,10 @@ class ExperimentalFiniteStrainPlasticityStep:
                 start_factor=start_factor,
                 target_factor=target_factor,
             )
-            old_state = self.response.state.committed_state_vectors()
-            points_per_cell = len(self.response.state.reference_field.points)
-            cell_map = self.response.domain.topology.index_map(
-                self.response.domain.topology.dim
-            )
-            owned_points = int(cell_map.size_local) * points_per_cell
-            local_plastic_points = int(
-                np.count_nonzero(
-                    result.state_new[:owned_points, -1]
-                    > old_state[:owned_points, -1] + 1.0e-14
-                )
-            )
-            plastic_points = int(
-                self.response.domain.comm.allreduce(local_plastic_points, op=MPI.SUM)
-            )
-            maximum_increment = float(
-                self.response.domain.comm.allreduce(maximum_increment, op=MPI.MAX)
+            del result
+            plastic_points = self.state_transaction.last_plastic_points
+            maximum_increment = (
+                self.state_transaction.last_maximum_plastic_increment
             )
             rhs, norm = self._correction_rhs()
             if initial_norm is None:
@@ -633,11 +664,87 @@ class ExperimentalFiniteStrainPlasticityStep:
     def _restore_accepted(self) -> None:
         self.solution.x.array[:] = self.accepted_solution.x.array
         self.solution.x.scatter_forward()
-        self.response.rollback()
         self._apply_loading(self.accepted_load_factor)
-        self._update_response(
-            start_factor=self.accepted_load_factor,
-            target_factor=self.accepted_load_factor,
+        self.state_transaction.rollback_increment(
+            accepted_factor=self.accepted_load_factor,
+        )
+
+    def _snapshot_increment_boundary(self) -> dict[str, object]:
+        """Capture the accepted boundary before one provisional attempt."""
+
+        return {
+            "solution": self.solution.x.array.copy(),
+            "state": self.state_transaction.snapshot_accepted_boundary(),
+            "accepted_load_factor": float(self.accepted_load_factor),
+            "accepted_increments": list(self.accepted_increments),
+            "attempted_increments": list(self.attempted_increments),
+            "snapshots": list(self.snapshots),
+            "checkpoints": list(self.checkpoints),
+            "execution_events": list(self.execution_events),
+            "next_increment_size": self.next_increment_size,
+            "loading": self._snapshot_loading_state(),
+        }
+
+    def _restore_increment_boundary(self, boundary: dict[str, object]) -> None:
+        """Undo every mutable effect of one failed increment attempt."""
+
+        self.solution.x.array[:] = boundary["solution"]
+        self.solution.x.scatter_forward()
+        self.state_transaction.restore_accepted_boundary(boundary["state"])
+        self.accepted_load_factor = float(boundary["accepted_load_factor"])
+        self.accepted_increments[:] = boundary["accepted_increments"]
+        self.attempted_increments[:] = boundary["attempted_increments"]
+        self.snapshots[:] = boundary["snapshots"]
+        self.checkpoints[:] = boundary["checkpoints"]
+        self.execution_events[:] = boundary["execution_events"]
+        self.next_increment_size = boundary["next_increment_size"]
+        self._restore_loading_state(boundary["loading"])
+
+    def _record_failure(
+        self,
+        emit,
+        message: str,
+        *,
+        info: FiniteStrainPlasticityIncrementInfo | None = None,
+        target_factor: float | None = None,
+    ) -> None:
+        """Emit one terminal event without weakening rollback semantics."""
+
+        selected_target = (
+            self.accepted_load_factor
+            if target_factor is None
+            else float(target_factor)
+        )
+        emit(
+            SolveEvent(
+                "step_failed",
+                self.name,
+                step_number=self.step_number,
+                increment=(
+                    len(self.accepted_increments) + 1
+                    if info is None
+                    else info.increment
+                ),
+                attempt=(
+                    len(self.attempted_increments)
+                    if info is None
+                    else info.attempt
+                ),
+                start_factor=(
+                    self.accepted_load_factor
+                    if info is None
+                    else info.start_load_factor
+                ),
+                target_factor=selected_target,
+                iteration=0 if info is None else info.iterations,
+                residual_norm=None if info is None else info.residual_norm,
+                message=str(message),
+            )
+        )
+        self.last_solve_info = FiniteStrainPlasticityPathInfo(
+            tuple(self.accepted_increments),
+            tuple(self.attempted_increments),
+            self.incrementation,
         )
 
     def solve(self, *, until: float = 1.0):
@@ -648,9 +755,105 @@ class ExperimentalFiniteStrainPlasticityStep:
             raise ValueError(
                 "until must exceed the accepted load factor and be at most one."
             )
+        if self.output_every is not None and int(self.output_every) <= 0:
+            raise ValueError("Finite-strain J2 output_every must be positive.")
+
+        from ..diagnostics import (
+            SolveEventRecorder,
+            StandardRunReporter,
+            compose_reporters,
+        )
+        from ..problems import _load_snapshot
+
+        recorder = SolveEventRecorder(self.execution_events)
+        if self.progress is True:
+            visible = StandardRunReporter(
+                self.solution.function_space.mesh.comm,
+                status_file=self.status_file,
+                show_iterations=False,
+            )
+        elif self.progress in (False, None):
+            visible = None
+        else:
+            visible = self.progress
+        reporter = compose_reporters(recorder, visible)
+
+        def emit(event) -> None:
+            if reporter is not None:
+                reporter.emit(event)
+
         accepted = self.accepted_load_factor
+        entry_solution = self.solution.x.array.copy()
+        entry_accepted_solution = self.accepted_solution.x.array.copy()
+        entry_runtime = self.state_transaction.snapshot_runtime_state()
+        entry_events = list(self.execution_events)
+        entry_snapshots = list(self.snapshots)
+        entry_loading = self._snapshot_loading_state()
+        try:
+            self._apply_loading(accepted)
+            if accepted <= 1.0e-12 and not self.accepted_increments:
+                self.execution_events.clear()
+                self.state_transaction.initialize()
+            else:
+                if (
+                    abs(self.state_transaction.accepted_factor - accepted)
+                    > 1.0e-12
+                ):
+                    raise RuntimeError(
+                        "Finite-strain J2 problem and material transaction "
+                        "accepted factors differ; restore both through the "
+                        "checkpoint lifecycle before resuming."
+                    )
+                self.state_transaction.prepare_resume()
+            self.snapshots.clear()
+            self.snapshots.append(
+                _load_snapshot(
+                    len(self.accepted_increments),
+                    accepted,
+                    self.solution,
+                    field_factory=lambda: (
+                        self.solution,
+                        self.state_transaction.snapshot_fields(),
+                    ),
+                )
+            )
+        except Exception as exc:
+            self.solution.x.array[:] = entry_solution
+            self.solution.x.scatter_forward()
+            self.accepted_solution.x.array[:] = entry_accepted_solution
+            self.accepted_solution.x.scatter_forward()
+            self.state_transaction.restore_runtime_state(entry_runtime)
+            self.execution_events[:] = entry_events
+            self.snapshots[:] = entry_snapshots
+            self._restore_loading_state(entry_loading)
+            self._record_failure(
+                emit,
+                f"initialization failed: {type(exc).__name__}: {exc}",
+                target_factor=accepted,
+            )
+            raise
+        del (
+            entry_solution,
+            entry_accepted_solution,
+            entry_runtime,
+            entry_events,
+            entry_snapshots,
+            entry_loading,
+        )
+        emit(
+            SolveEvent(
+                "step_resumed" if accepted > 1.0e-12 else "step_started",
+                self.name,
+                step_number=self.step_number,
+                incrementation=self.incrementation.summary()["kind"],
+            )
+        )
         proposed = (
-            self.incrementation.initial
+            (
+                self.incrementation.initial
+                if self.next_increment_size is None
+                else float(self.next_increment_size)
+            )
             if isinstance(self.incrementation, step_controls.AutomaticIncrementation)
             else None
         )
@@ -659,8 +862,17 @@ class ExperimentalFiniteStrainPlasticityStep:
             increment = len(self.accepted_increments) + 1
             if isinstance(self.incrementation, step_controls.AutomaticIncrementation):
                 if len(self.accepted_increments) >= self.incrementation.max_increments:
-                    raise RuntimeError("Finite-strain J2 reached max_increments.")
+                    message = "Finite-strain J2 reached max_increments"
+                    self._record_failure(emit, message, target_factor=accepted)
+                    raise RuntimeError(message + ".")
                 target = min(selected_until, accepted + proposed)
+                later_output = tuple(
+                    value
+                    for value in self.output_factors
+                    if value > accepted + 1.0e-12
+                )
+                if later_output:
+                    target = min(target, min(later_output))
             else:
                 remaining = [
                     value
@@ -668,15 +880,63 @@ class ExperimentalFiniteStrainPlasticityStep:
                     if value > accepted + 1.0e-12
                 ]
                 if not remaining:
-                    raise RuntimeError("Fixed finite-strain J2 path is incomplete.")
+                    message = "Fixed finite-strain J2 path is incomplete"
+                    self._record_failure(emit, message, target_factor=accepted)
+                    raise RuntimeError(message + ".")
                 target = min(selected_until, remaining[0])
-            self._apply_loading(target)
-            info = self._solve_increment(
-                increment=increment,
-                attempt=cutbacks + 1,
-                start_factor=accepted,
-                target_factor=target,
+            attempt = cutbacks + 1
+            emit(
+                SolveEvent(
+                    "increment_started",
+                    self.name,
+                    step_number=self.step_number,
+                    increment=increment,
+                    attempt=attempt,
+                    start_factor=accepted,
+                    target_factor=target,
+                )
             )
+            boundary = self._snapshot_increment_boundary()
+            rollback_proposed = proposed
+            rollback_cutbacks = cutbacks
+            loading_problem = None
+            try:
+                self._apply_loading(target)
+            except BaseException as exc:
+                loading_problem = f"{type(exc).__name__}: {exc}"
+            try:
+                _raise_collective_transaction_problem(
+                    self.solution.function_space.mesh.comm,
+                    loading_problem,
+                    context="finite-strain J2 loading update",
+                )
+            except BaseException as exc:
+                self._restore_increment_boundary(boundary)
+                proposed = rollback_proposed
+                cutbacks = rollback_cutbacks
+                self._record_failure(
+                    emit,
+                    f"loading update failed: {type(exc).__name__}: {exc}",
+                    target_factor=target,
+                )
+                raise
+            try:
+                info = self._solve_increment(
+                    increment=increment,
+                    attempt=attempt,
+                    start_factor=accepted,
+                    target_factor=target,
+                )
+            except Exception as exc:
+                self._restore_increment_boundary(boundary)
+                proposed = rollback_proposed
+                cutbacks = rollback_cutbacks
+                self._record_failure(
+                    emit,
+                    f"increment evaluation failed: {type(exc).__name__}: {exc}",
+                    target_factor=target,
+                )
+                raise
             limit = getattr(self.incrementation, "maximum_inelastic_increment", None)
             if (
                 info.converged
@@ -695,30 +955,120 @@ class ExperimentalFiniteStrainPlasticityStep:
                 )
             self.attempted_increments.append(info)
             if info.converged:
-                self.response.commit()
-                self.accepted_solution.x.array[:] = self.solution.x.array
-                self.accepted_solution.x.scatter_forward()
-                self.accepted_increments.append(info)
-                size = target - accepted
-                accepted = target
-                self.accepted_load_factor = target
-                cutbacks = 0
-                if isinstance(
-                    self.incrementation, step_controls.AutomaticIncrementation
-                ):
-                    proposed = self.incrementation.after_convergence(
-                        size, info.iterations
+                finalization_problem = None
+                try:
+                    self.state_transaction.commit_increment(
+                        start_factor=accepted,
+                        target_factor=target,
                     )
-                    self.next_increment_size = proposed
+                    self.accepted_increments.append(info)
+                    size = target - accepted
+                    accepted = target
+                    self.accepted_load_factor = target
+                    cutbacks = 0
+                    if isinstance(
+                        self.incrementation, step_controls.AutomaticIncrementation
+                    ):
+                        proposed = self.incrementation.after_convergence(
+                            size, info.iterations
+                        )
+                        self.next_increment_size = proposed
+                    save_by_increment = (
+                        self.output_every is not None
+                        and len(self.accepted_increments) % int(self.output_every) == 0
+                    )
+                    save_by_factor = any(
+                        abs(target - value) <= 1.0e-12
+                        for value in self.output_factors
+                    )
+                    if (
+                        save_by_increment
+                        or save_by_factor
+                        or abs(target - selected_until) <= 1.0e-12
+                    ):
+                        self.snapshots.append(
+                            _load_snapshot(
+                                len(self.accepted_increments),
+                                target,
+                                self.solution,
+                                solve_info=info,
+                                field_factory=lambda: (
+                                    self.solution,
+                                    self.state_transaction.snapshot_fields(),
+                                ),
+                            )
+                        )
+                    emit(
+                        SolveEvent(
+                            "increment_converged",
+                            self.name,
+                            step_number=self.step_number,
+                            increment=increment,
+                            attempt=attempt,
+                            start_factor=info.start_load_factor,
+                            target_factor=target,
+                            iteration=info.iterations,
+                            residual_norm=info.residual_norm,
+                        )
+                    )
+                except BaseException as exc:
+                    finalization_problem = f"{type(exc).__name__}: {exc}"
+                try:
+                    _raise_collective_transaction_problem(
+                        self.solution.function_space.mesh.comm,
+                        finalization_problem,
+                        context="finite-strain J2 accepted-state finalization",
+                    )
+                except BaseException as exc:
+                    self._restore_increment_boundary(boundary)
+                    accepted = self.accepted_load_factor
+                    proposed = rollback_proposed
+                    cutbacks = rollback_cutbacks
+                    self._record_failure(
+                        emit,
+                        f"accepted-state finalization failed: {type(exc).__name__}: {exc}",
+                        info=info,
+                        target_factor=target,
+                    )
+                    raise
+                checkpoint_problem = None
+                try:
+                    self._write_scheduled_checkpoint()
+                except BaseException as exc:
+                    checkpoint_problem = f"{type(exc).__name__}: {exc}"
+                try:
+                    _raise_collective_transaction_problem(
+                        self.solution.function_space.mesh.comm,
+                        checkpoint_problem,
+                        context="finite-strain J2 checkpoint finalization",
+                    )
+                except BaseException as exc:
+                    self._restore_increment_boundary(boundary)
+                    accepted = self.accepted_load_factor
+                    proposed = rollback_proposed
+                    cutbacks = rollback_cutbacks
+                    self._record_failure(
+                        emit,
+                        f"accepted-state finalization failed: "
+                        f"{type(exc).__name__}: {exc}",
+                        info=info,
+                        target_factor=target,
+                    )
+                    raise
                 continue
 
-            self._restore_accepted()
+            self._restore_increment_boundary(boundary)
+            self.attempted_increments.append(info)
+            proposed = rollback_proposed
+            cutbacks = rollback_cutbacks
             if not isinstance(
                 self.incrementation, step_controls.AutomaticIncrementation
             ):
-                raise RuntimeError(
-                    f"{self.name}: fixed increment failed at load factor {target}."
+                message = f"fixed increment failed at load factor {target}"
+                self._record_failure(
+                    emit, message, info=info, target_factor=target
                 )
+                raise RuntimeError(f"{self.name}: {message}.")
             cutbacks += 1
             proposed = self.incrementation.after_failure(target - accepted)
             self.next_increment_size = proposed
@@ -726,27 +1076,171 @@ class ExperimentalFiniteStrainPlasticityStep:
                 cutbacks > self.incrementation.max_cutbacks
                 or proposed < self.incrementation.minimum
             ):
-                raise RuntimeError(
-                    f"{self.name}: automatic incrementation exhausted cutbacks."
+                message = "automatic incrementation exhausted cutbacks"
+                self._record_failure(
+                    emit, message, info=info, target_factor=target
                 )
+                raise RuntimeError(f"{self.name}: {message}.")
+            emit(
+                SolveEvent(
+                    "increment_cutback",
+                    self.name,
+                    step_number=self.step_number,
+                    increment=increment,
+                    attempt=attempt,
+                    start_factor=accepted,
+                    target_factor=target,
+                    iteration=info.iterations,
+                    residual_norm=info.residual_norm,
+                    next_increment=proposed,
+                    message=info.rejection_reason or "",
+                )
+            )
+        emit(
+            SolveEvent(
+                (
+                    "step_completed"
+                    if self.accepted_load_factor >= 1.0 - 1.0e-12
+                    else "step_paused"
+                ),
+                self.name,
+                step_number=self.step_number,
+                increment=len(self.accepted_increments),
+                attempt=len(self.attempted_increments),
+                target_factor=self.accepted_load_factor,
+            )
+        )
+        self.last_solve_info = FiniteStrainPlasticityPathInfo(
+            tuple(self.accepted_increments),
+            tuple(self.attempted_increments),
+            self.incrementation,
+        )
         return self.solution
+
+    def _write_scheduled_checkpoint(self) -> None:
+        policy = self.checkpoint_policy
+        if policy is None:
+            return
+        increment = len(self.accepted_increments)
+        due = increment % int(policy.every) == 0
+        due = due or (
+            bool(policy.final) and self.accepted_load_factor >= 1.0 - 1.0e-12
+        )
+        if not due:
+            return
+        path = self.save_checkpoint(
+            policy.path(step_name=self.name, increment=increment),
+            portable=bool(policy.portable),
+        )
+        from ..results import CheckpointRecord
+
+        portable = bool(policy.portable) or self.solution.function_space.mesh.comm.size > 1
+        self.checkpoints.append(
+            CheckpointRecord(
+                name=f"{self.name}_checkpoint_{increment}",
+                path=path,
+                schema=(
+                    "agentfem.finite-strain-j2-standard-checkpoint.v2"
+                    if portable
+                    else "agentfem.finite-strain-j2-standard-checkpoint.v1"
+                ),
+                step_name=self.name,
+                coordinate_name="load_factor",
+                coordinate_value=self.accepted_load_factor,
+                portable=portable,
+                metadata={"role": "scheduled_checkpoint"},
+            )
+        )
+        from ..problems import _prune_affine_checkpoints
+
+        _prune_affine_checkpoints(self)
 
     def _checkpoint_identity(self) -> dict[str, object]:
         from ..checkpointing import function_partition_identity
 
         return {
             "step_name": self.name,
+            "procedure": (
+                None if self.procedure is None else self.procedure.summary()
+            ),
             "material": self.material.summary(),
             "state_schema": self.response.state.state_schema.summary(),
             "incrementation": self.incrementation.summary(),
             "amplitude": self.amplitude.summary(),
+            "quadrature_degree": self.quadrature_degree,
+            "constraints": self.constraint_identity,
+            "prescribed_value_path": self.value_path.summary(),
+            "external_load": self.load_identity,
+            "solver": self.solver_options.summary(),
             "solution": function_partition_identity(self.solution),
         }
+
+    def _snapshot_checkpoint_restore_boundary(self) -> dict[str, object]:
+        """Capture all mutable state before reading an external checkpoint."""
+
+        return {
+            "solution": self.solution.x.array.copy(),
+            "accepted_solution": self.accepted_solution.x.array.copy(),
+            "transaction": self.state_transaction.snapshot_runtime_state(),
+            "accepted_load_factor": float(self.accepted_load_factor),
+            "accepted_increments": list(self.accepted_increments),
+            "attempted_increments": list(self.attempted_increments),
+            "next_increment_size": self.next_increment_size,
+            "execution_events": list(self.execution_events),
+            "last_solve_info": self.last_solve_info,
+            "snapshots": list(self.snapshots),
+            "checkpoints": list(self.checkpoints),
+            "loading": self._snapshot_loading_state(),
+        }
+
+    def _restore_checkpoint_restore_boundary(
+        self,
+        boundary: dict[str, object],
+    ) -> None:
+        """Undo a failed serial or portable checkpoint restore."""
+
+        self.solution.x.array[:] = boundary["solution"]
+        self.solution.x.scatter_forward()
+        self.accepted_solution.x.array[:] = boundary["accepted_solution"]
+        self.accepted_solution.x.scatter_forward()
+        self.state_transaction.restore_runtime_state(boundary["transaction"])
+        self.accepted_load_factor = float(boundary["accepted_load_factor"])
+        self.accepted_increments[:] = boundary["accepted_increments"]
+        self.attempted_increments[:] = boundary["attempted_increments"]
+        self.next_increment_size = boundary["next_increment_size"]
+        self.execution_events[:] = boundary["execution_events"]
+        self.last_solve_info = boundary["last_solve_info"]
+        self.snapshots[:] = boundary["snapshots"]
+        self.checkpoints[:] = boundary["checkpoints"]
+        self._restore_loading_state(boundary["loading"])
 
     def save_checkpoint(self, path, *, portable: bool | None = None) -> Path:
         """Save the accepted global and material state."""
 
         comm = self.solution.function_space.mesh.comm
+        local_problem = None
+        if abs(
+            float(self.state_transaction.accepted_factor)
+            - self.accepted_load_factor
+        ) > 1.0e-12:
+            local_problem = (
+                "Checkpointing is permitted only at a fully accepted "
+                "material state."
+            )
+        elif not np.allclose(
+            self.solution.x.array,
+            self.accepted_solution.x.array,
+            rtol=0.0,
+            atol=1.0e-12,
+        ):
+            local_problem = (
+                "Checkpointing is permitted only when U equals U_ACCEPTED."
+            )
+        _raise_collective_transaction_problem(
+            comm,
+            local_problem,
+            context="finite-strain J2 checkpoint precondition",
+        )
         selected_portable = comm.size != 1 if portable is None else bool(portable)
         if selected_portable:
             return self._save_portable_checkpoint(path)
@@ -760,7 +1254,7 @@ class ExperimentalFiniteStrainPlasticityStep:
         snapshot = self.response.snapshot()
         atomic_savez(
             selected,
-            schema="agentfem.finite-strain-j2-experimental-checkpoint.v1",
+            schema="agentfem.finite-strain-j2-standard-checkpoint.v1",
             identity=json.dumps(self._checkpoint_identity(), sort_keys=True),
             solution=self.solution.x.array,
             accepted_solution=self.accepted_solution.x.array,
@@ -772,6 +1266,9 @@ class ExperimentalFiniteStrainPlasticityStep:
             ),
             attempted_increments=json.dumps(
                 [item.as_dict() for item in self.attempted_increments]
+            ),
+            execution_events=json.dumps(
+                [item.as_dict() for item in self.execution_events]
             ),
             next_increment_size=(
                 np.nan
@@ -785,22 +1282,54 @@ class ExperimentalFiniteStrainPlasticityStep:
         """Restore a serial or cross-partition portable checkpoint."""
 
         selected = Path(path)
+        comm = self.solution.function_space.mesh.comm
         if selected.suffix == ".json" or selected.name.endswith(".checkpoint.json"):
-            payload = json.loads(selected.read_text(encoding="utf-8"))
-            if payload.get("schema") == (
-                "agentfem.finite-strain-j2-experimental-checkpoint.v2"
-            ):
+            envelope = None
+            if comm.rank == 0:
+                try:
+                    envelope = {
+                        "payload": json.loads(selected.read_text(encoding="utf-8")),
+                        "error": None,
+                    }
+                except Exception as exc:
+                    envelope = {
+                        "payload": None,
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+            envelope = comm.bcast(envelope, root=0)
+            if envelope["error"] is not None:
+                raise RuntimeError(
+                    "Finite-strain J2 checkpoint manifest read failed: "
+                    f"{envelope['error']}"
+                )
+            payload = envelope["payload"]
+            schema = payload.get("schema")
+            if schema == "agentfem.finite-strain-j2-standard-checkpoint.v2":
                 self._load_portable_checkpoint(selected, payload)
                 return
-        if self.solution.function_space.mesh.comm.size != 1:
+            if schema == "agentfem.finite-strain-j2-experimental-checkpoint.v2":
+                raise ValueError(
+                    "Legacy experimental finite-strain J2 checkpoints do not "
+                    "contain the complete constraint, load, procedure, and "
+                    "solver identity required by the public workflow. Re-run "
+                    "from a declared model and write the standard v2 schema."
+                )
+            raise ValueError("Unsupported finite-strain J2 checkpoint schema.")
+        if comm.size != 1:
             raise ValueError(
                 "This finite-strain J2 checkpoint is partition-bound; use the "
                 "portable v2 manifest for distributed restore."
             )
         with np.load(selected, allow_pickle=False) as data:
-            if str(data["schema"]) != (
-                "agentfem.finite-strain-j2-experimental-checkpoint.v1"
-            ):
+            schema = str(data["schema"])
+            if schema == "agentfem.finite-strain-j2-experimental-checkpoint.v1":
+                raise ValueError(
+                    "Legacy experimental finite-strain J2 checkpoints do not "
+                    "contain the complete scientific identity required by the "
+                    "public workflow. Re-run from a declared model and write "
+                    "the standard v1 or portable v2 schema."
+                )
+            if schema != "agentfem.finite-strain-j2-standard-checkpoint.v1":
                 raise ValueError("Unsupported finite-strain J2 checkpoint schema.")
             stored_identity = json.loads(str(data["identity"]))
             current_identity = json.loads(
@@ -811,36 +1340,81 @@ class ExperimentalFiniteStrainPlasticityStep:
                     "Finite-strain J2 checkpoint material, state, loading, "
                     "increment control, or function layout differs."
                 )
-            solution = np.asarray(data["solution"])
-            accepted_solution = np.asarray(data["accepted_solution"])
+            solution = np.asarray(data["solution"]).copy()
+            accepted_solution = np.asarray(data["accepted_solution"]).copy()
             if (
                 solution.size != self.solution.x.array.size
                 or accepted_solution.size != self.accepted_solution.x.array.size
             ):
                 raise ValueError("Finite-strain J2 checkpoint dof layout differs.")
+            state_names = tuple(json.loads(str(data["state_names"])))
+            if state_names != tuple(self.response.state.transaction.names):
+                raise ValueError("Finite-strain J2 checkpoint state names differ.")
+            state = {
+                name: np.asarray(data[name]).copy() for name in state_names
+            }
+            coordinate = float(data["accepted_load_factor"])
+            accepted = [
+                FiniteStrainPlasticityIncrementInfo.from_dict(item)
+                for item in json.loads(str(data["accepted_increments"]))
+            ]
+            attempted = [
+                FiniteStrainPlasticityIncrementInfo.from_dict(item)
+                for item in json.loads(str(data["attempted_increments"]))
+            ]
+            events = [
+                SolveEvent.from_dict(item)
+                for item in json.loads(str(data["execution_events"]))
+            ]
+            size = float(data["next_increment_size"])
+        if not np.allclose(solution, accepted_solution, rtol=0.0, atol=1.0e-12):
+            raise ValueError("Finite-strain J2 checkpoint U and U_ACCEPTED differ.")
+        if accepted:
+            if abs(accepted[-1].load_factor - coordinate) > 1.0e-12:
+                raise ValueError(
+                    "Finite-strain J2 checkpoint coordinate and accepted "
+                    "history disagree."
+                )
+        elif abs(coordinate) > 1.0e-12:
+            raise ValueError(
+                "A nonzero finite-strain J2 checkpoint requires accepted history."
+            )
+        boundary = self._snapshot_checkpoint_restore_boundary()
+        try:
             self.solution.x.array[:] = solution
             self.solution.x.scatter_forward()
             self.accepted_solution.x.array[:] = accepted_solution
             self.accepted_solution.x.scatter_forward()
-            state_names = tuple(json.loads(str(data["state_names"])))
-            if state_names != tuple(self.response.state.transaction.names):
-                raise ValueError("Finite-strain J2 checkpoint state names differ.")
-            self.response.restore({name: data[name] for name in state_names})
-            self.accepted_load_factor = float(data["accepted_load_factor"])
-            self.accepted_increments[:] = [
-                FiniteStrainPlasticityIncrementInfo.from_dict(item)
-                for item in json.loads(str(data["accepted_increments"]))
-            ]
-            self.attempted_increments[:] = [
-                FiniteStrainPlasticityIncrementInfo.from_dict(item)
-                for item in json.loads(str(data["attempted_increments"]))
-            ]
-            size = float(data["next_increment_size"])
+            self.response.restore(state)
+            self.accepted_load_factor = coordinate
+            self.state_transaction.accepted_factor = coordinate
+            self.accepted_increments[:] = accepted
+            self.attempted_increments[:] = attempted
             self.next_increment_size = size if np.isfinite(size) else None
-        self._apply_loading(self.accepted_load_factor)
-        self._update_response(
-            start_factor=self.accepted_load_factor,
-            target_factor=self.accepted_load_factor,
+            self.execution_events[:] = events
+            self.last_solve_info = FiniteStrainPlasticityPathInfo(
+                tuple(accepted),
+                tuple(attempted),
+                self.incrementation,
+            )
+            self._apply_loading(coordinate)
+            self.state_transaction.prepare_resume()
+        except Exception:
+            self._restore_checkpoint_restore_boundary(boundary)
+            raise
+        from ..results import CheckpointRecord
+
+        self.checkpoints.append(
+            CheckpointRecord(
+                name=f"{self.name}_restart_{len(accepted)}",
+                path=selected,
+                schema="agentfem.finite-strain-j2-standard-checkpoint.v1",
+                step_name=self.name,
+                coordinate_name="load_factor",
+                coordinate_value=coordinate,
+                portable=False,
+                metadata={"role": "restart_source"},
+            )
         )
 
     def _portable_checkpoint_identity(self) -> dict[str, object]:
@@ -848,10 +1422,18 @@ class ExperimentalFiniteStrainPlasticityStep:
 
         return {
             "step_name": self.name,
+            "procedure": (
+                None if self.procedure is None else self.procedure.summary()
+            ),
             "material": self.material.summary(),
             "state_schema": self.response.state.state_schema.summary(),
             "incrementation": self.incrementation.summary(),
             "amplitude": self.amplitude.summary(),
+            "quadrature_degree": self.quadrature_degree,
+            "constraints": self.constraint_identity,
+            "prescribed_value_path": self.value_path.summary(),
+            "external_load": self.load_identity,
+            "solver": self.solver_options.summary(),
             "solution": function_portable_identity(self.solution),
         }
 
@@ -876,8 +1458,9 @@ class ExperimentalFiniteStrainPlasticityStep:
             ),
             material=self.material,
         )
+        comm = self.solution.function_space.mesh.comm
         payload = {
-            "schema": "agentfem.finite-strain-j2-experimental-checkpoint.v2",
+            "schema": "agentfem.finite-strain-j2-standard-checkpoint.v2",
             "identity": self._portable_checkpoint_identity(),
             "coordinate": self.accepted_load_factor,
             "nodal_state": bundle["record"],
@@ -889,9 +1472,12 @@ class ExperimentalFiniteStrainPlasticityStep:
             "attempted_increments": [
                 item.as_dict() for item in self.attempted_increments
             ],
+            "execution_events": [
+                item.as_dict() for item in self.execution_events
+            ],
             "next_increment_size": self.next_increment_size,
+            "writer_rank_count": int(comm.size),
         }
-        comm = self.solution.function_space.mesh.comm
         error = None
         if comm.rank == 0:
             try:
@@ -915,6 +1501,7 @@ class ExperimentalFiniteStrainPlasticityStep:
             validate_checkpoint_record,
         )
 
+        comm = self.solution.function_space.mesh.comm
         current = json.loads(
             json.dumps(self._portable_checkpoint_identity(), sort_keys=True)
         )
@@ -922,39 +1509,269 @@ class ExperimentalFiniteStrainPlasticityStep:
             raise ValueError(
                 "Portable finite-strain J2 checkpoint scientific identity differs."
             )
-        load_portable_state_bundle(
-            manifest,
-            state={"U": self.solution, "U_ACCEPTED": self.accepted_solution},
-            record=payload["nodal_state"],
-            identities=payload["nodal_identity"],
+        validation = None
+        if comm.rank == 0:
+            try:
+                validate_checkpoint_record(
+                    manifest.parent,
+                    payload["nodal_state"],
+                )
+                quadrature_path = validate_checkpoint_record(
+                    manifest.parent,
+                    payload["quadrature_state"],
+                )
+                validation = {
+                    "quadrature_path": str(quadrature_path),
+                    "error": None,
+                }
+            except Exception as exc:
+                validation = {
+                    "quadrature_path": None,
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+        validation = comm.bcast(validation, root=0)
+        if validation["error"] is not None:
+            raise RuntimeError(
+                "Finite-strain J2 checkpoint payload validation failed: "
+                f"{validation['error']}"
+            )
+
+        parsed_problem = None
+        accepted = attempted = events = None
+        coordinate = None
+        try:
+            coordinate = float(payload["coordinate"])
+            accepted = [
+                FiniteStrainPlasticityIncrementInfo.from_dict(item)
+                for item in payload["accepted_increments"]
+            ]
+            attempted = [
+                FiniteStrainPlasticityIncrementInfo.from_dict(item)
+                for item in payload["attempted_increments"]
+            ]
+            events = [
+                SolveEvent.from_dict(item)
+                for item in payload["execution_events"]
+            ]
+            if accepted:
+                if abs(accepted[-1].load_factor - coordinate) > 1.0e-12:
+                    raise ValueError(
+                        "checkpoint coordinate and accepted history disagree"
+                    )
+            elif abs(coordinate) > 1.0e-12:
+                raise ValueError(
+                    "a nonzero checkpoint requires accepted history"
+                )
+        except Exception as exc:
+            parsed_problem = f"{type(exc).__name__}: {exc}"
+        _raise_collective_transaction_problem(
+            comm,
+            parsed_problem,
+            context="finite-strain J2 checkpoint history validation",
         )
-        self.response.state.load(
-            validate_checkpoint_record(
-                manifest.parent, payload["quadrature_state"]
-            ),
-            material=self.material,
+
+        boundary = self._snapshot_checkpoint_restore_boundary()
+        try:
+            load_problem = None
+            try:
+                load_portable_state_bundle(
+                    manifest,
+                    state={
+                        "U": self.solution,
+                        "U_ACCEPTED": self.accepted_solution,
+                    },
+                    record=payload["nodal_state"],
+                    identities=payload["nodal_identity"],
+                )
+                self.response.state.load(
+                    Path(validation["quadrature_path"]),
+                    material=self.material,
+                )
+            except Exception as exc:
+                load_problem = f"{type(exc).__name__}: {exc}"
+            _raise_collective_transaction_problem(
+                comm,
+                load_problem,
+                context="finite-strain J2 checkpoint state restore",
+            )
+            local_equal = np.allclose(
+                self.solution.x.array,
+                self.accepted_solution.x.array,
+                rtol=0.0,
+                atol=1.0e-12,
+            )
+            if not comm.allreduce(bool(local_equal), op=MPI.LAND):
+                raise ValueError(
+                    "Finite-strain J2 checkpoint U and U_ACCEPTED differ."
+                )
+            self.accepted_load_factor = coordinate
+            self.state_transaction.accepted_factor = coordinate
+            self.accepted_increments[:] = accepted
+            self.attempted_increments[:] = attempted
+            self.next_increment_size = payload.get("next_increment_size")
+            self.execution_events[:] = events
+            self.last_solve_info = FiniteStrainPlasticityPathInfo(
+                tuple(accepted),
+                tuple(attempted),
+                self.incrementation,
+            )
+            loading_problem = None
+            try:
+                self._apply_loading(coordinate)
+            except Exception as exc:
+                loading_problem = f"{type(exc).__name__}: {exc}"
+            _raise_collective_transaction_problem(
+                comm,
+                loading_problem,
+                context="finite-strain J2 checkpoint loading restore",
+            )
+            self.state_transaction.prepare_resume()
+        except Exception:
+            self._restore_checkpoint_restore_boundary(boundary)
+            raise
+
+        from ..results import CheckpointRecord
+
+        self.checkpoints.append(
+            CheckpointRecord(
+                name=f"{self.name}_restart_{len(accepted)}",
+                path=manifest,
+                schema=payload["schema"],
+                step_name=self.name,
+                coordinate_name="load_factor",
+                coordinate_value=coordinate,
+                portable=True,
+                metadata={
+                    "writer_rank_count": payload.get("writer_rank_count"),
+                    "reader_rank_count": int(comm.size),
+                    "restart_mode": "portable_coordinate_and_cell_keyed_state",
+                    "role": "restart_source",
+                },
+            )
         )
-        self.accepted_load_factor = float(payload["coordinate"])
-        self.accepted_increments[:] = [
-            FiniteStrainPlasticityIncrementInfo.from_dict(item)
-            for item in payload["accepted_increments"]
-        ]
-        self.attempted_increments[:] = [
-            FiniteStrainPlasticityIncrementInfo.from_dict(item)
-            for item in payload["attempted_increments"]
-        ]
-        self.next_increment_size = payload.get("next_increment_size")
-        self._apply_loading(self.accepted_load_factor)
-        self._update_response(
+
+    def reaction_field(self, *, name: str = "RF"):
+        """Return the accepted full-space residual as a nodal reaction field."""
+
+        from ..problems import _reaction_field
+
+        self.state_transaction.refresh_trial(
             start_factor=self.accepted_load_factor,
             target_factor=self.accepted_load_factor,
+        )
+        return _reaction_field(self.residual_form, self.solution, name=name)
+
+    def solve_result(
+        self,
+        *,
+        output=None,
+        fields=(),
+        strict_output: bool = False,
+        metadata=None,
+    ):
+        """Solve and complete the common stateful nonlinear result lifecycle."""
+
+        from ..results import add_execution_trace, complete_result, from_solution
+
+        solution = self.solve()
+        result = from_solution(
+            solution,
+            name=self.name,
+            metadata={
+                "problem": self.summary(),
+                "solve": self.last_solve_info.as_dict(),
+                "state": self.state_transaction.summary(),
+            },
+        )
+        transaction_fields = tuple(
+            self.state_transaction.populate_result(result) or ()
+        )
+        reaction = self.reaction_field()
+        result.add_field(
+            "RF",
+            reaction,
+            location="nodes",
+            description=(
+                "Accepted full-space residual; constrained entries are nodal "
+                "reactions under the declared strong boundary conditions."
+            ),
+            processing={
+                "method": "assembled_total_lagrangian_residual",
+                "representation": "nodal_vector",
+                "postprocessed": True,
+            },
+        )
+        for selected in fields:
+            function = getattr(selected, "value", selected)
+            result.add_field(
+                getattr(function, "name", type(function).__name__),
+                function,
+            )
+        factors = np.asarray(
+            [0.0, *(item.load_factor for item in self.accepted_increments)],
+            dtype=float,
+        )
+        result.add_history(
+            "load_amplitude",
+            factors,
+            np.asarray([self.amplitude(value) for value in factors], dtype=float),
+            abscissa_name="load_factor",
+            description="Resolved dimensionless loading amplitude.",
+        )
+        result.add_history(
+            "newton_iterations",
+            factors,
+            np.asarray(
+                [0, *(item.iterations for item in self.accepted_increments)],
+                dtype=float,
+            ),
+            abscissa_name="load_factor",
+            description="Newton iterations for each accepted increment.",
+        )
+        result.add_history(
+            "newton_residual",
+            factors,
+            np.asarray(
+                [0.0, *(item.residual_norm for item in self.accepted_increments)],
+                dtype=float,
+            ),
+            abscissa_name="load_factor",
+            description="Accepted full-space nonlinear residual norm.",
+        )
+        result.add_history(
+            "increment_size",
+            factors,
+            np.asarray(
+                [
+                    0.0,
+                    *(
+                        item.load_factor - item.start_load_factor
+                        for item in self.accepted_increments
+                    ),
+                ],
+                dtype=float,
+            ),
+            abscissa_name="load_factor",
+            description="Accepted normalized load increment size.",
+        )
+        for checkpoint in self.checkpoints:
+            result.add_checkpoint(checkpoint)
+        add_execution_trace(result, self.execution_events)
+        return complete_result(
+            self,
+            result,
+            output=output,
+            fields=(*transaction_fields, reaction, *tuple(fields)),
+            strict_output=strict_output,
+            metadata=metadata,
         )
 
     def summary(self) -> dict[str, object]:
         return {
-            "kind": "experimental_finite_strain_plasticity_step",
+            "kind": "finite_strain_j2_standard_problem",
             "name": self.name,
             "maturity": "experimental_global_mpi_restart",
+            "evidence_level": "internal_serial_mpi_restart_verified",
             "accepted_load_factor": self.accepted_load_factor,
             "material": self.material.summary(),
             "response": self.response.summary(),
@@ -966,43 +1783,143 @@ class ExperimentalFiniteStrainPlasticityStep:
             "attempted_increments": tuple(
                 item.as_dict() for item in self.attempted_increments
             ),
+            "output_every": self.output_every,
+            "output_factors": self.output_factors,
+            "snapshot_count": len(self.snapshots),
+            "checkpoint_policy": (
+                None
+                if self.checkpoint_policy is None
+                else self.checkpoint_policy.summary()
+            ),
+            "checkpoint_count": len(self.checkpoints),
+            "procedure": (
+                None if self.procedure is None else self.procedure.summary()
+            ),
+            "quadrature_degree": self.quadrature_degree,
+            "constraints": self.constraint_identity,
+            "external_load": self.load_identity,
+            "last_solve": (
+                None
+                if self.last_solve_info is None
+                else self.last_solve_info.as_dict()
+            ),
         }
 
 
-def experimental_finite_strain_j2_step(
+FiniteStrainJ2AffineTransaction = FiniteStrainJ2StateTransaction
+ExperimentalFiniteStrainPlasticityStep = FiniteStrainJ2StandardProblem
+
+
+def _finite_strain_j2_transaction(
+    displacement,
+    material: FiniteStrainJ2Logarithmic | QuadratureMaterialMap,
+    *,
+    quadrature_degree: int,
+) -> FiniteStrainJ2StateTransaction:
+    """Create the constraint-neutral material state used by both lowerings."""
+
+    if not isinstance(
+        material,
+        (FiniteStrainJ2Logarithmic, QuadratureMaterialMap),
+    ):
+        raise TypeError(
+            "Finite-strain J2 requires FiniteStrainJ2Logarithmic or a "
+            "QuadratureMaterialMap of that family."
+        )
+    solution = displacement.value
+    domain = solution.function_space.mesh
+    if domain.geometry.dim != 3:
+        raise NotImplementedError("Finite-strain J2 is currently three-dimensional.")
+    if isinstance(material, QuadratureMaterialMap):
+        if material.domain is not domain:
+            raise ValueError(
+                "Finite-strain J2 quadrature material map belongs to another mesh."
+            )
+        if not all(
+            isinstance(item, FiniteStrainJ2Logarithmic)
+            for item in material.materials.values()
+        ):
+            raise TypeError(
+                "One finite-strain J2 Step cannot mix constitutive families."
+            )
+        state_schema = material.require_common_state_schema()
+        material.require_common_tangent_convention()
+        stored_energy_component_names = (
+            material.require_common_stored_energy_component_names()
+        )
+    else:
+        state_schema = material.state_schema
+        stored_energy_component_names = material.stored_energy_component_names
+    response = MaterialQuadratureResponse.create(
+        domain,
+        state_schema,
+        degree=quadrature_degree,
+        stored_energy_component_names=stored_energy_component_names,
+    )
+    accepted_solution = fem.Function(solution.function_space, name="U_ACCEPTED")
+    identity = ufl.Identity(3)
+    old_gradient = response.state.compile_expression(
+        identity + ufl.grad(accepted_solution),
+        value_shape=(3, 3),
+    )
+    new_gradient = response.state.compile_expression(
+        identity + ufl.grad(solution),
+        value_shape=(3, 3),
+    )
+    gradient_field = QuadratureField.create(
+        domain,
+        name="F",
+        value_shape=(3, 3),
+        degree=quadrature_degree,
+    )
+    gradient_field.assign(
+        np.broadcast_to(np.eye(3), (len(gradient_field.values), 3, 3))
+    )
+    equivalent_stress = QuadratureField.create(
+        domain,
+        name="MISES",
+        degree=quadrature_degree,
+    )
+    return FiniteStrainJ2StateTransaction(
+        solution=solution,
+        accepted_solution=accepted_solution,
+        material=material,
+        response=response,
+        deformation_gradient_old=old_gradient,
+        deformation_gradient_new=new_gradient,
+        deformation_gradient=gradient_field,
+        equivalent_stress=equivalent_stress,
+    )
+
+
+def finite_strain_j2_standard_problem(
     *,
     displacement,
-    material: FiniteStrainJ2Logarithmic,
+    material: FiniteStrainJ2Logarithmic | QuadratureMaterialMap,
     external_force=None,
+    load_identity=None,
     constraints=(),
     incrementation=None,
     solver_options=None,
     quadrature_degree: int = 2,
     amplitude=None,
-    name: str = "finite_strain_j2_experimental",
-) -> ExperimentalFiniteStrainPlasticityStep:
-    """Build the gated 3D global patch for logarithmic finite-strain J2."""
+    output_every: int | None = 1,
+    output_factors=(),
+    progress=True,
+    status_file=None,
+    checkpoint_policy=None,
+    name: str = "finite_strain_j2",
+) -> FiniteStrainJ2StandardProblem:
+    """Build stateful finite-strain J2 under ordinary strong boundaries."""
 
-    if not isinstance(material, FiniteStrainJ2Logarithmic):
-        raise TypeError("The experimental step requires FiniteStrainJ2Logarithmic.")
-    solution = displacement.value
+    transaction = _finite_strain_j2_transaction(
+        displacement,
+        material,
+        quadrature_degree=quadrature_degree,
+    )
+    solution = transaction.solution
     domain = solution.function_space.mesh
-    if domain.geometry.dim != 3:
-        raise NotImplementedError("The experimental finite-strain J2 step is 3D only.")
-    response = MaterialQuadratureResponse.create(
-        domain,
-        material.state_schema,
-        degree=quadrature_degree,
-        stored_energy_component_names=material.stored_energy_component_names,
-    )
-    accepted_solution = fem.Function(solution.function_space, name="U_ACCEPTED")
-    identity = ufl.Identity(3)
-    deformation_gradient_old = response.state.compile_expression(
-        identity + ufl.grad(accepted_solution), value_shape=(3, 3)
-    )
-    deformation_gradient_new = response.state.compile_expression(
-        identity + ufl.grad(solution), value_shape=(3, 3)
-    )
+    response = transaction.response
     gradient_test = ufl.grad(displacement.test)
     gradient_trial = ufl.grad(displacement.trial)
     first_piola = response.first_piola_stress.function
@@ -1017,28 +1934,34 @@ def experimental_finite_strain_j2_step(
         residual -= load_factor * external_force.expression
     jacobian = ufl.inner(tangent_action, gradient_test) * response.measure
 
+    from .. import constraints as constraint_api
+
+    concrete_constraints = constraint_api.constraint_assets(constraints)
     selected_bcs = []
-    prescribed_values = []
-    for item in constraints or ():
-        if hasattr(item, "bcs"):
-            selected_bcs.extend(item.bcs)
-            records = getattr(item, "dirichlet", ())
-        elif hasattr(item, "bc"):
+    for item in concrete_constraints:
+        if isinstance(item, constraint_api.TimeDependentDirichlet):
+            raise NotImplementedError(
+                "Finite-strain J2 uses one normalized Step amplitude. Declare "
+                "the end-of-step strong value instead of an independent "
+                "TimeDependentDirichlet history."
+            )
+        if hasattr(item, "bc"):
             selected_bcs.append(item.bc)
-            records = (item,)
-        else:
+        elif callable(getattr(item, "dof_indices", None)):
             selected_bcs.append(item)
-            records = ()
-        for record in records:
-            value = getattr(record, "value", None)
-            if value is not None and hasattr(value, "value"):
-                prescribed_values.append(
-                    (
-                        value,
-                        np.asarray(value.value, dtype=float).copy(),
-                        record.bc,
-                    )
-                )
+        else:
+            raise TypeError(
+                "finite_strain_j2_standard_problem accepts ordinary strong "
+                "DirichletConstraint/RemoteDisplacementConstraint assets or "
+                "raw DOLFINx DirichletBC objects; received "
+                f"{type(item).__name__}."
+            )
+    if not selected_bcs:
+        raise ValueError(
+            "Finite-strain J2 standard equilibrium requires at least one "
+            "strong boundary constraint."
+        )
+    value_path = constraint_api.prescribed_value_path(concrete_constraints)
     selected_amplitude = (
         amplitudes.ramp()
         if amplitude is None
@@ -1046,22 +1969,102 @@ def experimental_finite_strain_j2_step(
     )
     if not np.isclose(selected_amplitude(0.0), 0.0):
         raise ValueError("Finite-strain J2 amplitude must start at zero.")
-    return ExperimentalFiniteStrainPlasticityStep(
+    selected_options = newton() if solver_options is None else solver_options
+    if not bool(getattr(selected_options, "error_if_not_converged", True)):
+        raise ValueError(
+            "Public stateful finite-strain J2 requires "
+            "error_if_not_converged=True."
+        )
+    from .. import procedures
+
+    selected_incrementation = step_controls.normalize(incrementation)
+    selected_output_factors = tuple(float(value) for value in output_factors)
+    if isinstance(selected_incrementation, step_controls.FixedIncrementation):
+        missing = tuple(
+            value
+            for value in selected_output_factors
+            if not any(
+                abs(value - declared) <= 1.0e-12
+                for declared in selected_incrementation.load_factors
+            )
+        )
+        if missing:
+            raise ValueError(
+                "Fixed finite-strain J2 incrementation must include every "
+                f"requested output factor; missing {missing}."
+            )
+
+    return FiniteStrainJ2StandardProblem(
         name=name,
         solution=solution,
-        accepted_solution=accepted_solution,
+        accepted_solution=transaction.accepted_solution,
         material=material,
         response=response,
         residual_form=fem.form(residual),
         tangent_form=fem.form(jacobian),
-        deformation_gradient_old=deformation_gradient_old,
-        deformation_gradient_new=deformation_gradient_new,
+        deformation_gradient_old=transaction.deformation_gradient_old,
+        deformation_gradient_new=transaction.deformation_gradient_new,
         load_factor=load_factor,
         amplitude=selected_amplitude,
         bcs=tuple(selected_bcs),
-        prescribed_values=tuple(prescribed_values),
-        incrementation=step_controls.normalize(incrementation),
-        solver_options=newton() if solver_options is None else solver_options,
+        value_path=value_path,
+        incrementation=selected_incrementation,
+        solver_options=selected_options,
+        state_transaction=transaction,
+        output_every=None if output_every is None else int(output_every),
+        output_factors=selected_output_factors,
+        progress=progress,
+        status_file=status_file,
+        checkpoint_policy=checkpoint_policy,
+        procedure=procedures.nonlinear_static(stateful=True),
+        quadrature_degree=int(quadrature_degree),
+        constraint_identity=tuple(
+            item.summary()
+            if hasattr(item, "summary")
+            else {"kind": type(item).__name__}
+            for item in concrete_constraints
+        ),
+        load_identity=(
+            load_identity
+            if load_identity is not None
+            else (
+                None
+                if external_force is None
+                else (
+                    external_force.summary()
+                    if hasattr(external_force, "summary")
+                    else {"kind": type(external_force).__name__}
+                )
+            )
+        ),
+    )
+
+
+def experimental_finite_strain_j2_step(
+    *,
+    displacement,
+    material: FiniteStrainJ2Logarithmic,
+    external_force=None,
+    constraints=(),
+    incrementation=None,
+    solver_options=None,
+    quadrature_degree: int = 2,
+    amplitude=None,
+    name: str = "finite_strain_j2_experimental",
+) -> ExperimentalFiniteStrainPlasticityStep:
+    """Compatibility alias for :func:`finite_strain_j2_standard_problem`."""
+
+    return finite_strain_j2_standard_problem(
+        displacement=displacement,
+        material=material,
+        external_force=external_force,
+        constraints=constraints,
+        incrementation=incrementation,
+        solver_options=solver_options,
+        quadrature_degree=quadrature_degree,
+        amplitude=amplitude,
+        progress=False,
+        name=name,
     )
 
 
@@ -1090,89 +2093,21 @@ def finite_strain_j2_affine_problem(
 
     from .. import problems
 
-    if not isinstance(
-        material,
-        (FiniteStrainJ2Logarithmic, QuadratureMaterialMap),
-    ):
-        raise TypeError(
-            "Finite-strain J2 requires FiniteStrainJ2Logarithmic or a "
-            "QuadratureMaterialMap of that family."
-        )
     if external_force is not None:
         raise NotImplementedError(
             "The first stateful affine J2 route accepts prescribed macroscopic "
             "deformation only; affine cells with natural loads require a "
             "separate work-conjugate load contract."
         )
-    solution = displacement.value
-    domain = solution.function_space.mesh
-    if domain.geometry.dim != 3:
-        raise NotImplementedError("Finite-strain J2 is currently three-dimensional.")
-    if isinstance(material, QuadratureMaterialMap):
-        if material.domain is not domain:
-            raise ValueError(
-                "Finite-strain J2 quadrature material map belongs to another mesh."
-            )
-        if not all(
-            isinstance(item, FiniteStrainJ2Logarithmic)
-            for item in material.materials.values()
-        ):
-            raise TypeError(
-                "One finite-strain J2 Step cannot mix constitutive families."
-            )
-        state_schema = material.require_common_state_schema()
-        material.require_common_tangent_convention()
-        stored_energy_component_names = (
-            material.require_common_stored_energy_component_names()
-        )
-    else:
-        state_schema = material.state_schema
-        stored_energy_component_names = material.stored_energy_component_names
     if getattr(constraint, "target", None) is not displacement:
         raise ValueError("Affine finite-strain J2 constraint must target displacement.")
-    response = MaterialQuadratureResponse.create(
-        domain,
-        state_schema,
-        degree=quadrature_degree,
-        stored_energy_component_names=stored_energy_component_names,
+    transaction = _finite_strain_j2_transaction(
+        displacement,
+        material,
+        quadrature_degree=quadrature_degree,
     )
-    accepted_solution = fem.Function(solution.function_space, name="U_ACCEPTED")
-    identity = ufl.Identity(3)
-    old_gradient = response.state.compile_expression(
-        identity + ufl.grad(accepted_solution),
-        value_shape=(3, 3),
-    )
-    new_gradient = response.state.compile_expression(
-        identity + ufl.grad(solution),
-        value_shape=(3, 3),
-    )
-    gradient_field = QuadratureField.create(
-        domain,
-        name="F",
-        value_shape=(3, 3),
-        degree=quadrature_degree,
-    )
-    gradient_field.assign(
-        np.broadcast_to(
-            np.eye(3),
-            (len(gradient_field.values), 3, 3),
-        )
-    )
-    equivalent_stress = QuadratureField.create(
-        domain,
-        name="MISES",
-        degree=quadrature_degree,
-    )
-    transaction = FiniteStrainJ2AffineTransaction(
-        solution=solution,
-        accepted_solution=accepted_solution,
-        material=material,
-        response=response,
-        deformation_gradient_old=old_gradient,
-        deformation_gradient_new=new_gradient,
-        deformation_gradient=gradient_field,
-        equivalent_stress=equivalent_stress,
-    )
+    solution = transaction.solution
+    response = transaction.response
     gradient_test = ufl.grad(displacement.test)
     gradient_trial = ufl.grad(displacement.trial)
     first_piola = response.first_piola_stress.function
@@ -1241,5 +2176,5 @@ def finite_strain_j2_affine_problem(
     problem.snapshot_field_factory = snapshot_fields
     problem.material = material
     problem.response = response
-    problem.accepted_solution = accepted_solution
+    problem.accepted_solution = transaction.accepted_solution
     return problem

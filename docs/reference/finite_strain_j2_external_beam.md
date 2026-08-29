@@ -60,7 +60,11 @@ AgentFEM comparison contracts of
 3% normalized RMS error and 5% normalized maximum error.  These are project
 promotion thresholds, not tolerances stated by the paper authors.
 
-The AgentFEM side can be executed without weakening this gate:
+The AgentFEM candidate now uses the normal public workflow:
+`model.material(...)`, `model.body_force(...)`, and the ordinary strong-
+boundary `model.step(...)` finite-strain J2 provider. The external reference
+and promotion requirements remain independent of that API migration. The
+AgentFEM side can be executed without weakening this gate:
 
 ```bash
 python tests/lewandowski_2023_self_weight_beam_driver.py evidence/lewandowski-beam

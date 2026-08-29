@@ -363,6 +363,40 @@ class LoadSet:
         return tuple(result)
 
 
+def load_assets(loads, *, unwrap_amplitudes: bool = False) -> tuple[object, ...]:
+    """Return concrete loads from nested public load containers.
+
+    Providers use this complete view for capability checks so a
+    :class:`LoadSet` cannot hide a follower load.  Amplitude wrappers remain
+    visible by default because their shared history is part of step lowering;
+    pass ``unwrap_amplitudes=True`` when inspecting the underlying physical
+    load and its configuration.
+    """
+
+    if loads is None:
+        return ()
+    if isinstance(loads, (tuple, list)):
+        return tuple(
+            selected
+            for item in loads
+            for selected in load_assets(
+                item,
+                unwrap_amplitudes=unwrap_amplitudes,
+            )
+        )
+    if isinstance(loads, LoadSet):
+        return load_assets(
+            loads.loads,
+            unwrap_amplitudes=unwrap_amplitudes,
+        )
+    if isinstance(loads, AmplitudeLoad) and unwrap_amplitudes:
+        return load_assets(
+            loads.load,
+            unwrap_amplitudes=True,
+        )
+    return (loads,)
+
+
 def body_load(value, measure=ufl.dx, *, name: str = "body_load", domain=None, target=None) -> BodyLoad:
     """Create a domain source/body-force load."""
 

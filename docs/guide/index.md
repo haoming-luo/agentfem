@@ -20,7 +20,7 @@ models, output, and results remain separate model assets.
 
 | Guide | Present scope |
 | --- | --- |
-| [Solid mechanics](solid_mechanics.md) | Linear elasticity, thermoelasticity, finite strain, mixed hyperelasticity, and small-strain J2 plasticity |
+| [Solid mechanics](solid_mechanics.md) | Linear elasticity, thermoelasticity, finite strain, mixed hyperelasticity, small-strain J2, and experimental finite-strain J2 providers |
 | [Heat transfer](heat_transfer.md) | Steady conduction, implicit transient heat transfer, thermal fields, and thermo-mechanical handoff |
 | [Dynamics and waves](dynamics.md) | Newmark, generalized-\(\alpha\), explicit central difference, wave sources, and time-series output |
 | [Creep and inelasticity](creep_and_inelasticity.md) | Global creep, material-point models, quadrature state, cutback, restart, and maturity distinctions |

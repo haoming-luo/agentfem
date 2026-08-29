@@ -285,8 +285,9 @@ case directory rather than becoming a misleading general result function.
 
 ## Implemented adjacent foundations
 
-- automatic affine finite-strain increments with convergence-based growth,
-  rollback, cutback, accepted/attempt histories, and `.sta` reporting;
+- automatic finite-strain increments for ordinary strong-boundary and affine
+  providers, with convergence-based growth, rollback, cutback,
+  accepted/attempt histories, and `.sta` reporting;
 - axis-aligned solid `symmetry`/`roller` constraints;
 - reference dead pressure and current follower pressure using Nanson pullback;
 - exact piecewise-constant material-point creep histories;
@@ -327,18 +328,25 @@ coordinate keys to absorb partition-dependent mesh-construction roundoff while
 retaining a global connectivity identity. Coincident but independent interface
 nodes are disambiguated by durable source input-node identity. The current NPZ
 implementation is suitable for laboratory-scale restart; a
-collective HDF5 implementation is the later scale path. J2 and creep
-quadrature state still require stable cell-and-point keys before they can use
-the same portability claim.
+collective HDF5 implementation is the later scale path. Stateful J2, creep,
+and finite-strain J2 already use stable portable cell-and-point identity across
+the tested rank-count changes; larger collective archives remain the scale
+path.
 
-A checkpoint is written only after an increment has been accepted, its state
-and scientific histories have been committed, and its execution event has been
-recorded. The final state is retained even when the total increment count is
-not divisible by the cadence. `keep_last` bounds scheduled-checkpoint storage;
+A checkpoint is written only after an increment has been accepted, its
+scientific state has been committed, and the corresponding convergence event
+has joined the execution trace. The final accepted boundary is retained even
+when the total increment count is not divisible by the cadence. `keep_last` bounds
+scheduled-checkpoint storage;
 AgentFEM publishes the new manifest and all rank shards before deleting older
 generations, removes only files named by their manifests, and preserves an
 explicit restart-source record. Omitting `keep_last` retains every scheduled
-checkpoint. Cross-partition identity remains a separate future capability.
+checkpoint. Restart restores the accepted scientific state, continuation
+coordinates, and execution trace before appending a new resumed segment; it
+does not splice visualization frames from an earlier run into the new
+in-memory time series. Keep the earlier result artifacts when one
+continuous presentation record is required. Larger collective archives,
+rather than cross-partition identity itself, remain the scale path.
 
 ## Next gates
 
@@ -347,8 +355,9 @@ checkpoint. Cross-partition identity remains a separate future capability.
 2. Extend the implemented MPI-global strong-BC resultant and proportional
    linear-static energy closure into named region histories; define
    affine/weak reactions and non-zero prescribed-displacement work separately.
-3. Extend the implemented portable MPI J2/creep cell identity and multi-region
-   state to larger repartitioned scheduled campaigns and collective archives.
+3. Extend the implemented portable MPI J2/creep/finite-strain-J2 cell identity
+   and multi-region state to larger repartitioned scheduled campaigns and
+   collective archives.
 4. Extend the implemented analytical and external J2 paths, physical cutback,
    cyclic amplitudes, quadrature fields and strong-displacement work/energy
    histories with natural/affine work definitions, mesh convergence, and

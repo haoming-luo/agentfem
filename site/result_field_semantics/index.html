@@ -501,6 +501,8 @@
       
         
       
+        
+      
     
     
     
@@ -595,6 +597,34 @@
     
   
     RVE Homogenization and Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/finite_strain_j2_external_beam/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Finite-Strain J2 External Gate
   
 
     
@@ -1326,11 +1356,12 @@ metadata is retained in the result manifest.</p>
 </ol>
 <p>The current release implements the second layer for elasticity. Small-strain
 J2 results retain committed <code>S/PE/PEEQ</code> and pointwise <code>MISES</code> on the
-constitutive quadrature. The experimental public affine-periodic finite-strain
-J2 route retains provider-owned accepted
+constitutive quadrature. The experimental public ordinary and affine/MPC
+finite-strain J2 providers retain the same provider-owned accepted
 <code>F/P/S/MISES/SENER/ELENER/HARDENER/FP/PEEQ</code> at the
 same quadrature identity; the output layer does not recompute them from a
-history-free constitutive expression. J2 and implicit creep also expose
+history-free constitutive expression. Explicit <code>*_CELL</code> products never
+overwrite a same-named raw quadrature field. J2 and implicit creep also expose
 separately named <code>*_CELL</code> fields through
 <code>results.recover_integration_point_field(...)</code>. These fields use the actual
 quadrature weights to form a DG0 cell average and record the source position,

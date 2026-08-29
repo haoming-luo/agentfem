@@ -127,6 +127,21 @@ def test_generated_api_covers_public_workflow_objects():
     assert "SimulationResult" in reference
     assert "## `agentfem.learning`" in reference
     assert "NeuralFieldSpec" in reference
+    assert "FiniteStrainJ2StandardProblem" in reference
+    assert "FiniteStrainPlasticityPathInfo" in reference
+    assert "FiniteStrainJ2AffineTransaction" in reference
+    assert "ExperimentalFiniteStrainPlasticityStep" in reference
+
+
+def test_machine_entrypoints_link_the_packaged_knowledge_catalog():
+    expected = (
+        "https://raw.githubusercontent.com/haoming-luo/agentfem/main/"
+        "src/agentfem/knowledge/catalog.json"
+    )
+    assert json.loads(build_docs.render_agent_manifest())["agent_entrypoints"][
+        "knowledge_catalog"
+    ] == expected
+    assert expected in build_docs.render_llms_entry()
 
 
 def test_site_navigation_uses_scientific_manual_structure():

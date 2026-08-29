@@ -11,6 +11,7 @@ from agentfem import (
     constraints,
     constitutive,
     fields,
+    loads,
     models,
     results,
     solvers,
@@ -571,6 +572,38 @@ def test_public_finite_strain_j2_periodic_cube_matches_material_point(tmp_path):
     assert capability["supported"]
     assert capability["provider"]["name"] == "finite_strain_j2_affine_static"
     assert "checkpoint" in capability["provider"]["options"]["accepted"]
+    wrapped_capability = step_capability(
+        model,
+        target=displacement,
+        options={
+            "material": material_record,
+            "constraints": constraints.ConstraintSet(periodic=[periodicity]),
+        },
+    )
+    assert wrapped_capability["supported"]
+    assert (
+        wrapped_capability["provider"]["name"]
+        == "finite_strain_j2_affine_static"
+    )
+    natural_load = model.load(
+        loads.LoadSet.create(
+            loads.body_force(
+                (0.0, 0.0, -1.0),
+                domain=fixture.domain,
+                target=displacement,
+            )
+        )
+    )
+    loaded_capability = step_capability(
+        model,
+        target=displacement,
+        options={
+            "material": material_record,
+            "constraints": periodicity,
+        },
+    )
+    assert not loaded_capability["supported"]
+    assert model.loads.pop() is natural_load
 
     step = model.step(
         target=displacement,

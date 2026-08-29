@@ -503,6 +503,8 @@
       
         
       
+        
+      
     
     
     
@@ -754,6 +756,34 @@
     
   
     RVE Homogenization and Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finite_strain_j2_external_beam/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Finite-Strain J2 External Gate
   
 
     
@@ -1538,6 +1568,18 @@ f_{\mathrm{trial}}
 \Delta\gamma=\frac{f_{\mathrm{trial}}}{3G+H}
 \quad\text{when }f_{\mathrm{trial}}&gt;0.
 \]</div>
+<p>An experimental three-dimensional finite-strain route is separately declared
+by the multiplicative split</p>
+<div class="arithmatex">\[
+\mathbf F=\mathbf F_e\mathbf F_p,
+\qquad \det\mathbf F_p=1.
+\]</div>
+<p>It uses quadratic Hencky elasticity and an associated logarithmic-space J2
+return. Ordinary strong-boundary and affine/MPC equilibrium providers share
+one atomic quadrature transaction; they do not share their constraint
+elimination algorithm. Accepted results retain <code>F</code>, first-Piola <code>P</code>, Cauchy
+<code>S</code>, <code>FP</code>, <code>PEEQ</code>, invariants, and stored-energy components at integration
+points before any cell recovery.</p>
 <p>The supported global creep route is three-dimensional or axisymmetric,
 small-strain Mises power-law creep. It may be isothermal or consume a positive scalar/field
 temperature through a normalized Arrhenius coefficient. Backward Euler solves</p>

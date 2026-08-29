@@ -187,6 +187,34 @@ def _module_path(module: str) -> Path | None:
     return package_path if package_path.exists() else None
 
 
+def _public_definitions(tree: ast.Module) -> dict[str, ast.AST]:
+    """Resolve definitions and simple compatibility aliases without imports."""
+
+    definitions = {
+        node.name: node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+    }
+    aliases = {
+        target.id: node.value.id
+        for node in tree.body
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Name)
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+    unresolved = dict(aliases)
+    while unresolved:
+        progressed = False
+        for public_name, source_name in tuple(unresolved.items()):
+            if source_name in definitions:
+                definitions[public_name] = definitions[source_name]
+                unresolved.pop(public_name)
+                progressed = True
+        if not progressed:
+            break
+    return definitions
+
+
 def module_api(module: str) -> tuple[ApiObject, ...]:
     path = _module_path(module)
     if path is None:
@@ -247,11 +275,7 @@ def module_api(module: str) -> tuple[ApiObject, ...]:
             imported_tree = ast.parse(
                 imported_path.read_text(), filename=str(imported_path)
             )
-            definitions = {
-                node.name: node
-                for node in imported_tree.body
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-            }
+            definitions = _public_definitions(imported_tree)
             for alias in statement.names:
                 public_name = alias.asname or alias.name
                 if public_name.startswith("_"):
@@ -373,7 +397,7 @@ def render_agent_manifest() -> str:
         "agent_entrypoints": {
             "guide": "agents/",
             "llms_txt": "llms.txt",
-            "knowledge_catalog": "https://raw.githubusercontent.com/haoming-luo/agentfem/main/knowledge/catalog.json",
+            "knowledge_catalog": "https://raw.githubusercontent.com/haoming-luo/agentfem/main/src/agentfem/knowledge/catalog.json",
             "skill": "agents/skill/",
         },
         "commands": contract["MACHINE_COMMANDS"],
@@ -432,7 +456,7 @@ def render_llms_entry() -> str:
         "## Canonical sources",
         "",
         "- [Repository](https://github.com/haoming-luo/agentfem)",
-        "- [Scientific knowledge catalog](https://raw.githubusercontent.com/haoming-luo/agentfem/main/knowledge/catalog.json)",
+        "- [Scientific knowledge catalog](https://raw.githubusercontent.com/haoming-luo/agentfem/main/src/agentfem/knowledge/catalog.json)",
         "- [AgentFEM skill](agents/skill/)",
         "",
         "## Safety and scientific contract",

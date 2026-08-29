@@ -1234,6 +1234,10 @@ def test_capability_and_benchmark_catalogs_state_the_actual_maturity():
     }
     assert all(item.meets_declared_maturity for item in audit.values())
     assert "external" in audit["j2_plasticity"].demonstrated
+    assert "external_gate_defined" in audit[
+        "finite_strain_j2_plasticity"
+    ].demonstrated
+    assert "external" not in audit["finite_strain_j2_plasticity"].demonstrated
     assert "mpi" in audit["mixed_mode_cohesive_interface"].demonstrated
     assert audit["mixed_mode_cohesive_interface"].maturity.startswith(
         "experimental_"

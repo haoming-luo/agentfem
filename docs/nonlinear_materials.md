@@ -124,8 +124,12 @@ The result retains `S/PE/PEEQ/MISES` at constitutive integration points and
 adds separately named `*_CELL` weighted DG0 recovery fields. The recovered
 fields preserve element and material boundaries and are never labeled as raw
 integration-point values or smoothed nodal contours.
-Plane stress, kinematic hardening, external distributed structural benchmarks,
-finite-strain plasticity, and a general UMAT path remain future work.
+Plane stress, finite-strain kinematic hardening, external distributed
+finite-strain structural validation, and a general UMAT path remain future
+work. A separate experimental logarithmic finite-strain J2 route already
+provides ordinary strong-boundary and affine/MPC global equilibrium; its
+locking-resistant formulation and external promotion evidence are not yet
+complete.
 
 ## Power-Law Creep
 

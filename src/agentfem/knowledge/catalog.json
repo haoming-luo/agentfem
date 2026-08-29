@@ -452,7 +452,10 @@
         "agentfem.constitutive.finite_strain_j2_logarithmic",
         "agentfem.constitutive.update_material_points",
         "agentfem.models.Model.step",
-        "agentfem.mechanics.experimental_finite_strain_j2_step"
+        "agentfem.mechanics.FiniteStrainJ2StateTransaction",
+        "agentfem.mechanics.FiniteStrainJ2StandardProblem",
+        "agentfem.mechanics.finite_strain_j2_standard_problem",
+        "agentfem.mechanics.finite_strain_j2_affine_problem"
       ],
       "related_cards": [
         "agentfem.material.j2_global_plasticity",
@@ -460,7 +463,7 @@
       ],
       "source": "src/agentfem/knowledge/cards/finite_strain_j2_logarithmic.json",
       "status": "experimental",
-      "summary": "Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, and a public three-dimensional affine-periodic model.step route with provider-owned quadrature evidence and portable accepted-state restart.",
+      "summary": "Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, and public three-dimensional ordinary strong-boundary and affine/MPC model.step routes sharing provider-owned quadrature evidence and portable accepted-state restart.",
       "title": "Finite-strain logarithmic J2 plasticity"
     },
     {

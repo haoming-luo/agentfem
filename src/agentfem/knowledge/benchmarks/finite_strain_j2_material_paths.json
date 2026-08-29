@@ -4,12 +4,12 @@
   "id": "agentfem.benchmark.finite_strain_j2_material_paths",
   "title": "Finite-strain logarithmic J2 material and global paths",
   "status": "experimental_automated_global_mpi_restart",
-  "purpose": "Verify the local multiplicative update, generic quadrature transaction, public affine-periodic total-Lagrangian consumer, regional distributed assembly, and cross-partition restart.",
+  "purpose": "Verify the local multiplicative update, constraint-neutral quadrature transaction, public ordinary strong-boundary and affine/MPC total-Lagrangian consumers, regional distributed assembly, and cross-partition restart.",
   "physics": "three-dimensional rate-independent finite-strain J2 plasticity with quadratic Hencky elasticity and linear isotropic hardening",
   "execution": {
-    "command": "python -m pytest -q tests/test_finite_strain_plasticity.py tests/test_finite_strain_j2_periodic.py tests/test_finite_strain_j2_material_map.py tests/test_affine_j2_automatic_restart.py tests/test_periodic_void_fixture.py && agentfem mpi-run -n 2 -- python -m pytest -q tests/test_parallel_affine.py && agentfem mpi-run -n 2 -- python tests/parallel_periodic_void_j2_driver.py",
+    "command": "python -m pytest -q tests/test_finite_strain_plasticity.py tests/test_finite_strain_j2_standard.py tests/test_finite_strain_j2_periodic.py tests/test_finite_strain_j2_material_map.py tests/test_affine_j2_automatic_restart.py tests/test_periodic_void_fixture.py && agentfem mpi-run -n 2 -- python tests/finite_strain_j2_mpi_driver.py && agentfem mpi-run -n 2 -- python -m pytest -q tests/test_parallel_affine.py && agentfem mpi-run -n 2 -- python tests/parallel_periodic_void_j2_driver.py",
     "example": "docs/nonlinear_solid_architecture.md",
-    "evidence": "Independent material paths exercise rigid and superposed rotations, isochoric plastic flow, yield consistency, unloading and reversal, fixed-old-state tangent comparison, atomic quadrature commit or rollback, public serial and two-rank affine-periodic cells, compatible regional materials, forced physical cutback, true-void execution, and portable restart after changing MPI rank count. Cross-rank restart drivers are retained as explicit workflow evidence outside the fast command list."
+    "evidence": "Independent material paths exercise rigid and superposed rotations, isochoric plastic flow, yield consistency, unloading and reversal, fixed-old-state tangent comparison, atomic quadrature commit or rollback, public ordinary strong-boundary and affine-periodic cells, reference body-force reaction balance, compatible regional materials, forced physical cutback, true-void execution, and portable restart after changing MPI rank count."
   },
   "observables": [
     "Cauchy stress under rigid and superposed rotations.",
@@ -18,6 +18,7 @@
     "Relative error between the returned dP/dF and an independent centered derivative.",
     "Committed and trial state vectors before and after success or intentional local failure.",
     "Accepted and rejected global load increments, Newton residuals, and maximum PEEQ increment.",
+    "Strong-boundary displacement, reference-load reaction balance, output/progress evidence and prescribed-value-path identity.",
     "Serial/distributed terminal displacement and owned-point PEEQ extrema.",
     "Restored nodal fields, quadrature state, load coordinate, and increment ledger across changed MPI partitions."
   ],
@@ -28,6 +29,7 @@
     "Elastic and plastic discrete tangents satisfy the declared numerical relative-error tolerance.",
     "A failed local batch restores all trial fields and a successful accepted batch commits every state variable atomically.",
     "The total-Lagrangian patch reaches its prescribed displacement, consumes the neutral tangent, and cuts back an otherwise converged increment whose PEEQ change exceeds the declared limit.",
+    "The ordinary provider follows the declared normalized amplitude, consumes reference dead loads, exposes reaction evidence, rejects unsupported constraint/load semantics, and restores the last accepted state after finalization failure.",
     "Two-rank assembly preserves the prescribed deformation and uniform material state.",
     "Two-to-one and one-to-two rank restart workflows recover and complete the same accepted loading path."
   ],

@@ -17,7 +17,7 @@
   "agent_entrypoints": {
     "guide": "agents/",
     "llms_txt": "llms.txt",
-    "knowledge_catalog": "https://raw.githubusercontent.com/haoming-luo/agentfem/main/knowledge/catalog.json",
+    "knowledge_catalog": "https://raw.githubusercontent.com/haoming-luo/agentfem/main/src/agentfem/knowledge/catalog.json",
     "skill": "agents/skill/"
   },
   "commands": {

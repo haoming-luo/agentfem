@@ -706,7 +706,7 @@ cycle = fatigue_fracture.force_cycle(fmin=226, fmax=2262); law = fatigue_fractur
 **Status:** `experimental`<br>
 **Source card:** `src/agentfem/knowledge/cards/finite_strain_j2_logarithmic.json`
 
-Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, and a public three-dimensional affine-periodic model.step route with provider-owned quadrature evidence and portable accepted-state restart.
+Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, and public three-dimensional ordinary strong-boundary and affine/MPC model.step routes sharing provider-owned quadrature evidence and portable accepted-state restart.
 
 ### Public API
 
@@ -715,7 +715,10 @@ Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, ass
 - `agentfem.constitutive.finite_strain_j2_logarithmic`
 - `agentfem.constitutive.update_material_points`
 - `agentfem.models.Model.step`
-- `agentfem.mechanics.experimental_finite_strain_j2_step`
+- `agentfem.mechanics.FiniteStrainJ2StateTransaction`
+- `agentfem.mechanics.FiniteStrainJ2StandardProblem`
+- `agentfem.mechanics.finite_strain_j2_standard_problem`
+- `agentfem.mechanics.finite_strain_j2_affine_problem`
 
 ### Scientific contract
 
@@ -774,7 +777,7 @@ The two provider-owned components separate Hencky elastic free energy from isotr
 | --- | --- | --- | --- |
 | Cauchy stress | symmetric 3x3 tensor per integration point | stress | The current-configuration stress is returned by the neutral material contract. |
 | FP and PEEQ | committed/trial quadrature state | dimensionless | The full plastic deformation gradient and accumulated equivalent plastic strain have a versioned portable schema. |
-| F, P, S, MISES, SENER, ELENER and HARDENER | accepted provider-owned quadrature response | kinematics, stress and stored energy density | The public affine-periodic route retains accepted constitutive fields without reconstructing them from a history-free material law; explicitly named DG0 cell averages are separate visualization products. |
+| F, P, S, MISES, SENER, ELENER and HARDENER | accepted provider-owned quadrature response | kinematics, stress and stored energy density | Both public equilibrium providers retain accepted constitutive fields without reconstructing them from a history-free material law; explicitly named DG0 cell averages are separate visualization products. |
 | consistent tangent | 9 by 9 derivative of first Piola stress with respect to deformation gradient | stress | The initial implementation differentiates the complete discrete return with fixed old state and is independently checked with a different perturbation. |
 
 #### Assumptions
@@ -788,15 +791,17 @@ The two provider-owned components separate Hencky elastic free energy from isotr
 - State order and output aliases are declared by MaterialStateSchema rather than inferred from arrays.
 - Global iterations read committed state and write trial state; only an accepted increment may commit.
 - The tangent is the row-major first-Piola/deformation-gradient reference derivative.
-- The public affine route saves checkpoint state only at an accepted load factor and validates nodal, quadrature, mesh, material, increment-control, and periodic-equation identity before restore.
+- The ordinary route validates prescribed-value, natural-load, amplitude, solver, nodal, quadrature, mesh, material and increment-control identity; the affine route additionally validates the periodic-equation identity before restore.
 
 #### Applicability
 
-- Material-point studies and three-dimensional affine-periodic cells with one or more explicitly partitioned compatible material regions under prescribed macroscopic deformation through model.step.
+- Material-point studies and three-dimensional solids with ordinary strong boundaries, proportional prescribed motion and reference dead loads through model.step.
+- Three-dimensional affine-periodic cells with one or more explicitly partitioned compatible material regions under prescribed macroscopic deformation through model.step.
 
 #### Limitations
 
-- The public model.step route currently requires exactly one AbaqusPeriodicConstraint and no body-force or natural-load power; all regional materials must share one declared state schema, tangent convention, and stored-energy component contract.
+- The ordinary provider accepts strong Dirichlet or remote-displacement constraints, a shared normalized amplitude, and reference-configuration dead loads; absolute TimeDependentDirichlet histories, follower loads, weak boundary models, contact and MPC constraints require separate consistent lowering.
+- The affine provider requires exactly one AbaqusPeriodicConstraint and no body-force or natural-load power; all regional materials must share one declared state schema, tangent convention, and stored-energy component contract.
 - The numerical tangent prioritizes a verifiable discrete derivative; a production analytical tangent is not implemented.
 - No independent external finite-strain plasticity structure benchmark has yet passed.
 - The current low-order displacement-only tetrahedral route is not a substitute for a mixed displacement--pressure discretization in near-incompressible plasticity.
@@ -814,6 +819,7 @@ material = constitutive.finite_strain_j2_logarithmic(young=210e3, poisson=0.3, y
 **Tests**
 
 - `tests/test_finite_strain_plasticity.py`
+- `tests/test_finite_strain_j2_standard.py`
 - `tests/finite_strain_j2_mpi_driver.py`
 - `tests/portable_finite_strain_j2_driver.py`
 - `tests/test_finite_strain_j2_periodic.py`
@@ -849,6 +855,8 @@ material = constitutive.finite_strain_j2_logarithmic(young=210e3, poisson=0.3, y
 - Serial one- and multi-element total-Lagrangian patches assemble P and dP/dF, reach a prescribed finite deformation, and reject/cut back an excessive PEEQ increment.
 - A two-rank global patch preserves shared assembly and uniform quadrature state.
 - Portable full-Step checkpoints resume equivalently after changing from two ranks to one and from one rank to two.
+- The public ordinary provider consumes nonlinear tabular amplitudes, remote displacement and reference body force, reports reaction balance and accepted integration-point fields, performs real cutback, and rolls back atomically when accepted-state finalization fails.
+- Unsupported nested periodic/MPC constraints, follower loads and weak boundary models fail closed instead of being discarded during strong-boundary lowering.
 - The public model.step affine-periodic cube matches the same accepted material-point path and records provider-owned F/P/S/MISES/SENER/ELENER/HARDENER/FP/PEEQ fields plus Hill--Mandel evidence.
 - Material-point and public output tests verify SENER = ELENER + HARDENER while retaining plastic dissipation as an explicit unimplemented ledger channel.
 - An accepted public affine checkpoint restores displacement, quadrature state, accepted and attempted increment histories, the next adaptive increment, and execution evidence before continuing.

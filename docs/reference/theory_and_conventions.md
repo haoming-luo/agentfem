@@ -218,6 +218,21 @@ f_{\mathrm{trial}}
 \quad\text{when }f_{\mathrm{trial}}>0.
 \]
 
+An experimental three-dimensional finite-strain route is separately declared
+by the multiplicative split
+
+\[
+\mathbf F=\mathbf F_e\mathbf F_p,
+\qquad \det\mathbf F_p=1.
+\]
+
+It uses quadratic Hencky elasticity and an associated logarithmic-space J2
+return. Ordinary strong-boundary and affine/MPC equilibrium providers share
+one atomic quadrature transaction; they do not share their constraint
+elimination algorithm. Accepted results retain `F`, first-Piola `P`, Cauchy
+`S`, `FP`, `PEEQ`, invariants, and stored-energy components at integration
+points before any cell recovery.
+
 The supported global creep route is three-dimensional or axisymmetric,
 small-strain Mises power-law creep. It may be isothermal or consume a positive scalar/field
 temperature through a normalized Arrhenius coefficient. Backward Euler solves

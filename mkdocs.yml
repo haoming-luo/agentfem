@@ -158,6 +158,7 @@ nav:
       - reference/index.md
       - Theory and Conventions: reference/theory_and_conventions.md
       - RVE Homogenization and Statistics: reference/rve_homogenization_and_statistics.md
+      - Finite-Strain J2 External Gate: reference/finite_strain_j2_external_beam.md
       - Scientific Functions: reference/scientific_function_reference.md
       - Output Variables: result_field_semantics.md
       - Operator Contracts: operator_contracts.md

@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://haoming-luo.github.io/agentfem/reference/scientific_function_reference/">
       
       
-        <link rel="prev" href="../rve_homogenization_and_statistics/">
+        <link rel="prev" href="../finite_strain_j2_external_beam/">
       
       
         <link rel="next" href="../../result_field_semantics/">
@@ -503,6 +503,8 @@
       
         
       
+        
+      
     
     
     
@@ -597,6 +599,34 @@
     
   
     RVE Homogenization and Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finite_strain_j2_external_beam/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Finite-Strain J2 External Gate
   
 
     
@@ -14230,7 +14260,7 @@ D=1-(1-D_m)(1-D_f)
 <strong>Kind:</strong> <code>material</code><br>
 <strong>Status:</strong> <code>experimental</code><br>
 <strong>Source card:</strong> <code>src/agentfem/knowledge/cards/finite_strain_j2_logarithmic.json</code></p>
-<p>Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, and a public three-dimensional affine-periodic model.step route with provider-owned quadrature evidence and portable accepted-state restart.</p>
+<p>Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, and public three-dimensional ordinary strong-boundary and affine/MPC model.step routes sharing provider-owned quadrature evidence and portable accepted-state restart.</p>
 <h3 id="public-api_5">Public API<a class="headerlink" href="#public-api_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>agentfem.constitutive.FiniteStrainJ2Logarithmic</code></li>
@@ -14238,7 +14268,10 @@ D=1-(1-D_m)(1-D_f)
 <li><code>agentfem.constitutive.finite_strain_j2_logarithmic</code></li>
 <li><code>agentfem.constitutive.update_material_points</code></li>
 <li><code>agentfem.models.Model.step</code></li>
-<li><code>agentfem.mechanics.experimental_finite_strain_j2_step</code></li>
+<li><code>agentfem.mechanics.FiniteStrainJ2StateTransaction</code></li>
+<li><code>agentfem.mechanics.FiniteStrainJ2StandardProblem</code></li>
+<li><code>agentfem.mechanics.finite_strain_j2_standard_problem</code></li>
+<li><code>agentfem.mechanics.finite_strain_j2_affine_problem</code></li>
 </ul>
 <h3 id="scientific-contract_5">Scientific contract<a class="headerlink" href="#scientific-contract_5" title="Permanent link">&para;</a></h3>
 <p>The total deformation gradient is split multiplicatively; a quadratic Hencky elastic potential supplies Kirchhoff stress, and an associative pressure-insensitive radial return updates an isochoric plastic deformation gradient and accumulated equivalent plastic strain.</p>
@@ -14319,7 +14352,7 @@ f=q-(\sigma_{y0}+H\bar\varepsilon_p),\qquad q=\sqrt{\frac{3}{2}\,\operatorname{d
 <td>F, P, S, MISES, SENER, ELENER and HARDENER</td>
 <td>accepted provider-owned quadrature response</td>
 <td>kinematics, stress and stored energy density</td>
-<td>The public affine-periodic route retains accepted constitutive fields without reconstructing them from a history-free material law; explicitly named DG0 cell averages are separate visualization products.</td>
+<td>Both public equilibrium providers retain accepted constitutive fields without reconstructing them from a history-free material law; explicitly named DG0 cell averages are separate visualization products.</td>
 </tr>
 <tr>
 <td>consistent tangent</td>
@@ -14340,15 +14373,17 @@ f=q-(\sigma_{y0}+H\bar\varepsilon_p),\qquad q=\sqrt{\frac{3}{2}\,\operatorname{d
 <li>State order and output aliases are declared by MaterialStateSchema rather than inferred from arrays.</li>
 <li>Global iterations read committed state and write trial state; only an accepted increment may commit.</li>
 <li>The tangent is the row-major first-Piola/deformation-gradient reference derivative.</li>
-<li>The public affine route saves checkpoint state only at an accepted load factor and validates nodal, quadrature, mesh, material, increment-control, and periodic-equation identity before restore.</li>
+<li>The ordinary route validates prescribed-value, natural-load, amplitude, solver, nodal, quadrature, mesh, material and increment-control identity; the affine route additionally validates the periodic-equation identity before restore.</li>
 </ul>
 <h4 id="applicability_5">Applicability<a class="headerlink" href="#applicability_5" title="Permanent link">&para;</a></h4>
 <ul>
-<li>Material-point studies and three-dimensional affine-periodic cells with one or more explicitly partitioned compatible material regions under prescribed macroscopic deformation through model.step.</li>
+<li>Material-point studies and three-dimensional solids with ordinary strong boundaries, proportional prescribed motion and reference dead loads through model.step.</li>
+<li>Three-dimensional affine-periodic cells with one or more explicitly partitioned compatible material regions under prescribed macroscopic deformation through model.step.</li>
 </ul>
 <h4 id="limitations_5">Limitations<a class="headerlink" href="#limitations_5" title="Permanent link">&para;</a></h4>
 <ul>
-<li>The public model.step route currently requires exactly one AbaqusPeriodicConstraint and no body-force or natural-load power; all regional materials must share one declared state schema, tangent convention, and stored-energy component contract.</li>
+<li>The ordinary provider accepts strong Dirichlet or remote-displacement constraints, a shared normalized amplitude, and reference-configuration dead loads; absolute TimeDependentDirichlet histories, follower loads, weak boundary models, contact and MPC constraints require separate consistent lowering.</li>
+<li>The affine provider requires exactly one AbaqusPeriodicConstraint and no body-force or natural-load power; all regional materials must share one declared state schema, tangent convention, and stored-energy component contract.</li>
 <li>The numerical tangent prioritizes a verifiable discrete derivative; a production analytical tangent is not implemented.</li>
 <li>No independent external finite-strain plasticity structure benchmark has yet passed.</li>
 <li>The current low-order displacement-only tetrahedral route is not a substitute for a mixed displacement--pressure discretization in near-incompressible plasticity.</li>
@@ -14362,6 +14397,7 @@ f=q-(\sigma_{y0}+H\bar\varepsilon_p),\qquad q=\sqrt{\frac{3}{2}\,\operatorname{d
 <p><strong>Tests</strong></p>
 <ul>
 <li><code>tests/test_finite_strain_plasticity.py</code></li>
+<li><code>tests/test_finite_strain_j2_standard.py</code></li>
 <li><code>tests/finite_strain_j2_mpi_driver.py</code></li>
 <li><code>tests/portable_finite_strain_j2_driver.py</code></li>
 <li><code>tests/test_finite_strain_j2_periodic.py</code></li>
@@ -14397,6 +14433,8 @@ f=q-(\sigma_{y0}+H\bar\varepsilon_p),\qquad q=\sqrt{\frac{3}{2}\,\operatorname{d
 <li>Serial one- and multi-element total-Lagrangian patches assemble P and dP/dF, reach a prescribed finite deformation, and reject/cut back an excessive PEEQ increment.</li>
 <li>A two-rank global patch preserves shared assembly and uniform quadrature state.</li>
 <li>Portable full-Step checkpoints resume equivalently after changing from two ranks to one and from one rank to two.</li>
+<li>The public ordinary provider consumes nonlinear tabular amplitudes, remote displacement and reference body force, reports reaction balance and accepted integration-point fields, performs real cutback, and rolls back atomically when accepted-state finalization fails.</li>
+<li>Unsupported nested periodic/MPC constraints, follower loads and weak boundary models fail closed instead of being discarded during strong-boundary lowering.</li>
 <li>The public model.step affine-periodic cube matches the same accepted material-point path and records provider-owned F/P/S/MISES/SENER/ELENER/HARDENER/FP/PEEQ fields plus Hill--Mandel evidence.</li>
 <li>Material-point and public output tests verify SENER = ELENER + HARDENER while retaining plastic dissipation as an explicit unimplemented ledger channel.</li>
 <li>An accepted public affine checkpoint restores displacement, quadrature state, accepted and attempted increment histories, the next adaptive increment, and execution evidence before continuing.</li>
@@ -19098,7 +19136,7 @@ G_c=G_{\mathrm{I}c}+(G_{\mathrm{II}c}-G_{\mathrm{I}c})\left(\frac{G_s}{G_n+G_s}\
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../rve_homogenization_and_statistics/" class="md-footer__link md-footer__link--prev" aria-label="Previous: RVE Homogenization and Statistics">
+          <a href="../finite_strain_j2_external_beam/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Finite-Strain J2 External Gate">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -19108,7 +19146,7 @@ G_c=G_{\mathrm{I}c}+(G_{\mathrm{II}c}-G_{\mathrm{I}c})\left(\frac{G_s}{G_n+G_s}\
                 Previous
               </span>
               <div class="md-ellipsis">
-                RVE Homogenization and Statistics
+                Finite-Strain J2 External Gate
               </div>
             </div>
           </a>

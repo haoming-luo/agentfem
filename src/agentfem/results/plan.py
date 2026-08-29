@@ -777,8 +777,22 @@ class OutputPlan:
             basename=self.basename,
         )
         for field in artifacts.final_fields:
+            selected_name = field.name
+            existing_field = result.fields.get(selected_name)
+            if (
+                existing_field is not None
+                and existing_field.location == "quadrature_points"
+            ):
+                recovered_name = f"{selected_name}_CELL"
+                if recovered_name in result.fields:
+                    # A stateful constitutive transaction has already attached
+                    # both the raw quadrature field and its declared cell
+                    # recovery. Do not let a visualization artifact silently
+                    # replace the raw scientific field's location semantics.
+                    continue
+                selected_name = recovered_name
             result.add_field(
-                field.name,
+                selected_name,
                 field,
                 location="cells",
                 description="P0 finite-strain visualization field.",
