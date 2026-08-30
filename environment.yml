@@ -10,7 +10,9 @@ dependencies:
   - petsc4py
   - h5py
   # CI exercises optional CAD/true-void fixtures; AgentFEM runtime stays optional.
-  - gmsh
+  # The `gmsh` output now carries the executable/library; `python-gmsh`
+  # depends on it and provides the Python API exercised by the fixtures.
+  - python-gmsh
   - numpy
   - scipy
   - pyamg
