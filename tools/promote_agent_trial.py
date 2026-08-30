@@ -15,10 +15,15 @@ import json
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tomllib
 import zipfile
 
-import promotion_gate
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPOSITORY_ROOT))
+
+import promotion_gate  # noqa: E402
 
 
 _ALLOWED_EXACT = {
