@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -25,6 +26,40 @@ def _is_sha256(value: object) -> bool:
     text = str(value or "")
     return len(text) == 64 and all(
         character in "0123456789abcdef" for character in text.lower()
+    )
+
+
+def _record_sha256(record: dict[str, object]) -> str:
+    """Hash one evidence record independently of JSON whitespace."""
+
+    payload = json.dumps(
+        record,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _valid_agent_trial(record: dict[str, object]) -> bool:
+    """Return whether *record* is a complete fresh-agent acceptance."""
+
+    return bool(
+        record.get("schema") == "agentfem.agent-trial-acceptance"
+        and record.get("status") == "passed"
+        and record.get("installed_wheel") is True
+        and record.get("fresh_context") is True
+        and record.get("human_interventions") == 0
+        and record.get("runtime") == "passed"
+        and record.get("capability_discovery") == "passed"
+        and record.get("project_check") == "passed"
+        and record.get("simulation_result") == "passed"
+        and record.get("verification") == "passed"
+        and record.get("scientific_explanation") == "reviewed"
+        and record.get("candidate_identity_verified") is True
+        and _is_sha256(record.get("wheel_sha256"))
+        and _is_sha256(record.get("transcript_sha256"))
+        and _is_sha256(record.get("explanation_sha256"))
     )
 
 
@@ -306,21 +341,7 @@ def _gate_agent(
     accepted = [
         record
         for record in records
-        if record.get("schema") == "agentfem.agent-trial-acceptance"
-        and record.get("status") == "passed"
-        and record.get("installed_wheel") is True
-        and record.get("fresh_context") is True
-        and record.get("human_interventions") == 0
-        and record.get("runtime") == "passed"
-        and record.get("capability_discovery") == "passed"
-        and record.get("project_check") == "passed"
-        and record.get("simulation_result") == "passed"
-        and record.get("verification") == "passed"
-        and record.get("scientific_explanation") == "reviewed"
-        and record.get("candidate_identity_verified") is True
-        and _is_sha256(record.get("wheel_sha256"))
-        and _is_sha256(record.get("transcript_sha256"))
-        and _is_sha256(record.get("explanation_sha256"))
+        if _valid_agent_trial(record)
         and _matches_candidate(
             record,
             version=version,
@@ -328,17 +349,58 @@ def _gate_agent(
             commit=commit,
         )
     ]
-    gaps = () if accepted else (
+    source_trials = [record for record in records if _valid_agent_trial(record)]
+    promoted = []
+    for bridge in records:
+        if not (
+            bridge.get("schema") == "agentfem.agent-trial-promotion"
+            and bridge.get("status") == "passed"
+            and bridge.get("allowed_changes_only") is True
+            and bridge.get("behavior_equivalent") is True
+            and bridge.get("protected_runtime_tree_source")
+            == bridge.get("protected_runtime_tree_target")
+            and _is_sha256(bridge.get("protected_runtime_tree_source"))
+            and _is_sha256(bridge.get("target_wheel_sha256"))
+            and _is_sha256(bridge.get("source_acceptance_sha256"))
+            and str(bridge.get("target_agentfem_version", "")) == version
+            and commit
+            and str(bridge.get("target_commit", "")) == commit
+        ):
+            continue
+        source = next(
+            (
+                trial
+                for trial in source_trials
+                if _record_sha256(trial)
+                == bridge.get("source_acceptance_sha256")
+                and trial.get("agentfem_version")
+                == bridge.get("source_agentfem_version")
+                and trial.get("source_commit") == bridge.get("source_commit")
+                and trial.get("wheel_sha256")
+                == bridge.get("source_wheel_sha256")
+            ),
+            None,
+        )
+        if source is not None:
+            promoted.append((bridge, source))
+
+    gaps = () if accepted or promoted else (
         "missing zero-intervention fresh-agent trial from an installed wheel",
+    )
+    evidence = [
+        f"{item.get('agent')}:{item.get('agentfem_version')}"
+        for item in accepted
+    ]
+    evidence.extend(
+        f"{source.get('agent')}:{bridge.get('source_agentfem_version')}"
+        f"->{bridge.get('target_agentfem_version')}:behavior-equivalent"
+        for bridge, source in promoted
     )
     return GateResult(
         "G7",
         "a fresh AI agent can inspect, build, run, verify, and explain",
-        "passed" if accepted else "external_evidence_required",
-        tuple(
-            f"{item.get('agent')}:{item.get('agentfem_version')}"
-            for item in accepted
-        ),
+        "passed" if accepted or promoted else "external_evidence_required",
+        tuple(evidence),
         gaps,
     )
 

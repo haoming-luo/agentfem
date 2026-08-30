@@ -179,3 +179,89 @@ def test_old_or_different_commit_evidence_cannot_promote_current_candidate(tmp_p
     gate = next(item for item in report["gates"] if item["gate"] == "G5")
     assert gate["evidence"] == ()
     assert any("linux" in item for item in gate["gaps"])
+
+
+def test_behavior_equivalent_bridge_reuses_but_does_not_rewrite_agent_trial(tmp_path):
+    source_commit = "b" * 40
+    target_commit = "a" * 40
+    source = {
+        "schema": "agentfem.agent-trial-acceptance",
+        "status": "passed",
+        "agent": "Codex",
+        "agentfem_version": "0.2.6",
+        "source_commit": source_commit,
+        "installed_wheel": True,
+        "fresh_context": True,
+        "human_interventions": 0,
+        "runtime": "passed",
+        "capability_discovery": "passed",
+        "project_check": "passed",
+        "simulation_result": "passed",
+        "verification": "passed",
+        "scientific_explanation": "reviewed",
+        "candidate_identity_verified": True,
+        "wheel_sha256": "4" * 64,
+        "transcript_sha256": "5" * 64,
+        "explanation_sha256": "6" * 64,
+    }
+    source_path = _write(tmp_path, "source-agent.json", source)
+    bridge_path = _write(
+        tmp_path,
+        "bridge.json",
+        {
+            "schema": "agentfem.agent-trial-promotion",
+            "status": "passed",
+            "allowed_changes_only": True,
+            "behavior_equivalent": True,
+            "source_acceptance_sha256": promotion_gate._record_sha256(source),
+            "source_agentfem_version": "0.2.6",
+            "source_commit": source_commit,
+            "source_wheel_sha256": "4" * 64,
+            "target_agentfem_version": "0.3.0",
+            "target_commit": target_commit,
+            "target_wheel_sha256": "7" * 64,
+            "protected_runtime_tree_source": "8" * 64,
+            "protected_runtime_tree_target": "8" * 64,
+        },
+    )
+
+    report = promotion_gate.evaluate(
+        evidence=(source_path, bridge_path),
+        candidate_version="0.3.0",
+        candidate_commit=target_commit,
+    )
+    gate = next(item for item in report["gates"] if item["gate"] == "G7")
+
+    assert gate["passed"] is True
+    assert gate["evidence"] == ("Codex:0.2.6->0.3.0:behavior-equivalent",)
+
+
+def test_behavior_bridge_without_original_agent_trial_is_rejected(tmp_path):
+    bridge_path = _write(
+        tmp_path,
+        "bridge-only.json",
+        {
+            "schema": "agentfem.agent-trial-promotion",
+            "status": "passed",
+            "allowed_changes_only": True,
+            "behavior_equivalent": True,
+            "source_acceptance_sha256": "1" * 64,
+            "source_agentfem_version": "0.2.6",
+            "source_commit": "b" * 40,
+            "source_wheel_sha256": "4" * 64,
+            "target_agentfem_version": "0.3.0",
+            "target_commit": "a" * 40,
+            "target_wheel_sha256": "7" * 64,
+            "protected_runtime_tree_source": "8" * 64,
+            "protected_runtime_tree_target": "8" * 64,
+        },
+    )
+
+    report = promotion_gate.evaluate(
+        evidence=(bridge_path,),
+        candidate_version="0.3.0",
+        candidate_commit="a" * 40,
+    )
+    gate = next(item for item in report["gates"] if item["gate"] == "G7")
+
+    assert gate["passed"] is False
