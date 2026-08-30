@@ -49,14 +49,12 @@ Study → Model → Mesh/Regions → Fields → Materials → Loads/Constraints
 
 ## Quick installation
 
-AgentFEM currently expects a compatible FEniCSx/PETSc/MPI environment. The
-recommended installation is:
+The recommended conda-forge installation provides AgentFEM and its compatible
+FEniCSx/PETSc/MPI foundation together:
 
 ```bash
-mamba create -n agentfem-env -c conda-forge \
-  python=3.11 fenics-dolfinx=0.11 mpich mpi4py petsc4py h5py
+mamba create -n agentfem-env -c conda-forge python=3.11 agentfem
 mamba activate agentfem-env
-python -m pip install agentfem
 agentfem doctor
 ```
 

@@ -7,11 +7,12 @@ machine-readable run evidence.
 
 ## Prepare the numerical environment
 
-AgentFEM currently uses a compatible FEniCSx/PETSc/MPI environment. On Linux,
-macOS, and Windows through WSL2, create that stack with conda-forge and install
-the AgentFEM wheel into it. Then check the actual runtime:
+On Linux, macOS, and Windows through WSL2, install AgentFEM and its compatible
+FEniCSx/PETSc/MPI foundation from conda-forge. Then check the actual runtime:
 
 ```bash
+mamba create -n agentfem-env -c conda-forge python=3.11 agentfem
+mamba activate agentfem-env
 agentfem doctor
 agentfem doctor --json
 ```

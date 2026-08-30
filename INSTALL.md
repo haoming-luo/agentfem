@@ -7,12 +7,26 @@ a compatible MPI/PETSc/DOLFINx build.
 ## Recommended Environment
 
 ```bash
+mamba create -n agentfem-env -c conda-forge python=3.11 agentfem
+mamba activate agentfem-env
+agentfem doctor
+```
+
+This installs AgentFEM and the compatible FEniCSx/PETSc/MPI foundation in one
+environment.
+
+## PyPI and Source Development
+
+If you need a PyPI wheel or an editable source checkout, create the numerical
+environment first:
+
+```bash
 mamba create -n agentfem-env -c conda-forge \
   python=3.11 fenics-dolfinx=0.11 mpich mpi4py petsc4py h5py
 mamba activate agentfem-env
 ```
 
-Install AgentFEM from PyPI:
+Then install AgentFEM from PyPI:
 
 ```bash
 python -m pip install agentfem
@@ -23,12 +37,6 @@ For source development, install from the repository root:
 ```bash
 python -m pip install -e .
 ```
-
-The AgentFEM conda-forge feedstock has been accepted and is awaiting public
-package-index synchronization. Until `conda search -c conda-forge agentfem`
-lists it, conda supplies the compiled FEniCSx/PETSc/MPI runtime and PyPI or the
-source tree supplies AgentFEM. Once the package is available, both layers can
-be installed in one conda environment command.
 
 ## Windows
 

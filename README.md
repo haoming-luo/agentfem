@@ -7,6 +7,7 @@
 
 [![Test](https://github.com/haoming-luo/agentfem/actions/workflows/test.yml/badge.svg)](https://github.com/haoming-luo/agentfem/actions/workflows/test.yml)
 [![PyPI](https://img.shields.io/pypi/v/agentfem.svg)](https://pypi.org/project/agentfem/)
+[![conda-forge](https://img.shields.io/conda/vn/conda-forge/agentfem.svg)](https://anaconda.org/conda-forge/agentfem)
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
 [![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows%20%28WSL2%29-informational.svg)](INSTALL.md)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
@@ -40,9 +41,9 @@ computation, data, and AI.
 ```text
 Bring AgentFEM to life.
 
-Install it from https://github.com/haoming-luo/agentfem in a
-compatible isolated environment. Read AGENT_GUIDE.md and run
-`agentfem doctor`.
+Use https://github.com/haoming-luo/agentfem as the guide. Install
+AgentFEM from conda-forge in a compatible isolated environment,
+read AGENT_GUIDE.md, and run `agentfem doctor`.
 
 When it is ready, reply briefly with the environment, AgentFEM
 version, and health-check result.
@@ -83,28 +84,19 @@ Prefer manual setup? Continue to [Install](#install).
 
 ## Install
 
-AgentFEM supports **Linux**, **macOS**, and **Windows through WSL2**. Conda-forge
-provides the compiled FEniCSx/PETSc/MPI stack and PyPI provides AgentFEM:
+AgentFEM supports **Linux**, **macOS**, and **Windows through WSL2**. The
+recommended conda-forge package installs AgentFEM together with its compiled
+FEniCSx/PETSc/MPI foundation:
 
 ```bash
-mamba create -n agentfem-env -c conda-forge \
-  python=3.11 fenics-dolfinx=0.11 mpich mpi4py petsc4py h5py
+mamba create -n agentfem-env -c conda-forge python=3.11 agentfem
 mamba activate agentfem-env
-python -m pip install agentfem
-```
-
-Then confirm that the numerical environment is coherent:
-
-```bash
 agentfem doctor
 ```
 
-The AgentFEM conda-forge feedstock has been accepted and is awaiting public
-package-index synchronization. Until `conda search -c conda-forge agentfem`
-lists it, the commands above are the shortest supported installation path. On
-Windows, run them inside an Ubuntu WSL2 terminal. See
-[`INSTALL.md`](INSTALL.md) for platform details, MPI notes, and source
-installation.
+On Windows, run the same commands inside an Ubuntu WSL2 terminal. See
+[`INSTALL.md`](INSTALL.md) for platform details, MPI notes, PyPI installation,
+and source development.
 
 Optional capabilities stay separate from the Apache-2.0 core:
 
