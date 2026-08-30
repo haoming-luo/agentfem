@@ -101,10 +101,14 @@ young = 210e9
         project.ProjectConfig.load(root)
 
 
-def test_bundle_rejects_obvious_machine_absolute_inputs(tmp_path):
+@pytest.mark.parametrize(
+    "literal",
+    ("/Users/example/mesh.xdmf", r"C:\\Users\\example\\mesh.xdmf"),
+)
+def test_bundle_rejects_obvious_machine_absolute_inputs(tmp_path, literal):
     config = _write_project(tmp_path / "project")
     config.entrypoint.write_text(
-        "from pathlib import Path\nmesh = Path('/Users/example/mesh.xdmf')\n",
+        f"from pathlib import Path\nmesh = Path({literal!r})\n",
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="AFM-PROJECT-PORTABILITY-001"):

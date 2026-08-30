@@ -372,7 +372,13 @@ def _obvious_absolute_inputs(entrypoint: Path) -> tuple[str, ...]:
             if not isinstance(value, ast.Constant) or not isinstance(value.value, str):
                 continue
             literal = value.value
-            if Path(literal).is_absolute() or PureWindowsPath(literal).is_absolute():
+            # ``Path`` follows the host OS and therefore misses POSIX paths on
+            # Windows (and can miss Windows paths on POSIX).  A portable bundle
+            # must recognize both syntaxes independently of where it is packed.
+            if (
+                PurePosixPath(literal).is_absolute()
+                or PureWindowsPath(literal).is_absolute()
+            ):
                 selected.add(literal)
     return tuple(sorted(selected))
 
