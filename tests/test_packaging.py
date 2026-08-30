@@ -132,7 +132,12 @@ def test_publish_workflow_verifies_the_same_artifacts_it_builds_once():
     ).read_text(encoding="utf-8")
 
     assert workflow.count("python -m build") == 1
-    assert "python release_gate.py --dist dist --tag \"${GITHUB_REF_NAME}\" --smoke" in workflow
+    assert "workflow_dispatch:" in workflow
+    assert "run-id: ${{ inputs.candidate_run_id }}" in workflow
+    assert 'actions/runs/${CANDIDATE_RUN_ID}' in workflow
+    assert "--jq .head_sha" in workflow
+    assert "--site-dir /tmp/agentfem-release-site" in workflow
+    assert "python release_gate.py --dist dist --tag \"${RELEASE_TAG}\" --smoke" in workflow
     assert "needs: [verify, ml-verify]" in workflow
     assert "needs: attest" in workflow
 
