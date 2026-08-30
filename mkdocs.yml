@@ -184,6 +184,7 @@ nav:
           - Validation: validation.md
           - Result Provenance Seal: provenance_seal.md
       - Platform and Compatibility:
+          - Portable Projects and Execution Profiles: project_portability.md
           - Project Compatibility and Upgrades: project_upgrades.md
           - Platform and Optional Dependencies: platform_support.md
           - Licensing: licensing.md

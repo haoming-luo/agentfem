@@ -69,6 +69,12 @@ regions, fields, materials, constraints, loads, steps, and result requests.
 `agentfem.toml` does not duplicate the physics; it only identifies the project
 name, Python entrypoint, and output root.
 
+Installed templates also declare `local` and `cluster` execution profiles.
+They select only the runtime and default MPI scale; they cannot redefine the
+model. Use `agentfem check --profile cluster --runtime` before transfer, and
+see [Portable Projects and Execution Profiles](project_portability.md) for the
+integrity-checked `.afm` workflow.
+
 For an existing Abaqus input deck, begin with migration rather than a blank
 template:
 

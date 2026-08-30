@@ -1079,6 +1079,18 @@ status and scientific evidence.</p>
 <td>Addressable execution result</td>
 </tr>
 <tr>
+<td><code>agentfem pack --output model.afm --json</code></td>
+<td>Integrity-checked portable project</td>
+</tr>
+<tr>
+<td><code>agentfem inspect model.afm --json</code></td>
+<td>Bundle path, content, and digest audit</td>
+</tr>
+<tr>
+<td><code>agentfem compare-runs A/result.json B/result.json --quantity NAME --json</code></td>
+<td>Cross-runtime numerical contract</td>
+</tr>
+<tr>
 <td><code>agentfem inspect --json</code></td>
 <td>Result and artifact discovery</td>
 </tr>
@@ -1104,6 +1116,9 @@ status and scientific evidence.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>discover → doctor → init/open → inspect project → edit case.py → check
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>         → run → inspect structured result → verify policy → publish or revise
 </code></pre></div>
+<p>For transfer, insert <code>pack → inspect bundle</code> before target execution. The
+scientific project remains unchanged; only the named execution profile and
+rank count may differ.</p>
 <p>An agent must not infer scientific validity from a zero exit code. It should
 inspect convergence, requested outputs, quality policy, applicability limits,
 benchmark evidence, and any explicit failure record.</p>

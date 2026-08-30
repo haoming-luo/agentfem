@@ -362,6 +362,7 @@ and evidence remain in the linked guides and scientific function reference.
 | Kind | Public object | Purpose |
 | --- | --- | --- |
 | function | `new_run_id(now: datetime \| None = None) -> str` | Return a sortable, collision-resistant identifier for one execution. |
+| class | `ExecutionProfile` | Operational execution intent kept separate from the scientific model. |
 | class | `ProjectConfig` | Operational metadata for an AgentFEM case directory. |
 | function | `discover(start: str \| Path \| None = None) -> ProjectConfig` | Find the nearest ``agentfem.toml`` from ``start`` upward. |
 | class | `RunContext` | Filesystem and identity contract shared by scripts, CLIs, GUIs, and agents. |
@@ -887,6 +888,13 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `intrinsic_time_scale(domain, velocity)` | Return the standard cellwise advective SUPG scale ``h/(2 \|v\|)``. |
 | function | `reaction_expression(value, law: str \| Mapping[str, object], **parameters)` | Lower a named scalar reaction law to a UFL expression. |
 | function | `streamline_upwind_operator(strong_residual, test, velocity, *, tau = None, domain = None, measure = ufl.dx, name: str = 'A_supg') -> OperatorForm` | Return a SUPG contribution ``tau R(u) (v . grad(w))``. |
+
+## `agentfem.portability`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `RuntimeComparison` | Comparison of declared scientific quantities across execution routes. |
+| function | `compare_results(manifests: Iterable[str \| Path], *, quantities: Iterable[str] \| None = None, relative_tolerance: float = 1e-08, absolute_tolerance: float = 1e-10, tolerances: Mapping[str, tuple[float, float]] \| None = None) -> RuntimeComparison` | Compare common numerical result quantities without demanding bit identity. |
 
 ## `agentfem.procedures`
 

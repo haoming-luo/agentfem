@@ -12,5 +12,7 @@ dependencies:
   # CI exercises optional CAD/true-void fixtures; AgentFEM runtime stays optional.
   - gmsh
   - numpy
+  - scipy
+  - pyamg
   - pytest
   - pip

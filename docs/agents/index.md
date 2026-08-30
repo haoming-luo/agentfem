@@ -16,6 +16,9 @@ status and scientific evidence.
 | `agentfem capabilities --json` | Public API, providers, maturity, and benchmark evidence |
 | `agentfem check --json` | Static project and upgrade check |
 | `agentfem run --json` | Addressable execution result |
+| `agentfem pack --output model.afm --json` | Integrity-checked portable project |
+| `agentfem inspect model.afm --json` | Bundle path, content, and digest audit |
+| `agentfem compare-runs A/result.json B/result.json --quantity NAME --json` | Cross-runtime numerical contract |
 | `agentfem inspect --json` | Result and artifact discovery |
 | `agentfem inspect-abaqus model.inp --json` | Side-effect-free legacy-deck inventory |
 | `agentfem inspect-user-material material.for --json` | Fingerprinted UMAT/UHYPER source inventory and migration route |
@@ -28,6 +31,10 @@ status and scientific evidence.
 discover → doctor → init/open → inspect project → edit case.py → check
          → run → inspect structured result → verify policy → publish or revise
 ```
+
+For transfer, insert `pack → inspect bundle` before target execution. The
+scientific project remains unchanged; only the named execution profile and
+rank count may differ.
 
 An agent must not infer scientific validity from a zero exit code. It should
 inspect convergence, requested outputs, quality policy, applicability limits,

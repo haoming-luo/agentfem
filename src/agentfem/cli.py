@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import argparse
 import ast
-from contextlib import ExitStack, redirect_stderr, redirect_stdout
+from contextlib import ExitStack, contextmanager, redirect_stderr, redirect_stdout
+from dataclasses import replace
 from importlib import resources
 import json
 import os
@@ -25,6 +26,13 @@ from ._api_contract import CAPABILITIES_SCHEMA_VERSION, CLI_COMMANDS
 from .backends.runtime import require_capabilities
 from .mpi_runtime import audit_mpi_runtime, mpi_command
 from .project import PROJECT_FILENAME, ProjectConfig, RunContext, discover, new_run_id
+from .project_bundle import (
+    BUNDLE_SUFFIX,
+    inspect_bundle,
+    materialize_bundle,
+    pack_project,
+    unpack_bundle,
+)
 
 
 TEMPLATE_PACKAGE = "agentfem.templates"
@@ -56,6 +64,28 @@ def _named_paths(values: list[str], *, option: str) -> dict[str, Path]:
             raise ValueError(f"{option} material {name!r} was supplied twice.")
         normalized.add(key)
         selected[name] = Path(path).expanduser().resolve()
+    return selected
+
+
+def _named_tolerances(values: list[str]) -> dict[str, tuple[float, float]]:
+    selected: dict[str, tuple[float, float]] = {}
+    for value in values:
+        name, separator, numbers = str(value).partition("=")
+        raw_rtol, comma, raw_atol = numbers.partition(",")
+        if not separator or not comma or not name.strip():
+            raise ValueError(
+                "--tolerance requires NAME=RTOL,ATOL; "
+                f"received {value!r}."
+            )
+        if name.strip() in selected:
+            raise ValueError(f"--tolerance supplied {name.strip()!r} twice.")
+        try:
+            pair = (float(raw_rtol), float(raw_atol))
+        except ValueError as exc:
+            raise ValueError(
+                f"--tolerance contains a non-numeric value: {value!r}."
+            ) from exc
+        selected[name.strip()] = pair
     return selected
 
 
@@ -102,7 +132,84 @@ def _project(value: str | None) -> ProjectConfig:
     return discover(value)
 
 
-def _check_project(project: ProjectConfig) -> dict[str, object]:
+@contextmanager
+def _project_scope(value: str | None):
+    """Open a directory project or a verified temporary bundle workspace."""
+
+    if value is not None and Path(value).suffix.lower() == BUNDLE_SUFFIX:
+        bundle_path = Path(value).expanduser().resolve()
+        with materialize_bundle(bundle_path) as (root, report):
+            yield ProjectConfig.load(root), report.source_summary(), bundle_path
+        return
+    yield _project(value), None, None
+
+
+@contextmanager
+def _execution_runtime(profile):
+    """Apply only the selected execution runtime for the duration of a command."""
+
+    previous = os.environ.get("AGENTFEM_RUNTIME")
+    if profile.runtime != "auto":
+        os.environ["AGENTFEM_RUNTIME"] = profile.runtime
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop("AGENTFEM_RUNTIME", None)
+        else:
+            os.environ["AGENTFEM_RUNTIME"] = previous
+
+
+@contextmanager
+def _project_source_environment(source):
+    previous = os.environ.get("AGENTFEM_PROJECT_SOURCE")
+    if source is not None:
+        os.environ["AGENTFEM_PROJECT_SOURCE"] = json.dumps(source, sort_keys=True)
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop("AGENTFEM_PROJECT_SOURCE", None)
+        else:
+            os.environ["AGENTFEM_PROJECT_SOURCE"] = previous
+
+
+def _profile_compatibility(profile) -> dict[str, object]:
+    from .backends.runtime import current_runtime
+
+    try:
+        with _execution_runtime(profile):
+            runtime = current_runtime()
+        missing = tuple(
+            item for item in profile.capabilities if item not in runtime.capabilities
+        )
+        return {
+            "status": "compatible" if not missing else "incompatible",
+            "profile": profile.summary(),
+            "runtime": runtime.as_dict(),
+            "missing_capabilities": missing,
+        }
+    except RuntimeError as exc:
+        return {
+            "status": "incompatible",
+            "profile": profile.summary(),
+            "runtime": None,
+            "missing_capabilities": profile.capabilities,
+            "error": {
+                "code": getattr(exc, "code", None),
+                "type": type(exc).__name__,
+                "message": str(exc),
+            },
+        }
+
+
+def _check_project(
+    project: ProjectConfig,
+    *,
+    profile_name: str | None = None,
+    check_runtime: bool = False,
+    profile_override=None,
+) -> dict[str, object]:
     errors = list(project.check())
     syntax = "not_checked"
     if project.entrypoint.is_file():
@@ -117,6 +224,13 @@ def _check_project(project: ProjectConfig) -> dict[str, object]:
         message = f"{item.code}: {item.message}"
         if not any(item.message in existing for existing in errors):
             errors.append(message)
+    profile = profile_override or project.execution_profile(profile_name)
+    compatibility = _profile_compatibility(profile) if check_runtime else None
+    if compatibility is not None and compatibility["status"] != "compatible":
+        errors.append(
+            "AFM-PROJECT-RUNTIME-001: execution profile "
+            f"{profile.name!r} is incompatible with the current runtime."
+        )
     return {
         "schema": "agentfem.project-check",
         "schema_version": "0.1.0",
@@ -128,6 +242,8 @@ def _check_project(project: ProjectConfig) -> dict[str, object]:
         "upgrade_findings": tuple(
             item.as_dict(root=project.root) for item in upgrade.findings
         ),
+        "execution_profile": profile.summary(),
+        "runtime_compatibility": compatibility,
     }
 
 
@@ -163,10 +279,23 @@ def _command_upgrade(args) -> int:
     return 2 if report.errors else 0
 
 
-def _run_context(project: ProjectConfig, run_id: str | None, output: str | None) -> RunContext:
+def _run_context(
+    project: ProjectConfig,
+    run_id: str | None,
+    output: str | None,
+    *,
+    execution_profile,
+    project_source,
+) -> RunContext:
     comm = MPI.COMM_WORLD
     selected_id = comm.bcast(run_id or (new_run_id() if comm.rank == 0 else None), root=0)
-    context = RunContext.create(project, run_id=selected_id, output_directory=output)
+    context = RunContext.create(
+        project,
+        run_id=selected_id,
+        output_directory=output,
+        execution_profile=execution_profile.summary(),
+        project_source=project_source,
+    )
     prepare_error = None
     if comm.rank == 0:
         try:
@@ -229,6 +358,10 @@ def _launch_mpi(args) -> int:
         child.extend(("--run-id", args.run_id))
     if args.output:
         child.extend(("--output", args.output))
+    if args.profile:
+        child.extend(("--profile", args.profile))
+    if args.mpi:
+        child.extend(("--mpi", str(args.mpi)))
     if args.json:
         child.append("--json")
     child.append("--inside-mpi")
@@ -256,15 +389,67 @@ def _command_mpi_run(args) -> int:
 
 
 def _command_run(args) -> int:
-    if args.mpi > 1 and MPI.COMM_WORLD.size == 1 and not args.inside_mpi:
-        return _launch_mpi(args)
-    project = _project(args.project)
-    check = _check_project(project)
-    if check["status"] != "passed":
-        _emit(check, as_json=args.json, human="Project check failed:\n" + "\n".join(check["errors"]))
-        return 2
+    if (
+        args.mpi is not None
+        and args.mpi > 1
+        and args.profile is None
+        and MPI.COMM_WORLD.size == 1
+        and not args.inside_mpi
+    ):
+        # Preserve the machine-addressable preflight even when project
+        # discovery would fail. A named profile is resolved from the project
+        # below because it may deliberately select the PETSc runtime.
+        require_capabilities(
+            "mpi_distributed_mesh",
+            operation="agentfem run --mpi",
+        )
+    with _project_scope(args.project) as (project, project_source, bundle_path):
+        selected_profile = project.execution_profile(args.profile)
+        ranks = args.mpi if args.mpi is not None else selected_profile.ranks
+        if MPI.COMM_WORLD.size > 1:
+            ranks = MPI.COMM_WORLD.size
+        execution_profile = replace(selected_profile, ranks=ranks)
+        args.mpi = ranks
+        if bundle_path is not None:
+            args.project = str(project.root)
+            if args.output is None:
+                args.output = str(bundle_path.parent / "outputs")
+        with _execution_runtime(execution_profile), _project_source_environment(
+            project_source
+        ):
+            if ranks > 1 and MPI.COMM_WORLD.size == 1 and not args.inside_mpi:
+                return _launch_mpi(args)
+            check = _check_project(
+                project,
+                check_runtime=True,
+                profile_override=execution_profile,
+            )
+            if check["status"] != "passed":
+                _emit(
+                    check,
+                    as_json=args.json,
+                    human="Project check failed:\n" + "\n".join(check["errors"]),
+                )
+                return 2
+            return _execute_project(
+                args,
+                project,
+                execution_profile=execution_profile,
+                project_source=project_source,
+            )
+
+
+def _execute_project(args, project, *, execution_profile, project_source) -> int:
+    """Execute one already materialized and runtime-compatible project."""
+
     extensions.load_extensions(project.extensions)
-    context = _run_context(project, args.run_id, args.output)
+    context = _run_context(
+        project,
+        args.run_id,
+        args.output,
+        execution_profile=execution_profile,
+        project_source=project_source,
+    )
     previous_environment = {key: os.environ.get(key) for key in context.environment()}
     os.environ.update(context.environment())
     previous_directory = Path.cwd()
@@ -352,6 +537,20 @@ def _command_inspect(args) -> int:
     if selected is None:
         project = _project(args.project)
         selected = project.output_directory / project.name / "latest.json"
+    if selected.suffix.lower() == BUNDLE_SUFFIX:
+        report = inspect_bundle(selected)
+        _emit(
+            report.summary(),
+            as_json=args.json,
+            human=(
+                f"AgentFEM project bundle: {selected}\n"
+                f"  project: {report.project['name']}\n"
+                f"  files: {len(report.files)}\n"
+                f"  sha256: {report.bundle_sha256}\n"
+                "  status: verified"
+            ),
+        )
+        return 0
     if selected.is_dir():
         candidates = (selected / "execution.json", selected / "result.json", selected / "latest.json")
         selected = next((item for item in candidates if item.is_file()), selected)
@@ -359,6 +558,37 @@ def _command_inspect(args) -> int:
         raise FileNotFoundError(f"No inspectable AgentFEM record found at {selected}.")
     record = json.loads(selected.read_text(encoding="utf-8"))
     _emit(record, as_json=args.json, human=_format_record(record, selected))
+    return 0
+
+
+def _command_pack(args) -> int:
+    project = _project(args.project)
+    report = pack_project(project, args.output)
+    _emit(
+        report.summary(),
+        as_json=args.json,
+        human=(
+            f"Packed AgentFEM project: {report.path}\n"
+            f"  files: {len(report.files)}\n"
+            f"  sha256: {report.bundle_sha256}"
+        ),
+    )
+    return 0
+
+
+def _command_unpack(args) -> int:
+    report = unpack_bundle(args.bundle, args.destination, force=args.force)
+    _emit(
+        {
+            **report.summary(),
+            "destination": str(Path(args.destination).expanduser().resolve()),
+        },
+        as_json=args.json,
+        human=(
+            f"Unpacked verified AgentFEM project: {args.destination}\n"
+            f"  source sha256: {report.bundle_sha256}"
+        ),
+    )
     return 0
 
 
@@ -484,6 +714,27 @@ def _command_verify(args) -> int:
     return 0 if report.verified else 2
 
 
+def _command_compare_runs(args) -> int:
+    from .portability import compare_results
+
+    paths = tuple(_result_manifest_path(path, None) for path in args.paths)
+    comparison = compare_results(
+        paths,
+        quantities=args.quantity or None,
+        relative_tolerance=args.rtol,
+        absolute_tolerance=args.atol,
+        tolerances=_named_tolerances(args.tolerance),
+    )
+    record = comparison.summary()
+    if args.write:
+        destination = Path(args.write).expanduser().resolve()
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(_json(record) + "\n", encoding="utf-8")
+        record["written_report"] = str(destination)
+    _emit(record, as_json=args.json, human=comparison.format())
+    return 0 if comparison.accepted else 2
+
+
 def _format_record(record: dict[str, object], path: Path) -> str:
     lines = [f"AgentFEM record: {path}"]
     for key in ("schema", "project", "run_id", "name", "status", "trust_level"):
@@ -516,6 +767,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     check = sub.add_parser("check", help="Check project structure and Python syntax without solving.")
     check.add_argument("--project")
+    check.add_argument("--profile")
+    check.add_argument(
+        "--runtime",
+        action="store_true",
+        help="Also verify the selected execution profile against this runtime.",
+    )
     check.add_argument("--json", action="store_true")
 
     upgrade = sub.add_parser(
@@ -531,7 +788,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--project")
     run.add_argument("--run-id")
     run.add_argument("--output")
-    run.add_argument("--mpi", type=int, default=1)
+    run.add_argument("--profile")
+    run.add_argument("--mpi", type=int)
     run.add_argument("--json", action="store_true")
     run.add_argument("--inside-mpi", action="store_true", help=argparse.SUPPRESS)
 
@@ -546,6 +804,23 @@ def build_parser() -> argparse.ArgumentParser:
     inspect.add_argument("path", nargs="?")
     inspect.add_argument("--project")
     inspect.add_argument("--json", action="store_true")
+
+    pack = sub.add_parser(
+        "pack",
+        help="Create an integrity-checked portable .afm project bundle.",
+    )
+    pack.add_argument("--project")
+    pack.add_argument("--output")
+    pack.add_argument("--json", action="store_true")
+
+    unpack = sub.add_parser(
+        "unpack",
+        help="Materialize an integrity-checked .afm project bundle.",
+    )
+    unpack.add_argument("bundle")
+    unpack.add_argument("destination")
+    unpack.add_argument("--force", action="store_true")
+    unpack.add_argument("--json", action="store_true")
 
     inspect_abaqus = sub.add_parser(
         "inspect-abaqus",
@@ -605,6 +880,24 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--project")
     verify.add_argument("--json", action="store_true")
 
+    compare_runs = sub.add_parser(
+        "compare-runs",
+        help="Check declared numerical quantities across serial and MPI runtimes.",
+    )
+    compare_runs.add_argument("paths", nargs="+")
+    compare_runs.add_argument("--quantity", action="append", required=True)
+    compare_runs.add_argument("--rtol", type=float, default=1.0e-8)
+    compare_runs.add_argument("--atol", type=float, default=1.0e-10)
+    compare_runs.add_argument(
+        "--tolerance",
+        action="append",
+        default=[],
+        metavar="NAME=RTOL,ATOL",
+        help="Override tolerances for one quantity; repeat as needed.",
+    )
+    compare_runs.add_argument("--write")
+    compare_runs.add_argument("--json", action="store_true")
+
     capabilities = sub.add_parser("capabilities", help="Return machine-readable runtime capabilities.")
     capabilities.add_argument("--json", action="store_true")
     extension_command = sub.add_parser(
@@ -637,13 +930,18 @@ def main(argv: list[str] | None = None) -> int:
             _emit(record, as_json=args.json, human=f"Created AgentFEM project: {target}\nNext: cd {target} && agentfem check && agentfem run")
             return 0
         if args.command == "check":
-            record = _check_project(_project(args.project))
+            with _project_scope(args.project) as (project, _source, _bundle):
+                record = _check_project(
+                    project,
+                    profile_name=args.profile,
+                    check_runtime=args.runtime,
+                )
             _emit(record, as_json=args.json, human=_format_check(record))
             return 0 if record["status"] == "passed" else 2
         if args.command == "upgrade":
             return _command_upgrade(args)
         if args.command == "run":
-            if args.mpi <= 0:
+            if args.mpi is not None and args.mpi <= 0:
                 parser.error("--mpi must be positive")
             return _command_run(args)
         if args.command == "mpi-run":
@@ -652,6 +950,10 @@ def main(argv: list[str] | None = None) -> int:
             return _command_mpi_run(args)
         if args.command == "inspect":
             return _command_inspect(args)
+        if args.command == "pack":
+            return _command_pack(args)
+        if args.command == "unpack":
+            return _command_unpack(args)
         if args.command == "inspect-abaqus":
             return _command_inspect_abaqus(args)
         if args.command == "inspect-user-material":
@@ -662,6 +964,8 @@ def main(argv: list[str] | None = None) -> int:
             return _command_lower_abaqus(args)
         if args.command == "verify":
             return _command_verify(args)
+        if args.command == "compare-runs":
+            return _command_compare_runs(args)
         if args.command == "extensions":
             extensions.load_extensions(args.load)
             record = extensions.extension_status()

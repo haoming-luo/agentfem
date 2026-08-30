@@ -13,6 +13,10 @@ finite-element simulation with AgentFEM.
    Use `agentfem run --mpi N` for projects and
    `agentfem mpi-run -n N -- ...` for MPI tests or external commands; never
    guess a bare `mpiexec` because it may belong to another MPI implementation.
+   For workstation-to-cluster transfer, use `agentfem pack`, inspect the
+   resulting `.afm`, and compare explicitly selected quantities with
+   `agentfem compare-runs`; never fork the scientific model by operating
+   system.
 2. Read `WORKFLOW.md` to identify the standard finite-element sequence.
 3. Read `CONCEPTS.md` to align terminology before changing code.
 4. Identify or create the `studies.Study` before choosing constitutive laws or

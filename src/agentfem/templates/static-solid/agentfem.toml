@@ -6,3 +6,13 @@ created_with = "{{AGENTFEM_VERSION}}"
 
 [run]
 output_directory = "outputs"
+default_profile = "local"
+
+[execution.local]
+runtime = "auto"
+ranks = 1
+
+[execution.cluster]
+runtime = "fenicsx-petsc"
+ranks = 2
+required_capabilities = ["mpi_distributed_mesh"]

@@ -794,6 +794,8 @@
       
         
       
+        
+      
     
     
     
@@ -835,6 +837,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project_portability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Portable Projects and Execution Profiles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -970,10 +1000,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#windows-execution-profiles" class="md-nav__link">
+  <a href="#windows-numerical-runtimes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Windows execution profiles
+        Windows numerical runtimes
       
     </span>
   </a>
@@ -1273,10 +1303,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#windows-execution-profiles" class="md-nav__link">
+  <a href="#windows-numerical-runtimes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Windows execution profiles
+        Windows numerical runtimes
       
     </span>
   </a>
@@ -1355,7 +1385,7 @@
     
     
       <li class="md-path__item">
-        <a href="../project_upgrades/" class="md-path__link">
+        <a href="../project_portability/" class="md-path__link">
           
   <span class="md-ellipsis">
     Platform and Compatibility
@@ -1480,8 +1510,8 @@ together without hand-maintaining a long argument list:</p>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>--evidence-directory<span class="w"> </span>promotion-evidence<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>--report<span class="w"> </span>promotion.json<span class="w"> </span>--require-complete
 </code></pre></div>
-<h2 id="windows-execution-profiles">Windows execution profiles<a class="headerlink" href="#windows-execution-profiles" title="Permanent link">&para;</a></h2>
-<p>AgentFEM detects one of two FEniCSx execution profiles:</p>
+<h2 id="windows-numerical-runtimes">Windows numerical runtimes<a class="headerlink" href="#windows-numerical-runtimes" title="Permanent link">&para;</a></h2>
+<p>AgentFEM detects one of two FEniCSx numerical runtimes:</p>
 <ul>
 <li><code>fenicsx-petsc</code>: full nonlinear, exact-MPC (when installed), and MPI route;</li>
 <li><code>fenicsx-native-serial</code>: PETSc-free DOLFINx native assembly plus SciPy/PyAMG.</li>
@@ -1504,6 +1534,11 @@ the declared tolerance are recorded as non-converged solves.</p>
 The native serial profile therefore rejects <code>N &gt; 1</code> immediately; the generic
 <code>agentfem mpi-run</code> command remains available for unrelated MPI programs when
 the local launcher is coherent.</p>
+<p>Named project execution profiles are a separate operational layer. A <code>local</code>
+profile can resolve automatically to the native Windows runtime, while a
+<code>cluster</code> profile requests PETSc and MPI on the destination machine. The same
+project can be transported in a verified <code>.afm</code> bundle; see
+<a href="../project_portability/">Portable Projects and Execution Profiles</a>.</p>
 <p>Use native Windows for the supported serial core described in <code>INSTALL.md</code>.
 Use WSL2 when a Windows workstation needs the complete Linux
 FEniCSx/PETSc/MPI stack. Keep WSL projects in the Linux filesystem for compile

@@ -188,6 +188,9 @@ def test_capability_command_is_json_serializable(capsys):
     assert record["schema"] == "agentfem.capabilities"
     assert "upgrade" in record["commands"]
     assert "verify" in record["commands"]
+    assert "pack" in record["commands"]
+    assert "unpack" in record["commands"]
+    assert "compare-runs" in record["commands"]
     assert "extensions" in record["commands"]
     assert "project" in record["public_modules"]
     assert "extensions" in record["public_modules"]
@@ -196,6 +199,7 @@ def test_capability_command_is_json_serializable(capsys):
     assert "surrogates" in record["public_api"]["advanced"]
     assert "backends" in record["public_api"]["expert"]
     assert "procedures" in record["public_api"]["advanced"]
+    assert "portability" in record["public_api"]["advanced"]
     assert "solvers" in record["public_api"]["advanced"]
     assert "io" in record["public_api"]["expert"]
     assert "problems" in record["public_api"]["expert"]

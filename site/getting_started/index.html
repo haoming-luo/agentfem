@@ -1179,6 +1179,11 @@ instead of guessing solver arguments from examples.</p>
 regions, fields, materials, constraints, loads, steps, and result requests.
 <code>agentfem.toml</code> does not duplicate the physics; it only identifies the project
 name, Python entrypoint, and output root.</p>
+<p>Installed templates also declare <code>local</code> and <code>cluster</code> execution profiles.
+They select only the runtime and default MPI scale; they cannot redefine the
+model. Use <code>agentfem check --profile cluster --runtime</code> before transfer, and
+see <a href="../project_portability/">Portable Projects and Execution Profiles</a> for the
+integrity-checked <code>.afm</code> workflow.</p>
 <p>For an existing Abaqus input deck, begin with migration rather than a blank
 template:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>agentfem<span class="w"> </span>inspect-abaqus<span class="w"> </span>legacy/model.inp<span class="w"> </span>--json

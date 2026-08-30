@@ -102,9 +102,9 @@ python promotion_gate.py \
   --report promotion.json --require-complete
 ```
 
-## Windows execution profiles
+## Windows numerical runtimes
 
-AgentFEM detects one of two FEniCSx execution profiles:
+AgentFEM detects one of two FEniCSx numerical runtimes:
 
 - `fenicsx-petsc`: full nonlinear, exact-MPC (when installed), and MPI route;
 - `fenicsx-native-serial`: PETSc-free DOLFINx native assembly plus SciPy/PyAMG.
@@ -130,6 +130,12 @@ the declared tolerance are recorded as non-converged solves.
 The native serial profile therefore rejects `N > 1` immediately; the generic
 `agentfem mpi-run` command remains available for unrelated MPI programs when
 the local launcher is coherent.
+
+Named project execution profiles are a separate operational layer. A `local`
+profile can resolve automatically to the native Windows runtime, while a
+`cluster` profile requests PETSc and MPI on the destination machine. The same
+project can be transported in a verified `.afm` bundle; see
+[Portable Projects and Execution Profiles](project_portability.md).
 
 Use native Windows for the supported serial core described in `INSTALL.md`.
 Use WSL2 when a Windows workstation needs the complete Linux

@@ -261,6 +261,11 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   progress frames.
 - In an installed project, run `agentfem doctor --json`,
   `agentfem check --json`, and `agentfem upgrade --json` before execution.
+  For workstation-to-cluster transfer, use `agentfem pack --output model.afm`,
+  inspect the bundle, and run that same bundle with a named execution profile.
+  Profiles select only runtime, MPI scale, and required capabilities; do not
+  fork the scientific model by operating system. Use
+  `agentfem compare-runs ... --quantity NAME` for explicit equivalence evidence.
   If `[extensions].required` is declared, inspect it with
   `agentfem extensions --json`; do not install or activate an untrusted package
   merely to make a project check pass. Required extensions are executable code.

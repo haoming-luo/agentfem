@@ -16,3 +16,7 @@ temporal convergence example.
 agentfem check
 agentfem run
 ```
+
+Package the unchanged project for a PETSc/MPI server with
+`agentfem pack --output {{PROJECT_NAME}}.afm`, then select the `cluster`
+profile at execution time.

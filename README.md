@@ -143,6 +143,19 @@ The CLI gives the same model a repeatable project root, run identity,
 structured result manifest, MPI launch path, and machine-readable interface.
 You can also run `case.py` directly with Python.
 
+The scientific project is portable across runtimes. Develop and check it on a
+native Windows workstation, then package and run the same files through
+PETSc/MPI on a server:
+
+```bash
+agentfem pack --output model.afm
+agentfem run --project model.afm --profile cluster --mpi 64
+```
+
+Execution profiles change runtime and scale, not materials, loads, constraints,
+or verification rules. `agentfem compare-runs` records the numerical
+equivalence of local and distributed results.
+
 ## What Works Today
 
 | Area | Available workflow |

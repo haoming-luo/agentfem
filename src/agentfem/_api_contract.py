@@ -42,6 +42,7 @@ ADVANCED_WORKFLOW_MODULES = (
     "learning",
     "mechanics",
     "operators",
+    "portability",
     "procedures",
     "responses",
     "solvers",
@@ -176,11 +177,14 @@ CLI_COMMANDS = (
     "run",
     "mpi-run",
     "inspect",
+    "pack",
+    "unpack",
     "inspect-abaqus",
     "inspect-user-material",
     "migrate-abaqus",
     "lower-abaqus",
     "verify",
+    "compare-runs",
     "capabilities",
     "extensions",
 )
@@ -190,6 +194,12 @@ MACHINE_COMMANDS = {
     "capabilities": "agentfem capabilities --json",
     "project_check": "agentfem check --json",
     "run": "agentfem run --json",
+    "pack": "agentfem pack --output project.afm --json",
+    "unpack": "agentfem unpack project.afm ./project --json",
+    "compare_runs": (
+        "agentfem compare-runs serial/result.json mpi/result.json "
+        "--quantity response --json"
+    ),
     "mpi_run": "agentfem mpi-run -n 2 -- python case.py",
     "inspect": "agentfem inspect --json",
     "abaqus_inspect": "agentfem inspect-abaqus model.inp --json",
@@ -216,7 +226,7 @@ WORKFLOW_STAGES = (
     "result_and_verification",
 )
 
-CAPABILITIES_SCHEMA_VERSION = "0.2.2"
+CAPABILITIES_SCHEMA_VERSION = "0.2.3"
 
 
 def _all(*groups: tuple[str, ...]) -> tuple[str, ...]:

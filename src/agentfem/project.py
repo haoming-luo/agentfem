@@ -30,6 +30,14 @@ _ENV_OUTPUT_DIR = "AGENTFEM_OUTPUT_DIR"
 _ENV_RUN_ID = "AGENTFEM_RUN_ID"
 _ENV_MANIFEST = "AGENTFEM_RESULT_MANIFEST"
 _ENV_EXECUTION = "AGENTFEM_EXECUTION_RECORD"
+_ENV_EXECUTION_PROFILE = "AGENTFEM_EXECUTION_PROFILE"
+_ENV_PROJECT_SOURCE = "AGENTFEM_PROJECT_SOURCE"
+
+_RUNTIME_NAMES = {
+    "auto",
+    "fenicsx-native-serial",
+    "fenicsx-petsc",
+}
 
 
 def _safe_name(value: str, *, label: str) -> str:
@@ -48,6 +56,54 @@ def new_run_id(now: datetime | None = None) -> str:
 
 
 @dataclass(frozen=True)
+class ExecutionProfile:
+    """Operational execution intent kept separate from the scientific model.
+
+    Profiles select a numerical runtime and launch scale.  They must never
+    redefine materials, loads, constraints, fields, or verification rules.
+    """
+
+    name: str
+    runtime: str = "auto"
+    ranks: int = 1
+    required_capabilities: tuple[str, ...] = ()
+
+    def check(self) -> tuple[str, ...]:
+        errors: list[str] = []
+        if self.runtime not in _RUNTIME_NAMES:
+            errors.append(
+                f"execution.{self.name}.runtime must be one of "
+                f"{tuple(sorted(_RUNTIME_NAMES))}; received {self.runtime!r}."
+            )
+        if self.ranks < 1:
+            errors.append(f"execution.{self.name}.ranks must be positive.")
+        if any(not item.strip() for item in self.required_capabilities):
+            errors.append(
+                f"execution.{self.name}.required_capabilities contains an empty name."
+            )
+        if len(set(self.required_capabilities)) != len(self.required_capabilities):
+            errors.append(
+                f"execution.{self.name}.required_capabilities contains duplicates."
+            )
+        return tuple(errors)
+
+    @property
+    def capabilities(self) -> tuple[str, ...]:
+        required = list(self.required_capabilities)
+        if self.ranks > 1 and "mpi_distributed_mesh" not in required:
+            required.append("mpi_distributed_mesh")
+        return tuple(required)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "runtime": self.runtime,
+            "ranks": self.ranks,
+            "required_capabilities": self.capabilities,
+        }
+
+
+@dataclass(frozen=True)
 class ProjectConfig:
     """Operational metadata for an AgentFEM case directory."""
 
@@ -56,6 +112,8 @@ class ProjectConfig:
     entrypoint: Path
     output_directory: Path
     extensions: tuple[str, ...] = ()
+    execution_profiles: tuple[ExecutionProfile, ...] = ()
+    default_profile: str | None = None
     schema_version: str = CURRENT_PROJECT_SCHEMA_VERSION
     created_with: str | None = None
 
@@ -69,6 +127,7 @@ class ProjectConfig:
         project = record.get("project", {})
         run = record.get("run", {})
         extension_record = record.get("extensions", {})
+        execution_record = record.get("execution", {})
         root = config_path.parent
         name = _safe_name(project.get("name", root.name), label="project.name")
         entrypoint = root / project.get("entrypoint", "case.py")
@@ -78,12 +137,53 @@ class ProjectConfig:
             isinstance(item, str) and item.strip() for item in required_extensions
         ):
             raise ValueError("extensions.required must be an array of non-empty names.")
+        if not isinstance(execution_record, dict):
+            raise ValueError("execution must be a TOML table of named profiles.")
+        profiles: list[ExecutionProfile] = []
+        for raw_name, raw_profile in execution_record.items():
+            if not isinstance(raw_profile, dict):
+                raise ValueError(f"execution.{raw_name} must be a TOML table.")
+            profile_name = _safe_name(raw_name, label="execution profile")
+            unknown = set(raw_profile) - {
+                "runtime",
+                "ranks",
+                "required_capabilities",
+            }
+            if unknown:
+                raise ValueError(
+                    f"execution.{profile_name} contains unsupported keys "
+                    f"{tuple(sorted(unknown))}; execution profiles cannot "
+                    "redefine scientific model or solver inputs."
+                )
+            required = raw_profile.get("required_capabilities", [])
+            if not isinstance(required, list) or not all(
+                isinstance(item, str) for item in required
+            ):
+                raise ValueError(
+                    f"execution.{profile_name}.required_capabilities must be "
+                    "an array of strings."
+                )
+            profiles.append(
+                ExecutionProfile(
+                    name=profile_name,
+                    runtime=str(raw_profile.get("runtime", "auto")).strip().lower(),
+                    ranks=int(raw_profile.get("ranks", 1)),
+                    required_capabilities=tuple(item.strip() for item in required),
+                )
+            )
+        default_profile = run.get("default_profile")
+        if default_profile is not None:
+            default_profile = _safe_name(
+                str(default_profile), label="run.default_profile"
+            )
         return cls(
             root=root,
             name=name,
             entrypoint=entrypoint.resolve(),
             output_directory=output_directory.resolve(),
             extensions=tuple(required_extensions),
+            execution_profiles=tuple(profiles),
+            default_profile=default_profile,
             schema_version=str(
                 project.get("schema_version", CURRENT_PROJECT_SCHEMA_VERSION)
             ),
@@ -133,7 +233,31 @@ class ProjectConfig:
                     "Required AgentFEM extensions are not installed: "
                     + ", ".join(missing)
                 )
+        profile_names = tuple(item.name for item in self.execution_profiles)
+        if len(set(profile_names)) != len(profile_names):
+            errors.append("execution profile names must be unique.")
+        for profile in self.execution_profiles:
+            errors.extend(profile.check())
+        if self.default_profile is not None and self.default_profile not in profile_names:
+            errors.append(
+                f"run.default_profile {self.default_profile!r} does not name an "
+                "execution profile."
+            )
         return tuple(errors)
+
+    def execution_profile(self, name: str | None = None) -> ExecutionProfile:
+        """Resolve one execution profile without changing scientific inputs."""
+
+        selected = name or self.default_profile
+        if selected is None:
+            return ExecutionProfile(name="default")
+        for profile in self.execution_profiles:
+            if profile.name == selected:
+                return profile
+        available = tuple(item.name for item in self.execution_profiles)
+        raise ValueError(
+            f"Unknown execution profile {selected!r}; available profiles: {available}."
+        )
 
     def summary(self) -> dict[str, object]:
         return {
@@ -145,6 +269,10 @@ class ProjectConfig:
             "entrypoint": str(self.entrypoint),
             "output_directory": str(self.output_directory),
             "extensions": self.extensions,
+            "default_profile": self.default_profile,
+            "execution_profiles": tuple(
+                item.summary() for item in self.execution_profiles
+            ),
         }
 
 
@@ -181,6 +309,8 @@ class RunContext:
     output_directory: Path
     manifest_path: Path
     execution_path: Path
+    execution_profile: Mapping[str, object] | None = None
+    project_source: Mapping[str, object] | None = None
 
     @classmethod
     def create(
@@ -189,8 +319,14 @@ class RunContext:
         *,
         run_id: str | None = None,
         output_directory: str | Path | None = None,
+        execution_profile: Mapping[str, object] | None = None,
+        project_source: Mapping[str, object] | None = None,
     ) -> "RunContext":
         selected_id = _safe_name(run_id or new_run_id(), label="run_id")
+        if execution_profile is None and os.environ.get(_ENV_EXECUTION_PROFILE):
+            execution_profile = json.loads(os.environ[_ENV_EXECUTION_PROFILE])
+        if project_source is None and os.environ.get(_ENV_PROJECT_SOURCE):
+            project_source = json.loads(os.environ[_ENV_PROJECT_SOURCE])
         root = (
             project.output_directory
             if output_directory is None
@@ -204,6 +340,10 @@ class RunContext:
             output_directory=run_directory,
             manifest_path=run_directory / "result.json",
             execution_path=run_directory / "execution.json",
+            execution_profile=(
+                None if execution_profile is None else dict(execution_profile)
+            ),
+            project_source=None if project_source is None else dict(project_source),
         )
 
     @classmethod
@@ -214,6 +354,8 @@ class RunContext:
         run_id = os.environ.get(_ENV_RUN_ID)
         manifest = os.environ.get(_ENV_MANIFEST)
         execution = os.environ.get(_ENV_EXECUTION)
+        execution_profile = os.environ.get(_ENV_EXECUTION_PROFILE)
+        project_source = os.environ.get(_ENV_PROJECT_SOURCE)
         if not all((root, project_name, output, run_id, manifest, execution)):
             return None
         project_root = Path(root).resolve()
@@ -224,6 +366,12 @@ class RunContext:
             output_directory=Path(output).resolve(),
             manifest_path=Path(manifest).resolve(),
             execution_path=Path(execution).resolve(),
+            execution_profile=(
+                None if execution_profile is None else json.loads(execution_profile)
+            ),
+            project_source=(
+                None if project_source is None else json.loads(project_source)
+            ),
         )
 
     def prepare(self) -> "RunContext":
@@ -241,7 +389,7 @@ class RunContext:
         return path
 
     def environment(self) -> dict[str, str]:
-        return {
+        environment = {
             _ENV_PROJECT_ROOT: str(self.project_root),
             _ENV_PROJECT_NAME: self.project_name,
             _ENV_OUTPUT_DIR: str(self.output_directory),
@@ -249,6 +397,15 @@ class RunContext:
             _ENV_MANIFEST: str(self.manifest_path),
             _ENV_EXECUTION: str(self.execution_path),
         }
+        if self.execution_profile is not None:
+            environment[_ENV_EXECUTION_PROFILE] = json.dumps(
+                self.execution_profile, sort_keys=True
+            )
+        if self.project_source is not None:
+            environment[_ENV_PROJECT_SOURCE] = json.dumps(
+                self.project_source, sort_keys=True
+            )
+        return environment
 
     def summary(self) -> dict[str, object]:
         from .extensions import loaded_extensions
@@ -264,6 +421,14 @@ class RunContext:
             "execution_record": str(self.execution_path),
             "extensions": tuple(
                 item.as_dict() for item in loaded_extensions()
+            ),
+            "execution_profile": (
+                None
+                if self.execution_profile is None
+                else dict(self.execution_profile)
+            ),
+            "project_source": (
+                None if self.project_source is None else dict(self.project_source)
             ),
         }
 
@@ -360,6 +525,7 @@ def _write_json(path: Path, record: Mapping[str, object]) -> None:
 
 __all__ = [
     "CURRENT_PROJECT_SCHEMA_VERSION",
+    "ExecutionProfile",
     "PROJECT_FILENAME",
     "PROJECT_SCHEMA",
     "RUN_SCHEMA",

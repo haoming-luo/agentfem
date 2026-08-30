@@ -147,6 +147,27 @@ jobs:
       - name: Run two-rank MPI smoke test
         run: mpirun -n 2 python examples/static_elasticity_2d.py
 
+      - name: Verify one project across serial and MPI runtimes
+        run: |
+          portable_root="$(mktemp -d)"
+          agentfem init "$portable_root/project" --template static-solid --name portable-static
+          agentfem check --project "$portable_root/project" --profile local --runtime
+          agentfem run --project "$portable_root/project" --profile local --run-id serial
+          AGENTFEM_RUNTIME=fenicsx-native-serial agentfem run --project "$portable_root/project" --profile local --run-id native
+          agentfem pack --project "$portable_root/project" --output "$portable_root/portable-static.afm"
+          agentfem inspect "$portable_root/portable-static.afm"
+          agentfem run --project "$portable_root/portable-static.afm" --profile cluster --mpi 2 --run-id mpi --output "$portable_root/distributed"
+          agentfem compare-runs \
+            "$portable_root/project/outputs/portable-static/serial/result.json" \
+            "$portable_root/project/outputs/portable-static/native/result.json" \
+            "$portable_root/distributed/portable-static/mpi/result.json" \
+            --rtol 1e-8 --atol 1e-8 \
+            --quantity displacement_max_abs \
+            --quantity reaction_force_resultant \
+            --quantity relative_force_balance_error \
+            --quantity strain_energy \
+            --write "$portable_root/runtime-equivalence.json"
+
       - name: Run campaign/dataset/surrogate FEniCSx smoke test
         run: AGENTFEM_CAMPAIGN_SAMPLES=4 AGENTFEM_CAMPAIGN_RUN_ID=ci-serial python examples/static_elasticity_surrogate_campaign.py
 
