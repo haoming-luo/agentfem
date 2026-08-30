@@ -35,6 +35,8 @@ boundary explicit and testable.
   implemented once.
 - A new Step provider records `requires`; it does not contain `if Windows`.
 - Unsupported procedures fail before lowering with a stable capability error.
+- Requested solver packages, preconditioners, and MPI rank counts fail closed
+  when the selected runtime cannot honor their numerical meaning.
 - Runtime reports and result provenance record the selected profile and
   installed numerical packages.
 - Every advertised profile needs installed-wheel execution evidence for its

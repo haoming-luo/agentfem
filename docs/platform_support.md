@@ -119,6 +119,18 @@ Runtime selection is normally automatic. CI or advanced diagnostics may set
 requested runtime whose required package is unavailable, fails before model
 lowering instead of silently changing the numerical route.
 
+The native linear policy is equally fail-closed. `direct_solver()` maps to
+SciPy SuperLU through `spsolve`; iterative CG, GMRES, and BiCGStab support no
+preconditioner, diagonal Jacobi, or the documented PyAMG aliases. Unsupported
+PETSc factor packages and preconditioners are rejected rather than silently
+ignored. Non-finite solutions, singular-matrix warnings, and residuals outside
+the declared tolerance are recorded as non-converged solves.
+
+`agentfem run --mpi N` also checks the active runtime before launching ranks.
+The native serial profile therefore rejects `N > 1` immediately; the generic
+`agentfem mpi-run` command remains available for unrelated MPI programs when
+the local launcher is coherent.
+
 Use native Windows for the supported serial core described in `INSTALL.md`.
 Use WSL2 when a Windows workstation needs the complete Linux
 FEniCSx/PETSc/MPI stack. Keep WSL projects in the Linux filesystem for compile

@@ -9,6 +9,7 @@ platforms where petsc4py is not packaged, notably native Windows.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from importlib import import_module
 from importlib.util import find_spec
 import os
 
@@ -64,32 +65,26 @@ class RuntimeProfile:
 
 
 def _available(module: str) -> bool:
+    """Return whether an optional runtime module can actually be imported.
+
+    ``find_spec`` alone is insufficient for compiled Python packages: on
+    Windows a package can be present while one of its DLL dependencies is
+    missing.  Treat that state as unavailable so runtime selection fails
+    before numerical lowering instead of crashing at the first assembly.
+    """
+
     try:
-        return find_spec(module) is not None
-    except (ImportError, ModuleNotFoundError, ValueError):
+        if find_spec(module) is None:
+            return False
+        import_module(module)
+        return True
+    except (ImportError, ModuleNotFoundError, OSError, ValueError):
         return False
 
 
 def current_runtime() -> RuntimeProfile:
-    """Return the active FEniCSx runtime without importing optional solvers."""
+    """Return the active FEniCSx runtime after import-level capability probes."""
 
-    packages = {
-        "dolfinx": _available("dolfinx"),
-        "petsc4py": _available("petsc4py"),
-        "scipy": _available("scipy"),
-        "pyamg": _available("pyamg"),
-        "dolfinx_mpc": _available("dolfinx_mpc"),
-    }
-    if not packages["dolfinx"]:
-        return RuntimeProfile(
-            "unavailable", (), packages, False, "DOLFINx is not installed."
-        )
-    common = [
-        "ufl_form_compilation",
-        "matrix_assembly",
-        "vector_assembly",
-        "xdmf_output",
-    ]
     raw_request = os.environ.get("AGENTFEM_RUNTIME", "").strip().lower()
     aliases = {
         "": "auto",
@@ -106,6 +101,29 @@ def current_runtime() -> RuntimeProfile:
             "'fenicsx-native-serial'."
         )
     requested = aliases[raw_request]
+    packages = {
+        "dolfinx": _available("dolfinx"),
+        "petsc4py": _available("petsc4py"),
+        "dolfinx_fem_petsc": _available("dolfinx.fem.petsc"),
+        "scipy": _available("scipy"),
+        "pyamg": _available("pyamg"),
+        "dolfinx_mpc": _available("dolfinx_mpc"),
+    }
+    if not packages["dolfinx"]:
+        if requested != "auto":
+            raise RuntimeSelectionError(
+                f"{RuntimeSelectionError.code}: AGENTFEM_RUNTIME requests "
+                f"{requested!r}, but DOLFINx is unavailable."
+            )
+        return RuntimeProfile(
+            "unavailable", (), packages, False, "DOLFINx is not installed."
+        )
+    common = [
+        "ufl_form_compilation",
+        "matrix_assembly",
+        "vector_assembly",
+        "xdmf_output",
+    ]
     force_native = requested == "fenicsx-native-serial"
     force_petsc = requested == "fenicsx-petsc"
     if force_native and not packages["scipy"]:
@@ -113,12 +131,14 @@ def current_runtime() -> RuntimeProfile:
             f"{RuntimeSelectionError.code}: AGENTFEM_RUNTIME requests the "
             "native serial runtime, but SciPy is unavailable."
         )
-    if force_petsc and not packages["petsc4py"]:
+    petsc_ready = packages["petsc4py"] and packages["dolfinx_fem_petsc"]
+    if force_petsc and not petsc_ready:
         raise RuntimeSelectionError(
             f"{RuntimeSelectionError.code}: AGENTFEM_RUNTIME requests the "
-            "PETSc runtime, but petsc4py is unavailable."
+            "PETSc runtime, but petsc4py and the DOLFINx PETSc adapter are "
+            "not both importable."
         )
-    if packages["petsc4py"] and not force_native:
+    if petsc_ready and not force_native:
         capabilities = common + [
             "linear_solve",
             "nonlinear_solve",

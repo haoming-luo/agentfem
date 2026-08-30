@@ -341,6 +341,12 @@ class StepProviderRegistry:
         from .backends.runtime import RuntimeCapabilityError, current_runtime
 
         runtime = current_runtime()
+        model_missing = _model_runtime_requirements(model, runtime)
+        if model_missing:
+            raise RuntimeCapabilityError(
+                model_missing,
+                operation="model mesh execution",
+            )
         analysis_candidates = [
             provider
             for provider in self.providers()
@@ -448,6 +454,7 @@ def step_capability(
     from .backends.runtime import current_runtime
 
     runtime = current_runtime()
+    model_missing = _model_runtime_requirements(model, runtime)
     selected_analysis = _normalize(
         analysis or getattr(getattr(model, "study", None), "analysis", "")
     )
@@ -470,7 +477,7 @@ def step_capability(
     )
     provider = None
     option_issues = ()
-    missing_capabilities = ()
+    missing_capabilities = model_missing
     selected_target = targets[0]
     for candidate_target in targets:
         request = StepRequest(
@@ -486,10 +493,13 @@ def step_capability(
             option_rejections = []
             capability_rejections = []
             for candidate in accepted:
-                missing = tuple(
+                provider_missing = tuple(
                     item
                     for item in candidate.requires
                     if not runtime.supports(item)
+                )
+                missing = tuple(
+                    dict.fromkeys((*model_missing, *provider_missing))
                 )
                 if missing:
                     capability_rejections.append((candidate, missing))
@@ -509,7 +519,7 @@ def step_capability(
                 if not issues:
                     provider = candidate
                     option_issues = ()
-                    missing_capabilities = ()
+                    missing_capabilities = model_missing
                     break
                 option_rejections.append((candidate, issues))
             if provider is None and option_rejections:
@@ -562,6 +572,18 @@ def lower_step(model, *, analysis: str, target, options, procedure=None):
         procedure=selected_procedure,
     )
     return _DEFAULT_REGISTRY.lower(model, request)
+
+
+def _model_runtime_requirements(model, runtime) -> tuple[str, ...]:
+    """Return execution capabilities implied by the model's mesh communicator."""
+
+    selected_mesh = getattr(model, "mesh", None)
+    domain = getattr(selected_mesh, "domain", selected_mesh)
+    comm = getattr(domain, "comm", None)
+    if comm is not None and int(getattr(comm, "size", 1)) > 1:
+        if not runtime.supports("mpi_distributed_mesh"):
+            return ("mpi_distributed_mesh",)
+    return ()
 
 
 def _resolve_procedure(model, *, analysis: str, options, requested):

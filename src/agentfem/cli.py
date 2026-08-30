@@ -22,6 +22,7 @@ from . import platforms
 from . import provenance
 from . import upgrades
 from ._api_contract import CAPABILITIES_SCHEMA_VERSION, CLI_COMMANDS
+from .backends.runtime import require_capabilities
 from .mpi_runtime import audit_mpi_runtime, mpi_command
 from .project import PROJECT_FILENAME, ProjectConfig, RunContext, discover, new_run_id
 
@@ -212,6 +213,10 @@ def _collect_rank_errors(comm, local_error) -> tuple[dict[str, object], ...]:
 
 
 def _launch_mpi(args) -> int:
+    require_capabilities(
+        "mpi_distributed_mesh",
+        operation="agentfem run --mpi",
+    )
     child = [
         sys.executable,
         "-m",
@@ -710,6 +715,9 @@ def main(argv: list[str] | None = None) -> int:
             return 0
     except (FileNotFoundError, FileExistsError, ValueError, RuntimeError) as exc:
         error = {"type": type(exc).__name__, "message": str(exc)}
+        code = getattr(exc, "code", None)
+        if code is not None:
+            error["code"] = str(code)
         details = getattr(exc, "details", None)
         if callable(details):
             error["details"] = details()

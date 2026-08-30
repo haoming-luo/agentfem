@@ -934,7 +934,7 @@ def _matrix_or_diagonal(operator):
         return operator
     try:
         from petsc4py import PETSc
-    except ImportError:
+    except (ImportError, OSError):
         PETSc = None
     if PETSc is not None and isinstance(operator, PETSc.Mat):
         return operator

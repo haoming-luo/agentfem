@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import isfinite
+import warnings
 
 import numpy as np
 from dolfinx import fem, la
@@ -13,7 +14,7 @@ from .backends.runtime import current_runtime, require_capabilities
 try:  # Optional on the native Windows runtime.
     from petsc4py import PETSc
     import dolfinx.fem.petsc as fem_petsc
-except ImportError:  # pragma: no cover - exercised by Windows CI
+except (ImportError, OSError):  # pragma: no cover - exercised by Windows CI
     PETSc = None
     fem_petsc = None
 
@@ -532,6 +533,7 @@ class LinearSolveInfo:
     iterations: int
     residual_norm: float
     backend: str = "petsc"
+    preconditioner: str | None = None
 
     @property
     def converged(self) -> bool:
@@ -545,6 +547,7 @@ class LinearSolveInfo:
             "iterations": self.iterations,
             "residual_norm": self.residual_norm,
             "backend": self.backend,
+            "preconditioner": self.preconditioner,
         }
 
 
@@ -614,6 +617,7 @@ class PreparedLinearProblem:
                 iterations=int(self.ksp.getIterationNumber()),
                 residual_norm=float(self.ksp.getResidualNorm()),
                 backend="petsc",
+                preconditioner=self.options.pc_type,
             )
             vector.destroy()
         else:
@@ -695,6 +699,7 @@ def solve_matrix_system(
         converged_reason=int(ksp.getConvergedReason()),
         iterations=int(ksp.getIterationNumber()),
         residual_norm=float(ksp.getResidualNorm()),
+        preconditioner=selected.pc_type,
     )
     ksp.destroy()
     should_raise = (
@@ -787,7 +792,7 @@ def _assemble_native_rhs(linear_form, bilinear_form, bcs):
 def _solve_native_matrix(matrix, rhs, options):
     """Solve one serial native CSR system with SciPy or optional PyAMG."""
 
-    from scipy.sparse.linalg import bicgstab, cg, gmres, spsolve
+    from scipy.sparse.linalg import MatrixRankWarning, bicgstab, cg, gmres, spsolve
 
     selected = options or LinearSolverOptions()
     requested_package = selected.factor_solver_type
@@ -806,21 +811,72 @@ def _solve_native_matrix(matrix, rhs, options):
     maximum = selected.max_it
     iterations = 0
 
-    if method in {"preonly", "lu", "cholesky"}:
-        values = np.asarray(spsolve(matrix, rhs))
-        reason = 1
+    pc_type = selected.pc_type.lower()
+    if method in {"preonly", "lu"}:
+        if pc_type != "lu":
+            raise ValueError(
+                "fenicsx-native-serial maps a direct solve only from "
+                "ksp_type='preonly'/'lu' with pc_type='lu'; received "
+                f"pc_type={selected.pc_type!r}."
+            )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", MatrixRankWarning)
+            values = np.asarray(spsolve(matrix, rhs))
+        rank_warning = any(
+            issubclass(item.category, MatrixRankWarning) for item in caught
+        )
+        reason = -3 if rank_warning else 1
         iterations = 1
         backend = "scipy_spsolve"
+        actual_preconditioner = "superlu"
+    elif method == "cholesky":
+        raise ValueError(
+            "fenicsx-native-serial does not silently map Cholesky to SciPy LU; "
+            "use direct_solver() or select a supported iterative method."
+        )
     else:
+        if requested_package is not None:
+            raise ValueError(
+                "factor_solver_type applies only to a direct native solve; "
+                f"received iterative ksp_type={selected.ksp_type!r}."
+            )
         preconditioner = None
-        if selected.pc_type.lower() in {"hypre", "gamg", "amg", "pyamg"}:
+        actual_preconditioner = "none"
+        if pc_type in {"none", ""}:
+            pass
+        elif pc_type == "jacobi":
+            from scipy.sparse.linalg import LinearOperator
+
+            diagonal = np.asarray(matrix.diagonal())
+            scale = float(np.max(np.abs(diagonal))) if diagonal.size else 0.0
+            threshold = np.finfo(float).eps * max(1.0, scale)
+            if np.any(np.abs(diagonal) <= threshold):
+                raise ValueError(
+                    "The native Jacobi preconditioner requires a nonzero matrix "
+                    "diagonal."
+                )
+            inverse = 1.0 / diagonal
+            preconditioner = LinearOperator(
+                matrix.shape,
+                matvec=lambda value: inverse * value,
+                dtype=matrix.dtype,
+            )
+            actual_preconditioner = "jacobi"
+        elif pc_type in {"hypre", "gamg", "amg", "pyamg"}:
             try:
                 import pyamg
-            except ImportError as exc:
+            except (ImportError, OSError) as exc:
                 raise ImportError(
                     "The native AMG policy requires optional `pyamg`."
                 ) from exc
             preconditioner = pyamg.smoothed_aggregation_solver(matrix).aspreconditioner()
+            actual_preconditioner = "pyamg_smoothed_aggregation"
+        else:
+            raise ValueError(
+                "fenicsx-native-serial supports pc_type='none', 'jacobi', or "
+                "the PyAMG aliases 'hypre'/'gamg'/'amg'/'pyamg' for iterative "
+                f"solves; received pc_type={selected.pc_type!r}."
+            )
         callback_count = [0]
 
         def callback(_value):
@@ -847,11 +903,22 @@ def _solve_native_matrix(matrix, rhs, options):
                 "fenicsx-native-serial supports direct/preonly, cg, gmres, "
                 f"and bicgstab; received ksp_type={selected.ksp_type!r}."
             )
-        reason = 1 if flag == 0 else -1
+        reason = 1 if flag == 0 else (-2 if flag < 0 else -1)
         iterations = callback_count[0]
         backend = f"scipy_{method}"
     residual = float(np.linalg.norm(matrix @ values - rhs))
-    info = LinearSolveInfo(reason, iterations, residual, backend=backend)
+    rhs_norm = float(np.linalg.norm(rhs))
+    convergence_limit = max(absolute, tolerance * rhs_norm)
+    finite = bool(np.all(np.isfinite(values)) and np.isfinite(residual))
+    if not finite or residual > convergence_limit:
+        reason = -3
+    info = LinearSolveInfo(
+        reason,
+        iterations,
+        residual,
+        backend=backend,
+        preconditioner=actual_preconditioner,
+    )
     if not info.converged and selected.error_if_not_converged:
         _raise_linear_failure(info)
     return values, info

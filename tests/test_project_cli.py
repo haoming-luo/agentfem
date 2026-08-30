@@ -134,6 +134,24 @@ def test_cli_init_and_check_use_installed_template(tmp_path):
     assert cli.main(["templates", "--json"]) == 0
 
 
+def test_cli_rejects_distributed_project_before_native_mpi_launch(
+    monkeypatch,
+    capsys,
+):
+    monkeypatch.setenv("AGENTFEM_RUNTIME", "fenicsx-native-serial")
+
+    def unexpected_launch(*_args, **_kwargs):
+        raise AssertionError("native runtime must fail before subprocess launch")
+
+    monkeypatch.setattr(cli.subprocess, "run", unexpected_launch)
+    assert cli.main(["run", "--mpi", "2", "--json"]) == 2
+    record = json.loads(capsys.readouterr().out)
+    assert record["status"] == "failed"
+    assert record["error"]["code"] == "AFM-BACKEND-CAPABILITY-001"
+    assert "AFM-BACKEND-CAPABILITY-001" in record["error"]["message"]
+    assert "mpi_distributed_mesh" in record["error"]["message"]
+
+
 def test_template_copy_ignores_runtime_cache_directories(tmp_path, monkeypatch):
     source = (
         Path(__file__).resolve().parents[1]

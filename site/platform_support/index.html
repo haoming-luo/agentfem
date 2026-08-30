@@ -1494,6 +1494,16 @@ lowered; application code does not branch on the operating system.</p>
 <code>AGENTFEM_RUNTIME=fenicsx-native-serial</code>. An unknown name, or an explicitly
 requested runtime whose required package is unavailable, fails before model
 lowering instead of silently changing the numerical route.</p>
+<p>The native linear policy is equally fail-closed. <code>direct_solver()</code> maps to
+SciPy SuperLU through <code>spsolve</code>; iterative CG, GMRES, and BiCGStab support no
+preconditioner, diagonal Jacobi, or the documented PyAMG aliases. Unsupported
+PETSc factor packages and preconditioners are rejected rather than silently
+ignored. Non-finite solutions, singular-matrix warnings, and residuals outside
+the declared tolerance are recorded as non-converged solves.</p>
+<p><code>agentfem run --mpi N</code> also checks the active runtime before launching ranks.
+The native serial profile therefore rejects <code>N &gt; 1</code> immediately; the generic
+<code>agentfem mpi-run</code> command remains available for unrelated MPI programs when
+the local launcher is coherent.</p>
 <p>Use native Windows for the supported serial core described in <code>INSTALL.md</code>.
 Use WSL2 when a Windows workstation needs the complete Linux
 FEniCSx/PETSc/MPI stack. Keep WSL projects in the Linux filesystem for compile

@@ -16,7 +16,7 @@ from mpi4py import MPI
 
 try:  # PETSc is required only by assembled cohesive solver paths.
     from petsc4py import PETSc
-except ImportError:  # pragma: no cover - exercised by Windows CI
+except (ImportError, OSError):  # pragma: no cover - exercised by Windows CI
     PETSc = None
 
 

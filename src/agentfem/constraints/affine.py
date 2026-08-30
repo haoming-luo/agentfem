@@ -25,7 +25,7 @@ from mpi4py import MPI
 
 try:  # PETSc construction is requested only by the full runtime.
     from petsc4py import PETSc
-except ImportError:  # pragma: no cover - exercised by Windows CI
+except (ImportError, OSError):  # pragma: no cover - exercised by Windows CI
     PETSc = None
 
 _SCALAR_DTYPE = dolfinx.default_scalar_type

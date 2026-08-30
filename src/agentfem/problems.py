@@ -15,7 +15,7 @@ from mpi4py import MPI
 
 try:  # Optional on native Windows; PETSc-only procedures fail by capability.
     from petsc4py import PETSc
-except ImportError:  # pragma: no cover - exercised by Windows CI
+except (ImportError, OSError):  # pragma: no cover - exercised by Windows CI
     PETSc = None
 
 from . import assembly

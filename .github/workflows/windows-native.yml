@@ -34,6 +34,7 @@ jobs:
           conda run --no-capture-output -n agentfem-windows python -m build --wheel --no-isolation
           $wheel = Get-ChildItem dist\*.whl | Select-Object -First 1
           conda run --no-capture-output -n agentfem-windows python -m pip install --no-deps --force-reinstall $wheel.FullName
+          conda run --no-capture-output -n agentfem-windows python -m pip check
 
       - name: Prove native runtime and imports
         env:
@@ -48,7 +49,7 @@ jobs:
         env:
           AGENTFEM_RUNTIME: fenicsx-native-serial
         run: |
-          conda run --no-capture-output -n agentfem-windows python -m pytest -q tests/test_windows_native_runtime.py tests/test_prepared_linear_problem.py tests/test_common_workflows.py tests/test_results.py
+          conda run --no-capture-output -n agentfem-windows python -m pytest -q tests/test_windows_native_runtime.py tests/test_prepared_linear_problem.py tests/test_common_workflows.py tests/test_results.py tests/test_solvers.py tests/test_project_cli.py tests/test_mpi_runtime.py tests/test_platforms.py
 
       - name: Prove installed-wheel project workflow outside source tree
         env:
@@ -62,7 +63,7 @@ jobs:
           conda run --no-capture-output -n agentfem-windows python -m agentfem.cli check --project $project
           conda run --no-capture-output -n agentfem-windows python -m agentfem.cli run --project $project --run-id native-windows-wheel
           conda run --no-capture-output -n agentfem-windows python -m agentfem.cli verify --project $project --json
-          conda run --no-capture-output -n agentfem-windows python -c "import json, os, pathlib; from agentfem import provenance; manifest=pathlib.Path(r'$project')/'outputs'/'native-windows-smoke'/'native-windows-wheel'/'result.json'; report=provenance.verify_manifest(manifest).summary(); assert report['verified']; pathlib.Path(os.environ['AGENTFEM_WHEEL_EVIDENCE']).write_text(json.dumps(report, indent=2), encoding='utf-8')"
+          conda run --no-capture-output -n agentfem-windows python -c "import json, os, pathlib, shutil; from agentfem import provenance; manifest=pathlib.Path(r'$project')/'outputs'/'native-windows-smoke'/'native-windows-wheel'/'result.json'; report=provenance.verify_manifest(manifest).summary(); assert report['verified']; pathlib.Path(os.environ['AGENTFEM_WHEEL_EVIDENCE']).write_text(json.dumps(report, indent=2), encoding='utf-8'); shutil.copy2(manifest, pathlib.Path(os.environ['AGENTFEM_WHEEL_EVIDENCE']).with_name('windows-wheel-result.json'))"
           Pop-Location
 
       - name: Upload Windows runtime evidence
@@ -73,4 +74,5 @@ jobs:
           path: |
             windows-runtime.json
             windows-wheel-verification.json
+            windows-wheel-result.json
           if-no-files-found: warn
