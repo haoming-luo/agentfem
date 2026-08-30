@@ -12,8 +12,6 @@
 [![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows%20%28WSL2%29-informational.svg)](INSTALL.md)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-**AI-native finite-element computing for humans and agents.**
-
 <p align="center">
   <a href="https://haoming-luo.github.io/agentfem/assets/papers/agentfem_platform.pdf"><img src="https://img.shields.io/badge/PDF-AgentFEM_Technical_Report-245B8F?style=flat-square&logo=adobeacrobatreader&logoColor=white" alt="AgentFEM Technical Report (PDF)"></a>
 </p>
