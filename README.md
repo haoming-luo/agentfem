@@ -15,9 +15,7 @@
 **AI-native finite-element computing for humans and agents.**
 
 <p align="center">
-  <a href="https://haoming-luo.github.io/agentfem/assets/papers/agentfem_platform.pdf"><img src="https://img.shields.io/badge/READ-THE_AGENTFEM_TECHNICAL_REPORT-245B8F?style=for-the-badge" alt="Read the AgentFEM Technical Report"></a>
-  <br>
-  <em>The architecture, founding principles, representative workflows, and author's vision for AI-native finite-element computing.</em>
+  <a href="https://haoming-luo.github.io/agentfem/assets/papers/agentfem_platform.pdf"><img src="https://img.shields.io/badge/PDF-AgentFEM_Technical_Report-245B8F?style=flat-square&logo=adobeacrobatreader&logoColor=white" alt="AgentFEM Technical Report (PDF)"></a>
 </p>
 
 AgentFEM is an open-source finite-element platform that turns an engineering

@@ -8,13 +8,7 @@
 
 <div class="af-home-report" markdown>
 
-**AgentFEM Technical Report**
-
-The architecture, founding principles, representative workflows, and author's
-vision for AI-native finite-element computing.
-
-[Read the technical report (PDF)](assets/papers/agentfem_platform.pdf){ .md-button .md-button--primary }
-[Report details and citation](publications/agentfem-platform.md){ .md-button }
+[:material-file-pdf-box: **Technical Report** · PDF](assets/papers/agentfem_platform.pdf){ .af-report-link }
 
 </div>
 
