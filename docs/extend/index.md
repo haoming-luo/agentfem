@@ -24,6 +24,7 @@ placing a one-off example helper inside the core package.
 
 ## Continue
 
+- [Architecture and ownership](../ownership_contract.md)
 - [API style](../api_style.md)
 - [Extension rules](../extension_rules.md)
 - [Extension packages and private products](../extensions_and_private_products.md)

@@ -18,7 +18,7 @@ from .. import fracture
 from .. import interfaces
 from .. import mesh
 from .. import models
-from .. import problems
+from .. import state as state_api
 from .. import results
 from .. import studies
 
@@ -532,7 +532,7 @@ def finite_strain_wave_arrival(
     dt = float(courant) * dx / predicted
     end_time = (receivers[-1] - source_position + 4.0 * pulse_width) / predicted
     steps = int(ceil(end_time / dt))
-    state = problems.second_order_state(displacement)
+    state = state_api.second_order_state(displacement)
     velocity_scale = 1.0e-4 * predicted
     state.v.value.interpolate(
         lambda x: np.vstack(

@@ -1,4 +1,4 @@
-"""Problem/state containers for standard finite-element workflows."""
+"""Discrete problem and analysis-step containers for FEM workflows."""
 
 from __future__ import annotations
 
@@ -15,10 +15,10 @@ from petsc4py import PETSc
 
 from . import assembly
 from . import fields
-from . import spaces
 from . import time
 from .diagnostics import PerformanceLedger
 from .kernel import dofs
+from .operators.core import LumpedMassOperator
 from .solvers import (
     AffineNewtonOptions,
     LinearSolverOptions,
@@ -28,6 +28,12 @@ from .solvers import (
     solve_affine_nonlinear_path,
     solve_linear_problem,
     solve_nonlinear_problem,
+)
+from .state import (
+    ExplicitDynamicsState,
+    SecondOrderDynamicsState,
+    TransientState,
+    second_order_state,
 )
 
 
@@ -3263,160 +3269,6 @@ def _load_transient_checkpoint(step, path, state) -> None:
             },
         )
     )
-
-
-@dataclass
-class TransientState:
-    """Current/next fields for a first-order transient unknown."""
-
-    current: object
-    next: object
-
-    @classmethod
-    def create(cls, V, *, name: str = "Field"):
-        """Create a zero-initialized transient state on a function space."""
-
-        return cls(
-            current=spaces.named_function(V, name),
-            next=spaces.named_function(V, name),
-        )
-
-    def accept_step(self) -> None:
-        """Copy ``next`` into ``current``."""
-
-        dofs.copy_function(self.current, self.next)
-
-
-@dataclass
-class SecondOrderDynamicsState:
-    """Displacement/velocity/acceleration fields for second-order dynamics."""
-
-    u: object
-    v: object
-    a: object
-    v_mid: object
-    u_next: object
-    v_next: object
-    a_next: object
-
-    @classmethod
-    def create(
-        cls,
-        V,
-        *,
-        displacement_name: str = "Displacement",
-        velocity_name: str = "Velocity",
-        acceleration_name: str = "Acceleration",
-    ):
-        """Create zero-initialized explicit dynamics fields for a space."""
-
-        return cls(
-            u=fields.wrap(spaces.named_function(V, displacement_name)),
-            v=fields.wrap(spaces.named_function(V, velocity_name)),
-            a=fields.wrap(spaces.named_function(V, acceleration_name)),
-            v_mid=fields.wrap(spaces.named_function(V, f"{velocity_name}_Midstep")),
-            u_next=fields.wrap(spaces.named_function(V, displacement_name)),
-            v_next=fields.wrap(spaces.named_function(V, velocity_name)),
-            a_next=fields.wrap(spaces.named_function(V, acceleration_name)),
-        )
-
-    def predict_displacement(self, dt: float) -> None:
-        """Predict ``u_next`` from the current state."""
-
-        time.central_difference_predict_displacement(self.u_next, self.u, self.v, self.a, dt)
-
-    def set_acceleration_from_residual(self, residual, inv_mass: np.ndarray) -> None:
-        """Set ``a_next`` from a residual vector and inverse lumped mass."""
-
-        time.acceleration_from_residual(self.a_next, residual, inv_mass)
-
-    def update_midstep_velocity(self, dt: float) -> None:
-        """Update ``v_mid`` with the central-difference half-step formula."""
-
-        time.central_difference_update_midstep_velocity(self.v_mid, self.v, self.a, dt)
-
-    def correct_velocity(self, dt: float) -> None:
-        """Correct ``v_next`` using ``a`` and ``a_next``."""
-
-        time.central_difference_correct_velocity(self.v_next, self.v, self.a, self.a_next, dt)
-
-    def update_velocity(self, dt: float) -> None:
-        """Update ``v_next`` from ``v_mid`` and ``a_next``."""
-
-        time.central_difference_update_velocity(self.v_next, self.v_mid, self.a_next, dt)
-
-    def update_displacement(self) -> None:
-        """Copy ``u_next`` into the current displacement state."""
-
-        dofs.copy_function(self.u, self.u_next)
-
-    def advance_state(self) -> None:
-        """Copy next-step fields into current fields."""
-
-        dofs.copy_function(self.u, self.u_next)
-        dofs.copy_function(self.v, self.v_next)
-        dofs.copy_function(self.a, self.a_next)
-
-    def accept_step(self) -> None:
-        """Compatibility alias for ``advance_state``."""
-
-        self.advance_state()
-
-    def accept_displacement(self) -> None:
-        """Compatibility alias for ``update_displacement``."""
-
-        self.update_displacement()
-
-    def accept_velocity_acceleration(self) -> None:
-        """Compatibility alias for advancing velocity and acceleration."""
-
-        self.advance_velocity_acceleration()
-
-    def advance_velocity_acceleration(self) -> None:
-        """Advance velocity and acceleration to the next time level."""
-
-        dofs.copy_function(self.v, self.v_next)
-        dofs.copy_function(self.a, self.a_next)
-
-
-@dataclass
-class LumpedMassOperator:
-    """Diagonal mass operator for explicit dynamics."""
-
-    mass: np.ndarray
-    inv_mass: np.ndarray
-
-    @classmethod
-    def assemble(cls, V, density=1.0, measure=None):
-        """Assemble a lumped mass operator for a function space."""
-
-        if measure is None:
-            mass = assembly.assemble_lumped_mass(V, density)
-        else:
-            mass = assembly.assemble_lumped_mass(V, density, measure=measure)
-        return cls(mass=mass, inv_mass=assembly.inverse_diagonal(mass))
-
-
-ExplicitDynamicsState = SecondOrderDynamicsState
-
-
-def second_order_state(field_or_space, **kwargs) -> SecondOrderDynamicsState:
-    """Create a second-order dynamics state from a field or function space."""
-
-    source = None
-    if hasattr(field_or_space, "space"):
-        V = field_or_space.space
-        source = getattr(field_or_space, "value", None)
-    elif hasattr(field_or_space, "function_space"):
-        V = field_or_space.function_space
-        source = field_or_space
-    else:
-        V = field_or_space
-    state = SecondOrderDynamicsState.create(V, **kwargs)
-    if source is not None:
-        state.u = fields.wrap(source)
-        state.u_next.assign(source)
-    return state
 
 
 def linear_system(

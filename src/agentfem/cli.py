@@ -674,6 +674,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "capabilities":
             from . import benchmarks, constitutive, models, public_api
+            from ._architecture_contract import ownership_contract
             public_modules = {
                 level: public_api(level)
                 for level in ("core", "advanced", "expert")
@@ -692,6 +693,7 @@ def main(argv: list[str] | None = None) -> int:
                     for level in ("core", "advanced", "compatibility")
                 },
                 "model_api_contract": models.model_api_contract(),
+                "ownership_contract": ownership_contract(),
                 "templates": _templates(),
                 "runtime": platforms.runtime_report().summary(),
                 "constitutive": tuple(

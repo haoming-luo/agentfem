@@ -4,6 +4,8 @@ Repository package paths below are relative to `src/agentfem/`.
 
 - `_api_contract.py`: dependency-free public module tiers, Model verbs, CLI
   commands, and machine workflow stages
+- `_architecture_contract.py`: dependency-free Model/Constitutive/State/
+  Operator/Procedure/Backend/Result ownership inventory
 - `mesh/`: mesh import/read/write, boundary/cell regions, summaries, tag
   checks, tags, and measures
 - `mesh/formats.py`: external CAE inventory, cell/facet conversion, set tags,
@@ -47,7 +49,9 @@ Repository package paths below are relative to `src/agentfem/`.
 - `operators/`: engineering-level K/M/C/F, transport, SUPG, reaction operators,
   and system containers
 - `time/`: central difference, Newmark, generalized-alpha, progress, and cadence
-- `problems.py`: analysis steps, system problems, and state containers
+- `state.py`: restart/replace protocols and generic first-/second-order state
+- `problems.py`: analysis steps and discrete system problems; historical state
+  imports are compatibility aliases
 - `solvers.py`: PETSc solver wrappers and convergence evidence
 - `steps.py`: automatic/fixed analysis-step incrementation and cutback policy
 - `results/`: simulation results, assembled QoIs, histories, artifacts, and

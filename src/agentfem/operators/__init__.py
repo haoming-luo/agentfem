@@ -6,6 +6,7 @@ This package gives users K/M/C/F language while keeping weak forms available in
 
 from . import elasticity
 from .core import (
+    LumpedMassOperator,
     OperatorForm,
     action,
     assemble_matrix,
@@ -81,6 +82,7 @@ assemble_lumped_mass = lumped_mass
 assemble_lumped_operator = lumped_operator
 
 __all__ = [
+    "LumpedMassOperator",
     "LinearSystem",
     "FirstOrderSystem",
     "OperatorForm",

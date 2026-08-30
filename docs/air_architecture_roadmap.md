@@ -194,10 +194,11 @@ regions, coefficients, and measures. `OperatorSpec` should grow from these
 common families while `OperatorForm.expression` remains the efficient UFL
 runtime path.
 
-### `problems.py`, `time/`, and `solvers.py`
+### `state.py`, `problems.py`, `time/`, and `solvers.py`
 
-The separation among systems, steps, states, and time integrators is sound.
-Solver options are now inspectable and validated. The next missing interface is
+Generic transient state now has an explicit owner and restart/replace
+protocol, while `problems.py` owns discrete systems and Step containers.
+Solver options are inspectable and validated. The next missing interface is
 an execution plan that records when compilation, constraint application,
 state updates, diagnostics, and output occur. Numerical execution still calls
 DOLFINx/PETSc directly in several places, which is appropriate until the plan

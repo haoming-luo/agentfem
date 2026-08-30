@@ -833,6 +833,7 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| class | `LumpedMassOperator` | Diagonal mass operator owned by the mathematical operator layer. |
 | class | `OperatorForm` | Named scientific operator with a current backend expression. |
 | function | `action(operator, field)` | Return the algebraic action of a matrix-like operator on a field. |
 | function | `assemble_matrix(operator, *, bcs = None, backend = None)` | Assemble an operator-level matrix from an ``OperatorForm`` or UFL form. |
@@ -942,6 +943,20 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `solve_linear_problem(bilinear_form, linear_form, solution, *, bcs = None, options: LinearSolverOptions \| None = None, return_info: bool = False)` | Assemble and solve a standard linear variational problem. |
 | function | `solve_nonlinear_problem(residual_form, solution, *, bcs = None, jacobian_form = None, options: NonlinearSolverOptions \| NewtonSolverOptions \| None = None, petsc_options_prefix: str = 'agentfem_nonlinear_') -> tuple[object, NonlinearSolveInfo]` | Solve ``R(u; v) = 0`` with the current DOLFINx PETSc/SNES interface. |
 | function | `solve_affine_nonlinear_path(residual_form, jacobian_form, solution, constraint, *, load_factors = None, incrementation = None, output_factors = (), options: AffineNewtonOptions \| NewtonSolverOptions \| None = None, on_increment = None, on_accepted_boundary = None, on_acceptance_failure = None, acceptance_check = None, state_transaction = None, stop_factor: float = 1.0, accepted_history = (), attempted_history = (), next_increment_size: float \| None = None, reporter = None, step_name: str = 'affine_nonlinear', step_number: int = 1) -> tuple[object, AffineLoadPathInfo]` | Solve a nonlinear path under ``u = T q + u_bar`` constraints. |
+
+## `agentfem.state`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `RestartableState` | State whose accepted scientific identity can cross a restart. |
+| class | `ReplaceableState` | State with an atomic trial/accept/reject boundary. |
+| class | `StateCapabilities` | Inspectable transaction features without guessing from class names. |
+| function | `capabilities(value: object) -> StateCapabilities` | Describe the transaction boundary implemented by ``value``. |
+| function | `require_restartable(value: object, *, name: str = 'state') -> RestartableState` | Return ``value`` or fail with an addressable ownership error. |
+| function | `require_replaceable(value: object, *, name: str = 'state') -> ReplaceableState` | Return ``value`` or fail unless it owns atomic accept/reject semantics. |
+| class | `TransientState` | Accepted/trial fields for a first-order transient unknown. |
+| class | `SecondOrderDynamicsState` | Accepted/trial displacement, velocity, and acceleration fields. |
+| function | `second_order_state(field_or_space, **kwargs) -> SecondOrderDynamicsState` | Create a second-order state from a field or function space. |
 
 ## `agentfem.surrogates`
 
@@ -1178,10 +1193,6 @@ This package exposes its public objects through focused submodules.
 | class | `ExplicitDynamicsStep` | Inspectable second-order explicit dynamics step. |
 | class | `ImplicitDynamicsStep` | Linear Newmark/generalized-alpha structural-dynamics step. |
 | class | `FirstOrderTransientStep` | Reusable implicit-Euler step loop for heat/diffusion problems. |
-| class | `TransientState` | Current/next fields for a first-order transient unknown. |
-| class | `SecondOrderDynamicsState` | Displacement/velocity/acceleration fields for second-order dynamics. |
-| class | `LumpedMassOperator` | Diagonal mass operator for explicit dynamics. |
-| function | `second_order_state(field_or_space, **kwargs) -> SecondOrderDynamicsState` | Create a second-order dynamics state from a field or function space. |
 | function | `linear_system(K, F, *, unknown = None, solution = None, constraints = None, bcs = None, solver_options: LinearSolverOptions \| None = None, name: str = 'Kx_eq_F') -> LinearSystemProblem` | Create a ``K x = F`` problem without exposing variational boilerplate. |
 | function | `linear_static(K, F, *, study = None, unknown = None, solution = None, constraints = None, bcs = None, solver_options: LinearSolverOptions \| None = None, result_field_factory = None, name: str = 'linear_static') -> AnalysisStep` | Create a linear static analysis step in ``K x = F`` notation. |
 | function | `nonlinear(residual, solution, *, jacobian = None, constraints = None, bcs = None, solver_options: NonlinearSolverOptions \| NewtonSolverOptions \| None = None, name: str = 'nonlinear', petsc_options_prefix: str = 'agentfem_nonlinear_') -> NonlinearVariationalProblem` | Create a general nonlinear residual problem. |

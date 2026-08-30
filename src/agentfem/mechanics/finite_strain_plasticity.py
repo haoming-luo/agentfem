@@ -346,6 +346,16 @@ class FiniteStrainJ2StateTransaction:
             snapshot["last_maximum_plastic_increment"]
         )
 
+    def snapshot(self) -> dict[str, object]:
+        """Return the complete mutable boundary for generic state ownership."""
+
+        return self.snapshot_runtime_state()
+
+    def restore(self, snapshot: dict[str, object]) -> None:
+        """Restore a generic state snapshot without changing increment policy."""
+
+        self.restore_runtime_state(snapshot)
+
     def snapshot_fields(self) -> dict[str, object]:
         fields = {
             "F": self.deformation_gradient,

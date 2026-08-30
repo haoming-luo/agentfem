@@ -12,7 +12,9 @@ import numpy as np
 
 from . import constraints as constraint_api
 from . import loads as load_api
+from . import state as state_api
 from .materials.properties import constant_volumetric_heat_capacity
+from .operators.core import LumpedMassOperator
 
 
 def linear_static(
@@ -1195,7 +1197,7 @@ def explicit_dynamics(
             "constraints": selected_constraints,
         },
     )
-    selected_state = state if state is not None else problems.second_order_state(target)
+    selected_state = state if state is not None else state_api.second_order_state(target)
     selected_mass = mass if mass is not None else model.lumped_mass(target)
     integrator = time_api.explicit.central_difference(
         state=selected_state,
@@ -1301,13 +1303,13 @@ def finite_strain_explicit_dynamics(
     if properties.density is None:
         raise ValueError("Finite-strain Explicit requires material density.")
     selected_measure = record.region.measure if record.region is not None else ufl.dx
-    selected_state = state if state is not None else problems.second_order_state(target)
+    selected_state = state if state is not None else state_api.second_order_state(target)
     if cohesive_force is not None:
         cohesive_force = cohesive_force.for_displacement(selected_state.u)
     selected_mass = (
         mass
         if mass is not None
-        else problems.LumpedMassOperator.assemble(
+        else LumpedMassOperator.assemble(
             _space(target),
             density=properties.density,
             measure=selected_measure,
@@ -1475,7 +1477,7 @@ def implicit_dynamics(
             "constraints": selected_constraints,
         },
     )
-    selected_state = state if state is not None else problems.second_order_state(target)
+    selected_state = state if state is not None else state_api.second_order_state(target)
     selected_method = method.lower().replace("-", "_")
     if selected_method == "newmark":
         parameters = time_api.newmark()

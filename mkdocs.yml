@@ -168,6 +168,7 @@ nav:
 
   - Extending AgentFEM:
       - extend/index.md
+      - Architecture and Ownership: ownership_contract.md
       - Extension Rules: extension_rules.md
       - API Style: api_style.md
       - Agent and GUI Integration: agent_gui_integration.md

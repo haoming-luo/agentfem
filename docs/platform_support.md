@@ -50,10 +50,10 @@ The platform report records the route, exact wheel hash, Python/FEniCSx/PETSc/
 MPI identity, clean source commit and verified installed templates. GitHub's
 platform-acceptance workflow produces Linux and macOS artifacts, including a
 two-rank installed-wheel smoke, and aggregates them into a promotion snapshot.
-WSL2 promotion
-still requires the same command inside a real WSL2 environment; native Linux
-or an ordinary Windows runner is not silently relabelled as Windows-through-
-WSL2 evidence.
+These are the required 0.3 platform gates. WSL2 acceptance still requires the
+same command inside a real WSL2 environment; it is tracked as additional
+Windows-route evidence and is never inferred from native Linux or an ordinary
+Windows runner.
 
 Promotion evidence is candidate-specific. The audit rejects a passed record
 whose AgentFEM version or source commit differs from the checkout being
@@ -61,7 +61,7 @@ promoted, and platform evidence additionally rejects a dirty source tree.
 Historical acceptance records remain useful release history but cannot be
 reused to promote a later candidate.
 
-### Real WSL2 acceptance
+### Real WSL2 acceptance (supported, non-blocking for 0.3)
 
 From Windows PowerShell, first prove that the selected distribution is WSL2:
 

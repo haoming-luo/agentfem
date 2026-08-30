@@ -45,6 +45,7 @@ ADVANCED_WORKFLOW_MODULES = (
     "procedures",
     "responses",
     "solvers",
+    "state",
     "surrogates",
 )
 
@@ -216,7 +217,7 @@ WORKFLOW_STAGES = (
     "result_and_verification",
 )
 
-CAPABILITIES_SCHEMA_VERSION = "0.2.2"
+CAPABILITIES_SCHEMA_VERSION = "0.2.3"
 
 
 def _all(*groups: tuple[str, ...]) -> tuple[str, ...]:

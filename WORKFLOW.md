@@ -131,6 +131,7 @@ Package paths below are relative to `src/agentfem/`.
   `mesh/abaqus_migration.py`
 - Study contexts: `studies.py`
 - Numerical solution-procedure descriptions: `procedures.py`
+- Executable architecture ownership inventory: `_architecture_contract.py`
 - Model registry and checks: `models.py`
 - Spaces and fields: `spaces.py`
 - Time histories and scale factors: `amplitudes.py`
@@ -164,11 +165,12 @@ Package paths below are relative to `src/agentfem/`.
   `interfaces.split_conforming_named_interfaces(...)`, then lowered to one
   named force collection with `fracture.named_mode_i_cohesive_forces(...)`.
 - Shared transient checkpoint envelope and partition identity: `checkpointing.py`
+- Accepted/trial state protocols and generic transient state: `state.py`
 - Stable Model facade and model-owned analysis-step entry: `models.py`
 - Provider-owned scientific Step builders: `_step_builders.py`
 - Analysis lowering and inspectable execution policies: `step_providers.py`
 - Stateful nonlinear solid mechanics: `mechanics/`
-- Algebraic problems, reusable step containers, and state containers:
+- Algebraic problems and reusable step containers:
   `problems.py`
 - Step incrementation and cutback: `steps.py`
 - Solvers and convergence policy: `solvers.py`

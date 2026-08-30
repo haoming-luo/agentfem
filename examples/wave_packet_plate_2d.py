@@ -21,7 +21,7 @@ from agentfem import amplitudes
 from agentfem import fields
 from agentfem import mesh as fem_mesh
 from agentfem import models
-from agentfem import problems
+from agentfem import state as state_api
 from agentfem import studies
 from agentfem.constitutive import elasticity
 from agentfem.diagnostics import max_magnitude, print_on_root
@@ -136,7 +136,7 @@ def main() -> None:
     # The absorbing boundary is a weak boundary contribution, approximately
     #     F_abs = int_Gamma c_abs(v_mid, w) ds
     # with w inferred from the registered displacement unknown.
-    state = problems.second_order_state(displacement)
+    state = state_api.second_order_state(displacement)
     internal_force = model.internal_force(state.u)
     absorbing_force = model.boundary_force(abc, state.v_mid)
     residual_operator = model.force_balance(

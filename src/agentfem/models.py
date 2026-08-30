@@ -1059,7 +1059,7 @@ class Model:
 
         from . import assembly
         from . import _axisymmetric
-        from . import problems
+        from .operators import LumpedMassOperator
 
         V = _space(target)
         weight = _axisymmetric.integration_weight(target, self.study)
@@ -1072,7 +1072,7 @@ class Model:
                 _density(record.item) * weight,
                 selected_measure,
             )
-            return problems.LumpedMassOperator(
+            return LumpedMassOperator(
                 mass=mass,
                 inv_mass=assembly.inverse_diagonal(mass),
             )
@@ -1093,7 +1093,7 @@ class Model:
                 _density(record.item) * weight,
                 selected_measure,
             )
-            return problems.LumpedMassOperator(
+            return LumpedMassOperator(
                 mass=mass,
                 inv_mass=assembly.inverse_diagonal(mass),
             )
@@ -1116,7 +1116,7 @@ class Model:
                 "Multiple-material lumped mass requires every material to have a region. "
                 f"Materials without regions: {missing}."
             )
-        return problems.LumpedMassOperator(
+        return LumpedMassOperator(
             mass=mass,
             inv_mass=assembly.inverse_diagonal(mass),
         )

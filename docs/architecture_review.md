@@ -122,12 +122,22 @@ decision or when a lower layer imports an orchestration layer.
   finite-element integration. Generic checkpointing owns field/time state;
   cohesive checkpointing additionally owns physical interface identity. These
   are deliberate layer pairs, not duplicate implementations.
+- `_architecture_contract.py` now defines the seven stable ownership
+  boundaries consumed by machine capability discovery. AST regression tests
+  reject selected upward dependencies rather than relying on this prose.
+- Generic first- and second-order transient states moved from `problems.py` to
+  `state.py`; the diagonal mass object moved to `operators`. Compatibility
+  aliases preserve existing imports while new code follows the correct owner.
+- State has one minimal structural contract for restart and atomic replacement.
+  Procedure-specific trial creation remains explicit because a Newton
+  increment and a fatigue cycle do not begin with the same scientific inputs.
 
 The next structural split should be evidence-driven: `_step_builders.py` may
 become a private builder package when independent provider families need
 separate ownership. Splitting it before then would move code without changing
-the architecture. WSL2 remains an external platform acceptance item and is
-not used to weaken the source-level 0.3 contracts.
+the architecture. WSL2 remains a supported Windows route and an independently
+tracked acceptance item; lack of local WSL2 evidence does not block 0.3 after
+Linux and macOS installed-wheel acceptance passes.
 
 ## Agent-Oriented Refinements
 

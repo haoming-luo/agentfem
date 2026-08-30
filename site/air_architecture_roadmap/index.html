@@ -563,6 +563,8 @@
       
         
       
+        
+      
     
     
     
@@ -873,10 +875,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#problemspy-time-and-solverspy" class="md-nav__link">
+  <a href="#statepy-problemspy-time-and-solverspy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        problems.py, time/, and solvers.py
+        state.py, problems.py, time/, and solvers.py
       
     </span>
   </a>
@@ -1457,9 +1459,10 @@ primitive operators still need explicit dependencies on fields, materials,
 regions, coefficients, and measures. <code>OperatorSpec</code> should grow from these
 common families while <code>OperatorForm.expression</code> remains the efficient UFL
 runtime path.</p>
-<h3 id="problemspy-time-and-solverspy"><code>problems.py</code>, <code>time/</code>, and <code>solvers.py</code><a class="headerlink" href="#problemspy-time-and-solverspy" title="Permanent link">&para;</a></h3>
-<p>The separation among systems, steps, states, and time integrators is sound.
-Solver options are now inspectable and validated. The next missing interface is
+<h3 id="statepy-problemspy-time-and-solverspy"><code>state.py</code>, <code>problems.py</code>, <code>time/</code>, and <code>solvers.py</code><a class="headerlink" href="#statepy-problemspy-time-and-solverspy" title="Permanent link">&para;</a></h3>
+<p>Generic transient state now has an explicit owner and restart/replace
+protocol, while <code>problems.py</code> owns discrete systems and Step containers.
+Solver options are inspectable and validated. The next missing interface is
 an execution plan that records when compilation, constraint application,
 state updates, diagnostics, and output occur. Numerical execution still calls
 DOLFINx/PETSc directly in several places, which is appropriate until the plan

@@ -19,6 +19,24 @@ _OPERATOR_OPERATIONS = {"primitive", "sum", "scale", "linearize"}
 _ROLE_ARITY = {"matrix": 2, "vector": 1, "residual": 1, "scalar": 0}
 
 
+@dataclass
+class LumpedMassOperator:
+    """Diagonal mass operator owned by the mathematical operator layer."""
+
+    mass: np.ndarray
+    inv_mass: np.ndarray
+
+    @classmethod
+    def assemble(cls, V, density=1.0, measure=None):
+        """Assemble a row-sum lumped mass operator for a function space."""
+
+        if measure is None:
+            mass = assembly.assemble_lumped_mass(V, density)
+        else:
+            mass = assembly.assemble_lumped_mass(V, density, measure=measure)
+        return cls(mass=mass, inv_mass=assembly.inverse_diagonal(mass))
+
+
 @dataclass(frozen=True)
 class OperatorForm:
     """Named scientific operator with a current backend expression.

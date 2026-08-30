@@ -98,6 +98,7 @@ def _read_evidence(paths: Iterable[Path]) -> tuple[dict[str, object], ...]:
 
 def _gate_public_language() -> GateResult:
     from agentfem import _api_contract
+    from agentfem._architecture_contract import OWNERSHIP_BOUNDARIES
 
     core = _api_contract.model_methods("core")
     compatibility = _api_contract.model_methods("compatibility")
@@ -121,12 +122,25 @@ def _gate_public_language() -> GateResult:
     )
     if stages != expected:
         gaps.append("machine workflow stages differ from the recommended grammar")
+    ownership = tuple(item.name for item in OWNERSHIP_BOUNDARIES)
+    expected_ownership = (
+        "model",
+        "constitutive",
+        "state",
+        "operator",
+        "procedure",
+        "backend",
+        "result_verification",
+    )
+    if ownership != expected_ownership:
+        gaps.append("ownership boundaries differ from the stable middle-layer contract")
     return GateResult(
         "G1",
         "one public scientific language",
         "passed" if not gaps else "blocked",
         (
             "dependency-free _api_contract owns module, Model, command, and stage discovery",
+            "dependency-free _architecture_contract owns scientific responsibility boundaries",
             "model.step is the recommended construction boundary",
             "historical material/procedure step methods are compatibility-only",
         ),
@@ -159,6 +173,7 @@ def _gate_lowering() -> GateResult:
 
 
 def _gate_result_lifecycle() -> GateResult:
+    from agentfem import state
     from agentfem.results import SimulationResult
     from agentfem.step_providers import StepExecutionPolicy
 
@@ -170,12 +185,21 @@ def _gate_result_lifecycle() -> GateResult:
     for name in ("verify", "write_manifest", "add_checkpoint", "add_history"):
         if not callable(getattr(SimulationResult, name, None)):
             gaps.append(f"SimulationResult omits {name}()")
+    for state_class in (state.TransientState, state.SecondOrderDynamicsState):
+        missing = tuple(
+            name
+            for name in ("commit", "rollback", "snapshot", "restore")
+            if not callable(getattr(state_class, name, None))
+        )
+        if missing:
+            gaps.append(f"{state_class.__name__} omits state transaction methods {missing}")
     return GateResult(
         "G3",
         "one execution and evidence lifecycle",
         "passed" if not gaps else "blocked",
         (
             "StepExecutionPolicy normalizes solver/output/history/progress/checkpoint",
+            "state protocols separate restart and atomic trial replacement",
             "SimulationResult owns verification, histories, checkpoints, and manifests",
             "SolveEvent traces retain accepted and failed attempts",
         ),
@@ -210,7 +234,7 @@ def _gate_platforms(
     version: str,
     commit: str | None,
 ) -> GateResult:
-    required = {"linux", "macos", "wsl2"}
+    required = {"linux", "macos"}
     accepted = {
         str(record.get("platform_id", "")).lower()
         for record in records
@@ -230,7 +254,7 @@ def _gate_platforms(
     missing = tuple(sorted(required - accepted))
     return GateResult(
         "G5",
-        "clean installed use on Linux, macOS, and WSL2",
+        "clean installed use on Linux and macOS; WSL2 tracked separately",
         "passed" if not missing else "external_evidence_required",
         tuple(f"platform:{name}" for name in sorted(accepted)),
         tuple(f"missing installed-wheel acceptance for {name}" for name in missing),

@@ -67,6 +67,7 @@
     "procedures",
     "responses",
     "solvers",
+    "state",
     "surrogates",
     "assembly",
     "backends",
@@ -124,6 +125,7 @@
       "procedures",
       "responses",
       "solvers",
+      "state",
       "surrogates"
     ],
     "expert": [

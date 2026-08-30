@@ -55,6 +55,11 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
 - Treat `agentfem capabilities --json` and `/agentfem.json` as generated views
   of one product contract. Do not reconstruct a competing API vocabulary from
   a single example or an old compatibility method.
+- Use the capability record's `ownership_contract` before adding a public
+  object. `Model` owns engineering registration, not discrete problem
+  construction; `state` owns accepted/trial history; `operators` owns mass,
+  residual and tangent contributions; Procedure, Backend, and
+  Result/Verification retain their declared responsibilities.
 - Treat `ir` and `validation` as public inspection/record interfaces. Treat
   `backends` as an advanced numerical boundary and `extensions` as the explicit
   installed-package boundary. FEniCSx is the only production backend in the

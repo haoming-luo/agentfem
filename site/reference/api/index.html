@@ -1182,6 +1182,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agentfemstate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.state
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agentfemsurrogates" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1445,6 +1456,8 @@
       
         
           
+        
+      
         
       
         
@@ -2005,6 +2018,17 @@
     <span class="md-ellipsis">
       
         agentfem.solvers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agentfemstate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.state
       
     </span>
   </a>
@@ -6010,6 +6034,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tbody>
 <tr>
 <td>class</td>
+<td><code>LumpedMassOperator</code></td>
+<td>Diagonal mass operator owned by the mathematical operator layer.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>OperatorForm</code></td>
 <td>Named scientific operator with a current backend expression.</td>
 </tr>
@@ -6513,6 +6542,63 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>solve_affine_nonlinear_path(residual_form, jacobian_form, solution, constraint, *, load_factors = None, incrementation = None, output_factors = (), options: AffineNewtonOptions \| NewtonSolverOptions \| None = None, on_increment = None, on_accepted_boundary = None, on_acceptance_failure = None, acceptance_check = None, state_transaction = None, stop_factor: float = 1.0, accepted_history = (), attempted_history = (), next_increment_size: float \| None = None, reporter = None, step_name: str = 'affine_nonlinear', step_number: int = 1) -&gt; tuple[object, AffineLoadPathInfo]</code></td>
 <td>Solve a nonlinear path under <code>u = T q + u_bar</code> constraints.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="agentfemstate"><code>agentfem.state</code><a class="headerlink" href="#agentfemstate" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Public object</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>class</td>
+<td><code>RestartableState</code></td>
+<td>State whose accepted scientific identity can cross a restart.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ReplaceableState</code></td>
+<td>State with an atomic trial/accept/reject boundary.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>StateCapabilities</code></td>
+<td>Inspectable transaction features without guessing from class names.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>capabilities(value: object) -&gt; StateCapabilities</code></td>
+<td>Describe the transaction boundary implemented by <code>value</code>.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>require_restartable(value: object, *, name: str = 'state') -&gt; RestartableState</code></td>
+<td>Return <code>value</code> or fail with an addressable ownership error.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>require_replaceable(value: object, *, name: str = 'state') -&gt; ReplaceableState</code></td>
+<td>Return <code>value</code> or fail unless it owns atomic accept/reject semantics.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>TransientState</code></td>
+<td>Accepted/trial fields for a first-order transient unknown.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>SecondOrderDynamicsState</code></td>
+<td>Accepted/trial displacement, velocity, and acceleration fields.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>second_order_state(field_or_space, **kwargs) -&gt; SecondOrderDynamicsState</code></td>
+<td>Create a second-order state from a field or function space.</td>
 </tr>
 </tbody>
 </table>
@@ -7501,26 +7587,6 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>class</td>
 <td><code>FirstOrderTransientStep</code></td>
 <td>Reusable implicit-Euler step loop for heat/diffusion problems.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>TransientState</code></td>
-<td>Current/next fields for a first-order transient unknown.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>SecondOrderDynamicsState</code></td>
-<td>Displacement/velocity/acceleration fields for second-order dynamics.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>LumpedMassOperator</code></td>
-<td>Diagonal mass operator for explicit dynamics.</td>
-</tr>
-<tr>
-<td>function</td>
-<td><code>second_order_state(field_or_space, **kwargs) -&gt; SecondOrderDynamicsState</code></td>
-<td>Create a second-order dynamics state from a field or function space.</td>
 </tr>
 <tr>
 <td>function</td>

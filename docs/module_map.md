@@ -7,6 +7,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Concept | Module |
 | --- | --- |
 | Dependency-free public module, Model-verb, CLI-command, and workflow-stage inventories | `_api_contract.py` |
+| Executable Model/Constitutive/State/Operator/Procedure/Backend/Result ownership inventory | `_architecture_contract.py` |
 | Mesh import, boundary/cell regions, tags, summaries, checks, and measures | `mesh/` |
 | External mesh inventory, cell/facet set conversion, and manifests | `mesh/formats.py` |
 | Abaqus migration inventory, element semantics, labels, equations, periodic-cell geometry, and source-order output | `mesh/abaqus.py` |
@@ -27,6 +28,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Constitutive response relations and maturity catalog | `constitutive/` |
 | Standard-neutral engineering creep/fatigue assessment consumers and interaction diagrams | `assessments.py` |
 | Quadrature-point committed/trial state | `constitutive/quadrature.py` |
+| Shared restart/replace protocols and first-/second-order transient state | `state.py` |
 | Monotonic cohesive laws, paired interface topology, and physical-keyed state | `interfaces.py`, `cohesive_checkpoint.py` |
 | Independent cycle coordinate, cyclic cohesive damage, cycle jumps, and 3D fatigue-crack observations | `fatigue_fracture.py` |
 | Finite-strain cohesive forces, named interface composition, energy, wave speeds, and dynamic crack evidence | `fracture.py` |
@@ -38,7 +40,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Assembly | `assembly.py` |
 | Engineering-level K/M/C/F, transport, SUPG, and reaction operators | `operators/` |
 | Central difference, Newmark, generalized-alpha, and runtime cadence | `time/` |
-| Analysis steps, system problems, and state containers | `problems.py` |
+| Analysis steps and discrete system problems | `problems.py` |
 | Shared transient checkpoint envelope, integrity, accepted-increment cadence, and partition identity | `checkpointing.py` |
 | Automatic/fixed incrementation and cutback policy | `steps.py` |
 | Linear/nonlinear solvers and convergence evidence | `solvers.py` |

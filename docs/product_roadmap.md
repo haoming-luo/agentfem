@@ -147,7 +147,9 @@ coherent enough for wider extension and application development. Its focus is:
   the Model facade;
 - one inspectable execution and evidence lifecycle;
 - machine-readable compatibility guidance for existing projects;
-- reproducible installed use on Linux, macOS, and Windows through WSL2;
+- reproducible installed use on Linux and macOS, with Windows through WSL2
+  retained as the recommended Windows route and a separately tracked
+  acceptance target;
 - a proven extension path that does not require modifying the open core.
 
 Compatibility methods remain executable during the transition. AgentFEM
@@ -165,8 +167,9 @@ extension, and unfamiliar-agent gates consume independent JSON acceptance
 records; missing evidence remains `external_evidence_required` rather than
 being inferred from development-machine success.
 
-G1--G4 run directly from the repository. G5 is completed only by
-installed-wheel records from Linux, macOS, and a real WSL2 kernel. G6 consumes
+G1--G4 run directly from the repository. G5 is completed by installed-wheel
+records from Linux and macOS. Real WSL2 evidence remains visible in the same
+audit but is not a 0.3 blocker. G6 consumes
 the independently built `agentfem-learning` extension record. G7 consumes a
 fresh-context, zero-intervention AI-agent trial whose result and explanation
 are retained and reviewed; the deterministic release smoke deliberately does

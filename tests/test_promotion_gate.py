@@ -27,7 +27,7 @@ def test_external_evidence_can_complete_platform_extension_and_agent_gates(tmp_p
     version = "0.3.0"
     commit = "a" * 40
     evidence = []
-    for platform in ("linux", "macos", "wsl2"):
+    for platform in ("linux", "macos"):
         evidence.append(
             _write(
                 tmp_path,
@@ -99,6 +99,40 @@ def test_external_evidence_can_complete_platform_extension_and_agent_gates(tmp_p
 
     assert report["status"] == "passed"
     assert report["passed"] == report["required"] == 7
+
+
+def test_wsl2_is_supported_evidence_but_not_a_promotion_blocker(tmp_path):
+    version = "0.3.0"
+    commit = "a" * 40
+    evidence = []
+    for platform in ("linux", "macos"):
+        evidence.append(
+            _write(
+                tmp_path,
+                f"{platform}.json",
+                {
+                    "schema": "agentfem.platform-acceptance",
+                    "platform_id": platform,
+                    "status": "passed",
+                    "installed_wheel": True,
+                    "release_smoke": "passed",
+                    "agentfem_version": version,
+                    "source_commit": commit,
+                    "source_dirty": False,
+                    "wheel_sha256": "1" * 64,
+                },
+            )
+        )
+
+    report = promotion_gate.evaluate(
+        evidence=evidence,
+        candidate_version=version,
+        candidate_commit=commit,
+    )
+    gate = next(item for item in report["gates"] if item["gate"] == "G5")
+
+    assert gate["passed"] is True
+    assert gate["gaps"] == ()
 
 
 def test_deterministic_entrypoint_smoke_cannot_impersonate_fresh_agent(tmp_path):

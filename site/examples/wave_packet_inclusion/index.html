@@ -772,6 +772,8 @@
       
         
       
+        
+      
     
     
     
@@ -1174,14 +1176,14 @@ declared rather than hidden inside a backend loop.</p>
 <a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>    <span class="n">shear_wave_speed</span><span class="o">=</span><span class="n">matrix_cs</span><span class="p">,</span>
 <a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="p">)</span>
 <a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="n">state</span> <span class="o">=</span> <span class="n">problems</span><span class="o">.</span><span class="n">second_order_state</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="n">dynamic_state</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">second_order_state</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
 <a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="n">residual</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">force_balance</span><span class="p">(</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    <span class="n">internal</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">internal_force</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">u</span><span class="p">),</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    <span class="n">absorbing</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">boundary_force</span><span class="p">(</span><span class="n">absorbing</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">v_mid</span><span class="p">),</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    <span class="n">internal</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">internal_force</span><span class="p">(</span><span class="n">dynamic_state</span><span class="o">.</span><span class="n">u</span><span class="p">),</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    <span class="n">absorbing</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">boundary_force</span><span class="p">(</span><span class="n">absorbing</span><span class="p">,</span> <span class="n">dynamic_state</span><span class="o">.</span><span class="n">v_mid</span><span class="p">),</span>
 <a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="p">)</span>
 <a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
 <a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    <span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">,</span>
-<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>    <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>    <span class="n">state</span><span class="o">=</span><span class="n">dynamic_state</span><span class="p">,</span>
 <a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>    <span class="n">residual</span><span class="o">=</span><span class="n">residual</span><span class="p">,</span>
 <a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    <span class="n">prescribed</span><span class="o">=</span><span class="p">[</span><span class="n">source</span><span class="p">],</span>
 <a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>    <span class="n">constraints</span><span class="o">=</span><span class="p">[</span><span class="n">periodic</span><span class="p">],</span>
@@ -1190,7 +1192,7 @@ declared rather than hidden inside a backend loop.</p>
 <a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a><span class="p">)</span>
 <a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a><span class="n">result</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">solve_result</span><span class="p">(</span>
 <a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>    <span class="n">output</span><span class="o">=</span><span class="s2">&quot;wave_packet_inclusion_2d.xdmf&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>    <span class="n">fields</span><span class="o">=</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">u</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">v</span><span class="p">,</span> <span class="n">material_id</span><span class="p">),</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>    <span class="n">fields</span><span class="o">=</span><span class="p">(</span><span class="n">dynamic_state</span><span class="o">.</span><span class="n">u</span><span class="p">,</span> <span class="n">dynamic_state</span><span class="o">.</span><span class="n">v</span><span class="p">,</span> <span class="n">material_id</span><span class="p">),</span>
 <a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a><span class="p">)</span>
 </code></pre></div>
 <p>The complete script also estimates material wave speeds, derives the stable

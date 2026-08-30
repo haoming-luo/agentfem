@@ -26,7 +26,7 @@ from agentfem import diagnostics
 from agentfem import fields
 from agentfem import mesh as fem_mesh
 from agentfem import models
-from agentfem import problems
+from agentfem import state as state_api
 from agentfem import studies
 from agentfem.constitutive import elasticity
 from agentfem.diagnostics import max_magnitude, print_on_root
@@ -155,7 +155,7 @@ def main() -> None:
     )
 
     # 8. Explicit dynamics state, force balance, and step.
-    state = problems.second_order_state(displacement)
+    state = state_api.second_order_state(displacement)
 
     dt = 0.35 * min(length / cells[0], height / cells[1]) / max(matrix_cp, inclusion_cp)
     steps = 80 if smoke else 2000

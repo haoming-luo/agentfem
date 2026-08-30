@@ -16,6 +16,11 @@ with `agentfem capabilities --json` before generating a Step call.
 The CLI capability record and `/agentfem.json` documentation manifest are
 generated views of the same dependency-free product contract; do not infer a
 parallel workflow language from one example.
+Read `ownership_contract` from `agentfem capabilities --json` when deciding
+where an extension belongs. Model describes the engineering problem; State
+owns accepted/trial history; Operator owns mathematical contributions;
+Procedure owns evolution; Backend owns execution; Result/Verification owns
+evidence.
 
 1. Study context: analysis type, physics, dimension, and assumptions
 2. Solution procedure preference when more than one algorithm can solve the
@@ -24,7 +29,9 @@ parallel workflow language from one example.
 4. Model registry when auditability is useful
 5. Mesh summary and required tag checks
 6. Function spaces
-7. Fields and states
+7. Fields and states; use `agentfem.state` for generic transient state and
+   inspect transaction capabilities instead of assuming every algorithm has
+   the same trial signature
 8. Constitutive laws; optionally retain identity/source through
    `materials.define(...)` and let `model.material(...)` resolve the Study's
    mechanical or thermal role. A reviewed project can switch a separate

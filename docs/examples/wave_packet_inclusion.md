@@ -69,14 +69,14 @@ absorbing = model.absorbing_boundary(
     shear_wave_speed=matrix_cs,
 )
 
-state = problems.second_order_state(u)
+dynamic_state = state.second_order_state(u)
 residual = model.force_balance(
-    internal=model.internal_force(state.u),
-    absorbing=model.boundary_force(absorbing, state.v_mid),
+    internal=model.internal_force(dynamic_state.u),
+    absorbing=model.boundary_force(absorbing, dynamic_state.v_mid),
 )
 step = model.step(
     target=u,
-    state=state,
+    state=dynamic_state,
     residual=residual,
     prescribed=[source],
     constraints=[periodic],
@@ -85,7 +85,7 @@ step = model.step(
 )
 result = step.solve_result(
     output="wave_packet_inclusion_2d.xdmf",
-    fields=(state.u, state.v, material_id),
+    fields=(dynamic_state.u, dynamic_state.v, material_id),
 )
 ```
 
@@ -141,4 +141,3 @@ Gravouil, and Valentina Giordano on acoustic wave-packet propagation and
 attenuation in biphasic solids:
 [*Thermal Transport in a 2D Nanophononic Solid: Role of Bi-Phasic Materials
 Properties on Acoustic Attenuation and Thermal Diffusivity*](https://doi.org/10.3390/nano9101471).
-
