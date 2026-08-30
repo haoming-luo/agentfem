@@ -1,6 +1,7 @@
-# AgentFEM 0.2.6
+# AgentFEM 0.2.6 promotion candidate
 
-AgentFEM 0.2.6 is a platform-foundation release. It fixes the ownership
+AgentFEM 0.2.6 was the immutable platform-foundation candidate used to prove
+the seven 0.3 promotion gates. It fixes the ownership
 boundaries between the readable engineering model and the FEniCSx/PETSc
 runtime, while closing several workflows that now depend on those boundaries.
 

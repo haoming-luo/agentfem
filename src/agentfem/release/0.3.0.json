@@ -1,0 +1,128 @@
+{
+  "schema": "agentfem.release-contract",
+  "schema_version": "0.2.0",
+  "target_version": "0.3.0",
+  "channel": "stable",
+  "status": "candidate",
+  "supported_python": "3.11",
+  "platform_evidence": {
+    "continuous_integration": ["Linux", "macOS"],
+    "tracked_nonblocking": ["Windows through real WSL2"]
+  },
+  "installed_templates": [
+    "static-solid",
+    "steady-heat",
+    "structural-dynamics"
+  ],
+  "workflows": [
+    {
+      "id": "linear-static-solid",
+      "maturity": "release",
+      "example": "examples/static_elasticity_2d.py",
+      "evidence": [
+        "golden-observable",
+        "single-grid-output",
+        "2d-warp-compatible-vector",
+        "serial-and-two-rank-smoke"
+      ]
+    },
+    {
+      "id": "transient-heat",
+      "maturity": "release",
+      "example": "examples/transient_heat_2d.py",
+      "evidence": [
+        "golden-observable",
+        "checkpoint-tests",
+        "installed-wheel-smoke"
+      ]
+    },
+    {
+      "id": "explicit-wave-inclusion",
+      "maturity": "engineering",
+      "example": "examples/wave_packet_inclusion_2d.py",
+      "evidence": [
+        "stability-estimate",
+        "absorbing-boundary-tests",
+        "release-smoke"
+      ]
+    },
+    {
+      "id": "abaqus-reviewed-migration",
+      "maturity": "engineering",
+      "example": "tests/fixtures/abaqus_native_lowering/static.inp",
+      "evidence": [
+        "recursive-source-graph",
+        "scope-and-section-preservation",
+        "fail-closed-native-lowering",
+        "serial-and-mpi-region-tests"
+      ]
+    },
+    {
+      "id": "finite-strain-j2-rve",
+      "maturity": "experimental",
+      "example": "tests/periodic_void_fixture.py",
+      "evidence": [
+        "material-point-paths",
+        "consistent-tangent",
+        "strong-and-affine-periodic-global-equilibrium",
+        "cutback-and-cross-rank-restart",
+        "void-and-multi-void-goldens"
+      ]
+    },
+    {
+      "id": "lefm-interaction-integral",
+      "maturity": "engineering",
+      "example": "examples/lefm_center_crack_2d.py",
+      "evidence": [
+        "analytic-field-extraction",
+        "dolfinx-field-extraction",
+        "path-variation-and-equilibrium-diagnostics"
+      ]
+    },
+    {
+      "id": "simulation-to-learning",
+      "maturity": "engineering",
+      "example": "examples/static_elasticity_surrogate_campaign.py",
+      "evidence": [
+        "accepted-dataset-policy",
+        "framework-neutral-neural-field-contract",
+        "surrogate-validation",
+        "fem-fallback"
+      ]
+    },
+    {
+      "id": "dynamic-cohesive-fracture",
+      "maturity": "experimental",
+      "example": "examples/science_supershear_v5_protocol.py",
+      "evidence": [
+        "v0-v4-guardrails",
+        "mpi-interface-tests",
+        "energy-balance-tests"
+      ]
+    }
+  ],
+  "required_gates": [
+    "version-contract-agreement",
+    "clean-wheel-and-sdist",
+    "full-serial-tests",
+    "distributed-tests",
+    "installed-wheel-identity",
+    "installed-project-template-loop",
+    "linux-and-macos-platform-acceptance",
+    "scientific-knowledge-check",
+    "documentation-strict-build",
+    "ownership-boundary-regression",
+    "companion-provider-acceptance",
+    "fresh-agent-zero-intervention-acceptance",
+    "optional-pytorch-bridge"
+  ],
+  "not_release_claims": [
+    "universal finite-element coverage",
+    "native Windows solver support",
+    "general contact",
+    "general arbitrary-path fracture",
+    "universally validated nonlinear material models",
+    "monolithic thermo-mechanical coupling",
+    "automatic neural-operator or PINN training for arbitrary meshes"
+  ]
+}

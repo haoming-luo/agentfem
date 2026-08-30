@@ -6,7 +6,29 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
-## [0.2.6] - 2026-08-30
+## [0.3.0] - 2026-08-30
+
+### Platform milestone
+
+- Promote the public scientific language, provider-owned lowering, State and
+  Result lifecycle, capability evidence, installed Linux/macOS routes,
+  companion-provider seam, and fresh-agent workflow after all seven G1--G7
+  gates passed against immutable package evidence.
+- Establish `Study -> Model -> scientific assets -> model.step(...) ->
+  SimulationResult` as the stable 0.3 public grammar while retaining reviewed
+  0.2 compatibility delegates.
+- Demonstrate that a genuinely fresh Codex session can install the candidate
+  wheel, inspect its environment, construct and refine a plane-strain model,
+  verify the structured result, and explain its scientific limits without
+  project-specific history or human correction.
+
+### Boundaries
+
+- The 0.3 milestone stabilizes the scientific middle layer; it does not claim
+  universal finite-element coverage, native Windows support, general contact,
+  or universally validated nonlinear material and fracture formulations.
+
+## [0.2.6 candidate] - 2026-08-30
 
 ### Added
 
