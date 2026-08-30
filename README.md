@@ -9,8 +9,8 @@
 [![PyPI](https://img.shields.io/pypi/v/agentfem.svg)](https://pypi.org/project/agentfem/)
 [![conda-forge](https://img.shields.io/conda/vn/conda-forge/agentfem.svg)](https://anaconda.org/conda-forge/agentfem)
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
-[![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows%20%28WSL2%29-informational.svg)](INSTALL.md)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows%20%28WSL2%29-informational.svg)](INSTALL.md)
 
 [![AgentFEM Technical Report (PDF)](https://img.shields.io/badge/PDF-AgentFEM_Technical_Report-245B8F?style=flat-square&logo=adobeacrobatreader&logoColor=white)](https://haoming-luo.github.io/agentfem/assets/papers/agentfem_platform.pdf)
 
