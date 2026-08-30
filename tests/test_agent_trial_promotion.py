@@ -164,3 +164,19 @@ def test_only_named_cross_platform_regression_repairs_are_nonruntime_changes():
 
     assert all(promote_agent_trial._path_allowed(path) for path in allowed)
     assert not promote_agent_trial._path_allowed("tests/test_models.py")
+
+
+def test_environment_bridge_only_ignores_python_gmsh_binding():
+    source = b"dependencies:\n  - python=3.11\n  - gmsh\n"
+    binding_added = (
+        b"dependencies:\n  - python=3.11\n  - gmsh\n  - python-gmsh\n"
+    )
+    runtime_changed = b"dependencies:\n  - python=3.12\n  - gmsh\n"
+
+    assert promote_agent_trial._path_allowed("environment.yml")
+    assert promote_agent_trial._normalized_environment(source) == (
+        promote_agent_trial._normalized_environment(binding_added)
+    )
+    assert promote_agent_trial._normalized_environment(source) != (
+        promote_agent_trial._normalized_environment(runtime_changed)
+    )

@@ -30,6 +30,7 @@ _ALLOWED_EXACT = {
     "CHANGELOG.md",
     "CITATION.cff",
     "README.md",
+    "environment.yml",
     "mkdocs.yml",
     "pyproject.toml",
     "promotion_gate.py",
@@ -126,6 +127,16 @@ def _normalized_init(content: bytes) -> str:
     )
 
 
+def _normalized_environment(content: bytes) -> str:
+    """Ignore only the optional conda-forge Python Gmsh binding addition."""
+
+    return re.sub(
+        r"(?m)^  - python-gmsh\s*$\n?",
+        "",
+        content.decode("utf-8"),
+    )
+
+
 def _path_allowed(path: str) -> bool:
     return path in _ALLOWED_EXACT or path.startswith(_ALLOWED_PREFIXES)
 
@@ -193,6 +204,12 @@ def evaluate(
         _normalized_init(_git_file(root, target, "src/agentfem/__init__.py"))
     ):
         gaps.append("agentfem.__init__ changed beyond the release version")
+    if "environment.yml" in changed and _normalized_environment(
+        _git_file(root, source_commit, "environment.yml")
+    ) != _normalized_environment(_git_file(root, target, "environment.yml")):
+        gaps.append(
+            "environment.yml changed beyond the optional python-gmsh binding"
+        )
     target_pyproject = tomllib.loads(
         _git_file(root, target, "pyproject.toml").decode("utf-8")
     )
