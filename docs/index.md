@@ -25,7 +25,7 @@ vision for AI-native finite-element computing.
 [Installation](getting_started.md) ·
 [Examples](examples/index.md) ·
 [Python API](reference/api.md) ·
-[Release 0.2.5](release_0.2.5.md) ·
+[Release 0.2.6](release_0.2.6.md) ·
 [Apache-2.0 license](licensing.md)
 
 </div>

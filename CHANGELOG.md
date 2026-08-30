@@ -6,36 +6,52 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-08-30
+
 ### Added
 
-- Add `agentfem migrate-abaqus` and a fail-closed migration project containing
-  the complete recursive source graph, scope-aware Part/Instance/ELSET
-  relationships, element formulation identity, section assignments, material
-  review candidates, preserved Step/load/output assets, and human plus machine
-  migration reports.
-- Add explicit migration findings for missing material properties,
-  topology-only element declarations, incomplete include graphs, composite
-  sections, and Abaqus user-material assets that still require source/ABI and
-  constitutive verification.
-- Add `agentfem lower-abaqus`, a separately reviewed native-draft gate for a
-  narrow linear-static solid subset. It records reviewer, unit interpretation,
-  source and decision fingerprints; supports NSET displacement constraints,
-  SURFACE pressure, whole-material GRAV, and one positioned Part instance; and
-  keeps draft generation separate from activation.
-- Make the native Abaqus gate reject partial Section coverage, non-unit 2D
-  thickness, dependent material tables, boundary-state operations, ambiguous
-  Step controls, and non-element pressure surfaces instead of silently
-  changing their scientific meaning.
-- Promote preserved Abaqus ELSETs to material-ready cell regions with serial
-  and MPI completeness checks, and lower multiple constant isotropic materials
-  when SOLID SECTION regions exactly partition the selected solver domain.
+- Add a machine-readable seven-boundary ownership contract covering Model,
+  Constitutive, State, Operator, Procedure, Backend, and Result/Verification,
+  together with dependency regression tests and an explicit restart/rollback
+  State protocol.
+- Add solver-neutral material-point schemas and validated user-material
+  update contracts, preserving a path for reviewed external constitutive
+  assets without moving executable foreign code into the engineering model.
+- Add public finite-strain logarithmic J2 workflows for strong kinematics and
+  affine-periodic RVE loading, including quadrature transactions, consistent
+  tangents, cutback, MPI-portable restart, regional materials, void and
+  multi-void realizations, non-proportional paths, and frozen Golden evidence.
+- Add reviewed Abaqus migration and native-lowering gates that preserve the
+  recursive source graph, Part/Instance scope, element identity, material and
+  section assignments, and fail closed on unsupported semantics.
+- Add framework-neutral neural-field contracts and the extension seam used by
+  the separately installed AgentFEM-Learning provider.
+- Add mixed-mode LEFM interaction-integral and DOLFINx field-extraction
+  evidence with explicit path and equilibrium diagnostics.
+- Add executable G1--G7 platform-promotion gates bound to exact source commits,
+  wheel hashes, installed platforms, companion providers, and fresh-agent
+  behavioral evidence.
 
 ### Changed
 
-- Bind platform, companion-provider, and fresh-agent promotion evidence to the
-  exact AgentFEM candidate instead of accepting stale records from an older
-  version or commit; add an immutable fresh-agent trial bundle and transcript
-  review contract.
+- Keep `Model` as the engineering facade while providers, builders, operators,
+  State, the FEniCSx backend, and Result/Verification own their corresponding
+  numerical and evidence responsibilities.
+- Detect the MPI launcher family that matches the active `mpi4py` runtime
+  instead of assuming the first system `mpirun` is compatible.
+- Treat Linux and macOS installed-wheel evidence as the 0.3 platform gate;
+  WSL2 remains the recommended Windows route and a separately tracked
+  acceptance target.
+- Publish the AgentFEM technical report as the project statement and durable
+  software reference.
+
+### Boundaries
+
+- Finite-strain J2 remains experimental until an independent external
+  structural benchmark passes; the current RVE evidence verifies the declared
+  workflows rather than universal finite-strain plasticity.
+- A fresh-agent trial and a companion-provider run remain independent evidence
+  records; deterministic CI cannot impersonate either one.
 
 ## [0.2.5] - 2026-08-24
 
