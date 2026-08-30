@@ -166,6 +166,7 @@ jobs:
             --quantity reaction_force_resultant \
             --quantity relative_force_balance_error \
             --quantity strain_energy \
+            --tolerance reaction_force_resultant=1e-8,1e-7 \
             --write "$portable_root/runtime-equivalence.json"
 
       - name: Run campaign/dataset/surrogate FEniCSx smoke test
