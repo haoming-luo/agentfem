@@ -48,6 +48,7 @@ def test_hard_core_realization_is_reproducible_and_scientifically_identified():
     assert first.scientific_identity()["fingerprint"] == (
         "d3f0879a06d1092926544b465109cdff4b979cf384b7db55bb0a67fd1291e49d"
     )
+    assert first.spheres[2].center[1] == 0.22949260035463306
     assert first.observed_boundary_clearance >= 0.03
     assert first.observed_periodic_inter_void_clearance is not None
     assert first.observed_periodic_inter_void_clearance >= 0.04

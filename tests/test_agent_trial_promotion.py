@@ -154,3 +154,13 @@ def test_runtime_change_blocks_agent_trial_promotion(tmp_path):
 
     assert report["status"] == "failed"
     assert any("behavior-affecting" in gap for gap in report["gaps"])
+
+
+def test_only_named_cross_platform_regression_repairs_are_nonruntime_changes():
+    allowed = {
+        "tests/periodic_void_fixture.py",
+        "tests/test_periodic_void_realization.py",
+    }
+
+    assert all(promote_agent_trial._path_allowed(path) for path in allowed)
+    assert not promote_agent_trial._path_allowed("tests/test_models.py")

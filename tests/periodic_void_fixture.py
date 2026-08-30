@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import dataclass
+from fractions import Fraction
 
 import numpy as np
 
@@ -153,7 +155,10 @@ class SphericalVoidRealization:
     @property
     def exact_void_volume(self) -> float:
         return float(
-            sum(4.0 * np.pi * sphere.radius**3 / 3.0 for sphere in self.spheres)
+            math.fsum(
+                4.0 * math.pi * sphere.radius**3 / 3.0
+                for sphere in self.spheres
+            )
         )
 
     @property
@@ -245,10 +250,14 @@ def sample_hard_core_spherical_voids(
 ) -> SphericalVoidRealization:
     """Sample one bounded, reproducible hard-core sphere realization.
 
-    Sampling uses NumPy's explicitly named PCG64 generator and tests every
-    pair with the cubic minimum-image convention.  A failed packing raises
-    instead of returning a smaller population.  Spheres intersecting a
-    periodic boundary are outside this first contract and cannot be sampled.
+    Sampling consumes PCG64's raw 64-bit stream and applies an explicit
+    53-bit mapping followed by one correctly rounded affine transformation.
+    This avoids the one-ULP platform variation caused by fused versus separate
+    multiply-add implementations of ``Generator.uniform`` while preserving the
+    original versioned realization.  Every pair is tested with the cubic
+    minimum-image convention.  A failed packing raises instead of returning a
+    smaller population.  Spheres intersecting a periodic boundary are outside
+    this first contract and cannot be sampled.
     """
 
     side_length = float(side_length)
@@ -287,14 +296,18 @@ def sample_hard_core_spherical_voids(
             "does not fit inside the cell."
         )
 
-    generator = np.random.Generator(np.random.PCG64(seed))
+    bit_generator = np.random.PCG64(seed)
     accepted: list[SphericalVoid] = []
     attempts = 0
     required_distance = 2.0 * radius + inter_clearance
     while len(accepted) < count and attempts < maximum_attempts:
         attempts += 1
         candidate = SphericalVoid(
-            center=tuple(float(value) for value in generator.uniform(lower, upper, 3)),
+            center=_pcg64_uniform_triplet(
+                bit_generator,
+                lower=lower,
+                upper=upper,
+            ),
             radius=radius,
         )
         if all(
@@ -326,11 +339,35 @@ def _periodic_center_distance(
     *,
     side_length: float,
 ) -> float:
-    difference = np.abs(
-        np.asarray(first.center, dtype=float) - np.asarray(second.center, dtype=float)
+    difference = tuple(
+        abs(float(left) - float(right))
+        for left, right in zip(first.center, second.center, strict=True)
     )
-    minimum_image = np.minimum(difference, float(side_length) - difference)
-    return float(np.linalg.norm(minimum_image))
+    minimum_image = tuple(
+        min(value, float(side_length) - value) for value in difference
+    )
+    return float(math.sqrt(math.fsum(value * value for value in minimum_image)))
+
+
+def _pcg64_uniform_triplet(
+    bit_generator: np.random.PCG64,
+    *,
+    lower: float,
+    upper: float,
+) -> tuple[float, float, float]:
+    """Map PCG64 raw bits to three correctly rounded binary64 coordinates."""
+
+    lower_exact = Fraction.from_float(float(lower))
+    span_exact = Fraction.from_float(float(upper) - float(lower))
+    denominator = 1 << 53
+    raw = bit_generator.random_raw(3)
+    return tuple(
+        float(
+            lower_exact
+            + span_exact * Fraction(int(value) >> 11, denominator)
+        )
+        for value in raw
+    )
 
 
 def _sphere_pair_clearance(

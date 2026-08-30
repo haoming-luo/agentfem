@@ -34,7 +34,9 @@ _ALLOWED_EXACT = {
     "pyproject.toml",
     "promotion_gate.py",
     "src/agentfem/__init__.py",
+    "tests/periodic_void_fixture.py",
     "tests/test_agent_trial_promotion.py",
+    "tests/test_periodic_void_realization.py",
     "tests/test_promotion_gate.py",
     "tools/promote_agent_trial.py",
 }
