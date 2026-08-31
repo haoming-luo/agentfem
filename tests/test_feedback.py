@@ -30,8 +30,16 @@ def feedback_home(tmp_path, monkeypatch):
     monkeypatch.setenv("AGENTFEM_TELEMETRY_TESTING", "1")
     monkeypatch.delenv("AGENTFEM_TELEMETRY", raising=False)
     monkeypatch.delenv("AGENTFEM_FEEDBACK_ENDPOINT", raising=False)
+    monkeypatch.setattr(feedback, "_endpoint_from_package", lambda: None)
     monkeypatch.setattr(feedback, "_safe_runtime", lambda: dict(SAFE_RUNTIME))
     return home
+
+
+def test_release_contains_the_owned_https_collector():
+    endpoint = feedback._endpoint_from_package()
+    assert endpoint == (
+        "https://agentfem-reliability.horming-luo.workers.dev/v1/reliability"
+    )
 
 
 def _failed_execution(path: Path) -> Path:

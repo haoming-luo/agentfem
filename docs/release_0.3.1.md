@@ -15,9 +15,9 @@ Repeated failures can be diagnosed locally or packaged as a private task for
 Codex. A richer report remains on the machine unless the user explicitly asks
 AgentFEM to create an authenticated GitHub issue.
 
-The reference collector stores daily aggregates rather than raw events. The
-0.3.1 package does not claim online delivery until a reviewed, project-owned
-HTTPS endpoint is deployed.
+The reference collector stores daily aggregates rather than raw events. Its
+project-owned Cloudflare Worker passed health, schema-rejection and synthetic
+aggregation checks before its HTTPS endpoint was added to the 0.3.1 package.
 
 ## Desktop runtimes
 
@@ -26,10 +26,10 @@ HDF5 and Gmsh with its license and corresponding-source evidence.
 
 - Windows receives one WSL2 offline Preview ZIP with an image, verified
   installer, integrity records and legal materials.
-- Apple Silicon macOS has two deliberately distinct routes: an explicitly
-  unsigned Preview, and a formal package that may be published only after
-  Developer ID signing, Apple notarization, ticket stapling, Gatekeeper checks,
-  and clean-runner installation all pass.
+- Apple Silicon macOS receives an explicitly unsigned Preview. It is installed
+  and exercised on a clean runner before publication, but 0.3.1 neither
+  requires an Apple Developer account nor describes the package as signed or
+  notarized.
 
 Every runtime is assembled from the exact published wheel and uploaded to the
 matching GitHub Release only after its platform-specific acceptance step.

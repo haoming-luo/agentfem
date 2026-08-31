@@ -36,9 +36,9 @@ day used for aggregate reliability counts.
 
 Use `agentfem telemetry show-last` to inspect the exact latest event, including
 after successful delivery. This local snapshot follows the same strict schema;
-`agentfem telemetry off` deletes it together with every unsent event. A package
-whose status reports `delivery_available: false` stores only a bounded local
-queue; it does not pretend that an online collector exists.
+`agentfem telemetry off` deletes it together with every unsent event. If the
+project-owned endpoint is temporarily unavailable, AgentFEM keeps only the
+bounded local queue and never delays or fails a simulation.
 
 ## Repeated failure and Agent assistance
 
@@ -77,5 +77,6 @@ The reference collector in `services/reliability-collector/` validates the
 same strict schema and stores daily aggregate counts. Random delivery IDs are
 retained for seven days only for retry idempotency. It does not store raw
 events, source IP addresses, user identities, exception text, or scientific
-data. A reviewed HTTPS collector URL must be owned and deployed before it is
-added to a release; an unowned placeholder is forbidden.
+data. The 0.3.1 endpoint is project-owned and passed health, rejection and
+aggregation smoke tests before publication; an unowned placeholder remains
+forbidden.

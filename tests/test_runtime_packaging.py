@@ -70,19 +70,13 @@ def test_macos_preview_is_explicitly_unsigned():
     assert "*-unsigned-preview.pkg" in workflow
 
 
-def test_signed_macos_release_is_separate_and_fail_closed():
-    workflow = (ROOT / ".github" / "workflows" / "macos-signed-runtime.yml").read_text(
+def test_release_does_not_require_apple_credentials():
+    assert not (ROOT / ".github" / "workflows" / "macos-signed-runtime.yml").exists()
+    workflow = (ROOT / ".github" / "workflows" / "runtime-installers.yml").read_text(
         encoding="utf-8"
     )
-    assert "APPLE_DEVELOPER_CERTIFICATE_P12" in workflow
-    assert "APPLE_NOTARY_KEY_P8" in workflow
-    assert "Developer ID Application" in workflow
-    assert "Developer ID Installer" in workflow
-    assert "notarytool store-credentials" in workflow
-    assert "stapler validate" in workflow
-    assert "spctl --assess --type install" in workflow
-    assert "macos-arm64-signed-acceptance.json" in workflow
-    assert "gh release upload" in workflow
+    assert "APPLE_DEVELOPER" not in workflow
+    assert "unsigned-preview" in workflow
 
 
 def test_complete_profile_pins_redistributed_gmsh_source_contract():

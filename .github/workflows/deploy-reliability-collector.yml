@@ -38,3 +38,24 @@ jobs:
             --config services/reliability-collector/wrangler.jsonc \
             --file services/reliability-collector/schema.sql
           npx wrangler deploy --config services/reliability-collector/wrangler.jsonc
+
+      - name: Verify the public privacy boundary
+        env:
+          COLLECTOR_BASE: https://agentfem-reliability.horming-luo.workers.dev
+        run: |
+          curl --fail --silent --show-error "${COLLECTOR_BASE}/health" \
+            | grep '"storage":"daily_aggregates_only"'
+
+          INVALID_STATUS="$(curl --silent --show-error --output /tmp/invalid-response \
+            --write-out '%{http_code}' \
+            --header 'Content-Type: application/json' \
+            --data '{"schema":"agentfem.reliability-batch","schema_version":"0.1.0","events":[{"project":"must-not-pass"}]}' \
+            "${COLLECTOR_BASE}/v1/reliability")"
+          test "${INVALID_STATUS}" = "400"
+          grep 'Invalid reliability schema' /tmp/invalid-response
+
+          curl --fail --silent --show-error \
+            --header 'Content-Type: application/json' \
+            --data "{\"schema\":\"agentfem.reliability-batch\",\"schema_version\":\"0.1.0\",\"events\":[{\"schema\":\"agentfem.reliability-event\",\"schema_version\":\"0.1.0\",\"event_id\":\"deploy-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}\",\"agentfem_version\":\"deployment-smoke-test\",\"command\":\"deploy\",\"outcome\":\"completed\",\"duration_bucket\":\"<1s\",\"runtime\":{\"system\":\"CI\",\"route\":\"cloudflare-worker\",\"machine\":\"unknown\",\"python\":null,\"dolfinx\":null,\"petsc4py\":null,\"mpi_vendor\":null,\"mpi_ranks\":1,\"installation\":\"source\"},\"failure\":null}]}" \
+            "${COLLECTOR_BASE}/v1/reliability" \
+            | grep '"status":"accepted"'

@@ -12,7 +12,7 @@ Deployment is deliberately separate from package publication:
 2. apply `schema.sql`;
 3. copy `wrangler.jsonc.example` to the deployment configuration and insert
    the database ID;
-4. deploy behind an HTTPS custom domain;
+4. deploy behind a project-owned HTTPS Workers URL or custom domain;
 5. set that reviewed URL in `src/agentfem/feedback-endpoint.json` before a
    release.
 
@@ -30,6 +30,11 @@ be reviewed in an ordinary pull request before it becomes a package default.
 Until step 5 is complete, clients keep a bounded local queue and report
 `delivery_available: false`. A release must never contain a guessed or
 unowned endpoint.
+
+The reviewed 0.3.1 deployment is available at
+`https://agentfem-reliability.horming-luo.workers.dev`. Its client submission
+route is `/v1/reliability`; `/health` exposes only the aggregate-storage
+contract.
 
 The dependency-free contract tests run with:
 

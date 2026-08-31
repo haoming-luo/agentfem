@@ -23,24 +23,22 @@ experimental formulation to a validated one.
 - Add automated Complete Runtime Preview assembly for Windows through WSL2 and
   Apple Silicon macOS, including Gmsh redistribution evidence and installed
   runtime acceptance.
-- Add a separate fail-closed Apple Silicon release workflow that imports both
-  Developer ID identities into an ephemeral keychain, notarizes and staples
-  the package, verifies Gatekeeper acceptance, and installs the exact signed
-  artifact before release upload.
+- Deploy the project-owned aggregate-only reliability collector and publish
+  its reviewed HTTPS endpoint with the package.
 
 ### Changed
 
 - Publish one compact Windows offline ZIP rather than duplicating its large
   `.wsl` image as two GitHub assets.
-- Keep unsigned macOS artifacts explicitly named `unsigned-preview`; a formal
-  filename is reserved for the independently accepted Developer ID-signed and
-  Apple-notarized package.
+- Keep macOS runtime artifacts explicitly named `unsigned-preview`; 0.3.1 does
+  not require an Apple Developer account or represent the package as Apple
+  signed or notarized.
 
 ### Boundaries
 
-- Online reliability delivery remains unavailable until the project deploys
-  and owns a reviewed HTTPS collector endpoint. Until then, the package keeps
-  only the bounded local queue and reports `delivery_available: false`.
+- Online reliability delivery uses the project-owned Cloudflare endpoint. It
+  remains fail-open, bounded, schema-whitelisted and permanently user-
+  controllable with `agentfem telemetry off`.
 - The Windows image is a public Preview until it passes acceptance on a real
   WSL2 host; container acceptance validates the embedded Linux runtime but
   does not impersonate Windows integration evidence.

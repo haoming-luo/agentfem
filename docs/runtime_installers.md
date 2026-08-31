@@ -10,8 +10,7 @@ cloning a repository.
 | Host | Artifact | Status |
 | --- | --- | --- |
 | Windows 10/11 with WSL2 | `AgentFEM-Complete-<version>-WSL2-x86_64-preview-offline.zip` | Primary public Preview; accepted in the Linux image, pending real WSL2 evidence |
-| Apple Silicon macOS | `AgentFEM-Complete-<version>-macOS-arm64.pkg` | Formal route after Developer ID signing, Apple notarization, stapling and clean-runner acceptance |
-| Apple Silicon macOS | `AgentFEM-Complete-<version>-macOS-arm64-unsigned-preview.pkg` | Explicitly unsigned Preview while signing credentials are unavailable |
+| Apple Silicon macOS | `AgentFEM-Complete-<version>-macOS-arm64-unsigned-preview.pkg` | Public Preview; installed and exercised on a clean Apple Silicon runner, explicitly not signed or notarized |
 | Intel macOS | `.pkg` | Demand-driven follow-up |
 | Native Windows | `.exe` | Experimental until the complete PETSc/MPI/MPC gate passes |
 
@@ -37,27 +36,9 @@ remove these redistribution obligations.
 
 ## macOS
 
-The formal macOS package is built by the dedicated `Signed macOS runtime`
-workflow from an immutable release tag. It imports Developer ID Application
-and Developer ID Installer identities into an ephemeral keychain, signs the
-runtime and installer, submits the package through `notarytool`, staples the
-ticket, checks Gatekeeper acceptance, installs the package on a clean Apple
-Silicon runner, and only then permits upload to the GitHub Release.
-
-The repository secrets required by that workflow are:
-
-- `APPLE_DEVELOPER_CERTIFICATE_P12`: base64 of one password-protected P12
-  containing the Developer ID Application and Developer ID Installer
-  certificates and private keys;
-- `APPLE_DEVELOPER_CERTIFICATE_PASSWORD` and
-  `APPLE_BUILD_KEYCHAIN_PASSWORD`;
-- `APPLE_NOTARY_KEY_P8`, `APPLE_NOTARY_KEY_ID`, and
-  `APPLE_NOTARY_ISSUER_ID` for an App Store Connect API key accepted by
-  `notarytool`.
-
-When these identities are unavailable, the ordinary runtime workflow may
-publish an explicitly unsigned Preview. Its filename always contains
-`unsigned-preview`, and the download page must preserve that wording.
+AgentFEM 0.3.1 deliberately publishes an unsigned Preview and does not require
+Apple Developer credentials. Its filename always contains `unsigned-preview`,
+and the download page preserves that wording.
 
 Verify the published SHA-256 checksum, open the package, and follow the normal
 installer. macOS may block the first open because the package is not notarized;
@@ -67,10 +48,9 @@ do not run an undocumented quarantine-removal command. After installation,
 open `AgentFEM Terminal.command`; it starts the isolated runtime and performs a
 health check.
 
-The Preview route is convenient but deliberately not described as signed,
-notarized, or trusted by Apple. The workflow still installs and exercises the
-exact package on a clean GitHub-hosted Apple Silicon runner before publishing
-the Preview.
+The Preview is not described as signed, notarized, or trusted by Apple. The
+workflow still installs and exercises the exact package on a clean GitHub-
+hosted Apple Silicon runner before publishing it.
 
 ## Windows through WSL2
 
