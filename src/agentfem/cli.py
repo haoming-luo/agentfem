@@ -12,6 +12,7 @@ from pathlib import Path
 import runpy
 import subprocess
 import sys
+import time
 import traceback
 
 from mpi4py import MPI
@@ -491,6 +492,96 @@ def _format_record(record: dict[str, object], path: Path) -> str:
     return "\n".join(lines)
 
 
+def _command_telemetry(args) -> int:
+    from . import feedback as reliability
+
+    if args.action == "on":
+        selected = reliability.configure("basic")
+        record = selected.summary()
+        human = (
+            "Anonymous reliability reporting is on. Models, meshes, parameters, "
+            "source code, paths, and results are never included."
+        )
+    elif args.action == "off":
+        selected = reliability.configure("off")
+        record = selected.summary()
+        human = "Anonymous reliability reporting is off."
+    elif args.action == "flush":
+        record = reliability.flush()
+        human = f"Reliability delivery: {record['status']} ({record['sent']} sent)."
+    elif args.action == "show-last":
+        event = reliability.last_event()
+        record = {
+            "schema": "agentfem.reliability-preview",
+            "schema_version": "0.1.0",
+            "event": event,
+        }
+        human = _json(record) if event else "No queued reliability event."
+    else:
+        record = reliability.preferences().summary()
+        human = (
+            f"Anonymous reliability reporting: {record['mode']}\n"
+            f"Delivery available: {record['delivery_available']}\n"
+            f"Queued reports: {record['queue_size']}"
+        )
+    _emit(record, as_json=args.json, human=human)
+    return 0
+
+
+def _command_diagnose(args) -> int:
+    from . import feedback as reliability
+
+    record = reliability.diagnose(args.path, project=args.project)
+    _emit(record, as_json=args.json, human=reliability.format_diagnosis(record))
+    # The diagnosis command succeeded even when the execution it inspected
+    # failed; reserve a non-zero status for an unavailable/invalid record.
+    return 0
+
+
+def _command_assist(args) -> int:
+    from . import feedback as reliability
+
+    record = reliability.create_support_directory(
+        args.path,
+        project=args.project,
+        destination=args.output,
+        force=args.force,
+    )
+    _emit(
+        record,
+        as_json=args.json,
+        human=(
+            f"Created private AgentFEM support task: {record['directory']}\n"
+            "Give that directory to Codex or another AI agent. Nothing was uploaded."
+        ),
+    )
+    return 0
+
+
+def _command_feedback(args) -> int:
+    from . import feedback as reliability
+
+    if args.github:
+        record = reliability.submit_github_issue(args.path, project=args.project)
+        human = (
+            f"Existing AgentFEM issue: {record['issue']['url']}"
+            if record["status"] == "existing_issue"
+            else f"Created AgentFEM issue: {record['url']}"
+        )
+    else:
+        record = reliability.create_feedback_archive(
+            args.path,
+            project=args.project,
+            destination=args.output,
+        )
+        human = (
+            f"Created sanitized feedback archive: {record['archive']}\n"
+            "Nothing was uploaded. Review it before sharing."
+        )
+    _emit(record, as_json=args.json, human=human)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="agentfem", description=__doc__)
     parser.add_argument("--version", action="version", version=f"AgentFEM {__version__}")
@@ -608,10 +699,50 @@ def build_parser() -> argparse.ArgumentParser:
     )
     extension_command.add_argument("--load", action="append", default=[])
     extension_command.add_argument("--json", action="store_true")
+
+    telemetry = sub.add_parser(
+        "telemetry",
+        help="Inspect or control privacy-bounded anonymous reliability reports.",
+    )
+    telemetry.add_argument(
+        "action",
+        nargs="?",
+        default="status",
+        choices=("status", "on", "off", "show-last", "flush"),
+    )
+    telemetry.add_argument("--json", action="store_true")
+
+    diagnose = sub.add_parser(
+        "diagnose",
+        help="Explain the latest failed run locally without uploading evidence.",
+    )
+    diagnose.add_argument("path", nargs="?")
+    diagnose.add_argument("--project")
+    diagnose.add_argument("--json", action="store_true")
+
+    assist = sub.add_parser(
+        "assist",
+        help="Create a private sanitized task for Codex or another AI agent.",
+    )
+    assist.add_argument("path", nargs="?")
+    assist.add_argument("--project")
+    assist.add_argument("--output")
+    assist.add_argument("--force", action="store_true")
+    assist.add_argument("--json", action="store_true")
+
+    feedback_command = sub.add_parser(
+        "feedback",
+        help="Create a sanitized support archive or explicitly submit a GitHub issue.",
+    )
+    feedback_command.add_argument("path", nargs="?")
+    feedback_command.add_argument("--project")
+    feedback_command.add_argument("--output")
+    feedback_command.add_argument("--github", action="store_true")
+    feedback_command.add_argument("--json", action="store_true")
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
+def _dispatch(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
@@ -657,6 +788,14 @@ def main(argv: list[str] | None = None) -> int:
             return _command_lower_abaqus(args)
         if args.command == "verify":
             return _command_verify(args)
+        if args.command == "telemetry":
+            return _command_telemetry(args)
+        if args.command == "diagnose":
+            return _command_diagnose(args)
+        if args.command == "assist":
+            return _command_assist(args)
+        if args.command == "feedback":
+            return _command_feedback(args)
         if args.command == "extensions":
             extensions.load_extensions(args.load)
             record = extensions.extension_status()
@@ -710,7 +849,7 @@ def main(argv: list[str] | None = None) -> int:
             }
             _emit(record, as_json=args.json, human=_json(record))
             return 0
-    except (FileNotFoundError, FileExistsError, ValueError, RuntimeError) as exc:
+    except (OSError, FileExistsError, ValueError, RuntimeError) as exc:
         error = {"type": type(exc).__name__, "message": str(exc)}
         details = getattr(exc, "details", None)
         if callable(details):
@@ -727,6 +866,47 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run the product shell and observe reliability without owning the solve."""
+
+    from . import feedback as reliability
+
+    selected_argv = list(sys.argv[1:] if argv is None else argv)
+    parsed = build_parser().parse_args(selected_argv)
+    as_json = bool(getattr(parsed, "json", False))
+    if parsed.command not in {"telemetry", "diagnose", "assist", "feedback"}:
+        reliability.show_notice_once(as_json=as_json)
+    started = time.monotonic()
+    exit_code = _dispatch(selected_argv)
+    # ``agentfem run --mpi N`` is a launcher. The rank-zero child records the
+    # actual solve, preventing one user action from producing two events.
+    launcher_only = (
+        parsed.command == "run"
+        and getattr(parsed, "mpi", 1) > 1
+        and not getattr(parsed, "inside_mpi", False)
+    )
+    if not launcher_only:
+        observation = reliability.observe_cli(
+            parsed.command,
+            exit_code,
+            duration_seconds=time.monotonic() - started,
+            project=getattr(parsed, "project", None),
+        )
+        escalation = observation.get("escalation") if observation else None
+        if (
+            not as_json
+            and isinstance(escalation, dict)
+            and escalation.get("suggest_agent_now")
+        ):
+            print(
+                "This failure has repeated three times. Create a private task for "
+                "Codex with: agentfem assist --force",
+                file=sys.stderr,
+                flush=True,
+            )
+    return exit_code
 
 
 if __name__ == "__main__":

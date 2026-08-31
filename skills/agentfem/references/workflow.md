@@ -69,6 +69,12 @@ evidence.
     only when specifically required
 21. Optional runtime lock before a frozen or blind experiment
 
+If execution fails, read the structured execution record with
+`agentfem diagnose --json`. A repeated unresolved failure may be lowered to a
+private, sanitized Agent task with `agentfem assist --force`. This does not
+upload the model or result. Creating a public issue remains a separate
+user-authorized action.
+
 For related-case collections:
 
 22. Typed parameter space and deterministic sampling plan, optionally from

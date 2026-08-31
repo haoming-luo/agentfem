@@ -247,3 +247,12 @@ hold reusable asset families, such as constitutive laws, material records,
 boundary models, element policies, operator families, and benchmarks.
 Low-level implementation helpers such as `constraints/boundary.py` and
 `kernel/dofs.py` should not be featured in beginner workflows.
+
+## Reliability and Support Boundary
+
+Reliability observation occurs after the CLI command and does not own Model,
+Procedure, State, Backend, or Result. Automatic events use an exact privacy
+whitelist and must never serialize scientific inputs or outputs. Local
+diagnosis reads the structured execution record. Rich support evidence is
+sanitized, integrity-sealed, and remains local unless the user explicitly
+submits it. A failed collector must never fail or materially delay a solve.

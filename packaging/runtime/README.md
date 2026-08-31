@@ -55,16 +55,17 @@ python packaging/runtime/verify_installed_runtime.py \
   --output dist/runtime/macos-arm64-acceptance.json
 ```
 
-The macOS builder accepts these environment variables without recording their
-values in the repository:
+The ordinary cross-platform workflow deliberately emits an explicitly named
+`unsigned-preview` package. It may be published only with its checksum and
+local installation acceptance evidence; it must never be described as signed
+or notarized, and installation guidance must not disable Gatekeeper globally.
 
-- `AGENTFEM_APP_IDENTITY`: `Developer ID Application: ...`
-- `AGENTFEM_INSTALLER_IDENTITY`: `Developer ID Installer: ...`
-- `AGENTFEM_NOTARY_PROFILE`: a Keychain profile created with `notarytool`
-
-If the identities are absent, the builder emits an explicitly named unsigned
-candidate. An unsigned candidate is suitable for local packaging tests but
-must never be advertised as the public macOS installer.
+The separate `Signed macOS runtime` workflow consumes release secrets without
+recording them in the repository. It supplies
+`AGENTFEM_APP_IDENTITY`, `AGENTFEM_INSTALLER_IDENTITY`, and
+`AGENTFEM_NOTARY_PROFILE` to this same builder, then verifies the Developer ID
+signature, Apple notarization ticket, Gatekeeper assessment, and installed
+runtime before a formal `.pkg` can be uploaded.
 
 ## Release gates
 

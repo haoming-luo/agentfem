@@ -1283,6 +1283,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agentfemfeedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.feedback
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agentfemforms" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1526,6 +1537,8 @@
       
         
           
+        
+      
         
       
         
@@ -2123,6 +2136,17 @@
     <span class="md-ellipsis">
       
         agentfem.extensions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agentfemfeedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.feedback
       
     </span>
   </a>
@@ -7311,6 +7335,118 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>load_extensions(names) -&gt; tuple[LoadedExtension, ...]</code></td>
 <td>Activate required extensions in declaration order.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="agentfemfeedback"><code>agentfem.feedback</code><a class="headerlink" href="#agentfemfeedback" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Public object</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>class</td>
+<td><code>FeedbackPreferences</code></td>
+<td>Persistent, user-controllable reliability-report preferences.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>preferences() -&gt; FeedbackPreferences</code></td>
+<td>Return the effective preferences without creating local state.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>configure(mode: str, *, endpoint: str \| None = None, notice_shown: bool \| None = None) -&gt; FeedbackPreferences</code></td>
+<td>Persist <code>basic</code> or <code>off</code> and return the effective preferences.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>notice_text() -&gt; str</code></td>
+<td>Public AgentFEM object.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>show_notice_once(*, as_json: bool = False, stream = None) -&gt; bool</code></td>
+<td>Show the one-time reliability notice on an interactive human route.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>failure_fingerprint(error: Mapping[str, object] \| None, *, command: str = 'run') -&gt; str \| None</code></td>
+<td>Return a message/path-free identity for one class of failure.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>build_event(command: str, outcome: str, *, duration_seconds: float \| None = None, error: Mapping[str, object] \| None = None, now: datetime \| None = None, event_id: str \| None = None) -&gt; dict[str, object]</code></td>
+<td>Build the exact data allowed on the automatic reliability channel.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>validate_event(record: Mapping[str, object]) -&gt; None</code></td>
+<td>Fail closed when an event contains an undeclared field.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>queue_size() -&gt; int</code></td>
+<td>Public AgentFEM object.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>clear_queue() -&gt; int</code></td>
+<td>Remove every unsent automatic event when reporting is disabled.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>enqueue(record: Mapping[str, object]) -&gt; Path \| None</code></td>
+<td>Queue one event atomically; never write when reporting is disabled.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>last_event() -&gt; dict[str, object] \| None</code></td>
+<td>Public AgentFEM object.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>flush(*, timeout: float = DEFAULT_TIMEOUT_SECONDS) -&gt; dict[str, object]</code></td>
+<td>Send a bounded batch and return status without raising into a solve.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>observe_cli(command: str \| None, exit_code: int, *, duration_seconds: float \| None = None, project: str \| Path \| None = None) -&gt; dict[str, object] \| None</code></td>
+<td>Record one CLI outcome; this function is deliberately fail-open.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>record_failure(error: Mapping[str, object], *, command: str = 'run') -&gt; dict[str, object]</code></td>
+<td>Update a local, version-scoped repetition counter for one failure class.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>diagnose(path: str \| Path \| None = None, *, project: str \| Path \| None = None) -&gt; dict[str, object]</code></td>
+<td>Explain one execution locally without uploading or modifying the case.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>format_diagnosis(record: Mapping[str, object]) -&gt; str</code></td>
+<td>Public AgentFEM object.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>create_support_directory(path: str \| Path \| None = None, *, project: str \| Path \| None = None, destination: str \| Path \| None = None, force: bool = False) -&gt; dict[str, object]</code></td>
+<td>Create a local, sanitized task that any AI agent can inspect.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>create_feedback_archive(path: str \| Path \| None = None, *, project: str \| Path \| None = None, destination: str \| Path \| None = None) -&gt; dict[str, object]</code></td>
+<td>Create a portable local support archive without sending it.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>submit_github_issue(path: str \| Path \| None = None, *, project: str \| Path \| None = None) -&gt; dict[str, object]</code></td>
+<td>Submit a sanitized issue after an explicit <code>--github</code> user action.</td>
 </tr>
 </tbody>
 </table>

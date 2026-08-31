@@ -476,23 +476,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="macOS">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#supplying-the-apple-developer-identity" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Supplying the Apple Developer identity
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
         <li class="md-nav__item">
@@ -893,6 +876,8 @@
       
         
       
+        
+      
     
     
     
@@ -1032,23 +1017,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="macOS">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#supplying-the-apple-developer-identity" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Supplying the Apple Developer identity
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
         <li class="md-nav__item">
@@ -1168,14 +1136,19 @@ cloning a repository.</p>
 </thead>
 <tbody>
 <tr>
-<td>Apple Silicon macOS</td>
-<td><code>AgentFEM-Complete-&lt;version&gt;-macOS-arm64.pkg</code></td>
-<td>Recommended native installer after signing and notarization</td>
+<td>Windows 10/11 with WSL2</td>
+<td><code>AgentFEM-Complete-&lt;version&gt;-WSL2-x86_64-preview-offline.zip</code></td>
+<td>Primary public Preview; accepted in the Linux image, pending real WSL2 evidence</td>
 </tr>
 <tr>
-<td>Windows 10/11 with WSL2</td>
-<td><code>AgentFEM-Complete-&lt;version&gt;-WSL2-x86_64.wsl</code></td>
-<td>Recommended Windows route after real WSL2 acceptance</td>
+<td>Apple Silicon macOS</td>
+<td><code>AgentFEM-Complete-&lt;version&gt;-macOS-arm64.pkg</code></td>
+<td>Formal route after Developer ID signing, Apple notarization, stapling and clean-runner acceptance</td>
+</tr>
+<tr>
+<td>Apple Silicon macOS</td>
+<td><code>AgentFEM-Complete-&lt;version&gt;-macOS-arm64-unsigned-preview.pkg</code></td>
+<td>Explicitly unsigned Preview while signing credentials are unavailable</td>
 </tr>
 <tr>
 <td>Intel macOS</td>
@@ -1206,76 +1179,41 @@ carries the Gmsh license and publishes the exact corresponding source and
 conda-forge build recipe beside the installer. Noncommercial use does not
 remove these redistribution obligations.</p>
 <h2 id="macos">macOS<a class="headerlink" href="#macos" title="Permanent link">&para;</a></h2>
-<p>Download the signed and notarized <code>.pkg</code>, open it, and follow the standard
-macOS installer. After installation, open <code>AgentFEM Terminal.command</code> in the
-user Applications folder. It opens an isolated AgentFEM shell and performs a
-health check on first launch.</p>
-<p>Only an artifact whose filename does <strong>not</strong> contain <code>unsigned</code> is intended for
-public distribution. The public package must pass:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Developer ID signatures
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>→ Apple notarization
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>→ stapled ticket
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>→ Gatekeeper assessment
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>→ offline cold-cache solve
-</code></pre></div>
-<h3 id="supplying-the-apple-developer-identity">Supplying the Apple Developer identity<a class="headerlink" href="#supplying-the-apple-developer-identity" title="Permanent link">&para;</a></h3>
-<p>The Apple Developer Program account holder should create both <strong>Developer ID
-Application</strong> and <strong>Developer ID Installer</strong> certificates. Export the two
-certificates together with their private keys from Keychain Access as one
-password-protected <code>.p12</code>. Never commit or send that file through chat.</p>
-<p>For a local release machine, import the <code>.p12</code>, then store notarization
-credentials in the login Keychain:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>xcrun<span class="w"> </span>notarytool<span class="w"> </span>store-credentials<span class="w"> </span>agentfem-notary<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--apple-id<span class="w"> </span><span class="s2">&quot;APPLE_ID&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--team-id<span class="w"> </span><span class="s2">&quot;TEAM_ID&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>--password<span class="w"> </span><span class="s2">&quot;APP_SPECIFIC_PASSWORD&quot;</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AGENTFEM_APP_IDENTITY</span><span class="o">=</span><span class="s2">&quot;Developer ID Application: ... (TEAM_ID)&quot;</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AGENTFEM_INSTALLER_IDENTITY</span><span class="o">=</span><span class="s2">&quot;Developer ID Installer: ... (TEAM_ID)&quot;</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AGENTFEM_NOTARY_PROFILE</span><span class="o">=</span><span class="s2">&quot;agentfem-notary&quot;</span>
-</code></pre></div>
-<p>For GitHub Actions, add the following encrypted repository secrets:</p>
-<table>
-<thead>
-<tr>
-<th>Secret</th>
-<th>Content</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>APPLE_DEVELOPER_CERTIFICATE_P12</code></td>
-<td>Base64-encoded <code>.p12</code> containing both Developer ID identities</td>
-</tr>
-<tr>
-<td><code>APPLE_DEVELOPER_CERTIFICATE_PASSWORD</code></td>
-<td>Password used while exporting the <code>.p12</code></td>
-</tr>
-<tr>
-<td><code>APPLE_BUILD_KEYCHAIN_PASSWORD</code></td>
-<td>A new random password used only by the temporary CI Keychain</td>
-</tr>
-<tr>
-<td><code>APPLE_ID</code></td>
-<td>Apple Developer account email</td>
-</tr>
-<tr>
-<td><code>APPLE_TEAM_ID</code></td>
-<td>Ten-character Apple Developer Team ID</td>
-</tr>
-<tr>
-<td><code>APPLE_APP_PASSWORD</code></td>
-<td>Apple app-specific password used by <code>notarytool</code></td>
-</tr>
-</tbody>
-</table>
-<p>The runtime workflow emits an explicitly suffixed <code>-unsigned.pkg</code> when these
-credentials are absent. Such a candidate can be inspected locally but cannot
-be promoted to the public download.</p>
+<p>The formal macOS package is built by the dedicated <code>Signed macOS runtime</code>
+workflow from an immutable release tag. It imports Developer ID Application
+and Developer ID Installer identities into an ephemeral keychain, signs the
+runtime and installer, submits the package through <code>notarytool</code>, staples the
+ticket, checks Gatekeeper acceptance, installs the package on a clean Apple
+Silicon runner, and only then permits upload to the GitHub Release.</p>
+<p>The repository secrets required by that workflow are:</p>
+<ul>
+<li><code>APPLE_DEVELOPER_CERTIFICATE_P12</code>: base64 of one password-protected P12
+  containing the Developer ID Application and Developer ID Installer
+  certificates and private keys;</li>
+<li><code>APPLE_DEVELOPER_CERTIFICATE_PASSWORD</code> and
+  <code>APPLE_BUILD_KEYCHAIN_PASSWORD</code>;</li>
+<li><code>APPLE_NOTARY_KEY_P8</code>, <code>APPLE_NOTARY_KEY_ID</code>, and
+  <code>APPLE_NOTARY_ISSUER_ID</code> for an App Store Connect API key accepted by
+  <code>notarytool</code>.</li>
+</ul>
+<p>When these identities are unavailable, the ordinary runtime workflow may
+publish an explicitly unsigned Preview. Its filename always contains
+<code>unsigned-preview</code>, and the download page must preserve that wording.</p>
+<p>Verify the published SHA-256 checksum, open the package, and follow the normal
+installer. macOS may block the first open because the package is not notarized;
+use the one-time <strong>Open Anyway</strong> control in System Settings → Privacy &amp;
+Security after verifying the checksum. Do not disable Gatekeeper globally and
+do not run an undocumented quarantine-removal command. After installation,
+open <code>AgentFEM Terminal.command</code>; it starts the isolated runtime and performs a
+health check.</p>
+<p>The Preview route is convenient but deliberately not described as signed,
+notarized, or trusted by Apple. The workflow still installs and exercises the
+exact package on a clean GitHub-hosted Apple Silicon runner before publishing
+the Preview.</p>
 <h2 id="windows-through-wsl2">Windows through WSL2<a class="headerlink" href="#windows-through-wsl2" title="Permanent link">&para;</a></h2>
-<p>For WSL 2.4.4 or newer, the <code>.wsl</code> image can be opened directly in File
-Explorer or installed from PowerShell:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">wsl</span> <span class="p">-</span><span class="n">-install</span> <span class="p">-</span><span class="n">-from</span><span class="o">-file</span> <span class="p">.\</span><span class="n">AgentFEM-Complete</span><span class="p">-&lt;</span><span class="n">version</span><span class="p">&gt;</span><span class="n">-WSL2-x86_64</span><span class="p">.</span><span class="n">wsl</span>
+<p>Unzip the Preview. For WSL 2.4.4 or newer, its <code>.wsl</code> image can be opened
+directly in File Explorer or installed from PowerShell:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">wsl</span> <span class="p">-</span><span class="n">-install</span> <span class="p">-</span><span class="n">-from</span><span class="o">-file</span> <span class="p">.\</span><span class="n">AgentFEM-Complete</span><span class="p">-&lt;</span><span class="n">version</span><span class="p">&gt;</span><span class="n">-WSL2-x86_64</span><span class="p">.</span><span class="n">wsl</span>
 </code></pre></div>
 <p>The offline bundle includes <code>Install-AgentFEM.ps1</code>, which verifies the image,
 refuses to overwrite an existing <code>AgentFEM</code> distribution, imports it, and
@@ -1294,12 +1232,14 @@ Uncontrolled download proxies are not official distribution channels.</p>
 installed runtime still attaches solver, environment, provenance, balance,
 and verification evidence to each <code>SimulationResult</code>.</p>
 <h2 id="official-download-location">Official download location<a class="headerlink" href="#official-download-location" title="Permanent link">&para;</a></h2>
-<p>Promoted installers are GitHub Release assets:</p>
+<p>Accepted Preview installers are GitHub Release assets:</p>
 <p><a href="https://github.com/haoming-luo/agentfem/releases/latest">https://github.com/haoming-luo/agentfem/releases/latest</a></p>
-<p>The download page must list the Complete installer, Core installer, checksums,
-SBOM, runtime manifest, and—when Gmsh is included—the corresponding Gmsh
-source and conda-forge recipe. A candidate from an Actions artifact is not an
-official public installer until it passes the platform acceptance record.</p>
+<p>To avoid storing the same multi-gigabyte image twice, the public Windows asset
+is the single offline ZIP containing the image, installer script, checksums,
+SBOM, runtime manifest, Gmsh license, corresponding source, and conda-forge
+recipe. The macOS asset is the unsigned Preview package plus its acceptance
+record. A candidate from an Actions artifact is not a public Preview until the
+workflow has produced and uploaded its acceptance evidence.</p>
 
 
 

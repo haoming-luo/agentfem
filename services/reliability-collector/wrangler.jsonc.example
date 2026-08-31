@@ -1,0 +1,19 @@
+{
+  "name": "agentfem-reliability",
+  "main": "worker.js",
+  "compatibility_date": "2026-08-31",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "agentfem-reliability",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "RELIABILITY_RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 60, "period": 60 }
+    }
+  ]
+}

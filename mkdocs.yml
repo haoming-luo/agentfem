@@ -185,6 +185,7 @@ nav:
       - Product Roadmap: product_roadmap.md
       - Trust and Validation:
           - Trust and Operations: trust/index.md
+          - Reliability Feedback and Private Support: feedback_and_privacy.md
           - Scientific Trust and Verification: scientific_verification.md
           - PDEAgent-Bench Integration: pdeagent_bench.md
           - Validation: validation.md
@@ -193,6 +194,7 @@ nav:
           - Project Compatibility and Upgrades: project_upgrades.md
           - Platform and Optional Dependencies: platform_support.md
           - Licensing: licensing.md
+      - Release 0.3.1: release_0.3.1.md
       - Release 0.3.0: release_0.3.0.md
       - 0.2.6 Promotion Candidate: release_0.2.6.md
       - Release 0.2.5: release_0.2.5.md

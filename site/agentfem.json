@@ -2,7 +2,7 @@
   "schema": "agentfem.documentation-entry",
   "schema_version": "1.0",
   "project": "AgentFEM",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "maturity": "early-release",
   "description": "AI-native finite-element computing for humans and agents.",
   "documentation": "https://haoming-luo.github.io/agentfem/",
@@ -31,7 +31,11 @@
     "abaqus_user_material_inspect": "agentfem inspect-user-material material.for --json",
     "abaqus_migrate": "agentfem migrate-abaqus model.inp ./project --json",
     "abaqus_lower": "agentfem lower-abaqus ./project --reviewed-by REVIEWER --unit-system SI --json",
-    "verify": "agentfem verify --json"
+    "verify": "agentfem verify --json",
+    "telemetry_status": "agentfem telemetry status --json",
+    "diagnose": "agentfem diagnose --json",
+    "assist": "agentfem assist --json",
+    "feedback_archive": "agentfem feedback --json"
   },
   "public_workflow_modules": [
     "studies",
@@ -76,6 +80,7 @@
     "diagnostics",
     "elements",
     "extensions",
+    "feedback",
     "forms",
     "io",
     "integrations",
@@ -136,6 +141,7 @@
       "diagnostics",
       "elements",
       "extensions",
+      "feedback",
       "forms",
       "io",
       "integrations",

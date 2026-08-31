@@ -502,7 +502,7 @@ def build_macos(args: argparse.Namespace) -> Path:
         )
     signed = app_identity and installer_identity
     notarized = signed and bool(os.environ.get("AGENTFEM_NOTARY_PROFILE"))
-    suffix = "" if notarized else "-unsigned"
+    suffix = "" if notarized else "-unsigned-preview"
     product = "AgentFEM-Complete" if args.profile == "complete" else "AgentFEM-Core"
     filename = f"{product}-{project_version()}-macOS-arm64{suffix}.pkg"
     template = (RUNTIME / "macos" / "construct.yaml.in").read_text(
@@ -662,7 +662,7 @@ def build_wsl(args: argparse.Namespace) -> Path:
         ),
         encoding="utf-8",
     )
-    bundle = output / f"{product}-{project_version()}-WSL2-x86_64-offline.zip"
+    bundle = output / f"{product}-{project_version()}-WSL2-x86_64-preview-offline.zip"
     bundle_files = [
         artifact,
         installer,

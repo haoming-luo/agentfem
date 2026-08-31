@@ -1121,6 +1121,31 @@ This package exposes its public objects through focused submodules.
 | function | `load_extension(name: str) -> LoadedExtension` | Explicitly import, validate, and activate one installed extension. |
 | function | `load_extensions(names) -> tuple[LoadedExtension, ...]` | Activate required extensions in declaration order. |
 
+## `agentfem.feedback`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `FeedbackPreferences` | Persistent, user-controllable reliability-report preferences. |
+| function | `preferences() -> FeedbackPreferences` | Return the effective preferences without creating local state. |
+| function | `configure(mode: str, *, endpoint: str \| None = None, notice_shown: bool \| None = None) -> FeedbackPreferences` | Persist ``basic`` or ``off`` and return the effective preferences. |
+| function | `notice_text() -> str` | Public AgentFEM object. |
+| function | `show_notice_once(*, as_json: bool = False, stream = None) -> bool` | Show the one-time reliability notice on an interactive human route. |
+| function | `failure_fingerprint(error: Mapping[str, object] \| None, *, command: str = 'run') -> str \| None` | Return a message/path-free identity for one class of failure. |
+| function | `build_event(command: str, outcome: str, *, duration_seconds: float \| None = None, error: Mapping[str, object] \| None = None, now: datetime \| None = None, event_id: str \| None = None) -> dict[str, object]` | Build the exact data allowed on the automatic reliability channel. |
+| function | `validate_event(record: Mapping[str, object]) -> None` | Fail closed when an event contains an undeclared field. |
+| function | `queue_size() -> int` | Public AgentFEM object. |
+| function | `clear_queue() -> int` | Remove every unsent automatic event when reporting is disabled. |
+| function | `enqueue(record: Mapping[str, object]) -> Path \| None` | Queue one event atomically; never write when reporting is disabled. |
+| function | `last_event() -> dict[str, object] \| None` | Public AgentFEM object. |
+| function | `flush(*, timeout: float = DEFAULT_TIMEOUT_SECONDS) -> dict[str, object]` | Send a bounded batch and return status without raising into a solve. |
+| function | `observe_cli(command: str \| None, exit_code: int, *, duration_seconds: float \| None = None, project: str \| Path \| None = None) -> dict[str, object] \| None` | Record one CLI outcome; this function is deliberately fail-open. |
+| function | `record_failure(error: Mapping[str, object], *, command: str = 'run') -> dict[str, object]` | Update a local, version-scoped repetition counter for one failure class. |
+| function | `diagnose(path: str \| Path \| None = None, *, project: str \| Path \| None = None) -> dict[str, object]` | Explain one execution locally without uploading or modifying the case. |
+| function | `format_diagnosis(record: Mapping[str, object]) -> str` | Public AgentFEM object. |
+| function | `create_support_directory(path: str \| Path \| None = None, *, project: str \| Path \| None = None, destination: str \| Path \| None = None, force: bool = False) -> dict[str, object]` | Create a local, sanitized task that any AI agent can inspect. |
+| function | `create_feedback_archive(path: str \| Path \| None = None, *, project: str \| Path \| None = None, destination: str \| Path \| None = None) -> dict[str, object]` | Create a portable local support archive without sending it. |
+| function | `submit_github_issue(path: str \| Path \| None = None, *, project: str \| Path \| None = None) -> dict[str, object]` | Submit a sanitized issue after an explicit ``--github`` user action. |
+
 ## `agentfem.forms`
 
 | Kind | Public object | Purpose |

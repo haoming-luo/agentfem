@@ -9,8 +9,9 @@ cloning a repository.
 
 | Host | Artifact | Status |
 | --- | --- | --- |
-| Apple Silicon macOS | `AgentFEM-Complete-<version>-macOS-arm64.pkg` | Recommended native installer after signing and notarization |
-| Windows 10/11 with WSL2 | `AgentFEM-Complete-<version>-WSL2-x86_64.wsl` | Recommended Windows route after real WSL2 acceptance |
+| Windows 10/11 with WSL2 | `AgentFEM-Complete-<version>-WSL2-x86_64-preview-offline.zip` | Primary public Preview; accepted in the Linux image, pending real WSL2 evidence |
+| Apple Silicon macOS | `AgentFEM-Complete-<version>-macOS-arm64.pkg` | Formal route after Developer ID signing, Apple notarization, stapling and clean-runner acceptance |
+| Apple Silicon macOS | `AgentFEM-Complete-<version>-macOS-arm64-unsigned-preview.pkg` | Explicitly unsigned Preview while signing credentials are unavailable |
 | Intel macOS | `.pkg` | Demand-driven follow-up |
 | Native Windows | `.exe` | Experimental until the complete PETSc/MPI/MPC gate passes |
 
@@ -36,62 +37,45 @@ remove these redistribution obligations.
 
 ## macOS
 
-Download the signed and notarized `.pkg`, open it, and follow the standard
-macOS installer. After installation, open `AgentFEM Terminal.command` in the
-user Applications folder. It opens an isolated AgentFEM shell and performs a
-health check on first launch.
+The formal macOS package is built by the dedicated `Signed macOS runtime`
+workflow from an immutable release tag. It imports Developer ID Application
+and Developer ID Installer identities into an ephemeral keychain, signs the
+runtime and installer, submits the package through `notarytool`, staples the
+ticket, checks Gatekeeper acceptance, installs the package on a clean Apple
+Silicon runner, and only then permits upload to the GitHub Release.
 
-Only an artifact whose filename does **not** contain `unsigned` is intended for
-public distribution. The public package must pass:
+The repository secrets required by that workflow are:
 
-```text
-Developer ID signatures
-→ Apple notarization
-→ stapled ticket
-→ Gatekeeper assessment
-→ offline cold-cache solve
-```
+- `APPLE_DEVELOPER_CERTIFICATE_P12`: base64 of one password-protected P12
+  containing the Developer ID Application and Developer ID Installer
+  certificates and private keys;
+- `APPLE_DEVELOPER_CERTIFICATE_PASSWORD` and
+  `APPLE_BUILD_KEYCHAIN_PASSWORD`;
+- `APPLE_NOTARY_KEY_P8`, `APPLE_NOTARY_KEY_ID`, and
+  `APPLE_NOTARY_ISSUER_ID` for an App Store Connect API key accepted by
+  `notarytool`.
 
-### Supplying the Apple Developer identity
+When these identities are unavailable, the ordinary runtime workflow may
+publish an explicitly unsigned Preview. Its filename always contains
+`unsigned-preview`, and the download page must preserve that wording.
 
-The Apple Developer Program account holder should create both **Developer ID
-Application** and **Developer ID Installer** certificates. Export the two
-certificates together with their private keys from Keychain Access as one
-password-protected `.p12`. Never commit or send that file through chat.
+Verify the published SHA-256 checksum, open the package, and follow the normal
+installer. macOS may block the first open because the package is not notarized;
+use the one-time **Open Anyway** control in System Settings → Privacy &
+Security after verifying the checksum. Do not disable Gatekeeper globally and
+do not run an undocumented quarantine-removal command. After installation,
+open `AgentFEM Terminal.command`; it starts the isolated runtime and performs a
+health check.
 
-For a local release machine, import the `.p12`, then store notarization
-credentials in the login Keychain:
-
-```bash
-xcrun notarytool store-credentials agentfem-notary \
-  --apple-id "APPLE_ID" \
-  --team-id "TEAM_ID" \
-  --password "APP_SPECIFIC_PASSWORD"
-
-export AGENTFEM_APP_IDENTITY="Developer ID Application: ... (TEAM_ID)"
-export AGENTFEM_INSTALLER_IDENTITY="Developer ID Installer: ... (TEAM_ID)"
-export AGENTFEM_NOTARY_PROFILE="agentfem-notary"
-```
-
-For GitHub Actions, add the following encrypted repository secrets:
-
-| Secret | Content |
-| --- | --- |
-| `APPLE_DEVELOPER_CERTIFICATE_P12` | Base64-encoded `.p12` containing both Developer ID identities |
-| `APPLE_DEVELOPER_CERTIFICATE_PASSWORD` | Password used while exporting the `.p12` |
-| `APPLE_BUILD_KEYCHAIN_PASSWORD` | A new random password used only by the temporary CI Keychain |
-| `APPLE_ID` | Apple Developer account email |
-| `APPLE_TEAM_ID` | Ten-character Apple Developer Team ID |
-| `APPLE_APP_PASSWORD` | Apple app-specific password used by `notarytool` |
-
-The runtime workflow emits an explicitly suffixed `-unsigned.pkg` when these
-credentials are absent. Such a candidate can be inspected locally but cannot
-be promoted to the public download.
+The Preview route is convenient but deliberately not described as signed,
+notarized, or trusted by Apple. The workflow still installs and exercises the
+exact package on a clean GitHub-hosted Apple Silicon runner before publishing
+the Preview.
 
 ## Windows through WSL2
 
-For WSL 2.4.4 or newer, the `.wsl` image can be opened directly in File
-Explorer or installed from PowerShell:
+Unzip the Preview. For WSL 2.4.4 or newer, its `.wsl` image can be opened
+directly in File Explorer or installed from PowerShell:
 
 ```powershell
 wsl --install --from-file .\AgentFEM-Complete-<version>-WSL2-x86_64.wsl
@@ -120,11 +104,13 @@ and verification evidence to each `SimulationResult`.
 
 ## Official download location
 
-Promoted installers are GitHub Release assets:
+Accepted Preview installers are GitHub Release assets:
 
 <https://github.com/haoming-luo/agentfem/releases/latest>
 
-The download page must list the Complete installer, Core installer, checksums,
-SBOM, runtime manifest, and—when Gmsh is included—the corresponding Gmsh
-source and conda-forge recipe. A candidate from an Actions artifact is not an
-official public installer until it passes the platform acceptance record.
+To avoid storing the same multi-gigabyte image twice, the public Windows asset
+is the single offline ZIP containing the image, installer script, checksums,
+SBOM, runtime manifest, Gmsh license, corresponding source, and conda-forge
+recipe. The macOS asset is the unsigned Preview package plus its acceptance
+record. A candidate from an Actions artifact is not a public Preview until the
+workflow has produced and uploaded its acceptance evidence.

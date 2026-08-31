@@ -681,3 +681,19 @@ single final loss.
 A learning workflow with explicit strong, weak, or discrete physics residuals
 and boundary, initial, interface, or observation conditions. Arbitrary UFL
 forms are not presumed to convert automatically into valid PINN residuals.
+
+## Reliability Event
+
+A coarse, schema-checked product-health observation produced outside the
+scientific solve lifecycle. It may describe the AgentFEM/runtime version,
+command outcome, duration bucket, AFM failure code, execution stage, exception
+class, and a message-free fingerprint. It must not contain a Model, mesh,
+material parameter, source code, name, path, exception message, traceback, or
+simulation result. Reliability evidence cannot promote scientific trust.
+
+## Support Bundle
+
+A local, sanitized and integrity-sealed diagnostic task for a human or AI
+agent. It contains structural failure and runtime evidence but no scientific
+model or result. Creating a bundle is local; transmitting it is a separate
+user-authorized action.

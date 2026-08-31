@@ -57,6 +57,7 @@ EXPERT_WORKFLOW_MODULES = (
     "diagnostics",
     "elements",
     "extensions",
+    "feedback",
     "forms",
     "io",
     "integrations",
@@ -184,6 +185,10 @@ CLI_COMMANDS = (
     "verify",
     "capabilities",
     "extensions",
+    "telemetry",
+    "diagnose",
+    "assist",
+    "feedback",
 )
 
 MACHINE_COMMANDS = {
@@ -203,6 +208,10 @@ MACHINE_COMMANDS = {
         "--unit-system SI --json"
     ),
     "verify": "agentfem verify --json",
+    "telemetry_status": "agentfem telemetry status --json",
+    "diagnose": "agentfem diagnose --json",
+    "assist": "agentfem assist --json",
+    "feedback_archive": "agentfem feedback --json",
 }
 
 WORKFLOW_STAGES = (

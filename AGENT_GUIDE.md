@@ -23,6 +23,14 @@ finite-element simulation with AgentFEM.
 7. Prefer existing `agentfem` APIs before adding new helpers.
 8. Add reusable code only when it belongs to a standard FEM concept.
 
+If an installed run repeatedly fails, use `agentfem diagnose --json`, then
+`agentfem assist --force`. Read the generated private support task without
+assuming that its sanitized evidence contains the scientific model. Do not
+upload a report or run `agentfem feedback --github` unless the user explicitly
+authorizes that external action. Basic anonymous reliability reports never
+contain model, mesh, material, source, path, or result data; inspect the exact
+contract with `agentfem telemetry status --json`.
+
 ## Progressive Reading
 
 - Mesh, domain, or region modeling: read the Mesh Region, Selector, and Region

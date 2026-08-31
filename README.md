@@ -109,6 +109,12 @@ the Apache-2.0 Python package; the recommended offline Complete runtime may
 aggregate it with its license and corresponding source for a one-click
 CAD-to-mesh workflow.
 
+AgentFEM can share a strictly anonymous reliability signal by default; models,
+meshes, parameters, code, paths, and results are never included. Inspect or
+disable it at any time with `agentfem telemetry status|off`. Repeated failures
+can be packaged privately for Codex with `agentfem assist`. See the
+[feedback and privacy contract](docs/feedback_and_privacy.md).
+
 ## Run Your First Model
 
 Create and run a complete static-solid project in any directory:
@@ -237,7 +243,7 @@ workflows, and author's vision. [Read the PDF](https://haoming-luo.github.io/age
 
 ```yaml
 title: "AgentFEM: An AI-native open-source platform for finite-element computing"
-version: "0.3.0"
+version: "0.3.1"
 authors:
   - family-names: Luo
     given-names: Haoming

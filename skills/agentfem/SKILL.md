@@ -277,6 +277,14 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   run identity, artifacts, and manifest.
 - Treat `agentfem run --json` as the machine boundary. Read the versioned
   execution and result records; do not infer success by matching console text.
+- When an installed run fails, inspect it first with
+  `agentfem diagnose --json`. After a repeated unresolved failure, create a
+  local private task with `agentfem assist --force`; read its sanitized
+  evidence without assuming it contains the scientific model. Never run
+  `agentfem feedback --github` or transmit a support archive without explicit
+  user authorization. `agentfem telemetry status --json` describes the exact
+  automatic reliability boundary and `agentfem telemetry off` remains a
+  permanent user control.
 - Use `learning` as the public umbrella but preserve exact roles. A surrogate,
   neural operator, neural-field solver, and learned constitutive model are not
   interchangeable. PINN/DEM/XDEM providers must consume explicit objectives,

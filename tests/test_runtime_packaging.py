@@ -47,7 +47,7 @@ def test_windows_installer_fails_closed_on_existing_distribution():
     assert "@IMAGE_SHA256@" in installer
 
 
-def test_macos_public_artifact_requires_signing_identity():
+def test_macos_preview_is_explicitly_unsigned():
     constructor = (RUNTIME / "macos" / "construct.yaml.in").read_text(
         encoding="utf-8"
     )
@@ -62,7 +62,27 @@ def test_macos_public_artifact_requires_signing_identity():
     assert 'user_home=$(dirname "$runtime_parent")' in post_install
     builder = (RUNTIME / "build_runtime.py").read_text(encoding="utf-8")
     assert "app_identity != installer_identity" in builder
-    assert 'suffix = "" if notarized else "-unsigned"' in builder
+    assert 'suffix = "" if notarized else "-unsigned-preview"' in builder
+    workflow = (ROOT / ".github" / "workflows" / "runtime-installers.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "Developer ID" not in workflow
+    assert "*-unsigned-preview.pkg" in workflow
+
+
+def test_signed_macos_release_is_separate_and_fail_closed():
+    workflow = (ROOT / ".github" / "workflows" / "macos-signed-runtime.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "APPLE_DEVELOPER_CERTIFICATE_P12" in workflow
+    assert "APPLE_NOTARY_KEY_P8" in workflow
+    assert "Developer ID Application" in workflow
+    assert "Developer ID Installer" in workflow
+    assert "notarytool store-credentials" in workflow
+    assert "stapler validate" in workflow
+    assert "spctl --assess --type install" in workflow
+    assert "macos-arm64-signed-acceptance.json" in workflow
+    assert "gh release upload" in workflow
 
 
 def test_complete_profile_pins_redistributed_gmsh_source_contract():
@@ -94,6 +114,7 @@ def test_complete_wsl_bundle_carries_gmsh_compliance_materials():
     assert "publish_runtime_evidence(" in builder
     assert 'f"{stem}-conda-lock.txt"' in builder
     assert 'f"{stem}-third-party.json"' in builder
+    assert "WSL2-x86_64-preview-offline.zip" in builder
 
 
 def test_runtime_acceptance_requires_embedded_release_identity():

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentfem"
-version = "0.3.0"
+version = "0.3.1"
 description = "AI-native finite-element workflows for humans and agents."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -118,7 +118,7 @@ packages = [
   "external_data/*.json",
   "research_tasks/*.json",
 ]
-"agentfem" = ["py.typed", "release/*.json"]
+"agentfem" = ["py.typed", "release/*.json", "feedback-endpoint.json"]
 "agentfem.templates" = ["*/case.py", "*/agentfem.toml", "*/README.md", "*/AGENTS.md"]
 
 [tool.setuptools.exclude-package-data]

@@ -28,6 +28,9 @@ jobs:
           python -m pip install "ruff>=0.16,<0.17"
           ruff check . --no-cache
 
+      - name: Verify reliability collector schema boundary
+        run: node --test services/reliability-collector/worker.test.mjs
+
   documentation:
     name: Documentation and machine entrypoints
     runs-on: ubuntu-latest

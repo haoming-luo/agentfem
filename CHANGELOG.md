@@ -6,6 +6,45 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-08-31
+
+### Added
+
+- Add a default-on, strictly whitelisted anonymous reliability channel with a
+  bounded offline queue, coarse success sampling, message-free failure
+  fingerprints, and a permanent `agentfem telemetry off` control.
+- Add local diagnosis, private Codex/AI support tasks, sanitized feedback
+  archives, repeated-failure escalation, and explicit authenticated GitHub
+  issue submission without placing scientific models or results on the basic
+  reporting path.
+- Add an aggregate-only reference collector that rejects undeclared fields and
+  retains no raw event, user identity, source IP, exception text, or scientific
+  data.
+- Add automated Complete Runtime Preview assembly for Windows through WSL2 and
+  Apple Silicon macOS, including Gmsh redistribution evidence and installed
+  runtime acceptance.
+- Add a separate fail-closed Apple Silicon release workflow that imports both
+  Developer ID identities into an ephemeral keychain, notarizes and staples
+  the package, verifies Gatekeeper acceptance, and installs the exact signed
+  artifact before release upload.
+
+### Changed
+
+- Publish one compact Windows offline ZIP rather than duplicating its large
+  `.wsl` image as two GitHub assets.
+- Keep unsigned macOS artifacts explicitly named `unsigned-preview`; a formal
+  filename is reserved for the independently accepted Developer ID-signed and
+  Apple-notarized package.
+
+### Boundaries
+
+- Online reliability delivery remains unavailable until the project deploys
+  and owns a reviewed HTTPS collector endpoint. Until then, the package keeps
+  only the bounded local queue and reports `delivery_available: false`.
+- The Windows image is a public Preview until it passes acceptance on a real
+  WSL2 host; container acceptance validates the embedded Linux runtime but
+  does not impersonate Windows integration evidence.
+
 ## [0.3.0] - 2026-08-30
 
 ### Platform milestone
