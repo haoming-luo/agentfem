@@ -1,0 +1,33 @@
+{
+  "profiles": [
+    {
+      "fontWeight": "normal",
+      "colorScheme": "AgentFEM Light",
+      "startingDirectory": "~"
+    }
+  ],
+  "schemes": [
+    {
+      "name": "AgentFEM Light",
+      "background": "#F8FAFC",
+      "foreground": "#172033",
+      "black": "#172033",
+      "red": "#C2414B",
+      "green": "#18794E",
+      "yellow": "#946200",
+      "blue": "#155EEF",
+      "purple": "#6938EF",
+      "cyan": "#007C91",
+      "white": "#E2E8F0",
+      "brightBlack": "#64748B",
+      "brightRed": "#E5484D",
+      "brightGreen": "#30A46C",
+      "brightYellow": "#F5D90A",
+      "brightBlue": "#3E63DD",
+      "brightPurple": "#8E4EC6",
+      "brightCyan": "#12A594",
+      "brightWhite": "#FFFFFF"
+    }
+  ]
+}
+

@@ -79,18 +79,21 @@ Prefer manual setup? Continue to [Install](#install).
 ## Install
 
 AgentFEM supports **Linux**, **macOS**, and **Windows through WSL2**. The
-recommended conda-forge package installs AgentFEM together with its compiled
-FEniCSx/PETSc/MPI foundation:
+shortest network installation is one conda-forge command:
 
 ```bash
-mamba create -n agentfem-env -c conda-forge python=3.11 agentfem
+mamba create -n agentfem-env -c conda-forge agentfem
 mamba activate agentfem-env
 agentfem doctor
 ```
 
-On Windows, run the same commands inside an Ubuntu WSL2 terminal. See
-[`INSTALL.md`](INSTALL.md) for platform details, MPI notes, PyPI installation,
-and source development.
+On Windows, run this inside an Ubuntu WSL2 terminal. See
+[`INSTALL.md`](INSTALL.md) for platform details, MPI notes, and source
+installation.
+
+For an offline setup that requires no package manager, the recommended **Complete Runtime** packages
+the compatible finite-element stack and Gmsh for Apple Silicon macOS or
+Windows through WSL2. See [Offline Runtime Installers](docs/runtime_installers.md).
 
 Optional capabilities stay separate from the Apache-2.0 core:
 
@@ -101,8 +104,10 @@ python -m pip install 'agentfem[visualization]'  # ParaView-ready helpers
 python -m pip install 'agentfem[ml]'             # PyTorch adapters
 ```
 
-Gmsh is an optional, separately distributed GPL-licensed dependency and is not
-bundled with AgentFEM.
+Gmsh is an optional, separately licensed GPL component. It is not contained in
+the Apache-2.0 Python package; the recommended offline Complete runtime may
+aggregate it with its license and corresponding source for a one-click
+CAD-to-mesh workflow.
 
 ## Run Your First Model
 

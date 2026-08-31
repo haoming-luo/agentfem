@@ -4,10 +4,17 @@ AgentFEM supports Linux, macOS, and Windows through WSL2. It depends on the
 compiled FEniCSx/DOLFINx stack, so use conda-forge unless you already maintain
 a compatible MPI/PETSc/DOLFINx build.
 
+For new users who do not want to manage a scientific Python environment,
+AgentFEM's release workflow also produces self-contained offline runtime
+installers for Apple Silicon macOS and Windows through WSL2. See
+[Offline Runtime Installers](docs/runtime_installers.md). These packages embed
+the compatible finite-element stack and do not contact conda, PyPI, or GitHub
+during installation.
+
 ## Recommended Environment
 
 ```bash
-mamba create -n agentfem-env -c conda-forge python=3.11 agentfem
+mamba create -n agentfem-env -c conda-forge agentfem
 mamba activate agentfem-env
 agentfem doctor
 ```
@@ -17,16 +24,14 @@ environment.
 
 ## PyPI and Source Development
 
-If you need a PyPI wheel or an editable source checkout, create the numerical
-environment first:
+PyPI remains available when AgentFEM needs to be installed into an existing
+compatible FEniCSx environment:
 
 ```bash
 mamba create -n agentfem-env -c conda-forge \
   python=3.11 fenics-dolfinx=0.11 mpich mpi4py petsc4py h5py
 mamba activate agentfem-env
 ```
-
-Then install AgentFEM from PyPI:
 
 ```bash
 python -m pip install agentfem
@@ -37,6 +42,10 @@ For source development, install from the repository root:
 ```bash
 python -m pip install -e .
 ```
+
+AgentFEM 0.3.0 is available from conda-forge as a `noarch` package. Conda
+resolves AgentFEM and its declared numerical runtime together; users should
+not mix a system MPI launcher with the environment's MPI libraries.
 
 ## Windows
 

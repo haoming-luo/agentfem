@@ -1,0 +1,51 @@
+name: AgentFEMRuntime
+version: "@VERSION@"
+company: AgentFEM
+reverse_domain_identifier: io.github.haoming-luo.agentfem
+installer_type: pkg
+installer_filename: "@INSTALLER_FILENAME@"
+pkg_name: AgentFEMRuntime
+default_location_pkg: Library
+pkg_domains:
+  enable_anywhere: false
+  enable_currentUserHome: true
+  enable_localSystem: false
+virtual_specs:
+  - __osx>=13
+channels:
+  - https://conda.anaconda.org/conda-forge
+environment_file: ../runtime-lock.txt
+keep_pkgs: false
+write_condarc: false
+initialize_conda: false
+register_envs: false
+menu_packages: []
+progress_notifications: true
+welcome_image: ""
+welcome_text: >-
+  AgentFEM is an AI-native open-source finite-element platform. This installer
+  provides a self-contained, verified scientific runtime for Apple Silicon.
+readme_file: README.txt
+license_file: ../../../LICENSE
+conclusion_text: >-
+  AgentFEM Runtime is ready. Open AgentFEM Terminal.command from your
+  Applications folder, or run the agentfem executable inside the installed
+  runtime. The first launch performs a health check.
+post_install: post_install.sh
+extra_files:
+  - @WHEEL_FILENAME@: share/agentfem/@WHEEL_FILENAME@
+  - runtime-release.json: share/agentfem/runtime-release.json
+  - THIRD_PARTY_NOTICES.txt: share/agentfem/THIRD_PARTY_NOTICES.txt
+  - third-party-components.json: share/agentfem/third-party-components.json
+  - GMSH-LICENSE.txt: share/agentfem/GMSH-LICENSE.txt
+  - runtime-sbom.cdx.json: share/agentfem/runtime-sbom.cdx.json
+build_outputs:
+  - licenses
+  - lockfile
+  - pkgs_list
+{% if environ.get("AGENTFEM_INSTALLER_IDENTITY") %}
+signing_identity_name: '{{ environ["AGENTFEM_INSTALLER_IDENTITY"] }}'
+{% endif %}
+{% if environ.get("AGENTFEM_APP_IDENTITY") %}
+notarization_identity_name: '{{ environ["AGENTFEM_APP_IDENTITY"] }}'
+{% endif %}

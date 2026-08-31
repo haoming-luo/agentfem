@@ -39,18 +39,24 @@ it does not relicense third-party packages. In particular, Gmsh is distributed
 separately under GPL-2.0-or-later with the exception published by the Gmsh
 authors.
 
-AgentFEM therefore treats Gmsh as an optional adapter:
+AgentFEM therefore treats Gmsh as an optional, separately licensed adapter:
 
 - the `agentfem` wheel and source distribution do not contain Gmsh;
 - Gmsh is absent from AgentFEM's core dependencies;
 - `agentfem[gmsh]` requests the separately distributed package only for users
   who need direct Gmsh model or `.msh` import;
+- the recommended offline Complete runtime may aggregate an unmodified Gmsh
+  binary for a one-click CAD/meshing experience, while the Core runtime does
+  not;
+- a Complete runtime release must include the Gmsh license and make the exact
+  corresponding source plus redistribution build recipe available from the
+  same release location;
 - structured DOLFINx meshes, XDMF, and meshio-based Abaqus/NASTRAN conversion
   do not require Gmsh.
 
-Optional separation makes the product boundary and installation choice clear;
-it is not a substitute for legal review when another distributor bundles a
-combined software system. See the [official Gmsh licensing page](https://gmsh.info/#Licensing)
+Optional separation and mere aggregation keep the product boundary explicit;
+they do not remove the GPL obligations that apply when Gmsh binaries are
+redistributed. See the [official Gmsh licensing page](https://gmsh.info/#Licensing)
 and [license text](https://gmsh.info/LICENSE.txt).
 
 ## Contributions

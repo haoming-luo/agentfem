@@ -1,0 +1,14 @@
+.git
+.pytest_cache
+__pycache__
+*.pyc
+dist
+site
+verification
+examples_output
+build/*
+!build/runtime/
+!build/runtime/wheels/
+!build/runtime/wheels/agentfem.whl
+!build/runtime/runtime-lock.txt
+
