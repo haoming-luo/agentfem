@@ -257,13 +257,14 @@ def notice_text() -> str:
 def show_notice_once(*, as_json: bool = False, stream=None) -> bool:
     """Show the one-time reliability notice on an interactive human route."""
 
+    testing = bool(os.environ.get("AGENTFEM_TELEMETRY_TESTING"))
     if (
         as_json
-        or os.environ.get("CI")
+        or (os.environ.get("CI") and not testing)
         or os.environ.get("AGENTFEM_TELEMETRY")
         or (
             os.environ.get("PYTEST_CURRENT_TEST")
-            and not os.environ.get("AGENTFEM_TELEMETRY_TESTING")
+            and not testing
         )
     ):
         return False
