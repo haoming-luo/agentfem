@@ -13,7 +13,16 @@ RUNTIME = ROOT / "packaging" / "runtime"
 def test_runtime_specs_keep_heavy_optional_packs_out_of_core():
     specs = (RUNTIME / "runtime-specs.txt").read_text(encoding="utf-8").splitlines()
     names = {line.split("=")[0].strip() for line in specs if line.strip()}
-    assert {"fenics-dolfinx", "dolfinx_mpc", "mpich", "petsc4py", "c-compiler"} <= names
+    assert {
+        "fenics-dolfinx",
+        "dolfinx_mpc",
+        "mpich",
+        "petsc4py",
+        "c-compiler",
+        "python",
+        "pip",
+        "conda",
+    } <= names
     assert not ({"gmsh", "python-gmsh", "pytorch", "pyvista"} & names)
 
 
@@ -127,6 +136,13 @@ def test_macos_constructor_uses_the_verified_conda_frontend():
     assert 'constructor_command.extend(["--conda-exe", conda_executable])' in builder
     assert '"$(brew --prefix)/bin/conda" create' in workflow
     assert "brew --prefix miniforge" not in workflow
+
+
+def test_runtime_lock_uses_complete_link_plan_not_cache_dependent_fetch_plan():
+    builder = (RUNTIME / "build_runtime.py").read_text(encoding="utf-8")
+    assert 'get("LINK", [])' in builder
+    assert 'get("FETCH", [])' not in builder
+    assert "missing_direct" in builder
 
 
 def test_manifest_command_is_deterministic_for_empty_output(tmp_path):

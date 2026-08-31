@@ -263,6 +263,22 @@ def profile_specs(profile: str) -> Path:
     return path
 
 
+def _direct_spec_names(specs: Path) -> set[str]:
+    names: set[str] = set()
+    for raw_line in specs.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        names.add(line.split("=", 1)[0].strip())
+    return names
+
+
+def _linked_records(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return the complete solved environment, independent of local caches."""
+
+    return list(payload.get("actions", {}).get("LINK", []))
+
+
 def resolve_lock(target_platform: str, *, profile: str) -> Path:
     lock_dir = BUILD / "locks"
     lock_dir.mkdir(parents=True, exist_ok=True)
@@ -301,7 +317,11 @@ def resolve_lock(target_platform: str, *, profile: str) -> Path:
             env=solver_env,
         )
     payload = json.loads(completed.stdout)
-    records = payload.get("actions", {}).get("FETCH", [])
+    # FETCH is cache-dependent and can omit direct requirements already held by
+    # the solver (notably pip/conda on hosted runners). LINK is the complete
+    # solved environment and therefore the only sound basis for an explicit,
+    # portable runtime lock.
+    records = _linked_records(payload)
     urls: list[str] = []
     locked_records: list[dict[str, Any]] = []
     for record in records:
@@ -337,6 +357,13 @@ def resolve_lock(target_platform: str, *, profile: str) -> Path:
         )
     if not urls:
         raise RuntimeError("Conda returned no locked packages")
+    locked_names = {str(record.get("name")) for record in locked_records}
+    missing_direct = _direct_spec_names(profile_specs(profile)) - locked_names
+    if missing_direct:
+        raise RuntimeError(
+            "Conda's solved environment omitted direct runtime requirements: "
+            + ", ".join(sorted(missing_direct))
+        )
     lock.write_text("@EXPLICIT\n" + "\n".join(urls) + "\n", encoding="utf-8")
     lock.with_suffix(".json").write_text(
         json.dumps(
