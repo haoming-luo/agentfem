@@ -43,9 +43,9 @@ For source development, install from the repository root:
 python -m pip install -e .
 ```
 
-AgentFEM 0.3.0 is available from conda-forge as a `noarch` package. Conda
-resolves AgentFEM and its declared numerical runtime together; users should
-not mix a system MPI launcher with the environment's MPI libraries.
+AgentFEM is available from conda-forge as a `noarch` package. Conda resolves
+AgentFEM and its declared numerical runtime together; users should not mix a
+system MPI launcher with the environment's MPI libraries.
 
 ## Windows
 

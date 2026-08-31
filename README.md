@@ -78,8 +78,11 @@ Prefer manual setup? Continue to [Install](#install).
 
 ## Install
 
-AgentFEM supports **Linux**, **macOS**, and **Windows through WSL2**. The
-shortest network installation is one conda-forge command:
+AgentFEM supports **Linux**, **macOS**, and **Windows through WSL2**.
+
+### Recommended: conda-forge
+
+Install AgentFEM and its compatible FEniCSx/PETSc/MPI foundation together:
 
 ```bash
 mamba create -n agentfem-env -c conda-forge agentfem
@@ -87,16 +90,35 @@ mamba activate agentfem-env
 agentfem doctor
 ```
 
-On Windows, run this inside an Ubuntu WSL2 terminal. See
-[`INSTALL.md`](INSTALL.md) for platform details, MPI notes, and source
-installation.
+On Windows, run these commands inside an Ubuntu WSL2 terminal.
 
-For an offline setup that requires no package manager, the recommended **Complete Runtime** packages
-the compatible finite-element stack and Gmsh for Apple Silicon macOS or
-Windows through WSL2. [Download the latest runtime](https://github.com/haoming-luo/agentfem/releases/latest)
-or see [Offline Runtime Installers](docs/runtime_installers.md).
+### No environment setup: Complete Runtime
 
-Optional capabilities stay separate from the Apache-2.0 core:
+The **Complete Runtime** is the easiest route for a new or offline user. It
+bundles AgentFEM, FEniCSx, PETSc, MPI, HDF5, and Gmsh in one verified download:
+
+- **Apple Silicon macOS:** unsigned `.pkg` Preview
+- **Windows 10/11:** offline WSL2 Preview
+
+[**Download the latest Complete Runtime →**](https://github.com/haoming-luo/agentfem/releases/latest)
+
+### Existing FEniCSx environment: PyPI
+
+If you already maintain a compatible FEniCSx environment:
+
+```bash
+python -m pip install agentfem
+agentfem doctor
+```
+
+See [`INSTALL.md`](INSTALL.md) for platform and MPI details, or the
+[runtime guide](docs/runtime_installers.md) for Preview installation and
+integrity checks.
+
+<details>
+<summary><strong>Optional integrations</strong></summary>
+
+Optional capabilities stay separate from the core Python package:
 
 ```bash
 python -m pip install 'agentfem[mesh-formats]'   # Abaqus/NASTRAN meshes
@@ -105,15 +127,16 @@ python -m pip install 'agentfem[visualization]'  # ParaView-ready helpers
 python -m pip install 'agentfem[ml]'             # PyTorch adapters
 ```
 
+</details>
+
 Gmsh is an optional, separately licensed GPL component. It is not contained in
 the Apache-2.0 Python package; the recommended offline Complete runtime may
 aggregate it with its license and corresponding source for a one-click
 CAD-to-mesh workflow.
 
-AgentFEM can share a strictly anonymous reliability signal by default; models,
-meshes, parameters, code, paths, and results are never included. Inspect or
-disable it at any time with `agentfem telemetry status|off`. Repeated failures
-can be packaged privately for Codex with `agentfem assist`. See the
+AgentFEM can share a strictly anonymous reliability signal; models, meshes,
+parameters, code, paths, and results are never included. Inspect or disable it
+with `agentfem telemetry status|off`. See the
 [feedback and privacy contract](docs/feedback_and_privacy.md).
 
 ## Run Your First Model
