@@ -105,7 +105,7 @@ def test_runtime_acceptance_requires_embedded_release_identity():
 def test_macos_constructor_uses_the_verified_conda_frontend():
     builder = (RUNTIME / "build_runtime.py").read_text(encoding="utf-8")
     assert 'os.environ.get("CONSTRUCTOR_CONDA_EXE")' in builder
-    assert 'os.environ.get("CONDA_EXE")' in builder
+    assert 'os.environ.get("CONDA_EXE")' not in builder
     assert 'constructor_command.extend(["--conda-exe", conda_executable])' in builder
 
 

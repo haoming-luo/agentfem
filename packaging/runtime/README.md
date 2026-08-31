@@ -26,6 +26,10 @@ python packaging/runtime/build_runtime.py macos \
   --output-dir dist/runtime
 ```
 
+For reproducible CI or local release builds, set `CONSTRUCTOR_CONDA_EXE` to a
+constructor-compatible `micromamba` or `conda-standalone` executable. Do not
+point it at an ordinary activated `conda` command.
+
 Build the WSL2 x86-64 image on a Docker-capable host:
 
 ```bash

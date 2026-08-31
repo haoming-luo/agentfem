@@ -29,7 +29,7 @@ jobs:
       - name: Install release tooling
         run: |
           brew install miniforge
-          "$(brew --prefix miniforge)/bin/conda" create -y -p build/runtime/constructor -c conda-forge constructor python=3.11 pip
+          "$(brew --prefix miniforge)/bin/conda" create -y -p build/runtime/constructor -c conda-forge constructor micromamba python=3.11 pip
 
       - name: Download the published release wheel
         run: |
@@ -66,6 +66,7 @@ jobs:
       - name: Build the pinned runtime
         env:
           AGENTFEM_NOTARY_PROFILE: ${{ secrets.APPLE_ID != '' && 'agentfem-notary' || '' }}
+          CONSTRUCTOR_CONDA_EXE: ${{ github.workspace }}/build/runtime/constructor/bin/micromamba
         run: |
           APP_IDENTITY="$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -1)"
           INSTALLER_IDENTITY="$(security find-identity -v -p basic | sed -n 's/.*"\(Developer ID Installer:[^"]*\)".*/\1/p' | head -1)"
