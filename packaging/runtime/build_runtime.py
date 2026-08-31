@@ -546,8 +546,25 @@ def build_macos(args: argparse.Namespace) -> Path:
             "constructor is not installed. Create an isolated build environment "
             "with `conda create -p build/runtime/constructor -c conda-forge constructor`."
         )
+    constructor_command = [
+        constructor,
+        str(input_dir),
+        "--output-dir",
+        str(output),
+    ]
+    # Prefer the already verified conda frontend from the build environment.
+    # Constructor's bundled standalone frontend can be unreliable on some
+    # Apple Silicon hosts; the explicit override also makes CI provenance
+    # easier to diagnose.
+    conda_executable = (
+        os.environ.get("CONSTRUCTOR_CONDA_EXE")
+        or os.environ.get("CONDA_EXE")
+        or shutil.which("conda")
+    )
+    if conda_executable:
+        constructor_command.extend(["--conda-exe", conda_executable])
     run_with_retries(
-        [constructor, str(input_dir), "--output-dir", str(output)],
+        constructor_command,
         cwd=ROOT,
         env={**os.environ, "COPYFILE_DISABLE": "1"},
     )
