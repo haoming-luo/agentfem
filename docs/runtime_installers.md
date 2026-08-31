@@ -18,6 +18,11 @@ The runtime includes Python, FEniCSx/DOLFINx, PETSc, MPI, HDF5, a C compiler
 for cold-cache form JIT, and the exact AgentFEM wheel associated with the
 release. It does not replace the system Python or alter shell initialization.
 
+On macOS each runtime is installed in a versioned, immutable prefix such as
+`~/Library/agentfemruntime-0.3.0`. A new version is installed beside the old
+one and the visible launcher is updated to the selected runtime. User projects
+remain in `~/AgentFEMProjects`, outside every runtime.
+
 The recommended **Complete** profile includes the Gmsh executable and Python
 API, enabling CAD/STEP-to-mesh workflows immediately after installation. The
 smaller **Core** profile omits Gmsh. PyTorch and desktop visualization remain

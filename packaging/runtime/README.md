@@ -46,6 +46,7 @@ MPI, Gmsh (Complete only), project, and verification acceptance contract:
 
 ```bash
 python packaging/runtime/verify_installed_runtime.py \
+  --prefix "$HOME/Library/agentfemruntime-<version>" \
   --profile complete \
   --output dist/runtime/macos-arm64-acceptance.json
 ```
@@ -79,3 +80,9 @@ following:
 
 User projects live outside the runtime prefix. Replacing or uninstalling a
 runtime must never remove project data.
+
+macOS runtime prefixes are versioned and immutable. A later release installs
+beside the prior environment and updates `AgentFEM Terminal.command` to the
+new version. This makes upgrades non-destructive and keeps an older numerical
+environment available for exact reproduction until the user elects to remove
+it.

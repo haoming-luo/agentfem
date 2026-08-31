@@ -60,6 +60,9 @@ def test_macos_public_artifact_requires_signing_identity():
     )
     assert "agentfem-*.whl" in post_install
     assert 'user_home=$(dirname "$runtime_parent")' in post_install
+    builder = (RUNTIME / "build_runtime.py").read_text(encoding="utf-8")
+    assert "app_identity != installer_identity" in builder
+    assert 'suffix = "" if notarized else "-unsigned"' in builder
 
 
 def test_complete_profile_pins_redistributed_gmsh_source_contract():
@@ -72,6 +75,7 @@ def test_complete_profile_pins_redistributed_gmsh_source_contract():
     assert "feedstock_commit" in builder
     assert "runtime-sbom.cdx.json" in builder
     assert "initialize_conda: false" in constructor
+    assert "pkg_name: AgentFEMRuntime-@VERSION@" in constructor
 
 
 def test_linux_cross_solver_declares_supported_glibc_abi():

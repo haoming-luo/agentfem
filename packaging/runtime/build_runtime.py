@@ -464,8 +464,16 @@ def build_macos(args: argparse.Namespace) -> Path:
     (input_dir / "runtime-release.json").write_text(
         json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
-    signed = bool(os.environ.get("AGENTFEM_INSTALLER_IDENTITY"))
-    suffix = "" if signed else "-unsigned"
+    app_identity = bool(os.environ.get("AGENTFEM_APP_IDENTITY"))
+    installer_identity = bool(os.environ.get("AGENTFEM_INSTALLER_IDENTITY"))
+    if app_identity != installer_identity:
+        raise SystemExit(
+            "A macOS release requires both Developer ID Application and "
+            "Developer ID Installer identities."
+        )
+    signed = app_identity and installer_identity
+    notarized = signed and bool(os.environ.get("AGENTFEM_NOTARY_PROFILE"))
+    suffix = "" if notarized else "-unsigned"
     product = "AgentFEM-Complete" if args.profile == "complete" else "AgentFEM-Core"
     filename = f"{product}-{project_version()}-macOS-arm64{suffix}.pkg"
     template = (RUNTIME / "macos" / "construct.yaml.in").read_text(
@@ -512,7 +520,7 @@ def build_macos(args: argparse.Namespace) -> Path:
         if not candidates:
             raise RuntimeError("constructor did not create a PKG")
         candidates[-1].replace(artifact)
-    if signed and os.environ.get("AGENTFEM_NOTARY_PROFILE"):
+    if notarized:
         run(
             [
                 str(RUNTIME / "macos" / "sign_and_notarize.sh"),

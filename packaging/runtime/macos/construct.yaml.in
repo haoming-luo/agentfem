@@ -4,7 +4,10 @@ company: AgentFEM
 reverse_domain_identifier: io.github.haoming-luo.agentfem
 installer_type: pkg
 installer_filename: "@INSTALLER_FILENAME@"
-pkg_name: AgentFEMRuntime
+# Runtimes are immutable and versioned.  A new release installs beside the
+# previous scientific environment; the launcher is updated to the selected
+# version without deleting reproducibility evidence or user projects.
+pkg_name: AgentFEMRuntime-@VERSION@
 default_location_pkg: Library
 pkg_domains:
   enable_anywhere: false

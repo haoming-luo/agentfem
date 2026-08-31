@@ -29,10 +29,13 @@ jobs:
       - name: Install release tooling
         run: |
           brew install miniforge
-          "$(brew --prefix miniforge)/bin/conda" create -y -p build/runtime/constructor -c conda-forge constructor python=3.11 build
+          "$(brew --prefix miniforge)/bin/conda" create -y -p build/runtime/constructor -c conda-forge constructor python=3.11 pip
 
-      - name: Build the canonical wheel
-        run: build/runtime/constructor/bin/python -m build --wheel
+      - name: Download the published release wheel
+        run: |
+          VERSION="$(build/runtime/constructor/bin/python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          build/runtime/constructor/bin/python -m pip download \
+            --only-binary=:all: --no-deps --dest dist "agentfem==$VERSION"
 
       - name: Import optional Developer ID identities
         if: ${{ env.HAS_APPLE_CERTIFICATE == 'true' }}
@@ -71,6 +74,17 @@ jobs:
           build/runtime/constructor/bin/python packaging/runtime/build_runtime.py macos \
             --profile "${{ inputs.profile }}" \
             --wheel "$(find dist -maxdepth 1 -name '*.whl' -print -quit)"
+
+      - name: Install and accept the macOS runtime
+        run: |
+          PKG="$(find dist/runtime -maxdepth 1 -name '*.pkg' -print -quit)"
+          VERSION="$(build/runtime/constructor/bin/python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          PREFIX="$HOME/Library/agentfemruntime-$VERSION"
+          /usr/sbin/installer -pkg "$PKG" -target CurrentUserHomeDirectory
+          "$PREFIX/bin/python" packaging/runtime/verify_installed_runtime.py \
+            --prefix "$PREFIX" \
+            --profile "${{ inputs.profile }}" \
+            --output dist/runtime/macos-arm64-acceptance.json
           build/runtime/constructor/bin/python packaging/runtime/build_runtime.py manifest
 
       - name: Verify package signature state
@@ -106,11 +120,13 @@ jobs:
           channels: conda-forge
           channel-priority: strict
 
-      - name: Install release tooling and build wheel
+      - name: Install release tooling and download published wheel
         shell: bash -el {0}
         run: |
-          conda install -y constructor python-build
-          python -m build --wheel
+          conda install -y constructor pip
+          VERSION="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          python -m pip download \
+            --only-binary=:all: --no-deps --dest dist "agentfem==$VERSION"
 
       - name: Build the offline WSL image
         shell: bash -el {0}
@@ -118,6 +134,19 @@ jobs:
           python packaging/runtime/build_runtime.py wsl \
             --profile "${{ inputs.profile }}" \
             --wheel "$(find dist -maxdepth 1 -name '*.whl' -print -quit)"
+
+      - name: Accept the Linux runtime inside its image
+        shell: bash -el {0}
+        run: |
+          VERSION="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          docker run --rm \
+            --volume "$PWD/packaging/runtime/verify_installed_runtime.py:/tmp/verify_installed_runtime.py:ro" \
+            --volume "$PWD/dist/runtime:/evidence" \
+            "agentfem-runtime:$VERSION-${{ inputs.profile }}-wsl2-amd64" \
+            /opt/conda/bin/python /tmp/verify_installed_runtime.py \
+              --prefix /opt/conda \
+              --profile "${{ inputs.profile }}" \
+              --output /evidence/wsl2-container-acceptance.json
           python packaging/runtime/build_runtime.py manifest
 
       - name: Upload WSL candidate and evidence

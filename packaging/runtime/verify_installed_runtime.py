@@ -52,10 +52,7 @@ def execute(
 
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
-    result.add_argument(
-        "--prefix",
-        default=str(Path.home() / "Library" / "AgentFEMRuntime"),
-    )
+    result.add_argument("--prefix", required=True)
     result.add_argument("--output", required=True)
     result.add_argument("--profile", choices=("core", "complete"), required=True)
     result.add_argument("--skip-mpi", action="store_true")
