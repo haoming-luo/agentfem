@@ -2,12 +2,10 @@
 
 The canonical project assets are:
 
-- `AgentFEM_logo_transparent.png`: transparent-background identity for the
-  repository front page, documentation, presentations, and light or neutral
-  layouts.
-- `AgentFEM_logo.png`: high-resolution white-background identity for papers,
-  posters, social cards, and other contexts that require a self-contained
-  rectangular image.
+- `AgentFEM_logo.png`: approved high-resolution master used on the repository
+  front page, documentation home page, papers, posters, and social cards.
+- `AgentFEM_logo_transparent.png`: transparent derivative for compact headers
+  and layouts that cannot use the white master.
 
 The canonical English descriptor is `AI-NATIVE FINITE ELEMENT COMPUTING`.
 
