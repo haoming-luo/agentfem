@@ -91,6 +91,9 @@ def test_complete_wsl_bundle_carries_gmsh_compliance_materials():
     assert 'output / f"Gmsh-{version}-corresponding-source.tar.gz"' in builder
     assert 'path.suffix in {".wsl", ".gz"}' in builder
     assert "runtime-release.json" in dockerfile
+    assert "publish_runtime_evidence(" in builder
+    assert 'f"{stem}-conda-lock.txt"' in builder
+    assert 'f"{stem}-third-party.json"' in builder
 
 
 def test_runtime_acceptance_requires_embedded_release_identity():

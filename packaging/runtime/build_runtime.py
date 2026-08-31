@@ -414,6 +414,35 @@ def write_sbom(lock: Path, *, target: str, profile: str, output: Path) -> Path:
     return path
 
 
+def publish_runtime_evidence(
+    *,
+    lock: Path,
+    notices: Path,
+    components: Path,
+    output: Path,
+    target: str,
+    profile: str,
+) -> dict[str, Path]:
+    """Publish inspectable evidence beside, as well as inside, an installer."""
+
+    product = "Complete" if profile == "complete" else "Core"
+    stem = f"AgentFEM-{product}-{project_version()}-{target}"
+    published = {
+        "lock": output / f"{stem}-conda-lock.txt",
+        "lock_record": output / f"{stem}-conda-lock.json",
+        "components": output / f"{stem}-third-party.json",
+        "notices": output / f"AgentFEM-{product}-{project_version()}-THIRD_PARTY_NOTICES.txt",
+    }
+    shutil.copy2(lock, published["lock"])
+    shutil.copy2(lock.with_suffix(".json"), published["lock_record"])
+    shutil.copy2(components, published["components"])
+    shutil.copy2(notices, published["notices"])
+    if profile == "complete":
+        published["gmsh_license"] = output / "GMSH-LICENSE.txt"
+        shutil.copy2(BUILD / "GMSH-LICENSE.txt", published["gmsh_license"])
+    return published
+
+
 def release_record(
     *, wheel: Path, lock: Path, target: str, source: dict[str, Any], profile: str
 ) -> dict[str, Any]:
@@ -487,6 +516,14 @@ def build_macos(args: argparse.Namespace) -> Path:
     output = Path(args.output_dir).resolve()
     output.mkdir(parents=True, exist_ok=True)
     notices, components = prepare_legal_materials(args.profile, lock, output)
+    publish_runtime_evidence(
+        lock=lock,
+        notices=notices,
+        components=components,
+        output=output,
+        target="macOS-arm64",
+        profile=args.profile,
+    )
     sbom = write_sbom(
         lock,
         target="macOS-arm64",
@@ -543,6 +580,14 @@ def build_wsl(args: argparse.Namespace) -> Path:
     output = Path(args.output_dir).resolve()
     output.mkdir(parents=True, exist_ok=True)
     notices, components = prepare_legal_materials(args.profile, lock, output)
+    published = publish_runtime_evidence(
+        lock=lock,
+        notices=notices,
+        components=components,
+        output=output,
+        target="WSL2-x86_64",
+        profile=args.profile,
+    )
     sbom = write_sbom(
         lock,
         target="WSL2-x86_64",
@@ -606,13 +651,22 @@ def build_wsl(args: argparse.Namespace) -> Path:
         encoding="utf-8",
     )
     bundle = output / f"{product}-{project_version()}-WSL2-x86_64-offline.zip"
-    bundle_files = [artifact, installer, record_path, sbom, lock, notices, components]
+    bundle_files = [
+        artifact,
+        installer,
+        record_path,
+        sbom,
+        published["lock"],
+        published["lock_record"],
+        published["notices"],
+        published["components"],
+    ]
     if args.profile == "complete":
         version = "4.15.2"
         metadata = GMSH_RELEASES[version]
         bundle_files.extend(
             [
-                BUILD / "GMSH-LICENSE.txt",
+                published["gmsh_license"],
                 output / f"Gmsh-{version}-corresponding-source.tar.gz",
                 output
                 / (
