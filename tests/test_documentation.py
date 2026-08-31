@@ -278,4 +278,5 @@ def test_homepage_starts_with_the_project_logo():
     homepage = (ROOT / "docs" / "index.md").read_text()
     assert homepage.index('class="af-home-logo"') < homepage.index("<h1>AgentFEM</h1>")
     assert 'class="af-home-lead"' in homepage
-    assert "assets/images/AgentFEM_logo_transparent.png" in homepage
+    assert "assets/images/AgentFEM_logo.png" in homepage
+    assert (ROOT / "docs" / "assets" / "images" / "AgentFEM_logo.png").is_file()
