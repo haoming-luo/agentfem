@@ -984,7 +984,7 @@
 
 
 <div class="af-home-lead">
-  <img class="af-home-logo" src="assets/images/AgentFEM_logo_transparent.png" alt="AgentFEM logo">
+  <img class="af-home-logo" src="assets/images/AgentFEM_logo.png" alt="AgentFEM logo">
   <div class="af-home-lead__copy">
     <h1>AgentFEM</h1>
     <p>AgentFEM is an open-source platform for <strong>AI-native finite-element computing</strong>. It provides a readable engineering workflow for defining, solving, inspecting, and reusing finite-element models while keeping the numerical formulation and result evidence accessible.</p>
@@ -992,11 +992,7 @@
 </div>
 
 <div class="af-home-report">
-<p><strong>AgentFEM Technical Report</strong></p>
-<p>The architecture, founding principles, representative workflows, and author's
-vision for AI-native finite-element computing.</p>
-<p><a class="md-button md-button--primary" href="assets/papers/agentfem_platform.pdf">Read the technical report (PDF)</a>
-<a class="md-button" href="publications/agentfem-platform/">Report details and citation</a></p>
+<p><a class="af-report-link" href="assets/papers/agentfem_platform.pdf"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m-9.5 8.5c0 .8-.7 1.5-1.5 1.5H7v2H5.5V9H8c.8 0 1.5.7 1.5 1.5zm5 2c0 .8-.7 1.5-1.5 1.5h-2.5V9H13c.8 0 1.5.7 1.5 1.5zm4-3H17v1h1.5V13H17v2h-1.5V9h3zm-6.5 0h1v3h-1zm-5 0h1v1H7z"/></svg></span> <strong>Technical Report</strong> · PDF</a></p>
 </div>
 <div class="af-project-meta">
 <p><a href="https://github.com/haoming-luo/agentfem">GitHub</a> ·
@@ -1043,13 +1039,11 @@ vision for AI-native finite-element computing.</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>      → Solution Step → Results/Verification
 </code></pre></div>
 <h2 id="quick-installation">Quick installation<a class="headerlink" href="#quick-installation" title="Permanent link">&para;</a></h2>
-<p>AgentFEM currently expects a compatible FEniCSx/PETSc/MPI environment. The
-recommended installation is:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>mamba<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>agentfem-env<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.11<span class="w"> </span>fenics-dolfinx<span class="o">=</span><span class="m">0</span>.11<span class="w"> </span>mpich<span class="w"> </span>mpi4py<span class="w"> </span>petsc4py<span class="w"> </span>h5py
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>mamba<span class="w"> </span>activate<span class="w"> </span>agentfem-env
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>agentfem
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>agentfem<span class="w"> </span>doctor
+<p>The recommended conda-forge installation provides AgentFEM and its compatible
+FEniCSx/PETSc/MPI foundation together:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>mamba<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>agentfem-env<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.11<span class="w"> </span>agentfem
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>mamba<span class="w"> </span>activate<span class="w"> </span>agentfem-env
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>agentfem<span class="w"> </span>doctor
 </code></pre></div>
 <p>Windows users should currently use WSL2. Optional mesh, visualization, and
 machine-learning integrations are described in the
