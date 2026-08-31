@@ -176,10 +176,15 @@ def test_runtime_lock_recovers_cached_conda_archive_location():
         "platform": "osx-arm64",
         "version": "1.0",
     }
-    _, url = RUNTIME_BUILDER["_explicit_record"](linked, None)
+    def probe(root, dist_name):
+        return f"{root}/{dist_name}.tar.bz2"
+
+    _, url = RUNTIME_BUILDER["_explicit_record"](
+        linked, None, archive_probe=probe
+    )
     assert url == (
         "https://conda.anaconda.org/conda-forge/osx-arm64/"
-        "bzip2-1.0-h_test_0.conda"
+        "bzip2-1.0-h_test_0.tar.bz2"
     )
 
 

@@ -22,7 +22,8 @@ import tempfile
 import time
 import tomllib
 from typing import Any
-from urllib.request import urlopen
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 import zipfile
 
 
@@ -287,8 +288,35 @@ def _record_key(record: dict[str, Any]) -> str:
     return f"{record.get('name')}={record.get('version')}={build}"
 
 
+def _available_archive_url(root: str, dist_name: str) -> str:
+    errors: list[str] = []
+    for suffix in (".conda", ".tar.bz2"):
+        candidate = f"{root}/{dist_name}{suffix}"
+        for attempt in range(1, 4):
+            try:
+                request = Request(candidate, method="HEAD")
+                with urlopen(request, timeout=30) as response:
+                    if 200 <= int(response.status) < 400:
+                        return candidate
+            except HTTPError as exc:
+                if exc.code == 404:
+                    errors.append(f"{candidate}: 404")
+                    break
+                errors.append(f"{candidate}: HTTP {exc.code}")
+            except URLError as exc:
+                errors.append(f"{candidate}: {exc.reason}")
+            if attempt < 3:
+                time.sleep(attempt)
+    raise RuntimeError(
+        f"Cannot locate a conda archive for {dist_name}: " + "; ".join(errors)
+    )
+
+
 def _explicit_record(
-    linked: dict[str, Any], fetched: dict[str, Any] | None
+    linked: dict[str, Any],
+    fetched: dict[str, Any] | None,
+    *,
+    archive_probe: Any | None = None,
 ) -> tuple[dict[str, Any], str]:
     """Recover one exact package URL from a complete LINK plan."""
 
@@ -298,17 +326,15 @@ def _explicit_record(
         base = record.get("base_url") or record.get("channel")
         subdir = record.get("subdir") or record.get("platform")
         filename = record.get("fn")
-        if not filename and record.get("dist_name"):
-            # Packages absent from FETCH were already cached by conda. Current
-            # conda-forge cache entries use the .conda archive format; the
-            # resulting URL is exercised by constructor/micromamba before any
-            # runtime artifact can be accepted.
-            filename = f"{record['dist_name']}.conda"
-        if base and subdir and filename:
+        if base and subdir:
             root = str(base).rstrip("/")
             if not root.endswith(f"/{subdir}"):
                 root = f"{root}/{subdir}"
-            url = f"{root}/{filename}"
+            if filename:
+                url = f"{root}/{filename}"
+            elif record.get("dist_name"):
+                probe = archive_probe or _available_archive_url
+                url = probe(root, str(record["dist_name"]))
     if not url:
         raise RuntimeError(f"Cannot recover an exact URL for {linked}")
     package_sha256 = record.get("sha256")
