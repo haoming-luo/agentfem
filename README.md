@@ -93,7 +93,8 @@ installation.
 
 For an offline setup that requires no package manager, the recommended **Complete Runtime** packages
 the compatible finite-element stack and Gmsh for Apple Silicon macOS or
-Windows through WSL2. See [Offline Runtime Installers](docs/runtime_installers.md).
+Windows through WSL2. [Download the latest runtime](https://github.com/haoming-luo/agentfem/releases/latest)
+or see [Offline Runtime Installers](docs/runtime_installers.md).
 
 Optional capabilities stay separate from the Apache-2.0 core:
 

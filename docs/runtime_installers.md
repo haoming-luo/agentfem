@@ -19,7 +19,7 @@ for cold-cache form JIT, and the exact AgentFEM wheel associated with the
 release. It does not replace the system Python or alter shell initialization.
 
 On macOS each runtime is installed in a versioned, immutable prefix such as
-`~/Library/agentfemruntime-0.3.0`. A new version is installed beside the old
+`~/Library/agentfemruntime-0.3.1`. A new version is installed beside the old
 one and the visible launcher is updated to the selected runtime. User projects
 remain in `~/AgentFEMProjects`, outside every runtime.
 
@@ -73,9 +73,12 @@ from the immutable runtime.
 
 ## Integrity and mirrors
 
-Every release publishes `SHA256SUMS`, `runtime-artifacts.json`, the exact
-package lock, a software bill of materials, and third-party notices. Official
-GitHub assets and the domestic mirror must contain byte-identical files.
+GitHub records a SHA-256 digest for every public release asset. The Windows
+offline ZIP also contains `SHA256SUMS`, `runtime-artifacts.json`, the exact
+package lock, a software bill of materials, and third-party notices. The macOS
+package embeds its runtime identity, lock, software bill of materials, and
+notices, while its acceptance record is published beside it. Official GitHub
+assets and any project-operated mirror must contain byte-identical files.
 Uncontrolled download proxies are not official distribution channels.
 
 Runtime installation never makes a numerical result trusted by itself. The
