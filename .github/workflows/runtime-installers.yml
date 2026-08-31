@@ -48,7 +48,7 @@ jobs:
       - name: Install release tooling
         run: |
           brew install miniforge
-          "$(brew --prefix miniforge)/bin/conda" create -y -p build/runtime/constructor -c conda-forge constructor micromamba python=3.11 pip
+          "$(brew --prefix)/bin/conda" create -y -p build/runtime/constructor -c conda-forge constructor micromamba python=3.11 pip
 
       - name: Download the published release wheel
         run: |
