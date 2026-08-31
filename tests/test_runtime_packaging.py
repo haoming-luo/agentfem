@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import runpy
 import subprocess
 import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = ROOT / "packaging" / "runtime"
+RUNTIME_BUILDER = runpy.run_path(str(RUNTIME / "build_runtime.py"))
 
 
 def test_runtime_specs_keep_heavy_optional_packs_out_of_core():
@@ -141,8 +143,44 @@ def test_macos_constructor_uses_the_verified_conda_frontend():
 def test_runtime_lock_uses_complete_link_plan_not_cache_dependent_fetch_plan():
     builder = (RUNTIME / "build_runtime.py").read_text(encoding="utf-8")
     assert 'get("LINK", [])' in builder
-    assert 'get("FETCH", [])' not in builder
+    assert "fetched_by_key" in builder
     assert "missing_direct" in builder
+
+
+def test_runtime_lock_merges_complete_link_plan_with_fetch_metadata():
+    linked = {
+        "base_url": "https://conda.anaconda.org/conda-forge",
+        "build_string": "pyh_test_0",
+        "dist_name": "pip-1.0-pyh_test_0",
+        "name": "pip",
+        "platform": "noarch",
+        "version": "1.0",
+    }
+    fetched = {
+        **linked,
+        "fn": "pip-1.0-pyh_test_0.conda",
+        "sha256": "abc123",
+        "url": "https://conda.anaconda.org/conda-forge/noarch/pip-1.0-pyh_test_0.conda",
+    }
+    record, url = RUNTIME_BUILDER["_explicit_record"](linked, fetched)
+    assert record["sha256"] == "abc123"
+    assert url.endswith("pip-1.0-pyh_test_0.conda#abc123")
+
+
+def test_runtime_lock_recovers_cached_conda_archive_location():
+    linked = {
+        "base_url": "https://conda.anaconda.org/conda-forge",
+        "build_string": "h_test_0",
+        "dist_name": "bzip2-1.0-h_test_0",
+        "name": "bzip2",
+        "platform": "osx-arm64",
+        "version": "1.0",
+    }
+    _, url = RUNTIME_BUILDER["_explicit_record"](linked, None)
+    assert url == (
+        "https://conda.anaconda.org/conda-forge/osx-arm64/"
+        "bzip2-1.0-h_test_0.conda"
+    )
 
 
 def test_manifest_command_is_deterministic_for_empty_output(tmp_path):

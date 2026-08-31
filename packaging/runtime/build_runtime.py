@@ -279,6 +279,45 @@ def _linked_records(payload: dict[str, Any]) -> list[dict[str, Any]]:
     return list(payload.get("actions", {}).get("LINK", []))
 
 
+def _record_key(record: dict[str, Any]) -> str:
+    dist_name = record.get("dist_name")
+    if dist_name:
+        return str(dist_name)
+    build = record.get("build") or record.get("build_string") or ""
+    return f"{record.get('name')}={record.get('version')}={build}"
+
+
+def _explicit_record(
+    linked: dict[str, Any], fetched: dict[str, Any] | None
+) -> tuple[dict[str, Any], str]:
+    """Recover one exact package URL from a complete LINK plan."""
+
+    record = {**linked, **(fetched or {})}
+    url = record.get("url")
+    if not url:
+        base = record.get("base_url") or record.get("channel")
+        subdir = record.get("subdir") or record.get("platform")
+        filename = record.get("fn")
+        if not filename and record.get("dist_name"):
+            # Packages absent from FETCH were already cached by conda. Current
+            # conda-forge cache entries use the .conda archive format; the
+            # resulting URL is exercised by constructor/micromamba before any
+            # runtime artifact can be accepted.
+            filename = f"{record['dist_name']}.conda"
+        if base and subdir and filename:
+            root = str(base).rstrip("/")
+            if not root.endswith(f"/{subdir}"):
+                root = f"{root}/{subdir}"
+            url = f"{root}/{filename}"
+    if not url:
+        raise RuntimeError(f"Cannot recover an exact URL for {linked}")
+    package_sha256 = record.get("sha256")
+    exact_url = str(url)
+    if package_sha256 and "#" not in exact_url:
+        exact_url = f"{exact_url}#{package_sha256}"
+    return record, exact_url
+
+
 def resolve_lock(target_platform: str, *, profile: str) -> Path:
     lock_dir = BUILD / "locks"
     lock_dir.mkdir(parents=True, exist_ok=True)
@@ -322,21 +361,16 @@ def resolve_lock(target_platform: str, *, profile: str) -> Path:
     # solved environment and therefore the only sound basis for an explicit,
     # portable runtime lock.
     records = _linked_records(payload)
+    fetched_by_key = {
+        _record_key(record): record
+        for record in payload.get("actions", {}).get("FETCH", [])
+    }
     urls: list[str] = []
     locked_records: list[dict[str, Any]] = []
-    for record in records:
-        url = record.get("url")
-        if not url:
-            base = record.get("base_url") or record.get("channel")
-            filename = record.get("fn")
-            if base and filename:
-                url = f"{str(base).rstrip('/')}/{filename}"
-        if not url:
-            raise RuntimeError(f"Cannot recover an exact URL for {record}")
-        package_sha256 = record.get("sha256")
-        exact_url = str(url)
-        if package_sha256 and "#" not in exact_url:
-            exact_url = f"{exact_url}#{package_sha256}"
+    for linked in records:
+        record, exact_url = _explicit_record(
+            linked, fetched_by_key.get(_record_key(linked))
+        )
         urls.append(exact_url)
         locked_records.append(
             {
@@ -353,7 +387,11 @@ def resolve_lock(target_platform: str, *, profile: str) -> Path:
                     "size",
                 )
             }
-            | {"url": str(url)}
+            | {
+                "build": record.get("build") or record.get("build_string"),
+                "subdir": record.get("subdir") or record.get("platform"),
+                "url": exact_url.split("#", 1)[0],
+            }
         )
     if not urls:
         raise RuntimeError("Conda returned no locked packages")
