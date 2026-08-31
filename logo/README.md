@@ -9,6 +9,8 @@ The canonical project assets are:
   posters, social cards, and other contexts that require a self-contained
   rectangular image.
 
+The canonical English descriptor is `AI-NATIVE FINITE ELEMENT COMPUTING`.
+
 Keep the logo's aspect ratio and leave clear space around it. Do not recolor,
 stretch, rotate, or place the current wordmark on a visually busy background.
 
