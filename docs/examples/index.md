@@ -90,8 +90,8 @@ P2/DG0 finite-strain Neo-Hookean problem with exact periodic constraints, and
 writes homogenized and visualization results.
 
 **Research background.** This benchmark is informed by Haoming Luo's work with
-Julie Diani and Kostas Danas on the finite-strain response of nonlinear elastic
-composites containing particles or voids: [*Numerical estimation via remeshing
+Julie Diani, Kostas Danas, and Zahra Hooshmand-Ahoor on the finite-strain
+response of nonlinear elastic composites containing particles or voids: [*Numerical estimation via remeshing
 and analytical modeling of nonlinear elastic composites*](https://www.sciencedirect.com/science/article/pii/S0997753823001687).
 
 Read the [complete periodic-cell workflow](../abaqus_c3d10h_periodic_cell.md) before

@@ -2,9 +2,9 @@
 
 ## Research background
 
-This benchmark is informed by Haoming Luo's work with Julie Diani and Kostas
-Danas on the finite-strain response of nonlinear elastic composites containing
-particles or voids: [*Numerical estimation via remeshing and analytical
+This benchmark is informed by Haoming Luo's work with Julie Diani, Kostas
+Danas, and Zahra Hooshmand-Ahoor on the finite-strain response of nonlinear
+elastic composites containing particles or voids: [*Numerical estimation via remeshing and analytical
 modeling of nonlinear elastic composites*](https://www.sciencedirect.com/science/article/pii/S0997753823001687).
 
 ## What This Capability Proves
