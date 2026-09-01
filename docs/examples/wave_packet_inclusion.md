@@ -2,6 +2,14 @@
 
 <span class="af-status af-status--release">Release</span>
 
+## Research background
+
+The example is informed by Haoming Luo's work with Anne Tanguy, Anthony
+Gravouil, and Valentina Giordano on acoustic wave-packet propagation and
+attenuation in biphasic solids:
+[*Thermal Transport in a 2D Nanophononic Solid: Role of Bi-Phasic Materials
+Properties on Acoustic Attenuation and Thermal Diffusivity*](https://doi.org/10.3390/nano9101471).
+
 This example sends a Gaussian-modulated elastic wave packet through a stiff
 circular inclusion in a two-dimensional solid. It is the first flagship
 dynamic example because the physical model, time integration, boundary
@@ -133,11 +141,3 @@ python -m pytest -q \
 This Golden contract protects the public software path against regression. It
 is distinct from a mesh- and time-converged external validation of attenuation
 or absorbing-boundary accuracy.
-
-## Research background
-
-The example is informed by Haoming Luo's work with Anne Tanguy, Anthony
-Gravouil, and Valentina Giordano on acoustic wave-packet propagation and
-attenuation in biphasic solids:
-[*Thermal Transport in a 2D Nanophononic Solid: Role of Bi-Phasic Materials
-Properties on Acoustic Attenuation and Thermal Diffusivity*](https://doi.org/10.3390/nano9101471).
