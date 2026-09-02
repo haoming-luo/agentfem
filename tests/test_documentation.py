@@ -36,6 +36,12 @@ def test_documentation_machine_entrypoints_are_current():
     assert "linear_static_step" in manifest["model_api"]["compatibility"]
     assert manifest["commands"] == MACHINE_COMMANDS
     assert tuple(manifest["workflow"]) == WORKFLOW_STAGES
+    installation = manifest["installation"]
+    assert installation["tested_python"] == "3.11"
+    assert installation["tested_dolfinx"] == "0.11"
+    assert "fenics-dolfinx=0.11" in installation["recommended"]
+    assert "mirrors.tuna.tsinghua.edu.cn" in installation["mainland_china"]
+    assert installation["health_check"] == "agentfem doctor --json"
 
 
 def test_cli_and_documentation_share_one_product_contract():
@@ -280,3 +286,35 @@ def test_homepage_starts_with_the_project_logo():
     assert 'class="af-home-lead"' in homepage
     assert "assets/images/AgentFEM_logo.png" in homepage
     assert (ROOT / "docs" / "assets" / "images" / "AgentFEM_logo.png").is_file()
+
+
+def test_public_installation_routes_pin_the_tested_solver_stack():
+    required = (
+        ROOT / "README.md",
+        ROOT / "INSTALL.md",
+        ROOT / "docs" / "index.md",
+        ROOT / "docs" / "getting_started.md",
+    )
+    official = (
+        "mamba create -n agentfem-env --override-channels -c conda-forge "
+        "python=3.11 fenics-dolfinx=0.11 agentfem"
+    )
+    mirror = (
+        "mamba create -n agentfem-env --no-rc --override-channels "
+        "-c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge "
+        "python=3.11 fenics-dolfinx=0.11 agentfem"
+    )
+    for path in required:
+        source = " ".join(path.read_text().replace("\\", "").split())
+        assert official in source, path
+
+    readme = (ROOT / "README.md").read_text()
+    install = (ROOT / "INSTALL.md").read_text()
+    getting_started = (ROOT / "docs" / "getting_started.md").read_text()
+    for source in (readme, install, getting_started):
+        normalized = " ".join(source.replace("\\", "").split())
+        assert mirror in normalized
+        assert "agentfem doctor" in source
+
+    assert "pypi.tuna.tsinghua.edu.cn/simple" in install
+    assert "bare pip install is" in install

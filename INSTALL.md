@@ -14,7 +14,8 @@ during installation.
 ## Recommended Environment
 
 ```bash
-mamba create -n agentfem-env -c conda-forge agentfem
+mamba create -n agentfem-env --override-channels -c conda-forge \
+  python=3.11 fenics-dolfinx=0.11 agentfem
 mamba activate agentfem-env
 agentfem doctor
 ```
@@ -22,13 +23,72 @@ agentfem doctor
 This installs AgentFEM and the compatible FEniCSx/PETSc/MPI foundation in one
 environment.
 
+The explicit Python and DOLFINx versions are the current release-tested
+runtime contract. They also prevent an older solver stack from being selected
+from a stale package index.
+
+## Mainland China Mirrors / 中国大陆镜像
+
+For a new environment in mainland China, use one conda-forge mirror for the
+entire compiled numerical stack. This one-shot command uses TUNA and leaves
+the user's global conda configuration unchanged:
+
+```bash
+mamba create -n agentfem-env --no-rc --override-channels \
+  -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge \
+  python=3.11 fenics-dolfinx=0.11 agentfem
+mamba activate agentfem-env
+agentfem doctor
+```
+
+If `mamba` is unavailable, use conda's equivalent command (conda does not
+accept mamba's `--no-rc` option and dependency resolution will usually be
+slower):
+
+```bash
+conda create -n agentfem-env --override-channels \
+  -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge \
+  python=3.11 fenics-dolfinx=0.11 agentfem
+```
+
+On Windows, run either command inside Ubuntu on WSL2.
+
+Before installing, the synchronized package can be checked without creating
+an environment:
+
+```bash
+conda search --override-channels \
+  -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge \
+  agentfem
+```
+
+For a reproducible run, append the required AgentFEM version, for example
+`agentfem=0.3.1`, and retain the resulting environment specification with the
+simulation evidence. When a newly published version is not yet visible, run
+`conda clean -i` and query again after the mirror has synchronized. Do not mix
+several conda mirrors or combine `defaults` and `conda-forge` packages in this
+environment; PETSc, MPI, HDF5, and DOLFINx should be resolved as one stack.
+
+The TUNA PyPI mirror is appropriate only when a compatible FEniCSx/PETSc
+environment already exists:
+
+```bash
+python -m pip install \
+  --index-url https://pypi.tuna.tsinghua.edu.cn/simple \
+  agentfem
+agentfem doctor
+```
+
+PyPI does not provision DOLFINx or PETSc for AgentFEM. A bare pip install is
+therefore not the recommended first installation on any platform.
+
 ## PyPI and Source Development
 
 PyPI remains available when AgentFEM needs to be installed into an existing
 compatible FEniCSx environment:
 
 ```bash
-mamba create -n agentfem-env -c conda-forge \
+mamba create -n agentfem-env --override-channels -c conda-forge \
   python=3.11 fenics-dolfinx=0.11 mpich mpi4py petsc4py h5py
 mamba activate agentfem-env
 ```
@@ -43,9 +103,10 @@ For source development, install from the repository root:
 python -m pip install -e .
 ```
 
-AgentFEM is available from conda-forge as a `noarch` package. Conda resolves
-AgentFEM and its declared numerical runtime together; users should not mix a
-system MPI launcher with the environment's MPI libraries.
+AgentFEM is available from conda-forge as a `noarch` package. Its numerical
+dependencies remain platform-specific compiled packages. Conda resolves these
+together; users should not mix a system MPI launcher with the environment's
+MPI libraries.
 
 ## Windows
 

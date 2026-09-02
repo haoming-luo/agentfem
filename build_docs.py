@@ -31,6 +31,17 @@ PUBLIC_MODEL_API_LEVELS = {
     "advanced": "ADVANCED_MODEL_API",
     "compatibility": "COMPATIBILITY_MODEL_API",
 }
+TESTED_PYTHON = "3.11"
+TESTED_DOLFINX = "0.11"
+CONDAFORGE_INSTALL = (
+    "mamba create -n agentfem-env --override-channels -c conda-forge "
+    f"python={TESTED_PYTHON} fenics-dolfinx={TESTED_DOLFINX} agentfem"
+)
+TUNA_INSTALL = (
+    "mamba create -n agentfem-env --no-rc --override-channels "
+    "-c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge "
+    f"python={TESTED_PYTHON} fenics-dolfinx={TESTED_DOLFINX} agentfem"
+)
 
 
 @dataclass(frozen=True)
@@ -388,6 +399,14 @@ def render_agent_manifest() -> str:
         "documentation": "https://haoming-luo.github.io/agentfem/",
         "repository": "https://github.com/haoming-luo/agentfem",
         "package": "https://pypi.org/project/agentfem/",
+        "installation": {
+            "platforms": ["linux", "macos", "windows-wsl2"],
+            "tested_python": TESTED_PYTHON,
+            "tested_dolfinx": TESTED_DOLFINX,
+            "recommended": CONDAFORGE_INSTALL,
+            "mainland_china": TUNA_INSTALL,
+            "health_check": "agentfem doctor --json",
+        },
         "human_entrypoints": {
             "start": "get_started/",
             "guides": "guide/",
@@ -452,6 +471,7 @@ def render_llms_entry() -> str:
         "- [Examples](examples/)",
         "- [Python API](reference/api/)",
         "- [Machine manifest](agentfem.json)",
+        "- [Installation and platform guide](getting_started/)",
         "",
         "## Canonical sources",
         "",

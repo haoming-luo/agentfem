@@ -35,9 +35,9 @@ computation, data, and AI.
 ```text
 Bring AgentFEM to life.
 
-Use https://github.com/haoming-luo/agentfem as the guide. Install
-AgentFEM from conda-forge in a compatible isolated environment,
-read AGENT_GUIDE.md, and run `agentfem doctor`.
+Use https://github.com/haoming-luo/agentfem as the guide. Follow the
+tested route in INSTALL.md, read AGENT_GUIDE.md, and run
+`agentfem doctor`.
 
 When it is ready, reply briefly with the environment, AgentFEM
 version, and health-check result.
@@ -85,12 +85,34 @@ AgentFEM supports **Linux**, **macOS**, and **Windows through WSL2**.
 Install AgentFEM and its compatible FEniCSx/PETSc/MPI foundation together:
 
 ```bash
-mamba create -n agentfem-env -c conda-forge agentfem
+mamba create -n agentfem-env --override-channels -c conda-forge \
+  python=3.11 fenics-dolfinx=0.11 agentfem
 mamba activate agentfem-env
 agentfem doctor
 ```
 
 On Windows, run these commands inside an Ubuntu WSL2 terminal.
+
+<details>
+<summary><strong>Mainland China mirror / 中国大陆镜像</strong></summary>
+
+Use the TUNA conda-forge mirror without changing your global conda
+configuration:
+
+```bash
+mamba create -n agentfem-env --no-rc --override-channels \
+  -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge \
+  python=3.11 fenics-dolfinx=0.11 agentfem
+mamba activate agentfem-env
+agentfem doctor
+```
+
+The mirror carries byte-identical conda artifacts for synchronized releases
+but may briefly lag a new release. See the
+[mainland-China installation notes](INSTALL.md)
+for verification, PyPI fallback, and cache refresh commands.
+
+</details>
 
 ### No environment setup: Complete Runtime
 
@@ -125,6 +147,10 @@ If you already maintain a compatible FEniCSx environment:
 python -m pip install agentfem
 agentfem doctor
 ```
+
+In mainland China, the same Python package is also available from the TUNA
+PyPI mirror; use that route only inside an already compatible FEniCSx/PETSc
+environment.
 
 See [`INSTALL.md`](INSTALL.md) for platform and MPI details, or the
 [runtime guide](docs/runtime_installers.md) for Preview installation and

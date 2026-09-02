@@ -5,7 +5,11 @@ finite-element simulation with AgentFEM.
 
 ## First Steps
 
-1. For an installed case, run `agentfem doctor --json`, then
+1. If AgentFEM is not installed, use the repository's `INSTALL.md` rather than
+   guessing a pip-only numerical environment. The release-tested environment
+   is Python 3.11 with DOLFINx 0.11. In mainland China, use the documented
+   single-mirror command; do not combine conda channels for PETSc/MPI/DOLFINx.
+2. For an installed case, run `agentfem doctor --json`, then
    `agentfem check --json`. For an existing case also run
    `agentfem upgrade --json`; treat `semantic_review=true` as a requirement to
    inspect the finite-element meaning, not as permission for blind text
@@ -13,15 +17,15 @@ finite-element simulation with AgentFEM.
    Use `agentfem run --mpi N` for projects and
    `agentfem mpi-run -n N -- ...` for MPI tests or external commands; never
    guess a bare `mpiexec` because it may belong to another MPI implementation.
-2. Read `WORKFLOW.md` to identify the standard finite-element sequence.
-3. Read `CONCEPTS.md` to align terminology before changing code.
-4. Identify or create the `studies.Study` before choosing constitutive laws or
+3. Read `WORKFLOW.md` to identify the standard finite-element sequence.
+4. Read `CONCEPTS.md` to align terminology before changing code.
+5. Identify or create the `studies.Study` before choosing constitutive laws or
    operators.
-5. Inspect or create a mesh summary before reasoning about boundary tags,
+6. Inspect or create a mesh summary before reasoning about boundary tags,
    material regions, or output dimensions.
-6. Inspect the target application only after mapping it to AgentFEM concepts.
-7. Prefer existing `agentfem` APIs before adding new helpers.
-8. Add reusable code only when it belongs to a standard FEM concept.
+7. Inspect the target application only after mapping it to AgentFEM concepts.
+8. Prefer existing `agentfem` APIs before adding new helpers.
+9. Add reusable code only when it belongs to a standard FEM concept.
 
 If an installed run repeatedly fails, use `agentfem diagnose --json`, then
 `agentfem assist --force`. Read the generated private support task without

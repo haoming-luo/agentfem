@@ -1218,7 +1218,10 @@ the user explicitly supplies <code>-RemoveBackupAfterSuccess</code>.</p>
 export/import and destructive unregister operations, but no atomic in-place
 runtime replacement or rename. The installer is therefore the owner of the
 backup, validation, switching, and rollback transaction. Users and agents must
-not reproduce its internal <code>wsl --unregister</code> steps manually.</p>
+not reproduce its internal <code>wsl --unregister</code> steps manually.
+<a href="https://learn.microsoft.com/en-us/windows/wsl/basic-commands">Microsoft's WSL command reference</a>
+defines these lifecycle operations and explicitly warns that unregistering a
+distribution permanently removes its data.</p>
 <p>If WSL itself is absent, Windows must first enable that operating-system
 feature; this may require administrator access, a reboot, and Microsoft network
 access. The bundled <code>START-HERE.txt</code> includes the <code>--web-download</code> recovery

@@ -6,6 +6,13 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+### Changed
+
+- Pin the documented conda installation route to the release-tested Python
+  3.11 and DOLFINx 0.11 stack, publish a no-global-configuration TUNA mirror
+  route for mainland China, and expose both commands to AI agents through the
+  machine-readable documentation manifest.
+
 ## [0.3.1] - 2026-08-31
 
 ### Added

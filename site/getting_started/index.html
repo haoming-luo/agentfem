@@ -437,6 +437,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Prepare the numerical environment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mainland-china-mirror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mainland China mirror / 中国大陆镜像
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1028,6 +1045,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Prepare the numerical environment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mainland-china-mirror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mainland China mirror / 中国大陆镜像
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1172,11 +1206,23 @@ machine-readable run evidence.</p>
 <h2 id="prepare-the-numerical-environment">Prepare the numerical environment<a class="headerlink" href="#prepare-the-numerical-environment" title="Permanent link">&para;</a></h2>
 <p>On Linux, macOS, and Windows through WSL2, install AgentFEM and its compatible
 FEniCSx/PETSc/MPI foundation from conda-forge. Then check the actual runtime:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>mamba<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>agentfem-env<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.11<span class="w"> </span>agentfem
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>mamba<span class="w"> </span>activate<span class="w"> </span>agentfem-env
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>agentfem<span class="w"> </span>doctor
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>agentfem<span class="w"> </span>doctor<span class="w"> </span>--json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>mamba<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>agentfem-env<span class="w"> </span>--override-channels<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.11<span class="w"> </span>fenics-dolfinx<span class="o">=</span><span class="m">0</span>.11<span class="w"> </span>agentfem
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>mamba<span class="w"> </span>activate<span class="w"> </span>agentfem-env
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>agentfem<span class="w"> </span>doctor
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>agentfem<span class="w"> </span>doctor<span class="w"> </span>--json
 </code></pre></div>
+<h3 id="mainland-china-mirror">Mainland China mirror / 中国大陆镜像<a class="headerlink" href="#mainland-china-mirror" title="Permanent link">&para;</a></h3>
+<p>Use a single mirror for the complete conda-forge stack. The command below is
+temporary: it does not rewrite <code>.condarc</code> or affect other environments.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>mamba<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>agentfem-env<span class="w"> </span>--no-rc<span class="w"> </span>--override-channels<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>-c<span class="w"> </span>https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.11<span class="w"> </span>fenics-dolfinx<span class="o">=</span><span class="m">0</span>.11<span class="w"> </span>agentfem
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>mamba<span class="w"> </span>activate<span class="w"> </span>agentfem-env
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>agentfem<span class="w"> </span>doctor
+</code></pre></div>
+<p>The full <a href="https://github.com/haoming-luo/agentfem/blob/main/INSTALL.md"><code>INSTALL.md</code></a>
+also covers package search, release-cache refresh, PyPI fallback, and Windows.</p>
 <p>The JSON form is intended for issue reports, IDE integrations, and agents. It
 records the platform route, exact interpreter and imported package, core
 versions, and optional mesh, visualization, machine-learning, and
@@ -1190,23 +1236,23 @@ The same report separates the concise <code>Model</code> vocabulary from advance
 built-in Step provider. Agents and interfaces should consume those contracts
 instead of guessing solver arguments from examples.</p>
 <h2 id="create-a-project-anywhere">Create a project anywhere<a class="headerlink" href="#create-a-project-anywhere" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>agentfem<span class="w"> </span>templates
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>mkdir<span class="w"> </span>beam
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nb">cd</span><span class="w"> </span>beam
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>agentfem<span class="w"> </span>init<span class="w"> </span>--template<span class="w"> </span>static-solid<span class="w"> </span>.
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>agentfem<span class="w"> </span>check
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>agentfem<span class="w"> </span>run
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>agentfem<span class="w"> </span>inspect
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>agentfem<span class="w"> </span>verify
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>agentfem<span class="w"> </span>templates
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>mkdir<span class="w"> </span>beam
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nb">cd</span><span class="w"> </span>beam
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>agentfem<span class="w"> </span>init<span class="w"> </span>--template<span class="w"> </span>static-solid<span class="w"> </span>.
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>agentfem<span class="w"> </span>check
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>agentfem<span class="w"> </span>run
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>agentfem<span class="w"> </span>inspect
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>agentfem<span class="w"> </span>verify
 </code></pre></div>
 <p>Initial templates include <code>static-solid</code>, <code>steady-heat</code>, and
 <code>structural-dynamics</code>. The generated layout is intentionally small:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>beam/
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>├── agentfem.toml
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>├── case.py
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>├── AGENTS.md
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>├── README.md
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>└── outputs/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>beam/
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>├── agentfem.toml
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>├── case.py
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>├── AGENTS.md
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>├── README.md
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>└── outputs/
 </code></pre></div>
 <p><code>case.py</code> is the source of modeling truth. It contains the Study, mesh,
 regions, fields, materials, constraints, loads, steps, and result requests.
@@ -1214,10 +1260,10 @@ regions, fields, materials, constraints, loads, steps, and result requests.
 name, Python entrypoint, and output root.</p>
 <p>For an existing Abaqus input deck, begin with migration rather than a blank
 template:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>agentfem<span class="w"> </span>inspect-abaqus<span class="w"> </span>legacy/model.inp<span class="w"> </span>--json
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>agentfem<span class="w"> </span>migrate-abaqus<span class="w"> </span>legacy/model.inp<span class="w"> </span>./migrated-model
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nb">cd</span><span class="w"> </span>migrated-model
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>agentfem<span class="w"> </span>check
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>agentfem<span class="w"> </span>inspect-abaqus<span class="w"> </span>legacy/model.inp<span class="w"> </span>--json
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>agentfem<span class="w"> </span>migrate-abaqus<span class="w"> </span>legacy/model.inp<span class="w"> </span>./migrated-model
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nb">cd</span><span class="w"> </span>migrated-model
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>agentfem<span class="w"> </span>check
 </code></pre></div>
 <p>This creates a copied source bundle and a scope-aware <code>migration.json</code>. The
 generated <code>case.py</code> is deliberately guarded until Part/Instance transforms,
@@ -1226,35 +1272,35 @@ reviewed. Project creation is therefore automation of evidence and structure,
 not an unsupported whole-deck equivalence claim.</p>
 <p>If <code>migration.json</code> marks the narrow native route eligible, create an inactive
 reviewed draft with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>agentfem<span class="w"> </span>lower-abaqus<span class="w"> </span>.<span class="w"> </span>--reviewed-by<span class="w"> </span><span class="s2">&quot;Your name&quot;</span><span class="w"> </span>--unit-system<span class="w"> </span>SI
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>agentfem<span class="w"> </span>lower-abaqus<span class="w"> </span>.<span class="w"> </span>--reviewed-by<span class="w"> </span><span class="s2">&quot;Your name&quot;</span><span class="w"> </span>--unit-system<span class="w"> </span>SI
 </code></pre></div>
 <p>Review <code>case.native.py</code> and <code>lowering.json</code>; activation is a separate explicit
 action. Unsupported formulation or workflow semantics remain blocked rather
 than being approximated silently.</p>
 <p>Use the concise Study factories for common engineering work:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">study</span> <span class="o">=</span> <span class="n">studies</span><span class="o">.</span><span class="n">static_solid</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">study</span> <span class="o">=</span> <span class="n">studies</span><span class="o">.</span><span class="n">steady_heat_transfer</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">study</span> <span class="o">=</span> <span class="n">studies</span><span class="o">.</span><span class="n">transient_heat_transfer</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">study</span> <span class="o">=</span> <span class="n">studies</span><span class="o">.</span><span class="n">dynamic_solid</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;explicit&quot;</span><span class="p">)</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">study</span> <span class="o">=</span> <span class="n">studies</span><span class="o">.</span><span class="n">dynamic_solid</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;newmark&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">study</span> <span class="o">=</span> <span class="n">studies</span><span class="o">.</span><span class="n">static_solid</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">study</span> <span class="o">=</span> <span class="n">studies</span><span class="o">.</span><span class="n">steady_heat_transfer</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">study</span> <span class="o">=</span> <span class="n">studies</span><span class="o">.</span><span class="n">transient_heat_transfer</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">study</span> <span class="o">=</span> <span class="n">studies</span><span class="o">.</span><span class="n">dynamic_solid</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;explicit&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">study</span> <span class="o">=</span> <span class="n">studies</span><span class="o">.</span><span class="n">dynamic_solid</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;newmark&quot;</span><span class="p">)</span>
 </code></pre></div>
 <p>The Study states the physical problem; <code>method</code> selects the procedure without
 changing that problem's identity. <code>model.check()</code> uses the same provider rules
 as <code>model.step(...)</code>, so a declared but unsupported combination is rejected
 before numerical work begins.</p>
 <p>Time histories are reusable model assets rather than custom step callbacks:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">ramp</span> <span class="o">=</span> <span class="n">amplitudes</span><span class="o">.</span><span class="n">ramp</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">start_time</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">end_time</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">model</span><span class="o">.</span><span class="n">traction</span><span class="p">((</span><span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0e6</span><span class="p">),</span> <span class="n">on</span><span class="o">=</span><span class="n">loaded</span><span class="p">,</span> <span class="n">amplitude</span><span class="o">=</span><span class="n">ramp</span><span class="p">)</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">model</span><span class="o">.</span><span class="n">prescribed_temperature</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">temperature_history</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">heated</span><span class="p">)</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">model</span><span class="o">.</span><span class="n">convection</span><span class="p">(</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">on</span><span class="o">=</span><span class="n">cooled</span><span class="p">,</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">coefficient</span><span class="o">=</span><span class="mf">25.0</span><span class="p">,</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">ambient_temperature</span><span class="o">=</span><span class="n">ambient_history</span><span class="p">,</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">ramp</span> <span class="o">=</span> <span class="n">amplitudes</span><span class="o">.</span><span class="n">ramp</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">start_time</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">end_time</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">model</span><span class="o">.</span><span class="n">traction</span><span class="p">((</span><span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0e6</span><span class="p">),</span> <span class="n">on</span><span class="o">=</span><span class="n">loaded</span><span class="p">,</span> <span class="n">amplitude</span><span class="o">=</span><span class="n">ramp</span><span class="p">)</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">model</span><span class="o">.</span><span class="n">prescribed_temperature</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">temperature_history</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">heated</span><span class="p">)</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">model</span><span class="o">.</span><span class="n">convection</span><span class="p">(</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">on</span><span class="o">=</span><span class="n">cooled</span><span class="p">,</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">coefficient</span><span class="o">=</span><span class="mf">25.0</span><span class="p">,</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">ambient_temperature</span><span class="o">=</span><span class="n">ambient_history</span><span class="p">,</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="p">)</span>
 </code></pre></div>
 <p>When the engineering input is a total end force rather than a traction, let
 the model distribute it over the selected reference edge or surface:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">model</span><span class="o">.</span><span class="n">surface_force</span><span class="p">((</span><span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">50_000.0</span><span class="p">),</span> <span class="n">on</span><span class="o">=</span><span class="n">loaded</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">model</span><span class="o">.</span><span class="n">surface_force</span><span class="p">((</span><span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">50_000.0</span><span class="p">),</span> <span class="n">on</span><span class="o">=</span><span class="n">loaded</span><span class="p">)</span>
 </code></pre></div>
 <p>AgentFEM assembles the MPI-global boundary measure and applies a uniform
 traction whose resultant is the requested vector. In 2D the force is per unit
@@ -1264,36 +1310,36 @@ their physical step times. Manual callbacks remain available for advanced
 state not represented by a model asset.</p>
 <p>Resolve input files from the case directory rather than the shell's current
 directory:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">HERE</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">mesh_path</span> <span class="o">=</span> <span class="n">HERE</span> <span class="o">/</span> <span class="s2">&quot;meshes&quot;</span> <span class="o">/</span> <span class="s2">&quot;component.inp&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">HERE</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">mesh_path</span> <span class="o">=</span> <span class="n">HERE</span> <span class="o">/</span> <span class="s2">&quot;meshes&quot;</span> <span class="o">/</span> <span class="s2">&quot;component.inp&quot;</span>
 </code></pre></div>
 <h2 id="run-directly-or-through-the-product-shell">Run directly or through the product shell<a class="headerlink" href="#run-directly-or-through-the-product-shell" title="Permanent link">&para;</a></h2>
 <p>Direct Python remains supported:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>python<span class="w"> </span><span class="k">case</span>.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>python<span class="w"> </span><span class="k">case</span>.py
 </code></pre></div>
 <p>The product shell adds a stable run identity and output contract:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>agentfem<span class="w"> </span>run
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>agentfem<span class="w"> </span>run<span class="w"> </span>--run-id<span class="w"> </span>baseline
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>agentfem<span class="w"> </span>run<span class="w"> </span>--mpi<span class="w"> </span><span class="m">4</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>agentfem<span class="w"> </span>run
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>agentfem<span class="w"> </span>run<span class="w"> </span>--run-id<span class="w"> </span>baseline
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>agentfem<span class="w"> </span>run<span class="w"> </span>--mpi<span class="w"> </span><span class="m">4</span>
 </code></pre></div>
 <p>The product shell inspects the launcher against the MPI implementation used by
 <code>mpi4py</code>. This avoids accidentally starting a conda MPICH runtime with a system
 Open MPI launcher. For a test or another MPI-aware program, let AgentFEM select
 the compatible launcher instead of calling bare <code>mpiexec</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>agentfem<span class="w"> </span>mpi-run<span class="w"> </span>-n<span class="w"> </span><span class="m">2</span><span class="w"> </span>--<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>tests/test_parallel_results.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>agentfem<span class="w"> </span>mpi-run<span class="w"> </span>-n<span class="w"> </span><span class="m">2</span><span class="w"> </span>--<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>tests/test_parallel_results.py
 </code></pre></div>
 <p>Do not start a second MPI launcher from an already distributed case. The CLI
 detects the communicator and runs the entrypoint on it.</p>
 <h2 id="understand-the-output-contract">Understand the output contract<a class="headerlink" href="#understand-the-output-contract" title="Permanent link">&para;</a></h2>
 <p>Each run receives its own directory:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>outputs/&lt;project&gt;/&lt;run-id&gt;/
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>├── execution.json
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>├── result.json
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>├── fields.xdmf
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>├── fields.h5
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>└── logs/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>outputs/&lt;project&gt;/&lt;run-id&gt;/
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>├── execution.json
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>├── result.json
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>├── fields.xdmf
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>├── fields.h5
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>└── logs/
 </code></pre></div>
 <ul>
 <li><code>execution.json</code> answers whether the application completed or failed. A
@@ -1317,7 +1363,7 @@ the response without scraping progress prose.</p>
 <h2 id="check-before-solving">Check before solving<a class="headerlink" href="#check-before-solving" title="Permanent link">&para;</a></h2>
 <p>The first <code>agentfem check</code> validates project structure and Python syntax
 without solving. For a case created with an earlier release, also run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>agentfem<span class="w"> </span>upgrade<span class="w"> </span>--json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>agentfem<span class="w"> </span>upgrade<span class="w"> </span>--json
 </code></pre></div>
 <p>This is a dry-run migration plan. <code>--apply-safe</code> is limited to deterministic
 project metadata; findings marked <code>semantic_review=true</code> require inspection of
@@ -1335,12 +1381,12 @@ by itself promote a result from computed to verified.</p>
 <h2 id="pause-and-resume-transient-work">Pause and resume transient work<a class="headerlink" href="#pause-and-resume-transient-work" title="Permanent link">&para;</a></h2>
 <p>Heat transfer, Standard dynamics, and Explicit dynamics share one restart
 workflow:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">step</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">until_step</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">checkpoint</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">save_checkpoint</span><span class="p">(</span><span class="s2">&quot;restart/step-50&quot;</span><span class="p">)</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="n">resumed</span> <span class="o">=</span> <span class="n">build_the_same_step</span><span class="p">()</span>
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="n">resumed</span><span class="o">.</span><span class="n">load_checkpoint</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">)</span>
-<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="n">result</span> <span class="o">=</span> <span class="n">resumed</span><span class="o">.</span><span class="n">solve_result</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="s2">&quot;restart/continuation.xdmf&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">step</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">until_step</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="n">checkpoint</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">save_checkpoint</span><span class="p">(</span><span class="s2">&quot;restart/step-50&quot;</span><span class="p">)</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="n">resumed</span> <span class="o">=</span> <span class="n">build_the_same_step</span><span class="p">()</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="n">resumed</span><span class="o">.</span><span class="n">load_checkpoint</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">)</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="n">result</span> <span class="o">=</span> <span class="n">resumed</span><span class="o">.</span><span class="n">solve_result</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="s2">&quot;restart/continuation.xdmf&quot;</span><span class="p">)</span>
 </code></pre></div>
 <p>The checkpoint detects incompatible procedures, time contracts, mesh/function
 layouts, missing shards, and corrupted shards before applying state. Fast

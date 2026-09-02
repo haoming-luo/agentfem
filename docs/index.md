@@ -47,14 +47,17 @@ The recommended conda-forge installation provides AgentFEM and its compatible
 FEniCSx/PETSc/MPI foundation together:
 
 ```bash
-mamba create -n agentfem-env -c conda-forge python=3.11 agentfem
+mamba create -n agentfem-env --override-channels -c conda-forge \
+  python=3.11 fenics-dolfinx=0.11 agentfem
 mamba activate agentfem-env
 agentfem doctor
 ```
 
 Windows users should currently use WSL2. Optional mesh, visualization, and
 machine-learning integrations are described in the
-[installation and platform guide](getting_started.md).
+[installation and platform guide](getting_started.md). Users in mainland
+China can use the documented TUNA mirror without changing their global conda
+configuration.
 
 ## First finite-element model
 

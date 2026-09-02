@@ -28,6 +28,10 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
 
 ## Rules
 
+- If the numerical environment does not exist, create the release-tested
+  Python 3.11/DOLFINx 0.11 conda-forge environment before modeling. In
+  mainland China, use one conda-forge mirror for the whole PETSc/MPI/DOLFINx
+  stack; do not assemble the runtime with a bare pip install or mixed channels.
 - Keep the finite-element workflow visible.
 - Identify the study context before selecting constitutive laws or operators.
 - Inspect mesh summaries and required tags before building weak forms.

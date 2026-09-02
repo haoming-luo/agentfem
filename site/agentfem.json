@@ -8,6 +8,18 @@
   "documentation": "https://haoming-luo.github.io/agentfem/",
   "repository": "https://github.com/haoming-luo/agentfem",
   "package": "https://pypi.org/project/agentfem/",
+  "installation": {
+    "platforms": [
+      "linux",
+      "macos",
+      "windows-wsl2"
+    ],
+    "tested_python": "3.11",
+    "tested_dolfinx": "0.11",
+    "recommended": "mamba create -n agentfem-env --override-channels -c conda-forge python=3.11 fenics-dolfinx=0.11 agentfem",
+    "mainland_china": "mamba create -n agentfem-env --no-rc --override-channels -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge python=3.11 fenics-dolfinx=0.11 agentfem",
+    "health_check": "agentfem doctor --json"
+  },
   "human_entrypoints": {
     "start": "get_started/",
     "guides": "guide/",

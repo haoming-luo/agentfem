@@ -11,11 +11,28 @@ On Linux, macOS, and Windows through WSL2, install AgentFEM and its compatible
 FEniCSx/PETSc/MPI foundation from conda-forge. Then check the actual runtime:
 
 ```bash
-mamba create -n agentfem-env -c conda-forge python=3.11 agentfem
+mamba create -n agentfem-env --override-channels -c conda-forge \
+  python=3.11 fenics-dolfinx=0.11 agentfem
 mamba activate agentfem-env
 agentfem doctor
 agentfem doctor --json
 ```
+
+### Mainland China mirror / 中国大陆镜像
+
+Use a single mirror for the complete conda-forge stack. The command below is
+temporary: it does not rewrite `.condarc` or affect other environments.
+
+```bash
+mamba create -n agentfem-env --no-rc --override-channels \
+  -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge \
+  python=3.11 fenics-dolfinx=0.11 agentfem
+mamba activate agentfem-env
+agentfem doctor
+```
+
+The full [`INSTALL.md`](https://github.com/haoming-luo/agentfem/blob/main/INSTALL.md)
+also covers package search, release-cache refresh, PyPI fallback, and Windows.
 
 The JSON form is intended for issue reports, IDE integrations, and agents. It
 records the platform route, exact interpreter and imported package, core

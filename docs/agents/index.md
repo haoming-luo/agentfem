@@ -11,6 +11,7 @@ status and scientific evidence.
 | --- | --- |
 | `/llms.txt` | Short discovery document for language-model tools |
 | `/agentfem.json` | Versioned documentation and command manifest |
+| `installation` in `/agentfem.json` | Tested runtime and official/mainland-China environment commands |
 | `src/agentfem/knowledge/catalog.json` | Scientific cards, formulas, evidence, consumers, and maturity |
 | `agentfem doctor --json` | Environment capability check |
 | `agentfem capabilities --json` | Public API, providers, maturity, and benchmark evidence |
@@ -28,6 +29,11 @@ status and scientific evidence.
 discover → doctor → init/open → inspect project → edit case.py → check
          → run → inspect structured result → verify policy → publish or revise
 ```
+
+If no environment exists, consume the installation contract from
+`/agentfem.json` or follow the installation guide. Do not infer that a PyPI
+wheel can provision DOLFINx/PETSc, and do not mix conda channels for the
+compiled numerical stack.
 
 An agent must not infer scientific validity from a zero exit code. It should
 inspect convergence, requested outputs, quality policy, applicability limits,

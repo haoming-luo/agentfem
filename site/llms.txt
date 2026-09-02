@@ -13,6 +13,7 @@ operable through ordinary Python and a machine-readable CLI.
 - [Examples](examples/)
 - [Python API](reference/api/)
 - [Machine manifest](agentfem.json)
+- [Installation and platform guide](getting_started/)
 
 ## Canonical sources
 
